@@ -1,6 +1,6 @@
 export type ModelIndex = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
-import type { DebugVariablesMap } from '@/components/lesson-debug/variableStorage';
+import type { DebugSessionPreparation } from '@/types/debugSession';
 import type { LearningPermission } from '@/api/studyV2';
 
 export type BlockType =
@@ -267,17 +267,11 @@ export interface ShifuActions {
     shifuId: string,
     outlineId: string,
   ) => Promise<void>;
-  debugParse: (
-    value: string,
-    shifuId: string,
-    outlineId: string,
-  ) => Promise<{
-    variables: DebugVariablesMap;
-    blocksCount: number;
-    systemVariableKeys: string[];
-    allVariableKeys?: string[];
-    unusedKeys?: string[];
-  }>;
+  prepareDebugSession: (
+    mdflow: string,
+    shifuBid: string,
+    outlineBid: string,
+  ) => Promise<DebugSessionPreparation>;
   hideUnusedVariables: (shifuId: string) => Promise<void>;
   restoreHiddenVariables: (shifuId: string) => Promise<void>;
   hideVariableByKey: (shifuId: string, key: string) => Promise<void>;

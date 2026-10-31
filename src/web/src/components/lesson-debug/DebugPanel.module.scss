@@ -1,4 +1,4 @@
-.lessonDebug {
+.debugPanel {
   height: calc(100vh - 123px);
   display: flex;
   flex-direction: column;
@@ -19,7 +19,7 @@
     padding: 24px;
   }
 
-  .variableListWrapper {
+  .variablesPanelWrapper {
     position: sticky;
     top: 0;
     z-index: 30;

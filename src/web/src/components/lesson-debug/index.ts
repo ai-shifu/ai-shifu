@@ -1,1 +1,1 @@
-export { default, default as LessonDebug } from './LessonDebug';
+export { default, default as DebugPanel } from './DebugPanel';

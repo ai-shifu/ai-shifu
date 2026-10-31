@@ -3087,7 +3087,7 @@ function useChatLogicHook({
         input: {
           // No-variable interactions have an empty variableName; submit
           // under the canonical "input" key (markdown-flow contract),
-          // matching the editor Debug flow in debug-submission.ts.
+          // matching the editor Debug flow in debugRequestParams.ts.
           [variableName || 'input']: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,

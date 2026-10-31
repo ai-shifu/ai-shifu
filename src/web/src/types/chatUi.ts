@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import type { DebugVariablesMap } from '@/components/lesson-debug/variableStorage';
+import type { DebugVariableValues } from '@/types/debugSession';
 import type {
   AudioSegmentData,
   BlockType,
@@ -39,7 +39,7 @@ export interface ChatContentItem {
   ask_list?: ChatContentItem[];
   isAskExpanded?: boolean;
   generateTime?: number;
-  variables?: DebugVariablesMap;
+  variables?: DebugVariableValues;
   audioUrl?: string;
   audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;

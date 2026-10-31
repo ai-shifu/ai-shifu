@@ -192,7 +192,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Remove the MarkdownFlow arena](./completed/remove-markdownflow-arena.md)
 - [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
 - [Rename The Cook Web Directory](./completed/rename-cook-web-directory.md)
-- [Clarify editor Debug code names](./completed/rename-lesson-debug.md)
+- [Name editor Debug code by responsibility](./completed/rename-lesson-debug.md)
 - [Repository Knowledge Cleanup](./completed/repository-knowledge-cleanup.md)
 - [Reserve System Question Names](./completed/reserve-system-question-prefix.md)
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)

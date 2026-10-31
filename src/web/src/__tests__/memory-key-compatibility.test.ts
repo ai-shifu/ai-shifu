@@ -1,5 +1,5 @@
 import { createInteractionParser, extractVariableNames } from 'remark-flow';
-import { buildDebugInteractionUserInput } from '@/components/lesson-debug/debug-submission';
+import { buildDebugInteractionInput } from '@/components/lesson-debug/debugRequestParams';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 
 // Exercise the packaged parser and helpers while avoiding Jest's unrelated ESM plugin loader.
@@ -51,7 +51,7 @@ describe.each(['%', ''])('authored %s{{key}} compatibility', marker => {
     });
 
     expect(
-      buildDebugInteractionUserInput(interaction.variableName!, values),
+      buildDebugInteractionInput(interaction.variableName!, values),
     ).toEqual({ [key]: ['女'] });
   });
 

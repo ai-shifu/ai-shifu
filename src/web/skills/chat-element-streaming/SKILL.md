@@ -87,7 +87,7 @@ Verify this ordering with `useChatLogicHook.test.tsx` in
 
 ## Editor Debug typewriter and speaker helpers
 
-`LessonDebug.tsx` owns a separate typewriter cache and visible-item gate in
+`DebugPanel.tsx` owns a separate typewriter cache and visible-item gate in
 `src/components/lesson-debug/debugTypewriterGate.ts`. Changes to the learner
 read-mode gate do not replace this Debug path. Key completion state by
 `element_bid` and retain the Debug panel's `onTypeFinished` callbacks.
@@ -106,7 +106,7 @@ unfinished text or derive their visibility solely from the learner gate.
 
 Run `debugTypewriterGate.test.ts` for ordering, HTML-helper suppression and
 appended-text behavior. These are helper-level checks, not full rendered-panel
-coverage; verify `LessonDebug` integration when changing cache ownership or
+coverage; verify `DebugPanel` integration when changing cache ownership or
 completion callbacks.
 
 ## First-element spacing in read mode

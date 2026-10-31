@@ -1,10 +1,10 @@
 import {
-  buildDebugInteractionUserInput,
+  buildDebugInteractionInput,
   resolveDebugGeneratedBlockBid,
-  resolveDebugRegenerateFallbackBlockIndex,
-  resolveDebugRegenerateStartIndex,
+  resolveDebugRegenerationBlockIndex,
+  resolveDebugRegenerationStartIndex,
   resolveDebugRequestBlockIndex,
-} from '@/components/lesson-debug/debug-submission';
+} from '@/components/lesson-debug/debugRequestParams';
 import { ChatContentItemType } from '@/types/chatUi';
 
 jest.mock('remark-flow', () =>
@@ -22,7 +22,7 @@ describe('preview submission helpers', () => {
     [' Which [path] | level//hint...? ', 'Which [path] | level//hint...?'],
     [' a} ', 'a}'],
   ])('normalizes %s with the teaching engine key rules', (source, key) => {
-    expect(buildDebugInteractionUserInput(source, ['女'])).toEqual({
+    expect(buildDebugInteractionInput(source, ['女'])).toEqual({
       [key]: ['女'],
     });
   });
@@ -41,7 +41,7 @@ describe('preview submission helpers', () => {
   });
 
   it('uses input as fallback user_input key when variable name is empty', () => {
-    expect(buildDebugInteractionUserInput('', ['A'])).toEqual({
+    expect(buildDebugInteractionInput('', ['A'])).toEqual({
       input: ['A'],
     });
   });
@@ -67,7 +67,7 @@ describe('preview submission helpers', () => {
 
   it('resolves regenerate truncation to the first item of the same block', () => {
     expect(
-      resolveDebugRegenerateStartIndex(
+      resolveDebugRegenerationStartIndex(
         [
           { element_bid: 'block-0-a', generated_block_bid: '0' },
           { element_bid: 'block-1-a', generated_block_bid: '1' },
@@ -81,7 +81,7 @@ describe('preview submission helpers', () => {
 
   it('falls back to the target index when the block bid is missing', () => {
     expect(
-      resolveDebugRegenerateStartIndex(
+      resolveDebugRegenerationStartIndex(
         [{ element_bid: 'preview-runtime-1', generated_block_bid: '' }],
         0,
       ),
@@ -90,7 +90,7 @@ describe('preview submission helpers', () => {
 
   it('prefers the item element_index when resolving regenerate fallback block index', () => {
     expect(
-      resolveDebugRegenerateFallbackBlockIndex(
+      resolveDebugRegenerationBlockIndex(
         [
           { type: ChatContentItemType.CONTENT, element_index: 0 },
           { type: ChatContentItemType.LIKE_STATUS },
@@ -103,7 +103,7 @@ describe('preview submission helpers', () => {
 
   it('counts only actionable items when element_index is missing', () => {
     expect(
-      resolveDebugRegenerateFallbackBlockIndex(
+      resolveDebugRegenerationBlockIndex(
         [
           { type: ChatContentItemType.CONTENT },
           { type: ChatContentItemType.LIKE_STATUS },
@@ -117,12 +117,12 @@ describe('preview submission helpers', () => {
   });
 
   it('returns 0 when resolving regenerate fallback block index with empty items', () => {
-    expect(resolveDebugRegenerateFallbackBlockIndex([], 0)).toBe(0);
+    expect(resolveDebugRegenerationBlockIndex([], 0)).toBe(0);
   });
 
   it('clamps out-of-range block indexes before resolving regenerate fallback block index', () => {
     expect(
-      resolveDebugRegenerateFallbackBlockIndex(
+      resolveDebugRegenerationBlockIndex(
         [
           { type: ChatContentItemType.CONTENT, element_index: 0 },
           { type: ChatContentItemType.INTERACTION, element_index: 1 },
@@ -132,7 +132,7 @@ describe('preview submission helpers', () => {
     ).toBe(1);
 
     expect(
-      resolveDebugRegenerateFallbackBlockIndex(
+      resolveDebugRegenerationBlockIndex(
         [
           { type: ChatContentItemType.LIKE_STATUS },
           { type: ChatContentItemType.CONTENT, element_index: 4 },

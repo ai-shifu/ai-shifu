@@ -46,8 +46,8 @@ import {
   MdflowHistoryVersionDetail,
 } from '@/types/shifu';
 import ChapterSettingsDialog from '@/components/chapter-setting';
-import LessonDebug from '@/components/lesson-debug';
-import { useDebugChat } from '@/components/lesson-debug/useDebugChat';
+import DebugPanel from '@/components/lesson-debug';
+import { useDebugSession } from '@/components/lesson-debug/useDebugSession';
 import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
 import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editorOnboardingSteps';
 import OutlineTree from '@/components/outline-tree';
@@ -198,18 +198,18 @@ const ScriptEditor = ({
   const {
     items: debugItems,
     isLoading: debugLoading,
-    error: debugError,
-    startDebug,
-    stopDebug,
-    resetDebug,
-    onRefresh,
-    onSend,
-    persistVariables,
-    onVariableChange,
-    variables: debugVariables,
-    requestAudioForBlock: requestDebugAudioForBlock,
-    reGenerateConfirm,
-  } = useDebugChat({ creditInsufficientAudience });
+    errorMessage: debugErrorMessage,
+    startRun: startDebugRun,
+    stopRun: stopDebugRun,
+    resetSession: resetDebugSession,
+    regenerateContent: regenerateDebugContent,
+    submitInteraction: submitDebugInteraction,
+    persistVariableValues: persistDebugVariableValues,
+    setVariableValue: setDebugVariableValue,
+    variableValues: debugVariableValues,
+    requestElementAudio: requestDebugElementAudio,
+    regenerationConfirmation,
+  } = useDebugSession({ creditInsufficientAudience });
   const editorScopeKey = useMemo(
     () => `${currentShifu?.bid || ''}:${currentNode?.bid || ''}`,
     [currentNode?.bid, currentShifu?.bid],
@@ -724,18 +724,18 @@ const ScriptEditor = ({
 
   useEffect(() => {
     return () => {
-      stopDebug();
-      resetDebug();
+      stopDebugRun();
+      resetDebugSession();
     };
-  }, [resetDebug, stopDebug]);
+  }, [resetDebugSession, stopDebugRun]);
 
   useEffect(() => {
     if (!currentNode?.bid) {
       return;
     }
-    stopDebug();
-    resetDebug();
-  }, [currentNode?.bid, resetDebug, stopDebug]);
+    stopDebugRun();
+    resetDebugSession();
+  }, [currentNode?.bid, resetDebugSession, stopDebugRun]);
 
   const handleAddChapterClick = () => {
     if (currentShifu?.readonly) {
@@ -996,11 +996,11 @@ const ScriptEditor = ({
       return;
     }
     setIsDebugPanelOpen(false);
-    stopDebug();
-    resetDebug();
-  }, [isDebugPanelOpen, stopDebug, resetDebug]);
+    stopDebugRun();
+    resetDebugSession();
+  }, [isDebugPanelOpen, stopDebugRun, resetDebugSession]);
 
-  const handleDebug = async () => {
+  const handleStartDebug = async () => {
     if (!canDebug || !currentShifu?.bid || !currentNode?.bid) {
       return;
     }
@@ -1022,7 +1022,7 @@ const ScriptEditor = ({
     });
     setIsDebugPanelOpen(true);
     setIsDebugPreparing(true);
-    resetDebug();
+    resetDebugSession();
 
     try {
       if (!currentShifu?.readonly) {
@@ -1036,23 +1036,29 @@ const ScriptEditor = ({
         }
       }
       const {
-        variables: parsedVariablesMap,
-        blocksCount,
+        variableValues: preparedVariableValues,
+        blockCount,
         systemVariableKeys,
         allVariableKeys,
-        unusedKeys,
-      } = await actions.debugParse(targetMdflow, targetShifu, targetOutline);
+        unusedVariableKeys,
+      } = await actions.prepareDebugSession(
+        targetMdflow,
+        targetShifu,
+        targetOutline,
+      );
 
       if (hideUnusedMode) {
         // In "hide unused" mode, refresh hidden list from full-course usage.
-        await actions.syncHiddenVariablesToUsage(targetShifu, { unusedKeys });
+        await actions.syncHiddenVariablesToUsage(targetShifu, {
+          unusedKeys: unusedVariableKeys,
+        });
         if (outlineChanged()) {
           return;
         }
       } else {
         // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
         const parsedVariableKeys =
-          allVariableKeys || Object.keys(parsedVariablesMap || {});
+          allVariableKeys || Object.keys(preparedVariableValues || {});
         const mdflowVariableNames = new Set(extractVariableNames(targetMdflow));
         const usedHiddenKeys = hiddenVariables.filter(
           key =>
@@ -1074,21 +1080,21 @@ const ScriptEditor = ({
       if (outlineChanged()) {
         return;
       }
-      const debugVariablesMap = {
-        ...parsedVariablesMap,
-        ...debugVariables,
+      const debugRunVariableValues = {
+        ...preparedVariableValues,
+        ...debugVariableValues,
       };
-      persistVariables({
+      persistDebugVariableValues({
         shifuBid: targetShifu,
         systemVariableKeys,
-        variables: debugVariablesMap,
+        variableValues: debugRunVariableValues,
       });
-      void startDebug({
+      void startDebugRun({
         shifuBid: targetShifu,
         outlineBid: targetOutline,
         mdflow: targetMdflow,
-        variables: debugVariablesMap,
-        max_block_count: blocksCount,
+        variableValues: debugRunVariableValues,
+        maxBlockCount: blockCount,
         systemVariableKeys,
       });
     } catch (error) {
@@ -1293,15 +1299,15 @@ const ScriptEditor = ({
     [mdflow],
   );
 
-  const resolvedDebugVariables = useMemo(() => {
-    const candidates = [debugVariables, debugItems[0]?.variables];
+  const resolvedDebugVariableValues = useMemo(() => {
+    const candidates = [debugVariableValues, debugItems[0]?.variables];
     for (const candidate of candidates) {
       if (candidate && Object.keys(candidate).length) {
         return candidate;
       }
     }
     return undefined;
-  }, [debugItems, debugVariables]);
+  }, [debugItems, debugVariableValues]);
   useEffect(() => {
     const previousSeen = seenVariableNamesRef.current;
     const currentSet = new Set<string>();
@@ -1363,15 +1369,17 @@ const ScriptEditor = ({
   }, [hiddenVariables, variables, visibleSystemVariableKeys]);
 
   // Debug variables: start from parsed variables and fill missing course-visible keys with empty values
-  const mergedDebugVariables = useMemo(() => {
-    const base = resolvedDebugVariables ? { ...resolvedDebugVariables } : {};
+  const mergedDebugVariableValues = useMemo(() => {
+    const base = resolvedDebugVariableValues
+      ? { ...resolvedDebugVariableValues }
+      : {};
     courseVisibleVariableKeys.forEach(key => {
       if (!(key in base)) {
         base[key] = '';
       }
     });
     return base;
-  }, [courseVisibleVariableKeys, resolvedDebugVariables]);
+  }, [courseVisibleVariableKeys, resolvedDebugVariableValues]);
 
   const unusedVisibleVariables = useMemo(() => {
     const hiddenSet = new Set(hiddenVariables);
@@ -1381,13 +1389,13 @@ const ScriptEditor = ({
   const hasUnusedVisibleVariables = unusedVisibleVariables.length > 0;
 
   const hasHiddenVariables = hiddenVariables.length > 0;
-  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+  const variableVisibilityAction: 'hide' | 'restore' = hasUnusedVisibleVariables
     ? 'hide'
     : hasHiddenVariables
       ? 'restore'
       : 'hide';
-  const hideRestoreActionDisabled =
-    hideRestoreActionType === 'hide'
+  const isVariableVisibilityActionDisabled =
+    variableVisibilityAction === 'hide'
       ? !hasUnusedVisibleVariables
       : !hasHiddenVariables;
 
@@ -1838,7 +1846,7 @@ const ScriptEditor = ({
                         type='button'
                         size='sm'
                         className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
-                        onClick={handleDebug}
+                        onClick={handleStartDebug}
                         disabled={!canDebug || isDebugPreparing}
                         title={!canDebug ? debugDisabledReason : undefined}
                       >
@@ -1924,36 +1932,38 @@ const ScriptEditor = ({
           {isDebugPanelOpen && creditInsufficientAudience !== null ? (
             <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
               <div className='h-full'>
-                <LessonDebug
-                  loading={debugLoading}
-                  errorMessage={debugError || undefined}
+                <DebugPanel
+                  isLoading={debugLoading}
+                  errorMessage={debugErrorMessage || undefined}
                   items={debugItems}
                   creditInsufficientAudience={creditInsufficientAudience}
-                  variables={mergedDebugVariables}
+                  variableValues={mergedDebugVariableValues}
                   hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
-                  onRefresh={onRefresh}
-                  onSend={onSend}
-                  onVariableChange={onVariableChange}
+                  onRegenerate={regenerateDebugContent}
+                  onSubmitInteraction={submitDebugInteraction}
+                  onVariableChange={setDebugVariableValue}
                   variableOrder={variableOrder}
                   systemVariableKeys={visibleSystemVariableKeys}
-                  onRequestAudioForBlock={
+                  onRequestElementAudio={
                     currentShifu?.tts_enabled
-                      ? requestDebugAudioForBlock
+                      ? requestDebugElementAudio
                       : undefined
                   }
-                  reGenerateConfirm={reGenerateConfirm}
-                  customVariableKeys={variables}
+                  regenerationConfirmation={regenerationConfirmation}
+                  courseVariableKeys={variables}
                   unusedVariableKeys={unusedVisibleVariables}
                   onHideVariable={handleHideSingleVariable}
-                  onHideOrRestore={
-                    hideRestoreActionType === 'hide'
+                  onApplyVariableVisibilityAction={
+                    variableVisibilityAction === 'hide'
                       ? handleHideUnusedVariables
                       : handleRestoreHiddenVariables
                   }
-                  actionType={hideRestoreActionType}
-                  actionDisabled={hideRestoreActionDisabled}
-                  showGenerateBtn={Boolean(
+                  variableVisibilityAction={variableVisibilityAction}
+                  isVariableVisibilityActionDisabled={
+                    isVariableVisibilityActionDisabled
+                  }
+                  showRegenerateAction={Boolean(
                     currentShifu && !currentShifu.readonly,
                   )}
                 />

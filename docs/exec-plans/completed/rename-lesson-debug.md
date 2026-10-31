@@ -1,11 +1,12 @@
-# Clarify editor Debug code names
+# Name editor Debug code by responsibility
 
 ## Purpose / Big Picture
 
 The lesson editor's transient Debug panel is named `lesson-preview`,
 `LessonPreview` and `usePreviewChat`, which makes it easy to confuse with the
-separate full-course classroom preview. Rename the editor-owned frontend code
-to Debug names while preserving its behavior and external contracts.
+separate full-course classroom preview. Name its panel, session, runs, variables
+and actions by their actual responsibilities while preserving behavior and
+external contracts.
 
 ## Progress
 
@@ -18,6 +19,12 @@ to Debug names while preserving its behavior and external contracts.
 - [x] 2026-10-31 CST: Pass 223 tests across eight existing frontend suites,
   type-check, lint, repository harness, architecture checks and all 21 full
   pre-commit checks; prepare the independent branch for review.
+- [x] 2026-10-31 CST: Expand naming beyond the initial prefix replacement:
+  distinguish panel/session/run, element/turn IDs, variable values/scopes and
+  preparation/request/storage responsibilities; pass the same 223 tests.
+- [x] 2026-10-31 CST: Complete the expanded scope's independent audit, 223
+  tests, type-check, lint and all 21 repository-wide checks; prepare the
+  update to PR #3264 without merging.
 
 ## Surprises & Discoveries
 
@@ -26,12 +33,27 @@ also appear in the Shifu store and shared type declarations. Submission helpers
 have callers in the shared regression tests. The backend's existing preview
 endpoint serves editor Debug, while classroom preview uses the learner chat
 flow; a source rename must preserve the endpoint.
+The audio and interaction paths used block-named arguments for actual element
+IDs. The numeric stale-stream guard was also named like the opaque session ID.
+Shared variable types imported a storage implementation, and `debugParse`
+performed definition refresh and saved-value hydration as well as parsing.
 
 ## Decision Log
 
-- Rename the directory to `lesson-debug`, the component to `LessonDebug`, the
-  hook to `useDebugChat`, and their directly owned copy, submission, typewriter
-  and variable symbols consistently.
+- Keep `lesson-debug` as the owning directory. Use `DebugPanel`,
+  `DebugVariablesPanel` and `DebugContentCopyButton` for UI composition, and
+  `useDebugSession` for session orchestration.
+- Avoid repeating `Lesson` in those names: the directory supplies that context.
+  Keep meaningful responsibility words such as `Panel`, `Session` and `Run`.
+- Distinguish `startRun` / `stopRun` from `resetSession`; use action names for
+  submissions, regeneration, variable updates and element audio. Adapt existing
+  shared ChatUi props at the boundary rather than renaming unrelated consumers.
+- Use camelCase for internal `DebugRunParams`, `elementBid` for rendered
+  elements, `generatedBlockBid` for engine turns and `streamGeneration` for
+  stale-callback guards. Preserve snake_case at the wire boundary.
+- Move shared value, scope, preparation and run types to `src/types/debugSession.ts`.
+  Use `prepareDebugSession`, `debugRequestParams.ts` and `debugVariableStorage.ts`
+  for the separate preparation, request-shaping and persistence responsibilities.
 - Keep API URLs, request fields, SSE values, storage keys, analytics event names
   and payloads, and translation namespaces unchanged. This is a source naming
   refactor with no new user interaction or analytics contract.
@@ -42,12 +64,15 @@ flow; a source rename must preserve the endpoint.
 
 ## Outcomes & Retrospective
 
-Implementation and verification are complete. The naming boundary is recorded
+The expanded implementation and verification are complete. All 223 existing
+tests, frontend type-check and lint, and all 21 repository-wide checks pass.
+Independent comparison confirms unchanged request payloads, stored JSON,
+continuation preparation and local symbol bindings. The naming boundary is recorded
 in the frontend skill router so later changes can distinguish editor Debug from
 classroom preview without relying on conversation context. Existing behavior
 tests pass after renaming their imports and symbols. Independent structural
-comparison confirmed all non-import runtime literals are preserved. Repository
-lint passes with its existing warnings; full pre-commit checks pass. No backend
+comparison checks wire behavior and stored JSON. Diagnostic labels now identify
+lesson Debug; protocol literals and user-visible strings stay stable. No backend
 code, selected-step regeneration, merge or deployment is included.
 
 ## Context and Orientation
@@ -55,7 +80,8 @@ code, selected-step regeneration, merge or deployment is included.
 The renamed implementation lives under `src/web/src/components/lesson-debug/`.
 `src/web/src/components/shifu-edit/ShifuEdit.tsx` owns its editor entry point.
 `src/web/src/store/useShifu.tsx` prepares Debug variables and parsing results;
-`src/web/src/types/shifu.ts` and `chatUi.ts` consume the variable map type.
+`src/web/src/types/debugSession.ts` owns value, scope, preparation and run types;
+`shifu.ts` and `chatUi.ts` consume those types without importing storage code.
 `src/web/SKILL.md` and the element-streaming skill route future Debug work.
 
 ## Plan of Work

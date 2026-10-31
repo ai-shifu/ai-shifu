@@ -34,12 +34,14 @@ import {
   useRef,
 } from 'react';
 import {
-  getStoredDebugVariables,
-  mapKeysToStoredVariables,
-  DebugVariablesMap,
-  saveDebugVariables,
-  StoredVariablesByScope,
-} from '@/components/lesson-debug/variableStorage';
+  readStoredDebugVariableValues,
+  selectDebugVariableValues,
+  mergeStoredDebugVariableValues,
+} from '@/components/lesson-debug/debugVariableStorage';
+import type {
+  DebugSessionPreparation,
+  StoredDebugVariableValues,
+} from '@/types/debugSession';
 import { useTracking } from '@/hooks/useTracking';
 import {
   buildOutlineCreateAnalytics,
@@ -1329,28 +1331,22 @@ export const ShifuProvider = ({
     }
   };
 
-  const debugParse = async (
-    value: string,
-    shifuId: string,
-    outlineId: string,
-  ): Promise<{
-    variables: DebugVariablesMap;
-    blocksCount: number;
-    systemVariableKeys: string[];
-    allVariableKeys?: string[];
-    unusedKeys?: string[];
-  }> => {
+  const prepareDebugSession = async (
+    mdflow: string,
+    shifuBid: string,
+    outlineBid: string,
+  ): Promise<DebugSessionPreparation> => {
     try {
-      const resolvedShifuId = shifuId || currentShifu?.bid || '';
-      const resolvedOutlineId = outlineId || currentNode?.bid || '';
+      const resolvedShifuBid = shifuBid || currentShifu?.bid || '';
+      const resolvedOutlineBid = outlineBid || currentNode?.bid || '';
       const { systemVariableKeys, unusedKeys } =
-        (await refreshProfileDefinitions(resolvedShifuId, {
+        (await refreshProfileDefinitions(resolvedShifuBid, {
           forceRefresh: true,
         })) || {};
       const result = await api.parseMdflow({
-        shifu_bid: resolvedShifuId,
-        outline_bid: resolvedOutlineId,
-        data: value,
+        shifu_bid: resolvedShifuBid,
+        outline_bid: resolvedOutlineBid,
+        data: mdflow,
       });
       const variableKeys = result?.variables || [];
       const resolvedSystemKeys =
@@ -1358,24 +1354,28 @@ export const ShifuProvider = ({
           ? systemVariableKeys
           : systemVariables?.map(variable => variable.name).filter(Boolean) ||
             [];
-      const storedVariables: StoredVariablesByScope =
-        getStoredDebugVariables(resolvedShifuId);
-      const variablesMap = mapKeysToStoredVariables(
+      const storedVariableValues: StoredDebugVariableValues =
+        readStoredDebugVariableValues(resolvedShifuBid);
+      const variableValues = selectDebugVariableValues(
         variableKeys,
-        storedVariables,
+        storedVariableValues,
         resolvedSystemKeys,
       );
-      saveDebugVariables(resolvedShifuId, variablesMap, resolvedSystemKeys);
+      mergeStoredDebugVariableValues(
+        resolvedShifuBid,
+        variableValues,
+        resolvedSystemKeys,
+      );
       return {
-        variables: variablesMap,
-        blocksCount: result?.blocks_count ?? 0,
+        variableValues,
+        blockCount: result?.blocks_count ?? 0,
         systemVariableKeys: resolvedSystemKeys,
         allVariableKeys: variableKeys,
-        unusedKeys,
+        unusedVariableKeys: unusedKeys,
       };
     } catch (error) {
       console.error(error);
-      return { variables: {}, blocksCount: 0, systemVariableKeys: [] };
+      return { variableValues: {}, blockCount: 0, systemVariableKeys: [] };
     }
   };
 
@@ -1760,7 +1760,7 @@ export const ShifuProvider = ({
       setDraftConflict: setHasDraftConflict,
       setAutosavePaused,
       parseMdflow,
-      debugParse,
+      prepareDebugSession,
       hideUnusedVariables,
       restoreHiddenVariables,
       hideVariableByKey,

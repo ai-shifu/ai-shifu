@@ -14,10 +14,10 @@ import InteractionBlock from '@/components/ChatUi/InteractionBlock';
 import { ChatContentItem, ChatContentItemType } from '@/types/chatUi';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { getAudioTrackByPosition } from '@/lib/audio-utils';
-import VariableList from './VariableList';
-import DebugCopyButton from './DebugCopyButton';
-import { type DebugVariablesMap } from './variableStorage';
-import styles from './LessonDebug.module.scss';
+import DebugVariablesPanel from './DebugVariablesPanel';
+import DebugContentCopyButton from './DebugContentCopyButton';
+import { type DebugVariableValues } from '@/types/debugSession';
+import styles from './DebugPanel.module.scss';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -43,36 +43,39 @@ import {
   type DebugTypewriterCache,
 } from './debugTypewriterGate';
 
-interface LessonDebugProps {
-  loading: boolean;
+interface DebugPanelProps {
+  isLoading: boolean;
   errorMessage?: string | null;
   items: ChatContentItem[];
   creditInsufficientAudience?: CreditInsufficientAudience;
-  variables?: DebugVariablesMap;
+  variableValues?: DebugVariableValues;
   shifuBid: string;
-  onRefresh: (elementBid: string) => void;
-  onSend: (content: OnSendContentParams, blockBid: string) => void;
-  onRequestAudioForBlock?: (params: {
+  onRegenerate: (elementBid: string) => void;
+  onSubmitInteraction: (
+    content: OnSendContentParams,
+    elementBid: string,
+  ) => void;
+  onRequestElementAudio?: (params: {
     shifuBid: string;
-    blockId: string;
+    elementBid: string;
     text: string;
   }) => Promise<AudioCompleteData | null>;
   onVariableChange?: (name: string, value: string) => void;
   variableOrder?: string[];
   systemVariableKeys?: string[];
-  reGenerateConfirm?: {
+  regenerationConfirmation?: {
     open: boolean;
     onConfirm: () => void;
     onCancel: () => void;
   };
   hiddenVariableKeys?: string[];
-  onHideOrRestore?: () => void;
-  actionType?: 'hide' | 'restore';
-  actionDisabled?: boolean;
-  customVariableKeys?: string[];
+  onApplyVariableVisibilityAction?: () => void;
+  variableVisibilityAction?: 'hide' | 'restore';
+  isVariableVisibilityActionDisabled?: boolean;
+  courseVariableKeys?: string[];
   unusedVariableKeys?: string[];
   onHideVariable?: (name: string) => void;
-  showGenerateBtn?: boolean;
+  showRegenerateAction?: boolean;
 }
 
 const noop = () => {};
@@ -114,17 +117,14 @@ const shouldPreferGeneratedBlockItem = (
   return false;
 };
 
-const resolveLessonDebugItemIdentity = (
-  item: ChatContentItem,
-  index?: number,
-) =>
+const resolveDebugItemIdentity = (item: ChatContentItem, index?: number) =>
   item.element_bid ||
   item.generated_block_bid ||
   item.parent_element_bid ||
   item.parent_block_bid ||
   (index !== undefined ? `idx-${index}` : '');
 
-const resolveLessonDebugItemTypeKey = (item: ChatContentItem) => {
+const resolveDebugItemTypeKey = (item: ChatContentItem) => {
   if (item.type === ChatContentItemType.LIKE_STATUS) {
     return 'like';
   }
@@ -144,16 +144,10 @@ const resolveLessonDebugItemTypeKey = (item: ChatContentItem) => {
   return 'content';
 };
 
-export const resolveLessonDebugItemKey = (
-  item: ChatContentItem,
-  index?: number,
-) =>
-  `${resolveLessonDebugItemTypeKey(item)}:${resolveLessonDebugItemIdentity(
-    item,
-    index,
-  )}`;
+export const resolveDebugItemKey = (item: ChatContentItem, index?: number) =>
+  `${resolveDebugItemTypeKey(item)}:${resolveDebugItemIdentity(item, index)}`;
 
-const resolveLessonDebugContentRenderKey = (
+const resolveDebugContentRenderKey = (
   item: ChatContentItem,
   enableStreamingTypewriter: boolean,
 ) => {
@@ -165,7 +159,7 @@ const resolveLessonDebugContentRenderKey = (
 
   return [
     'preview',
-    resolveLessonDebugItemTypeKey(item),
+    resolveDebugItemTypeKey(item),
     item.element_bid || item.generated_block_bid || '',
     item.element_type || '',
     enableStreamingTypewriter || hasStreamingTypewriterIntent
@@ -174,53 +168,54 @@ const resolveLessonDebugContentRenderKey = (
   ].join(':');
 };
 
-const LessonDebug: React.FC<LessonDebugProps> = ({
-  loading,
+const DebugPanel: React.FC<DebugPanelProps> = ({
+  isLoading,
   errorMessage,
   items = [],
   creditInsufficientAudience = 'teacher-collaborator',
-  variables,
+  variableValues,
   shifuBid,
-  onRefresh,
-  onSend,
-  onRequestAudioForBlock,
+  onRegenerate,
+  onSubmitInteraction,
+  onRequestElementAudio,
   onVariableChange,
   variableOrder,
   systemVariableKeys,
-  reGenerateConfirm,
+  regenerationConfirmation,
   hiddenVariableKeys,
-  onHideOrRestore,
-  actionType,
-  actionDisabled,
-  customVariableKeys,
+  onApplyVariableVisibilityAction,
+  variableVisibilityAction,
+  isVariableVisibilityActionDisabled,
+  courseVariableKeys,
   unusedVariableKeys,
   onHideVariable,
-  showGenerateBtn = false,
+  showRegenerateAction = false,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
-  const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
+  const [areVariablesCollapsed, setAreVariablesCollapsed] =
+    React.useState(false);
 
-  const showEmpty = !loading && items.length === 0;
+  const showEmpty = !isLoading && items.length === 0;
   const [debugTypewriterCache, setDebugTypewriterCache] =
     React.useState<DebugTypewriterCache>({});
 
-  const resolvedVariables = React.useMemo(() => {
-    if (variables && Object.keys(variables).length) {
-      return variables;
+  const resolvedVariableValues = React.useMemo(() => {
+    if (variableValues && Object.keys(variableValues).length) {
+      return variableValues;
     }
     return undefined;
-  }, [variables]);
+  }, [variableValues]);
 
   const hiddenSet = React.useMemo(
     () => new Set(hiddenVariableKeys || []),
     [hiddenVariableKeys],
   );
 
-  const visibleVariables = React.useMemo(() => {
-    if (!resolvedVariables) return undefined;
-    if (!hiddenSet.size) return resolvedVariables;
-    return Object.entries(resolvedVariables).reduce<DebugVariablesMap>(
+  const visibleVariableValues = React.useMemo(() => {
+    if (!resolvedVariableValues) return undefined;
+    if (!hiddenSet.size) return resolvedVariableValues;
+    return Object.entries(resolvedVariableValues).reduce<DebugVariableValues>(
       (acc, [key, value]) => {
         if (hiddenSet.has(key)) {
           return acc;
@@ -230,7 +225,7 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
       },
       {},
     );
-  }, [hiddenSet, resolvedVariables]);
+  }, [hiddenSet, resolvedVariableValues]);
 
   const itemByElementBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
@@ -265,9 +260,9 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
 
   const { showAlert } = useAlert();
 
-  const handleActionConfirm = React.useCallback(() => {
-    if (!onHideOrRestore || !actionType) return;
-    const isHide = actionType === 'hide';
+  const handleVariableVisibilityConfirmation = React.useCallback(() => {
+    if (!onApplyVariableVisibilityAction || !variableVisibilityAction) return;
+    const isHide = variableVisibilityAction === 'hide';
     showAlert({
       title: isHide
         ? t('module.shifu.previewArea.variablesHideUnusedConfirmTitle')
@@ -277,11 +272,11 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
         : t('module.shifu.previewArea.variablesRestoreHiddenConfirmDesc'),
       confirmText: t('common.core.confirm'),
       cancelText: t('common.core.cancel'),
-      onConfirm: () => onHideOrRestore(),
+      onConfirm: () => onApplyVariableVisibilityAction(),
     });
-  }, [actionType, onHideOrRestore, showAlert, t]);
+  }, [variableVisibilityAction, onApplyVariableVisibilityAction, showAlert, t]);
 
-  const handleHideVariableConfirm = React.useCallback(
+  const handleHideVariableConfirmation = React.useCallback(
     (name: string) => {
       if (!onHideVariable) return;
       showAlert({
@@ -303,12 +298,12 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
   }, [router]);
 
   const handleDebugTypeFinished = React.useCallback(
-    (blockBid: string, content: string) => {
-      if (!blockBid) {
+    (elementBid: string, content: string) => {
+      if (!elementBid) {
         return;
       }
 
-      const resolvedItem = items.find(item => item.element_bid === blockBid);
+      const resolvedItem = items.find(item => item.element_bid === elementBid);
       const resolvedCacheKey = resolvedItem?.element_bid || '';
       if (!resolvedCacheKey) {
         return;
@@ -346,7 +341,7 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
   }, [items]);
 
   return (
-    <div className={cn(styles.lessonDebug, 'text-sm')}>
+    <div className={cn(styles.debugPanel, 'text-sm')}>
       <div className='flex items-baseline gap-2 pt-[4px]'>
         <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
           {t('module.shifu.previewArea.title')}
@@ -361,34 +356,34 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
 
       <div className={styles.debugArea}>
         {!showEmpty && (
-          <div className={styles.variableListWrapper}>
-            <VariableList
-              variables={visibleVariables}
-              collapsed={variablesCollapsed}
-              onToggle={() => setVariablesCollapsed(prev => !prev)}
-              onChange={onVariableChange}
+          <div className={styles.variablesPanelWrapper}>
+            <DebugVariablesPanel
+              variableValues={visibleVariableValues}
+              collapsed={areVariablesCollapsed}
+              onToggleCollapsed={() => setAreVariablesCollapsed(prev => !prev)}
+              onVariableChange={onVariableChange}
               variableOrder={variableOrder}
               systemVariableKeys={systemVariableKeys}
-              actionType={actionType}
-              onAction={handleActionConfirm}
-              actionDisabled={actionDisabled}
-              customVariableKeys={customVariableKeys}
+              variableVisibilityAction={variableVisibilityAction}
+              onApplyVisibilityAction={handleVariableVisibilityConfirmation}
+              isVisibilityActionDisabled={isVariableVisibilityActionDisabled}
+              courseVariableKeys={courseVariableKeys}
               unusedVariableKeys={unusedVariableKeys}
-              onHideVariable={handleHideVariableConfirm}
+              onHideVariable={handleHideVariableConfirmation}
             />
           </div>
         )}
 
         <TooltipProvider delayDuration={150}>
           <div className={styles.debugAreaContent}>
-            {loading && items.length === 0 && (
+            {isLoading && items.length === 0 && (
               <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
                 <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
                 <span>{t('module.shifu.previewArea.loading')}</span>
               </div>
             )}
 
-            {showEmpty && !loading && (
+            {showEmpty && !isLoading && (
               <>
                 {errorMessage ? (
                   <div
@@ -432,19 +427,19 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
                   const isTextParent =
                     parentContentItem?.type === ChatContentItemType.CONTENT &&
                     parentContentItem?.element_type === 'text';
-                  // Hide preview audio action when backend marks this element as non-speakable.
+                  // Hide the Debug audio action when backend marks this element as non-speakable.
                   const shouldRenderAudioAction =
                     isTextParent && parentContentItem?.is_speakable !== false;
                   const parentPrimaryTrack = getAudioTrackByPosition(
                     parentContentItem?.audioTracks ?? [],
                   );
                   const shouldRenderGenerateAction = Boolean(
-                    showGenerateBtn &&
+                    showRegenerateAction &&
                     isRegeneratableDebugParent(parentContentItem) &&
                     parentActionBid,
                   );
                   const hasDebugAudioCapability = Boolean(
-                    onRequestAudioForBlock && parentActionBid,
+                    onRequestElementAudio && parentActionBid,
                   );
                   if (
                     !shouldRenderGenerateAction &&
@@ -454,20 +449,20 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
                   }
                   return (
                     <div
-                      key={resolveLessonDebugItemKey(item, idx)}
+                      key={resolveDebugItemKey(item, idx)}
                       className='p-0'
                       style={{ maxWidth: '100%' }}
                     >
                       <InteractionBlock
                         shifu_bid={shifuBid}
                         element_bid={parentActionBid}
-                        onRefresh={onRefresh}
+                        onRefresh={onRegenerate}
                         onToggleAskExpanded={noop}
                         disableAskButton
                         disableInteractionButtons
                         showGenerateBtn={shouldRenderGenerateAction}
                         extraActions={
-                          onRequestAudioForBlock && shouldRenderAudioAction ? (
+                          onRequestElementAudio && shouldRenderAudioAction ? (
                             <AudioPlayer
                               audioUrl={parentPrimaryTrack?.audioUrl}
                               streamingSegments={
@@ -478,9 +473,9 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
                               )}
                               alwaysVisible={true}
                               onRequestAudio={() =>
-                                onRequestAudioForBlock({
+                                onRequestElementAudio({
                                   shifuBid,
-                                  blockId: parentActionBid,
+                                  elementBid: parentActionBid,
                                   text: parentContentItem?.content || '',
                                 })
                               }
@@ -500,7 +495,7 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
                   );
                   return (
                     <div
-                      key={resolveLessonDebugItemKey(item, idx)}
+                      key={resolveDebugItemKey(item, idx)}
                       className='p-0 relative'
                       style={{ maxWidth: '100%' }}
                     >
@@ -510,11 +505,11 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
                         blockBid={
                           item.element_bid || item.generated_block_bid || ''
                         }
-                        contentRenderKey={resolveLessonDebugContentRenderKey(
+                        contentRenderKey={resolveDebugContentRenderKey(
                           item,
                           false,
                         )}
-                        onSend={onSend}
+                        onSend={onSubmitInteraction}
                         onTypeFinished={
                           ENABLE_DEBUG_TYPEWRITER
                             ? handleDebugTypeFinished
@@ -537,7 +532,7 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
 
                 return (
                   <div
-                    key={resolveLessonDebugItemKey(item, idx)}
+                    key={resolveDebugItemKey(item, idx)}
                     className='p-0 relative'
                     style={{
                       maxWidth: '100%',
@@ -559,12 +554,12 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
                           blockBid={
                             item.element_bid || item.generated_block_bid || ''
                           }
-                          contentRenderKey={resolveLessonDebugContentRenderKey(
+                          contentRenderKey={resolveDebugContentRenderKey(
                             item,
                             enableStreamingTypewriter,
                           )}
                           enableStreamingTypewriter={enableStreamingTypewriter}
-                          onSend={onSend}
+                          onSend={onSubmitInteraction}
                           onTypeFinished={
                             ENABLE_DEBUG_TYPEWRITER
                               ? handleDebugTypeFinished
@@ -574,7 +569,7 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
                       );
                     })()}
                     {item.type === ChatContentItemType.CONTENT ? (
-                      <DebugCopyButton content={item.content || ''} />
+                      <DebugContentCopyButton content={item.content || ''} />
                     ) : null}
                   </div>
                 );
@@ -584,8 +579,8 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
       </div>
 
       <Dialog
-        open={reGenerateConfirm?.open ?? false}
-        onOpenChange={open => !open && reGenerateConfirm?.onCancel?.()}
+        open={regenerationConfirmation?.open ?? false}
+        onOpenChange={open => !open && regenerationConfirmation?.onCancel?.()}
       >
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
@@ -597,14 +592,14 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
           <DialogFooter className='flex gap-2 sm:gap-2'>
             <button
               type='button'
-              onClick={reGenerateConfirm?.onCancel}
+              onClick={regenerationConfirmation?.onCancel}
               className='px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
             >
               {t('common.core.cancel')}
             </button>
             <button
               type='button'
-              onClick={reGenerateConfirm?.onConfirm}
+              onClick={regenerationConfirmation?.onConfirm}
               className='px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter'
             >
               {t('common.core.ok')}
@@ -616,4 +611,4 @@ const LessonDebug: React.FC<LessonDebugProps> = ({
   );
 };
 
-export default LessonDebug;
+export default DebugPanel;

@@ -13,9 +13,9 @@ import ScriptEditor, {
 const refreshLabel = 'refresh';
 const historyLinkText = 'history';
 const mockMarkdownFlowEditor = jest.fn();
-const mockLessonDebug = jest.fn();
+const mockDebugPanel = jest.fn();
 const mockTrackEvent = jest.fn();
-const mockUseDebugChat = jest.fn();
+const mockUseDebugSession = jest.fn();
 const mockRefreshUserInfo = jest.fn();
 let mockUserToken = 'token';
 
@@ -110,7 +110,7 @@ jest.mock('../loading', () => {
 jest.mock('@/components/lesson-debug', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
-    mockLessonDebug(props);
+    mockDebugPanel(props);
     return null;
   },
 }));
@@ -243,23 +243,23 @@ jest.mock('@/hooks/useOnboarding', () => ({
     skip: jest.fn(),
   }),
 }));
-jest.mock('@/components/lesson-debug/useDebugChat', () => ({
-  useDebugChat: (options: unknown) => {
-    mockUseDebugChat(options);
+jest.mock('@/components/lesson-debug/useDebugSession', () => ({
+  useDebugSession: (options: unknown) => {
+    mockUseDebugSession(options);
     return {
       items: [],
       isLoading: false,
-      error: null,
-      startDebug: jest.fn(),
-      stopDebug: jest.fn(),
-      resetDebug: jest.fn(),
-      onRefresh: jest.fn(),
-      onSend: jest.fn(),
-      persistVariables: jest.fn(),
-      onVariableChange: jest.fn(),
-      variables: {},
-      requestAudioForBlock: jest.fn(),
-      reGenerateConfirm: jest.fn(),
+      errorMessage: null,
+      startRun: jest.fn(),
+      stopRun: jest.fn(),
+      resetSession: jest.fn(),
+      regenerateContent: jest.fn(),
+      submitInteraction: jest.fn(),
+      persistVariableValues: jest.fn(),
+      setVariableValue: jest.fn(),
+      variableValues: {},
+      requestElementAudio: jest.fn(),
+      regenerationConfirmation: jest.fn(),
     };
   },
 }));
@@ -301,7 +301,7 @@ const baseActions = {
   restoreHiddenVariables: jest.fn(),
   hideVariableByKey: jest.fn(),
   saveMdflow: jest.fn(),
-  debugParse: jest.fn(),
+  prepareDebugSession: jest.fn(),
   unhideVariablesByKeys: jest.fn(),
   refreshProfileDefinitions: jest.fn(),
   syncHiddenVariablesToUsage: jest.fn(),
@@ -386,9 +386,9 @@ describe('ShifuEdit draft conflict checks', () => {
 
   beforeEach(() => {
     mockMarkdownFlowEditor.mockReset();
-    mockLessonDebug.mockReset();
+    mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
-    mockUseDebugChat.mockReset();
+    mockUseDebugSession.mockReset();
     mockRefreshUserInfo.mockReset();
     mockUserToken = 'token';
     mockUserStoreState.isInitialized = true;
@@ -461,7 +461,7 @@ describe('ShifuEdit draft conflict checks', () => {
   test('passes the owner credit audience into lesson preview', () => {
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUseDebugChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: 'teacher',
     });
   });
@@ -476,15 +476,15 @@ describe('ShifuEdit draft conflict checks', () => {
       { name: 'sys_user_language', label: 'Teaching language' },
       { name: 'sys_user_background', label: 'Background' },
     ];
-    baseActions.debugParse.mockResolvedValue({
-      variables: {
+    baseActions.prepareDebugSession.mockResolvedValue({
+      variableValues: {
         sys_user_nickname: 'Learner',
         sys_user_language: 'Chinese',
         sys_user_background: 'Teacher',
         sys_user_style: 'Concise',
         sys_user_input: 'Course input example',
       },
-      blocksCount: 1,
+      blockCount: 1,
       systemVariableKeys: [
         'sys_user_nickname',
         'sys_user_language',
@@ -497,7 +497,7 @@ describe('ShifuEdit draft conflict checks', () => {
         'sys_user_style',
         'sys_user_input',
       ],
-      unusedKeys: [],
+      unusedVariableKeys: [],
     });
 
     render(<ScriptEditor id='shifu-1' />);
@@ -514,21 +514,21 @@ describe('ShifuEdit draft conflict checks', () => {
     );
 
     await waitFor(() => {
-      expect(mockLessonDebug).toHaveBeenCalled();
+      expect(mockDebugPanel).toHaveBeenCalled();
     });
-    expect(mockLessonDebug.mock.lastCall?.[0].hiddenVariableKeys).toEqual([
+    expect(mockDebugPanel.mock.lastCall?.[0].hiddenVariableKeys).toEqual([
       'hidden_topic',
     ]);
-    expect(mockLessonDebug.mock.lastCall?.[0].variables).toMatchObject({
+    expect(mockDebugPanel.mock.lastCall?.[0].variableValues).toMatchObject({
       sys_user_style: '',
       sys_user_input: '',
     });
-    expect(mockLessonDebug.mock.lastCall?.[0].systemVariableKeys).toEqual([
+    expect(mockDebugPanel.mock.lastCall?.[0].systemVariableKeys).toEqual([
       'sys_user_nickname',
       'sys_user_language',
       'sys_user_background',
     ]);
-    expect(baseActions.debugParse).toHaveBeenCalledWith(
+    expect(baseActions.prepareDebugSession).toHaveBeenCalledWith(
       'Hello {{sys_user_style}} {{sys_user_input}}',
       'shifu-1',
       'lesson-1',
@@ -543,7 +543,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUseDebugChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: 'teacher-collaborator',
     });
   });
@@ -564,12 +564,12 @@ describe('ShifuEdit draft conflict checks', () => {
       mockShifuState.mdflow = `?[%{{ ${key} }} 男 | 女 | 秘密]`;
       mockShifuState.variables = [key];
       mockShifuState.hiddenVariables = [key];
-      baseActions.debugParse.mockResolvedValue({
-        variables: { [key]: '' },
-        blocksCount: 1,
+      baseActions.prepareDebugSession.mockResolvedValue({
+        variableValues: { [key]: '' },
+        blockCount: 1,
         systemVariableKeys: [],
         allVariableKeys: [key],
-        unusedKeys: [],
+        unusedVariableKeys: [],
       });
 
       render(<ScriptEditor id='shifu-1' />);
@@ -605,12 +605,12 @@ describe('ShifuEdit draft conflict checks', () => {
       mockShifuState.mdflow = source;
       mockShifuState.variables = ['q'];
       mockShifuState.hiddenVariables = ['q'];
-      baseActions.debugParse.mockResolvedValue({
-        variables: { q: '' },
-        blocksCount: 1,
+      baseActions.prepareDebugSession.mockResolvedValue({
+        variableValues: { q: '' },
+        blockCount: 1,
         systemVariableKeys: [],
         allVariableKeys: ['q'],
-        unusedKeys: [],
+        unusedVariableKeys: [],
       });
 
       render(<ScriptEditor id='shifu-1' />);
@@ -638,7 +638,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUseDebugChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: null,
     });
     expect(
@@ -681,7 +681,7 @@ describe('ShifuEdit draft conflict checks', () => {
         skipErrorToast: true,
       });
       expect(debugButton).toBeDisabled();
-      expect(mockUseDebugChat).toHaveBeenLastCalledWith({
+      expect(mockUseDebugSession).toHaveBeenLastCalledWith({
         creditInsufficientAudience: null,
       });
 
@@ -691,7 +691,7 @@ describe('ShifuEdit draft conflict checks', () => {
       rerender(<ScriptEditor id='shifu-1' />);
 
       expect(mockRefreshUserInfo).toHaveBeenCalledTimes(2);
-      expect(mockUseDebugChat).toHaveBeenLastCalledWith({
+      expect(mockUseDebugSession).toHaveBeenLastCalledWith({
         creditInsufficientAudience: audience,
       });
       expect(debugButton).toBeEnabled();
@@ -724,7 +724,7 @@ describe('ShifuEdit draft conflict checks', () => {
       await jest.advanceTimersByTimeAsync(60000);
     });
     expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
-    expect(mockUseDebugChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: null,
     });
   });
@@ -1131,12 +1131,12 @@ describe('ShifuEdit draft conflict checks', () => {
           expectedPayload,
         );
       });
-      baseActions.debugParse.mockResolvedValue({
-        variables: {},
-        blocksCount: 0,
+      baseActions.prepareDebugSession.mockResolvedValue({
+        variableValues: {},
+        blockCount: 0,
         systemVariableKeys: [],
         allVariableKeys: [],
-        unusedKeys: [],
+        unusedVariableKeys: [],
       });
 
       const { rerender } = render(<ScriptEditor id='shifu-1' />);
@@ -1149,7 +1149,7 @@ describe('ShifuEdit draft conflict checks', () => {
       fireEvent.click(debugButton);
 
       await waitFor(() => {
-        expect(baseActions.debugParse).toHaveBeenCalledWith(
+        expect(baseActions.prepareDebugSession).toHaveBeenCalledWith(
           mdflow,
           'shifu-1',
           'lesson-1',
@@ -1193,7 +1193,7 @@ describe('ShifuEdit draft conflict checks', () => {
       await waitFor(() => expect(debugButton).not.toBeDisabled());
       fireEvent.click(debugButton);
       await waitFor(() => {
-        expect(baseActions.debugParse).toHaveBeenCalledTimes(2);
+        expect(baseActions.prepareDebugSession).toHaveBeenCalledTimes(2);
       });
       expect(mockTrackEvent.mock.calls).toEqual([
         ['creator_lesson_preview_click', expectedPayload],
@@ -1226,7 +1226,7 @@ describe('ShifuEdit draft conflict checks', () => {
     }
     expect(mockTrackEvent).not.toHaveBeenCalled();
     expect(baseActions.saveMdflow).not.toHaveBeenCalled();
-    expect(baseActions.debugParse).not.toHaveBeenCalled();
+    expect(baseActions.prepareDebugSession).not.toHaveBeenCalled();
   });
 
   test('enables regenerate actions for editable lesson preview', async () => {
@@ -1236,12 +1236,12 @@ describe('ShifuEdit draft conflict checks', () => {
     fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
 
     await waitFor(() => {
-      expect(mockLessonDebug).toHaveBeenCalled();
+      expect(mockDebugPanel).toHaveBeenCalled();
     });
 
-    expect(mockLessonDebug.mock.calls.at(-1)?.[0]).toEqual(
+    expect(mockDebugPanel.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({
-        showGenerateBtn: true,
+        showRegenerateAction: true,
       }),
     );
   });
@@ -1255,12 +1255,12 @@ describe('ShifuEdit draft conflict checks', () => {
     fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
 
     await waitFor(() => {
-      expect(mockLessonDebug).toHaveBeenCalled();
+      expect(mockDebugPanel).toHaveBeenCalled();
     });
 
-    expect(mockLessonDebug.mock.calls.at(-1)?.[0]).toEqual(
+    expect(mockDebugPanel.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({
-        showGenerateBtn: false,
+        showRegenerateAction: false,
       }),
     );
   });
