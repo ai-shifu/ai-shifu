@@ -1,6 +1,6 @@
 """Remove MDF markers from classified prose, leaving visual elements opaque.
 
-The pinned MarkdownFlow formatter is the only authority on element boundaries.
+The `markdownflow.syntax` formatter is the only authority on element boundaries.
 This adapter retains physical source lines (including CRLF and trailing blanks)
 while reusing its classifications and element numbers. It contains no HTML parser.
 """
@@ -25,10 +25,11 @@ _MARKER_LINE = re.compile(r"[ \t]*!={3,}[ \t]*\r?$")
 class EnvelopeClassifier(Classifier):
     """Let native classification recognize elements inside an MDF envelope.
 
-    `_handle_text` and `_state` are hooks in the pinned markdown-flow 0.3.4
-    implementation. Reuse that state rather than guessing whether a line is inside HTML or code.
+    `_handle_text` and `_state` are hooks in `markdownflow.syntax.formatter.classifier`.
+    Reuse that state rather than guessing whether a line is inside HTML or code.
+    Lesson continuation also uses it to stop repeat trimming at the first visual element.
     Only an outer MDF prefix/suffix is removed from a non-prose element.
-    Reject invalid backtick-fence info before the pinned classifier opens code state.
+    Reject invalid backtick-fence info before the syntax classifier opens code state.
     """
 
     def __init__(self) -> None:
