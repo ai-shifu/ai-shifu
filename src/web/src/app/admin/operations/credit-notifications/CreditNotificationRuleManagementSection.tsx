@@ -46,8 +46,8 @@ import {
   parseListInput,
   parseThresholdInput,
   readPositiveNumber,
-} from './creditNotificationUtils';
-import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
+} from './credit-notification-utils';
+import type { UpdatePolicy } from './use-credit-notification-config-tab-state';
 
 type RuleAction = 'created' | 'edited' | 'deleted' | 'toggled';
 

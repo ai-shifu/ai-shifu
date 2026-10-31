@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import ContentBlock from '@/components/ChatUi/ContentBlock';
+import ContentBlock from '@/components/chat/ContentBlock';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
 let mockLanguage = 'zh-CN';

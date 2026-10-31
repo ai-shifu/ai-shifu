@@ -11,12 +11,12 @@ import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
 } from '@/lib/admin-date-time';
-import { toast } from '@/hooks/useToast';
+import { toast } from '@/hooks/use-toast';
 import AdminOperationCreditNotificationsPage from './page';
 import {
   createDefaultPolicy,
   normalizePolicy,
-} from './creditNotificationUtils';
+} from './credit-notification-utils';
 import { CreditNotificationConfigTab } from './CreditNotificationConfigTab';
 
 Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -78,7 +78,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }));
 
-jest.mock('../useOperatorGuard', () => ({
+jest.mock('../use-operator-guard', () => ({
   __esModule: true,
   default: () => ({
     isReady: true,
@@ -229,11 +229,11 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   ),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

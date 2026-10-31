@@ -122,6 +122,7 @@
 | `docs/exec-plans/completed/follow-up-classroom-history.md` | Preserve the classroom context of anchored follow-ups | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/follow-up-course-memory.md` | Explicit course memory in follow-up prompts | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/follow-up-dispatch-regressions.md` | Verify follow-up dispatch through the lesson caller | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/frontend-structure-naming.md` | Frontend structure and file naming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/frontend-unused-function-stack.md` | Frontend Unused Function Cleanup Stack | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/gemini-3-8-tts.md` | Gemini 3.8 TTS migration | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/gemini-tts.md` | Gemini TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

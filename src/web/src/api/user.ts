@@ -1,5 +1,5 @@
 import request, { type RequestConfig } from '@/lib/request';
-import { useSystemStore } from '@/store/useSystemStore';
+import { useSystemStore } from '@/store/use-system-store';
 
 const getCurrentShifuBid = (): string => {
   if (typeof window === 'undefined') return '';
@@ -60,7 +60,7 @@ export {
   isProfileOnboardingStatus,
   runProfileOnboardingSession,
   skipGuidedProfileOnboarding as skipProfileOnboarding,
-} from '@/api/learnerProfile';
+} from '@/api/learner-profile';
 export type {
   CompleteProfileOnboardingPayload,
   LearnerProfile as CompleteProfileOnboardingResponse,
@@ -70,7 +70,7 @@ export type {
   ProfileOnboardingSessionIntent,
   ProfileOnboardingStatus,
   ProfileOnboardingStatusResponse,
-} from '@/api/learnerProfile';
+} from '@/api/learner-profile';
 
 /**
  * Send SMS verification code

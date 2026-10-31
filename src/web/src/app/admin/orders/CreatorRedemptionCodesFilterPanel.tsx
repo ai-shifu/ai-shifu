@@ -7,19 +7,19 @@ import {
   createDateRangeFilterItem,
   createSelectFilterItem,
   createTextFilterItem,
-} from '@/app/admin/components/adminFilterFieldBuilders';
-import { COUPON_OPS_STATE_OPTIONS } from '@/app/admin/operations/promotions/promotionPageShared';
+} from '@/app/admin/components/admin-filter-field-builders';
+import { COUPON_OPS_STATE_OPTIONS } from '@/app/admin/operations/promotions/promotion-page-shared';
 import {
   fromSelectValue,
   toSelectValue,
   type RedemptionCodeFilters,
-} from './creatorRedemptionCodeShared';
+} from './creator-redemption-code-shared';
 import {
   ORDER_FILTER_CONTENT_CLASS,
   ORDER_FILTER_GRID_CLASS,
   type OrderFilterLabelWidth,
   getOrderFilterLabelClassName,
-} from './orderFilterUiShared';
+} from './order-filter-ui-shared';
 
 type TranslationFn = (key: string, options?: Record<string, unknown>) => string;
 

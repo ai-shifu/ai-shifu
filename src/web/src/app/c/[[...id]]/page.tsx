@@ -15,8 +15,8 @@ import {
   FRAME_LAYOUT_MOBILE,
   inWechat,
   inMiniProgram,
-} from '@/constants/uiConstants';
-import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
+} from '@/constants/ui-constants';
+import { LESSON_STATUS_VALUE } from '@/constants/course-constants';
 import { EVENT_NAMES, events } from './events';
 
 import {
@@ -26,44 +26,47 @@ import {
   useSystemStore,
 } from '@/store';
 import { useUserStore } from '@/store';
-import { useDisclosure } from '@/hooks/useDisclosure';
-import { useLessonTree, type LessonTreeLesson } from './hooks/useLessonTree';
+import { useDisclosure } from '@/hooks/use-disclosure';
+import { useLessonTree, type LessonTreeLesson } from './hooks/use-lesson-tree';
 import {
   applyLessonSelection,
   resolveRequestedLessonId,
-} from './lessonNavigation';
-import { shifu } from '@/lib/shifu/Shifu';
+} from './lesson-navigation';
+import { shifu } from '@/lib/shifu/shifu-runtime';
 import type { EnvStoreState } from '@/types/store';
 import {
   buildLoginRedirectPath,
   getLessonIdFromQuery,
   replaceCurrentUrlWithLessonId,
-} from '@/lib/urlUtils';
+} from '@/lib/url-utils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
-import { AppContext } from './Components/AppContext';
-import NavDrawer from './Components/NavDrawer/NavDrawer';
-import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
-import ChatUi from './Components/ChatUi/ChatUi';
+import { AppContext } from './components/app-context';
+import NavDrawer from './components/navigation/NavDrawer';
+import FeedbackModal from './components/feedback/FeedbackModal';
+import ChatUi from './components/chat/ChatUi';
 import {
   DEFAULT_LISTEN_MOBILE_VIEW_MODE,
   LISTEN_MODE_VH_FALLBACK_CLASSNAME,
-} from './Components/ChatUi/listenModeTypes';
+} from './components/chat/listen-mode-types';
 
 import dynamic from 'next/dynamic';
-import ChatMobileHeader from './Components/ChatMobileHeader';
-import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
-import { isWechatCodeFlowEnabled } from './Components/Pay/wechatJsapi';
-import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
-import { useWechatOpenIdBinding } from './hooks/useWechatOpenIdBinding';
-import { useCourseWechatAuthorization } from './hooks/useCourseWechatAuthorization';
+import ChatMobileHeader from './components/ChatMobileHeader';
+import MiniProgramPayGuide from './components/payment/MiniProgramPayGuide';
+import { isWechatCodeFlowEnabled } from './components/payment/wechat-jsapi';
+import { useCourseProfileOnboardingGate } from './hooks/use-course-profile-onboarding-gate';
+import { useWechatOpenIdBinding } from './hooks/use-wechat-open-id-binding';
+import { useCourseWechatAuthorization } from './hooks/use-course-wechat-authorization';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 
-const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
-  ssr: false,
-});
-const PayModal = dynamic(() => import('./Components/Pay/PayModal'), {
+const MobilePaymentDialog = dynamic(
+  () => import('./components/payment/MobilePaymentDialog'),
+  {
+    ssr: false,
+  },
+);
+const PayModal = dynamic(() => import('./components/payment/PayModal'), {
   ssr: false,
 });
 
@@ -858,7 +861,7 @@ export default function ChatPage() {
         ) : null}
 
         {payModalOpen && !showPayGuide && mobileStyle ? (
-          <PayModalM
+          <MobilePaymentDialog
             open={payModalOpen}
             onCancel={_onPayModalCancel}
             onOk={_onPayModalOk}

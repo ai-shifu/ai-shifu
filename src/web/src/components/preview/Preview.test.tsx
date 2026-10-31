@@ -7,9 +7,9 @@ import {
   waitFor,
 } from '@testing-library/react';
 import api from '@/api';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import PreviewSettingsModal from './Preview';
-import { showCreditInsufficientToast } from '@/lib/creditInsufficientToast';
+import { showCreditInsufficientToast } from '@/lib/credit-insufficient-toast';
 
 const mockSaveMdflow = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -36,11 +36,11 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/hooks/useBillingData', () => ({
+jest.mock('@/hooks/use-billing-data', () => ({
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/lib/creditInsufficientToast', () => ({
+jest.mock('@/lib/credit-insufficient-toast', () => ({
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE: 7125,
   resolveCourseCreditInsufficientAudience: ({
     previewMode,
@@ -76,7 +76,7 @@ jest.mock('@/store', () => ({
   ) => selector({ userInfo: mockUserInfo }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

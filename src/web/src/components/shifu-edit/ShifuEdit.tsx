@@ -25,19 +25,19 @@ import {
 } from 'lucide-react';
 import { useEnvStore } from '@/store';
 import api from '@/api';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import { EnvStoreState } from '@/types/store';
 import {
   buildUrlWithLessonId,
   replaceCurrentUrlWithLessonId,
-} from '@/lib/urlUtils';
-import { toast } from '@/hooks/useToast';
+} from '@/lib/url-utils';
+import { toast } from '@/hooks/use-toast';
 import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
-import { resolveCourseCreditInsufficientAudience } from '@/lib/creditInsufficientToast';
+import { resolveCourseCreditInsufficientAudience } from '@/lib/credit-insufficient-toast';
 import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
   DraftMeta,
@@ -49,7 +49,7 @@ import ChapterSettingsDialog from '@/components/chapter-setting';
 import DebugPanel from '@/components/lesson-debug';
 import { useDebugSession } from '@/components/lesson-debug/use-debug-session';
 import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
-import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editorOnboardingSteps';
+import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editor-onboarding-steps';
 import OutlineTree from '@/components/outline-tree';
 import DraftConflictDialog from './DraftConflictDialog';
 import Loading from '../loading';
@@ -67,9 +67,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   useCreatorOnboardingStatus,
   useOnboarding,
-} from '@/hooks/useOnboarding';
-import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
-import './shifuEdit.scss';
+} from '@/hooks/use-onboarding';
+import { ONBOARDING_TARGET_IDS } from '@/lib/onboarding-targets';
+import './shifu-edit.scss';
 
 const MarkdownFlowEditor = dynamic(
   () => import('markdown-flow-ui/editor').then(mod => mod.MarkdownFlowEditor),

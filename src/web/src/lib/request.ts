@@ -1,16 +1,16 @@
 import { useUserStore } from '@/store';
-import { getStringEnv } from '@/lib/envUtils';
+import { getStringEnv } from '@/lib/env-utils';
 import {
   getCachedDynamicApiBaseUrl,
   getDynamicApiBaseUrl,
 } from '@/config/environment';
-import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
-import { toast } from '@/hooks/useToast';
+import { debugError, debugInfo, debugWarn } from '@/lib/debug-console';
+import { toast } from '@/hooks/use-toast';
 import i18n from 'i18next';
 import {
   type CreditInsufficientAudience,
   showCreditInsufficientToast,
-} from './creditInsufficientToast';
+} from './credit-insufficient-toast';
 import { getPendingRequestLanguage } from './request-language';
 import {
   buildTraceHeaders,

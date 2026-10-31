@@ -9,7 +9,7 @@ import {
   createDateRangeFilterItem,
   createSelectFilterItem,
   createTextFilterItem,
-} from '@/app/admin/components/adminFilterFieldBuilders';
+} from '@/app/admin/components/admin-filter-field-builders';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import {
@@ -24,8 +24,8 @@ import {
   ORDER_FILTER_GRID_CLASS,
   getOrdersTabFilterContentClassName,
   getOrdersTabFilterLabelClassName,
-} from './orderFilterUiShared';
-import type { OrderFilters } from './ordersPageShared';
+} from './order-filter-ui-shared';
+import type { OrderFilters } from './orders-page-shared';
 
 const ALL_OPTION_VALUE = '__all__';
 

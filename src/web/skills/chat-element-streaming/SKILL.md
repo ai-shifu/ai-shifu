@@ -27,13 +27,13 @@ description: Use when evolving ai-shifu chat streams from blocks to elements or 
 12. 若后端直接关闭预览 SSE，前端应把“最后一个可操作 element 不是 interaction”视为可续拉信号，自动发起下一次预览请求；但若最近一次 `done.is_terminal=true`，则必须停止续拉。
 13. 预览链路收到 `type=done` 时，不要默认立即 `stopPreview`；仅当 `done.is_terminal=true` 才关闭当前预览流。关闭后若最后一个可操作块不是 `interaction`，应继续拉取下一段流。
 14. 当需要在 `ai-shifu` 本地稳定复现 `run` SSE 问题时，优先在 `getRunMessage` 层增加显式调试开关；`mock_run_sse_fixture=stuck` 回放由 `data.json` 截断得到的卡住 fixture，`mock_run_sse_fixture=test` 回放 `mock-fixtures/test/data.json` 的完整测试流，并保持 `message/readystatechange/close` 契约不变；不要把页面组件改成只兼容 mock 数据。
-15. The `/run` idle timeout is defined by `RUN_STREAM_IDLE_TIMEOUT_MS` (15 seconds on desktop) and `MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS` (60 seconds on mobile) in `useChatLogicHook.tsx`. Refresh the timer on stream activity; on expiry close the stream and loading state, retain the internal error signal, and show the shared translated destructive toast. Generated-block TTS has its separate `TTS_BACKFILL_IDLE_TIMEOUT_MS` (120 seconds); do not reuse the run timeout.
+15. The `/run` idle timeout is defined by `RUN_STREAM_IDLE_TIMEOUT_MS` (15 seconds on desktop) and `MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS` (60 seconds on mobile) in `use-lesson-conversation.tsx`. Refresh the timer on stream activity; on expiry close the stream and loading state, retain the internal error signal, and show the shared translated destructive toast. Generated-block TTS has its separate `TTS_BACKFILL_IDLE_TIMEOUT_MS` (120 seconds); do not reuse the run timeout.
 16. 听课模式 `Slide` 遇到超时错误时，只把它当作“关闭内部 loading overlay”的信号，不要把错误项渲染成单独一页；用户侧错误提示统一交给 toast。
 17. 阅读模式同样不要把超时错误项渲染进正文列表；错误项可以保留在内部状态里供控制逻辑使用，但用户可见反馈只保留 toast。
 18. 阅读模式的流式点状 loading 应作为列表尾部状态渲染在最后一个 element 后面，不要绑定到当前流式 element 内部，否则 `html` 视觉 marker 更新时容易把 loading 插到两个 element 的视觉边界之间；但当 `loading` 思考占位仍在列表中时，不要同时显示点状 loading。
 19. 阅读模式若要给 `markdown-flow-ui` 的 `ContentRender` 打开打字机效果，应只对“非历史记录、且 `element_type === text`”的实时正文块开启；`html`、`interaction` 和历史正文继续即时渲染，优先在 `ContentBlock` 这类渲染包装层集中判断，不要把条件散落到列表组装逻辑里。
 20. 当阅读模式在消费层已经明确知道某个 `element` 被 `done` 或“下一个 element 到达”收尾时，要同步把本地 `ChatContentItem.is_final` 置为 `true`；不要让列表状态长期停留在早先 SSE 快照里的 `false`。
-21. 阅读模式如果要阻止“前一个 text 还在打字机播放、后一个 element 已经出现”，优先在 `NewChatComp` 上层维护 `readModeItems` 的可见列表缓存和按 `element_bid` 存储的打字机完成态；只有前一个 text 同时满足“`is_final=true` 且当前 content 的打字机回调已完成”时，才放行下一个 element。
+21. 阅读模式如果要阻止“前一个 text 还在打字机播放、后一个 element 已经出现”，优先在 `LessonConversation` 上层维护 `readModeItems` 的可见列表缓存和按 `element_bid` 存储的打字机完成态；只有前一个 text 同时满足“`is_final=true` 且当前 content 的打字机回调已完成”时，才放行下一个 element。
 22. 移动端阅读模式若会在 `element` 收尾时给正文 `content` 追加追问按钮或把块改成 `isHistory=true`，不要让这个“收尾态 content”继续复用同一条 typewriter gate 缓存；否则缓存会因 `content` 变化被重置成未完成，而 `ContentRender` 又因为不再启用打字机而不会补发 `onTypeFinished`，最终把后续 element 永久卡住。
 23. `isHistory` 只表示“来自学习记录/历史回放的数据”，不要把它当作运行时 UI 控制位复用；`run` SSE 覆盖已有历史项时，也不要从 `previousItem` 继承 `isHistory`，否则实时流会被误判成历史数据。
 24. 阅读模式打字机和 `elementList` 可见性 gate 不要直接依赖 `isHistory`；应使用独立的 typewriter 候选标记，仅让“真正参与实时打字机的 text element”进入缓存与阻塞链路，避免历史首块被 SSE 覆盖后误拦住后续 element。
@@ -65,7 +65,7 @@ description: Use when evolving ai-shifu chat streams from blocks to elements or 
 
 ## Timeout verification
 
-`src/app/c/[[...id]]/Components/ChatUi/useChatLogicHook.test.tsx` has fake-timer
+`src/app/c/[[...id]]/components/chat/use-lesson-conversation.test.tsx` has fake-timer
 cases for the 15-second desktop idle expiry, the 60-second mobile allowance,
 and the separate 120-second TTS backfill timeout before the first SSE message.
 It does not currently prove that activity resets the deadline or that a
@@ -81,8 +81,8 @@ Keep accepting a trailing `element_type=interaction`, including the next-lesson
 CTA, after the completion update. Do not make lesson-completion state an extra
 stream-acceptance guard. Preserve the actual terminal stream handling separately.
 
-Verify this ordering with `useChatLogicHook.test.tsx` in
-`src/app/c/[[...id]]/Components/ChatUi/`, specifically
+Verify this ordering with `use-lesson-conversation.test.tsx` in
+`src/app/c/[[...id]]/components/chat/`, specifically
 `keeps interaction elements that arrive after lesson completion updates`.
 
 ## Editor Debug typewriter and speaker helpers
@@ -114,7 +114,7 @@ completion callbacks.
 Preserve a single container-level first-element top-padding rule for loading,
 content, ask and interaction states. A first screen must not become flush with
 the header merely because its initial visible element is not ordinary content.
-Use the existing `getReadModeElementPadding` in `NewChatComp.tsx` as the starting
+Use the existing `getReadModeElementPadding` in `LessonConversation.tsx` as the starting
 point: first elements receive `20px 20px 0`, later elements `0 20px`.
 
 Current coverage in the renderer is narrower than that intended invariant:
@@ -127,7 +127,7 @@ identifies the first visible DOM element. Inspect those branches when changing
 first-item layout and preserve shared treatment rather than adding per-type
 padding patches. This guidance relocation does not change their current UI.
 
-`src/app/c/[[...id]]/Components/ChatUi/NewChatComp.test.tsx` currently covers the
+`src/app/c/[[...id]]/components/chat/LessonConversation.test.tsx` currently covers the
 read-mode loading gate and projection helpers; it does not render and assert
 these container paddings. For a spacing change, add rendered cases for reset
 loading, empty-list streaming dots, first content, first ask and first

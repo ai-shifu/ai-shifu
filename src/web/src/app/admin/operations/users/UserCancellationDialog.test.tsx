@@ -17,7 +17,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

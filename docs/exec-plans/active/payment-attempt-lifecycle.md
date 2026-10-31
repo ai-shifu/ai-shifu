@@ -109,7 +109,7 @@ before the plan can be completed.
 completes provider attempts. `coupon_funcs.py` applies discounts and coordinates
 repricing. Provider-specific cancellation lives under
 `payment_providers/`. Desktop and mobile checkout behavior lives under
-`src/web/src/app/c/[[...id]]/Components/Pay/`.
+`src/web/src/app/c/[[...id]]/components/payment/`.
 
 ## Plan of Work
 

@@ -6,7 +6,7 @@ import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
-import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
+import { formatAdminCredits } from '@/app/admin/lib/number-format';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -47,8 +47,8 @@ import type {
 import {
   FILTER_ALL_OPTION,
   sanitizeCreditFiltersByType,
-} from './creditFilterUtils';
-import { formatOperatorUtcDateTime } from '../dateTime';
+} from './credit-filter-utils';
+import { formatOperatorUtcDateTime } from '../date-time';
 
 type ErrorState = { message: string; code?: number };
 
