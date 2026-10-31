@@ -22,12 +22,23 @@ class AskProviderRuntime:
     ``llm_context_stream_factory`` lets retrieval-style adapters synthesize a
     natural-language answer: it receives the retrieved knowledge context text
     and returns a built-in LLM stream grounded on that context.
+    ``search_query`` is the learner's question as typed. ``user_query`` also
+    carries the host's output-format and language instructions, so retrieval
+    adapters search with this instead.
     """
 
     llm_stream_factory: Callable[[], Generator[Any, None, None]] | None = None
     llm_context_stream_factory: Callable[[str], Generator[Any, None, None]] | None = (
         None
     )
+    search_query: str | None = None
+
+
+def retrieval_query(user_query: str, runtime: AskProviderRuntime | None) -> str:
+    """Return the text a retrieval adapter should search with."""
+    if runtime is not None and runtime.search_query:
+        return runtime.search_query
+    return user_query
 
 
 class AskProviderError(Exception):
