@@ -561,6 +561,7 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
             "document_prompt": "old",
             "visual_mode": True,
             "debug_session_id": "editor-run-1",
+            "reload_generated_block_bid": "selected-step",
         },
         headers={"Token": "test-token"},
     )
@@ -569,6 +570,7 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     assert args["run_bid"] == "editor-run-1"
     assert args["preview_request"].get_document() == "Lesson text"
     assert args["preview_request"].user_input == {"choice": ["answer"]}
+    assert args["preview_request"].reload_generated_block_bid == "selected-step"
     for retired in ("context", "document_prompt", "visual_mode"):
         assert not hasattr(args["preview_request"], retired)
     preview.reset_mock()

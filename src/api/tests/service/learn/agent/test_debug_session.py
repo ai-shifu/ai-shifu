@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -10,14 +12,22 @@ import pytest
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import routes
 from flaskr.service.learn.agent import debug_session
+from flaskr.service.learn.agent.rewind import (
+    RewindUnavailableError,
+    checkpoint_of,
+    turn_record,
+)
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
+from markdownflow.engine.interaction import InteractionSpec
 from markdownflow.engine.script import ScriptBundle
-from markdownflow.engine.session import Session
+from markdownflow.engine.session import PendingInteraction, Session
+from pydantic_ai.messages import ModelRequest, UserPromptPart
+from pydantic_ai.models.function import FunctionModel
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -27,6 +37,10 @@ class _Cache:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
         self.ttls: dict[str, int] = {}
+        self.locks: dict[str, object] = {}
+
+    def lock(self, key: str, **_kwargs: object) -> object:
+        return self.locks.setdefault(key, threading.Lock())
 
     def get(self, key: str) -> str | None:
         return self.values.get(key)
@@ -34,6 +48,18 @@ class _Cache:
     def setex(self, key: str, ttl: int, value: str) -> None:
         self.values[key] = value
         self.ttls[key] = ttl
+
+
+def _store(app: object, run: str = "one") -> debug_session.DebugSessionStore:
+    return debug_session.DebugSessionStore(
+        app, user_bid="teacher", shifu_bid="course", outline_bid="lesson", run_bid=run
+    )
+
+
+def _record(session: Session, values: list[str] | None = None) -> str:
+    checkpoint = checkpoint_of(session)
+    checkpoint["user_memory"] = dict(session.user_memory)
+    return turn_record(checkpoint, values or [])
 
 
 def _request_messages(
@@ -222,3 +248,342 @@ def test_finished_debug_reopening_closes_the_empty_response(
     assert [message.type for message in messages] == ["preview_engine", "done"]
     assert messages[-1].is_terminal is True
     assert not getattr(messages[-1], "generated_block_bid", None)
+
+
+def test_debug_regeneration_keeps_prefix_and_replays_only_the_selected_turn(
+    app: object, monkeypatch: object
+) -> None:
+    """Drop future answers and user notes without echoing them back from the UI."""
+    from flaskr.service.learn.agent import run_agent
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    store = _store(app)
+    session = Session(
+        script=ScriptBundle(script="Current draft"),
+        user_memory={"goal": "original"},
+    )
+    first = _record(session)
+    session.messages.append(ModelRequest(parts=[UserPromptPart("First teaching")]))
+    session.memory["prefix"] = "retained"
+    session.turn = 1
+    session.pending = [
+        PendingInteraction(
+            "first-question", InteractionSpec(type="text", prompt="First?")
+        )
+    ]
+    store.save(session, generated_block_bid="prefix", turn_record=first)
+
+    second = _record(session, ["original answer"])
+    session.messages.append(ModelRequest(parts=[UserPromptPart("Second teaching")]))
+    session.memory["first_answer"] = "original answer"
+    session.user_memory["note"] = "from second step"
+    session.turn = 2
+    session.pending = [
+        PendingInteraction(
+            "second-question", InteractionSpec(type="text", prompt="Second?")
+        )
+    ]
+    store.save(session, generated_block_bid="selected", turn_record=second)
+
+    third = _record(session, ["future answer"])
+    session.messages.append(ModelRequest(parts=[UserPromptPart("Future teaching")]))
+    session.memory["future"] = "future answer"
+    session.user_memory["future_note"] = "discard"
+    session.pending = []
+    session.turn = 3
+    session.finished = True
+    session.teaching_summaries["future"] = "obsolete summary"
+    store.save(session, generated_block_bid="future", turn_record=third)
+
+    plan = store.plan_rewind(script="Current draft", block_bid="selected")
+    assert plan.replay_values == ["original answer"]
+    assert plan.retired_block_bids == ["selected", "future"]
+    factory, finished = run_agent._load_or_start(
+        app,
+        SimpleNamespace(),
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        script="Current draft",
+        preview_mode=True,
+        debug_store=store,
+        rewind=plan,
+        preview_variables={
+            "goal": "echoed",
+            "future": "future answer",
+            "future_note": "discard",
+        },
+    )
+    resumed = asyncio.run(factory())
+    assert not finished
+    assert resumed.id == session.id
+    assert resumed.turn == 1
+    assert not resumed.finished
+    assert len(resumed.messages) == 1
+    assert resumed.all_memory() == {"goal": "original", "prefix": "retained"}
+    assert resumed.pending[0].tool_call_id == "first-question"
+    assert resumed.answers == {}
+    assert resumed.teaching_summaries == {}
+
+    store.save(
+        resumed, generated_block_bid="replacement", turn_record=second, rewind=plan
+    )
+    turns = store._payload(script="Current draft")["turns"]
+    assert [turn["block_bid"] for turn in turns] == ["prefix", "replacement"]
+    assert store.plan_rewind(
+        script="Current draft", block_bid="replacement"
+    ).replay_values == ["original answer"]
+    with pytest.raises(RewindUnavailableError):
+        store.plan_rewind(script="Current draft", block_bid="future")
+
+
+@pytest.mark.parametrize(
+    "invalid", ["unknown", "element-in-selected", "prefix-from-other-run"]
+)
+def test_debug_rewind_requires_a_current_run_checkpoint(
+    app: object, monkeypatch: object, invalid: str
+) -> None:
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    session = Session(script=ScriptBundle(script="Current draft"))
+    store = _store(app)
+    store.save(session, generated_block_bid="selected", turn_record=_record(session))
+    _store(app, "other").save(
+        session,
+        generated_block_bid="prefix-from-other-run",
+        turn_record=_record(session),
+    )
+    with pytest.raises(RewindUnavailableError):
+        store.plan_rewind(script="Current draft", block_bid=invalid)
+    with pytest.raises(RewindUnavailableError):
+        store.plan_rewind(script="Edited draft", block_bid="selected")
+
+
+def test_debug_regeneration_stream_restores_variables_and_forwards_the_anchor(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.learn.agent import lesson_entry
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    session = Session(
+        script=ScriptBundle(script="Current draft"), memory={"prefix": "kept"}
+    )
+    record = _record(session)
+    session.memory["future"] = "discard"
+    _store(app).save(session, generated_block_bid="selected", turn_record=record)
+    seen: list[dict] = []
+
+    def lesson_events(_app: object, **kwargs: object) -> object:
+        seen.append(kwargs)
+        saved = kwargs["debug_store"].load(script="Current draft")
+        saved.memory = {"prefix": "kept", "replayed_answer": "original"}
+        kwargs["debug_store"].save(saved)
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid="replacement",
+            type=GeneratedType.DONE,
+            content="",
+        )
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
+    messages = _request_messages(
+        app,
+        lambda: debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Current draft",
+                block_index=0,
+                reload_generated_block_bid="selected",
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="one",
+        ),
+    )
+    assert seen[0]["reload_generated_block_bid"] == "selected"
+    snapshots = [
+        json.loads(message.content)
+        for message in messages
+        if message.type == "debug_variables"
+    ]
+    assert snapshots == [
+        {"prefix": "kept"},
+        {"prefix": "kept", "replayed_answer": "original"},
+    ]
+    assert messages[0].type == "debug_variables"
+    assert messages[-2].type == "debug_variables"
+    assert messages[-1].type == "done"
+
+
+def test_expired_debug_regeneration_does_not_restart_the_lesson(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    stream = debug_session.stream_debug_preview(
+        app,
+        preview_request=PlaygroundPreviewRequest(
+            content="Current draft",
+            block_index=0,
+            reload_generated_block_bid="selected",
+        ),
+        shifu_bid="course",
+        outline_bid="lesson",
+        user_bid="teacher",
+        run_bid="expired-run",
+    )
+    with pytest.raises(AppError) as exc_info:
+        next(stream)
+    assert exc_info.value.code == 4019
+
+
+def test_real_debug_turns_record_replayable_checkpoints_and_discard_future_history(
+    app: object, monkeypatch: object
+) -> None:
+    """Exercise the real engine, cache saves and rewind rather than constructing turn metadata."""
+    from flaskr.service.learn.agent import run_agent
+    from markdownflow.engine import Engine
+
+    from tests.service.learn.agent.test_memory_integration import _drive
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    calls = 0
+    replay_history: list[str] = []
+
+    async def model(messages: list, _info: object) -> object:
+        nonlocal calls
+        calls += 1
+        if calls == 4:
+            replay_history.extend(
+                part.content
+                for message in messages
+                for part in message.parts
+                if isinstance(part, UserPromptPart) and isinstance(part.content, str)
+            )
+        yield f"Teaching step {calls}."
+
+    engine = Engine(FunctionModel(stream_function=model))
+    with app.app_context():
+        for user_input in (
+            None,
+            {"input": ["Original selected request"]},
+            {"input": ["Discarded future request"]},
+        ):
+            list(
+                run_agent.run_agent_lesson(
+                    app,
+                    engine=engine,
+                    script="Current draft",
+                    user_bid="teacher",
+                    shifu_bid="course",
+                    outline_bid="lesson",
+                    preview_mode=True,
+                    debug_store=_store(app),
+                    preview_variables={"goal": "original"},
+                    user_input=user_input,
+                    iter_turn=_drive,
+                )
+            )
+        store = _store(app)
+        before = store.load(script="Current draft")
+        turns = store._payload(script="Current draft")["turns"]
+        assert len(turns) == 3
+        assert turns[1]["record"]["values"] == ["Original selected request"]
+        assert turns[1]["record"]["checkpoint"]["user_memory"] == {"goal": "original"}
+        plan = store.plan_rewind(
+            script="Current draft", block_bid=turns[1]["block_bid"]
+        )
+        list(
+            run_agent.run_agent_lesson(
+                app,
+                engine=engine,
+                script="Current draft",
+                user_bid="teacher",
+                shifu_bid="course",
+                outline_bid="lesson",
+                preview_mode=True,
+                debug_store=store,
+                preview_variables={"goal": "echoed", "future_answer": "discard"},
+                rewind=plan,
+                iter_turn=_drive,
+            )
+        )
+        after = store.load(script="Current draft")
+    assert calls == 4
+    assert after.id == before.id
+    assert after.turn == 2
+    assert after.user_memory == {"goal": "original"}
+    saved_turns = store._payload(script="Current draft")["turns"]
+    assert saved_turns[0]["block_bid"] == turns[0]["block_bid"]
+    assert len(saved_turns) == 2
+    assert any("Original selected request" in text for text in replay_history)
+    assert all("Discarded future request" not in text for text in replay_history)
+
+
+def test_new_debug_request_prevents_a_stopped_stream_from_overwriting_its_save(
+    app: object, monkeypatch: object
+) -> None:
+    """A late terminal event from the previous host cannot restore discarded future state."""
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    older = _store(app)
+    older.begin_request()
+    old_session = Session(script=ScriptBundle(script="Current draft"))
+    older.save(
+        old_session, generated_block_bid="selected", turn_record=_record(old_session)
+    )
+
+    replacement = _store(app)
+    plan = replacement.plan_rewind(script="Current draft", block_bid="selected")
+    replacement.begin_request()
+    current = replacement.load(script="Current draft")
+    current.memory["new"] = "replacement"
+    replacement.save(
+        current,
+        generated_block_bid="replacement",
+        turn_record=_record(current),
+        rewind=plan,
+    )
+    old_session.memory["future"] = "stale terminal save"
+    with pytest.raises(RewindUnavailableError):
+        older.save(old_session)
+
+    assert replacement.load(script="Current draft").memory == {"new": "replacement"}
+    assert [
+        turn["block_bid"]
+        for turn in replacement._payload(script="Current draft")["turns"]
+    ] == ["replacement"]
+
+
+def test_debug_automatic_continuation_preserves_restored_output_language(
+    app: object, monkeypatch: object
+) -> None:
+    """Dropping the browser's future snapshot must keep the checkpoint's teaching language."""
+    from flaskr.i18n import clear_language, set_language
+    from flaskr.service.learn.agent import run_agent
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    session = Session(
+        script=ScriptBundle(script="Current draft"),
+        user_memory={"sys_user_language": "fr-FR", "goal": "retained"},
+    )
+    store = _store(app)
+    store.save(session)
+    engine = SimpleNamespace(output_language=None)
+    set_language("en-US")
+    try:
+        factory, _finished = run_agent._load_or_start(
+            app,
+            engine,
+            user_bid="teacher",
+            shifu_bid="course",
+            outline_bid="lesson",
+            script="Current draft",
+            preview_mode=True,
+            debug_store=store,
+            preview_variables=None,
+            use_learner_language=True,
+        )
+        resumed = asyncio.run(factory())
+    finally:
+        clear_language()
+    assert resumed.user_memory == {"sys_user_language": "fr-FR", "goal": "retained"}
+    assert engine.output_language == "Français"

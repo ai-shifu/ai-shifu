@@ -2,7 +2,7 @@
 title: MarkdownFlow Draft Classroom History
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-31
 canonical: true
 ---
 
@@ -83,3 +83,39 @@ independent. This feature does not roll back prior billing or change existing
 profile/memory admission rules. Preview rewind analytics uses its own start and
 terminal-result family, as defined in the frontend analytics reference.
 1.0 runtime behavior, engine fallback and code remain available.
+
+## Editor Debug regeneration
+
+Editor Debug uses its separate 30-minute cache, scoped to the authenticated
+teacher, course, lesson and browser-generated Debug run ID. Its cached sidecar
+records each turn's checkpoint and original inputs alongside the engine session;
+it does not reuse classroom presentation ownership or published learner state.
+
+A regenerate action on a text element sends its `reload_generated_block_bid`
+to the existing editor preview endpoint with the same `debug_session_id` and
+unchanged script. The frontend retains all earlier generated blocks and removes
+the selected block and its successors, including their helper rows. Several
+rendered elements can share one engine turn, so regeneration begins at the first
+element of that generated block. The engine restores its checkpoint and original
+input, then follows the usual teaching flow until the next interaction or lesson
+completion. Checkpoints for the replaced suffix retire when replacement state
+is saved. Earlier checkpoints remain usable for subsequent regeneration.
+
+The restored Debug memory includes the checkpoint's user-memory snapshot. The
+request's echoed current variables cannot reintroduce discarded future answers.
+`debug_variables` SSE messages carry a JSON-encoded variable map before replacement
+output and before its DONE boundary, replacing the frontend variable snapshot.
+The reload anchor belongs only to this request; later answers and continuations
+do not resend it. Old SSE and audio callbacks cannot update the replacement run.
+Each Debug request claims a fresh cache token; a short write lock guards the
+token check and session save together. A stopped request that finishes after
+its replacement cannot overwrite the new session or restore retired anchors.
+
+An unknown, expired or incompatible checkpoint reports the existing rewind or
+Debug-session error instead of silently restarting. Historical cached sessions
+without turn checkpoints can continue normally but require an explicit restart
+before selective regeneration is available. Whole-lesson restart creates a new
+Debug run, and editing the script also restarts from the beginning rather than
+reusing checkpoints from a different draft. Regeneration does not refund previous
+model calls or modify published learning progress. Its distinct analytics family
+is documented in the [frontend analytics reference](frontend-product-analytics.md).

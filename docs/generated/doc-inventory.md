@@ -114,6 +114,7 @@
 | `docs/exec-plans/completed/creator-dashboard-learners-sql-optimization.md` | Creator Dashboard Learners SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-ratings-sql-optimization.md` | Creator Dashboard Ratings SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-request-splitting.md` | Creator Dashboard Request Splitting | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/debug-regenerate-from-step.md` | Regenerate editor Debug from a selected step | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/device-auth-skill-analytics.md` | Device Authorization Skill Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/docker-web-dependency-reuse.md` | Reuse production Web Docker dependencies | `exec-plan-completed` | `completed` | `web` | `2026-10-06` | `false` |
 | `docs/exec-plans/completed/editor-preview-language.md` | Keep editor previews in the selected language | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -321,7 +322,7 @@
 | `docs/references/lesson-content-update-performance.md` | Lesson Content Revision Comparison Performance | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-authored-inputs.md` | MarkdownFlow Authored Input Hints | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
 | `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-10-08` | `true` |
-| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
+| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-10-31` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |
 | `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompts | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
