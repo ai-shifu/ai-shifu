@@ -40,6 +40,10 @@ class CoerceTraceIdTests(unittest.TestCase):
 class RequestTraceIdTests(unittest.TestCase):
     """Verify request trace ID behavior."""
 
+    def setUp(self) -> None:
+        # Formatting any earlier log record on this thread stores a request id.
+        self.tearDown()
+
     def tearDown(self) -> None:
         for attr in ("request_id",):
             if hasattr(thread_local, attr):
@@ -96,6 +100,10 @@ def test_advancement_identity_needs_no_http_or_session_context() -> None:
 
 class ResolveLangfuseTraceIdTests(unittest.TestCase):
     """Verify resolve langfuse trace ID behavior."""
+
+    def setUp(self) -> None:
+        # Formatting any earlier log record on this thread stores a request id.
+        self.tearDown()
 
     def tearDown(self) -> None:
         for attr in ("request_id",):
