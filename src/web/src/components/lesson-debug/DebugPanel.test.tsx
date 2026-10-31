@@ -1,12 +1,12 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import LessonPreview from './LessonPreview';
-import { resolveLessonPreviewItemKey } from './LessonPreview';
+import DebugPanel from './DebugPanel';
+import { resolveDebugItemKey } from './DebugPanel';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 
 const mockPush = jest.fn();
 const mockCopyText = jest.fn();
-const mockVariableList = jest.fn();
+const mockDebugVariablesPanel = jest.fn();
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -149,48 +149,48 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
   AudioPlayer: () => null,
 }));
 
-jest.mock('./VariableList', () => ({
+jest.mock('./DebugVariablesPanel', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
-    mockVariableList(props);
+    mockDebugVariablesPanel(props);
     return null;
   },
 }));
 
-describe('LessonPreview billing action', () => {
+describe('DebugPanel billing action', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockCopyText.mockReset();
-    mockVariableList.mockReset();
+    mockDebugVariablesPanel.mockReset();
   });
 
   test('filters hidden variables and forwards visible system variable keys', () => {
     render(
-      <LessonPreview
-        loading
+      <DebugPanel
+        isLoading
         items={[]}
-        variables={{
+        variableValues={{
           sys_user_nickname: 'Learner',
           hidden_topic: 'Concise',
           custom_topic: 'Testing',
         }}
         hiddenVariableKeys={['hidden_topic']}
         systemVariableKeys={['sys_user_nickname']}
-        customVariableKeys={['custom_topic']}
+        courseVariableKeys={['custom_topic']}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
-    expect(mockVariableList).toHaveBeenLastCalledWith(
+    expect(mockDebugVariablesPanel).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        variables: {
+        variableValues: {
           sys_user_nickname: 'Learner',
           custom_topic: 'Testing',
         },
         systemVariableKeys: ['sys_user_nickname'],
-        customVariableKeys: ['custom_topic'],
+        courseVariableKeys: ['custom_topic'],
       }),
     );
   });
@@ -207,13 +207,13 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         creditInsufficientAudience='teacher'
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
@@ -238,13 +238,13 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         creditInsufficientAudience='teacher-collaborator'
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
@@ -290,13 +290,13 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
-        onRequestAudioForBlock={jest.fn().mockResolvedValue(null)}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
+        onRequestElementAudio={jest.fn().mockResolvedValue(null)}
       />,
     );
 
@@ -311,13 +311,13 @@ describe('LessonPreview billing action', () => {
 
   test('shows the provided preview error message when preview is empty', () => {
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         errorMessage='Preview parameters are incomplete.'
         items={[]}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
@@ -343,12 +343,12 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
@@ -376,7 +376,7 @@ describe('LessonPreview billing action', () => {
 
   test('builds stable preview item keys from business ids and falls back to idx only when needed', () => {
     expect(
-      resolveLessonPreviewItemKey({
+      resolveDebugItemKey({
         element_bid: 'text-1',
         generated_block_bid: 'block-1',
         content: '第一段内容',
@@ -385,7 +385,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('content:text-1');
 
     expect(
-      resolveLessonPreviewItemKey({
+      resolveDebugItemKey({
         element_bid: 'feedback-1',
         generated_block_bid: 'feedback-block-1',
         parent_element_bid: 'text-1',
@@ -395,7 +395,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('like:feedback-1');
 
     expect(
-      resolveLessonPreviewItemKey({
+      resolveDebugItemKey({
         generated_block_bid: 'preview-business-error',
         content: 'error',
         type: ChatContentItemType.ERROR,
@@ -403,7 +403,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('error:preview-business-error');
 
     expect(
-      resolveLessonPreviewItemKey({
+      resolveDebugItemKey({
         element_bid: 'interaction-1',
         generated_block_bid: 'block-2',
         content: '请选择',
@@ -412,7 +412,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('interaction:interaction-1');
 
     expect(
-      resolveLessonPreviewItemKey(
+      resolveDebugItemKey(
         {
           content: 'streaming text that should not become the key',
           type: ChatContentItemType.CONTENT,
@@ -422,7 +422,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('content:idx-7');
 
     expect(
-      resolveLessonPreviewItemKey(
+      resolveDebugItemKey(
         {
           content: '',
           type: ChatContentItemType.ERROR,
@@ -446,12 +446,12 @@ describe('LessonPreview billing action', () => {
     ];
 
     const { rerender } = render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
@@ -461,8 +461,8 @@ describe('LessonPreview billing action', () => {
     );
 
     rerender(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={[
           {
             ...items[0],
@@ -471,8 +471,8 @@ describe('LessonPreview billing action', () => {
           },
         ]}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
@@ -483,7 +483,7 @@ describe('LessonPreview billing action', () => {
   });
 
   test('routes preview regenerate from helper row to the parent content item', () => {
-    const onRefresh = jest.fn();
+    const onRegenerate = jest.fn();
     const items: ChatContentItem[] = [
       {
         element_bid: 'text-1',
@@ -504,23 +504,23 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={onRefresh}
-        onSend={jest.fn()}
-        showGenerateBtn
+        onRegenerate={onRegenerate}
+        onSubmitInteraction={jest.fn()}
+        showRegenerateAction
       />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
 
-    expect(onRefresh).toHaveBeenCalledWith('text-1');
+    expect(onRegenerate).toHaveBeenCalledWith('text-1');
   });
 
   test('prefers a text parent when generated block items include mixed element types', () => {
-    const onRefresh = jest.fn();
+    const onRegenerate = jest.fn();
     const items: ChatContentItem[] = [
       {
         element_bid: 'text-1',
@@ -548,19 +548,19 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={onRefresh}
-        onSend={jest.fn()}
-        showGenerateBtn
+        onRegenerate={onRegenerate}
+        onSubmitInteraction={jest.fn()}
+        showRegenerateAction
       />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
 
-    expect(onRefresh).toHaveBeenCalledWith('text-1');
+    expect(onRegenerate).toHaveBeenCalledWith('text-1');
     expect(
       screen.queryByRole('button', { name: 'regenerate-html-1' }),
     ).not.toBeInTheDocument();
@@ -587,12 +587,12 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
       />,
     );
 
@@ -613,13 +613,13 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
-        showGenerateBtn
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
+        showRegenerateAction
       />,
     );
 
@@ -645,13 +645,13 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
-        showGenerateBtn
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
+        showRegenerateAction
       />,
     );
 
@@ -680,13 +680,13 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
-        loading={false}
+      <DebugPanel
+        isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRefresh={jest.fn()}
-        onSend={jest.fn()}
-        showGenerateBtn
+        onRegenerate={jest.fn()}
+        onSubmitInteraction={jest.fn()}
+        showRegenerateAction
       />,
     );
 

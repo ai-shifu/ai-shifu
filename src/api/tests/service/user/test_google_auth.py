@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import flaskr.common.config as common_config
 import pytest
 from flaskr.dao import db
-from flaskr.service.user.auth.base import OAuthCallbackRequest
+from flaskr.service.user.auth.base import AuthResult, OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
 from flaskr.service.user.consts import (
     USER_STATE_PAID,
@@ -23,6 +23,7 @@ from flaskr.service.user.models import (
 from flaskr.service.user.models import (
     UserToken as UserTokenModel,
 )
+from flaskr.service.user.repository import upsert_credential
 from flaskr.service.user.token_store import token_store
 from sqlalchemy import Text
 
@@ -77,7 +78,9 @@ def _run_google_callback(
     profile: object,
     *,
     fetch_token_error: object = None,
-) -> object:
+    current_user_id: str | None = None,
+    login_context: str | None = None,
+) -> AuthResult:
     monkeypatch.setenv("HOST_URL", "http://localhost")
     _reset_config_cache("HOST_URL")
     provider = GoogleAuthProvider()
@@ -92,9 +95,14 @@ def _run_google_callback(
     )
     state = _encode_state(
         app,
-        {"redirect_uri": "http://localhost/login/google-callback"},
+        {
+            "redirect_uri": "http://localhost/login/google-callback",
+            "login_context": login_context,
+        },
     )
-    callback = OAuthCallbackRequest(code="fake-google-code", state=state)
+    callback = OAuthCallbackRequest(
+        code="fake-google-code", state=state, current_user_id=current_user_id
+    )
 
     with app.test_request_context("/login/google-callback"):
         return provider.handle_oauth_callback(app, callback)
@@ -256,6 +264,17 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
                 state=USER_STATE_UNREGISTERED,
             )
             db.session.add(existing_user)
+            subject = uuid.uuid4().hex
+            upsert_credential(
+                app,
+                user_bid=existing_user.user_bid,
+                provider_name="google",
+                subject_id=subject,
+                subject_format="google",
+                identifier=email,
+                metadata={},
+                verified=True,
+            )
             db.session.commit()
 
             query_type = type(UserEntity.query)
@@ -287,7 +306,7 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
                 app,
                 monkeypatch,
                 {
-                    "sub": uuid.uuid4().hex,
+                    "sub": subject,
                     "email": email,
                     "email_verified": False,
                     "name": "Current Google Name",

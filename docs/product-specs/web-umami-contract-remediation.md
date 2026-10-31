@@ -125,7 +125,7 @@ are not backfilled under another name.
   non-personal), and booleans for toggles/fallbacks. Fallback booleans support
   adoption analysis only, never billing or audit decisions. Regression coverage
   verifies timing, privacy, exclusions, failure isolation and edits during saves.
-- The 2026-10-23 lesson-preview revision adds the boolean
+- The 2026-10-23 editor Debug revision adds the boolean
   `has_text_variable_keys` to `creator_lesson_preview_click` for teacher-editor
   adoption analysis. It classifies the accepted click's source snapshot as true
   when `extractVariableNames` finds a name outside the historical Unicode
@@ -138,7 +138,7 @@ are not backfilled under another name.
   a memory write. Historical rows missing the field remain `legacy_unknown` and
   are excluded from this denominator, never inferred as false; no backfill is
   performed and existing preview-count consumers may continue counting all rows.
-- Lesson-preview eligibility remains the existing `canPreview`, course-ID and
+- Editor Debug eligibility remains the existing `canDebug`, course-ID and
   lesson-ID handler guards, including eligible read-only course previews.
   Chapters, unresolved preview eligibility and missing IDs emit nothing. The
   event fires once per accepted handler invocation, before saving or parsing;

@@ -1,9 +1,9 @@
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import {
-  buildVisiblePreviewItems,
-  shouldEnablePreviewTypewriter,
-  type PreviewTypewriterCache,
-} from './previewTypewriterGate';
+  buildVisibleDebugItems,
+  shouldEnableDebugTypewriter,
+  type DebugTypewriterCache,
+} from './debug-typewriter-gate';
 
 const buildContentItem = (
   overrides: Partial<ChatContentItem> & Pick<ChatContentItem, 'element_bid'>,
@@ -14,7 +14,7 @@ const buildContentItem = (
   ...overrides,
 });
 
-describe('previewTypewriterGate', () => {
+describe('debugTypewriterGate', () => {
   test('keeps later preview items hidden until the current text block finishes', () => {
     const items: ChatContentItem[] = [
       buildContentItem({
@@ -40,7 +40,7 @@ describe('previewTypewriterGate', () => {
       }),
     ];
 
-    const unfinishedCache: PreviewTypewriterCache = {
+    const unfinishedCache: DebugTypewriterCache = {
       'text-1': {
         content: 'Hello',
         isFinished: false,
@@ -48,12 +48,12 @@ describe('previewTypewriterGate', () => {
     };
 
     expect(
-      buildVisiblePreviewItems(items, unfinishedCache).map(
+      buildVisibleDebugItems(items, unfinishedCache).map(
         item => item.element_bid,
       ),
     ).toEqual(['text-1']);
 
-    const finishedCache: PreviewTypewriterCache = {
+    const finishedCache: DebugTypewriterCache = {
       'text-1': {
         content: 'Hello',
         isFinished: true,
@@ -61,7 +61,7 @@ describe('previewTypewriterGate', () => {
     };
 
     expect(
-      buildVisiblePreviewItems(items, finishedCache).map(
+      buildVisibleDebugItems(items, finishedCache).map(
         item => item.element_bid,
       ),
     ).toEqual(['text-1', 'text-1-feedback', 'text-2']);
@@ -93,7 +93,7 @@ describe('previewTypewriterGate', () => {
     ];
 
     expect(
-      buildVisiblePreviewItems(items, {}).map(item => item.element_bid),
+      buildVisibleDebugItems(items, {}).map(item => item.element_bid),
     ).toEqual(['html-1', 'text-2']);
   });
 
@@ -107,14 +107,14 @@ describe('previewTypewriterGate', () => {
     });
 
     expect(
-      shouldEnablePreviewTypewriter(item, {
+      shouldEnableDebugTypewriter(item, {
         content: 'Hello',
         isFinished: true,
       }),
     ).toBe(true);
 
     expect(
-      shouldEnablePreviewTypewriter(item, {
+      shouldEnableDebugTypewriter(item, {
         content: 'Hello world',
         isFinished: true,
       }),
