@@ -258,6 +258,25 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
     [items, debugTypewriterCache],
   );
 
+  const actionParentKeys = React.useMemo(() => {
+    const parentKeys = new Set<string>();
+    visibleItems.forEach(item => {
+      if (item.type !== ChatContentItemType.LIKE_STATUS) return;
+      const parent =
+        (item.parent_element_bid
+          ? itemByElementBid.get(item.parent_element_bid)
+          : undefined) ||
+        (item.parent_block_bid
+          ? itemByElementBid.get(item.parent_block_bid) ||
+            itemByGeneratedBlockBid.get(item.parent_block_bid)
+          : undefined);
+      if (parent) {
+        parentKeys.add(resolveDebugItemKey(parent));
+      }
+    });
+    return parentKeys;
+  }, [visibleItems, itemByElementBid, itemByGeneratedBlockBid]);
+
   const { showAlert } = useAlert();
 
   const handleVariableVisibilityConfirmation = React.useCallback(() => {
@@ -410,83 +429,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
             {!showEmpty &&
               visibleItems.map((item, idx) => {
                 if (item.type === ChatContentItemType.LIKE_STATUS) {
-                  const parentElementBid = item.parent_element_bid || '';
-                  const parentBlockBid = item.parent_block_bid || '';
-                  const parentContentItem =
-                    (parentElementBid
-                      ? itemByElementBid.get(parentElementBid)
-                      : undefined) ||
-                    (parentBlockBid
-                      ? itemByElementBid.get(parentBlockBid) ||
-                        itemByGeneratedBlockBid.get(parentBlockBid)
-                      : undefined);
-                  const parentActionBid =
-                    parentContentItem?.element_bid ||
-                    parentElementBid ||
-                    parentBlockBid;
-                  const isTextParent =
-                    parentContentItem?.type === ChatContentItemType.CONTENT &&
-                    parentContentItem?.element_type === 'text';
-                  // Hide the Debug audio action when backend marks this element as non-speakable.
-                  const shouldRenderAudioAction =
-                    isTextParent && parentContentItem?.is_speakable !== false;
-                  const parentPrimaryTrack = getAudioTrackByPosition(
-                    parentContentItem?.audioTracks ?? [],
-                  );
-                  const shouldRenderGenerateAction = Boolean(
-                    showRegenerateAction &&
-                    isRegeneratableDebugParent(parentContentItem) &&
-                    parentActionBid,
-                  );
-                  const hasDebugAudioCapability = Boolean(
-                    onRequestElementAudio && parentActionBid,
-                  );
-                  if (
-                    !shouldRenderGenerateAction &&
-                    (!shouldRenderAudioAction || !hasDebugAudioCapability)
-                  ) {
-                    return null;
-                  }
-                  return (
-                    <div
-                      key={resolveDebugItemKey(item, idx)}
-                      className='p-0'
-                      style={{ maxWidth: '100%' }}
-                    >
-                      <InteractionBlock
-                        shifu_bid={shifuBid}
-                        element_bid={parentActionBid}
-                        onRefresh={onRegenerate}
-                        onToggleAskExpanded={noop}
-                        disableAskButton
-                        disableInteractionButtons
-                        showGenerateBtn={shouldRenderGenerateAction}
-                        extraActions={
-                          onRequestElementAudio && shouldRenderAudioAction ? (
-                            <AudioPlayer
-                              audioUrl={parentPrimaryTrack?.audioUrl}
-                              streamingSegments={
-                                parentPrimaryTrack?.audioSegments
-                              }
-                              isStreaming={Boolean(
-                                parentPrimaryTrack?.isAudioStreaming,
-                              )}
-                              alwaysVisible={true}
-                              onRequestAudio={() =>
-                                onRequestElementAudio({
-                                  shifuBid,
-                                  elementBid: parentActionBid,
-                                  text: parentContentItem?.content || '',
-                                })
-                              }
-                              className='interaction-icon-btn'
-                              size={16}
-                            />
-                          ) : undefined
-                        }
-                      />
-                    </div>
-                  );
+                  return null;
                 }
 
                 if (item.type === ChatContentItemType.ERROR) {
@@ -530,6 +473,29 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                   );
                 }
 
+                const hasActionRow = actionParentKeys.has(
+                  resolveDebugItemKey(item),
+                );
+                const actionBid =
+                  item.element_bid || item.generated_block_bid || '';
+                const shouldRenderRegenerateAction = Boolean(
+                  hasActionRow &&
+                  showRegenerateAction &&
+                  isRegeneratableDebugParent(item) &&
+                  actionBid,
+                );
+                const shouldRenderAudioAction = Boolean(
+                  hasActionRow &&
+                  item.type === ChatContentItemType.CONTENT &&
+                  item.element_type === 'text' &&
+                  item.is_speakable !== false &&
+                  onRequestElementAudio &&
+                  actionBid,
+                );
+                const primaryTrack = getAudioTrackByPosition(
+                  item.audioTracks ?? [],
+                );
+
                 return (
                   <div
                     key={resolveDebugItemKey(item, idx)}
@@ -568,8 +534,50 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                         />
                       );
                     })()}
-                    {item.type === ChatContentItemType.CONTENT ? (
-                      <DebugContentCopyButton content={item.content || ''} />
+                    {item.type === ChatContentItemType.CONTENT &&
+                    (item.content ||
+                      shouldRenderRegenerateAction ||
+                      shouldRenderAudioAction) ? (
+                      <div className='mt-2 flex items-center justify-between gap-3'>
+                        {shouldRenderRegenerateAction ||
+                        shouldRenderAudioAction ? (
+                          <InteractionBlock
+                            className='interaction-block--no-padding-top'
+                            shifu_bid={shifuBid}
+                            element_bid={actionBid}
+                            onRefresh={onRegenerate}
+                            onToggleAskExpanded={noop}
+                            disableAskButton
+                            disableInteractionButtons
+                            showGenerateBtn={shouldRenderRegenerateAction}
+                            extraActions={
+                              onRequestElementAudio &&
+                              shouldRenderAudioAction ? (
+                                <AudioPlayer
+                                  audioUrl={primaryTrack?.audioUrl}
+                                  streamingSegments={
+                                    primaryTrack?.audioSegments
+                                  }
+                                  isStreaming={Boolean(
+                                    primaryTrack?.isAudioStreaming,
+                                  )}
+                                  alwaysVisible={true}
+                                  onRequestAudio={() =>
+                                    onRequestElementAudio({
+                                      shifuBid,
+                                      elementBid: actionBid,
+                                      text: item.content || '',
+                                    })
+                                  }
+                                  className='interaction-icon-btn'
+                                  size={16}
+                                />
+                              ) : undefined
+                            }
+                          />
+                        ) : null}
+                        <DebugContentCopyButton content={item.content || ''} />
+                      </div>
                     ) : null}
                   </div>
                 );

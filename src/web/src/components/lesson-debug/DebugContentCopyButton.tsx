@@ -64,7 +64,7 @@ const DebugContentCopyButton: React.FC<DebugContentCopyButtonProps> = ({
   }
 
   return (
-    <div className='flex justify-end mt-2'>
+    <div className='ml-auto flex shrink-0 justify-end'>
       <Tooltip>
         <TooltipTrigger asChild>
           <button

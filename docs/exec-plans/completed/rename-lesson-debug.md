@@ -25,6 +25,9 @@ external contracts.
 - [x] 2026-10-31 CST: Complete the expanded scope's independent audit, 223
   tests, type-check, lint and all 21 repository-wide checks; prepare the
   update to PR #3264 without merging.
+- [x] 2026-10-31 CST: Integrate the concurrent main action-row change from
+  PR #3263 into the naming branch, preserving its inline regenerate/audio/copy
+  layout and adapting only the Debug names and callback contracts.
 
 ## Surprises & Discoveries
 
@@ -37,6 +40,9 @@ The audio and interaction paths used block-named arguments for actual element
 IDs. The numeric stale-stream guard was also named like the opaque session ID.
 Shared variable types imported a storage implementation, and `debugParse`
 performed definition refresh and saved-value hydration as well as parsing.
+Main advanced with PR #3263 while the naming update was in progress. Its panel
+layout was preserved during conflict resolution rather than restoring the older
+separate helper-row rendering.
 
 ## Decision Log
 
