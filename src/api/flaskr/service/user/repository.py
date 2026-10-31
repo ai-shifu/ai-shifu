@@ -840,23 +840,29 @@ def upsert_credential(
     identifier: str,
     metadata: dict[str, str | None],
     verified: bool,
+    match_by_subject: bool = False,
 ) -> AuthCredential:
-    """Create or update credential."""
+    """Create or update a credential, optionally keeping provider subjects distinct."""
     raw_identifier = (identifier or "").strip()
     subject_id = _normalize_identifier(provider_name, subject_id)
     identifier = _normalize_identifier(provider_name, identifier)
     lookup_identifiers = [identifier]
     if raw_identifier and raw_identifier not in lookup_identifiers:
         lookup_identifiers.append(raw_identifier)
-    credential = (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid == user_bid,
-            AuthCredential.provider_name == provider_name,
-            AuthCredential.identifier.in_(lookup_identifiers),
+    query = AuthCredential.query.filter(
+        AuthCredential.user_bid == user_bid,
+        AuthCredential.provider_name == provider_name,
+    ).order_by(AuthCredential.deleted.asc(), AuthCredential.id.asc())
+    if match_by_subject:
+        # Exact equality also protects subjects on case-insensitive DB collations.
+        candidates = query.filter(AuthCredential.subject_id == subject_id).all()
+        credential = next(
+            (row for row in candidates if row.subject_id == subject_id), None
         )
-        .order_by(AuthCredential.deleted.asc(), AuthCredential.id.asc())
-        .first()
-    )
+    else:
+        credential = query.filter(
+            AuthCredential.identifier.in_(lookup_identifiers)
+        ).first()
 
     raw_profile = serialize_raw_profile(provider_name, metadata)
     state = CREDENTIAL_STATE_VERIFIED if verified else CREDENTIAL_STATE_UNVERIFIED
@@ -909,6 +915,21 @@ def find_credential(
     if for_update:
         query = query.populate_existing().with_for_update()
     return query.order_by(AuthCredential.id.asc()).first()
+
+
+def find_credential_by_subject(
+    *, provider_name: str, subject_id: str
+) -> AuthCredential | None:
+    """Find an active, exact provider subject without treating email as identity."""
+    candidates = (
+        AuthCredential.query.filter_by(
+            provider_name=provider_name, subject_id=subject_id, deleted=0
+        )
+        .order_by(AuthCredential.id.asc())
+        .all()
+    )
+    # Provider subjects are case-sensitive even when the database collation is not.
+    return next((row for row in candidates if row.subject_id == subject_id), None)
 
 
 def list_credentials(
