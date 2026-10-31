@@ -546,6 +546,23 @@ def test_an_authored_opener_does_not_exempt_a_different_generated_body() -> None
         assert filter_.invalid
 
 
+@pytest.mark.parametrize("cut", ["</", "</inter", "</interact", "</｜｜DSML｜｜ par"])
+def test_a_closing_tag_split_across_text_parts_still_ends_the_block(cut: str) -> None:
+    closing = "</interact>" if "DSML" not in cut else "</｜｜DSML｜｜ parameter>"
+    filter_ = InteractionMarkupFilter()
+    assert filter_.feed('<interact">\n<parameter name="prompt">Q</parameter>\n') == ""
+    assert filter_.feed(cut) == ""
+    assert filter_.settle() == ""
+    rest = closing[len(cut) :] + " Continue teaching\n"
+    if "DSML" in cut:
+        # A DSML parameter close ends the parameter, not the block.
+        rest += "</interact> After.\n"
+        assert filter_.feed(rest) == " After.\n"
+    else:
+        assert filter_.feed(rest) == " Continue teaching\n"
+    assert filter_.invalid
+
+
 def test_a_complete_authored_multiline_example_stays_literal() -> None:
     literals = authored_interaction_markup("Example:\n" + MULTILINE_MARKUP + "\n")
     filter_ = InteractionMarkupFilter(literals)

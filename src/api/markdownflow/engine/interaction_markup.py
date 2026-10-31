@@ -11,6 +11,8 @@ _BLOCK_TAG = re.compile(
     r"""</?(?:parameter|interact)(?=[ \t\r\n/>"'])"""
     r"|</\uff5c\uff5cDSML\uff5c\uff5c[ \t]+parameter(?=[ \t>])"
 )
+# Longer than any block tag name, including the DSML parameter closer.
+_TAG_PREFIX_LIMIT = 32
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})(.*)$")
 INTERACTION_MARKUP_RETRY = (
     "You wrote an <interact ...> tag as text instead of calling a tool. "
@@ -140,6 +142,15 @@ class InteractionMarkupFilter:
                 self._parameter_block = False
                 return text[end:]
             at = end
+        # A tag can be cut at a text-part boundary before its name is complete.
+        # Keep only a tail short enough to be such a prefix, so a body is never held.
+        start = text.rfind("<", at)
+        if (
+            start >= 0
+            and len(text) - start <= _TAG_PREFIX_LIMIT
+            and ">" not in text[start:]
+        ):
+            self._pending_tag = text[start:]
         return None
 
     def _settle(self) -> str:
