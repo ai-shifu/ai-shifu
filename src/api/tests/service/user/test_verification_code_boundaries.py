@@ -169,7 +169,7 @@ def test_database_challenge_checks_expiry_and_code_before_consumption(
     app: object, kind: str, age_seconds: int, code: str, expected: str
 ) -> None:
     identifier = (
-        f"{uuid.uuid4().hex}@example.com" if kind == "email" else uuid.uuid4().hex
+        f"{uuid.uuid4().hex[:12]}@example.com" if kind == "email" else uuid.uuid4().hex
     )
     with app.app_context():
         record = UserVerifyCode(
@@ -197,7 +197,7 @@ def test_database_challenge_cannot_be_claimed_after_another_transaction_wins(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with app.app_context():
-        identifier = f"{uuid.uuid4().hex}@example.com"
+        identifier = f"{uuid.uuid4().hex[:12]}@example.com"
         record = UserVerifyCode(
             mail=identifier,
             verify_code="2468",

@@ -22,11 +22,26 @@ configure a test code. This change is independent of first-administrator setup.
 - [x] 2026-10-31 22:36 CST: Recorded the full backend attempt and its baseline
   comparison; the frozen final auth/config/startup rerun passed 1,101 cases
   with five disposable-MySQL tests skipped.
-- [ ] Retry the full suite in a fresh pinned environment when package downloads
-  are available; both isolated setup attempts ended in network timeouts.
-- [ ] External acceptance: Docker Compose rendering, image/container startup,
-  browser smoke and strict MySQL execution remain unavailable locally.
-
+- [x] 2026-11-01 07:13 CST: Current-head CI at `3c87833` passed the pinned
+  full backend suite (15,227 passed, 20 skipped), Compose rendering,
+  AMD64/ARM64 image smoke and six browser cases. The earlier local limitations
+  remain historical rather than current CI proof gaps.
+- [x] 2026-11-01 07:13 CST: Prepared an isolated pinned test environment and
+  a private-socket MySQL 26.10.0 instance with TCP networking disabled.
+  Verified STRICT_ALL_TABLES, UTC application sessions and InnoDB tables.
+- [x] 2026-11-01 07:13 CST: Strict MySQL security regressions passed 77 cases
+  with zero skips; the final SQLite auth/config/startup group passed 1,113
+  cases with six explicit MySQL-only skips.
+- [x] 2026-11-01 07:13 CST: Reproduced four MySQL failures from oversized
+  test email values and shortened those fixtures. Added committed-state
+  readbacks, expiry/wrong-code cases and database-backed replay checks for
+  email/SMS login and password setup/reset. A read-only review clarified
+  first-password retry errors; each successful operation's code is also
+  rejected directly with a fresh cache.
+- [ ] Remaining acceptance: the separate existing password-concurrency suite,
+  production-version parity, real SMS/SMTP delivery and production acceptance
+  have not been established by this focused MySQL run. Existing Mypy issues
+  are outside the requested scope.
 
 ## Surprises & Discoveries
 
@@ -40,17 +55,34 @@ SDK transport using one read-only mount outside `/app`; business APIs stay real.
 The adapter is absent from the production image. Static packaging tests permit
 only this exact mount and continue rejecting product source mounts.
 
-The first full backend run reported 15,006 passed, 4 failed and 114 skipped.
+The first local full backend run reported 15,006 passed, 4 failed and 114 skipped.
 One failure used a test function collected before its final entrypoint assertion
 changed; the final focused rerun passed. The other three failures reproduce on
 unchanged main with the shared older dependencies (dotenv, Pydantic AI and
-LiteLLM). Two attempts to prepare a separate pinned environment ended in package-index
-or wheel-metadata download timeouts; no packages were installed into the shared
-environment. The frozen final auth/config/startup group passes 1,101 tests with
-five disposable-MySQL tests skipped. The full-suite attempt retains its actual
-15,006-pass, four-failure, 114-skip result; it is not reported as a clean run. Existing-module Mypy reports the same eight errors on
-main and the patch; both new entry modules pass. Docker CLI is absent and the
-browser attempt failed before startup because Playwright Chromium is absent.
+LiteLLM). Two initial pinned-environment setup attempts timed out; the follow-up
+successfully installed the repository requirements into an isolated temporary
+environment, preserving the shared environment. The old local full-suite result
+is not rewritten as a clean run. Later current-head CI supplies the pinned
+full-suite and container/browser evidence. Existing-module Mypy historically
+reported the same eight errors on main and the patch; they are not part of this
+verification task.
+
+The strict MySQL baseline exposed four fixture failures: complete UUID email
+values exceeded the existing 36-character column. Only the test identifiers
+were shortened; models and migrations were not changed. The focused test batch
+uses real consumers, repositories, UOWs and database writes, while retaining
+isolated cache/provider doubles. Twenty-four email/SMS business cases cover
+unissued, expired, wrong and issued codes across login, first password setup
+and reset. Independent connections read committed consumption, session and
+password state. Replay removes cache tombstones and also directly exercises
+the consumer against each successfully consumed business code. First-password
+retry correctly reports passwordAlreadySet; it is not misrepresented as a
+database-consumption check.
+
+The local server was MySQL 26.10.0 with STRICT_ALL_TABLES and InnoDB, not the
+deployment's MySQL 8.0 image. This is a strict-engine/model-schema regression
+run, not production-version parity or an Alembic migration replay. The JUnit
+report records the actual version and SQL mode and is checked for zero skips.
 
 ## Decision Log
 
@@ -67,9 +99,10 @@ browser attempt failed before startup because Playwright Chromium is absent.
 
 The local implementation blocks the configured-code bypass at the shared
 consumer, including misleading environment labels, and preserves real challenge
-state transitions. Local verification is recorded above; complete verification
-remains blocked by the external runtime checks. No production state was inspected
-or changed, and no push, publication, advisory update or merge is authorized.
+state transitions. CI and focused strict MySQL evidence are recorded above;
+remaining acceptance is explicitly bounded. Feature-branch publication and
+PR updates were authorized on 2026-11-01. No production state was inspected or
+changed; merge, deployment and advisory changes remain unauthorized.
 
 ## Context and Orientation
 
@@ -99,6 +132,22 @@ index/harness and architecture checks, and `lefthook run pre-commit --all-files`
 Render touched Compose files with `docker compose ... config` if available.
 Run browser smoke checks when possible because the runtime harness entry moves.
 Keep exact results and proof gaps in the final verification record.
+
+For the focused strict-engine replay, set TEST_SQLALCHEMY_DATABASE_URI only to
+a disposable MySQL database with strict SQL mode, then run from src/api:
+
+```bash
+python -m pytest tests/service/user/test_universal_verification_code.py \
+  tests/service/user/test_verification_code_boundaries.py \
+  tests/service/user/test_verification_code_errors.py \
+  tests/service/user/test_user_uow_failure_paths.py \
+  -q -ra -o junit_family=legacy --junitxml=mysql-security.xml
+```
+
+Confirm that the MySQL environment test executes, its JUnit properties name the
+actual server version/strict mode/InnoDB engine, and no cases are skipped. A
+default SQLite run intentionally skips that one environment assertion. The
+existing concurrency tests and global type-check debt are separate work.
 
 ## Validation and Acceptance
 
