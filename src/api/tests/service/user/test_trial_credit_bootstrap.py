@@ -76,6 +76,8 @@ def user_trial_client(monkeypatch: object, tmp_path: object) -> object:
     monkeypatch.setenv("BILL_ENABLED", "true")
     app = Flask(__name__)
     app.testing = True
+    # This fixture explicitly opts into simulated verification for trial tests.
+    app.extensions["development_verification_codes"] = True
     app.config.update(
         SQLALCHEMY_DATABASE_URI=db_uri,
         SQLALCHEMY_BINDS={

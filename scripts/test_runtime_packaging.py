@@ -452,8 +452,14 @@ def test_runtime_build_smoke_and_browser_use_same_production_images() -> None:
             "context": "..",
             "dockerfile": f"src/{service}/Dockerfile",
         }
-        assert not final_image.get("volumes"), (
-            "Source mounts would replace the tested image contents"
+        # The API's isolated SMS transport stub lives outside the image tree.
+        expected_mounts = (
+            ["../scripts/harness/runtime_app.py:/harness/runtime_app.py:ro"]
+            if service == "api"
+            else []
+        )
+        assert final_image.get("volumes", []) == expected_mounts, (
+            "Only the read-only harness SMS adapter may be mounted outside /app"
         )
         invocation = next(
             command

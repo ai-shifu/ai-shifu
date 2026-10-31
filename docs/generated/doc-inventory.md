@@ -79,6 +79,7 @@
 | `docs/exec-plans/active/persistent-secret-key.md` | Generate and persist installation secret keys | `exec-plan-active` | `active` | `cross-surface` | `2026-10-26` | `true` |
 | `docs/exec-plans/active/pr-first-release-workflow.md` | PR-first product release workflow | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/production-verification-codes.md` | Require issued verification codes in normal deployments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/question-memory-key-compatibility.md` | Define and align MarkdownFlow text variable names | `exec-plan-active` | `active` | `learner` | `2026-10-24` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |

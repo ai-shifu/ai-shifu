@@ -44,9 +44,16 @@ _application_state = _ApplicationState()
 app: Flask | None = None
 
 
-def create_app(*, serving_http: bool = True) -> Flask:
+def create_app(
+    *, serving_http: bool = True, development_verification_codes: bool = False
+) -> Flask:
     """Create and configure the Flask application."""
     if _application_state.app is not None:
+        if development_verification_codes and not _application_state.app.extensions.get(
+            "development_verification_codes", False
+        ):
+            message = "Development verification codes require a fresh dedicated startup"
+            raise RuntimeError(message)
         return _application_state.app
     import pymysql
 
@@ -54,6 +61,10 @@ def create_app(*, serving_http: bool = True) -> Flask:
     flask_app = Flask(__name__, instance_relative_config=True)
     # Record the process role before plugins/routes can schedule HTTP work.
     flask_app.extensions["serving_http"] = serving_http
+    # Startup capability: config/environment values must never enable this.
+    flask_app.extensions["development_verification_codes"] = (
+        development_verification_codes is True
+    )
     CORS(
         flask_app,
         resources={

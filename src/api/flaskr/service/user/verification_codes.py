@@ -300,10 +300,14 @@ def consume_verification_code(
     if not code:
         raise_param_error("code")
 
-    fix_code: str | None = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+    fix_code = (
+        app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        if app.extensions.get("development_verification_codes") is True
+        else None
+    )
     if fix_code and code == fix_code:
-        # Universal code is accepted in dev/test environments and should not
-        # affect cache/db state.
+        # Only the dedicated development/test startup grants this capability.
+        # Keep simulated verification independent of real challenge state.
         return
 
     resolved_kind: CodeKind = kind or ("email" if "@" in identifier else "sms")
