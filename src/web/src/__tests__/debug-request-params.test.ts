@@ -4,7 +4,7 @@ import {
   resolveDebugRegenerationBlockIndex,
   resolveDebugRegenerationStartIndex,
   resolveDebugRequestBlockIndex,
-} from '@/components/lesson-debug/debugRequestParams';
+} from '@/components/lesson-debug/debug-request-params';
 import { ChatContentItemType } from '@/types/chatUi';
 
 jest.mock('remark-flow', () =>

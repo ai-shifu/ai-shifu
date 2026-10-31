@@ -1,4 +1,7 @@
-import type { DebugRunParams, DebugVariableValues } from '@/types/debugSession';
+import type {
+  DebugRunParams,
+  DebugVariableValues,
+} from '@/types/debug-session';
 import type { ChatContentItem } from '@/types/chatUi';
 import { normalizeVariableName } from 'remark-flow';
 

@@ -1,4 +1,4 @@
-import { buildDebugContinuationParams } from './debugRequestParams';
+import { buildDebugContinuationParams } from './debug-request-params';
 import { createElement, StrictMode } from 'react';
 import {
   act,
@@ -19,7 +19,7 @@ import {
   buildDebugBusinessErrorItem,
   replaceDebugLoadingWithBusinessError,
   useDebugSession,
-} from './useDebugSession';
+} from './use-debug-session';
 
 const mockParseToRemarkFormat = jest.fn();
 const mockTrackEvent = jest.fn();

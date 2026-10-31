@@ -83,7 +83,7 @@ production incident or every provider failure has been reconstructed.
 
 ## Context and Orientation
 
-`useDebugSession.tsx` owns editor streaming, variable edits and restart. The preview
+`use-debug-session.tsx` owns editor streaming, variable edits and restart. The preview
 route selects the legacy context or agent debug session. Agent output-language
 policy is configured per request. The classroom uses the separate study transport.
 

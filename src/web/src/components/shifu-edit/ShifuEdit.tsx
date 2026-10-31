@@ -47,7 +47,7 @@ import {
 } from '@/types/shifu';
 import ChapterSettingsDialog from '@/components/chapter-setting';
 import DebugPanel from '@/components/lesson-debug';
-import { useDebugSession } from '@/components/lesson-debug/useDebugSession';
+import { useDebugSession } from '@/components/lesson-debug/use-debug-session';
 import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
 import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editorOnboardingSteps';
 import OutlineTree from '@/components/outline-tree';

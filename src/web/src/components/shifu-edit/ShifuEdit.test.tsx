@@ -243,7 +243,7 @@ jest.mock('@/hooks/useOnboarding', () => ({
     skip: jest.fn(),
   }),
 }));
-jest.mock('@/components/lesson-debug/useDebugSession', () => ({
+jest.mock('@/components/lesson-debug/use-debug-session', () => ({
   useDebugSession: (options: unknown) => {
     mockUseDebugSession(options);
     return {

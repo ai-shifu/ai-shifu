@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import type { DebugVariableValues } from '@/types/debugSession';
+import type { DebugVariableValues } from '@/types/debug-session';
 import type {
   AudioSegmentData,
   BlockType,

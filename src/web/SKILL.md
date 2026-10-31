@@ -26,7 +26,7 @@ For an editor Debug business failure before the first content element, use the
 existing `useDebugSession` error path to replace the loading placeholder with the
 backend message. Preserve the structured business code on the rendered error
 item and let `DebugPanel` choose a directed action; do not branch on message
-text. `src/components/lesson-debug/useDebugSession.test.ts` covers the loading
+text. `src/components/lesson-debug/use-debug-session.test.ts` covers the loading
 replacement and retained business code.
 
 `src/components/lesson-debug/` owns the lesson editor's Debug panel and transient
@@ -41,8 +41,11 @@ name their action (`onRegenerate`, `onSubmitInteraction`,
 `onRequestElementAudio`). Use `elementBid` for rendered elements and
 `generatedBlockBid` for engine turns. Internal run parameters use camelCase;
 the request boundary maps them to the existing wire fields. Shared variable
-and preparation types live in `src/types/debugSession.ts`, storage in
-`debugVariableStorage.ts`, and request preparation in `debugRequestParams.ts`.
+and preparation types live in `src/types/debug-session.d.ts`, storage in
+`debug-variable-storage.ts`, and request preparation in `debug-request-params.ts`.
+
+For file casing, follow the [engineering naming rules](../../docs/engineering-baseline.md#file-and-directory-naming-conventions).
+File names and code identifiers have separate conventions.
 
 Add a focused skill only for a recurring workflow. Its `SKILL.md` must declare
 `name` and a concrete trigger in `description`; keep reference details there,

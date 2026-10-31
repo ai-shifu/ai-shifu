@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './DebugVariablesPanel.module.scss';
-import type { DebugVariableValues } from '@/types/debugSession';
+import type { DebugVariableValues } from '@/types/debug-session';
 import { Input } from '../ui/Input';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 

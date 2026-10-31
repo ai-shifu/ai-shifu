@@ -8,7 +8,7 @@ import { debugWarn } from '@/lib/debugConsole';
 import type {
   DebugVariableValues,
   StoredDebugVariableValues,
-} from '@/types/debugSession';
+} from '@/types/debug-session';
 
 // Preserve saved editor Debug variables under the existing storage key.
 const VARIABLE_STORAGE_KEY_PREFIX = 'lesson_preview_variables';

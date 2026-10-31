@@ -3,7 +3,7 @@ import {
   buildVisibleDebugItems,
   shouldEnableDebugTypewriter,
   type DebugTypewriterCache,
-} from './debugTypewriterGate';
+} from './debug-typewriter-gate';
 
 const buildContentItem = (
   overrides: Partial<ChatContentItem> & Pick<ChatContentItem, 'element_bid'>,

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import ScrollText from './ScrollText.svg';
+import ScrollText from './scroll-text.svg';
 import Image from 'next/image';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import type { AudioCompleteData } from '@/api/studyV2';
@@ -16,7 +16,7 @@ import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { getAudioTrackByPosition } from '@/lib/audio-utils';
 import DebugVariablesPanel from './DebugVariablesPanel';
 import DebugContentCopyButton from './DebugContentCopyButton';
-import { type DebugVariableValues } from '@/types/debugSession';
+import { type DebugVariableValues } from '@/types/debug-session';
 import styles from './DebugPanel.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -41,7 +41,7 @@ import {
   shouldEnableDebugTypewriter,
   syncDebugTypewriterCache,
   type DebugTypewriterCache,
-} from './debugTypewriterGate';
+} from './debug-typewriter-gate';
 
 interface DebugPanelProps {
   isLoading: boolean;

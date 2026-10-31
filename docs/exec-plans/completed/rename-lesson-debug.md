@@ -28,6 +28,9 @@ external contracts.
 - [x] 2026-10-31 CST: Integrate the concurrent main action-row change from
   PR #3263 into the naming branch, preserving its inline regenerate/audio/copy
   layout and adapting only the Debug names and callback contracts.
+- [x] 2026-10-31 CST: Correct file casing against the explicit engineering
+  baseline: kebab-case for hooks and helpers, matching tests, component-matched
+  CSS Modules and a kebab-case `.d.ts` module for shared declarations.
 
 ## Surprises & Discoveries
 
@@ -43,6 +46,9 @@ performed definition refresh and saved-value hydration as well as parsing.
 Main advanced with PR #3263 while the naming update was in progress. Its panel
 layout was preserved during conflict resolution rather than restoring the older
 separate helper-row rendering.
+Nearby source files use historical camelCase names, but the engineering baseline
+explicitly requires kebab-case for ordinary frontend modules. Existing gates do
+not enforce this filename rule, so passing them alone did not establish compliance.
 
 ## Decision Log
 
@@ -51,14 +57,17 @@ separate helper-row rendering.
   `useDebugSession` for session orchestration.
 - Avoid repeating `Lesson` in those names: the directory supplies that context.
   Keep meaningful responsibility words such as `Panel`, `Session` and `Run`.
+- Follow the canonical file-name rules in `docs/engineering-baseline.md` rather
+  than copying legacy file casing. Keep code symbols such as `useDebugSession`
+  in camelCase independently of the `use-debug-session.tsx` filename.
 - Distinguish `startRun` / `stopRun` from `resetSession`; use action names for
   submissions, regeneration, variable updates and element audio. Adapt existing
   shared ChatUi props at the boundary rather than renaming unrelated consumers.
 - Use camelCase for internal `DebugRunParams`, `elementBid` for rendered
   elements, `generatedBlockBid` for engine turns and `streamGeneration` for
   stale-callback guards. Preserve snake_case at the wire boundary.
-- Move shared value, scope, preparation and run types to `src/types/debugSession.ts`.
-  Use `prepareDebugSession`, `debugRequestParams.ts` and `debugVariableStorage.ts`
+- Move shared value, scope, preparation and run types to `src/types/debug-session.d.ts`.
+  Use `prepareDebugSession`, `debug-request-params.ts` and `debug-variable-storage.ts`
   for the separate preparation, request-shaping and persistence responsibilities.
 - Keep API URLs, request fields, SSE values, storage keys, analytics event names
   and payloads, and translation namespaces unchanged. This is a source naming
@@ -86,7 +95,7 @@ code, selected-step regeneration, merge or deployment is included.
 The renamed implementation lives under `src/web/src/components/lesson-debug/`.
 `src/web/src/components/shifu-edit/ShifuEdit.tsx` owns its editor entry point.
 `src/web/src/store/useShifu.tsx` prepares Debug variables and parsing results;
-`src/web/src/types/debugSession.ts` owns value, scope, preparation and run types;
+`src/web/src/types/debug-session.d.ts` owns value, scope, preparation and run types;
 `shifu.ts` and `chatUi.ts` consume those types without importing storage code.
 `src/web/SKILL.md` and the element-streaming skill route future Debug work.
 

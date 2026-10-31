@@ -52,13 +52,16 @@ import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/hooks/useTracking';
-import type { DebugRunParams, DebugVariableValues } from '@/types/debugSession';
-import { mergeStoredDebugVariableValues } from './debugVariableStorage';
+import type {
+  DebugRunParams,
+  DebugVariableValues,
+} from '@/types/debug-session';
+import { mergeStoredDebugVariableValues } from './debug-variable-storage';
 import {
   buildDebugContinuationParams,
   buildDebugInteractionInput,
   resolveDebugGeneratedBlockBid,
-} from './debugRequestParams';
+} from './debug-request-params';
 
 interface InteractionParseResult {
   variableName?: string;

@@ -1,5 +1,5 @@
 import { createInteractionParser, extractVariableNames } from 'remark-flow';
-import { buildDebugInteractionInput } from '@/components/lesson-debug/debugRequestParams';
+import { buildDebugInteractionInput } from '@/components/lesson-debug/debug-request-params';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 
 // Exercise the packaged parser and helpers while avoiding Jest's unrelated ESM plugin loader.

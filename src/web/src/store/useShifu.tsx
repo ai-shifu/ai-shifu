@@ -37,11 +37,11 @@ import {
   readStoredDebugVariableValues,
   selectDebugVariableValues,
   mergeStoredDebugVariableValues,
-} from '@/components/lesson-debug/debugVariableStorage';
+} from '@/components/lesson-debug/debug-variable-storage';
 import type {
   DebugSessionPreparation,
   StoredDebugVariableValues,
-} from '@/types/debugSession';
+} from '@/types/debug-session';
 import { useTracking } from '@/hooks/useTracking';
 import {
   buildOutlineCreateAnalytics,
