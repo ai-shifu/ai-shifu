@@ -40,6 +40,7 @@ import { useEnvStore } from '@/store/envStore';
 import { environment } from '@/config/environment';
 import { resolveWideLogoSource } from '@/components/logo/logoSource';
 import SetPasswordModal from '../Settings/SetPasswordModal';
+import ChangePasswordModal from '../Settings/ChangePasswordModal';
 import SessionManagerModal from '../Settings/SessionManagerModal';
 import CourseMemoryDialog from '../Settings/CourseMemoryDialog';
 
@@ -151,7 +152,14 @@ const MainMenuModal = ({
     typeof userInfo?.mobile === 'string' && userInfo.mobile.trim() !== '';
   const hasEmail =
     typeof userInfo?.email === 'string' && userInfo.email.trim() !== '';
-  const canSetPassword = isPasswordEnabled && (hasMobile || hasEmail);
+  const hasPassword =
+    isLoggedIn &&
+    (userInfo?.has_password === true || userInfo?.has_local_password === true);
+  const canSetPassword =
+    hasPassword || (isPasswordEnabled && (hasMobile || hasEmail));
+  const passwordActionLabel = hasPassword
+    ? t('module.installation.changePassword')
+    : t('module.settings.setPassword');
 
   const { trackEvent } = useTracking();
   const previewMode = useSystemStore(state => state.previewMode);
@@ -232,7 +240,7 @@ const MainMenuModal = ({
   const onSetPasswordClick = (evt: React.MouseEvent) => {
     evt.preventDefault();
     evt.stopPropagation();
-    trackEvent(EVENT_NAMES.USER_MENU_SET_PASSWORD, {});
+    if (!hasPassword) trackEvent(EVENT_NAMES.USER_MENU_SET_PASSWORD, {});
     if (!isLoggedIn) {
       trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu_set_password' });
       shifu.loginTools.openLogin();
@@ -247,13 +255,13 @@ const MainMenuModal = ({
       type='button'
       className={cn(styles.mainMenuModalRow, 'px-2.5')}
       onClick={onSetPasswordClick}
-      title={t('module.settings.setPassword')}
+      title={passwordActionLabel}
     >
       <KeyRound
         className={styles.rowIcon}
         size={16}
       />
-      <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
+      <div className={styles.rowTitle}>{passwordActionLabel}</div>
     </button>
   ) : null;
 
@@ -593,11 +601,19 @@ const MainMenuModal = ({
           }}
         />
       ) : null}
-      <SetPasswordModal
-        open={setPasswordModalOpen}
-        onClose={() => setSetPasswordModalOpen(false)}
-        onSuccess={refreshUserInfo}
-      />
+      {hasPassword ? (
+        <ChangePasswordModal
+          open={setPasswordModalOpen}
+          onClose={() => setSetPasswordModalOpen(false)}
+          onSuccess={refreshUserInfo}
+        />
+      ) : (
+        <SetPasswordModal
+          open={setPasswordModalOpen}
+          onClose={() => setSetPasswordModalOpen(false)}
+          onSuccess={refreshUserInfo}
+        />
+      )}
     </>
   );
 };

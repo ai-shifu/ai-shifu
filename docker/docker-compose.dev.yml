@@ -7,8 +7,8 @@ x-ai-shifu-api-dev-image: &ai-shifu-api-dev-image
 services:
   ai-shifu-api-dev:
     <<: *ai-shifu-api-dev-image
-    #    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
-    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-otel-collector/4318'; do sleep 1; done && python scripts/repair_dev_migration_state.py && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gthread --threads 8 -w 1 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
+    #    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask console prepare-installation && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
+    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-otel-collector/4318'; do sleep 1; done && flask console prepare-installation --repair-development && flask console update_demo_shifu && cd /app && exec gunicorn -k gthread --threads 8 -w 1 -b 0.0.0.0:5800 'app:create_development_app()' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
     env_file:
       - ./.env
     environment:
@@ -19,6 +19,7 @@ services:
       LOGIN_METHODS_ENABLED: phone
       DEFAULT_LOGIN_METHOD: phone
       CAPTCHA_CODE_OVERRIDE: "0000"
+      ENV: development
       CREATOR_INTEGRATION_ENCRYPTION_KEY: "9KxIo7loUIAmGkQmxUHQWwLpyJBKdIIFxg9FgDtw9NI="
       SAAS_DB_URI: "mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4"
       REDIS_HOST: ai-shifu-redis
@@ -47,7 +48,7 @@ services:
     command:
       - sh
       - -c
-      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec python -m celery -A celery_app:celery_app worker --loglevel info
+      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-api-dev/5800'; do sleep 1; done && exec python -m celery -A celery_app:celery_app worker --loglevel info
     env_file:
       - ./.env
     environment:
@@ -61,6 +62,7 @@ services:
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
+      - ai-shifu-api-dev
     volumes:
       - ../src/api/:/app/
       - ../src/i18n/:/app/i18n/
@@ -71,7 +73,7 @@ services:
     command:
       - sh
       - -c
-      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec python -m celery -A celery_app:celery_app beat --loglevel info
+      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-api-dev/5800'; do sleep 1; done && exec python -m celery -A celery_app:celery_app beat --loglevel info
     env_file:
       - ./.env
     environment:
@@ -85,6 +87,7 @@ services:
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
+      - ai-shifu-api-dev
     volumes:
       - ../src/api/:/app/
       - ../src/i18n/:/app/i18n/

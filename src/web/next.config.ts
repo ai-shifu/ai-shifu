@@ -92,6 +92,18 @@ const nextConfig: NextConfig = {
     return [{ source: '/main', destination: '/admin', permanent: true }];
   },
 
+  async headers() {
+    return ['/setup', '/admin-login'].map(source => ({
+      source,
+      headers: [
+        { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+        { key: 'Cache-Control', value: 'no-store' },
+      ],
+    }));
+  },
+
   // Local development: proxy /api/* to the backend to resolve CORS issues during remote access.
   // Only active under `next dev` (npm run dev); production builds/starts (next build / next start)
   // have NODE_ENV set to 'production' and will not inject this proxy.

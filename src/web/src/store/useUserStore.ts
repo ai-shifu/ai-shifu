@@ -256,9 +256,12 @@ export const useUserStore = create<
             return;
           }
 
-          // Determine if user is authenticated based on mobile number or email
+          // Preview installations may retain a contactless administrator alias.
+          // Only its explicit server marker distinguishes it from a guest.
           const isAuthenticated = !!(
-            normalizedUserInfo?.mobile || normalizedUserInfo?.email
+            normalizedUserInfo?.mobile ||
+            normalizedUserInfo?.email ||
+            normalizedUserInfo?.has_local_password === true
           );
           tokenTool.set({
             token: latestTokenData.token || initialToken,

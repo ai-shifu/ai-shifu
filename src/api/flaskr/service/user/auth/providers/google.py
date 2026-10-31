@@ -282,26 +282,43 @@ class GoogleAuthProvider(AuthProvider):
             raise RuntimeError(message)
 
         email = email.lower()
-        email_verified = bool(profile.get("email_verified", False))
-        credential = find_credential(provider_name=self.provider_name, identifier=email)
-
+        email_verified = profile.get("email_verified") is True
         origin_user_id = getattr(request, "current_user_id", None)
-        origin_aggregate = (
-            load_user_aggregate(origin_user_id) if origin_user_id else None
-        )
-
         aggregate = None
         created_user = False
         credential_record = None
 
+        from flaskr.service.user.installation import (
+            guard_pending_installation_identity_creation,
+        )
+
         with unit_of_work():
+            installation_pending = guard_pending_installation_identity_creation()
+            credential = find_credential(
+                provider_name=self.provider_name,
+                identifier=email,
+                for_update=installation_pending,
+            )
+            origin_aggregate = (
+                load_user_aggregate(origin_user_id, for_update=installation_pending)
+                if origin_user_id
+                else None
+            )
             if credential:
-                aggregate = load_user_aggregate(credential.user_bid)
+                # An unverified address is not authority to replace a bound
+                # Google subject or select an existing password account.
+                if not email_verified and credential.subject_id != subject_id:
+                    raise_error("server.user.invalidCredentials")
+                aggregate = load_user_aggregate(
+                    credential.user_bid, for_update=installation_pending
+                )
 
             if not aggregate:
                 aggregate = load_user_aggregate_by_identifier(
-                    email, providers=["email"]
+                    email, providers=["email"], for_update=installation_pending
                 )
+                if aggregate is not None and not email_verified:
+                    raise_error("server.user.invalidCredentials")
 
             if not aggregate and origin_aggregate:
                 aggregate = origin_aggregate
@@ -342,7 +359,7 @@ class GoogleAuthProvider(AuthProvider):
                         subject_format="email",
                         identifier=email,
                         metadata={},
-                        verified=profile.get("email_verified", False),
+                        verified=email_verified,
                     )
             else:
                 defaults = {
@@ -371,7 +388,7 @@ class GoogleAuthProvider(AuthProvider):
                 subject_format="google",
                 identifier=email,
                 metadata=profile,
-                verified=profile.get("email_verified", False),
+                verified=email_verified,
             )
 
             # Reuse the first-account bootstrap logic across login methods so

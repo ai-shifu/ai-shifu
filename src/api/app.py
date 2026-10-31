@@ -87,6 +87,14 @@ def create_app(*, serving_http: bool = True) -> Flask:
 
     dao.init_db(flask_app)
 
+    # Capture provenance before plugin migrations can populate a fresh schema.
+    # The snapshot authorizes only the trusted console preparation operation.
+    from flaskr.service.user.installation import (
+        capture_installation_database_provenance,
+    )
+
+    capture_installation_database_provenance(flask_app)
+
     # init i18n
     from flaskr.i18n import load_translations
 
@@ -144,6 +152,17 @@ def create_app(*, serving_http: bool = True) -> Flask:
         plugin_manager.enable_hot_reload()
 
     _application_state.app = flask_app
+    return flask_app
+
+
+def create_development_app() -> Flask:
+    """Opt a local development/test server into configured test verification codes."""
+    from flaskr.service.user.verification_codes import (
+        enable_development_verification_codes,
+    )
+
+    flask_app = create_app()
+    enable_development_verification_codes(flask_app)
     return flask_app
 
 

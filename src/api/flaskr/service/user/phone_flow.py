@@ -146,10 +146,41 @@ def migrate_user_study_record(
     )
 
 
-def init_first_course(app: Flask, user_id: str) -> bool:
-    # Ensure pending state changes are visible to subsequent queries
-    """Initialize first course."""
+def assign_bootstrap_demo_ownership(user_id: str) -> None:
+    """Assign the single bundled demo to an authorized initial administrator."""
+    # Holds a model class, so it keeps the CapWords spelling.
+    ShifuModel: PublishedShifu | DraftShifu = PublishedShifu  # noqa: N806
+    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
+    if course_count == 0:
+        course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
+        ShifuModel = DraftShifu  # noqa: N806
+    if course_count != 1:
+        return
+    course = (
+        ShifuModel.query.filter(ShifuModel.deleted == 0).order_by(ShifuModel.id).first()
+    )
+    if course is None:
+        return
+    course.created_user_bid = user_id
+    draft = DraftShifu.query.filter(
+        DraftShifu.deleted == 0,
+        DraftShifu.shifu_bid == course.shifu_bid,
+    ).first()
+    if draft:
+        draft.created_user_bid = user_id
     db.session.flush()
+
+
+def init_first_course(app: Flask, user_id: str) -> bool:
+    """Retain explicit legacy bootstrap without promoting public managed logins."""
+    from flaskr.service.user.installation import (
+        allows_legacy_first_user_bootstrap,
+        complete_legacy_first_user_bootstrap,
+    )
+
+    db.session.flush()
+    if not allows_legacy_first_user_bootstrap(app):
+        return False
 
     # Count only verified users for the bootstrap check.
     # Support both legacy verified states (1..3) and canonical verified states
@@ -182,33 +213,8 @@ def init_first_course(app: Flask, user_id: str) -> bool:
         # manageable without extra manual role assignment.
         creator_granted_now = not bool(verified_users[0].is_creator)
         mark_user_roles(user_id, is_creator=True, is_operator=True)
-
-        # Holds a model class, so it keeps the CapWords spelling.
-        ShifuModel: PublishedShifu | DraftShifu = PublishedShifu  # noqa: N806
-        # Assign demo shifu only when there is exactly one published course
-        course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
-        if course_count == 0:
-            course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
-            ShifuModel = DraftShifu  # noqa: N806
-        if course_count != 1:
-            db.session.flush()
-            return creator_granted_now
-
-        course = (
-            ShifuModel.query.filter(ShifuModel.deleted == 0)
-            .order_by(ShifuModel.id.asc())
-            .first()
-        )
-        if course:
-            # Persist creator on the published record
-            course.created_user_bid = user_id
-            # Also persist creator on the corresponding draft (used by permission checks)
-            draft = DraftShifu.query.filter(
-                DraftShifu.deleted == 0,
-                DraftShifu.shifu_bid == course.shifu_bid,
-            ).first()
-            if draft:
-                draft.created_user_bid = user_id
+        complete_legacy_first_user_bootstrap(user_id)
+        assign_bootstrap_demo_ownership(user_id)
         db.session.flush()
         return creator_granted_now
     finally:
@@ -247,9 +253,14 @@ def verify_phone_code(
     creator_granted_now = False
     normalized_course_id = str(course_id or "").strip() or None
 
+    from flaskr.service.user.installation import (
+        guard_pending_installation_identity_creation,
+    )
+
     with unit_of_work():
+        installation_pending = guard_pending_installation_identity_creation()
         target_aggregate = load_user_aggregate_by_identifier(
-            normalized_phone, providers=["phone"]
+            normalized_phone, providers=["phone"], for_update=installation_pending
         )
         origin_aggregate = load_user_aggregate(user_id) if user_id else None
 

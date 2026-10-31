@@ -13,7 +13,9 @@ from flaskr.service.user.auth.base import (
     VerificationRequest,
 )
 from flaskr.service.user.auth.providers import email, password, phone
+from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.password_utils import password_credential_version
 
 
 @pytest.fixture
@@ -224,7 +226,7 @@ def test_password_provider_rejects_empty_credentials_before_account_lookup(
     app: object, monkeypatch: pytest.MonkeyPatch, identifier: str, secret: str
 ) -> None:
     lookup = Mock()
-    monkeypatch.setattr(password, "load_user_aggregate_by_identifier", lookup)
+    monkeypatch.setattr(password, "_load_password_user", lookup)
     with app.app_context(), pytest.raises(AppError) as error:
         password.PasswordAuthProvider().verify(
             app, VerificationRequest(identifier=identifier, code=secret)
@@ -242,10 +244,10 @@ def test_password_failures_share_one_public_error_and_never_mint_tokens(
     aggregate = (
         None if failure == "missing_account" else SimpleNamespace(user_bid="account-1")
     )
-    credential = AuthCredential(user_bid="account-1", provider_name="password")
-    monkeypatch.setattr(
-        password, "load_user_aggregate_by_identifier", Mock(return_value=aggregate)
+    credential = AuthCredential(
+        user_bid="account-1", provider_name="password", state=CREDENTIAL_STATE_VERIFIED
     )
+    monkeypatch.setattr(password, "_load_password_user", Mock(return_value=aggregate))
     monkeypatch.setattr(
         password,
         "list_credentials",
@@ -291,11 +293,12 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         credential_bid="password-credential-1",
         user_bid="account-1",
         provider_name="password",
+        state=CREDENTIAL_STATE_VERIFIED,
         identifier="another-login@example.com",
     )
     lookup = Mock(return_value=aggregate)
     credentials = Mock(return_value=[credential])
-    monkeypatch.setattr(password, "load_user_aggregate_by_identifier", lookup)
+    monkeypatch.setattr(password, "_load_password_user", lookup)
     monkeypatch.setattr(password, "list_credentials", credentials)
     monkeypatch.setattr(password, "get_password_hash", Mock(return_value="stored-hash"))
     verifier = Mock(return_value=True)
@@ -313,8 +316,8 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         )
     # Resolve the alias again under the account guard before checking credentials.
     assert lookup.call_args_list == [
-        call(normalized, providers=["phone", "email"]),
-        call(normalized, providers=["phone", "email"]),
+        call(normalized),
+        call(normalized),
     ]
     mint.assert_called_once_with(app, "account-1")
     credentials.assert_called_once_with(user_bid="account-1", provider_name="password")
@@ -328,4 +331,5 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         "verified_identifier": normalized,
         "password_credential_bid": "password-credential-1",
         "password_credential_identifier": "another-login@example.com",
+        "credential_version": password_credential_version("stored-hash"),
     }

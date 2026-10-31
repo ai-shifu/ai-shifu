@@ -61,9 +61,14 @@ def verify_email_code(
     created_new_user = False
     creator_granted_now = False
 
+    from flaskr.service.user.installation import (
+        guard_pending_installation_identity_creation,
+    )
+
     with unit_of_work():
+        installation_pending = guard_pending_installation_identity_creation()
         target_aggregate = load_user_aggregate_by_identifier(
-            normalized_email, providers=["email"]
+            normalized_email, providers=["email"], for_update=installation_pending
         )
         origin_aggregate = load_user_aggregate(user_id) if user_id else None
 

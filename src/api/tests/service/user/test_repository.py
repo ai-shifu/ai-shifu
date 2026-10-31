@@ -1,5 +1,6 @@
 """Verify user aggregates resolve active and legacy credentials."""
 
+import json
 import uuid
 from collections.abc import Iterator
 from datetime import datetime
@@ -8,7 +9,9 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.dao import db
+from flaskr.service.common.dtos import has_login_identity
 from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
     USER_STATE_REGISTERED,
@@ -95,6 +98,57 @@ def _insert_phone_credential(
     )
     db.session.add(credential)
     return credential
+
+
+@pytest.mark.parametrize("verified", [True, False])
+@pytest.mark.parametrize("deleted", [0, 1])
+@pytest.mark.parametrize("password_is_set", [False, True])
+def test_contactless_local_login_fact_uses_active_verified_credentials(
+    app: Flask, user_bid: str, verified: bool, deleted: int, password_is_set: bool
+) -> None:
+    _ = app
+    user = create_user_entity(
+        user_bid=user_bid, identify=f"local:{user_bid}", state=USER_STATE_REGISTERED
+    )
+    user.is_operator = 1
+    user.is_creator = 1
+    db.session.add(
+        AuthCredential(
+            credential_bid=uuid.uuid4().hex,
+            user_bid=user_bid,
+            provider_name="password",
+            raw_profile=json.dumps(
+                {
+                    "provider": "password",
+                    "metadata": {"installation_admin": "true"},
+                    "password_hash": "synthetic-hash-presence"
+                    if password_is_set
+                    else "",
+                }
+            ),
+            identifier="local_owner",
+            subject_id="local_owner",
+            subject_format="username",
+            state=(
+                CREDENTIAL_STATE_VERIFIED if verified else CREDENTIAL_STATE_UNVERIFIED
+            ),
+            deleted=deleted,
+        )
+    )
+    db.session.flush()
+    aggregate = load_user_aggregate(user_bid)
+    assert aggregate is not None
+    assert aggregate.mobile == aggregate.email == ""
+    assert aggregate.has_password is (verified and not deleted and password_is_set)
+    assert aggregate.has_local_password is (
+        verified and not deleted and password_is_set
+    )
+    assert has_login_identity(aggregate) is (
+        verified and not deleted and password_is_set
+    )
+    assert has_login_identity(aggregate.to_user_info()) is (
+        verified and not deleted and password_is_set
+    )
 
 
 def _create_user(

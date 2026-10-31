@@ -1,0 +1,14 @@
+{
+  "__namespace__": "server.installation",
+  "__flat__": {
+    "identifierUnavailable": "Diese Administratorkennung ist nicht verfügbar.",
+    "invalidIdentifier": "Geben Sie eine gültige E-Mail-Adresse oder Mobilnummer aus Festlandchina ein.",
+    "invalidSetupOrigin": "Verwenden Sie genau die sichere oder lokale Adresse, für die der Einrichtungscode ausgestellt wurde.",
+    "invalidSetupToken": "Der Einrichtungscode ist ungültig oder abgelaufen. Fordern Sie über die Serverkonsole einen neuen Code an.",
+    "localLoginUnavailable": "Die lokale Administratoranmeldung ist für diese Installation nicht verfügbar.",
+    "passwordTooLong": "Das Passwort darf 72 UTF-8-Bytes nicht überschreiten.",
+    "setupComplete": "Diese Installation ist bereits eingerichtet. Melden Sie sich mit Ihrem Administratorkonto an.",
+    "setupRateLimited": "Zu viele Einrichtungsversuche. Versuchen Sie es später erneut.",
+    "setupUnavailable": "Die Administratoreinrichtung ist nicht verfügbar. Prüfen Sie die Installation über die Serverkonsole."
+  }
+}

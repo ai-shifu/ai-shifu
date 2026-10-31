@@ -39,6 +39,7 @@ from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_rol
 from flaskr.service.user.token_store import SessionMetadata, token_store
 from flaskr.service.user.verification_codes import (
     clear_verification_attempts,
+    get_development_verification_code,
     verification_cache_provider,
     verification_code_lock,
 )
@@ -569,7 +570,7 @@ def send_sms_code(
             _SMS_CHALLENGE_POLICY,
             lambda prepared: bool(
                 send_sms_code_ali(app, phone, prepared.code)
-                or app.config.get("UNIVERSAL_VERIFICATION_CODE")
+                or get_development_verification_code(app)
             ),
         )
         return {"expire_in": challenge.expire_in}

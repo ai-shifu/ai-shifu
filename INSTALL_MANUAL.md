@@ -300,11 +300,14 @@ validated and preserved.
 python3 scripts/prepare_env.py --output src/api/.env
 ```
 
-The Docker template includes demo authentication settings such as
-`UNIVERSAL_VERIFICATION_CODE`. The API and frontend commands below bind to
-loopback so those settings are not exposed through either development server.
-Before making the application remotely accessible, clear the universal code,
-and configure a real login provider. Keep the generated `SECRET_KEY` unchanged.
+Verification bypass is disabled by default, including for `ENV=development`.
+The API and frontend commands below bind to loopback. Before making the
+application remotely accessible, configure a secure HTTPS endpoint and keep the
+generated `SECRET_KEY` unchanged. The first administrator uses a phone number
+or email address and a password. SMS, SMTP and OAuth are optional for subsequent
+learner login or notifications.
+See [First Administrator Setup](#first-administrator-setup) and
+[Local Demo Login](#local-demo-login).
 
 Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
 mapping. Replace Docker service hostnames with the addresses of your local
@@ -329,12 +332,19 @@ cd src/api
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Initialize database
-flask db upgrade
+# Initialize a fresh installation, or migrate an existing one without reopening setup
+flask console prepare-installation
 
 # Start the API server
 gunicorn -w 4 -b 127.0.0.1:5800 'app:app' --timeout 300 --log-level debug
 ```
+
+Complete `prepare-installation` before starting any worker or beat process;
+their application plugins may also initialize database state. Compose waits
+for the API to finish its preparation and begin listening before starting those
+Python processes. For the development stack, the known migration-residue repair
+runs inside `prepare-installation --repair-development` so the same process
+retains the original fresh-schema snapshot.
 
 The HTTP server does not process queued jobs. For background billing, TTS,
 and user tasks, open another terminal with the same Python environment and
@@ -487,7 +497,7 @@ do not call the LLM.
 1. **Database Connection Failed**
    - Ensure MySQL is running and accessible
    - Check database credentials in `.env`
-   - Run `flask db upgrade` to initialize tables
+   - Run `flask console prepare-installation` to initialize or migrate tables
 
 2. **Redis Connection Failed**
    - Ensure Redis is running and accessible
@@ -523,10 +533,138 @@ do not call the LLM.
 - Course authoring and administration: `http://localhost:3000/admin`
 - API: `http://localhost:5800`
 
+### First Administrator Setup
+
+This flow requires API and Web images containing the first-run setup feature.
+Rebuild from the matching source or pull a published release containing it;
+cached `:latest` images and older pinned releases do not acquire new commands
+by changing the Compose file. Pinned Compose keeps its image tags and uses the
+legacy migration command only when an older image lacks the feature. It never
+falls back after a new preparation command fails.
+
+Normal Compose startup runs `flask console prepare-installation`. It captures
+whether the schema is genuinely new before applying migrations. New instances
+start in pending setup; existing or unknown schemas remain closed even if user
+tables are empty. Restarting, clearing Redis or deleting users never reopens
+completed initialization.
+
+For a fresh Docker installation, run this from `docker/` on the server:
+
+```bash
+docker compose -f docker-compose.latest.yml exec ai-shifu-api \
+  flask console setup-code --origin http://localhost:8080
+```
+
+Open `http://localhost:8080/admin` (or `/setup`), paste the console code and
+enter a phone number or email address and choose a password. The code expires
+after 20 minutes, works once and is bound to the exact selected origin. Reissuing a
+code invalidates the previous one. Keep it out of URLs and shared logs. The
+identifier is not verified by setup; SMTP, SMS and OAuth services are not
+required. The account receives administrator and teacher permissions plus the
+bundled demo course where applicable.
+
+For a manual development install with Web on port 3000, run
+`flask console setup-code --origin http://localhost:3000` from `src/api` instead.
+For a remote browser use your exact HTTPS origin, such as the origin configured
+for your deployment, in `--origin`. Plain public HTTP is not supported by the
+setup/local-login forms; use HTTPS or access loopback through an SSH tunnel.
+
+After setup, use `/admin-login` with the same phone/email identifier and password.
+This entry is available independently of learner `LOGIN_METHODS_ENABLED`; configure learner
+SMS/email/Google sign-in later as needed. Setup creates a normal account and a
+standard password credential; the administrator role controls access to the
+administrator area. Setup does not verify contact ownership or fabricate a
+verified phone/email credential. Use a phone number or email address you control:
+after you configure contact verification, normal verification-code login and
+password recovery refer to this same administrator account. An existing account
+with the requested identifier is not overwritten, merged or promoted by setup.
+Existing administrators keep their original login
+methods during upgrade, and ordinary new user registration does not claim the
+administrator role on a managed installation.
+
+For a headless installation, use the same initialization service directly:
+
+```bash
+docker compose -f docker-compose.latest.yml exec ai-shifu-api \
+  flask console create-admin
+```
+
+The command prompts for a phone/email identifier and a hidden, confirmed
+password. For local administrator recovery, run:
+
+```bash
+docker compose -f docker-compose.latest.yml exec ai-shifu-api \
+  flask console reset-admin-password --identifier owner@example.com
+```
+
+Enter the identifier originally chosen during administrator setup in place of
+`owner@example.com`. This console recovery selector stays unchanged if an
+operator later replaces the account's contact; recovery follows the same
+stored account and password credential. Sign in with the current password
+login identifier after a contact replacement.
+Recovery prompts for a hidden new password and revokes the previous sessions. It does not reopen
+Web setup. An existing installation can explicitly create its first local
+administrator through the server-console command without replacing existing
+accounts or demo ownership. For development Compose, replace the file with
+`docker-compose.dev.yml` and the service with `ai-shifu-api-dev`.
+
+Identifiers are trimmed; email addresses are case-insensitive and preserve dots
+and plus-tags. Email identifiers are limited to 254 characters. Phone numbers
+use the application's current mainland-China format: 11 ASCII digits beginning
+with `1`, optionally prefixed by `+86`. This does not add international SMS
+support. Standalone usernames cannot create new administrators. Accounts created
+with the earlier preview's username design retain login and console recovery
+compatibility; use the old name as the identifier for those existing accounts.
+The forward migration converts preview `local_password` credentials to the
+existing `password` type while preserving password hashes, account IDs and roles.
+Contact-based preview accounts adopt their contact as the normal account
+identity. The migration checks all bindings and contact collisions before
+conversion; a collision stops the upgrade rather than selecting, merging or
+overwriting an account. Resolve such a conflict with a reviewed maintenance plan
+on a backup or disposable copy before retrying the production upgrade. Stop API
+and worker account writes while applying this data migration. Downgrade refuses
+while installation account bindings exist: retain compatible code or restore a
+reviewed pre-upgrade backup rather than reversing live account identities. No
+online configuration or account is changed by this patch itself.
+
 ### Local Demo Login
 
-With the unmodified Docker template, phone login is enabled and
-`UNIVERSAL_VERIFICATION_CODE=1024` accepts the demo code without SMS delivery.
-Use a valid test phone number. This shortcut applies only while that setting
-is enabled; installations with it cleared require their configured login
-provider.
+The first administrator uses the independent setup flow above. Ordinary
+phone login requires a code issued by the configured SMS provider.
+Email login likewise requires a code issued through the configured SMTP provider.
+The Docker environment example leaves `UNIVERSAL_VERIFICATION_CODE` empty;
+there is no default login code.
+For an isolated local demo or automated test, explicitly set
+`ENV=development` and a nonblank `UNIVERSAL_VERIFICATION_CODE` in your local
+environment, then select the development factory:
+
+```bash
+gunicorn -w 1 -b 127.0.0.1:5800 'app:create_development_app()' --timeout 300
+```
+
+The development Compose and runtime harness select this factory explicitly;
+neither template supplies a default universal code. Use a synthetic test
+phone number and keep these servers isolated. The development factory refuses
+environments other than `development` or `testing`. Tests constructing a Flask
+app directly can opt in with `enable_development_verification_codes(app)` from
+`flaskr.service.user.verification_codes` after setting that environment.
+
+The normal `app:app` and `create_app()` entrypoints never enable the bypass,
+even if both `ENV=development` and a universal code are accidentally configured.
+Production and unknown environments also reject the bypass after a development
+app's configuration changes. An actually issued code still follows normal
+expiry, attempt limits, and single-use consumption, including when its value
+happens to match a legacy universal setting.
+
+### Upgrading Existing Verification-Code Deployments
+
+Upgrade the API image or source to a release containing this fix; changing the
+Compose file alone does not update older pinned images. Remove
+`UNIVERSAL_VERIFICATION_CODE` from deployment environment files, Compose
+overrides, and secret/configuration stores, use the normal `app:app` production
+entrypoint with `ENV=production`, and recreate API containers/processes so the
+new code and configuration take effect. Configure and verify a real SMS or
+email provider before opening login and password recovery to users. Verify
+normal issued-code login and password recovery in a controlled environment.
+These steps are operator actions; the patch does not change running deployments
+or assume whether any existing production installation was exposed.

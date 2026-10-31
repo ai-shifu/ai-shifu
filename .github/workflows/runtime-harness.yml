@@ -252,6 +252,21 @@ jobs:
             --detail "exit_code=$exit_code"
           exit "$exit_code"
 
+      - name: Prepare isolated administrator setup
+        run: |
+          # These credentials exist only for this disposable runtime stack.
+          # Keep them out of logs, URLs, browser traces and uploaded env files.
+          harness_admin_password="Harness1$(openssl rand -hex 24)"
+          printf '::add-mask::%s\n' "$harness_admin_password"
+          printf 'AI_SHIFU_TEST_ADMIN_PASSWORD=%s\n' "$harness_admin_password" >> "$GITHUB_ENV"
+          setup_origin="${AI_SHIFU_BASE_URL:-http://localhost:${AI_SHIFU_WEB_PORT}}"
+          setup_output="$(docker compose --env-file docker/.env \
+            -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" \
+            exec -T ai-shifu-api-dev flask console setup-code --origin "$setup_origin")"
+          harness_setup_code="$(printf '%s\n' "$setup_output" | python -c 'import re, sys; lines = sys.stdin.read().splitlines(); marker = "One-time administrator setup code (expires in 20 minutes):"; code = lines[lines.index(marker) + 1].strip(); assert re.fullmatch(r"[A-Za-z0-9_-]{32,128}", code), "Invalid setup-code output"; print(code)')"
+          printf '::add-mask::%s\n' "$harness_setup_code"
+          printf 'AI_SHIFU_TEST_SETUP_CODE=%s\n' "$harness_setup_code" >> "$GITHUB_ENV"
+
       - name: Run fast value smoke harness
         working-directory: src/web
         run: |

@@ -20,6 +20,18 @@ USE_STATE_VALUES = {
 }
 
 
+def has_login_identity(user: object) -> bool:
+    """Recognize an identity already resolved by authenticated request handling.
+
+    This does not validate tokens or assert phone/email ownership.
+    """
+    return bool(
+        getattr(user, "mobile", None)
+        or getattr(user, "email", None)
+        or getattr(user, "has_local_password", False) is True
+    )
+
+
 @register_schema_to_swagger
 class UserInfo:
     """Represent user identity details in API responses."""
@@ -34,6 +46,8 @@ class UserInfo:
     user_avatar: str
     is_creator: bool
     is_operator: bool
+    has_local_password: bool
+    has_password: bool
     analytics_enabled: bool
 
     def __init__(
@@ -49,6 +63,8 @@ class UserInfo:
         user_avatar: object = None,
         is_creator: object = False,
         is_operator: object = False,
+        has_local_password: object = False,
+        has_password: object = False,
     ) -> None:
         """Build a serialized user-information payload."""
         self.user_id = user_id
@@ -64,11 +80,13 @@ class UserInfo:
         self.user_avatar = user_avatar
         self.is_creator = is_creator
         self.is_operator = is_operator
+        self.has_local_password = has_local_password is True
+        self.has_password = has_password is True
         self.analytics_enabled = not is_analytics_user_excluded(user_bid=user_id)
 
     def __json__(self) -> dict:
         """Return the user information as JSON-compatible data."""
-        return {
+        payload = {
             "user_id": self.user_id,
             "username": self.username,
             "name": self.name,
@@ -82,6 +100,11 @@ class UserInfo:
             "is_operator": self.is_operator,
             "analytics_enabled": self.analytics_enabled,
         }
+        if self.has_local_password:
+            payload["has_local_password"] = True
+        if self.has_password:
+            payload["has_password"] = True
+        return payload
 
     def __html__(self) -> dict:
         """Return the serialized user-information payload."""

@@ -105,16 +105,17 @@ def app() -> Iterator[Flask | None]:
     os.environ["ADMIN_DB_URI"] = _test_db_uri
     os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+    os.environ["ENV"] = "testing"
     os.environ["LLM_MODEL_1_NAME"] = "Test model"
     os.environ["LLM_MODEL_1_ID"] = "gpt-test"
     os.environ["OPENAI_API_KEY"] = "test-key"
     os.environ["CELERY_BROKER_URL"] = "memory://"
     os.environ["CELERY_RESULT_BACKEND"] = "cache+memory://"
 
-    from app import create_app
+    from app import create_development_app
     from flask_migrate import upgrade
 
-    app = create_app()
+    app = create_development_app()
     app.config["SQLALCHEMY_BINDS"] = {
         "ai_shifu_saas": _test_db_uri,
         "ai_shifu_admin": _test_db_uri,
@@ -152,6 +153,17 @@ def app() -> Iterator[Flask | None]:
             upgrade("migrations")
         else:
             dao.db.create_all()
+            # Match an ordinary upgraded installation. Tests that explicitly
+            # exercise historic first-user promotion opt into unclaimed legacy
+            # state in their own fixtures instead of granting it by default.
+            from flaskr.service.user.installation_models import InstallationState
+            from flaskr.util.datetime import now_utc
+
+            if dao.db.session.get(InstallationState, 1) is None:
+                dao.db.session.add(
+                    InstallationState(id=1, mode="legacy", initialized_at=now_utc())
+                )
+                dao.db.session.commit()
 
     yield app
 

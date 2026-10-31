@@ -25,6 +25,7 @@ from flaskr.dao import retry_on_deadlock
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.common.dtos import has_login_identity
 from flaskr.service.learn.agent.session_store import (
     stage_agent_session_discard,
 )
@@ -649,8 +650,8 @@ def get_learn_record(
                     for button in parsed_interaction.get("buttons"):
                         if button.get("value") == "_sys_pay":
                             pass
-                        if button.get("value") == "_sys_login" and bool(
-                            request.user.mobile
+                        if button.get("value") == "_sys_login" and has_login_identity(
+                            request.user
                         ):
                             records.remove(last_record)
         struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
@@ -706,10 +707,7 @@ def get_learn_record(
             and _is_access_gate_interaction(
                 records[-1].content,
                 is_paid=is_paid,
-                is_logged_in=bool(
-                    getattr(getattr(request, "user", None), "mobile", None)
-                    or getattr(getattr(request, "user", None), "email", None)
-                )
+                is_logged_in=has_login_identity(getattr(request, "user", None))
                 if has_request_context()
                 else False,
             )

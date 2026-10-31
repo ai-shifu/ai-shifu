@@ -10,8 +10,12 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import (
     db,
 )
+from flaskr.service.common.contact_identifiers import EMAIL_IDENTIFIER_PATTERN
 from flaskr.service.common.dtos import UserInfo
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.phone_numbers import (
+    is_valid_sms_mobile,
+    normalize_phone_identifier,
+)
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
@@ -23,6 +27,7 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
+from sqlalchemy import and_, or_
 
 if TYPE_CHECKING:
     from datetime import date, datetime
@@ -70,6 +75,7 @@ class CredentialSummary:
     subject_format: str
     state: int
     metadata: dict[str, str | None] = field(default_factory=dict)
+    password_is_set: bool = False
 
     @property
     def is_verified(self) -> bool:
@@ -211,6 +217,10 @@ class UserAggregate:
     @property
     def username(self) -> str:
         """Return the account username, if present."""
+        if self.has_local_password:
+            # Local login identifiers may be unverified personal contacts.
+            # Keep them out of public display-name/username surfaces.
+            return self.nickname or self.user_bid
         if self.identify:
             return self.identify
         if self.email:
@@ -218,6 +228,27 @@ class UserAggregate:
         if self.mobile:
             return self.mobile
         return self.user_bid
+
+    @property
+    def has_password(self) -> bool:
+        """Report a persisted, usable ordinary password without exposing its hash."""
+        return any(
+            credential.provider == "password"
+            and credential.is_verified
+            and credential.password_is_set
+            for credential in self.credentials
+        )
+
+    @property
+    def has_local_password(self) -> bool:
+        """Keep the pre-release contactless-session marker for migrated usernames."""
+        return self.identify.startswith("local:") and any(
+            credential.provider == "password"
+            and credential.is_verified
+            and credential.password_is_set
+            and credential.metadata.get("installation_admin") == "true"
+            for credential in self.credentials
+        )
 
     @property
     def display_name(self) -> str:
@@ -278,6 +309,8 @@ class UserAggregate:
             user_avatar=self.avatar,
             is_creator=self.is_creator,
             is_operator=self.is_operator,
+            has_local_password=self.has_local_password,
+            has_password=self.has_password,
         )
 
 
@@ -304,6 +337,7 @@ def _summarize_credentials(
             subject_format=credential.subject_format,
             state=credential.state,
             metadata=deserialize_raw_profile(credential),
+            password_is_set=bool(get_password_hash(credential)),
         )
         for credential in credentials
     ]
@@ -399,14 +433,21 @@ def load_user_aggregate(
     *,
     include_deleted: bool = False,
     with_credentials: bool = True,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate."""
-    entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
+    if for_update:
+        query = UserEntity.query.filter_by(user_bid=user_bid)
+        if not include_deleted:
+            query = query.filter_by(deleted=0)
+        entity = query.populate_existing().with_for_update().first()
+    else:
+        entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
         return None
     credentials: list[AuthCredential] = []
     if with_credentials:
-        credentials = list_credentials(user_bid=user_bid)
+        credentials = list_credentials(user_bid=user_bid, for_update=for_update)
     return _build_user_aggregate(entity, credentials=credentials)
 
 
@@ -414,6 +455,7 @@ def load_user_aggregate_by_identifier(
     identifier: str,
     *,
     providers: list[str] | None = None,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate by identifier."""
     normalized = identifier.strip() if identifier else ""
@@ -435,18 +477,22 @@ def load_user_aggregate_by_identifier(
 
     # Direct match on canonical identifiers first.
     for lookup_identifier in lookup_identifiers:
-        entity = (
-            UserEntity.query.filter(
-                UserEntity.user_identify == lookup_identifier,
-                UserEntity.deleted == 0,
-            )
-            .order_by(UserEntity.id.asc())
-            .first()
-        )
-        if entity:
+        query = UserEntity.query.filter(
+            UserEntity.user_identify == lookup_identifier,
+            UserEntity.deleted == 0,
+        ).order_by(UserEntity.id.asc())
+        if for_update:
+            query = query.populate_existing().with_for_update()
+        entity = query.first()
+        if entity and (
+            not lookup_identifier.startswith("local:")
+            or "password" in provider_candidates
+        ):
             return _build_user_aggregate(
                 entity,
-                credentials=list_credentials(user_bid=entity.user_bid),
+                credentials=list_credentials(
+                    user_bid=entity.user_bid, for_update=for_update
+                ),
             )
 
     for provider in provider_candidates:
@@ -454,11 +500,77 @@ def load_user_aggregate_by_identifier(
             credential = find_credential(
                 provider_name=provider,
                 identifier=lookup_identifier,
+                for_update=for_update,
             )
             if credential:
-                return load_user_aggregate(credential.user_bid)
+                return load_user_aggregate(credential.user_bid, for_update=for_update)
 
     return None
+
+
+def find_password_identity_user_bids(
+    identifier: str, *, for_update: bool = False
+) -> set[str]:
+    """Resolve every ordinary password identity, rejecting ambiguity at the caller.
+
+    A persisted password label remains usable when the canonical contact changes.
+    Verified contact aliases retain the shared account-password semantics.
+    Unverified profile claims cannot establish or conflict with an identity.
+    A canonical email with a matching unverified Google claim is insufficient
+    on its own; verified contacts and usable password labels remain evidence.
+    Local username compatibility belongs to its explicit installation binding,
+    never this lookup.
+    """
+    normalized = (identifier or "").strip().lower()
+    normalized = (
+        normalized if "@" in normalized else normalize_phone_identifier(normalized)
+    )
+    if not (
+        EMAIL_IDENTIFIER_PATTERN.fullmatch(normalized)
+        if "@" in normalized
+        else is_valid_sms_mobile(normalized)
+    ):
+        return set()
+
+    lookup_identifiers = {normalized}
+    if "@" not in normalized:
+        lookup_identifiers.update({f"+86{normalized}", f"+86 {normalized}"})
+    users = UserEntity.query.filter(
+        UserEntity.user_identify.in_(lookup_identifiers), UserEntity.deleted == 0
+    )
+    credentials = AuthCredential.query.join(
+        UserEntity, UserEntity.user_bid == AuthCredential.user_bid
+    ).filter(
+        UserEntity.deleted == 0,
+        AuthCredential.deleted == 0,
+        or_(
+            and_(
+                AuthCredential.provider_name.in_(["phone", "email", "password"]),
+                AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
+            ),
+            and_(
+                AuthCredential.provider_name == "google",
+                AuthCredential.state.is_distinct_from(CREDENTIAL_STATE_VERIFIED),
+            ),
+        ),
+        AuthCredential.identifier.in_(lookup_identifiers),
+    )
+    if for_update:
+        users = users.populate_existing().with_for_update()
+        credentials = credentials.populate_existing().with_for_update()
+    user_bids = {user.user_bid for user in users.all()}
+    unverified_google_bids: set[str] = set()
+    verified_identity_bids: set[str] = set()
+    for credential in credentials.all():
+        if credential.provider_name == "google":
+            unverified_google_bids.add(credential.user_bid)
+            continue
+        if credential.state != CREDENTIAL_STATE_VERIFIED or (
+            credential.provider_name == "password" and not get_password_hash(credential)
+        ):
+            continue
+        verified_identity_bids.add(credential.user_bid)
+    return (user_bids - unverified_google_bids) | verified_identity_bids
 
 
 def ensure_user_aggregate(
@@ -844,7 +956,11 @@ def upsert_credential(
 
 
 def find_credential(
-    *, provider_name: str, identifier: str, user_bid: str | None = None
+    *,
+    provider_name: str,
+    identifier: str,
+    user_bid: str | None = None,
+    for_update: bool = False,
 ) -> AuthCredential | None:
     """Find credential."""
     raw_identifier = (identifier or "").strip()
@@ -859,16 +975,20 @@ def find_credential(
     )
     if user_bid:
         query = query.filter(AuthCredential.user_bid == user_bid)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     return query.order_by(AuthCredential.id.asc()).first()
 
 
 def list_credentials(
-    *, user_bid: str, provider_name: str | None = None
+    *, user_bid: str, provider_name: str | None = None, for_update: bool = False
 ) -> list[AuthCredential]:
     """Return credentials, oldest first."""
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     # Callers pick one row out of several (see ``_preferred_credential``), so the
     # order has to be the same on every read rather than whatever the engine
     # happens to return.

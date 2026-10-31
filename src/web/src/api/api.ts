@@ -36,6 +36,7 @@ const api = {
   completeCreatorOnboarding: 'POST /user/onboarding/complete',
   loginPassword: 'POST /user/login_password',
   setPassword: 'POST /user/set_password',
+  changePassword: 'POST /user/change_password',
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
   getReferralInvitePreview: 'GET /referral/invite-preview',

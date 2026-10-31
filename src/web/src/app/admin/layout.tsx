@@ -23,6 +23,9 @@ import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
 import AdminDocumentTitleSync from './AdminDocumentTitleSync';
+import { getInstallationStatus } from '@/api/installation';
+import { getAdminEntryPath } from '@/components/installation/installationRouting';
+import { Button } from '@/components/ui/Button';
 
 const MainInterface = ({
   children,
@@ -44,6 +47,10 @@ const MainInterface = ({
     hasAuthenticatedAdminSession && Boolean(currentUserId);
   const menuReady = hasResolvedAdminSession;
   const adminTitle = t('common.core.adminTitle');
+  const [installationRedirectError, setInstallationRedirectError] =
+    React.useState(false);
+  const [installationRedirectRetry, setInstallationRedirectRetry] =
+    React.useState(0);
   const [learnerProfileSettingsScope, setLearnerProfileSettingsScope] =
     React.useState<string | null>(null);
   const learnerProfileSettingsOpen =
@@ -76,11 +83,26 @@ const MainInterface = ({
       return;
     }
 
-    const currentPath = encodeURIComponent(
-      window.location.pathname + window.location.search,
-    );
-    window.location.href = `/login?redirect=${currentPath}`;
-  }, [hasAuthenticatedAdminSession, isInitialized]);
+    let active = true;
+    setInstallationRedirectError(false);
+    const currentPath = window.location.pathname + window.location.search;
+    getInstallationStatus()
+      .then(status => {
+        if (active)
+          window.location.href = getAdminEntryPath(status, currentPath);
+      })
+      .catch(() => {
+        if (active) setInstallationRedirectError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    hasAuthenticatedAdminSession,
+    installationRedirectRetry,
+    isInitialized,
+    pathname,
+  ]);
 
   // The /admin path carries no shifu_bid, so the bootstrap runtime-config
   // cannot resolve a creator. Once the logged-in creator is known, re-fetch
@@ -210,6 +232,28 @@ const MainInterface = ({
     isLoading: billingOverviewLoading,
     mutate: mutateBillingOverview,
   } = useBillingOverview();
+  if (!hasAuthenticatedAdminSession) {
+    return (
+      <main className='flex min-h-dvh items-center justify-center p-6'>
+        {installationRedirectError ? (
+          <div
+            role='alert'
+            className='space-y-3'
+          >
+            <p>{t('module.installation.statusFailed')}</p>
+            <Button
+              type='button'
+              onClick={() => setInstallationRedirectRetry(value => value + 1)}
+            >
+              {t('module.installation.retry')}
+            </Button>
+          </div>
+        ) : (
+          <p role='status'>{t('module.installation.checking')}</p>
+        )}
+      </main>
+    );
+  }
   return (
     <>
       <Suspense fallback={null}>
