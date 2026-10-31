@@ -1,6 +1,6 @@
 """Remove MDF markers from classified prose, leaving visual elements opaque.
 
-The pinned MarkdownFlow formatter is the only authority on element boundaries.
+The `markdownflow.syntax` formatter is the only authority on element boundaries.
 This adapter retains physical source lines (including CRLF and trailing blanks)
 while reusing its classifications and element numbers. It contains no HTML parser.
 """
@@ -22,16 +22,18 @@ _SUFFIX = re.compile(r"!?={3,}([ \t]*\r?)$")
 _MARKER_LINE = re.compile(r"[ \t]*!={3,}[ \t]*\r?$")
 
 
-class _EnvelopeClassifier(Classifier):
+class EnvelopeClassifier(Classifier):
     """Let native classification recognize elements inside an MDF envelope.
 
-    `_handle_text` and `_state` are hooks in the pinned markdown-flow 0.3.4
-    implementation. Reuse that state rather than guessing whether a line is inside HTML or code.
+    `_handle_text` and `_state` are hooks in `markdownflow.syntax.formatter.classifier`.
+    Reuse that state rather than guessing whether a line is inside HTML or code.
+    Lesson continuation also uses it to stop repeat trimming at the first visual element.
     Only an outer MDF prefix/suffix is removed from a non-prose element.
-    Reject invalid backtick-fence info before the pinned classifier opens code state.
+    Reject invalid backtick-fence info before the syntax classifier opens code state.
     """
 
     def __init__(self) -> None:
+        """Start outside an MDF envelope with no retained source line."""
         super().__init__()
         self.source = ""
         self._envelope = False
@@ -53,13 +55,14 @@ class _EnvelopeClassifier(Classifier):
         return result
 
     def classify_line(self, line: str) -> ClassifyResult:
+        """Classify an authored line using the display formatter's envelope rules."""
         if self._envelope and _SUFFIX.search(line):
             candidate = _SUFFIX.sub(r"\1", line, count=1)
             probe = deepcopy(self)
             # A wrapped code closer such as ```=== must be unwrapped before
             # classification. Ask the native grammar whether it ends the block;
             # do not remove marker-like data from an opaque continuation line.
-            super(_EnvelopeClassifier, probe).classify_line(candidate)
+            super(EnvelopeClassifier, probe).classify_line(candidate)
             if probe._state == _State.TEXT:
                 line = candidate
         self.source = line
@@ -82,7 +85,7 @@ class PreserveMarkerFormatter:
     def __init__(self) -> None:
         """Start one source-preserving projection."""
         self._formatter = StreamFormatter()
-        self._classifier = _EnvelopeClassifier()
+        self._classifier = EnvelopeClassifier()
         self._formatter._classifier = self._classifier
         self._line = ""
         self._leading = ""
