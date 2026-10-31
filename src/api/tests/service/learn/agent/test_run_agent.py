@@ -3371,23 +3371,40 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
 
 
 @pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize(
+    "markup",
+    [
+        '<interact type="text" placeholder="Your answer" />',
+        '<interact">\n'
+        '<parameter name="type">text</｜｜DSML｜｜ parameter>\n'
+        '<parameter name="placeholder">Your answer</parameter>\n'
+        "</interact>",
+        '<interact">\n<parameter name="prompt">Unfinished question',
+    ],
+)
 def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
-    app: object, calls: list, monkeypatch: pytest.MonkeyPatch, preview_mode: bool
+    app: object,
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    markup: str,
 ) -> None:
     """A failed tool correction must not persist completion or advance the outline."""
     import json
+    from uuid import uuid4
 
     from flaskr.service.learn.agent import session_store
     from markdownflow.engine import Engine
     from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
     recover = False
+    user_bid = uuid4().hex
 
     async def stream(
         _messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         if not recover:
-            yield 'Answer this question.\n<interact type="text" placeholder="Your answer" />'
+            yield "Answer this question.\n" + markup
         else:
             yield {
                 0: DeltaToolCall(
@@ -3416,7 +3433,7 @@ def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
                 app,
                 engine=Engine(FunctionModel(stream_function=stream), render="none"),
                 script=SCRIPT,
-                user_bid="markup-host-learner",
+                user_bid=user_bid,
                 shifu_bid=SHIFU,
                 outline_bid="markup-host-lesson",
                 preview_mode=preview_mode,
@@ -3426,20 +3443,22 @@ def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
 
     events = run()
     saved = session_store.load_agent_session(
-        app, "markup-host-learner", "markup-host-lesson", preview_mode=preview_mode
+        app, user_bid, "markup-host-lesson", preview_mode=preview_mode
     )
     assert saved is not None
     assert not saved.finished
     assert not saved.pending
     assert not any(name == "resolve_outline" for name, _ in calls)
-    assert "<interact" not in "".join(
-        str(e.content) for e in events if e.type == GeneratedType.CONTENT
+    visible = "".join(str(e.content) for e in events if e.type == GeneratedType.CONTENT)
+    assert not any(
+        fragment in visible
+        for fragment in ("<interact", "<parameter", "DSML", "Unfinished question")
     )
     recover = True
     calls.clear()
     events = run()
     saved = session_store.load_agent_session(
-        app, "markup-host-learner", "markup-host-lesson", preview_mode=preview_mode
+        app, user_bid, "markup-host-lesson", preview_mode=preview_mode
     )
     assert saved is not None
     assert not saved.finished

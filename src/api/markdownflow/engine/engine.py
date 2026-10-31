@@ -46,8 +46,9 @@ if TYPE_CHECKING:
     from .memory import MemoryStore
     from .session import SessionStore
 
-from markdownflow.preserve_markers import PreserveMarkerFilter
+from markdownflow.preserve_markers import EnvelopeClassifier, PreserveMarkerFilter
 from markdownflow.resources import load_prompt
+from markdownflow.syntax.formatter.types import is_text_family
 
 from .answer_context import (
     answer_reference_instructions,
@@ -267,14 +268,26 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     A repeat long enough to be one (`_REPEAT_FLOOR_CHARS`) at its start is left out, up to the
     last line or sentence end inside it, so what is shown begins where a sentence does. A model
     told to go on often starts by writing the last part again and only then gets to the new
-    one; everything else was new, and is shown whole.
+    one; everything else was new, and is shown whole. Prefix trimming stops before the first
+    non-prose element: shared layout is not repeated teaching, and cutting it breaks the visual.
     """
     text = "".join(held)
     visible = "".join(text.split())
     if visible in said:
         return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
+    classifier = EnvelopeClassifier()
+    prose_end = 0
+    for line in text.splitlines(keepends=True):
+        source = line.rstrip("\r\n")
+        # An unfinished table row is still text to the classifier, whose row pattern
+        # needs the closing bar; it is the start of a visual all the same.
+        if source == line and source.lstrip().startswith("|"):
+            break
+        if not is_text_family(classifier.classify_line(source).type):
+            break
+        prose_end += len(line)
     cut, seen = 0, ""
-    for i, ch in enumerate(text):
+    for i, ch in enumerate(text[:prose_end]):
         if not ch.isspace():
             seen += ch
         if ch in _BREAKS:
@@ -1217,6 +1230,9 @@ class Engine:
         def _flush_markup() -> list[Event]:
             return _markup_output(markup.flush())
 
+        def _settle_markup() -> list[Event]:
+            return _markup_output(markup.settle())
+
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
@@ -1276,8 +1292,15 @@ class Engine:
                         elif carried_on:
                             held.clear()
                     silent = deps.finished is not None and not speak_after_finish
-                    if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                    if isinstance(ev, PartStartEvent) and ev.index == 0:
+                        # A new response ends a rejected block the previous one left open,
+                        # including one rejected by output validation with no tool event.
                         for e in _flush_markup():
+                            yield e
+                    if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                        # A later text part of the same response can still carry that
+                        # block's parameter body, so it is only settled here.
+                        for e in _settle_markup():
                             yield e
                         if ev.part.content and not silent:
                             for e in _text(ev.part.content):
