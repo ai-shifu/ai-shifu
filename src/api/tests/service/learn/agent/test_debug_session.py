@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
+from flaskr import dao
+from flaskr.common.cache_provider import CacheUnavailableError, InMemoryCacheProvider
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import routes
 from flaskr.service.learn.agent import debug_session
@@ -28,6 +30,10 @@ from markdownflow.engine.script import ScriptBundle
 from markdownflow.engine.session import PendingInteraction, Session
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 from pydantic_ai.models.function import FunctionModel
+from redis import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
+from redis.lock import Lock
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -37,10 +43,10 @@ class _Cache:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
         self.ttls: dict[str, int] = {}
-        self.locks: dict[str, object] = {}
+        self.locks = InMemoryCacheProvider()
 
     def lock(self, key: str, **_kwargs: object) -> object:
-        return self.locks.setdefault(key, threading.Lock())
+        return self.locks.lock(key, **_kwargs)
 
     def get(self, key: str) -> str | None:
         return self.values.get(key)
@@ -48,6 +54,23 @@ class _Cache:
     def setex(self, key: str, ttl: int, value: str) -> None:
         self.values[key] = value
         self.ttls[key] = ttl
+
+
+@pytest.fixture(autouse=True)
+def local_debug_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the existing cache regressions independent from the global Redis fixture."""
+    monkeypatch.setattr(debug_session, "get_redis_client", lambda: None)
+
+
+@pytest.fixture
+def configured_debug_cache(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    primary = InMemoryCacheProvider()
+    strict = Mock(wraps=primary)
+    local = Mock(wraps=InMemoryCacheProvider())
+    monkeypatch.setattr(debug_session, "get_redis_client", object)
+    monkeypatch.setattr(debug_session, "redis_cache", strict)
+    monkeypatch.setattr(debug_session, "cache", local)
+    return SimpleNamespace(primary=primary, strict=strict, local=local)
 
 
 def _store(app: object, run: str = "one") -> debug_session.DebugSessionStore:
@@ -114,6 +137,267 @@ def test_debug_session_resumes_only_the_same_run_and_script(
     cache.values[first._key] = "invalid history"
     assert first.load(script="Current draft") is None
     assert other.load(script="Current draft").memory["answer"] == "fresh answer"
+
+
+def test_configured_debug_redis_reports_a_deferred_lock_connection_failure(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Redis creates its lock successfully and connects only when acquiring it."""
+    client = Mock(spec=Redis)
+    client.lock.side_effect = lambda key, **kwargs: Lock(client, key, **kwargs)
+    client.set.side_effect = RedisConnectionError("Redis is unavailable")
+    local = Mock(wraps=InMemoryCacheProvider())
+    monkeypatch.setattr(debug_session, "get_redis_client", lambda: client)
+    monkeypatch.setattr(dao, "get_redis_client", lambda: client)
+    monkeypatch.setattr(debug_session, "cache", local)
+    store = _store(app)
+
+    with pytest.raises(AppError) as exc_info:
+        store.begin_request()
+
+    assert exc_info.value.code == 4023
+    assert store._request_bid is None
+    client.lock.assert_called_once()
+    client.set.assert_called_once()
+    client.setex.assert_not_called()
+    assert local.mock_calls == []
+
+
+@pytest.mark.parametrize(
+    "error_type", [RedisConnectionError, RedisTimeoutError, CacheUnavailableError]
+)
+@pytest.mark.parametrize(
+    "operation", ["read", "token_write", "token_read", "session_read", "session_write"]
+)
+def test_debug_cache_failure_preserves_saved_state_until_redis_recovers(
+    app: object,
+    configured_debug_cache: SimpleNamespace,
+    operation: str,
+    error_type: type[Exception],
+) -> None:
+    backend = configured_debug_cache.primary
+    strict = configured_debug_cache.strict
+    store = _store(app)
+    session = Session(
+        script=ScriptBundle(script="Current draft"), memory={"prefix": "kept"}
+    )
+    record = _record(session, ["original answer"])
+    store.save(session, generated_block_bid="selected", turn_record=record)
+    store.begin_request()
+    plan = store.plan_rewind(script="Current draft", block_bid="selected")
+    session_before = backend.get(store._key)
+    token_before = backend.get(f"{store._key}:request")
+    method = "setex" if operation in {"token_write", "session_write"} else "get"
+    failed_key = (
+        f"{store._key}:request" if operation.startswith("token_") else store._key
+    )
+
+    def fail(*args: object, **kwargs: object) -> object:
+        if args[0] == failed_key:
+            msg = "Redis is unavailable"
+            raise error_type(msg)
+        return getattr(backend, method)(*args, **kwargs)
+
+    getattr(strict, method).side_effect = fail
+    session.memory["uncommitted"] = "discard"
+
+    def perform() -> None:
+        if operation == "read":
+            store.load(script="Current draft")
+        elif operation == "token_write":
+            store.begin_request()
+        else:
+            store.save(
+                session,
+                generated_block_bid="replacement",
+                turn_record=record,
+                rewind=plan,
+            )
+
+    with pytest.raises(AppError) as exc_info:
+        perform()
+
+    assert exc_info.value.code == 4023
+    assert backend.get(store._key) == session_before
+    assert backend.get(f"{store._key}:request") == token_before
+    assert configured_debug_cache.local.mock_calls == []
+
+    getattr(strict, method).side_effect = None
+    recovered = _store(app)
+    retry = recovered.plan_rewind(script="Current draft", block_bid="selected")
+    assert retry.checkpoint == plan.checkpoint
+    recovered.begin_request()
+    recovered.save(
+        recovered.load(script="Current draft"),
+        generated_block_bid="replacement",
+        turn_record=record,
+        rewind=retry,
+    )
+    assert recovered.plan_rewind(
+        script="Current draft", block_bid="selected"
+    ).retired_block_bids == ["replacement"]
+    assert recovered.load(script="Current draft").memory == {"prefix": "kept"}
+    assert configured_debug_cache.local.mock_calls == []
+
+
+@pytest.mark.parametrize("failure", ["construction", "contention"])
+def test_unavailable_debug_lock_does_not_claim_a_request(
+    app: object, configured_debug_cache: SimpleNamespace, failure: str
+) -> None:
+    strict = configured_debug_cache.strict
+    if failure == "construction":
+        strict.lock.side_effect = CacheUnavailableError("Redis is not configured")
+    else:
+        lock = Mock()
+        lock.acquire.return_value = False
+        strict.lock.return_value = lock
+
+    with pytest.raises(AppError) as exc_info:
+        _store(app).begin_request()
+
+    assert exc_info.value.code == 4023
+    strict.setex.assert_not_called()
+    assert configured_debug_cache.local.mock_calls == []
+
+
+@pytest.mark.parametrize("failure", ["release", "save_acknowledgement"])
+def test_saved_debug_replacement_remains_retryable_after_a_cache_error(
+    app: object, configured_debug_cache: SimpleNamespace, failure: str
+) -> None:
+    store = _store(app)
+    session = Session(script=ScriptBundle(script="Current draft"))
+    record = _record(session, ["original answer"])
+    store.save(session, generated_block_bid="selected", turn_record=record)
+    store.begin_request()
+    plan = store.plan_rewind(script="Current draft", block_bid="selected")
+    lock = Mock()
+    lock.acquire.return_value = True
+    configured_debug_cache.strict.lock.return_value = lock
+    if failure == "release":
+        lock.release.side_effect = RedisConnectionError("Redis disconnected on release")
+    else:
+
+        def lose_acknowledgement(*args: object) -> None:
+            configured_debug_cache.primary.setex(*args)
+            msg = "Redis disconnected after saving"
+            raise RedisConnectionError(msg)
+
+        configured_debug_cache.strict.setex.side_effect = lose_acknowledgement
+
+    with pytest.raises(AppError) as exc_info:
+        store.save(
+            session,
+            generated_block_bid="replacement",
+            turn_record=record,
+            rewind=plan,
+        )
+
+    assert exc_info.value.code == 4023
+    recovered = _store(app)
+    retry = recovered.plan_rewind(script="Current draft", block_bid="selected")
+    assert retry.checkpoint == plan.checkpoint
+    assert retry.retired_block_bids == ["replacement"]
+    lock.release.side_effect = None
+    configured_debug_cache.strict.setex.side_effect = None
+    recovered.begin_request()
+    recovered.save(
+        session,
+        generated_block_bid="retried-replacement",
+        turn_record=record,
+        rewind=retry,
+    )
+    assert recovered.plan_rewind(
+        script="Current draft", block_bid="selected"
+    ).retired_block_bids == ["retried-replacement"]
+    assert configured_debug_cache.local.mock_calls == []
+
+
+def test_debug_lock_release_failure_does_not_undo_a_request_claim(
+    app: object, configured_debug_cache: SimpleNamespace
+) -> None:
+    lock = Mock()
+    lock.acquire.return_value = True
+    lock.release.side_effect = RedisConnectionError("Redis disconnected on release")
+    configured_debug_cache.strict.lock.return_value = lock
+    store = _store(app)
+
+    with pytest.raises(AppError) as exc_info:
+        store.begin_request()
+
+    assert exc_info.value.code == 4023
+    assert store._request_bid
+    assert configured_debug_cache.primary.get(f"{store._key}:request").decode() == (
+        store._request_bid
+    )
+    assert configured_debug_cache.local.mock_calls == []
+
+
+@pytest.mark.parametrize(
+    "error_type", [RewindUnavailableError, ValueError, GeneratorExit]
+)
+def test_debug_lock_release_failure_preserves_the_original_error(
+    app: object,
+    configured_debug_cache: SimpleNamespace,
+    error_type: type[BaseException],
+) -> None:
+    lock = Mock()
+    lock.acquire.return_value = True
+    lock.release.side_effect = RedisConnectionError("Redis disconnected on release")
+    configured_debug_cache.strict.lock.return_value = lock
+    original = error_type("Original failure")
+
+    with pytest.raises(error_type) as exc_info, _store(app)._write_lock():
+        raise original
+
+    assert exc_info.value is original
+
+
+def test_debug_cache_errors_do_not_hide_invalid_turn_metadata(
+    app: object, configured_debug_cache: SimpleNamespace
+) -> None:
+    store = _store(app)
+    store.begin_request()
+    with pytest.raises(json.JSONDecodeError):
+        store.save(
+            Session(script=ScriptBundle(script="Current draft")),
+            generated_block_bid="invalid",
+            turn_record="invalid JSON",
+        )
+    configured_debug_cache.strict.get.side_effect = ValueError("Unexpected cache bug")
+    with pytest.raises(ValueError, match="Unexpected cache bug"):
+        store.load(script="Current draft")
+    assert configured_debug_cache.local.mock_calls == []
+
+
+def test_debug_cache_provider_stays_fixed_for_each_store(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    configured_debug_cache: SimpleNamespace,
+) -> None:
+    distributed = _store(app)
+    assert distributed._cache is configured_debug_cache.strict
+    distributed.save(
+        Session(
+            script=ScriptBundle(script="Current draft"), memory={"backend": "Redis"}
+        )
+    )
+    monkeypatch.setattr(debug_session, "get_redis_client", lambda: None)
+    local = _store(app)
+    assert local._cache is configured_debug_cache.local
+    assert local.load(script="Current draft") is None
+    local.begin_request()
+    local.save(
+        Session(
+            script=ScriptBundle(script="Current draft"), memory={"backend": "local"}
+        )
+    )
+    distributed.begin_request()
+    assert distributed.load(script="Current draft").memory == {"backend": "Redis"}
+
+    monkeypatch.setattr(debug_session, "get_redis_client", object)
+    assert local.load(script="Current draft").memory == {"backend": "local"}
+    local.begin_request()
+    assert _store(app).load(script="Current draft").memory == {"backend": "Redis"}
 
 
 def test_editor_debug_uses_the_existing_lesson_and_element_pipeline(

@@ -11,6 +11,7 @@
     "askProviderTimeout": "คลังความรู้ภายนอกตอบกลับเกินเวลา โปรดลองอีกครั้งภายหลัง",
     "askProviderUnavailable": "คลังความรู้ภายนอกไม่พร้อมใช้งานชั่วคราว",
     "continueButton": "ดำเนินการต่อ",
+    "debugServiceUnavailable": "บริการดีบักไม่พร้อมใช้งานชั่วคราว โปรดลองอีกครั้งในภายหลัง",
     "debugSessionExpired": "เซสชันการทดสอบนี้หมดอายุหรือสคริปต์มีการเปลี่ยนแปลง โปรดเริ่มทดสอบใหม่",
     "defaultLearnerName": "ผู้เรียน",
     "freeTextPlaceholder": "คำตอบของคุณ",

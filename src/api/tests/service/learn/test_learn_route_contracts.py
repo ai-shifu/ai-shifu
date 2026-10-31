@@ -602,6 +602,68 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     preview.assert_not_called()
 
 
+@pytest.mark.parametrize("phase", ["initial", "answer", "regenerate"])
+@pytest.mark.parametrize("language", ["en-US", "zh-CN", "fr-FR"])
+def test_debug_cache_failure_keeps_its_business_code_and_request_language(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    phase: str,
+    language: str,
+) -> None:
+    """A streamed cache failure stays retryable even after request i18n is cleared."""
+    from flaskr.i18n import clear_language, translate_for_language
+    from flaskr.service.common.models import raise_error
+    from flaskr.service.learn.agent import debug_session
+    from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
+
+    def unavailable(*_args: object, **_kwargs: object) -> object:
+        clear_language()
+        if phase != "initial":
+            yield RunElementSSEMessageDTO(
+                type="content", event_type="content", content="Partial output"
+            )
+        raise_error("server.learn.debugServiceUnavailable")
+
+    monkeypatch.setattr(debug_session, "stream_debug_preview", unavailable)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: True)
+    payload = {
+        "content": "Current editor draft",
+        "block_index": 0,
+        "debug_session_id": "editor-run-1",
+    }
+    if phase == "answer":
+        payload["user_input"] = {"answer": ["Selected answer"]}
+    elif phase == "regenerate":
+        payload["reload_generated_block_bid"] = "selected-turn"
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
+        json=payload,
+        headers={"Token": "test-token", "Accept-Language": language},
+    )
+    messages = [
+        json.loads(chunk.removeprefix("data: "))
+        for chunk in response.get_data(as_text=True).strip().split("\n\n")
+    ]
+    errors = [message for message in messages if message["type"] == "error"]
+    assert len(errors) == 1
+    assert errors[0]["code"] == 4023
+    assert errors[0]["content"] == translate_for_language(
+        "server.learn.debugServiceUnavailable", language
+    )
+    assert errors[0]["is_terminal"] is False
+    assert messages[-1]["type"] == "done"
+    assert messages[-1]["is_terminal"] is True
+    assert "code" not in messages[-1]
+    if phase != "initial":
+        assert messages[0] == {
+            "type": "content",
+            "event_type": "content",
+            "content": "Partial output",
+        }
+
+
 @pytest.mark.parametrize(
     "variables",
     [

@@ -11,6 +11,7 @@
     "askProviderTimeout": "بیرونی علمی بنیاد کے جواب کا وقت ختم ہو گیا، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "askProviderUnavailable": "بیرونی علم کی بنیاد عارضی طور پر دستیاب نہیں ہے۔",
     "continueButton": "جاری رکھیں",
+    "debugServiceUnavailable": "ڈیبگنگ سروس عارضی طور پر دستیاب نہیں ہے۔ براہ کرم کچھ دیر بعد دوبارہ کوشش کریں۔",
     "debugSessionExpired": "یہ ڈیبگ سیشن ختم ہو گیا ہے یا اسکرپٹ بدل گیا ہے۔ دوبارہ ڈیبگنگ شروع کریں۔",
     "defaultLearnerName": "طالب علم",
     "freeTextPlaceholder": "آپ کا جواب",

@@ -5,12 +5,17 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import Session
-from flaskr.common.cache_provider import cache
+from flaskr.common.cache_provider import (
+    CacheUnavailableError,
+    InMemoryCacheProvider,
+    redis_cache,
+)
+from flaskr.dao import get_redis_client
 from flaskr.service.common.models import raise_error
 from flaskr.service.learn.agent.rewind import (
     RewindPlan,
@@ -19,12 +24,25 @@ from flaskr.service.learn.agent.rewind import (
 )
 from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from redis.exceptions import RedisError
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
 
     from flask import Flask
     from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
+
+
+# Local development keeps debug state in process; configured Redis never uses this cache.
+cache = InMemoryCacheProvider()
+
+
+@contextmanager
+def _debug_cache_access() -> Iterator[None]:
+    try:
+        yield
+    except (RedisError, CacheUnavailableError):
+        raise_error("server.learn.debugServiceUnavailable")
 
 
 @dataclass
@@ -54,26 +72,39 @@ class DebugSessionStore:
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
         self._key = f"{prefix}:agent_debug:{digest}"
         self._request_bid: str | None = None
+        self._cache = redis_cache if get_redis_client() is not None else cache
 
     @contextmanager
     def _write_lock(self) -> Iterator[None]:
-        lock = cache.lock(f"{self._key}:write", timeout=10, blocking_timeout=10)
-        if not lock.acquire():
-            raise_error("server.learn.agentRewindUnavailable")
+        with _debug_cache_access():
+            lock = self._cache.lock(
+                f"{self._key}:write", timeout=10, blocking_timeout=10
+            )
+            acquired = lock.acquire(blocking=True, blocking_timeout=10)
+        if not acquired:
+            raise_error("server.learn.debugServiceUnavailable")
         try:
             yield
-        finally:
-            lock.release()
+        except BaseException:
+            # Cleanup must preserve the original business error or stream cancellation.
+            with suppress(RedisError, CacheUnavailableError):
+                lock.release()
+            raise
+        else:
+            with _debug_cache_access():
+                lock.release()
 
     def begin_request(self) -> None:
         """Supersede saves from an earlier stream the browser may have just stopped."""
         request_bid = uuid.uuid4().hex
         with self._write_lock():
-            cache.setex(f"{self._key}:request", self.TTL_SECONDS, request_bid)
+            with _debug_cache_access():
+                self._cache.setex(f"{self._key}:request", self.TTL_SECONDS, request_bid)
             self._request_bid = request_bid
 
     def _payload(self, *, script: str) -> dict | None:
-        raw = cache.get(self._key)
+        with _debug_cache_access():
+            raw = self._cache.get(self._key)
         if raw is None:
             return None
         try:
@@ -119,7 +150,8 @@ class DebugSessionStore:
             )
             return
         with self._write_lock():
-            current = cache.get(f"{self._key}:request")
+            with _debug_cache_access():
+                current = self._cache.get(f"{self._key}:request")
             if isinstance(current, bytes):
                 current = current.decode()
             if current != self._request_bid:
@@ -181,7 +213,9 @@ class DebugSessionStore:
             )
         ):
             payload["regeneration_retry"] = retry
-        cache.setex(self._key, self.TTL_SECONDS, json.dumps(payload))
+        encoded = json.dumps(payload)
+        with _debug_cache_access():
+            self._cache.setex(self._key, self.TTL_SECONDS, encoded)
 
     def plan_rewind(self, *, script: str, block_bid: str) -> DebugRewindPlan:
         """Find a checkpoint only within this editor run's unchanged draft."""

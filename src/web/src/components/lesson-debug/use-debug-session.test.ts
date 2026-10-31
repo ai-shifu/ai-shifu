@@ -19,6 +19,14 @@ import {
   type CreditInsufficientAudience,
 } from '@/lib/credit-insufficient-toast';
 import { getDynamicApiBaseUrl } from '@/config/environment';
+import arLearnMessages from '../../../../i18n/ar-SA/modules/backend/learn.json';
+import deLearnMessages from '../../../../i18n/de-DE/modules/backend/learn.json';
+import enLearnMessages from '../../../../i18n/en-US/modules/backend/learn.json';
+import esLearnMessages from '../../../../i18n/es-ES/modules/backend/learn.json';
+import frLearnMessages from '../../../../i18n/fr-FR/modules/backend/learn.json';
+import thLearnMessages from '../../../../i18n/th-TH/modules/backend/learn.json';
+import urLearnMessages from '../../../../i18n/ur-PK/modules/backend/learn.json';
+import zhLearnMessages from '../../../../i18n/zh-CN/modules/backend/learn.json';
 import {
   buildDebugBusinessErrorItem,
   replaceDebugLoadingWithBusinessError,
@@ -29,6 +37,21 @@ const mockParseToRemarkFormat = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockGetCurrentMdflow = jest.fn();
 let mockRequestLanguage = 'en-US';
+
+const debugServiceUnavailableMessages = Object.entries({
+  'ar-SA': arLearnMessages,
+  'de-DE': deLearnMessages,
+  'en-US': enLearnMessages,
+  'es-ES': esLearnMessages,
+  'fr-FR': frLearnMessages,
+  'th-TH': thLearnMessages,
+  'ur-PK': urLearnMessages,
+  'zh-CN': zhLearnMessages,
+}).map(([locale, messages]) => ({
+  locale,
+  message: (messages.__flat__ as Record<string, string>)
+    .debugServiceUnavailable,
+}));
 
 jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -327,6 +350,149 @@ describe('useDebugSession helpers and business error rendering', () => {
     await act(async () => result.current.startRun(params));
     const third = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
     expect(third.debug_session_id).not.toBe(first.debug_session_id);
+  });
+
+  test.each(debugServiceUnavailableMessages)(
+    'preserves the localized Debug service error on an initial run in $locale',
+    async ({ message }) => {
+      expect(message).toEqual(expect.any(String));
+      const source = buildMockSseSource();
+      (SSE as jest.Mock).mockReturnValueOnce(source);
+      const { result } = renderHook(() =>
+        useDebugSession({ creditInsufficientAudience: 'teacher' }),
+      );
+      await act(async () =>
+        result.current.startRun({
+          shifuBid: 'course',
+          outlineBid: 'lesson',
+          mdflow: 'Private draft',
+          variableValues: { learnerName: 'Private name' },
+        }),
+      );
+
+      act(() => {
+        source.listeners.message?.({
+          data: JSON.stringify({ type: 'error', code: 4023, content: message }),
+        });
+        source.listeners.message?.({
+          data: JSON.stringify({ type: 'done', is_terminal: true }),
+        });
+        source.listeners.message?.({
+          data: JSON.stringify({ type: 'content', content: 'Stale output' }),
+        });
+      });
+
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isStreaming).toBe(false);
+      expect(source.close).toHaveBeenCalledTimes(1);
+      expect(result.current.errorMessage).toBe(message);
+      expect(result.current.items).toEqual([
+        expect.objectContaining(buildDebugBusinessErrorItem(message, 4023)),
+      ]);
+      expect(result.current.variableValues).toEqual({
+        learnerName: 'Private name',
+      });
+      expect(result.current.canRetryRegeneration).toBe(false);
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith({
+        title: message,
+        variant: 'destructive',
+      });
+      expect(toastOnce).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  test('stops a failed Debug answer continuation without discarding its answer or question', async () => {
+    const message = debugServiceUnavailableMessages.find(
+      entry => entry.locale === 'en-US',
+    )!.message;
+    const sources = [buildMockSseSource(), buildMockSseSource()];
+    sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
+    const { result } = renderHook(() =>
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
+    );
+    await act(async () =>
+      result.current.startRun({
+        shifuBid: 'course',
+        outlineBid: 'lesson',
+        mdflow: 'Private draft',
+        variableValues: { learnerName: 'Private name' },
+      }),
+    );
+    act(() => {
+      sources[0].listeners.message?.({
+        data: JSON.stringify({
+          type: 'element',
+          content: {
+            element_bid: 'question',
+            generated_block_bid: 'question-turn',
+            element_type: 'interaction',
+            content: '?[answer]',
+          },
+        }),
+      });
+      sources[0].listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    await act(async () =>
+      result.current.submitInteraction(
+        { variableName: 'answer', selectedValues: ['Private choice'] },
+        'question',
+      ),
+    );
+    const originalRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[0][1].payload,
+    );
+    const answerRequest = JSON.parse(
+      (SSE as jest.Mock).mock.lastCall[1].payload,
+    );
+    expect(answerRequest.debug_session_id).toBe(
+      originalRequest.debug_session_id,
+    );
+    expect(answerRequest.user_input).toEqual({ answer: ['Private choice'] });
+    const answeredItems = result.current.items.filter(
+      item => item.element_bid !== 'loading',
+    );
+    expect(answeredItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          element_bid: 'question',
+          user_input: 'Private choice',
+        }),
+      ]),
+    );
+
+    act(() => {
+      sources[1].listeners.message?.({
+        data: JSON.stringify({ type: 'error', code: 4023, content: message }),
+      });
+      sources[1].listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isStreaming).toBe(false);
+    expect(sources[1].close).toHaveBeenCalledTimes(1);
+    expect(result.current.items).toEqual([
+      ...answeredItems,
+      expect.objectContaining(buildDebugBusinessErrorItem(message, 4023)),
+    ]);
+    expect(result.current.variableValues).toEqual({
+      learnerName: 'Private name',
+      answer: 'Private choice',
+    });
+    expect(result.current.errorMessage).toBe(message);
+    expect(result.current.canRetryRegeneration).toBe(false);
+    expect(result.current.regenerationConfirmation.open).toBe(false);
+    expect(toast).toHaveBeenCalledWith({
+      title: message,
+      variant: 'destructive',
+    });
+    expect(toastOnce).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   describe('selected-step Debug regeneration', () => {
@@ -949,6 +1115,105 @@ describe('useDebugSession helpers and business error rendering', () => {
       expect(SSE).toHaveBeenCalledTimes(3);
       expect(regenerationEvents()).toHaveLength(2);
     });
+
+    test.each(['stream-event', 'business-response'] as const)(
+      'keeps the original regeneration retry after a Debug service error from %s',
+      async errorSource => {
+        const message = debugServiceUnavailableMessages.find(
+          entry => entry.locale === 'en-US',
+        )!.message;
+        const { result, sources } = await prepare();
+        const originalRequest = JSON.parse(
+          (SSE as jest.Mock).mock.calls[0][1].payload,
+        );
+        const prefix = result.current.items.slice(
+          0,
+          result.current.items.findIndex(
+            item => item.element_bid === 'target-intro',
+          ),
+        );
+        await act(async () => result.current.regenerateContent('target-text'));
+        act(() => {
+          if (errorSource === 'stream-event') {
+            emit(sources[1], { type: 'error', code: 4023, content: message });
+          } else {
+            const fallbackOptions = (
+              attachSseBusinessResponseFallback as jest.Mock
+            ).mock.lastCall[1];
+            fallbackOptions.onHandled({ code: 4023, message });
+          }
+          emit(sources[1], { type: 'done', is_terminal: true });
+          close(sources[1]);
+        });
+
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.isStreaming).toBe(false);
+        expect(result.current.errorMessage).toBe(message);
+        expect(result.current.items).toEqual([
+          ...prefix,
+          expect.objectContaining(buildDebugBusinessErrorItem(message, 4023)),
+        ]);
+        expect(result.current.canRetryRegeneration).toBe(true);
+        expect(toast).toHaveBeenCalledWith({
+          title: message,
+          variant: 'destructive',
+        });
+        expect(toastOnce).not.toHaveBeenCalled();
+        const failedEvents = [
+          [
+            'teacher_debug_regenerate_start',
+            { shifu_bid: 'course', outline_bid: 'lesson' },
+          ],
+          [
+            'teacher_debug_regenerate_result',
+            { shifu_bid: 'course', outline_bid: 'lesson', result: 'failed' },
+          ],
+        ];
+        expect(regenerationEvents()).toEqual(failedEvents);
+
+        await act(async () => result.current.retryRegeneration());
+        const retryRequest = JSON.parse(
+          (SSE as jest.Mock).mock.lastCall[1].payload,
+        );
+        expect(retryRequest.debug_session_id).toBe(
+          originalRequest.debug_session_id,
+        );
+        expect(retryRequest.reload_generated_block_bid).toBe('selected-turn');
+        expect(retryRequest.user_input).toBeUndefined();
+        expect(result.current.canRetryRegeneration).toBe(false);
+        act(() => {
+          emit(sources[1], { type: 'done', is_terminal: true });
+          emit(sources[2], {
+            type: 'debug_variables',
+            content: { earlierAnswer: 'Keep me' },
+          });
+          emitText(sources[2], 'recovered-text', 'recovered-turn', 'Recovered');
+          emit(sources[2], { type: 'done', is_terminal: true });
+        });
+        expect(result.current.errorMessage).toBeNull();
+        expect(result.current.canRetryRegeneration).toBe(false);
+        expect(result.current.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ content: 'Recovered' }),
+          ]),
+        );
+        expect(regenerationEvents()).toEqual([
+          ...failedEvents,
+          [
+            'teacher_debug_regenerate_start',
+            { shifu_bid: 'course', outline_bid: 'lesson' },
+          ],
+          [
+            'teacher_debug_regenerate_result',
+            { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
+          ],
+        ]);
+        expect(JSON.stringify(regenerationEvents())).not.toMatch(
+          /selected-turn|recovered-turn|Private|Keep me|Discard me|4023/,
+        );
+        expect(JSON.stringify(regenerationEvents())).not.toContain(message);
+      },
+    );
 
     test('retry remains available and succeeds when analytics throws', async () => {
       const { result, sources } = await prepare();

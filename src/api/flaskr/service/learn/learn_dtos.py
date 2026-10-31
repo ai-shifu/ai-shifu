@@ -886,6 +886,7 @@ class RunElementSSEMessageDTO(BaseModel):
 
     type: str = Field(..., description="Run event type")
     event_type: str = Field(..., description="Run event type mirror")
+    code: int | None = Field(default=None, description="Optional business error code")
     generated_block_bid: str | None = Field(
         default=None, description="Source generated block identifier"
     )
@@ -916,6 +917,8 @@ class RunElementSSEMessageDTO(BaseModel):
             if isinstance(self.content, BaseModel)
             else self.content,
         }
+        if self.code is not None:
+            ret["code"] = self.code
         if self.generated_block_bid is not None:
             ret["generated_block_bid"] = self.generated_block_bid
         if self.run_session_bid is not None:

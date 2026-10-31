@@ -86,6 +86,20 @@ terminal-result family, as defined in the frontend analytics reference.
 
 ## Editor Debug regeneration
 
+Each Debug store binds its lock, request token and session/checkpoint state to
+one backend. When Redis is configured, all of those operations use strict Redis;
+an outage never switches reads or writes to process-local state. Without Redis,
+Debug retains an explicitly process-local development cache. These choices do
+not change the shared cache provider's fallback behavior for other consumers.
+
+Temporary cache or lock failures use `server.learn.debugServiceUnavailable`
+(business code `4023`) rather than an expired-session or classroom-reset error.
+The preview SSE error preserves that code and the request-language message,
+including after nested streaming contexts clear translation state. The frontend
+stops the failed request, records the existing failed regeneration outcome, and
+retains its retry target. If a save succeeded before lock release failed, its
+checkpoint and retry mapping remain committed; no rollback is claimed.
+
 A failed or stopped regeneration retains a retry target independently of the
 visible rows. The panel offers Retry even when the selected step is no longer
 visible. It does not restore discarded answers or old output after an uncertain

@@ -29,6 +29,16 @@ memory, and regenerate that turn and its successors through the normal flow.
 - [x] 2026-10-31 CST: Verify both review conclusions with deterministic tests:
   375 backend and 181 frontend cases pass, including real provider failure,
   repeated retries, reset/script boundaries and analytics isolation.
+- [x] 2026-11-01 CST: Rebase onto main `5d752a5e1`, keeping its frontend
+  naming changes and existing regeneration regressions.
+- [x] 2026-11-01 CST: Bind Debug locking and state to one strict Redis provider
+  when configured, retaining an explicit process-local development mode.
+- [x] 2026-11-01 CST: Add localized temporary-unavailability errors and verify
+  outages, recovery, request ownership and frontend retry behavior.
+- [x] 2026-11-01 CST: Pass 493 related backend tests and 212 frontend tests,
+  frontend type-check, translation parity and usage validation.
+- [x] 2026-11-01 CST: Complete all 21 repository-wide checks; synchronize
+  the tracked plan path before regenerating its knowledge indexes.
 
 ## Surprises & Discoveries
 
@@ -46,6 +56,11 @@ inaccessible on failure. Lack of output does not prove that replacement state
 was not saved; restoring old rows would risk displaying discarded answers as
 current. A separate retry target and narrowly scoped backend mapping handle
 both pre-save and uncertain post-save failures.
+Redis lock construction is lazy: a connection error can occur in `acquire()`.
+The shared fallback provider independently chooses a backend for each data call,
+so replacing a failed Redis lock with a local lock could protect Redis writes
+with only a process-local mutex after recovery. The existing verification-code
+flow already selects strict Redis when configured.
 
 ## Decision Log
 
@@ -69,6 +84,14 @@ both pre-save and uncertain post-save failures.
 - Add a separate Debug analytics family rather than changing the existing
   classroom rewind population; its durable contract lives in
   `docs/references/frontend-product-analytics.md`.
+- Bind each Debug store's lock, request token and state to the same provider.
+  Configured Redis is a consistency dependency: failure is reported explicitly,
+  including a failure during save or lock release. Never switch to local data
+  during a configured-Redis outage. Without Redis, retain process-local Debug.
+- Use `server.learn.debugServiceUnavailable` / code `4023` for temporary cache
+  failures. Keep it distinct from an expired session or an invalid rewind.
+  Capture its request-language message before streaming and preserve its code
+  in the existing error event; frontend recovery keeps the current retry target.
 
 ## Outcomes & Retrospective
 
@@ -89,6 +112,16 @@ lint/format, translations, knowledge harness, architecture and UoW boundaries.
 Lint retains existing warnings outside this change. PR CI and review status
 are verified live after each push. No merge, deployment or live-model browser
 acceptance was performed.
+
+The Redis follow-up binds Debug state and locks to one backend and translates
+cache/lock failures to a localized, retryable business error. Its 493 backend
+tests include an actual deferred Redis lock connection error, pre-save and
+post-save failures, recovery, cancellation, request ownership, shared-cache
+compatibility and SSE ordering/language. Its 212 frontend tests include all
+eight translated error messages and recovery through the existing retry action.
+Frontend type-check and translation validation pass. Current-head GitHub CI and
+review convergence are tracked in [PR #3262](https://github.com/ai-shifu/ai-shifu/pull/3262)
+after the local implementation and verification are committed.
 
 ## Context and Orientation
 
