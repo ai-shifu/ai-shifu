@@ -61,13 +61,22 @@ def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) ->
 
     Cold demo lookups read configuration and course rows. Reuse any caller
     session, or close a temporary read scope before autonomous usage persistence.
+    A failed lookup is logged and classified as billable, like any non-demo
+    course: recording usage must not fail the learner's finished turn.
     """
     if context.billable is not None:
         return int(context.billable)
     if context.shifu_bid:
-        with app_context_scope(app):
-            if is_builtin_demo_shifu(app, context.shifu_bid):
-                return 0
+        try:
+            with app_context_scope(app):
+                if is_builtin_demo_shifu(app, context.shifu_bid):
+                    return 0
+        except Exception:
+            with contextlib.suppress(Exception):
+                app.logger.exception(
+                    "Demo course lookup failed for usage classification, shifu_bid=%s",
+                    context.shifu_bid,
+                )
     normalize_usage_scene(usage_scene)
     return 1
 

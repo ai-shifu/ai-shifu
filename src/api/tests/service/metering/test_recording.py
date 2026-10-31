@@ -328,6 +328,46 @@ def test_record_llm_usage_marks_builtin_demo_course_non_billable(
     assert captured == []
 
 
+def test_a_failed_demo_lookup_still_records_billable_usage(
+    metering_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: captured.append(usage_bid),
+    )
+
+    def _lookup_fails(_app: object, _shifu_bid: str) -> bool:
+        message = "course table unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder.is_builtin_demo_shifu", _lookup_fails
+    )
+
+    with metering_app.app_context():
+        usage_bid = record_llm_usage(
+            metering_app,
+            UsageContext(
+                user_bid="user-lookup-failure",
+                shifu_bid="course-1",
+                usage_scene=BILL_USAGE_SCENE_PROD,
+            ),
+            provider="openai",
+            model="gpt-test",
+            is_stream=True,
+            input=8,
+            output=13,
+            total=21,
+        )
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+
+    assert record is not None
+    assert record.billable == 1
+    assert captured == [usage_bid]
+
+
 def test_record_tts_usage_marks_builtin_demo_course_non_billable(
     metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
