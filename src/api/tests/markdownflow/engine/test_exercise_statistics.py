@@ -814,6 +814,40 @@ async def test_unanswered_hint_timing_preserves_known_zero_and_unknown_evidence(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("hint_before", "asserted", "total", "before"),
+    [(False, 0, 0, 0), (True, 1, 1, None), (None, None, None, None)],
+)
+async def test_a_question_without_submissions_keeps_report_hint_totals(
+    hint_before: bool | None,
+    asserted: int | None,
+    total: int | None,
+    before: int | None,
+) -> None:
+    ctx = _fixture()
+    rows = [
+        *_questions(ctx),
+        ExerciseQuestion(
+            question="never answered",
+            submissions=[],
+            hint_before=hint_before,
+            hints=asserted,
+        ),
+    ]
+    result = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert result["status"] == "calculated"
+    unanswered = result["questions"][-1]
+    assert unanswered["attempts"] == 0
+    assert unanswered["hints"] == total
+    assert unanswered["hints_before_first"] == before
+    others = result["questions"][:-1]
+    if total is None:
+        assert result["totals"]["hints"] is None
+    else:
+        assert result["totals"]["hints"] == sum(q["hints"] for q in others) + total
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("missing_round", [False, True])
 async def test_scalar_counts_cannot_override_or_replace_round_evidence(
     missing_round: bool,

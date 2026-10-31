@@ -352,9 +352,12 @@ def _coverage_error(references: dict[str, int], used: list[str]) -> str:
 def _hint_counts(
     row: ExerciseQuestion, records: dict[str, dict[str, Any]]
 ) -> tuple[int | None, int | None] | None:
-    """Derive counts from supplied round judgments; None means conflicting evidence."""
-    if not row.submissions:
-        return None, None
+    """Derive counts from supplied round judgments; None means conflicting evidence.
+
+    A question with no submissions still has its initial teaching round, so a known
+    `hint_before` gives a known total; its first-answer timing stays unknown unless
+    that total is zero.
+    """
     groups: dict[int, bool | None] = {}
     first = None
     for submission in row.submissions:
