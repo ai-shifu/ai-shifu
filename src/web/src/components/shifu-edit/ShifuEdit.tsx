@@ -46,8 +46,8 @@ import {
   MdflowHistoryVersionDetail,
 } from '@/types/shifu';
 import ChapterSettingsDialog from '@/components/chapter-setting';
-import LessonPreview from '@/components/lesson-preview';
-import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
+import DebugPanel from '@/components/lesson-debug';
+import { useDebugSession } from '@/components/lesson-debug/use-debug-session';
 import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
 import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editorOnboardingSteps';
 import OutlineTree from '@/components/outline-tree';
@@ -82,11 +82,6 @@ const MarkdownFlowEditor = dynamic(
     ),
   },
 );
-
-const HIDDEN_SYSTEM_VARIABLE_KEYS = new Set([
-  'sys_user_style',
-  'sys_user_input',
-]);
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -140,8 +135,8 @@ const ScriptEditor = ({
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
   const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
-  const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
-  const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
+  const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
+  const [isDebugPreparing, setIsDebugPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
   const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
     useState(false);
@@ -168,7 +163,7 @@ const ScriptEditor = ({
   const selectedHistoryVersionIdRef = useRef<number | null>(null);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
-  const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
+  const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async Debug preparation is pending
   const currentLessonBidRef = useRef<string | null>(null);
   const {
     mdflow,
@@ -201,20 +196,20 @@ const ScriptEditor = ({
   });
 
   const {
-    items: previewItems,
-    isLoading: previewLoading,
-    error: previewError,
-    startPreview,
-    stopPreview,
-    resetPreview,
-    onRefresh,
-    onSend,
-    persistVariables,
-    onVariableChange,
-    variables: previewVariables,
-    requestAudioForBlock: requestPreviewAudioForBlock,
-    reGenerateConfirm,
-  } = usePreviewChat({ creditInsufficientAudience });
+    items: debugItems,
+    isLoading: debugLoading,
+    errorMessage: debugErrorMessage,
+    startRun: startDebugRun,
+    stopRun: stopDebugRun,
+    resetSession: resetDebugSession,
+    regenerateContent: regenerateDebugContent,
+    submitInteraction: submitDebugInteraction,
+    persistVariableValues: persistDebugVariableValues,
+    setVariableValue: setDebugVariableValue,
+    variableValues: debugVariableValues,
+    requestElementAudio: requestDebugElementAudio,
+    regenerationConfirmation,
+  } = useDebugSession({ creditInsufficientAudience });
   const editorScopeKey = useMemo(
     () => `${currentShifu?.bid || ''}:${currentNode?.bid || ''}`,
     [currentNode?.bid, currentShifu?.bid],
@@ -729,18 +724,18 @@ const ScriptEditor = ({
 
   useEffect(() => {
     return () => {
-      stopPreview();
-      resetPreview();
+      stopDebugRun();
+      resetDebugSession();
     };
-  }, [resetPreview, stopPreview]);
+  }, [resetDebugSession, stopDebugRun]);
 
   useEffect(() => {
     if (!currentNode?.bid) {
       return;
     }
-    stopPreview();
-    resetPreview();
-  }, [currentNode?.bid, resetPreview, stopPreview]);
+    stopDebugRun();
+    resetDebugSession();
+  }, [currentNode?.bid, resetDebugSession, stopDebugRun]);
 
   const handleAddChapterClick = () => {
     if (currentShifu?.readonly) {
@@ -943,8 +938,8 @@ const ScriptEditor = ({
     });
   }, [draftConflictMode, latestDraftMeta, syncDraftFromRemote]);
 
-  const handleTogglePreviewPanel = () => {
-    setIsPreviewPanelOpen(prev => !prev);
+  const handleToggleDebugPanel = () => {
+    setIsDebugPanelOpen(prev => !prev);
   };
 
   const handleHideUnusedVariables = useCallback(async () => {
@@ -997,16 +992,16 @@ const ScriptEditor = ({
   }, [selectedHistoryVersionId]);
 
   const handleChapterSelect = useCallback(() => {
-    if (!isPreviewPanelOpen) {
+    if (!isDebugPanelOpen) {
       return;
     }
-    setIsPreviewPanelOpen(false);
-    stopPreview();
-    resetPreview();
-  }, [isPreviewPanelOpen, stopPreview, resetPreview]);
+    setIsDebugPanelOpen(false);
+    stopDebugRun();
+    resetDebugSession();
+  }, [isDebugPanelOpen, stopDebugRun, resetDebugSession]);
 
-  const handlePreview = async () => {
-    if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
+  const handleStartDebug = async () => {
+    if (!canDebug || !currentShifu?.bid || !currentNode?.bid) {
       return;
     }
     const targetOutline = currentNode.bid;
@@ -1015,7 +1010,7 @@ const ScriptEditor = ({
     const outlineChanged = () => {
       // `currentNodeBidRef.current` holds the latest outline bid, updated via useEffect.
       // This check correctly detects if the user has navigated to a different outline item
-      // since the preview was initiated.
+      // since Debug was initiated.
       return targetOutline !== currentNodeBidRef.current;
     };
     trackEvent('creator_lesson_preview_click', {
@@ -1025,9 +1020,9 @@ const ScriptEditor = ({
         name => !LEGACY_VARIABLE_IDENTIFIER_FOR_ANALYTICS.test(name),
       ),
     });
-    setIsPreviewPanelOpen(true);
-    setIsPreviewPreparing(true);
-    resetPreview();
+    setIsDebugPanelOpen(true);
+    setIsDebugPreparing(true);
+    resetDebugSession();
 
     try {
       if (!currentShifu?.readonly) {
@@ -1041,23 +1036,29 @@ const ScriptEditor = ({
         }
       }
       const {
-        variables: parsedVariablesMap,
-        blocksCount,
+        variableValues: preparedVariableValues,
+        blockCount,
         systemVariableKeys,
         allVariableKeys,
-        unusedKeys,
-      } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+        unusedVariableKeys,
+      } = await actions.prepareDebugSession(
+        targetMdflow,
+        targetShifu,
+        targetOutline,
+      );
 
       if (hideUnusedMode) {
         // In "hide unused" mode, refresh hidden list from full-course usage.
-        await actions.syncHiddenVariablesToUsage(targetShifu, { unusedKeys });
+        await actions.syncHiddenVariablesToUsage(targetShifu, {
+          unusedKeys: unusedVariableKeys,
+        });
         if (outlineChanged()) {
           return;
         }
       } else {
         // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
         const parsedVariableKeys =
-          allVariableKeys || Object.keys(parsedVariablesMap || {});
+          allVariableKeys || Object.keys(preparedVariableValues || {});
         const mdflowVariableNames = new Set(extractVariableNames(targetMdflow));
         const usedHiddenKeys = hiddenVariables.filter(
           key =>
@@ -1079,27 +1080,27 @@ const ScriptEditor = ({
       if (outlineChanged()) {
         return;
       }
-      const previewVariablesMap = {
-        ...parsedVariablesMap,
-        ...previewVariables,
+      const debugRunVariableValues = {
+        ...preparedVariableValues,
+        ...debugVariableValues,
       };
-      persistVariables({
+      persistDebugVariableValues({
         shifuBid: targetShifu,
         systemVariableKeys,
-        variables: previewVariablesMap,
+        variableValues: debugRunVariableValues,
       });
-      void startPreview({
+      void startDebugRun({
         shifuBid: targetShifu,
         outlineBid: targetOutline,
         mdflow: targetMdflow,
-        variables: previewVariablesMap,
-        max_block_count: blocksCount,
+        variableValues: debugRunVariableValues,
+        maxBlockCount: blockCount,
         systemVariableKeys,
       });
     } catch (error) {
       console.error(error);
     } finally {
-      setIsPreviewPreparing(false);
+      setIsDebugPreparing(false);
     }
   };
 
@@ -1298,15 +1299,15 @@ const ScriptEditor = ({
     [mdflow],
   );
 
-  const resolvedPreviewVariables = useMemo(() => {
-    const candidates = [previewVariables, previewItems[0]?.variables];
+  const resolvedDebugVariableValues = useMemo(() => {
+    const candidates = [debugVariableValues, debugItems[0]?.variables];
     for (const candidate of candidates) {
       if (candidate && Object.keys(candidate).length) {
         return candidate;
       }
     }
     return undefined;
-  }, [previewItems, previewVariables]);
+  }, [debugItems, debugVariableValues]);
   useEffect(() => {
     const previousSeen = seenVariableNamesRef.current;
     const currentSet = new Set<string>();
@@ -1341,22 +1342,11 @@ const ScriptEditor = ({
   }, [variables]);
 
   const systemVariablesList = useMemo(() => {
-    return systemVariables
-      .filter(
-        (variable: Record<string, string>) =>
-          !HIDDEN_SYSTEM_VARIABLE_KEYS.has(variable.name),
-      )
-      .map((variable: Record<string, string>) => ({
-        name: variable.name,
-        label: variable.label,
-      }));
+    return systemVariables.map((variable: Record<string, string>) => ({
+      name: variable.name,
+      label: variable.label,
+    }));
   }, [systemVariables]);
-
-  const previewHiddenVariableKeys = useMemo(
-    () =>
-      Array.from(new Set([...hiddenVariables, ...HIDDEN_SYSTEM_VARIABLE_KEYS])),
-    [hiddenVariables],
-  );
 
   const visibleSystemVariableKeys = useMemo(
     () => systemVariablesList.map(variable => variable.name),
@@ -1378,10 +1368,10 @@ const ScriptEditor = ({
     return [...visibleSystemVariableKeys, ...customVisible];
   }, [hiddenVariables, variables, visibleSystemVariableKeys]);
 
-  // Preview variables: start from parsed variables and fill missing course-visible keys with empty values
-  const mergedPreviewVariables = useMemo(() => {
-    const base = resolvedPreviewVariables
-      ? { ...resolvedPreviewVariables }
+  // Debug variables: start from parsed variables and fill missing course-visible keys with empty values
+  const mergedDebugVariableValues = useMemo(() => {
+    const base = resolvedDebugVariableValues
+      ? { ...resolvedDebugVariableValues }
       : {};
     courseVisibleVariableKeys.forEach(key => {
       if (!(key in base)) {
@@ -1389,7 +1379,7 @@ const ScriptEditor = ({
       }
     });
     return base;
-  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
+  }, [courseVisibleVariableKeys, resolvedDebugVariableValues]);
 
   const unusedVisibleVariables = useMemo(() => {
     const hiddenSet = new Set(hiddenVariables);
@@ -1399,13 +1389,13 @@ const ScriptEditor = ({
   const hasUnusedVisibleVariables = unusedVisibleVariables.length > 0;
 
   const hasHiddenVariables = hiddenVariables.length > 0;
-  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+  const variableVisibilityAction: 'hide' | 'restore' = hasUnusedVisibleVariables
     ? 'hide'
     : hasHiddenVariables
       ? 'restore'
       : 'hide';
-  const hideRestoreActionDisabled =
-    hideRestoreActionType === 'hide'
+  const isVariableVisibilityActionDisabled =
+    variableVisibilityAction === 'hide'
       ? !hasUnusedVisibleVariables
       : !hasHiddenVariables;
 
@@ -1424,18 +1414,18 @@ const ScriptEditor = ({
     };
   }, [token, baseURL]);
 
-  const canPreview = Boolean(
+  const canDebug = Boolean(
     creditInsufficientAudience !== null &&
     currentNode?.depth &&
     currentNode.depth > 0 &&
     currentShifu?.bid,
   );
 
-  const previewToggleLabel = isPreviewPanelOpen
+  const debugToggleLabel = isDebugPanelOpen
     ? t('module.shifu.previewArea.close')
     : t('module.shifu.previewArea.open');
 
-  const previewDisabledReason = t('module.shifu.previewArea.disabled');
+  const debugDisabledReason = t('module.shifu.previewArea.disabled');
   const handleHistoryEntryClick = useCallback(() => {
     trackEvent('creator_lesson_history_click');
   }, [trackEvent]);
@@ -1802,13 +1792,13 @@ const ScriptEditor = ({
           <div
             className={cn(
               'flex-1 overflow-auto',
-              !isPreviewPanelOpen && 'relative',
+              !isDebugPanelOpen && 'relative',
             )}
           >
             <div
               className={cn(
                 'pt-5 px-6 pb-10 flex flex-col h-full w-full mx-auto',
-                isPreviewPanelOpen ? 'pr-0' : 'max-w-[900px] relative',
+                isDebugPanelOpen ? 'pr-0' : 'max-w-[900px] relative',
               )}
             >
               {currentNode?.depth && currentNode.depth > 0 ? (
@@ -1856,11 +1846,11 @@ const ScriptEditor = ({
                         type='button'
                         size='sm'
                         className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
-                        onClick={handlePreview}
-                        disabled={!canPreview || isPreviewPreparing}
-                        title={!canPreview ? previewDisabledReason : undefined}
+                        onClick={handleStartDebug}
+                        disabled={!canDebug || isDebugPreparing}
+                        title={!canDebug ? debugDisabledReason : undefined}
                       >
-                        {isPreviewPreparing ? (
+                        {isDebugPreparing ? (
                           <Loader2 className='h-4 w-4 animate-spin' />
                         ) : (
                           <Sparkles className='h-4 w-4' />
@@ -1888,15 +1878,15 @@ const ScriptEditor = ({
                       </Button>
                     </div>
                   ) : null}
-                  {!isPreviewPanelOpen && (
+                  {!isDebugPanelOpen && (
                     <Button
                       type='button'
                       variant='outline'
                       size='icon'
                       className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
-                      onClick={handleTogglePreviewPanel}
-                      aria-label={previewToggleLabel}
-                      title={previewToggleLabel}
+                      onClick={handleToggleDebugPanel}
+                      aria-label={debugToggleLabel}
+                      title={debugToggleLabel}
                     >
                       <Columns2 className='h-4 w-4' />
                     </Button>
@@ -1924,54 +1914,56 @@ const ScriptEditor = ({
             </div>
           </div>
 
-          {isPreviewPanelOpen ? (
+          {isDebugPanelOpen ? (
             <div className='shrink-0 px-1 pt-[60px]'>
               <Button
                 type='button'
                 variant='outline'
                 size='icon'
                 className='h-8 w-8'
-                onClick={handleTogglePreviewPanel}
-                aria-label={previewToggleLabel}
-                title={previewToggleLabel}
+                onClick={handleToggleDebugPanel}
+                aria-label={debugToggleLabel}
+                title={debugToggleLabel}
               >
                 <Columns2 className='h-4 w-4' />
               </Button>
             </div>
           ) : null}
-          {isPreviewPanelOpen && creditInsufficientAudience !== null ? (
+          {isDebugPanelOpen && creditInsufficientAudience !== null ? (
             <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
               <div className='h-full'>
-                <LessonPreview
-                  loading={previewLoading}
-                  errorMessage={previewError || undefined}
-                  items={previewItems}
+                <DebugPanel
+                  isLoading={debugLoading}
+                  errorMessage={debugErrorMessage || undefined}
+                  items={debugItems}
                   creditInsufficientAudience={creditInsufficientAudience}
-                  variables={mergedPreviewVariables}
-                  hiddenVariableKeys={previewHiddenVariableKeys}
+                  variableValues={mergedDebugVariableValues}
+                  hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
-                  onRefresh={onRefresh}
-                  onSend={onSend}
-                  onVariableChange={onVariableChange}
+                  onRegenerate={regenerateDebugContent}
+                  onSubmitInteraction={submitDebugInteraction}
+                  onVariableChange={setDebugVariableValue}
                   variableOrder={variableOrder}
                   systemVariableKeys={visibleSystemVariableKeys}
-                  onRequestAudioForBlock={
+                  onRequestElementAudio={
                     currentShifu?.tts_enabled
-                      ? requestPreviewAudioForBlock
+                      ? requestDebugElementAudio
                       : undefined
                   }
-                  reGenerateConfirm={reGenerateConfirm}
-                  customVariableKeys={variables}
+                  regenerationConfirmation={regenerationConfirmation}
+                  courseVariableKeys={variables}
                   unusedVariableKeys={unusedVisibleVariables}
                   onHideVariable={handleHideSingleVariable}
-                  onHideOrRestore={
-                    hideRestoreActionType === 'hide'
+                  onApplyVariableVisibilityAction={
+                    variableVisibilityAction === 'hide'
                       ? handleHideUnusedVariables
                       : handleRestoreHiddenVariables
                   }
-                  actionType={hideRestoreActionType}
-                  actionDisabled={hideRestoreActionDisabled}
-                  showGenerateBtn={Boolean(
+                  variableVisibilityAction={variableVisibilityAction}
+                  isVariableVisibilityActionDisabled={
+                    isVariableVisibilityActionDisabled
+                  }
+                  showRegenerateAction={Boolean(
                     currentShifu && !currentShifu.readonly,
                   )}
                 />

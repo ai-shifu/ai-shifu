@@ -1984,7 +1984,6 @@ describe('LearnerProfileDialog', () => {
       nickname: '',
       legacy_profile_values: {
         sys_user_nickname: 'Legacy name',
-        sys_user_style: 'Legacy style',
       },
     });
     renderDialog();
@@ -1999,6 +1998,21 @@ describe('LearnerProfileDialog', () => {
         'Legacy name',
       ),
     );
+  });
+
+  test('does not prefill an empty introduction from a retired global style', async () => {
+    mockGetLearnerProfile.mockResolvedValue({
+      ...emptyProfile,
+      legacy_profile_values: {
+        sys_user_nickname: 'Legacy name',
+        sys_user_style: 'Legacy style',
+      },
+    });
+    renderDialog({ autoStartCollection: false });
+
+    expect(await screen.findByDisplayValue('Legacy name')).toBeInTheDocument();
+    expect(profileInput()).toHaveValue('');
+    expect(screen.queryByDisplayValue('Legacy style')).not.toBeInTheDocument();
   });
 
   test('optimizes a direct edit in place and lets the learner undo it', async () => {

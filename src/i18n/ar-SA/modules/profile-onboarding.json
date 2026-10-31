@@ -91,9 +91,6 @@
     "informationUsageTitle": "كيف تُستخدم هذه المعلومات؟",
     "interactiveCollection": "الإجابة عن الأسئلة",
     "keepEditing": "متابعة التعديل",
-    "legacyPrefill": {
-      "style": "أسلوبي اللغوي المفضل: {value}"
-    },
     "loadFailed": "تعذر تحميل هذه التفاصيل. حاول مرة أخرى.",
     "loading": "جارٍ تحميل إعدادات التخصيص…",
     "manualFallback": "يتعذر الجمع التلقائي حاليًا. يمكنك إدخال تعريفك مباشرةً.",

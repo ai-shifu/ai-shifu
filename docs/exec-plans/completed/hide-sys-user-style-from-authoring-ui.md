@@ -1,5 +1,12 @@
 # Hide `sys_user_style` From Course Authoring UI
 
+> Superseded on 2026-10-31 by the
+> [default-profile retirement](../../references/course-variable-scopes.md):
+> `sys_user_style` has no global profile meaning. Existing course definitions use
+> ordinary reads and writes; missing definitions are not repaired. The generic
+> `sys_` authoring restriction has no exception. Historical rows and saved session
+> snapshots remain unchanged.
+
 ## Purpose / Big Picture
 
 `sys_user_style` must no longer be presented in course-authoring variable lists,
@@ -26,7 +33,7 @@ behavior.
 - The course editor receives the complete system-variable definition list and
   separately passes the same keys into preview storage and runtime requests.
   Filtering the shared store would therefore change behavior beyond display.
-- `LessonPreview` already supports hidden display keys without removing them
+- `DebugPanel` already supports hidden display keys without removing them
   from the variable map, which keeps the compatibility boundary narrow.
 
 ## Decision Log

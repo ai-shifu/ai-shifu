@@ -1,9 +1,8 @@
 {
   "__namespace__": "server.profile",
   "__flat__": {
-    "avatar": "Avatar",
-    "birth": "Date de naissance",
     "keyInvalid": "Impossible d’enregistrer cette mémoire : la question ne peut pas être vide ni contenir de caractères de contrôle ou « }} ».",
+    "keyReserved": "Les questions ne peuvent pas commencer par sys_ ; ce préfixe est réservé au système.",
     "language": "Langue",
     "learnerProfileOptimizationEmptyResponse": "L’IA n’a renvoyé aucun contenu optimisé. Réessayez.",
     "learnerProfileOptimizationFailed": "Le service d’optimisation par IA a rencontré une erreur. Réessayez plus tard.",
@@ -19,11 +18,6 @@
     "profileOnboardingConfigConflict": "Un autre administrateur a enregistré une version plus récente. Rechargez la configuration avant de la modifier et de l’enregistrer à nouveau.",
     "profileOnboardingConfigNotPersistable": "Cette configuration est gérée par une variable d’environnement et ne peut pas être enregistrée ici. Contactez un administrateur.",
     "profileOnboardingPromptGenerationFailed": "La consigne pour les assistants IA n’a pas pu être générée. La configuration n’a pas été publiée et votre saisie est conservée. Réessayez.",
-    "sex": "Sexe",
-    "sexFemale": "Femme",
-    "sexMale": "Homme",
-    "sexSecret": "Non précisé",
-    "style": "Style",
     "userBackground": "Parcours personnel"
   }
 }

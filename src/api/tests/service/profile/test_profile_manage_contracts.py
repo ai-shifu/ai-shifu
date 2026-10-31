@@ -8,7 +8,7 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.profile import profile_manage as profiles
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import DraftOutlineItem
@@ -20,11 +20,13 @@ from sqlalchemy import MetaData, String, event, text
 def variables(app: object) -> object:
     identity = uuid.uuid4().hex
     keys = {name: f"{name}_{identity}" for name in ("used", "unused", "old", "system")}
+    keys["system"] = "sys_user_language"
+    definition_bids = {name: uuid.uuid4().hex for name in keys}
     with app.app_context(), unit_of_work():
         for name, key in keys.items():
             db.session.add(
                 Variable(
-                    variable_bid=uuid.uuid4().hex,
+                    variable_bid=definition_bids[name],
                     shifu_bid="" if name == "system" else identity,
                     key=key,
                     is_hidden=0,
@@ -52,9 +54,72 @@ def variables(app: object) -> object:
             synchronize_session=False
         )
         Variable.query.filter(
-            (Variable.shifu_bid == identity) | Variable.key.in_(list(keys.values()))
+            (Variable.shifu_bid == identity)
+            | Variable.variable_bid.in_(list(definition_bids.values()))
         ).delete(synchronize_session=False)
         DraftOutlineItem.query.filter_by(shifu_bid=identity).delete()
+
+
+def test_variables_fixture_teardown_preserves_preexisting_shared_definitions(
+    app: object,
+) -> None:
+    """Cleaning one test's variables must not erase another course's definitions."""
+    existing = {
+        uuid.uuid4().hex: "",
+        uuid.uuid4().hex: f"other-course-{uuid.uuid4().hex}",
+    }
+    with app.app_context(), unit_of_work():
+        for definition_bid, course in existing.items():
+            db.session.add(
+                Variable(
+                    variable_bid=definition_bid,
+                    shifu_bid=course,
+                    key="sys_user_language",
+                    deleted=0,
+                )
+            )
+        existing_bids = {row.variable_bid for row in Variable.query.all()}
+    try:
+        fixture = variables.__wrapped__(app)
+        owned = next(fixture)
+        try:
+            with app.app_context(), unit_of_work():
+                fixture_bids = {
+                    row.variable_bid for row in Variable.query.all()
+                } - existing_bids
+                db.session.add(
+                    Variable(
+                        variable_bid=uuid.uuid4().hex,
+                        shifu_bid=owned.course,
+                        key="test-created-local-variable",
+                    )
+                )
+        finally:
+            with pytest.raises(StopIteration):
+                next(fixture)
+        with app.app_context():
+            remaining = {
+                row.variable_bid: (row.shifu_bid, row.key, row.deleted)
+                for row in Variable.query.filter(
+                    Variable.variable_bid.in_(list(existing))
+                ).all()
+            }
+            assert remaining == {
+                definition_bid: (course, "sys_user_language", 0)
+                for definition_bid, course in existing.items()
+            }
+            assert Variable.query.filter_by(shifu_bid=owned.course).count() == 0
+            assert (
+                Variable.query.filter(
+                    Variable.variable_bid.in_(list(fixture_bids))
+                ).count()
+                == 0
+            )
+    finally:
+        with app.app_context(), unit_of_work():
+            Variable.query.filter(Variable.variable_bid.in_(list(existing))).delete(
+                synchronize_session=False
+            )
 
 
 def test_definition_list_preserves_fixed_text_fields_and_scope(
@@ -198,17 +263,15 @@ def test_empty_hidden_selection_is_a_read_and_missing_course_is_rejected(
         profiles.get_profile_variable_usage(app, "")
 
 
-def test_definition_creation_reuses_trimmed_system_key_without_a_course_copy(
+def test_course_definition_rejects_trimmed_registered_system_key(
     app: object, variables: object
 ) -> None:
-    with app.app_context(), unit_of_work():
-        result = profiles.add_profile_item_quick_internal(
+    with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
+        profiles.add_profile_item_quick_internal(
             app, variables.course, f"  {variables.keys['system']}  ", "teacher"
         )
-    assert result.profile_key == variables.keys["system"]
+    assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
     with app.app_context():
-        system = Variable.query.filter_by(shifu_bid="", key=result.profile_key).one()
-        assert result.profile_id == system.variable_bid
         assert (
             Variable.query.filter_by(
                 shifu_bid=variables.course, key=variables.keys["system"]
@@ -259,6 +322,79 @@ def test_definition_creation_rejects_unrepresentable_keys_without_writes(
         assert Variable.query.filter_by(shifu_bid=variables.course).count() == before
 
 
+@pytest.mark.parametrize(
+    "key",
+    [
+        "sys_",
+        "sys_custom_question",
+        "sys_user_language",
+        "sys_user_style",
+        "\u00a0sys_name\u3000",
+    ],
+)
+def test_course_definition_rejects_system_prefix_without_writes(
+    app: object, variables: object, key: str
+) -> None:
+    with app.app_context():
+        before = Variable.query.filter_by(shifu_bid=variables.course).count()
+    with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
+        profiles.add_profile_item_quick_internal(app, variables.course, key, "teacher")
+    assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
+    with app.app_context():
+        assert Variable.query.filter_by(shifu_bid=variables.course).count() == before
+
+
+def test_course_definition_cannot_reuse_a_system_prefixed_definition(
+    app: object, variables: object
+) -> None:
+    key = f"sys_global_{uuid.uuid4().hex}"
+    definition_bid = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        db.session.add(Variable(variable_bid=definition_bid, shifu_bid="", key=key))
+    try:
+        with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
+            profiles.add_profile_item_quick_internal(
+                app, variables.course, key, "teacher"
+            )
+        assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
+        with app.app_context():
+            rows = Variable.query.filter_by(key=key).all()
+            assert [(row.variable_bid, row.shifu_bid) for row in rows] == [
+                (definition_bid, "")
+            ]
+    finally:
+        with app.app_context(), unit_of_work():
+            Variable.query.filter_by(variable_bid=definition_bid).delete()
+
+
+@pytest.mark.parametrize("key", ["sys_user_style", "favorite_color", "language"])
+def test_global_definition_requires_a_registered_system_key(
+    app: object,
+    key: str,
+) -> None:
+    with app.app_context():
+        before = Variable.query.filter_by(shifu_bid="", key=key).count()
+    with app.app_context(), pytest.raises(AppError), unit_of_work():
+        profiles.add_profile_item_quick_internal(app, "", key, "teacher")
+    with app.app_context():
+        assert Variable.query.filter_by(shifu_bid="", key=key).count() == before
+
+
+@pytest.mark.parametrize("prefix", ["SYS_", "course_sys_"])
+def test_course_definition_reserves_only_the_exact_leading_system_prefix(
+    app: object, variables: object, prefix: str
+) -> None:
+    key = f"{prefix}{uuid.uuid4().hex}"
+    with app.app_context(), unit_of_work():
+        result = profiles.add_profile_item_quick_internal(
+            app, variables.course, key, "teacher"
+        )
+    with app.app_context():
+        definition = Variable.query.filter_by(variable_bid=result.profile_id).one()
+        assert definition.key == key
+        assert definition.shifu_bid == variables.course
+
+
 @pytest.fixture
 def case_folding_app(tmp_path: Path) -> object:
     app = Flask("case-folding-variable-contracts")
@@ -302,7 +438,8 @@ def test_definition_identity_remains_exact_under_a_case_folding_database(
     assert lower.profile_id != upper.profile_id
     with app.app_context():
         assert [row.key for row in Variable.query.filter_by(shifu_bid="course")] == [
-            "name"
+            "name",
+            "Name",
         ]
 
 
@@ -401,15 +538,17 @@ def legacy_app(tmp_path: Path) -> object:
 def test_legacy_quick_add_reuses_active_identity_and_increments_index(
     legacy_app: object, parent: str
 ) -> None:
+    first_key = "first" if parent else "sys_user_nickname"
+    second_key = "second" if parent else "sys_user_language"
     with legacy_app.app_context(), unit_of_work():
         first = profiles.add_profile_item_quick_internal(
-            legacy_app, parent, "first", "teacher"
+            legacy_app, parent, first_key, "teacher"
         )
         duplicate = profiles.add_profile_item_quick_internal(
-            legacy_app, parent, "first", "other-editor"
+            legacy_app, parent, first_key, "other-editor"
         )
         second = profiles.add_profile_item_quick_internal(
-            legacy_app, parent, "second", "teacher"
+            legacy_app, parent, second_key, "teacher"
         )
         assert first.profile_id == duplicate.profile_id
         assert second.profile_id != first.profile_id
@@ -432,7 +571,7 @@ def test_legacy_quick_add_reuses_active_identity_and_increments_index(
             .all()
         )
         assert [row["profile_index"] for row in rows] == [1, 2]
-        assert [row["profile_key"] for row in rows] == ["first", "second"]
+        assert [row["profile_key"] for row in rows] == [first_key, second_key]
         assert all(row["created_by"] == "teacher" for row in rows)
         assert all(row["status"] == 1 and row["parent_id"] == parent for row in rows)
         assert all(

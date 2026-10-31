@@ -202,6 +202,7 @@
 | `docs/exec-plans/completed/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/parallel-test-workers.md` | Run frontend and backend tests with two workers | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/password-login-rate-limit.md` | Password Login Account Rate Limit | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/password-session-consistency.md` | Standard password and session consistency | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/permission-contact-validation.md` | Separate course permission contact validation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/profile-markdownflow-v2.md` | Profile questionnaire MarkdownFlow 2.0 runtime | `exec-plan-completed` | `completed` | `backend` | `2026-10-23` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-ai-import.md` | Let learners answer onboarding questions with their AI | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -223,10 +224,13 @@
 | `docs/exec-plans/completed/remove-markdownflow-arena.md` | Remove the MarkdownFlow arena | `exec-plan-completed` | `completed` | `repo` | `2026-10-24` | `false` |
 | `docs/exec-plans/completed/remove-minimax-in-product-voice-cloning.md` | Remove In-Product MiniMax Voice Cloning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/rename-lesson-debug.md` | Name editor Debug code by responsibility | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/reserve-system-question-prefix.md` | Reserve System Question Names | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/restrict-learner-order-actions.md` | Restrict learner order actions to their owner | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/retire-ai-instruction-generator.md` | Retire the AI Instruction Generator | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/retire-default-profiles.md` | Retire Legacy Default Profiles | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/reuse-production-runtime-images.md` | Reuse production images in PR runtime checks | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/ruff-0-17-upgrade.md` | Upgrade Ruff to 0.17.3 | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/running-version-display.md` | Display the running frontend version | `exec-plan-completed` | `completed` | `web` | `2026-10-10` | `false` |
@@ -281,7 +285,7 @@
 | `docs/product-specs/index.md` | Product Specs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
 | `docs/product-specs/learner-listen-playback.md` | Learner Listen Playback and Timeline | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
-| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-30` | `true` |
+| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-31` | `true` |
 | `docs/product-specs/lesson-content-updates.md` | Lesson Content Update Recommendations | `product-spec` | `implemented` | `shared` | `2026-10-12` | `true` |
 | `docs/product-specs/lesson-memory-context.md` | Lesson Memory Context | `product-spec` | `implemented` | `backend` | `2026-10-07` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
@@ -297,7 +301,7 @@
 | `docs/product-specs/operator-user-points-columns.md` | Operator User Points | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/product-specs/outline-learning-permission-default.md` | Backend-owned outline learning permission default | `product-spec` | `implemented` | `shared` | `2026-10-11` | `true` |
-| `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
+| `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-10-31` | `true` |
 | `docs/product-specs/profile-onboarding-startup.md` | Profile onboarding startup | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
 | `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-23` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
@@ -305,7 +309,7 @@
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
-| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-30` | `true` |
+| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-31` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |

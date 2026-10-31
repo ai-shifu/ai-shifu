@@ -101,7 +101,7 @@ deployment is included.
 ## Context and Orientation
 
 The shared locale JSON files own frontend and backend user-facing text.
-`VariableList` renders the existing simulation key/value map and system labels;
+`DebugVariablesPanel` renders the existing simulation key/value map and system labels;
 its change callback and persistence consumers must keep receiving exact keys.
 The learner's course-memory dialog already uses neutral entry presentation.
 The profile routes expose legacy field names that remain compatibility contracts.

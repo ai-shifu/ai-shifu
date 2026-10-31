@@ -1,9 +1,8 @@
 {
   "__namespace__": "server.profile",
   "__flat__": {
-    "avatar": "الصورة الشخصية",
-    "birth": "تاريخ الميلاد",
     "keyInvalid": "تعذّر حفظ الذاكرة: يجب ألا يكون السؤال فارغًا وألا يحتوي على أحرف تحكم أو «}}».",
+    "keyReserved": "لا يمكن أن تبدأ الأسئلة بـ sys_؛ فهذه البادئة محجوزة للنظام.",
     "language": "اللغة",
     "learnerProfileOptimizationEmptyResponse": "لم يُعد الذكاء الاصطناعي محتوى محسنًا، يرجى المحاولة مرة أخرى",
     "learnerProfileOptimizationFailed": "حدث خطأ في خدمة تحسين الذكاء الاصطناعي، يرجى المحاولة مرة أخرى لاحقًا",
@@ -19,11 +18,6 @@
     "profileOnboardingConfigConflict": "حفظ مسؤول آخر إصدارًا أحدث. أعد تحميل الإعدادات قبل تعديلها وحفظها مجددًا.",
     "profileOnboardingConfigNotPersistable": "تُدار هذه الإعدادات بواسطة متغير بيئة ولا يمكن حفظها هنا. تواصل مع المسؤول.",
     "profileOnboardingPromptGenerationFailed": "تعذّر إنشاء تعليمات المساعد. لم تُنشر الإعدادات وما زال النص الذي أدخلته محفوظًا. حاول مرة أخرى.",
-    "sex": "الجنس",
-    "sexFemale": "أنثى",
-    "sexMale": "ذكر",
-    "sexSecret": "أفضل عدم الإفصاح",
-    "style": "الأسلوب",
     "userBackground": "الخلفية"
   }
 }

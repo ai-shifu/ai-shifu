@@ -1,9 +1,8 @@
 {
   "__namespace__": "server.profile",
   "__flat__": {
-    "avatar": "头像",
-    "birth": "生日",
     "keyInvalid": "无法保存记忆：问题不能为空，且不能包含控制字符或「}}」。",
+    "keyReserved": "问题不能以 sys_ 开头，该前缀为系统保留。",
     "language": "语言",
     "learnerProfileOptimizationEmptyResponse": "AI 没有返回优化后的内容，请重试",
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",
@@ -19,11 +18,6 @@
     "profileOnboardingConfigConflict": "已有其他管理员保存了新版本。请刷新配置后重新编辑保存。",
     "profileOnboardingConfigNotPersistable": "此配置由环境变量管理，无法在此保存。请联系管理员。",
     "profileOnboardingPromptGenerationFailed": "代答提示词生成失败，配置未发布。你的输入仍保留，请重试。",
-    "sex": "性别",
-    "sexFemale": "女",
-    "sexMale": "男",
-    "sexSecret": "保密",
-    "style": "风格",
     "userBackground": "背景"
   }
 }

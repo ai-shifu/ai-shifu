@@ -8,6 +8,7 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu import shifu_mdflow_funcs as mdflow
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
@@ -165,3 +166,102 @@ def test_late_failure_rolls_back_outline_and_automatically_created_definitions(
     assert [(row.id, row.content) for row in outlines] == [
         (draft_course.revision, "Original content")
     ]
+
+
+@pytest.mark.parametrize("prefix", ["", "%"])
+def test_save_rejects_system_questions_without_writes_or_moderation(
+    app: Flask,
+    draft_course: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    prefix: str,
+) -> None:
+    moderation_calls = []
+    monkeypatch.setattr(
+        mdflow,
+        "check_text_with_risk_control",
+        lambda *args: moderation_calls.append(args),
+    )
+    content = f"?[{prefix}{{{{ sys_custom }}}} ...Answer]"
+
+    with pytest.raises(AppError) as exc_info:
+        mdflow.save_shifu_mdflow(
+            app, draft_course.owner, draft_course.bid, draft_course.outline_bid, content
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.profile.keyReserved"]
+    assert moderation_calls == []
+    assert _committed_course_rows(app, Variable, draft_course.bid) == []
+    assert [
+        (row.id, row.content)
+        for row in _committed_course_rows(app, DraftOutlineItem, draft_course.bid)
+    ] == [(draft_course.revision, "Original content")]
+
+
+def test_saving_system_references_only_creates_ordinary_course_definitions(
+    app: Flask, draft_course: SimpleNamespace
+) -> None:
+    content = (
+        "Hello {{sys_user_nickname}}. Use %{{sys_custom}}.\n\n"
+        "?[{{course_question}} Yes | No]"
+    )
+
+    result = mdflow.save_shifu_mdflow(
+        app, draft_course.owner, draft_course.bid, draft_course.outline_bid, content
+    )
+
+    assert result["conflict"] is False
+    definitions = _committed_course_rows(app, Variable, draft_course.bid)
+    assert [row.key for row in definitions] == ["course_question"]
+    assert (
+        _committed_course_rows(app, DraftOutlineItem, draft_course.bid)[-1].content
+        == content
+    )
+
+
+@pytest.mark.parametrize("supplied_content", [True, False])
+def test_parse_rejects_system_question_in_supplied_or_stored_content(
+    app: Flask, draft_course: SimpleNamespace, supplied_content: bool
+) -> None:
+    content = "?[{{sys_custom}} ...Answer]"
+    if not supplied_content:
+        with app.app_context(), unit_of_work():
+            outline = DraftOutlineItem.query.filter_by(shifu_bid=draft_course.bid).one()
+            outline.content = content
+
+    with pytest.raises(AppError) as exc_info:
+        mdflow.parse_shifu_mdflow(
+            app,
+            draft_course.bid,
+            draft_course.outline_bid,
+            content if supplied_content else None,
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.profile.keyReserved"]
+
+
+def test_restore_rejects_historical_system_question_without_new_revision(
+    app: Flask, draft_course: SimpleNamespace
+) -> None:
+    with app.app_context(), unit_of_work():
+        outline = DraftOutlineItem.query.filter_by(shifu_bid=draft_course.bid).one()
+        outline.content = "?[%{{sys_custom}} ...Answer]"
+    mdflow.save_shifu_mdflow(
+        app,
+        draft_course.owner,
+        draft_course.bid,
+        draft_course.outline_bid,
+        "Valid content",
+    )
+    before = _committed_course_rows(app, DraftOutlineItem, draft_course.bid)
+
+    with pytest.raises(AppError) as exc_info:
+        mdflow.restore_shifu_mdflow_history_version(
+            app,
+            draft_course.owner,
+            draft_course.bid,
+            draft_course.outline_bid,
+            draft_course.revision,
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.profile.keyReserved"]
+    assert _committed_course_rows(app, DraftOutlineItem, draft_course.bid) == before
