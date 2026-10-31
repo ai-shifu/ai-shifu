@@ -109,7 +109,8 @@ def test_delete_invalidates_only_the_selected_exact_keys_history_and_generation(
 
 
 @pytest.mark.parametrize(
-    ("reserved", "custom"), [("sys_note", "SYS_note"), ("sex", "Sex")]
+    ("reserved", "custom"),
+    [("sys_note", "SYS_note"), ("sys_user_language", "Sys_user_language")],
 )
 @pytest.mark.usefixtures("text_key_app")
 def test_reserved_key_filters_and_deletion_preserve_exact_identity(

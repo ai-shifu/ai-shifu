@@ -344,66 +344,94 @@ describe('usePreviewChat helpers and business error rendering', () => {
     }
   });
 
-  test.each(['sys_user_language', 'language'])(
-    'keeps edits to %s on restart without keeping new answers',
-    async key => {
-      const sources: MockSseSource[] = [];
-      (SSE as jest.Mock).mockImplementation(() => {
-        const source = buildMockSseSource();
-        sources.push(source);
-        return source;
+  test('keeps canonical language edits on restart without changing a course language variable', async () => {
+    const sources: MockSseSource[] = [];
+    (SSE as jest.Mock).mockImplementation(() => {
+      const source = buildMockSseSource();
+      sources.push(source);
+      return source;
+    });
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    const finish = () => {
+      const source = sources[sources.length - 1];
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
       });
-      const { result } = renderHook(() =>
-        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
-      );
-      const finish = () => {
-        const source = sources[sources.length - 1];
-        source.listeners.message?.({
-          data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
-        });
-        source.listeners.message?.({
-          data: JSON.stringify({ type: 'done', is_terminal: true }),
-        });
-      };
-      await act(async () =>
-        result.current.startPreview({
-          shifuBid: 'course',
-          outlineBid: 'lesson',
-          mdflow: 'Draft',
-          variables: {
-            sys_user_language: 'zh-CN',
-            language: 'zh-CN',
-            nickname: 'Ada',
-          },
-        }),
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    };
+    await act(async () =>
+      result.current.startPreview({
+        shifuBid: 'course',
+        outlineBid: 'lesson',
+        mdflow: 'Draft',
+        variables: {
+          sys_user_language: 'zh-CN',
+          language: 'Python',
+          nickname: 'Ada',
+        },
+      }),
+    );
+    act(finish);
+    for (const language of ['en-US', 'fr-FR', '']) {
+      act(() => {
+        result.current.onVariableChange('sys_user_language', language);
+        result.current.onVariableChange('answer', 'old answer');
+      });
+      expect(result.current.variables).toMatchObject({
+        sys_user_language: language,
+        language: 'Python',
+      });
+      await act(async () => result.current.onRefresh());
+      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(request.variables).toEqual({
+        sys_user_language: language,
+        language: 'Python',
+        nickname: 'Ada',
+      });
+      expect(request.user_input).toBeUndefined();
+      expect(request.debug_session_id).not.toBe(
+        JSON.parse((SSE as jest.Mock).mock.calls[sources.length - 2][1].payload)
+          .debug_session_id,
       );
       act(finish);
-      for (const language of ['en-US', 'fr-FR', '']) {
-        act(() => {
-          result.current.onVariableChange(key, language);
-          result.current.onVariableChange('answer', 'old answer');
-        });
-        expect(result.current.variables).toMatchObject({
-          sys_user_language: language,
-          language,
-        });
-        await act(async () => result.current.onRefresh());
-        const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
-        expect(request.variables).toEqual({
-          sys_user_language: language,
-          language,
-          nickname: 'Ada',
-        });
-        expect(request.user_input).toBeUndefined();
-        expect(request.debug_session_id).not.toBe(
-          JSON.parse(
-            (SSE as jest.Mock).mock.calls[sources.length - 2][1].payload,
-          ).debug_session_id,
-        );
-        act(finish);
-      }
-    },
-  );
+    }
+  });
+
+  test('treats edits to a course language variable as ordinary answers', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockImplementation(() => source);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    await act(async () =>
+      result.current.startPreview({
+        shifuBid: 'course',
+        outlineBid: 'lesson',
+        mdflow: 'Draft',
+        variables: { sys_user_language: 'fr-FR', language: 'Python' },
+      }),
+    );
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+      result.current.onVariableChange('language', 'TypeScript');
+    });
+    expect(result.current.variables).toEqual({
+      sys_user_language: 'fr-FR',
+      language: 'TypeScript',
+    });
+    await act(async () => result.current.onRefresh());
+    const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+    expect(request.variables).toEqual({
+      sys_user_language: 'fr-FR',
+      language: 'Python',
+    });
+  });
 
   test('does not introduce a legacy language field when editing the visible language', async () => {
     const source = buildMockSseSource();

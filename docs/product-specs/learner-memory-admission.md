@@ -2,7 +2,7 @@
 title: Learner Memory Admission
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-10-30
+last_reviewed: 2026-10-31
 canonical: true
 ---
 
@@ -51,8 +51,15 @@ continues. Semantic interpretation remains probabilistic; exact input grounding,
 reserved keys, lifecycle, scope and capacity guards are deterministic.
 
 Admitted undeclared requests use user scope within the current course. They cannot
-write `sys_*` or any key the profile writer routes globally, such as `language`,
-`sex`, `birth` or `avatar`. Declared keys retain existing profile mapping semantics.
+write `sys_*` or any key the profile writer routes globally. The only global
+profile keys are `sys_user_nickname`, `sys_user_language` and
+`sys_user_background`. Former built-ins `language`, `sex`, `birth` and `avatar`
+follow ordinary course scope and admission rules. The generic `sys_` authoring
+restriction has no exception for `sys_user_style`. Existing stored course
+definitions keep ordinary key/scope reads and writes; value writes do not create
+missing definitions, and supplementary reads exclude undefined `sys_` keys.
+Active system declarations in retained published lessons keep their canonical
+profile mapping semantics.
 Canonical account fields remain authoritative. There is no cross-course sharing.
 Only the agent's memory reader opts into additional current-course variable rows;
 other consumers retain definition-based runtime resolution. The supplementary

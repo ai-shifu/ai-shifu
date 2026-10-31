@@ -1,5 +1,9 @@
 # Keep editor previews in the selected language
 
+> Superseded in part on 2026-10-30: only `sys_user_language` selects preview
+> language. The former `language` alias is an independent course variable; see
+> [variable scopes](../../references/course-variable-scopes.md).
+
 ## Purpose / Big Picture
 
 Teachers must be able to preview a multilingual draft, change language, continue,

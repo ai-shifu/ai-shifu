@@ -91,9 +91,6 @@
     "informationUsageTitle": "Wie werden diese Informationen verwendet?",
     "interactiveCollection": "Fragen beantworten",
     "keepEditing": "Bearbeiten fortsetzen",
-    "legacyPrefill": {
-      "style": "Mein bevorzugter Sprachstil: {value}"
-    },
     "loadFailed": "Diese Angaben konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
     "loading": "Personalisierungseinstellungen werden geladen...",
     "manualFallback": "Die automatische Abfrage ist derzeit nicht verfügbar. Sie können die Angaben direkt eingeben.",

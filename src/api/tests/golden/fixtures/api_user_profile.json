@@ -11,32 +11,7 @@
         "items": null
       },
       {
-        "key": "sex",
-        "label": "Sex",
-        "type": "select",
-        "value": "Male",
-        "items": [
-          "Male",
-          "Female",
-          "Prefer not to say"
-        ]
-      },
-      {
-        "key": "birth",
-        "label": "Date of birth",
-        "type": "date",
-        "value": null,
-        "items": null
-      },
-      {
-        "key": "avatar",
-        "label": "Avatar",
-        "type": "image",
-        "value": "",
-        "items": null
-      },
-      {
-        "key": "language",
+        "key": "sys_user_language",
         "label": "Language",
         "type": "select",
         "value": "English",
@@ -54,13 +29,6 @@
       {
         "key": "sys_user_background",
         "label": "Background",
-        "type": "text",
-        "value": "",
-        "items": null
-      },
-      {
-        "key": "sys_user_style",
-        "label": "Style",
         "type": "text",
         "value": "",
         "items": null

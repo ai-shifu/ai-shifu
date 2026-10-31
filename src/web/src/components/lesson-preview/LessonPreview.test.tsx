@@ -171,10 +171,10 @@ describe('LessonPreview billing action', () => {
         items={[]}
         variables={{
           sys_user_nickname: 'Learner',
-          sys_user_style: 'Concise',
+          hidden_topic: 'Concise',
           custom_topic: 'Testing',
         }}
-        hiddenVariableKeys={['sys_user_style']}
+        hiddenVariableKeys={['hidden_topic']}
         systemVariableKeys={['sys_user_nickname']}
         customVariableKeys={['custom_topic']}
         shifuBid='shifu-1'

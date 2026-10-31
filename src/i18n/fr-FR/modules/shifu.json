@@ -36,7 +36,6 @@
     "personalInfoPlaceholder": "Saisir : {label}",
     "systemVariableLabels": {
       "background": "Profil et préférences de l’élève",
-      "input": "Saisie la plus récente",
       "language": "Langue d’enseignement",
       "nickname": "Surnom de l’élève"
     },

@@ -91,9 +91,6 @@
     "informationUsageTitle": "¿Cómo se utilizará esta información?",
     "interactiveCollection": "Preguntas interactivas",
     "keepEditing": "Seguir editando",
-    "legacyPrefill": {
-      "style": "Estilo de lenguaje que prefiero: {value}"
-    },
     "loadFailed": "No se ha podido cargar esta información. Inténtalo de nuevo.",
     "loading": "Cargando ajustes de personalización…",
     "manualFallback": "No se pueden recopilar las respuestas automáticamente ahora. Puedes escribir tu presentación directamente.",

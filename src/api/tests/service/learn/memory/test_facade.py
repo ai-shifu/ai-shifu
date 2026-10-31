@@ -17,7 +17,6 @@ from flaskr.service.learn.memory import (
     stage_memory,
 )
 from flaskr.service.profile.funcs import (
-    get_profile_labels,
     get_user_profiles,
     update_user_profile_with_lable,
 )
@@ -112,13 +111,14 @@ def test_runtime_resolution_refuses_global_custom_fallback_and_keeps_definition_
 ) -> None:
     user_bid, shifu_bid = scope
     with unit_of_work():
-        stage_memory(
-            app,
-            user_bid,
-            "",
-            MemoryUpdate(
-                variables=[VariableMemoryUpdate("base_level", "global default", "")]
-            ),
+        db.session.add(
+            VariableValue(
+                variable_value_bid=uuid4().hex,
+                user_bid=user_bid,
+                shifu_bid="",
+                key="base_level",
+                value="Historical global default",
+            )
         )
         stage_memory(
             app,
@@ -163,23 +163,23 @@ def test_canonical_fields_and_profile_clear_override_stale_variable_rows(
     assert load_memory(app, user_bid, shifu_bid).variables["sys_user_background"] == ""
 
 
-def test_mapped_assignment_preserves_stored_value_and_updates_memory_payload(
+def test_system_language_assignment_keeps_locale_codes_in_history_and_memory(
     app: Flask, scope: tuple[str, str]
 ) -> None:
     user_bid, shifu_bid = scope
-    assignment = VariableMemoryUpdate("language", "en-US", "")
-    mapped_language = get_profile_labels()["language"]["items_mapping"]["en-US"]
-    assert mapped_language != assignment.value
+    assignment = VariableMemoryUpdate("sys_user_language", "en-US", "")
     with unit_of_work():
         assert (
             stage_memory(app, user_bid, shifu_bid, MemoryUpdate(variables=[assignment]))
             is True
         )
 
-    row = VariableValue.query.filter_by(user_bid=user_bid, key="language").one()
+    row = VariableValue.query.filter_by(
+        user_bid=user_bid, key="sys_user_language"
+    ).one()
     assert row.shifu_bid == ""
     assert row.value == "en-US"
-    assert assignment.value == mapped_language
+    assert assignment.value == "en-US"
     assert load_memory(app, user_bid, shifu_bid).variables == get_user_profiles(
         app, user_bid, shifu_bid
     )
@@ -299,7 +299,7 @@ def test_agent_projection_includes_only_current_course_undeclared_variables(
             (user, "", "global_undeclared", "global", 0),
             (user, course, "sys_user_nickname", "stale", 0),
             (user, course, "sys_arbitrary", "not canonical", 0),
-            (user, course, "language", "not course scoped", 0),
+            (user, course, "language", "ordinary course note", 0),
             (user, course, "sysXliteral", "not a system prefix", 0),
         ]:
             db.session.add(
@@ -318,6 +318,7 @@ def test_agent_projection_includes_only_current_course_undeclared_variables(
     assert memory == {
         **default,
         "requested": "latest",
+        "language": "ordinary course note",
         "sysXliteral": "not a system prefix",
     }
     assert memory["sys_user_nickname"] == "Current learner"
