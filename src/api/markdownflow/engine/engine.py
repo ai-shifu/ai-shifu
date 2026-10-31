@@ -48,6 +48,8 @@ if TYPE_CHECKING:
 
 from markdownflow.preserve_markers import PreserveMarkerFilter
 from markdownflow.resources import load_prompt
+from markdownflow.syntax.formatter.classifier import Classifier
+from markdownflow.syntax.formatter.types import is_text_family
 
 from .answer_context import (
     answer_reference_instructions,
@@ -267,14 +269,21 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     A repeat long enough to be one (`_REPEAT_FLOOR_CHARS`) at its start is left out, up to the
     last line or sentence end inside it, so what is shown begins where a sentence does. A model
     told to go on often starts by writing the last part again and only then gets to the new
-    one; everything else was new, and is shown whole.
+    one; everything else was new, and is shown whole. Prefix trimming stops before the first
+    non-prose element: shared layout is not repeated teaching, and cutting it breaks the visual.
     """
     text = "".join(held)
     visible = "".join(text.split())
     if visible in said:
         return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
+    classifier = Classifier()
+    prose_end = 0
+    for line in text.splitlines(keepends=True):
+        if not is_text_family(classifier.classify_line(line.rstrip("\r\n")).type):
+            break
+        prose_end += len(line)
     cut, seen = 0, ""
-    for i, ch in enumerate(text):
+    for i, ch in enumerate(text[:prose_end]):
         if not ch.isspace():
             seen += ch
         if ch in _BREAKS:
