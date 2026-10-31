@@ -6,6 +6,7 @@ import hashlib
 import json
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import Session
@@ -24,6 +25,13 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
+
+
+@dataclass
+class DebugRewindPlan(RewindPlan):
+    """Keep the requested anchor retryable after its first replacement is saved."""
+
+    retry_anchor: str = ""
 
 
 class DebugSessionStore:
@@ -145,14 +153,37 @@ class DebugSessionStore:
             record = json.loads(turn_record)["agent_turn"]
             turns = [turn for turn in turns if turn["block_bid"] != generated_block_bid]
             turns.append({"block_bid": generated_block_bid, "record": record})
+        retry = previous.get("regeneration_retry")
+        if rewind is not None:
+            retry = None
+            if (
+                isinstance(rewind, DebugRewindPlan)
+                and rewind.retry_anchor
+                and generated_block_bid
+                and turn_record
+            ):
+                retry = {
+                    "requested_block_bid": rewind.retry_anchor,
+                    "replacement_block_bid": generated_block_bid,
+                }
         payload = {
             "script_hash": hashlib.sha256(session.script.script.encode()).hexdigest(),
             "session": session.dumps(),
             "turns": turns,
         }
+        if (
+            isinstance(retry, dict)
+            and isinstance(retry.get("requested_block_bid"), str)
+            and retry["requested_block_bid"]
+            and any(
+                turn["block_bid"] == retry.get("replacement_block_bid")
+                for turn in turns
+            )
+        ):
+            payload["regeneration_retry"] = retry
         cache.setex(self._key, self.TTL_SECONDS, json.dumps(payload))
 
-    def plan_rewind(self, *, script: str, block_bid: str) -> RewindPlan:
+    def plan_rewind(self, *, script: str, block_bid: str) -> DebugRewindPlan:
         """Find a checkpoint only within this editor run's unchanged draft."""
         session = self.load(script=script)
         payload = self._payload(script=script) or {}
@@ -171,6 +202,20 @@ class DebugSessionStore:
         target = next(
             (i for i, turn in enumerate(turns) if turn["block_bid"] == block_bid), None
         )
+        if target is None:
+            retry = payload.get("regeneration_retry")
+            if (
+                isinstance(retry, dict)
+                and retry.get("requested_block_bid") == block_bid
+            ):
+                target = next(
+                    (
+                        i
+                        for i, turn in enumerate(turns)
+                        if turn["block_bid"] == retry.get("replacement_block_bid")
+                    ),
+                    None,
+                )
         if target is None:
             raise RewindUnavailableError
         record = turns[target]["record"]
@@ -200,10 +245,11 @@ class DebugSessionStore:
             restore(session, checkpoint)
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             raise RewindUnavailableError from exc
-        return RewindPlan(
+        return DebugRewindPlan(
             checkpoint=checkpoint,
             replay_values=list(values),
             retired_block_bids=[turn["block_bid"] for turn in turns[target:]],
+            retry_anchor=block_bid,
         )
 
 

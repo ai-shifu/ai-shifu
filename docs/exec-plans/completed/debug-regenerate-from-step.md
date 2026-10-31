@@ -21,6 +21,14 @@ memory, and regenerate that turn and its successors through the normal flow.
 - [x] 2026-10-31 CST: Adapt the feature to main `9226669f2` after #3264 merged,
   retaining its file and API naming. Pass 453 backend and 245 frontend tests,
   frontend type-check and all 21 repository-wide checks.
+- [x] 2026-10-31 CST: Verify the stopped-save review report against the actual
+  two-stage planner; add a regression proving the runtime retires the racing
+  suffix after claiming the request, without changing correct production logic.
+- [x] 2026-10-31 CST: Add a reliable retry entry after failed/stopped generation,
+  including uncertain failures after backend state has already saved.
+- [x] 2026-10-31 CST: Verify both review conclusions with deterministic tests:
+  375 backend and 181 frontend cases pass, including real provider failure,
+  repeated retries, reset/script boundaries and analytics isolation.
 
 ## Surprises & Discoveries
 
@@ -33,6 +41,11 @@ Independent review found that automatic continuation could reapply discarded
 answers and reset the restored output language; continuation now resumes saved
 Debug memory. Real SSE clean closure uses `readystatechange`, and a state-backed
 streaming flag keeps the UI ready to accept the next answer.
+Review found that truncating rows before regeneration makes the selected target
+inaccessible on failure. Lack of output does not prove that replacement state
+was not saved; restoring old rows would risk displaying discarded answers as
+current. A separate retry target and narrowly scoped backend mapping handle
+both pre-save and uncertain post-save failures.
 
 ## Decision Log
 
@@ -49,6 +62,10 @@ streaming flag keeps the UI ready to accept the next answer.
   the frontend drops answers belonging to discarded steps.
 - Preserve explicit whole-lesson restart when no element is supplied and when
   the draft script changes. Reject unknown or expired anchored state.
+- Keep a retry target and preserved prefix for the current Debug session,
+  independently of visible replacement rows. Retry the same logical target
+  through the existing request. Resolve only its current first replacement
+  block after a save; never make unrelated retired suffix anchors valid.
 - Add a separate Debug analytics family rather than changing the existing
   classroom rewind population; its durable contract lives in
   `docs/references/frontend-product-analytics.md`.
@@ -58,15 +75,20 @@ streaming flag keeps the UI ready to accept the next answer.
 Backend checkpoints, frontend prefix retention, request-scoped anchors,
 restored variables, analytics and late-request ownership are implemented.
 Focused tests include real offline FunctionModel generation and original-input
-replay, not only constructed checkpoint metadata. All 21 repository-wide
-pre-commit checks passed, including Ruff, frontend lint/format, translations,
-knowledge harness, architecture and UoW boundaries. Frontend type-check passed;
-The current rebased feature passes 453 backend and 245 frontend tests. Backend
-code and tests remain identical to the original feature commit; frontend changes
-adapt the existing cases to the current names without adding behavior. Lint
-retains existing warnings outside this change; touched frontend files have no
-warnings. No merge, deployment or
-live-model browser acceptance was performed.
+replay, not only constructed checkpoint metadata. Review follow-up adds a
+retry control and one cached logical-target mapping so uncertain failures can
+retry without restoring discarded rows or answers. A real provider exception
+proves that even a bare error can save replacement state. A separate regression
+verifies that the existing post-claim runtime planner retires a racing old turn;
+that report required no production concurrency change.
+
+The rebased feature previously passed 453 backend and 245 frontend tests.
+The review follow-up passes 375 relevant backend and 181 frontend tests, plus
+frontend type-check. The repository-wide pre-commit gate covers Ruff, frontend
+lint/format, translations, knowledge harness, architecture and UoW boundaries.
+Lint retains existing warnings outside this change. PR CI and review status
+are verified live after each push. No merge, deployment or live-model browser
+acceptance was performed.
 
 ## Context and Orientation
 
