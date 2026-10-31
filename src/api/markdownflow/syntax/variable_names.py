@@ -5,8 +5,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 VARIABLE_BODY_SOURCE = r"(?:(?!\}\})[\s\S])*"
-VARIABLE_REFERENCE_SOURCE = r"\{\{(" + VARIABLE_BODY_SOURCE + r")\}\}"
-VARIABLE_ASSIGNMENT_SOURCE = "%" + VARIABLE_REFERENCE_SOURCE
 VARIABLE_ASSIGNMENT_UNIT_SOURCE = r"%\{\{" + VARIABLE_BODY_SOURCE + r"\}\}"
 VARIABLE_REFERENCE_UNIT_SOURCE = r"\{\{" + VARIABLE_BODY_SOURCE + r"\}\}"
 _INVALID_NAME = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")

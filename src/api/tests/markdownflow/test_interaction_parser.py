@@ -1,4 +1,4 @@
-"""Application bindings reuse the local syntax parser's existing option grammar."""
+"""Both binding forms share the syntax parser's existing option grammar."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pytest
 from markdownflow import InteractionParser, InteractionSpec, Option
-from markdownflow.syntax import InteractionParser as SyntaxInteractionParser
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -32,32 +31,100 @@ def _normalized_parse(parsed: dict[str, Any]) -> dict[str, Any]:
 def test_both_bindings_keep_all_five_control_shapes(
     body: str, marker: str, newline: str
 ) -> None:
-    expected = _normalized_parse(
-        SyntaxInteractionParser().parse("?[%{{goal}} " + body + "]")
-    )
+    expected = _normalized_parse(InteractionParser().parse("?[%{{goal}} " + body + "]"))
     source = "?[ \t" + marker + newline + body + "]"
     assert _normalized_parse(InteractionParser().parse(source)) == expected
 
 
+_A_B = [{"display": "A", "value": "A"}, {"display": "B", "value": "B"}]
+
+
+# Pinned to the results before standard bindings were added.
 @pytest.mark.parametrize(
-    "source",
+    ("source", "expected"),
     [
-        "?[A | B]",
-        "?[A || B]",
-        "?[...Other]",
-        r"?[%{{goal}} A\|B//first | C\]D//second | ...Other]",
-        "?[%{{ Which [path] | level//hint...? }} A | B]",
-        "?[%{{ a} }} A | B]",
-        "?[Read {{goal}} | Continue]",
-        r"\?[%{{goal}} A | B]",
+        (
+            "?[A | B]",
+            {
+                "type": "non_assignment_button",
+                "buttons": _A_B,
+                "is_multi_select": False,
+            },
+        ),
+        (
+            "?[A || B]",
+            {"type": "non_assignment_button", "buttons": _A_B, "is_multi_select": True},
+        ),
+        (
+            "?[...Other]",
+            {
+                "type": "non_assignment_button",
+                "buttons": [],
+                "question": "Other",
+                "is_multi_select": False,
+            },
+        ),
+        (
+            r"?[%{{goal}} A\|B//first | C\]D//second | ...Other]",
+            {
+                "type": "buttons_with_text",
+                "variable": "goal",
+                "buttons": [
+                    {"display": "A|B", "value": "first"},
+                    {"display": "C]D", "value": "second"},
+                ],
+                "question": "Other",
+                "is_multi_select": False,
+            },
+        ),
+        (
+            "?[%{{ Which [path] | level//hint...? }} A | B]",
+            {
+                "type": "buttons_only",
+                "variable": "Which [path] | level//hint...?",
+                "buttons": _A_B,
+                "is_multi_select": False,
+            },
+        ),
+        (
+            "?[%{{ a} }} A | B]",
+            {
+                "type": "buttons_only",
+                "variable": "a}",
+                "buttons": _A_B,
+                "is_multi_select": False,
+            },
+        ),
+        (
+            "?[Read {{goal}} | Continue]",
+            {
+                "type": "non_assignment_button",
+                "buttons": [
+                    {"display": "Read {{goal}}", "value": "Read {{goal}}"},
+                    {"display": "Continue", "value": "Continue"},
+                ],
+                "is_multi_select": False,
+            },
+        ),
+        (
+            r"\?[%{{goal}} A | B]",
+            {
+                "type": None,
+                "error": r"Invalid interaction format: \?[%{{goal}} A | B]",
+            },
+        ),
     ],
 )
 def test_existing_legacy_and_unassigned_controls_keep_their_contract(
-    source: str,
+    source: str, expected: dict[str, Any]
 ) -> None:
-    assert _normalized_parse(InteractionParser().parse(source)) == _normalized_parse(
-        SyntaxInteractionParser().parse(source)
-    )
+    assert _normalized_parse(InteractionParser().parse(source)) == expected
+
+
+def test_the_package_and_syntax_layer_share_one_parser() -> None:
+    from markdownflow.syntax import InteractionParser as SyntaxInteractionParser
+
+    assert InteractionParser is SyntaxInteractionParser
 
 
 @pytest.mark.parametrize("marker", ["{{", "%{{"])
