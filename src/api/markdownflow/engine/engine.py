@@ -46,9 +46,8 @@ if TYPE_CHECKING:
     from .memory import MemoryStore
     from .session import SessionStore
 
-from markdownflow.preserve_markers import PreserveMarkerFilter
+from markdownflow.preserve_markers import EnvelopeClassifier, PreserveMarkerFilter
 from markdownflow.resources import load_prompt
-from markdownflow.syntax.formatter.classifier import Classifier
 from markdownflow.syntax.formatter.types import is_text_family
 
 from .answer_context import (
@@ -276,7 +275,7 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     visible = "".join(text.split())
     if visible in said:
         return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
-    classifier = Classifier()
+    classifier = EnvelopeClassifier()
     prose_end = 0
     for line in text.splitlines(keepends=True):
         if not is_text_family(classifier.classify_line(line.rstrip("\r\n")).type):

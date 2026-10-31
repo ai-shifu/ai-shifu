@@ -120,6 +120,57 @@ async def test_a_highlighted_slide_after_an_unscripted_pause_keeps_its_layout(
     assert session.finished is False
 
 
+@pytest.mark.parametrize("marker", ["===", "!==="])
+@pytest.mark.parametrize("chunk_size", [1, 4096])
+@pytest.mark.parametrize("kind", ["html", "code"])
+async def test_continuation_keeps_inline_mdf_wrapped_visuals_complete(
+    marker: str, chunk_size: int, kind: str
+) -> None:
+    """The trim boundary must recognize the same inline wrappers as the display pager."""
+    original = (
+        _OVERVIEW.split("<style>", 1)[0].rstrip("\n")
+        if kind == "html"
+        else "```python\n# Shared setup for two examples with a changed value.\nvalue = 1\n```"
+    )
+    updated = (
+        original.replace('class="step"', 'class="step active"', 1)
+        if kind == "html"
+        else original.replace("value = 1", "value = 2")
+    )
+    first = f"{marker}{original}===\n"
+    next_visual = f"{marker}{updated}===\n"
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str]:
+        nonlocal calls
+        calls += 1
+        text = _RECAP + (first if calls == 1 else next_visual + _NEXT)
+        for start in range(0, len(text), chunk_size):
+            yield text[start : start + chunk_size]
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(
+        "Show both examples with their complete structure."
+    )
+    _ = [event async for event in engine.run_turn(session)]
+    events = [event async for event in engine.run_turn(session)]
+    displayed = "".join(
+        event.text for event in events if isinstance(event, ContentDelta)
+    )
+
+    assert displayed == next_visual + _NEXT
+    assert events[-1].reason == "end"
+    assert session.finished is False
+    pager = LessonPager(clean_markers=True)
+    elements: dict[int, str] = {}
+    for content, stream_type, number in pager.add(displayed) + pager.flush():
+        if stream_type == kind:
+            elements[number] = elements.get(number, "") + content
+    assert list(elements.values()) == [updated + "\n"]
+
+
 @pytest.mark.parametrize(
     "visual",
     [
