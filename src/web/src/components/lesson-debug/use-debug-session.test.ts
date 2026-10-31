@@ -1,3 +1,4 @@
+import { buildDebugContinuationParams } from './debug-request-params';
 import { createElement, StrictMode } from 'react';
 import {
   act,
@@ -15,11 +16,10 @@ import { toast, toastOnce } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import { getCreditInsufficientMessage } from '@/lib/creditInsufficientToast';
 import {
-  buildInteractionContinuationPreviewParams,
-  buildPreviewBusinessErrorItem,
-  replacePreviewLoadingWithBusinessError,
-  usePreviewChat,
-} from './usePreviewChat';
+  buildDebugBusinessErrorItem,
+  replaceDebugLoadingWithBusinessError,
+  useDebugSession,
+} from './use-debug-session';
 
 const mockParseToRemarkFormat = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -126,7 +126,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-describe('usePreviewChat helpers and business error rendering', () => {
+describe('useDebugSession helpers and business error rendering', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockTrackEvent.mockReset();
@@ -139,46 +139,46 @@ describe('usePreviewChat helpers and business error rendering', () => {
   });
   test('builds interaction continuation preview params with latest mdflow', () => {
     expect(
-      buildInteractionContinuationPreviewParams({
+      buildDebugContinuationParams({
         currentParams: {
           shifuBid: 'shifu-1',
           outlineBid: 'lesson-1',
           mdflow: 'old prompt',
-          block_index: 1,
-          variables: { oldVar: 'old' },
-          user_input: { oldVar: ['old'] },
+          blockIndex: 1,
+          variableValues: { oldVar: 'old' },
+          userInput: { oldVar: ['old'] },
         },
         latestMdflow: 'new prompt',
         blockIndex: 3,
-        variables: { answer: '42' },
+        variableValues: { answer: '42' },
         userInput: { answer: ['42'] },
       }),
     ).toEqual({
       shifuBid: 'shifu-1',
       outlineBid: 'lesson-1',
       mdflow: 'new prompt',
-      block_index: 3,
-      variables: { answer: '42' },
-      user_input: { answer: ['42'] },
+      blockIndex: 3,
+      variableValues: { answer: '42' },
+      userInput: { answer: ['42'] },
     });
   });
 
   test('does not open preview streams while ownership is unresolved', async () => {
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: null }),
+      useDebugSession({ creditInsufficientAudience: null }),
     );
 
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'content',
       });
     });
     await expect(
-      result.current.requestAudioForBlock({
+      result.current.requestElementAudio({
         shifuBid: 'shifu-1',
-        blockId: 'block-1',
+        elementBid: 'block-1',
         text: 'content',
       }),
     ).resolves.toBeNull();
@@ -190,15 +190,15 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValueOnce(source);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
 
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'Draft script',
-        max_block_count: 3,
+        maxBlockCount: 3,
       });
     });
     const request = (SSE as jest.Mock).mock.calls[0][1];
@@ -245,10 +245,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValueOnce(source);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'Private draft',
@@ -298,20 +298,20 @@ describe('usePreviewChat helpers and business error rendering', () => {
     ];
     sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     const params = {
       shifuBid: 'shifu-1',
       outlineBid: 'lesson-1',
       mdflow: 'Draft script',
-      max_block_count: 3,
+      maxBlockCount: 3,
     };
 
     await act(async () => {
-      await result.current.startPreview(params);
-      await result.current.startPreview({
+      await result.current.startRun(params);
+      await result.current.startRun({
         ...params,
-        user_input: { answer: ['yes'] },
+        userInput: { answer: ['yes'] },
       });
     });
     const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
@@ -319,8 +319,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(second.debug_session_id).toBe(first.debug_session_id);
     expect(second.user_input).toEqual({ answer: ['yes'] });
 
-    act(() => result.current.resetPreview());
-    await act(async () => result.current.startPreview(params));
+    act(() => result.current.resetSession());
+    await act(async () => result.current.startRun(params));
     const third = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
     expect(third.debug_session_id).not.toBe(first.debug_session_id);
   });
@@ -328,7 +328,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
   test('sends the current interface language on each preview request', async () => {
     (SSE as jest.Mock).mockImplementation(buildMockSseSource);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     const params = {
       shifuBid: 'course',
@@ -337,7 +337,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     };
     for (const language of ['zh-CN', 'en-US', 'fr-FR']) {
       mockRequestLanguage = language;
-      await act(async () => result.current.startPreview(params));
+      await act(async () => result.current.startRun(params));
       const options = (SSE as jest.Mock).mock.lastCall[1];
       expect(options.headers['Accept-Language']).toBe(language);
       expect(JSON.parse(options.payload).variables).toEqual({});
@@ -352,7 +352,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
       return source;
     });
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     const finish = () => {
       const source = sources[sources.length - 1];
@@ -364,11 +364,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
       });
     };
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         shifuBid: 'course',
         outlineBid: 'lesson',
         mdflow: 'Draft',
-        variables: {
+        variableValues: {
           sys_user_language: 'zh-CN',
           language: 'Python',
           nickname: 'Ada',
@@ -378,14 +378,14 @@ describe('usePreviewChat helpers and business error rendering', () => {
     act(finish);
     for (const language of ['en-US', 'fr-FR', '']) {
       act(() => {
-        result.current.onVariableChange('sys_user_language', language);
-        result.current.onVariableChange('answer', 'old answer');
+        result.current.setVariableValue('sys_user_language', language);
+        result.current.setVariableValue('answer', 'old answer');
       });
-      expect(result.current.variables).toMatchObject({
+      expect(result.current.variableValues).toMatchObject({
         sys_user_language: language,
         language: 'Python',
       });
-      await act(async () => result.current.onRefresh());
+      await act(async () => result.current.regenerateContent());
       const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
       expect(request.variables).toEqual({
         sys_user_language: language,
@@ -405,27 +405,27 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockImplementation(() => source);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         shifuBid: 'course',
         outlineBid: 'lesson',
         mdflow: 'Draft',
-        variables: { sys_user_language: 'fr-FR', language: 'Python' },
+        variableValues: { sys_user_language: 'fr-FR', language: 'Python' },
       }),
     );
     act(() => {
       source.listeners.message?.({
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
-      result.current.onVariableChange('language', 'TypeScript');
+      result.current.setVariableValue('language', 'TypeScript');
     });
-    expect(result.current.variables).toEqual({
+    expect(result.current.variableValues).toEqual({
       sys_user_language: 'fr-FR',
       language: 'TypeScript',
     });
-    await act(async () => result.current.onRefresh());
+    await act(async () => result.current.regenerateContent());
     const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
     expect(request.variables).toEqual({
       sys_user_language: 'fr-FR',
@@ -437,14 +437,14 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockImplementation(() => source);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         shifuBid: 'course',
         outlineBid: 'lesson',
         mdflow: 'Draft',
-        variables: { sys_user_language: '' },
+        variableValues: { sys_user_language: '' },
       }),
     );
     act(() => {
@@ -454,10 +454,12 @@ describe('usePreviewChat helpers and business error rendering', () => {
       source.listeners.message?.({
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
-      result.current.onVariableChange('sys_user_language', 'fr-FR');
+      result.current.setVariableValue('sys_user_language', 'fr-FR');
     });
-    expect(result.current.variables).toEqual({ sys_user_language: 'fr-FR' });
-    await act(async () => result.current.onRefresh());
+    expect(result.current.variableValues).toEqual({
+      sys_user_language: 'fr-FR',
+    });
+    await act(async () => result.current.regenerateContent());
     const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
     expect(request.variables).toEqual({ sys_user_language: 'fr-FR' });
   });
@@ -478,16 +480,16 @@ describe('usePreviewChat helpers and business error rendering', () => {
       .mockReturnValueOnce(answerSource)
       .mockReturnValueOnce(multiAnswerSource);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
 
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'Ask for an answer',
-        variables: { answer: 'old choice', multiAnswer: 'old choice' },
-        max_block_count: 3,
+        variableValues: { answer: 'old choice', multiAnswer: 'old choice' },
+        maxBlockCount: 3,
       }),
     );
     act(() => {
@@ -515,11 +517,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(
       result.current.items.find(item => item.element_bid === 'question-1'),
     ).toMatchObject({ user_input: '' });
-    expect(result.current.variables.answer).toBeUndefined();
-    expect(result.current.variables.multiAnswer).toBe('old choice');
+    expect(result.current.variableValues.answer).toBeUndefined();
+    expect(result.current.variableValues.multiAnswer).toBe('old choice');
 
     await act(async () =>
-      result.current.onSend(
+      result.current.submitInteraction(
         { variableName: '  answer  ', selectedValues: ['new choice'] },
         'question-1',
       ),
@@ -533,8 +535,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
     expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
     expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
-    expect(result.current.variables['  answer  ']).toBeUndefined();
-    expect(result.current.variables.answer).toBe('new choice');
+    expect(result.current.variableValues['  answer  ']).toBeUndefined();
+    expect(result.current.variableValues.answer).toBe('new choice');
     expect(answerRequest.block_index).toBe(0);
 
     act(() => {
@@ -556,13 +558,13 @@ describe('usePreviewChat helpers and business error rendering', () => {
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
     });
-    expect(result.current.variables.multiAnswer).toBeUndefined();
+    expect(result.current.variableValues.multiAnswer).toBeUndefined();
     expect(
       result.current.items.find(item => item.element_bid === 'question-2'),
     ).toMatchObject({ user_input: '' });
 
     await act(async () =>
-      result.current.onSend(
+      result.current.submitInteraction(
         { variableName: 'multiAnswer', selectedValues: ['new choice'] },
         'question-2',
       ),
@@ -589,10 +591,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
     try {
       (SSE as jest.Mock).mockReturnValueOnce(buildMockSseSource());
       const { result } = renderHook(() =>
-        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+        useDebugSession({ creditInsufficientAudience: 'teacher' }),
       );
       await act(async () =>
-        result.current.startPreview({
+        result.current.startRun({
           shifuBid: 'shifu-1',
           outlineBid: 'lesson-1',
           mdflow: 'Draft',
@@ -611,28 +613,28 @@ describe('usePreviewChat helpers and business error rendering', () => {
   test('keeps the debug session and answer until a run of it has started streaming', async () => {
     (SSE as jest.Mock).mockImplementation(buildMockSseSource);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     const params = {
       shifuBid: 'shifu-1',
       outlineBid: 'lesson-1',
       mdflow: 'Original draft',
-      block_index: 1,
-      variables: { learnerName: 'Ada', answer: 'saved choice' },
-      user_input: { answer: ['saved choice'] },
+      blockIndex: 1,
+      variableValues: { learnerName: 'Ada', answer: 'saved choice' },
+      userInput: { answer: ['saved choice'] },
     };
 
-    await act(async () => result.current.startPreview(params));
+    await act(async () => result.current.startRun(params));
     await act(async () =>
-      result.current.startPreview({ ...params, mdflow: 'Edited draft' }),
+      result.current.startRun({ ...params, mdflow: 'Edited draft' }),
     );
 
     const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
     const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
     for (const request of [first, second]) {
       expect(request.block_index).toBe(1);
-      expect(request.variables).toEqual(params.variables);
-      expect(request.user_input).toEqual(params.user_input);
+      expect(request.variables).toEqual(params.variableValues);
+      expect(request.user_input).toEqual(params.userInput);
     }
     expect(first.content).toBe('Original draft');
     expect(second.content).toBe('Edited draft');
@@ -646,17 +648,17 @@ describe('usePreviewChat helpers and business error rendering', () => {
       .mockReturnValueOnce(firstSource)
       .mockReturnValueOnce(secondSource);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     const params = {
       shifuBid: 'shifu-1',
       outlineBid: 'lesson-1',
       mdflow: 'Original draft',
-      variables: { learnerName: 'Ada' },
-      max_block_count: 3,
+      variableValues: { learnerName: 'Ada' },
+      maxBlockCount: 3,
     };
 
-    await act(async () => result.current.startPreview(params));
+    await act(async () => result.current.startRun(params));
     act(() => {
       firstSource.listeners.message?.({
         data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
@@ -665,14 +667,14 @@ describe('usePreviewChat helpers and business error rendering', () => {
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
     });
-    act(() => result.current.onVariableChange('answer', 'old choice'));
+    act(() => result.current.setVariableValue('answer', 'old choice'));
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         ...params,
         mdflow: 'Edited draft',
-        block_index: 1,
-        variables: { learnerName: 'Ada', answer: 'old choice' },
-        user_input: { answer: ['old choice'] },
+        blockIndex: 1,
+        variableValues: { learnerName: 'Ada', answer: 'old choice' },
+        userInput: { answer: ['old choice'] },
       }),
     );
 
@@ -695,15 +697,15 @@ describe('usePreviewChat helpers and business error rendering', () => {
     ];
     sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
 
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'Original draft',
-        variables: { learnerName: 'Ada' },
+        variableValues: { learnerName: 'Ada' },
       }),
     );
     act(() => {
@@ -713,11 +715,14 @@ describe('usePreviewChat helpers and business error rendering', () => {
       sources[0].listeners.message?.({
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
-      result.current.onVariableChange('answer', 'old choice');
+      result.current.setVariableValue('answer', 'old choice');
     });
     mockGetCurrentMdflow.mockReturnValue('Edited draft');
     await act(async () => {
-      result.current.onSend({} as OnSendContentParams, 'old-question');
+      result.current.submitInteraction(
+        {} as OnSendContentParams,
+        'old-question',
+      );
     });
     const restarted = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
     expect(restarted.content).toBe('Edited draft');
@@ -739,10 +744,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
       jest.advanceTimersByTime(1000);
-      result.current.onVariableChange('answer', 'new choice');
+      result.current.setVariableValue('answer', 'new choice');
     });
     expect(SSE).toHaveBeenCalledTimes(2);
-    await act(async () => result.current.onRefresh());
+    await act(async () => result.current.regenerateContent());
     const refreshed = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
     expect(refreshed.variables).toEqual({ learnerName: 'Ada' });
     expect(refreshed.user_input).toBeUndefined();
@@ -750,24 +755,24 @@ describe('usePreviewChat helpers and business error rendering', () => {
 
   test('drops stale interaction user input when continuation has no submission', () => {
     expect(
-      buildInteractionContinuationPreviewParams({
+      buildDebugContinuationParams({
         currentParams: {
           shifuBid: 'shifu-1',
           outlineBid: 'lesson-1',
           mdflow: 'old prompt',
-          block_index: 1,
-          user_input: { oldVar: ['old'] },
+          blockIndex: 1,
+          userInput: { oldVar: ['old'] },
         },
         latestMdflow: 'new prompt',
         blockIndex: 2,
-        variables: {},
+        variableValues: {},
       }),
     ).toEqual({
       shifuBid: 'shifu-1',
       outlineBid: 'lesson-1',
       mdflow: 'new prompt',
-      block_index: 2,
-      variables: {},
+      blockIndex: 2,
+      variableValues: {},
     });
   });
 
@@ -782,12 +787,12 @@ describe('usePreviewChat helpers and business error rendering', () => {
     ];
 
     expect(
-      replacePreviewLoadingWithBusinessError(
+      replaceDebugLoadingWithBusinessError(
         items,
         '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
       ),
     ).toEqual([
-      buildPreviewBusinessErrorItem(
+      buildDebugBusinessErrorItem(
         '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
       ),
     ]);
@@ -809,15 +814,15 @@ describe('usePreviewChat helpers and business error rendering', () => {
       },
     ];
 
-    expect(replacePreviewLoadingWithBusinessError(items, '余额不足')).toEqual([
+    expect(replaceDebugLoadingWithBusinessError(items, '余额不足')).toEqual([
       items[0],
-      buildPreviewBusinessErrorItem('余额不足'),
+      buildDebugBusinessErrorItem('余额不足'),
     ]);
   });
 
   test('keeps the preview business code on the rendered error row', () => {
     expect(
-      buildPreviewBusinessErrorItem('积分不足，请稍后重试', 7101),
+      buildDebugBusinessErrorItem('积分不足，请稍后重试', 7101),
     ).toMatchObject({
       element_bid: 'preview-business-error',
       generated_block_bid: 'preview-business-error',
@@ -840,11 +845,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
 
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
 
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'prompt',
@@ -869,7 +874,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe('module.preview.aiDebugUnavailable');
+      expect(result.current.errorMessage).toBe(
+        'module.preview.aiDebugUnavailable',
+      );
     });
     expect(toast).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -922,13 +929,13 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
 
     const { result } = renderHook(() =>
-      usePreviewChat({
+      useDebugSession({
         creditInsufficientAudience: 'teacher-collaborator',
       }),
     );
 
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'prompt',
@@ -956,7 +963,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
       7101,
     );
     await waitFor(() => {
-      expect(result.current.error).toBe(collaboratorMessage);
+      expect(result.current.errorMessage).toBe(collaboratorMessage);
     });
     expect(result.current.items.at(-1)).toMatchObject({
       content: collaboratorMessage,
@@ -979,11 +986,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
       const ownerMessage = getCreditInsufficientMessage('teacher', 7101);
 
       const { result } = renderHook(() =>
-        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+        useDebugSession({ creditInsufficientAudience: 'teacher' }),
       );
 
       await act(async () => {
-        await result.current.startPreview({
+        await result.current.startRun({
           shifuBid: 'shifu-1',
           outlineBid: 'lesson-1',
           mdflow: 'prompt',
@@ -1002,7 +1009,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
         });
       });
 
-      await waitFor(() => expect(result.current.error).toBe(ownerMessage));
+      await waitFor(() =>
+        expect(result.current.errorMessage).toBe(ownerMessage),
+      );
       expect(result.current.items.at(-1)).toMatchObject({
         content: ownerMessage,
         type: ChatContentItemType.ERROR,
@@ -1022,11 +1031,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
     (SSE as jest.Mock).mockReturnValueOnce(source);
 
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
 
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'prompt',
@@ -1043,7 +1052,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe('module.preview.aiDebugUnavailable');
+      expect(result.current.errorMessage).toBe(
+        'module.preview.aiDebugUnavailable',
+      );
     });
     expect(toast).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1094,11 +1105,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
     (SSE as jest.Mock).mockReturnValueOnce(source);
 
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
 
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'prompt',
@@ -1114,7 +1125,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe('module.preview.streamError');
+      expect(result.current.errorMessage).toBe('module.preview.streamError');
     });
     expect(result.current.items).not.toEqual(
       expect.arrayContaining([
@@ -1136,25 +1147,25 @@ describe('usePreviewChat helpers and business error rendering', () => {
     'transport-error',
     'early-close',
   ])('ends audio loading and allows retry after %s', async outcome => {
-    const previewSource = buildMockSseSource();
+    const debugSource = buildMockSseSource();
     const failedSource = buildMockSseSource();
     const retrySource = buildMockSseSource();
     (SSE as jest.Mock)
-      .mockReturnValueOnce(previewSource)
+      .mockReturnValueOnce(debugSource)
       .mockReturnValueOnce(failedSource)
       .mockReturnValueOnce(retrySource);
     const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         shifuBid: 'course',
         outlineBid: 'lesson',
         mdflow: 'Draft',
       }),
     );
     act(() =>
-      previewSource.listeners.message?.({
+      debugSource.listeners.message?.({
         data: JSON.stringify({
           type: 'content',
           generated_block_bid: 'audio',
@@ -1165,9 +1176,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
     let failed: Promise<unknown>;
     act(() => {
       failed = result.current
-        .requestAudioForBlock({
+        .requestElementAudio({
           shifuBid: 'course',
-          blockId: 'audio',
+          elementBid: 'audio',
           text: 'Speak this.',
         })
         .catch(error => error);
@@ -1207,9 +1218,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(await failed!).toBeInstanceOf(Error);
     let retry: Promise<unknown>;
     act(() => {
-      retry = result.current.requestAudioForBlock({
+      retry = result.current.requestElementAudio({
         shifuBid: 'course',
-        blockId: 'audio',
+        elementBid: 'audio',
         text: 'Speak this.',
       });
     });
@@ -1240,9 +1251,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
       sources.push(source);
       return source;
     });
-    let preview!: ReturnType<typeof usePreviewChat>;
+    let preview!: ReturnType<typeof useDebugSession>;
     function Harness() {
-      preview = usePreviewChat({ creditInsufficientAudience: 'teacher' });
+      preview = useDebugSession({
+        creditInsufficientAudience: 'teacher',
+      });
       const track = preview.items.find(
         item => item.generated_block_bid === 'audio',
       )?.audioTracks?.[0];
@@ -1252,9 +1265,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
         streamingSegments: track?.audioSegments,
         isStreaming: track?.isAudioStreaming,
         onRequestAudio: () =>
-          preview.requestAudioForBlock({
+          preview.requestElementAudio({
             shifuBid: 'course',
-            blockId: 'audio',
+            elementBid: 'audio',
             text: 'Speak this.',
           }),
       });
@@ -1265,7 +1278,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     try {
       render(createElement(Harness));
       await act(async () =>
-        preview.startPreview({
+        preview.startRun({
           shifuBid: 'course',
           outlineBid: 'lesson',
           mdflow: 'Draft',
@@ -1327,10 +1340,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
         return source;
       });
       const { result, unmount } = renderHook(() =>
-        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+        useDebugSession({ creditInsufficientAudience: 'teacher' }),
       );
       await act(async () =>
-        result.current.startPreview({
+        result.current.startRun({
           shifuBid: 'course',
           outlineBid: 'lesson',
           mdflow: 'Draft',
@@ -1348,9 +1361,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
       let failure: Error | undefined;
       act(() => {
         void result.current
-          .requestAudioForBlock({
+          .requestElementAudio({
             shifuBid: 'course',
-            blockId: 'audio',
+            elementBid: 'audio',
             text: 'Speak this.',
           })
           .catch(error => {
@@ -1360,8 +1373,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
       await waitFor(() => expect(sources).toHaveLength(2));
       await act(async () => {
         if (action === 'unmount') unmount();
-        else if (action === 'reset') result.current.resetPreview();
-        else result.current.stopPreview();
+        else if (action === 'reset') result.current.resetSession();
+        else result.current.stopRun();
       });
       expect(failure?.name).toBe('AbortError');
       expect(sources[1].close).toHaveBeenCalledTimes(1);
@@ -1373,9 +1386,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
       ).toBe(false);
       act(() => {
         void result.current
-          .requestAudioForBlock({
+          .requestElementAudio({
             shifuBid: 'course',
-            blockId: 'audio',
+            elementBid: 'audio',
             text: 'Speak this.',
           })
           .catch(() => undefined);
@@ -1406,15 +1419,15 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValue(source);
     const { result } = renderHook(
-      () => usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      () => useDebugSession({ creditInsufficientAudience: 'teacher' }),
       { wrapper: StrictMode },
     );
     await act(async () =>
-      result.current.startPreview({
+      result.current.startRun({
         shifuBid: 'course',
         outlineBid: 'lesson',
         mdflow: 'Draft',
-        variables: { sys_user_language: 'en-US', nickname: 'Ada' },
+        variableValues: { sys_user_language: 'en-US', nickname: 'Ada' },
       }),
     );
     act(() => {
@@ -1431,15 +1444,15 @@ describe('usePreviewChat helpers and business error rendering', () => {
       source.listeners.message?.({
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
-      result.current.onVariableChange('sys_user_language', 'fr-FR');
-      result.current.onVariableChange('nickname', 'Alex');
+      result.current.setVariableValue('sys_user_language', 'fr-FR');
+      result.current.setVariableValue('nickname', 'Alex');
     });
-    expect(result.current.variables).toEqual({
+    expect(result.current.variableValues).toEqual({
       sys_user_language: 'fr-FR',
       nickname: 'Alex',
     });
     await act(async () =>
-      result.current.onSend({ inputText: 'Continue' }, 'question'),
+      result.current.submitInteraction({ inputText: 'Continue' }, 'question'),
     );
     expect(SSE).toHaveBeenCalledTimes(2);
     expect(
@@ -1448,20 +1461,20 @@ describe('usePreviewChat helpers and business error rendering', () => {
   });
 
   test('ignores stale preview audio callbacks after preview reset', async () => {
-    const previewSource = buildMockSseSource();
+    const debugSource = buildMockSseSource();
     const ttsSource = buildMockSseSource();
     (SSE as jest.Mock)
-      .mockReturnValueOnce(previewSource)
+      .mockReturnValueOnce(debugSource)
       .mockReturnValueOnce(ttsSource);
 
     const { result } = renderHook(() =>
-      usePreviewChat({
+      useDebugSession({
         creditInsufficientAudience: 'teacher-collaborator',
       }),
     );
 
     await act(async () => {
-      await result.current.startPreview({
+      await result.current.startRun({
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'prompt',
@@ -1469,7 +1482,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     act(() => {
-      previewSource.listeners.message?.({
+      debugSource.listeners.message?.({
         data: JSON.stringify({
           type: 'content',
           generated_block_bid: 'audio-block',
@@ -1480,9 +1493,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
 
     act(() => {
       void result.current
-        .requestAudioForBlock({
+        .requestElementAudio({
           shifuBid: 'shifu-1',
-          blockId: 'audio-block',
+          elementBid: 'audio-block',
           text: 'Audio text.',
         })
         .catch(() => undefined);
@@ -1509,7 +1522,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
 
     act(() => {
-      result.current.resetPreview();
+      result.current.resetSession();
       ttsSource.listeners.message?.({
         data: JSON.stringify({
           type: 'audio_complete',
@@ -1523,7 +1536,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     expect(result.current.items).toEqual([]);
-    expect(result.current.error).toBeNull();
+    expect(result.current.errorMessage).toBeNull();
   });
 
   test('drops the loading placeholder without appending an empty error row', () => {
@@ -1542,7 +1555,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
       },
     ];
 
-    expect(replacePreviewLoadingWithBusinessError(items, '   ')).toEqual([
+    expect(replaceDebugLoadingWithBusinessError(items, '   ')).toEqual([
       items[0],
     ]);
   });

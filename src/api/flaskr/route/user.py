@@ -1328,6 +1328,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     credential_identifier=str(
                         auth_result.metadata.get("password_credential_identifier") or ""
                     ),
+                    credential_version=str(
+                        auth_result.metadata.get("credential_version") or ""
+                    ),
                 )
                 persist_token(
                     app,

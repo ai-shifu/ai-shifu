@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import VariableList from './VariableList';
-import styles from './VariableList.module.scss';
+import DebugVariablesPanel from './DebugVariablesPanel';
+import styles from './DebugVariablesPanel.module.scss';
 
 const mockTranslations: Record<string, Record<string, string>> = {
   'zh-CN': {
@@ -41,24 +41,24 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-describe('VariableList system variable labels', () => {
+describe('DebugVariablesPanel system variable labels', () => {
   beforeEach(() => {
     mockLanguage = 'zh-CN';
   });
 
   test('keeps localized labels on hover and exposes no raw system keys', () => {
-    const onChange = jest.fn();
-    const variables = {
+    const onVariableChange = jest.fn();
+    const variableValues = {
       sys_user_nickname: 'Learner',
       sys_user_background: 'Teacher',
       sys_user_language: 'Chinese',
     };
 
     const { container } = render(
-      <VariableList
-        variables={variables}
-        systemVariableKeys={Object.keys(variables)}
-        onChange={onChange}
+      <DebugVariablesPanel
+        variableValues={variableValues}
+        systemVariableKeys={Object.keys(variableValues)}
+        onVariableChange={onVariableChange}
       />,
     );
 
@@ -72,7 +72,7 @@ describe('VariableList system variable labels', () => {
       expect(nameCell).not.toHaveAttribute('title');
       expect(nameCell).not.toHaveAttribute('tabindex');
       expect(screen.getByPlaceholderText(`填写${label}`)).toHaveValue(
-        variables[rawKey as keyof typeof variables],
+        variableValues[rawKey as keyof typeof variableValues],
       );
       const input = screen.getByRole('textbox', { name: label });
       input.focus();
@@ -91,21 +91,21 @@ describe('VariableList system variable labels', () => {
     fireEvent.change(screen.getByDisplayValue('Learner'), {
       target: { value: 'Alex' },
     });
-    expect(onChange).toHaveBeenCalledWith('sys_user_nickname', 'Alex');
+    expect(onVariableChange).toHaveBeenCalledWith('sys_user_nickname', 'Alex');
   });
 
   test('preserves authored keys and uses a localized fallback for unknown system fields', () => {
-    const onChange = jest.fn();
+    const onVariableChange = jest.fn();
     render(
-      <VariableList
-        variables={{
+      <DebugVariablesPanel
+        variableValues={{
           custom_topic: 'Testing',
           'What would you like to learn?': 'AI',
           sys_user_future: 'Future',
           constructor: 'Custom class',
         }}
         systemVariableKeys={['sys_user_future']}
-        onChange={onChange}
+        onVariableChange={onVariableChange}
       />,
     );
 
@@ -123,26 +123,26 @@ describe('VariableList system variable labels', () => {
     fireEvent.change(screen.getByDisplayValue('AI'), {
       target: { value: 'Practical AI skills' },
     });
-    expect(onChange).toHaveBeenCalledWith(
+    expect(onVariableChange).toHaveBeenCalledWith(
       'What would you like to learn?',
       'Practical AI skills',
     );
     fireEvent.change(screen.getByDisplayValue('Future'), {
       target: { value: 'Updated' },
     });
-    expect(onChange).toHaveBeenCalledWith('sys_user_future', 'Updated');
+    expect(onVariableChange).toHaveBeenCalledWith('sys_user_future', 'Updated');
   });
 
   test('preserves a custom memory label when a system key has the same name', () => {
-    const onChange = jest.fn();
+    const onVariableChange = jest.fn();
     const onHideVariable = jest.fn();
     render(
-      <VariableList
-        variables={{ avatar: 'Custom answer' }}
+      <DebugVariablesPanel
+        variableValues={{ avatar: 'Custom answer' }}
         systemVariableKeys={['avatar']}
-        customVariableKeys={['avatar']}
+        courseVariableKeys={['avatar']}
         unusedVariableKeys={['avatar']}
-        onChange={onChange}
+        onVariableChange={onVariableChange}
         onHideVariable={onHideVariable}
       />,
     );
@@ -154,7 +154,7 @@ describe('VariableList system variable labels', () => {
     expect(screen.queryByPlaceholderText('填写记忆')).not.toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: 'Updated answer' } });
-    expect(onChange).toHaveBeenCalledWith('avatar', 'Updated answer');
+    expect(onVariableChange).toHaveBeenCalledWith('avatar', 'Updated answer');
     fireEvent.click(screen.getByRole('button', { name: '隐藏此项' }));
     expect(onHideVariable).toHaveBeenCalledWith('avatar');
   });
@@ -165,16 +165,16 @@ describe('VariableList system variable labels', () => {
   ])(
     'keeps known personal fields friendly when custom metadata overlaps $systemVariableKeys',
     ({ systemVariableKeys }) => {
-      const onChange = jest.fn();
+      const onVariableChange = jest.fn();
       const { container } = render(
-        <VariableList
-          variables={{
+        <DebugVariablesPanel
+          variableValues={{
             sys_user_nickname: 'Learner',
             sys_user_background: 'Teacher',
           }}
           systemVariableKeys={systemVariableKeys}
-          customVariableKeys={['sys_user_nickname', 'sys_user_background']}
-          onChange={onChange}
+          courseVariableKeys={['sys_user_nickname', 'sys_user_background']}
+          onVariableChange={onVariableChange}
         />,
       );
 
@@ -192,7 +192,10 @@ describe('VariableList system variable labels', () => {
       fireEvent.change(screen.getByRole('textbox', { name: '学生昵称' }), {
         target: { value: 'Updated' },
       });
-      expect(onChange).toHaveBeenCalledWith('sys_user_nickname', 'Updated');
+      expect(onVariableChange).toHaveBeenCalledWith(
+        'sys_user_nickname',
+        'Updated',
+      );
     },
   );
 
@@ -201,16 +204,16 @@ describe('VariableList system variable labels', () => {
     ['restore', '显示全部'],
   ] as const)(
     'shows no tooltips for the %s action or memory rows',
-    (actionType, label) => {
+    (variableVisibilityAction, label) => {
       jest.useFakeTimers();
       try {
-        const onAction = jest.fn();
+        const onApplyVisibilityAction = jest.fn();
         const { container } = render(
-          <VariableList
-            variables={{ sys_user_nickname: 'Learner' }}
+          <DebugVariablesPanel
+            variableValues={{ sys_user_nickname: 'Learner' }}
             systemVariableKeys={['sys_user_nickname']}
-            actionType={actionType}
-            onAction={onAction}
+            variableVisibilityAction={variableVisibilityAction}
+            onApplyVisibilityAction={onApplyVisibilityAction}
           />,
         );
 
@@ -223,7 +226,7 @@ describe('VariableList system variable labels', () => {
         expect(container.querySelector('[title]')).toBeNull();
         expect(button).not.toHaveAttribute('aria-describedby');
         fireEvent.click(button);
-        expect(onAction).toHaveBeenCalledTimes(1);
+        expect(onApplyVisibilityAction).toHaveBeenCalledTimes(1);
       } finally {
         jest.useRealTimers();
       }
@@ -231,9 +234,9 @@ describe('VariableList system variable labels', () => {
   );
 
   test('renders noncanonical profile and input keys as ordinary editable course variables', () => {
-    const onChange = jest.fn();
+    const onVariableChange = jest.fn();
     const onHideVariable = jest.fn();
-    const variables = {
+    const variableValues = {
       sex: 'A course answer',
       birth: 'A course date',
       avatar: 'A course character',
@@ -243,17 +246,17 @@ describe('VariableList system variable labels', () => {
     };
 
     render(
-      <VariableList
-        variables={variables}
+      <DebugVariablesPanel
+        variableValues={variableValues}
         systemVariableKeys={['sys_user_language']}
-        customVariableKeys={Object.keys(variables)}
+        courseVariableKeys={Object.keys(variableValues)}
         unusedVariableKeys={['sys_user_input']}
-        onChange={onChange}
+        onVariableChange={onVariableChange}
         onHideVariable={onHideVariable}
       />,
     );
 
-    Object.entries(variables).forEach(([key, value]) => {
+    Object.entries(variableValues).forEach(([key, value]) => {
       expect(screen.getByRole('textbox', { name: key })).toHaveValue(value);
       expect(screen.getByRole('textbox', { name: key })).toHaveAttribute(
         'placeholder',
@@ -263,13 +266,16 @@ describe('VariableList system variable labels', () => {
     fireEvent.change(screen.getByDisplayValue('A writing exercise'), {
       target: { value: 'Revised exercise' },
     });
-    expect(onChange).toHaveBeenCalledWith('sys_user_style', 'Revised exercise');
+    expect(onVariableChange).toHaveBeenCalledWith(
+      'sys_user_style',
+      'Revised exercise',
+    );
     expect(screen.queryByText('最新输入')).not.toBeInTheDocument();
     expect(screen.queryByText('Latest input')).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'sys_user_input' }), {
       target: { value: 'Revised input example' },
     });
-    expect(onChange).toHaveBeenCalledWith(
+    expect(onVariableChange).toHaveBeenCalledWith(
       'sys_user_input',
       'Revised input example',
     );
@@ -279,7 +285,7 @@ describe('VariableList system variable labels', () => {
 
   test('updates every visible friendly name when the interface language changes', () => {
     const props = {
-      variables: {
+      variableValues: {
         sys_user_nickname: 'Learner',
         sys_user_background: 'Teacher',
         sys_user_language: 'Chinese',
@@ -290,7 +296,7 @@ describe('VariableList system variable labels', () => {
         'sys_user_language',
       ],
     };
-    const { rerender } = render(<VariableList {...props} />);
+    const { rerender } = render(<DebugVariablesPanel {...props} />);
 
     expect(screen.getByText('学生昵称')).toBeInTheDocument();
     expect(screen.getByText('学生背景偏好')).toBeInTheDocument();
@@ -298,7 +304,7 @@ describe('VariableList system variable labels', () => {
     expect(screen.getByPlaceholderText('填写授课语言')).toBeInTheDocument();
 
     mockLanguage = 'en-US';
-    rerender(<VariableList {...props} />);
+    rerender(<DebugVariablesPanel {...props} />);
 
     expect(screen.getByText('Student nickname')).toBeInTheDocument();
     expect(

@@ -1,8 +1,8 @@
-.lessonPreview {
+.debugPanel {
   height: calc(100vh - 123px);
   display: flex;
   flex-direction: column;
-  .previewArea {
+  .debugArea {
     margin-top: 11px;
     flex: 1;
     display: flex;
@@ -13,13 +13,13 @@
     overflow: hidden;
   }
 
-  .previewAreaContent {
+  .debugAreaContent {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
   }
 
-  .variableListWrapper {
+  .variablesPanelWrapper {
     position: sticky;
     top: 0;
     z-index: 30;

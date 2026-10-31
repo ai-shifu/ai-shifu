@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-interface PreviewCopyButtonProps {
+interface DebugContentCopyButtonProps {
   /** Raw LLM-generated content of the element (markdown for text, HTML for view). */
   content: string;
 }
@@ -26,11 +26,13 @@ const COPIED_RESET_MS = 1800;
 const MARKDOWNFLOW_FENCE = '!===';
 
 /**
- * Copy button rendered under each generated element in the debug preview.
+ * Copy button rendered under each generated element in the lesson Debug panel.
  * Copies the element's raw LLM output to the clipboard wrapped in MarkdownFlow
  * `!===` fences so the result is ready to paste into MarkdownFlow.
  */
-const PreviewCopyButton: React.FC<PreviewCopyButtonProps> = ({ content }) => {
+const DebugContentCopyButton: React.FC<DebugContentCopyButtonProps> = ({
+  content,
+}) => {
   const { t } = useTranslation();
   const [copied, setCopied] = React.useState(false);
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -62,7 +64,7 @@ const PreviewCopyButton: React.FC<PreviewCopyButtonProps> = ({ content }) => {
   }
 
   return (
-    <div className='flex justify-end mt-2'>
+    <div className='ml-auto flex shrink-0 justify-end'>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -94,4 +96,4 @@ const PreviewCopyButton: React.FC<PreviewCopyButtonProps> = ({ content }) => {
   );
 };
 
-export default PreviewCopyButton;
+export default DebugContentCopyButton;

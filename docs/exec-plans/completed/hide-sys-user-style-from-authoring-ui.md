@@ -33,7 +33,7 @@ behavior.
 - The course editor receives the complete system-variable definition list and
   separately passes the same keys into preview storage and runtime requests.
   Filtering the shared store would therefore change behavior beyond display.
-- `LessonPreview` already supports hidden display keys without removing them
+- `DebugPanel` already supports hidden display keys without removing them
   from the variable map, which keeps the compatibility boundary narrow.
 
 ## Decision Log
