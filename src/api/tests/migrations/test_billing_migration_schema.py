@@ -196,9 +196,14 @@ class _SchemaReplay:
     def _add_column(self, table: str, column: ast.AST) -> None:
         # Columns built in a loop are not resolved; billing migrations spell them out.
         if isinstance(column, ast.Call) and column.args:
-            self.columns.setdefault(table, {})[_str(column.args[0])] = (
-                _column_definition(column)
-            )
+            name = _str(column.args[0])
+            self.columns.setdefault(table, {})[name] = _column_definition(column)
+            if _is_unique(column):
+                # Column(unique=True) creates an unnamed single-column constraint.
+                self.indexes.setdefault(table, {})[f"<unique {name}>"] = (
+                    (name,),
+                    True,
+                )
 
     def _alter_column(self, table: str, name: str | None, call: ast.Call) -> None:
         columns = self.columns.setdefault(table, {})
@@ -235,10 +240,9 @@ class _SchemaReplay:
                 elif kind == "PrimaryKeyConstraint":
                     self.primary_keys[table].update(_str(arg) for arg in item.args)
                 elif kind == "UniqueConstraint":
-                    name = _str(_keyword(item, "name"))
-                    if name:
-                        columns = tuple(_str(arg) for arg in item.args)
-                        self.indexes[table][name] = (columns, True)
+                    columns = tuple(_str(arg) for arg in item.args)
+                    name = _str(_keyword(item, "name")) or f"<unique {columns}>"
+                    self.indexes[table][name] = (columns, True)
                 elif kind == "Index" and item.args:
                     columns = tuple(_str(arg) for arg in item.args[1:])
                     self.indexes[table][_str(item.args[0])] = (
@@ -355,6 +359,16 @@ def test_migrations_build_the_billing_model_schema(table: Table) -> None:
     migrated_indexes = _REPLAY.indexes.get(table.name, {})
     for name, definition in model_indexes.items():
         assert migrated_indexes.get(name) == definition, name
+
+    # Column(unique=True) in a model yields an unnamed constraint; any migrated
+    # unique constraint or index on exactly those columns satisfies it.
+    migrated_unique_columns = {
+        columns for columns, unique in migrated_indexes.values() if unique
+    }
+    for constraint in table.constraints:
+        if isinstance(constraint, UniqueConstraint) and not constraint.name:
+            columns = tuple(column.name for column in constraint.columns)
+            assert columns in migrated_unique_columns, columns
 
 
 def test_billing_migrations_do_not_seed_rows() -> None:
