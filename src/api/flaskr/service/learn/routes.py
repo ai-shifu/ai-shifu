@@ -523,6 +523,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             reload_generated_block_bid:
                                 type: string
                                 description: debug turn to regenerate from
+                            reload_element_bid:
+                                type: string
+                                description: exact interaction to revise using user_input
         responses:
             200:
                 description: stream preview block success
@@ -539,6 +542,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             "variables": payload.get("variables"),
             "user_input": payload.get("user_input"),
             "reload_generated_block_bid": payload.get("reload_generated_block_bid"),
+            "reload_element_bid": payload.get("reload_element_bid"),
         }
         try:
             preview_request = PlaygroundPreviewRequest(**preview_payload)

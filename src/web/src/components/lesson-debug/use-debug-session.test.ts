@@ -558,6 +558,235 @@ describe('useDebugSession helpers and business error rendering', () => {
         String(name).startsWith('teacher_debug_regenerate_'),
       );
 
+    const prepareAnswers = async (streaming = false) => {
+      const prepared = await prepare();
+      const { result, sources } = prepared;
+      await act(async () =>
+        result.current.startRun({
+          shifuBid: 'course',
+          outlineBid: 'lesson',
+          mdflow: 'Private draft',
+          variableValues: { earlierAnswer: 'Keep me' },
+        }),
+      );
+      const source = sources.at(-1)!;
+      act(() => {
+        emit(source, {
+          type: 'element',
+          content: {
+            element_bid: 'question',
+            generated_block_bid: 'question-turn',
+            element_type: 'interaction',
+            content: '?[%{{answer}} A | B]',
+            is_final: true,
+          },
+        });
+        emitText(
+          source,
+          'old-answer-result',
+          'old-answer-turn',
+          'Private old result',
+        );
+        if (!streaming) emit(source, { type: 'done', is_terminal: true });
+      });
+      mockTrackEvent.mockClear();
+      return prepared;
+    };
+
+    test.each([false, true])(
+      'edits an earlier answer in the same session while streaming=%s',
+      async streaming => {
+        const { result, sources } = await prepareAnswers(streaming);
+        const firstRequest = JSON.parse(
+          (SSE as jest.Mock).mock.lastCall[1].payload,
+        );
+        const oldSource = sources.at(-1)!;
+        const prefix = result.current.items.slice(
+          0,
+          result.current.items.findIndex(
+            item => item.element_bid === 'question',
+          ),
+        );
+        const count = sources.length;
+        act(() =>
+          result.current.submitInteraction(
+            { variableName: 'answer', selectedValues: ['B'] },
+            'question',
+          ),
+        );
+        expect(result.current.regenerationConfirmation.open).toBe(true);
+        expect(sources).toHaveLength(count);
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+        await act(async () =>
+          result.current.regenerationConfirmation.onConfirm(),
+        );
+        const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+        expect(request).toMatchObject({
+          debug_session_id: firstRequest.debug_session_id,
+          reload_generated_block_bid: 'question-turn',
+          reload_element_bid: 'question',
+          user_input: { answer: ['B'] },
+        });
+        expect(result.current.items.slice(0, prefix.length)).toEqual(prefix);
+        expect(
+          result.current.items.find(item => item.element_bid === 'question')
+            ?.user_input,
+        ).toBe('B');
+        expect(
+          result.current.items.some(
+            item => item.element_bid === 'old-answer-result',
+          ),
+        ).toBe(false);
+        act(() => {
+          emitText(oldSource, 'late-output', 'old-answer-turn', 'Stale output');
+          emit(oldSource, { type: 'done', is_terminal: true });
+          emit(sources.at(-1)!, {
+            type: 'debug_variables',
+            content: { earlierAnswer: 'Keep me', answer: 'B' },
+          });
+          emitText(
+            sources.at(-1)!,
+            'new-output',
+            'replacement-turn',
+            'New teaching',
+          );
+          emit(sources.at(-1)!, { type: 'done', is_terminal: true });
+        });
+        expect(
+          result.current.items.some(item => item.element_bid === 'late-output'),
+        ).toBe(false);
+        expect(
+          result.current.items.some(item => item.element_bid === 'new-output'),
+        ).toBe(true);
+        expect(result.current.variableValues).toEqual({
+          earlierAnswer: 'Keep me',
+          answer: 'B',
+        });
+        expect(mockTrackEvent.mock.calls).toEqual([
+          [
+            'teacher_debug_answer_edit_start',
+            { shifu_bid: 'course', outline_bid: 'lesson' },
+          ],
+          [
+            'teacher_debug_answer_edit_result',
+            { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
+          ],
+        ]);
+      },
+    );
+
+    test('cancelled answer-edit confirmation leaves the active output and answers intact', async () => {
+      const { result, sources } = await prepareAnswers(true);
+      const before = result.current.items;
+      const source = sources.at(-1)!;
+      const count = sources.length;
+      act(() =>
+        result.current.submitInteraction({ selectedValues: ['B'] }, 'question'),
+      );
+      act(() => result.current.regenerationConfirmation.onCancel());
+      expect(result.current.items).toEqual(before);
+      expect(result.current.isStreaming).toBe(true);
+      expect(sources).toHaveLength(count);
+      act(() =>
+        emitText(
+          source,
+          'continued-output',
+          'old-answer-turn',
+          'Continued teaching',
+        ),
+      );
+      expect(
+        result.current.items.some(
+          item => item.element_bid === 'continued-output',
+        ),
+      ).toBe(true);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    });
+
+    test.each(['failed', 'cancelled'] as const)(
+      'retries a %s answer edit with its original anchor and new answer',
+      async ending => {
+        const { result, sources } = await prepareAnswers();
+        act(() =>
+          result.current.submitInteraction(
+            { variableName: 'answer', selectedValues: ['B'] },
+            'question',
+          ),
+        );
+        await act(async () =>
+          result.current.regenerationConfirmation.onConfirm(),
+        );
+        const first = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+        act(() => {
+          if (ending === 'failed')
+            emit(sources.at(-1)!, {
+              type: 'error',
+              content: 'Private failure',
+            });
+          else result.current.stopRun();
+        });
+        expect(result.current.canRetryRegeneration).toBe(true);
+        await act(async () => {
+          result.current.retryRegeneration();
+          result.current.retryRegeneration();
+        });
+        expect(
+          JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload),
+        ).toMatchObject({
+          debug_session_id: first.debug_session_id,
+          reload_element_bid: 'question',
+          reload_generated_block_bid: 'question-turn',
+          user_input: { answer: ['B'] },
+        });
+        act(() => emit(sources.at(-1)!, { type: 'done', is_terminal: true }));
+        expect(mockTrackEvent.mock.calls.map(([name]) => name)).toEqual([
+          'teacher_debug_answer_edit_start',
+          'teacher_debug_answer_edit_result',
+          'teacher_debug_answer_edit_start',
+          'teacher_debug_answer_edit_result',
+        ]);
+        expect(mockTrackEvent.mock.calls[1][1].result).toBe(ending);
+        expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+          /Private|question|answer-turn|\"B\"/,
+        );
+      },
+    );
+
+    test('answer editing proceeds when analytics throws and counts a new deliberate edit separately', async () => {
+      const { result, sources } = await prepareAnswers();
+      mockTrackEvent.mockImplementation(() => {
+        throw new Error('No tracking');
+      });
+      for (const choice of ['B', 'A']) {
+        act(() =>
+          result.current.submitInteraction(
+            { variableName: '', selectedValues: [choice] },
+            'question',
+          ),
+        );
+        await act(async () =>
+          result.current.regenerationConfirmation.onConfirm(),
+        );
+        expect(
+          JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload).user_input,
+        ).toEqual({ input: [choice] });
+        act(() => {
+          emitText(
+            sources.at(-1)!,
+            'output-' + choice,
+            'turn-' + choice,
+            'New teaching',
+          );
+          emit(sources.at(-1)!, { type: 'done', is_terminal: true });
+        });
+      }
+      expect(mockTrackEvent).toHaveBeenCalledTimes(4);
+      expect(
+        result.current.items.some(item => item.element_bid === 'output-A'),
+      ).toBe(true);
+      expect(result.current.canRetryRegeneration).toBe(false);
+    });
+
     test('preserves earlier results and helpers while replacing the selected generated turn and its suffix', async () => {
       const { result, sources } = await prepare();
       const originalRequest = JSON.parse(

@@ -57,6 +57,10 @@ import {
   parseLessonFeedbackUserInput,
   resolveInteractionSubmission,
 } from '@/lib/interaction-user-input';
+import {
+  requiresInteractionRewind,
+  updateInteractionItems,
+} from '@/lib/chat-interaction-rewind';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import LoadingBar from './LoadingBar';
 import { startPreviewRewindTracking } from './preview-rewind-tracking';
@@ -2724,78 +2728,16 @@ function useLessonConversation({
       blockBid: string,
       options?: { truncateFollowingItems?: boolean },
     ): { newList: ChatContentItem[]; needChangeItemIndex: number } => {
-      const newList = [...contentListRef.current];
-      let needChangeItemIndex = newList.findIndex(
-        item => item.element_bid === blockBid,
-      );
-      const variableName = params.variableName;
-      if (variableName && needChangeItemIndex === -1) {
-        // first find the item with the same variable value
-        const variableMatchIndex = newList.findIndex(item =>
-          item.content?.includes(variableName),
-        );
-        // if has multiple items with the same variable value, we need to find the item with the same blockBid
-        const sameVariableValueItems =
-          newList.filter(item => item.content?.includes(variableName)) || [];
-        needChangeItemIndex =
-          sameVariableValueItems.length > 1
-            ? needChangeItemIndex
-            : variableMatchIndex >= 0
-              ? variableMatchIndex
-              : needChangeItemIndex;
-      }
-      if (needChangeItemIndex !== -1) {
-        newList[needChangeItemIndex] = {
-          ...newList[needChangeItemIndex],
-          readonly: false,
-          user_input: resolveInteractionSubmission(params).userInput,
-        };
-        if (options?.truncateFollowingItems || !isListenMode) {
-          // Preserve follow-up helper rows for the current interaction item
-          // so ask actions do not disappear when entering the thinking state.
-          const trailingRows = newList.slice(needChangeItemIndex + 1);
-          newList.length = needChangeItemIndex + 1;
-          const preservedHelperRows =
-            options?.truncateFollowingItems || isListenMode
-              ? []
-              : trailingRows.filter(
-                  item =>
-                    item.parent_element_bid === blockBid &&
-                    (item.type === ChatContentItemType.LIKE_STATUS ||
-                      item.type === ChatContentItemType.ASK),
-                );
-          if (preservedHelperRows.length > 0) {
-            newList.push(...preservedHelperRows);
-          }
-        }
-        setTrackedContentList(newList);
-      }
-
+      const { items: newList, index: needChangeItemIndex } =
+        updateInteractionItems(contentListRef.current, params, blockBid, {
+          truncateFollowingItems:
+            Boolean(options?.truncateFollowingItems) || !isListenMode,
+          preserveHelpers: !options?.truncateFollowingItems && !isListenMode,
+        });
+      if (needChangeItemIndex !== -1) setTrackedContentList(newList);
       return { newList, needChangeItemIndex };
     },
     [isListenMode, setTrackedContentList],
-  );
-
-  /**
-   * Resolves the last actionable element bid for regenerate checks.
-   * Auxiliary rows (like-status / ask / loading placeholders) are ignored.
-   */
-  const resolveLastActionableElementBid = useCallback(
-    (items: ChatContentItem[]) => {
-      const lastActionableItem = [...items].reverse().find(item => {
-        if (!item?.element_bid || item.element_bid === 'loading') {
-          return false;
-        }
-
-        return (
-          item.type !== ChatContentItemType.LIKE_STATUS &&
-          item.type !== ChatContentItemType.ASK
-        );
-      });
-
-      return lastActionableItem?.element_bid || '';
-    },
-    [],
   );
 
   /**
@@ -2892,15 +2834,10 @@ function useLessonConversation({
       // guard and pop the regenerate-confirm dialog. Compute the flag
       // up front so the streaming / running-check branches below can
       // short-circuit only for non-regenerate submissions.
-      let isReGenerate = false;
-      const currentListSnapshot = contentListRef.current;
-      if (currentListSnapshot.length > 0) {
-        const lastActionableElementBid =
-          resolveLastActionableElementBid(currentListSnapshot);
-        isReGenerate =
-          Boolean(lastActionableElementBid) &&
-          blockBid !== lastActionableElementBid;
-      }
+      const isReGenerate = requiresInteractionRewind(
+        contentListRef.current,
+        blockBid,
+      );
 
       const { variableName, buttonText, inputText } = content;
       const sourceBlockBid = resolveSourceGeneratedBlockBid(blockBid);
@@ -3117,7 +3054,6 @@ function useLessonConversation({
       showOutputInProgressToast,
       trackEvent,
       resolveSourceGeneratedBlockBid,
-      resolveLastActionableElementBid,
       stopActiveRunStream,
       updateContentListWithUserOperate,
       updateSelectedLesson,

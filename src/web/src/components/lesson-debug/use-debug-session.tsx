@@ -15,6 +15,10 @@ import {
 import { getStringEnv } from '@/lib/env-utils';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 import {
+  requiresInteractionRewind,
+  updateInteractionItems,
+} from '@/lib/chat-interaction-rewind';
+import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
 } from '@/lib/markdown-utils';
@@ -496,6 +500,8 @@ export function useDebugSession({
   >(undefined);
   const regenerationRetryTargetRef = useRef<{
     generatedBlockBid: string;
+    elementBid?: string;
+    userInput?: Record<string, unknown>;
     prefixItems: ChatContentItem[];
     debugSessionId: string;
     params: Pick<DebugRunParams, 'shifuBid' | 'outlineBid' | 'mdflow'>;
@@ -1320,6 +1326,7 @@ export function useDebugSession({
       maxBlockCount,
       systemVariableKeys,
       reloadGeneratedBlockBid,
+      reloadElementBid,
     }: DebugRunParams) => {
       if (creditInsufficientAudience === null) {
         return;
@@ -1344,6 +1351,7 @@ export function useDebugSession({
         normalizedUserInput = undefined;
         blockIndex = 0;
         reloadGeneratedBlockBid = undefined;
+        reloadElementBid = undefined;
       }
       if (initialVariableValuesRef.current === null) {
         initialVariableValuesRef.current = { ...(variableValues || {}) };
@@ -1355,6 +1363,7 @@ export function useDebugSession({
       if (
         !reloadGeneratedBlockBid ||
         retryTarget?.generatedBlockBid !== reloadGeneratedBlockBid ||
+        retryTarget?.elementBid !== reloadElementBid ||
         retryTarget.debugSessionId !== debugSessionIdRef.current ||
         retryTarget.params.shifuBid !== shifuBid ||
         retryTarget.params.outlineBid !== outlineBid ||
@@ -1406,6 +1415,7 @@ export function useDebugSession({
       setIsStreaming(true);
       debugRegenerateResultRef.current = startDebugRegenerateTracking({
         anchor: reloadGeneratedBlockBid,
+        answerEdit: Boolean(reloadElementBid && normalizedUserInput),
         shifuBid: finalShifuBid,
         outlineBid: finalOutlineBid,
         trackEvent,
@@ -1465,6 +1475,7 @@ export function useDebugSession({
           ...(reloadGeneratedBlockBid
             ? { reload_generated_block_bid: reloadGeneratedBlockBid }
             : {}),
+          ...(reloadElementBid ? { reload_element_bid: reloadElementBid } : {}),
           ...(debugSessionIdRef.current
             ? { debug_session_id: debugSessionIdRef.current }
             : {}),
@@ -1601,63 +1612,44 @@ export function useDebugSession({
       params: OnSendContentParams,
       elementBid: string,
     ): { nextItems: ChatContentItem[]; interactionIndex: number } => {
-      const nextItems = [...sessionItemsRef.current];
-      let interactionIndex = nextItems.findIndex(item =>
-        item.content?.includes(params.variableName || ''),
-      );
-      const matchingVariableItems =
-        nextItems.filter(item =>
-          item.content?.includes(params.variableName || ''),
-        ) || [];
-      if (matchingVariableItems.length > 1) {
-        interactionIndex = nextItems.findIndex(item =>
-          matchesDebugElementBid(item, elementBid),
-        );
-      }
-      if (interactionIndex !== -1) {
-        nextItems[interactionIndex] = {
-          ...nextItems[interactionIndex],
-          readonly: false,
-          user_input: resolveInteractionSubmission(params).userInput,
-        };
-        const trailingRows = nextItems.slice(interactionIndex + 1);
-        const preservedHelperRows = trailingRows.filter(
-          item =>
-            (item.parent_block_bid === elementBid ||
-              item.parent_element_bid === elementBid) &&
-            (item.type === ChatContentItemType.LIKE_STATUS ||
-              item.type === ChatContentItemType.ASK),
-        );
-        nextItems.length = interactionIndex + 1;
-        if (preservedHelperRows.length > 0) {
-          nextItems.push(...preservedHelperRows);
-        }
-        updateSessionItems(nextItems);
-      }
-
+      const { items: nextItems, index: interactionIndex } =
+        updateInteractionItems(sessionItemsRef.current, params, elementBid, {
+          truncateFollowingItems: true,
+          preserveHelpers: true,
+        });
+      if (interactionIndex !== -1) updateSessionItems(nextItems);
       return { nextItems, interactionIndex };
     },
     [updateSessionItems],
   );
 
-  // Resolve the last actionable element ID and skip helper rows.
-  const resolveLastActionableElementBid = useCallback(
-    (items: ChatContentItem[]) => {
-      const lastActionableItem = [...items].reverse().find(item => {
-        const elementBid = resolveDebugElementBid(item);
-        if (!elementBid || elementBid === 'loading') {
-          return false;
-        }
-
-        return (
-          item.type !== ChatContentItemType.LIKE_STATUS &&
-          item.type !== ChatContentItemType.ASK
-        );
+  const startRegeneration = useCallback(
+    (
+      generatedBlockBid: string,
+      prefixItems: ChatContentItem[],
+      answer?: {
+        elementBid: string;
+        userInput: Record<string, unknown>;
+      },
+    ) => {
+      const retainedElementBids = new Set(
+        prefixItems.map(item => item.element_bid),
+      );
+      freshAgentInteractionBidsRef.current = new Set(
+        [...freshAgentInteractionBidsRef.current].filter(bid =>
+          retainedElementBids.has(bid),
+        ),
+      );
+      updateSessionItems(prefixItems);
+      void startRun({
+        ...runParamsRef.current,
+        blockIndex: 0,
+        userInput: answer?.userInput,
+        reloadElementBid: answer?.elementBid,
+        reloadGeneratedBlockBid: generatedBlockBid,
       });
-
-      return resolveDebugElementBid(lastActionableItem) || '';
     },
-    [],
+    [startRun, updateSessionItems],
   );
 
   const submitInteractionAnswer = useCallback(
@@ -1667,10 +1659,6 @@ export function useDebugSession({
       options?: { skipConfirm?: boolean },
     ) => {
       if (creditInsufficientAudience === null) {
-        return false;
-      }
-      if (isStreamingRef.current) {
-        showOutputInProgressToast();
         return false;
       }
       if (resolveLatestMdflow() !== runParamsRef.current.mdflow) {
@@ -1687,15 +1675,10 @@ export function useDebugSession({
           ? content
           : { ...content, variableName: normalizedVariableName };
 
-      let requiresRegeneration = false;
-      const currentList = sessionItemsRef.current.slice();
-      if (currentList.length > 0) {
-        const lastActionableElementBid =
-          resolveLastActionableElementBid(currentList);
-        requiresRegeneration =
-          Boolean(lastActionableElementBid) &&
-          elementBid !== lastActionableElementBid;
-      }
+      const requiresRegeneration = requiresInteractionRewind(
+        sessionItemsRef.current,
+        elementBid,
+      );
       if (requiresRegeneration) {
         if (!options?.skipConfirm) {
           setPendingInteractionResubmission({
@@ -1705,10 +1688,44 @@ export function useDebugSession({
           setIsRegenerationConfirmationOpen(true);
           return false;
         }
-        // Resubmitting an earlier answer still restarts the Debug session.
-        // Content regeneration uses the separate anchored rewind path.
-        restartSession();
+        const target = sessionItemsRef.current.find(
+          item => item.element_bid === elementBid,
+        );
+        const userInput = buildDebugInteractionInput(
+          normalizedVariableName,
+          resolveInteractionSubmission(content).values,
+        );
+        if (!target?.generated_block_bid || !userInput) return false;
+        stopRun();
+        const { items: prefix, index } = updateInteractionItems(
+          sessionItemsRef.current,
+          listUpdateContent,
+          elementBid,
+          { truncateFollowingItems: true },
+        );
+        if (index < 0) return false;
+        regenerationRetryTargetRef.current = {
+          generatedBlockBid: target.generated_block_bid,
+          elementBid,
+          userInput,
+          prefixItems: prefix,
+          debugSessionId: debugSessionIdRef.current,
+          params: {
+            shifuBid: runParamsRef.current.shifuBid,
+            outlineBid: runParamsRef.current.outlineBid,
+            mdflow: runParamsRef.current.mdflow,
+          },
+        };
+        setHasRegenerationRetryTarget(true);
+        startRegeneration(target.generated_block_bid, prefix, {
+          elementBid,
+          userInput,
+        });
         return true;
+      }
+      if (isStreamingRef.current) {
+        showOutputInProgressToast();
+        return false;
       }
 
       const { nextItems, interactionIndex } = applyInteractionAnswer(
@@ -1766,31 +1783,11 @@ export function useDebugSession({
       showOutputInProgressToast,
       startRun,
       applyInteractionAnswer,
-      resolveLastActionableElementBid,
+      stopRun,
+      startRegeneration,
       resolveLatestMdflow,
       restartSession,
     ],
-  );
-
-  const startRegeneration = useCallback(
-    (generatedBlockBid: string, prefixItems: ChatContentItem[]) => {
-      const retainedElementBids = new Set(
-        prefixItems.map(item => item.element_bid),
-      );
-      freshAgentInteractionBidsRef.current = new Set(
-        [...freshAgentInteractionBidsRef.current].filter(bid =>
-          retainedElementBids.has(bid),
-        ),
-      );
-      updateSessionItems(prefixItems);
-      void startRun({
-        ...runParamsRef.current,
-        blockIndex: 0,
-        userInput: undefined,
-        reloadGeneratedBlockBid: generatedBlockBid,
-      });
-    },
-    [startRun, updateSessionItems],
   );
 
   const regenerateContent = useCallback(
@@ -1878,7 +1875,13 @@ export function useDebugSession({
     }
     // A failed connection may already have replaced the server checkpoint.
     // Retry the logical target without restoring its discarded rows or answers.
-    startRegeneration(target.generatedBlockBid, target.prefixItems);
+    startRegeneration(
+      target.generatedBlockBid,
+      target.prefixItems,
+      target.elementBid && target.userInput
+        ? { elementBid: target.elementBid, userInput: target.userInput }
+        : undefined,
+    );
   }, [
     clearRegenerationRetryTarget,
     creditInsufficientAudience,

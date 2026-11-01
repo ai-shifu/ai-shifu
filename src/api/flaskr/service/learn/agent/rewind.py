@@ -63,6 +63,69 @@ class RewindPlan:
     retired_block_bids: list[str] = field(default_factory=list)
 
 
+def plan_turn_rewind(
+    turns: list[dict[str, Any]],
+    *,
+    block_bid: str,
+    answering: bool,
+    question_id: str | None = None,
+) -> RewindPlan | None:
+    """Select and validate the same rewind for every course session store.
+
+    Content replays its own input. An answer edit restores the turn that
+    accepted that question, retaining the question's original teaching.
+    """
+    anchor = next(
+        (i for i, turn in enumerate(turns) if turn.get("block_bid") == block_bid),
+        None,
+    )
+    if anchor is None:
+        raise RewindUnavailableError
+    target = anchor
+    if answering:
+        target = None
+        for i in range(anchor + 1, len(turns)):
+            record = turns[i].get("record")
+            if not isinstance(record, dict) or not isinstance(
+                record.get("checkpoint"), dict
+            ):
+                raise RewindUnavailableError
+            pending = record["checkpoint"].get("pending")
+            if question_id is None or (
+                isinstance(pending, list)
+                and pending
+                and isinstance(pending[0], dict)
+                and pending[0].get("tool_call_id") == question_id
+            ):
+                target = i
+                break
+        if target is None:
+            return None
+    record = turns[target].get("record")
+    if not isinstance(record, dict) or record.get("version") != _VERSION:
+        raise RewindUnavailableError
+    checkpoint = record.get("checkpoint")
+    values = record.get("values")
+    if (
+        not isinstance(checkpoint, dict)
+        or not {"messages", "memory", "pending", "answers", "turn", "finished"}
+        <= checkpoint.keys()
+        or not isinstance(checkpoint["messages"], int)
+        or checkpoint["messages"] < 0
+        or not isinstance(checkpoint["pending"], list)
+        or any(not isinstance(q, dict) for q in checkpoint["pending"])
+        or not isinstance(values, list)
+        or any(not isinstance(value, str) for value in values)
+        or (answering and not checkpoint["pending"])
+    ):
+        raise RewindUnavailableError
+    return RewindPlan(
+        checkpoint=checkpoint,
+        replay_values=None if answering else list(values),
+        retired_block_bids=[turn["block_bid"] for turn in turns[target:]],
+    )
+
+
 def checkpoint_of(session: Session) -> dict[str, Any]:
     """Return the state of `session` a later rewind needs, as JSON-ready data."""
     state = session.to_dict()
@@ -237,28 +300,57 @@ def plan_rewind(
     block = _anchor_block(user_bid=user_bid, outline_bid=outline_bid, anchor=anchor)
     if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
         raise RewindUnavailableError
+    blocks = _turn_blocks_from(block, include_it=True)
+    question_id = None
     if answering:
-        later = _turn_blocks_from(block, include_it=False)
-        if not later:
-            return None
-        target = later[0]
-    else:
-        target = block
-    record = read_turn_record(target)
-    if record is None:
-        raise RewindUnavailableError
-    if answering and not record["checkpoint"].get("pending"):
-        # The turn after the question did not begin with a question waiting, so it was not the
-        # one that received this answer.
-        raise RewindUnavailableError
-    return RewindPlan(
-        checkpoint=record["checkpoint"],
-        replay_values=None if answering else list(record.get("values") or []),
-        retired_block_bids=[
-            b.generated_block_bid
-            for b in _turn_blocks_from(target, include_it=True)
-            if b.generated_block_bid
+        controls = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.generated_block_bid == block.generated_block_bid,
+                LearnGeneratedElement.user_bid == user_bid,
+                LearnGeneratedElement.outline_item_bid == outline_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.element_type == "interaction",
+                LearnGeneratedElement.status == 1,
+                LearnGeneratedElement.deleted == 0,
+            )
+            .order_by(
+                LearnGeneratedElement.sequence_number.asc(),
+                LearnGeneratedElement.run_event_seq.asc(),
+                LearnGeneratedElement.id.asc(),
+            )
+            .all()
+        )
+        identities = list(
+            dict.fromkeys(
+                row.target_element_bid
+                if not row.is_new and row.target_element_bid
+                else row.element_bid
+                for row in controls
+            )
+        )
+        if anchor in identities and len(blocks) > 1:
+            record = read_turn_record(blocks[1])
+            pending = record["checkpoint"].get("pending", []) if record else []
+            offset = identities.index(anchor)
+            if (
+                not isinstance(pending, list)
+                or offset >= len(pending)
+                or not isinstance(pending[offset], dict)
+            ):
+                raise RewindUnavailableError
+            question_id = pending[offset].get("tool_call_id")
+            if not isinstance(question_id, str) or not question_id:
+                raise RewindUnavailableError
+        elif anchor == block.generated_block_bid and len(identities) > 1:
+            raise RewindUnavailableError
+    return plan_turn_rewind(
+        [
+            {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
+            for b in blocks
         ],
+        block_bid=block.generated_block_bid,
+        answering=answering,
+        question_id=question_id,
     )
 
 

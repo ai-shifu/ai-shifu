@@ -1033,6 +1033,13 @@ class PlaygroundPreviewRequest(BaseModel):
         description="Debug turn to regenerate together with its following steps",
     )
 
+    reload_element_bid: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description="Exact Debug interaction whose answer is being revised",
+    )
+
     def get_document(self) -> str:
         """Return the requested playground document."""
         return self.content or ""

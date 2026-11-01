@@ -20,6 +20,7 @@ from flaskr.service.learn.agent.rewind import (
     turn_record,
 )
 from flaskr.service.learn.learn_dtos import (
+    ElementType,
     GeneratedType,
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -475,7 +476,22 @@ def test_question_closes_editor_response_without_ending_the_lesson(
 ) -> None:
     from flaskr.service.learn.agent import lesson_entry
 
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+
     def lesson_events(_app: object, **_kwargs: object) -> object:
+        session = Session(script=ScriptBundle(script="Current draft"))
+        record = _record(session)
+        session.pending = [
+            PendingInteraction(
+                "q", InteractionSpec(type="text", prompt="Which option?")
+            )
+        ]
+        _kwargs["debug_store"].save(
+            session,
+            generated_block_bid="question",
+            turn_record=record,
+            question_ids=["q"],
+        )
         yield RunMarkdownFlowDTO(
             outline_bid="lesson",
             generated_block_bid="question",
@@ -1127,3 +1143,301 @@ def test_debug_automatic_continuation_preserves_restored_output_language(
         clear_language()
     assert resumed.user_memory == {"sys_user_language": "fr-FR", "goal": "retained"}
     assert engine.output_language == "Français"
+
+
+@pytest.mark.parametrize("selected", [0, 1])
+def test_debug_answer_edits_share_the_exact_accepting_checkpoint(
+    app: object, monkeypatch: object, selected: int
+) -> None:
+    from flaskr.service.learn.agent import run_agent
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    store = _store(app)
+    session = Session(
+        script=ScriptBundle(script="Current draft"), user_memory={"seed": "keep"}
+    )
+    prefix = _record(session)
+    session.memory["prefix"] = "keep"
+    session.pending = [
+        PendingInteraction("q1", InteractionSpec(type="text", prompt="First?")),
+        PendingInteraction("q2", InteractionSpec(type="text", prompt="Second?")),
+    ]
+    store.save(
+        session,
+        generated_block_bid="questions",
+        turn_record=prefix,
+        question_ids=["q1", "q2"],
+    )
+    store.bind_interactions(
+        script="Current draft", elements={"questions": ["e1", "e2"]}
+    )
+    for index in range(2):
+        record = _record(session, [f"old-{index}"])
+        question = session.pending.pop(0)
+        session.answers[question.tool_call_id] = f"old-{index}"
+        session.memory[f"answer-{index}"] = f"old-{index}"
+        store.save(session, generated_block_bid=f"answer-{index}", turn_record=record)
+    session.finished = True
+    store.save(session, generated_block_bid="future", turn_record=_record(session))
+
+    plan = store.plan_rewind(
+        script="Current draft",
+        block_bid="questions",
+        element_bid=f"e{selected + 1}",
+        answering=True,
+    )
+    assert plan.replay_values is None
+    assert plan.retired_block_bids == [f"answer-{i}" for i in range(selected, 2)] + [
+        "future"
+    ]
+    factory, finished = run_agent._load_or_start(
+        app,
+        SimpleNamespace(),
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        script="Current draft",
+        preview_mode=True,
+        debug_store=store,
+        rewind=plan,
+        preview_variables={"future": "discard", "seed": "wrong"},
+    )
+    restored = asyncio.run(factory())
+    assert not finished
+    assert restored.id == session.id
+    assert restored.pending[0].tool_call_id == f"q{selected + 1}"
+    assert restored.all_memory() == {
+        "seed": "keep",
+        "prefix": "keep",
+        **({"answer-0": "old-0"} if selected else {}),
+    }
+    replacement = _record(restored, ["new answer"])
+    restored.answers[restored.pending.pop(0).tool_call_id] = "new answer"
+    store.save(
+        restored,
+        generated_block_bid="replacement",
+        turn_record=replacement,
+        rewind=plan,
+    )
+    repeated = store.plan_rewind(
+        script="Current draft",
+        block_bid="questions",
+        element_bid=f"e{selected + 1}",
+        answering=True,
+    )
+    assert repeated.retired_block_bids == ["replacement"]
+    assert repeated.replay_values is None
+    with pytest.raises(RewindUnavailableError):
+        store.plan_rewind(
+            script="Current draft",
+            block_bid="questions",
+            element_bid="unowned",
+            answering=True,
+        )
+
+
+@pytest.mark.parametrize("include_block", [False, True])
+def test_debug_answer_edit_passes_exact_anchor_and_new_input_through_the_request(
+    app: object, monkeypatch: object, include_block: bool
+) -> None:
+    from flaskr.service.learn.agent.run_agent import TurnOutcome
+
+    from tests.service.learn.agent.test_lesson_entry_contracts import _entry_with_runner
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    store = _store(app)
+    session = Session(script=ScriptBundle(script="Current draft"))
+    before = _record(session)
+    session.pending = [
+        PendingInteraction("q", InteractionSpec(type="text", prompt="Choose?"))
+    ]
+    store.save(
+        session, generated_block_bid="question", turn_record=before, question_ids=["q"]
+    )
+    store.bind_interactions(script="Current draft", elements={"question": ["control"]})
+    accepting = _record(session, ["old"])
+    session.pending = []
+    session.answers["q"] = "old"
+    session.memory["future"] = "discard"
+    store.save(session, generated_block_bid="old-answer", turn_record=accepting)
+    runner = _entry_with_runner(monkeypatch)
+    seen = []
+
+    def produce(_app: object, **kwargs: object) -> Iterator:
+        seen.append(kwargs)
+        assert kwargs["user_input"] == {"input": ["new"]}
+        assert kwargs["rewind"].replay_values is None
+        assert kwargs["rewind"].retired_block_bids == ["old-answer"]
+        assert kwargs["rewind"].checkpoint["pending"][0]["tool_call_id"] == "q"
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            type=GeneratedType.DONE,
+            content="",
+            generated_block_bid="replacement",
+        )
+        return TurnOutcome(reason="interaction", taught=True)
+
+    runner.side_effect = produce
+    messages = _request_messages(
+        app,
+        lambda: debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Current draft",
+                block_index=0,
+                reload_generated_block_bid="question" if include_block else None,
+                reload_element_bid="control",
+                user_input={"input": ["new"]},
+                variables={"future": "discard"},
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="one",
+        ),
+    )
+    assert len(seen) == 1
+    assert messages[0].type == "debug_variables"
+    assert json.loads(messages[0].content) == {}
+    assert not any(message.type == "error" for message in messages)
+
+
+def test_debug_pending_answer_edit_fences_a_running_turn_before_its_first_save(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    old = _store(app)
+    old.begin_request()
+    session = Session(script=ScriptBundle(script="Current draft"))
+    before = _record(session)
+    session.pending = [
+        PendingInteraction("q", InteractionSpec(type="text", prompt="Choose?"))
+    ]
+    old.save(
+        session, generated_block_bid="question", turn_record=before, question_ids=["q"]
+    )
+    old.bind_interactions(script="Current draft", elements={"question": ["control"]})
+    replacement = _store(app)
+    replacement.begin_request()
+    plan = replacement.plan_rewind(
+        script="Current draft",
+        block_bid="question",
+        element_bid="control",
+        answering=True,
+    )
+    assert plan.replay_values is None
+    assert plan.checkpoint["pending"][0]["tool_call_id"] == "q"
+    assert plan.retired_block_bids == []
+    with pytest.raises(RewindUnavailableError):
+        old.save(
+            session, generated_block_bid="late", turn_record=_record(session, ["old"])
+        )
+    with pytest.raises(RewindUnavailableError):
+        old.bind_interactions(script="Current draft", elements={"question": ["wrong"]})
+    assert replacement._payload(script="Current draft")["turns"][0][
+        "interaction_elements"
+    ] == ["control"]
+
+
+@pytest.mark.parametrize("question_count", [1, 2])
+def test_real_debug_answer_edit_uses_new_input_and_keeps_only_the_original_prefix(
+    app: object, monkeypatch: object, question_count: int
+) -> None:
+    from flaskr.service.learn.agent import lesson_entry, run_agent
+    from markdownflow.engine import Engine
+    from pydantic_ai.models.function import DeltaToolCall
+
+    from tests.service.learn.agent.test_lesson_entry_contracts import _entry_with_runner
+    from tests.service.learn.agent.test_memory_integration import _drive
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    _entry_with_runner(monkeypatch)
+    lesson_entry.CourseTrace.return_value.observe.side_effect = lambda events: events
+    calls = 0
+    replacement_history = []
+
+    async def model(messages: list, _info: object) -> object:
+        nonlocal calls
+        calls += 1
+        # Admission is durable before output, even when the model has not finished.
+        saved = _store(app)._payload(script="Current draft")
+        assert len(saved["turns"]) >= 1
+        if calls == 4:
+            replacement_history.extend(
+                str(part) for message in messages for part in message.parts
+            )
+        yield f"Teaching {calls}."
+        yield {
+            i: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"q{calls}-{i}",
+                json_args=json.dumps(
+                    {
+                        "type": "text",
+                        "prompt": f"Question {calls}-{i}?",
+                        "placeholder": "Answer",
+                    }
+                ),
+            )
+            for i in range(question_count if calls == 1 else 1)
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    monkeypatch.setattr(lesson_entry, "GatewayModel", Mock(return_value=Mock()))
+    monkeypatch.setattr(lesson_entry, "Engine", lambda *_a, **_k: engine)
+    monkeypatch.setattr(
+        lesson_entry,
+        "run_agent_lesson",
+        lambda *a, **kw: run_agent.run_agent_lesson(*a, **kw, iter_turn=_drive),
+    )
+
+    def run(**kwargs: object) -> list:
+        return list(
+            debug_session.stream_debug_preview(
+                app,
+                preview_request=PlaygroundPreviewRequest(
+                    content="Current draft", block_index=0, **kwargs
+                ),
+                user_bid="teacher",
+                shifu_bid="course",
+                outline_bid="lesson",
+                run_bid="one",
+            )
+        )
+
+    with app.test_request_context("/"):
+        first = run(variables={"seed": "keep"})
+        controls = [
+            message.content
+            for message in first
+            if message.type == "element"
+            and message.content.element_type == ElementType.INTERACTION
+        ]
+        # Snapshots may repeat a control; retain the exact rendered identities.
+        controls = list({control.element_bid: control for control in controls}.values())
+        assert len(controls) == question_count
+        control = controls[-1]
+        original = _store(app).load(script="Current draft")
+        if question_count == 2:
+            run(user_input={"input": ["PREFIX ANSWER"]})
+        run(user_input={"input": ["OLD ANSWER"]})
+        run(user_input={"input": ["FUTURE ANSWER"]})
+        result = run(
+            reload_generated_block_bid=control.generated_block_bid,
+            reload_element_bid=control.element_bid,
+            user_input={"input": ["NEW ANSWER"]},
+            variables={"seed": "wrong", "future": "discard"},
+        )
+        restored = _store(app).load(script="Current draft")
+        turns = _store(app)._payload(script="Current draft")["turns"]
+    assert calls == 4
+    assert restored.id == original.id
+    assert restored.user_memory == {"seed": "keep"}
+    assert restored.pending[0].tool_call_id == "q4-0"
+    assert len(turns) == question_count + 1
+    assert turns[0]["block_bid"] == control.generated_block_bid
+    assert turns[-1]["record"]["values"] == ["NEW ANSWER"]
+    assert "NEW ANSWER" in " ".join(replacement_history)
+    assert "OLD ANSWER" not in " ".join(replacement_history)
+    assert "FUTURE ANSWER" not in " ".join(replacement_history)
+    assert any(message.type == "debug_variables" for message in result)

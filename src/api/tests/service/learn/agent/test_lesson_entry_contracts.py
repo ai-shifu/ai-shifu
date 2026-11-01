@@ -798,7 +798,7 @@ def test_debug_rewind_does_not_reapply_future_variables_on_automatic_continuatio
     )
 
     store.plan_rewind.assert_called_once_with(
-        script="Unsaved draft", block_bid="block-1"
+        script="Unsaved draft", block_bid="block-1", answering=False, element_bid=None
     )
     assert [call["rewind"] for call in calls] == [plan, None, None]
     assert [call["preview_variables"] for call in calls] == [
