@@ -13,6 +13,7 @@ from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
 )
+from flaskr.service.user.contact_lookup import load_user_contact_map
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
@@ -134,7 +135,7 @@ def test_course_contact_maps_prefer_latest_credentials_and_fall_back_to_account_
     _credential(bound_user, "email", "deleted@example.com", deleted=1)
     db.session.flush()
     bids = [email_user, phone_user, bound_user]
-    contacts = courses_shared._load_course_user_contact_map(bids)
+    contacts = load_user_contact_map(bids)
     assert contacts[email_user] == {"mobile": "", "email": "fallback@example.com"}
     assert contacts[phone_user] == {"mobile": "13800138000", "email": ""}
     assert contacts[bound_user] == {
@@ -236,7 +237,7 @@ def test_creator_and_user_identifier_lookup_ignores_deleted_rows(
 @pytest.mark.parametrize(
     "loader",
     [
-        courses_shared._load_course_user_contact_map,
+        load_user_contact_map,
         courses_shared._load_user_map,
         profiles._load_operator_user_auth_credentials,
         profiles._load_operator_user_registration_source_map,

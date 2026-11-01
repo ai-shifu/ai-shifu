@@ -9,6 +9,7 @@ from flaskr.service.user.account_cancellation import (
 )
 from flaskr.service.user.auth.oauth_origins import is_allowed_oauth_origin
 from flaskr.service.user.common import validate_user
+from flaskr.service.user.contact_lookup import load_user_contact_map
 from flaskr.service.user.operator_contact_change import change_operator_user_contact
 from flaskr.service.user.repository import (
     UserAggregate,
@@ -38,6 +39,7 @@ __all__ = [
     "load_existing_demo_shifu_ids",
     "load_user_aggregate",
     "load_user_aggregate_by_identifier",
+    "load_user_contact_map",
     "mark_creator_role_if_needed",
     "request_user_account_cancellation",
     "run_creator_granted_post_auth",
