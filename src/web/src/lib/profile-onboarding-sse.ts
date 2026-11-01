@@ -1,11 +1,9 @@
-import { SSE } from 'sse.js';
 import { getResolvedBaseURL } from '@/lib/env-utils';
-import { useUserStore } from '@/store/use-user-store';
 import {
-  attachSseBusinessResponseFallback,
-  getCurrentLanguageHeaders,
-} from '@/lib/request';
-import { buildTraceHeaders } from '@/lib/request-trace';
+  dispatchSseBusinessError,
+  onSseJson,
+  openSseStream,
+} from '@/lib/sse-client';
 
 export type ProfileOnboardingStreamEvent = {
   type?: string;
@@ -15,21 +13,6 @@ export type ProfileOnboardingStreamEvent = {
   is_terminal?: boolean;
   generated_block_bid?: string | null;
   interaction_id?: string;
-};
-
-const dispatchBusinessError = (
-  source: { dispatchEvent: (event: Event) => void },
-  error: { message: string; code?: number },
-) => {
-  const event = new CustomEvent('error', {
-    detail: error,
-  }) as CustomEvent<{ message: string; code?: number }> & {
-    data?: string;
-    responseCode?: number;
-  };
-  event.data = error.message;
-  event.responseCode = error.code;
-  source.dispatchEvent(event);
 };
 
 export const streamProfileOnboardingRuntime = ({
@@ -45,22 +28,13 @@ export const streamProfileOnboardingRuntime = ({
   onMessage: (event: ProfileOnboardingStreamEvent) => void;
   onError: (error: unknown) => void;
 }) => {
-  const token = useUserStore.getState().getToken();
-  const url = `${getResolvedBaseURL()}${path}`;
-  const traceHeaders = buildTraceHeaders({
-    'Content-Type': 'application/json',
-    ...getCurrentLanguageHeaders(language),
-    ...(token
-      ? {
-          Authorization: `Bearer ${token}`,
-          Token: token,
-        }
-      : {}),
-  });
-  const source = new SSE(url, {
-    headers: traceHeaders.headers,
-    payload: JSON.stringify(payload || {}),
+  const source = openSseStream({
+    url: `${getResolvedBaseURL()}${path}`,
     method: 'POST',
+    payload: payload || {},
+    language,
+    meta: { skipErrorToast: true },
+    onBusinessError: (error, stream) => dispatchSseBusinessError(stream, error),
   });
   let settled = false;
   let closedByConsumer = false;
@@ -77,17 +51,13 @@ export const streamProfileOnboardingRuntime = ({
     closeSource();
   };
 
-  source.addEventListener('message', event => {
-    try {
-      const parsed = JSON.parse(event.data) as ProfileOnboardingStreamEvent;
-      const eventType = parsed.event_type || parsed.type || '';
-      if (eventType === 'done' && parsed.is_terminal === true) {
-        settled = true;
-      }
-      onMessage(parsed);
-    } catch {
-      // Ignore malformed SSE payloads; a later valid event may still recover.
+  // Malformed SSE payloads are ignored; a later valid event may still recover.
+  onSseJson<ProfileOnboardingStreamEvent>(source, parsed => {
+    const eventType = parsed.event_type || parsed.type || '';
+    if (eventType === 'done' && parsed.is_terminal === true) {
+      settled = true;
     }
+    onMessage(parsed);
   });
   source.addEventListener('error', error => reportTransportError(error));
   source.addEventListener('readystatechange', event => {
@@ -97,18 +67,6 @@ export const streamProfileOnboardingRuntime = ({
         new Error('Profile onboarding stream closed before a terminal event'),
       );
     }
-  });
-  attachSseBusinessResponseFallback(source, {
-    requestToken: token || '',
-    meta: {
-      url,
-      method: 'POST',
-      requestToken: token || '',
-      requestId: traceHeaders.requestId,
-      harnessRunId: traceHeaders.harnessRunId,
-      skipErrorToast: true,
-    },
-    onHandled: error => dispatchBusinessError(source, error),
   });
   source.stream();
   return source;

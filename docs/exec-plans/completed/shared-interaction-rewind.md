@@ -33,7 +33,7 @@ cache snapshot to avoid racing an old stream's save.
 - Permit confirmed answer edits during streaming; reject late old-stream writes and UI events.
 - Only Debug enables current-answer edits before first output, after durably saving its checkpoint.
 - Order Debug admission by client generation so a late older HTTP request cannot supersede its replacement.
-- Editing the script still starts a fresh Debug session. Missing checkpoints report an error.
+- Preserve main's edited-draft continuation for the current answer; other edited-draft starts use a fresh session. Missing checkpoints report an error.
 - Keep existing content-regeneration analytics compatible; use a separate answer-edit family.
 - Preserve the original dirty checkout. Submission and merge are authorized for this isolated branch.
 
@@ -58,6 +58,8 @@ and authorized submission and merge into main.
 - Review regression: late and duplicate Debug requests cannot replace a newer
   admitted request, including after its separate fence expires. Invalid
   generations fail DTO validation, and stale requests never start the engine.
+- Integrated main's edited-draft continuation and shared SSE transport, retaining
+  the Debug answer-edit guards and monotonic request admission.
 
 ## Context and Orientation
 

@@ -6,17 +6,13 @@ import React, {
   useState,
 } from 'react';
 import Link from 'next/link';
-import { SSE } from 'sse.js';
 import { Plus, Minus, Settings, Volume2, Loader2, Square } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file-upload';
-import { buildTraceHeaders } from '@/lib/request-trace';
-import {
-  type ErrorWithCode,
-  attachSseBusinessResponseFallback,
-} from '@/lib/request';
+import { type ErrorWithCode } from '@/lib/request';
+import { onSseJson, openSseStream } from '@/lib/sse-client';
 import { showAiServiceErrorToast } from '@/lib/ai-service-toast';
 import {
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
@@ -1558,20 +1554,10 @@ export default function ShifuSettingDialog({
     ttsPreviewSegmentIndexRef.current = 0;
     closeTtsPreviewStream();
 
-    const baseUrl = getResolvedBaseURL();
-    const token = useUserStore.getState().getToken();
-    const traceHeaders = buildTraceHeaders({
-      'Content-Type': 'application/json',
-      ...(token
-        ? {
-            Authorization: `Bearer ${token}`,
-            Token: token,
-          }
-        : {}),
-    });
-    const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
-      headers: traceHeaders.headers,
-      payload: JSON.stringify({
+    const source = openSseStream({
+      url: `${getResolvedBaseURL()}/api/shifu/tts/preview`,
+      method: 'POST',
+      payload: {
         shifu_bid: shifuId,
         provider: resolvedProvider,
         model: ttsModel || '',
@@ -1579,35 +1565,20 @@ export default function ShifuSettingDialog({
         speed: speedValue,
         pitch: 0,
         emotion: '',
-      }),
-      method: 'POST',
-    });
-
-    attachSseBusinessResponseFallback(source, {
-      requestToken: token,
-      meta: {
-        url: `${baseUrl}/api/shifu/tts/preview`,
-        method: 'POST',
-        requestToken: token,
-        requestId: traceHeaders.requestId,
-        harnessRunId: traceHeaders.harnessRunId,
-        creditInsufficientAudience,
       },
-      onHandled: () => {
+      // This endpoint has never been sent Accept-Language.
+      includeLanguageHeaders: false,
+      meta: { creditInsufficientAudience },
+      onBusinessError: () => {
         if (ttsPreviewSessionRef.current === sessionId) {
           stopTtsPreview();
         }
       },
     });
 
-    source.addEventListener('message', event => {
-      const raw = event?.data;
-      if (!raw) return;
-      const payload = String(raw).trim();
-      if (!payload) return;
-
-      try {
-        const response = JSON.parse(payload);
+    onSseJson(
+      source,
+      response => {
         if (ttsPreviewSessionRef.current !== sessionId) {
           return;
         }
@@ -1643,10 +1614,11 @@ export default function ShifuSettingDialog({
             stopTtsPreview();
           }
         }
-      } catch (error) {
+      },
+      error => {
         console.warn('TTS preview stream parse error:', error);
-      }
-    });
+      },
+    );
 
     source.addEventListener('error', error => {
       if (ttsPreviewSessionRef.current !== sessionId) {

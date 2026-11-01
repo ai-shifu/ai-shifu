@@ -293,3 +293,24 @@ def test_independent_brief_references_do_not_inherit_an_open_script_fence() -> N
     )
     assert _memory(prompt)[0] == {"brief": "important"}
     assert "Use {{brief}}." in prompt
+
+
+def test_rebase_initial_script_replaces_only_the_documents() -> None:
+    from markdownflow.engine.memory_context import rebase_initial_script
+    from markdownflow.engine.script import ScriptBundle, render_first_prompt
+    from pydantic_ai.messages import ModelRequest, UserPromptPart
+
+    old = ScriptBundle(script="Old lesson", constraints="Be brief")
+    new = ScriptBundle(script="New lesson", constraints="Be brief")
+    first = render_first_prompt(old, {"goal": "learn"})
+    later = ModelRequest(parts=[UserPromptPart("A later learner message")])
+    messages = [ModelRequest(parts=[UserPromptPart(first)]), later]
+
+    rebased = rebase_initial_script(messages, new)
+
+    assert rebased is not None
+    assert rebased[0].parts[0].content == render_first_prompt(new, {"goal": "learn"})
+    assert rebased[1] is later
+    assert messages[0].parts[0].content == first
+    unknown = [ModelRequest(parts=[UserPromptPart("Not an engine prompt")])]
+    assert rebase_initial_script(unknown, new) is None

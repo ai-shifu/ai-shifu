@@ -95,6 +95,10 @@ jest.mock('@/store', () => {
   };
 });
 
+// The shared SSE client reads the token from the user store module directly.
+jest.mock('@/store/use-user-store', () => ({
+  useUserStore: { getState: () => ({ getToken: () => '' }) },
+}));
 jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
@@ -1887,7 +1891,7 @@ describe('useDebugSession helpers and business error rendering', () => {
     expect(second.debug_session_id).toBe(first.debug_session_id);
   });
 
-  test('starts an edited 2.0 draft without submitting an answer from the old script', async () => {
+  test('continues the same 2.0 session with the answer after the draft is edited', async () => {
     const firstSource = buildMockSseSource();
     const secondSource = buildMockSseSource();
     (SSE as jest.Mock)
@@ -1926,11 +1930,102 @@ describe('useDebugSession helpers and business error rendering', () => {
 
     const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
     const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    // One click continues: the answer reaches the server with the edited draft.
+    expect(second.content).toBe('Edited draft');
+    expect(second.block_index).toBe(1);
+    expect(second.user_input).toEqual({ answer: ['old choice'] });
+    expect(second.variables).toEqual({
+      learnerName: 'Ada',
+      answer: 'old choice',
+    });
+    expect(second.debug_session_id).toBe(first.debug_session_id);
+  });
+
+  test('restarts an edited 2.0 draft from the beginning when nothing is answered', async () => {
+    const firstSource = buildMockSseSource();
+    const secondSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(secondSource);
+    const { result } = renderHook(() =>
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
+    );
+    const params = {
+      shifuBid: 'shifu-1',
+      outlineBid: 'lesson-1',
+      mdflow: 'Original draft',
+      variableValues: { learnerName: 'Ada' },
+    };
+
+    await act(async () => result.current.startRun(params));
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    await act(async () =>
+      result.current.startRun({
+        ...params,
+        mdflow: 'Edited draft',
+        blockIndex: 1,
+      }),
+    );
+
+    const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+    const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
     expect(second.content).toBe('Edited draft');
     expect(second.block_index).toBe(0);
     expect(second.user_input).toBeUndefined();
-    expect(second.variables).toEqual({ learnerName: 'Ada' });
     expect(second.debug_session_id).not.toBe(first.debug_session_id);
+  });
+
+  test('answers the current question under an edited draft with one click', async () => {
+    const firstSource = buildMockSseSource();
+    const secondSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(secondSource);
+    const { result } = renderHook(() =>
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () =>
+      result.current.startRun({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Original draft',
+        variableValues: { learnerName: 'Ada' },
+      }),
+    );
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'pause',
+          content: 'Ready to continue?',
+        }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    mockGetCurrentMdflow.mockReturnValue('Edited draft');
+    await act(async () =>
+      result.current.submitInteraction({ inputText: 'Continue' }, 'pause'),
+    );
+
+    expect(SSE).toHaveBeenCalledTimes(2);
+    const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+    const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    expect(second.content).toBe('Edited draft');
+    expect(second.user_input).toEqual({ input: ['Continue'] });
+    expect(second.debug_session_id).toBe(first.debug_session_id);
   });
 
   test('discards the pending answer before restarting an edited 2.0 draft and on refresh', async () => {

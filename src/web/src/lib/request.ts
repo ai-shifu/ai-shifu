@@ -43,7 +43,7 @@ export type BusinessResponse = {
   data?: unknown;
 };
 
-type RequestDebugMeta = {
+export type RequestDebugMeta = {
   url?: string;
   method?: string;
   requestToken?: string;

@@ -51,7 +51,9 @@ session retains the highest generation for its lifetime. Existing clients can
 omit the field until their session admits a sequenced request; learner requests
 and persistence do not use this Debug-only contract.
 
-Edited scripts start a fresh Debug session. Expired sessions, unknown controls,
+An answer to the current question can continue under an edited draft, retaining
+the existing main behavior. Starting without an answer or targeting an earlier
+question after a draft edit starts a fresh Debug session. Expired sessions, unknown controls,
 missing checkpoints and old cache entries without exact interaction ownership
 report the existing localized errors; they do not silently restart the lesson.
 There is no database migration. Debug cache entries expire after 30 minutes.

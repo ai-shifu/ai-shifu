@@ -12,12 +12,22 @@ import { AdminPagination } from '@/components/admin/AdminPagination';
 import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import CourseFeedbackSummaryCards from '@/app/admin/components/course-feedback/CourseFeedbackSummaryCards';
+import StackedTooltipText from '@/app/admin/components/course-feedback/StackedTooltipText';
+import {
+  resolveRequestErrorState,
+  useDisplayIdentifierType,
+} from '@/app/admin/components/course-feedback/course-feedback-data';
+import {
+  resolvePrimaryLessonDisplay,
+  resolveSecondaryChapterDisplay,
+  type CourseFeedbackErrorState,
+} from '@/app/admin/components/course-feedback/course-feedback-display';
 import {
   createDateRangeFilterItem,
   createSelectFilterItem,
   createTextFilterItem,
 } from '@/app/admin/components/admin-filter-field-builders';
-import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -30,13 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  resolveLoginIdentifierTypes,
-  selectSingleLoginIdentifierType,
-  type LoginIdentifierType,
-} from '@/lib/login-identifiers';
-import { ErrorWithCode } from '@/lib/request';
-import { cn } from '@/lib/utils';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { useUserStore } from '@/store';
 import type {
   DashboardCourseRatingItem,
@@ -57,7 +61,7 @@ import {
   DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
 } from '../../dashboard-filter-ui-shared';
 
-type ErrorState = { message: string; code?: number };
+type ErrorState = CourseFeedbackErrorState;
 type RatingCommentFilter = 'all' | 'commented';
 
 type RatingFilters = {
@@ -108,39 +112,6 @@ const formatCount = (
     return emptyValue;
   }
   return value.toLocaleString(locale);
-};
-
-const formatValue = (value: string | undefined | null, emptyValue: string) => {
-  const normalizedValue = value?.trim() || '';
-  return normalizedValue || emptyValue;
-};
-
-const resolvePrimaryLessonDisplay = ({
-  lessonTitle,
-  chapterTitle,
-  emptyValue,
-}: {
-  lessonTitle?: string;
-  chapterTitle?: string;
-  emptyValue: string;
-}) => formatValue(lessonTitle || chapterTitle, emptyValue);
-
-const resolveSecondaryChapterDisplay = ({
-  chapterTitle,
-  lessonTitle,
-}: {
-  chapterTitle?: string;
-  lessonTitle?: string;
-}) => {
-  const normalizedChapterTitle = chapterTitle?.trim() || '';
-  const normalizedLessonTitle = lessonTitle?.trim() || '';
-  if (
-    !normalizedChapterTitle ||
-    normalizedChapterTitle === normalizedLessonTitle
-  ) {
-    return '';
-  }
-  return normalizedChapterTitle;
 };
 
 const resolvePrimaryUserDisplay = ({
@@ -200,30 +171,11 @@ const resolveSecondaryUserDisplay = ({
   return '';
 };
 
-const splitTimestampValue = (value: string) => {
-  const normalizedValue = value
-    .replace(/[,.\u202F]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!normalizedValue) {
-    return [];
-  }
-
-  const [datePart, timePart, ...rest] = normalizedValue.split(' ');
-  if (!timePart || rest.length > 0) {
-    return [normalizedValue];
-  }
-
-  return [datePart, timePart];
-};
-
 export default function AdminDashboardCourseRatingsPage() {
   const { t, i18n } = useTranslation();
   const params = useParams<{ shifu_bid?: string }>();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
-  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
-  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -234,14 +186,7 @@ export default function AdminDashboardCourseRatingsPage() {
     'module.dashboard.messages.loadRatingsFailed',
   );
   const guestUserLabel = t('module.dashboard.detail.ratings.table.guestUser');
-  const displayIdentifierType = useMemo<LoginIdentifierType>(
-    () =>
-      selectSingleLoginIdentifierType(
-        resolveLoginIdentifierTypes(loginMethodsEnabled),
-        defaultLoginMethod,
-      ),
-    [defaultLoginMethod, loginMethodsEnabled],
-  );
+  const displayIdentifierType = useDisplayIdentifierType();
   const userKeywordPlaceholder = useMemo(
     () =>
       displayIdentifierType === 'email'
@@ -302,13 +247,7 @@ export default function AdminDashboardCourseRatingsPage() {
           return;
         }
         setRatings(EMPTY_RATINGS_RESPONSE);
-        if (err instanceof ErrorWithCode) {
-          setError({ message: err.message, code: err.code });
-        } else if (err instanceof Error) {
-          setError({ message: err.message });
-        } else {
-          setError({ message: ratingsLoadErrorMessage });
-        }
+        setError(resolveRequestErrorState(err, ratingsLoadErrorMessage));
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
@@ -359,29 +298,33 @@ export default function AdminDashboardCourseRatingsPage() {
   const summaryCards = useMemo(
     () => [
       {
+        key: 'averageScore',
         label: t('module.dashboard.detail.ratings.summary.averageScore'),
         value: ratings.summary.average_score || emptyValue,
-        tone: 'default' as const,
+        tone: 'value' as const,
       },
       {
+        key: 'ratingCount',
         label: t('module.dashboard.detail.ratings.summary.ratingCount'),
         value: formatCount(
           ratings.summary.rating_count,
           emptyValue,
           i18n.language,
         ),
-        tone: 'default' as const,
+        tone: 'value' as const,
       },
       {
+        key: 'userCount',
         label: t('module.dashboard.detail.ratings.summary.userCount'),
         value: formatCount(
           ratings.summary.user_count,
           emptyValue,
           i18n.language,
         ),
-        tone: 'default' as const,
+        tone: 'value' as const,
       },
       {
+        key: 'latestRatedAt',
         label: t('module.dashboard.detail.ratings.summary.latestRatedAt'),
         value:
           formatAdminUtcDateTime(ratings.summary.latest_rated_at) || emptyValue,
@@ -523,39 +466,11 @@ export default function AdminDashboardCourseRatingsPage() {
       <div className='pb-6'>
         <AdminTitle title={t('module.dashboard.detail.ratings.title')} />
         <div className='space-y-5'>
-          <div className={DASHBOARD_DETAIL_SUMMARY_GRID_CLASS}>
-            {summaryCards.map(card => (
-              <Card
-                key={card.label}
-                className='border-border/80 shadow-sm'
-              >
-                <CardContent className='flex h-full flex-col p-4'>
-                  <div className='text-sm font-medium text-muted-foreground'>
-                    {card.label}
-                  </div>
-                  {card.tone === 'timestamp' ? (
-                    <div className='mt-3 space-y-0.5 text-foreground'>
-                      {splitTimestampValue(card.value).map((part, index) => (
-                        <div
-                          key={`${card.label}-${part}-${index}`}
-                          className={cn(
-                            'break-all tracking-tight',
-                            index === 0 ? 'text-base font-medium' : 'text-sm',
-                          )}
-                        >
-                          {part}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className='mt-3 text-xl font-semibold text-foreground'>
-                      {card.value}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <CourseFeedbackSummaryCards
+            cards={summaryCards}
+            gridClassName={DASHBOARD_DETAIL_SUMMARY_GRID_CLASS}
+            size='compact'
+          />
 
           <Card className='overflow-hidden border-border/80 shadow-sm'>
             <CardHeader className='pb-3'>
@@ -718,44 +633,26 @@ export default function AdminDashboardCourseRatingsPage() {
                                     />
                                   </TableCell>
                                   <TableCell className='py-3 align-middle'>
-                                    <div className='flex flex-col gap-0.5 leading-tight'>
-                                      <div className='font-medium text-foreground'>
-                                        <AdminTooltipText
-                                          text={primaryUser}
-                                          emptyValue={guestUserLabel}
-                                          className='block max-w-[180px] text-sm text-foreground'
-                                        />
-                                      </div>
-                                      {secondaryUser ? (
-                                        <div className='text-xs text-muted-foreground'>
-                                          <AdminTooltipText
-                                            text={secondaryUser}
-                                            emptyValue=''
-                                            className='block max-w-[180px] text-xs text-muted-foreground'
-                                          />
-                                        </div>
-                                      ) : null}
-                                    </div>
+                                    <StackedTooltipText
+                                      primary={primaryUser}
+                                      primaryEmptyValue={guestUserLabel}
+                                      primaryClassName='block max-w-[180px] text-sm text-foreground'
+                                      secondary={secondaryUser}
+                                      secondaryEmptyValue=''
+                                      secondaryClassName='block max-w-[180px] text-xs text-muted-foreground'
+                                      wrapSecondary
+                                    />
                                   </TableCell>
                                   <TableCell className='py-3 align-middle'>
-                                    <div className='flex flex-col gap-0.5 leading-tight'>
-                                      <div className='font-medium text-foreground'>
-                                        <AdminTooltipText
-                                          text={primaryLessonDisplay}
-                                          emptyValue={emptyValue}
-                                          className='block max-w-[220px] text-sm text-foreground'
-                                        />
-                                      </div>
-                                      {secondaryChapterDisplay ? (
-                                        <div className='text-xs text-muted-foreground'>
-                                          <AdminTooltipText
-                                            text={secondaryChapterDisplay}
-                                            emptyValue=''
-                                            className='block max-w-[220px] text-xs text-muted-foreground'
-                                          />
-                                        </div>
-                                      ) : null}
-                                    </div>
+                                    <StackedTooltipText
+                                      primary={primaryLessonDisplay}
+                                      primaryEmptyValue={emptyValue}
+                                      primaryClassName='block max-w-[220px] text-sm text-foreground'
+                                      secondary={secondaryChapterDisplay}
+                                      secondaryEmptyValue=''
+                                      secondaryClassName='block max-w-[220px] text-xs text-muted-foreground'
+                                      wrapSecondary
+                                    />
                                   </TableCell>
                                   <TableCell className='whitespace-nowrap py-3 align-middle text-sm font-medium text-foreground'>
                                     {scoreLabel}
