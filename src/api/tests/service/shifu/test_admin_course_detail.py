@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
@@ -87,27 +86,41 @@ from tests.common.fixtures.model_factories import (
     make_generated_element,
     make_progress_record,
 )
+from tests.service.shifu.admin_operation_helpers import (
+    get_json,
+    get_ok,
+    install_fake_bcrypt,
+    mock_operator,
+)
+
+COURSE_BID = "course-detail"
+COURSE_URL = f"/api/shifu/admin/operations/courses/{COURSE_BID}"
+# ``_seed_progress`` derives this bid for student-1's in-progress lesson-1 row.
+STUDENT_PROGRESS_BID = "progress-student-1-lesson-1-602"
 
 
 def _clear_tables() -> None:
-    db.session.query(CreditLedgerEntry).delete()
-    db.session.query(CreditUsageRate).delete()
-    db.session.query(BillUsageRecord).delete()
-    db.session.query(LearnLessonFeedback).delete()
-    db.session.query(LearnGeneratedElement).delete()
-    db.session.query(LearnGeneratedBlock).delete()
-    db.session.query(LearnProgressRecord).delete()
-    db.session.query(PromoRedemption).delete()
-    db.session.query(CouponUsage).delete()
-    db.session.query(Order).delete()
-    db.session.query(UserToken).delete()
-    db.session.query(AiCourseAuth).delete()
-    db.session.query(DraftOutlineItem).delete()
-    db.session.query(PublishedOutlineItem).delete()
-    db.session.query(DraftShifu).delete()
-    db.session.query(PublishedShifu).delete()
-    db.session.query(AuthCredential).delete()
-    db.session.query(UserEntity).delete()
+    for model in (
+        CreditLedgerEntry,
+        CreditUsageRate,
+        BillUsageRecord,
+        LearnLessonFeedback,
+        LearnGeneratedElement,
+        LearnGeneratedBlock,
+        LearnProgressRecord,
+        PromoRedemption,
+        CouponUsage,
+        Order,
+        UserToken,
+        AiCourseAuth,
+        DraftOutlineItem,
+        PublishedOutlineItem,
+        DraftShifu,
+        PublishedShifu,
+        AuthCredential,
+        UserEntity,
+    ):
+        db.session.query(model).delete()
     db.session.commit()
     db.session.remove()
 
@@ -146,20 +159,14 @@ def _pin_app_timezone_to_utc(app: object) -> object:
 
 
 @pytest.fixture(autouse=True)
-def _mock_bcrypt_module(monkeypatch: object) -> None:
-    def gensalt(rounds: object = 12) -> object:
-        del rounds
-        return b"salt"
+def _mock_bcrypt_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fake_bcrypt(monkeypatch)
 
-    monkeypatch.setitem(
-        sys.modules,
-        "bcrypt",
-        SimpleNamespace(
-            gensalt=gensalt,
-            hashpw=lambda plain, salt: plain + b":" + salt,
-            checkpw=lambda plain, hashed: hashed == plain + b":salt",
-        ),
-    )
+
+@pytest.fixture(autouse=True)
+def _authenticate_operator(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Treat every request as an operator; denial tests re-mock as non-operator."""
+    mock_operator(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
@@ -169,25 +176,6 @@ def _isolate_tables(app: object) -> object:
     yield
     with app.app_context():
         _clear_tables()
-
-
-def _mock_operator(
-    monkeypatch: object,
-    user_id: str = "operator-1",
-    *,
-    is_operator: bool = True,
-) -> None:
-    dummy_user = SimpleNamespace(
-        user_id=user_id,
-        is_operator=is_operator,
-        is_creator=False,
-        language="en-US",
-    )
-    monkeypatch.setattr(
-        "flaskr.route.user.validate_user",
-        lambda _app, _token: dummy_user,
-        raising=False,
-    )
 
 
 def _seed_user(app: object, *, user_bid: str, email: str = "", phone: str = "") -> None:
@@ -225,10 +213,7 @@ def _seed_user(app: object, *, user_bid: str, email: str = "", phone: str = "") 
 
 
 def _set_user_flags(
-    *,
-    user_bid: str,
-    is_creator: int = 0,
-    is_operator: int = 0,
+    *, user_bid: str, is_creator: int = 0, is_operator: int = 0
 ) -> None:
     user = (
         UserEntity.query.filter(
@@ -245,12 +230,12 @@ def _set_user_flags(
 
 def _seed_progress(
     *,
-    shifu_bid: str,
+    shifu_bid: str = COURSE_BID,
     outline_item_bid: str,
     user_bid: str,
     status: int,
     created_at: datetime,
-    updated_at: datetime,
+    updated_at: datetime | None = None,
 ) -> None:
     db.session.add(
         make_progress_record(
@@ -260,17 +245,17 @@ def _seed_progress(
             user_bid=user_bid,
             status=status,
             created_at=created_at,
-            updated_at=updated_at,
+            updated_at=updated_at or created_at,
         )
     )
 
 
 def _seed_follow_up_pair(
     *,
-    shifu_bid: str,
-    outline_item_bid: str,
-    progress_record_bid: str,
-    user_bid: str,
+    shifu_bid: str = COURSE_BID,
+    outline_item_bid: str = "lesson-1",
+    progress_record_bid: str = STUDENT_PROGRESS_BID,
+    user_bid: str = "student-1",
     ask_bid: str,
     ask_content: str,
     ask_position: int,
@@ -318,7 +303,7 @@ def _seed_credit_usage(
     *,
     usage_bid: str,
     user_bid: str,
-    shifu_bid: str,
+    shifu_bid: str = COURSE_BID,
     outline_item_bid: str,
     usage_type: int,
     provider: str,
@@ -390,10 +375,10 @@ def _seed_credit_usage(
 def _seed_teacher_output_block(
     *,
     generated_block_bid: str,
-    shifu_bid: str,
-    outline_item_bid: str,
-    progress_record_bid: str,
-    user_bid: str,
+    shifu_bid: str = COURSE_BID,
+    outline_item_bid: str = "lesson-1",
+    progress_record_bid: str = STUDENT_PROGRESS_BID,
+    user_bid: str = "student-1",
     block_type: int,
     position: int,
     created_at: datetime,
@@ -427,7 +412,7 @@ def _seed_generated_element(
     user_bid: str,
     generated_block_bid: str,
     outline_item_bid: str,
-    shifu_bid: str,
+    shifu_bid: str = COURSE_BID,
     created_at: datetime,
     run_session_bid: str = "listen-run-1",
     run_event_seq: int = 1,
@@ -484,10 +469,10 @@ def _seed_generated_element(
 
 def _seed_follow_up_anchor_element(
     *,
-    shifu_bid: str,
-    outline_item_bid: str,
-    progress_record_bid: str,
-    user_bid: str,
+    shifu_bid: str = COURSE_BID,
+    outline_item_bid: str = "lesson-1",
+    progress_record_bid: str = STUDENT_PROGRESS_BID,
+    user_bid: str = "student-1",
     answer_generated_block_bid: str,
     anchor_element_bid: str,
     anchor_element_type: str,
@@ -546,7 +531,7 @@ def _seed_follow_up_anchor_element(
 
 def _seed_paid_order(
     *,
-    shifu_bid: str,
+    shifu_bid: str = COURSE_BID,
     user_bid: str,
     paid_price: str,
     payable_price: str | None = None,
@@ -571,7 +556,7 @@ def _seed_coupon_usage(
     *,
     coupon_usage_bid: str,
     order_bid: str,
-    shifu_bid: str,
+    shifu_bid: str = COURSE_BID,
     user_bid: str,
     code: str = "FULLREDEEM",
 ) -> None:
@@ -594,7 +579,7 @@ def _seed_promo_redemption(
     redemption_bid: str,
     promo_bid: str,
     order_bid: str,
-    shifu_bid: str,
+    shifu_bid: str = COURSE_BID,
     user_bid: str,
     discount_amount: str,
     promo_name: str = "Full Redeem Promo",
@@ -615,10 +600,7 @@ def _seed_promo_redemption(
 
 
 def _seed_course_permission(
-    *,
-    shifu_bid: str,
-    user_bid: str,
-    created_at: datetime,
+    *, shifu_bid: str = COURSE_BID, user_bid: str, created_at: datetime
 ) -> None:
     db.session.add(
         AiCourseAuth(
@@ -633,12 +615,7 @@ def _seed_course_permission(
     )
 
 
-def _seed_user_token(
-    *,
-    user_bid: str,
-    token: str,
-    created_at: datetime,
-) -> None:
+def _seed_user_token(*, user_bid: str, token: str, created_at: datetime) -> None:
     db.session.add(
         UserToken(
             user_id=user_bid,
@@ -652,15 +629,16 @@ def _seed_user_token(
 
 def _seed_course(
     *,
-    shifu_bid: str,
-    creator_user_bid: str,
+    shifu_bid: str = COURSE_BID,
+    creator_user_bid: str = "creator-1",
     created_at: datetime,
-    updated_at: datetime,
+    updated_at: datetime | None = None,
     llm: str = "gpt-test",
     llm_system_prompt: str = "",
     tts_enabled: int = 0,
     tts_provider: str = "",
     tts_model: str = "",
+    published: bool = True,
 ) -> None:
     db.session.add(
         DraftShifu(
@@ -679,10 +657,12 @@ def _seed_course(
             deleted=0,
             created_at=created_at,
             created_user_bid=creator_user_bid,
-            updated_at=updated_at,
+            updated_at=updated_at or created_at,
             updated_user_bid=creator_user_bid,
         )
     )
+    if not published:
+        return
     db.session.add(
         PublishedShifu(
             shifu_bid=shifu_bid,
@@ -738,18 +718,19 @@ def _seed_credit_usage_rate(
 
 def _seed_outline(
     *,
-    shifu_bid: str,
-    model: object,
+    shifu_bid: str = COURSE_BID,
+    model: object = DraftOutlineItem,
     outline_item_bid: str,
     title: str,
     position: str,
     parent_bid: str = "",
     hidden: int = 0,
-    item_type: int = 402,
+    item_type: int = UNIT_TYPE_VALUE_NORMAL,
     updated_at: datetime,
     updated_user_bid: str = "creator-1",
     content: str = "",
     llm_system_prompt: str = "",
+    deleted: int = 0,
 ) -> None:
     db.session.add(
         model(
@@ -764,7 +745,7 @@ def _seed_outline(
             ask_enabled_status=0,
             ask_llm_system_prompt="",
             content=content,
-            deleted=0,
+            deleted=deleted,
             created_at=updated_at,
             created_user_bid="creator-1",
             updated_at=updated_at,
@@ -773,44 +754,110 @@ def _seed_outline(
     )
 
 
-def test_coerce_operator_datetime_accepts_mysql_string_values(app: object) -> None:
-    with app.app_context():
-        assert _coerce_operator_datetime("2026-05-20 16:40:51") == datetime(
-            2026, 5, 20, 16, 40, 51
-        )
+def _seed_chapter_with_lesson(*, updated_at: datetime) -> None:
+    """Seed draft ``chapter-1`` with its single normal lesson ``lesson-1``."""
+    _seed_outline(
+        outline_item_bid="chapter-1",
+        title="Chapter 1",
+        position="1",
+        updated_at=updated_at,
+    )
+    _seed_outline(
+        outline_item_bid="lesson-1",
+        parent_bid="chapter-1",
+        title="Lesson 1",
+        position="1.1",
+        updated_at=updated_at,
+    )
 
 
-def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app: object) -> None:
+def _seed_student_lesson(
+    app: object, *, created_at: datetime, updated_at: datetime | None = None
+) -> None:
+    """Seed creator-1's course with student-1 learning ``lesson-1``.
+
+    student-1's progress row is ``STUDENT_PROGRESS_BID``, created 2026-04-04 10:00.
+    """
+    _seed_user(app, user_bid="creator-1", phone="13800001234")
+    _seed_user(app, user_bid="student-1", phone="13900001235")
+    _set_user_flags(user_bid="creator-1", is_creator=1)
+    _seed_course(created_at=created_at, updated_at=updated_at)
+    _seed_chapter_with_lesson(updated_at=updated_at or created_at)
+    _seed_progress(
+        outline_item_bid="lesson-1",
+        user_bid="student-1",
+        status=LEARN_STATUS_IN_PROGRESS,
+        created_at=datetime(2026, 4, 4, 10, 0, 0),
+    )
+
+
+def _lesson_feedback(
+    feedback_bid: str,
+    *,
+    outline_item_bid: str,
+    progress_record_bid: str,
+    user_bid: str,
+    score: int,
+    comment: str,
+    mode: str,
+    created_at: datetime,
+    updated_at: datetime | None = None,
+    deleted: int = 0,
+) -> LearnLessonFeedback:
+    return LearnLessonFeedback(
+        bid=feedback_bid,
+        lesson_feedback_bid=feedback_bid,
+        shifu_bid=COURSE_BID,
+        outline_item_bid=outline_item_bid,
+        progress_record_bid=progress_record_bid,
+        user_bid=user_bid,
+        score=score,
+        comment=comment,
+        mode=mode,
+        deleted=deleted,
+        created_at=created_at,
+        updated_at=updated_at or created_at,
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param(
+            "2026-05-20 16:40:51",
+            datetime(2026, 5, 20, 16, 40, 51),
+            id="mysql-string",
+        ),
+        pytest.param(
+            "2026-05-22T10:00:00+08:00",
+            datetime(2026, 5, 22, 2, 0, 0),
+            id="offset-string-to-utc",
+        ),
+        pytest.param(
+            datetime(2026, 5, 22, 10, 0, 0, tzinfo=UTC),
+            datetime(2026, 5, 22, 10, 0, 0),
+            id="aware-datetime-to-naive-utc",
+        ),
+    ],
+)
+def test_coerce_operator_datetime_normalizes_to_naive_utc(
+    app: object, value: object, expected: datetime
+) -> None:
     with app.app_context():
-        assert _coerce_operator_datetime("2026-05-22T10:00:00+08:00") == datetime(
-            2026, 5, 22, 2, 0, 0
-        )
-        assert _coerce_operator_datetime(
-            datetime(2026, 5, 22, 10, 0, 0, tzinfo=UTC)
-        ) == datetime(2026, 5, 22, 10, 0, 0)
+        assert _coerce_operator_datetime(value) == expected
 
 
 def test_admin_operation_course_detail_route_returns_latest_detail(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(app, user_bid="modifier-1", phone="13900001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+        _seed_course(created_at=created_at, updated_at=updated_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-1",
             title="Chapter 1",
             position="1",
@@ -818,8 +865,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             updated_at=updated_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             parent_bid="chapter-1",
@@ -831,8 +876,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             llm_system_prompt="lesson system prompt",
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-2",
             title="Lesson 2",
             parent_bid="chapter-1",
@@ -842,7 +885,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             updated_user_bid="modifier-1",
         )
         _seed_outline(
-            shifu_bid="course-detail",
             model=PublishedOutlineItem,
             outline_item_bid="published-chapter",
             title="Published Chapter",
@@ -853,7 +895,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             [
                 make_progress_record(
                     progress_record_bid="progress-1",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     outline_item_bid="lesson-1",
                     user_bid="learner-1",
                     status=LEARN_STATUS_COMPLETED,
@@ -862,7 +904,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                 ),
                 make_progress_record(
                     progress_record_bid="progress-2",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     outline_item_bid="lesson-1",
                     user_bid="learner-2",
                     status=LEARN_STATUS_IN_PROGRESS,
@@ -871,7 +913,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                 ),
                 make_progress_record(
                     progress_record_bid="progress-3",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     outline_item_bid="lesson-1",
                     user_bid="learner-reset",
                     status=LEARN_STATUS_RESET,
@@ -880,7 +922,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                 ),
                 Order(
                     order_bid="order-1",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     user_bid="learner-1",
                     paid_price=Decimal("88.00"),
                     status=ORDER_STATUS_SUCCESS,
@@ -890,7 +932,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                 ),
                 Order(
                     order_bid="order-2",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     user_bid="learner-2",
                     paid_price=Decimal("66.00"),
                     status=ORDER_STATUS_TO_BE_PAID,
@@ -903,7 +945,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     progress_record_bid="progress-1",
                     user_bid="learner-1",
                     outline_item_bid="lesson-1",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     type=BLOCK_TYPE_MDASK_VALUE,
                     role=ROLE_STUDENT,
                     generated_content="Question 1",
@@ -917,7 +959,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     progress_record_bid="progress-1",
                     user_bid="learner-1",
                     outline_item_bid="lesson-1",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     type=BLOCK_TYPE_MDASK_VALUE,
                     role=ROLE_TEACHER,
                     generated_content="Ignore",
@@ -931,7 +973,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     progress_record_bid="progress-2",
                     user_bid="learner-2",
                     outline_item_bid="lesson-1",
-                    shifu_bid="course-detail",
+                    shifu_bid=COURSE_BID,
                     type=BLOCK_TYPE_CONTENT_VALUE,
                     role=ROLE_STUDENT,
                     generated_content="Ignore",
@@ -940,38 +982,28 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
-                LearnLessonFeedback(
-                    bid="feedback-1",
-                    lesson_feedback_bid="feedback-1",
-                    shifu_bid="course-detail",
+                _lesson_feedback(
+                    "feedback-1",
                     outline_item_bid="lesson-1",
                     progress_record_bid="progress-1",
                     user_bid="learner-1",
                     score=5,
                     comment="Great",
                     mode="read",
-                    deleted=0,
                     created_at=updated_at,
-                    updated_at=updated_at,
                 ),
-                LearnLessonFeedback(
-                    bid="feedback-2",
-                    lesson_feedback_bid="feedback-2",
-                    shifu_bid="course-detail",
+                _lesson_feedback(
+                    "feedback-2",
                     outline_item_bid="lesson-2",
                     progress_record_bid="progress-2",
                     user_bid="learner-2",
                     score=3,
                     comment="Okay",
                     mode="read",
-                    deleted=0,
                     created_at=updated_at,
-                    updated_at=updated_at,
                 ),
-                LearnLessonFeedback(
-                    bid="feedback-deleted",
-                    lesson_feedback_bid="feedback-deleted",
-                    shifu_bid="course-detail",
+                _lesson_feedback(
+                    "feedback-deleted",
                     outline_item_bid="lesson-1",
                     progress_record_bid="progress-2",
                     user_bid="learner-2",
@@ -980,20 +1012,12 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     mode="read",
                     deleted=1,
                     created_at=updated_at,
-                    updated_at=updated_at,
                 ),
             ]
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/detail")
     assert payload["data"]["basic_info"] == {
         "shifu_bid": "course-detail",
         "course_name": "Draft Detail Course",
@@ -1080,11 +1104,8 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
 
 
 def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object, monkeypatch: object
 ) -> None:
-    _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_current_models",
         lambda _app: [
@@ -1117,18 +1138,13 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
             created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 9, 0, 0),
             llm="gpt-test",
             tts_enabled=0,
             tts_provider="minimax",
             tts_model="speech-test",
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-1",
             title="Chapter",
             position="1",
@@ -1136,8 +1152,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             llm_system_prompt="abcdef",
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             parent_bid="chapter-1",
@@ -1147,8 +1161,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             llm_system_prompt="abcd",
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-2",
             title="Lesson 2",
             parent_bid="chapter-1",
@@ -1157,8 +1169,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             content="abcdefghijklmnopqrst",
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-hidden",
             title="Hidden",
             parent_bid="chapter-1",
@@ -1169,8 +1179,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             llm_system_prompt="hidden",
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-hidden-only",
             title="Hidden-only Chapter",
             position="2",
@@ -1179,8 +1187,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             llm_system_prompt="visible chapter prompt ignored",
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="hidden-only-child",
             title="Hidden-only Child",
             parent_bid="chapter-hidden-only",
@@ -1250,14 +1256,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/detail")
     estimate = payload["data"]["estimated_credit_cost"]
     assert estimate["read"]["min"] == 46
     assert estimate["read"]["max"] == 82
@@ -1289,40 +1288,26 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
 
 
 def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surfaces_unknown_permission(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=updated_at,
-            updated_at=updated_at,
-        )
+        _seed_course(created_at=updated_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-10",
             title="Chapter 10",
             position="10",
             updated_at=updated_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-2",
             title="Chapter 2",
             position="2",
             updated_at=updated_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-2",
             title="Lesson 2",
             parent_bid="chapter-2",
@@ -1331,8 +1316,6 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
             updated_at=updated_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-10",
             title="Lesson 10",
             parent_bid="chapter-2",
@@ -1342,14 +1325,7 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/detail")
     assert [chapter["outline_item_bid"] for chapter in payload["data"]["chapters"]] == [
         "chapter-2",
         "chapter-10",
@@ -1366,260 +1342,132 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
 @pytest.mark.parametrize(
     "path",
     [
-        "/api/shifu/admin/operations/courses/course-detail/prompt",
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
-        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
-        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20",
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20",
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-1/detail",
+        f"{COURSE_URL}/prompt",
+        f"{COURSE_URL}/detail",
+        f"{COURSE_URL}/chapters/lesson-1/detail",
+        f"{COURSE_URL}/users?page=1&page_size=20",
+        f"{COURSE_URL}/ratings?page=1&page_size=20",
+        f"{COURSE_URL}/follow-ups?page=1&page_size=20",
+        f"{COURSE_URL}/follow-ups/ask-1/detail",
     ],
 )
 def test_admin_operation_course_detail_routes_require_operator(
-    test_client: object,
-    monkeypatch: object,
-    path: object,
+    test_client: object, monkeypatch: object, path: object
 ) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
+    mock_operator(monkeypatch, is_operator=False)
 
-    response = test_client.get(path, headers={"Token": "test-token"})
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
+    payload = get_json(test_client, path)
     assert payload["code"] == 401
 
 
 def test_admin_operation_course_prompt_route_returns_course_prompt(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=updated_at,
-            updated_at=updated_at,
-        )
-        DraftShifu.query.filter(DraftShifu.shifu_bid == "course-detail").update(
+        _seed_course(created_at=updated_at)
+        DraftShifu.query.filter(DraftShifu.shifu_bid == COURSE_BID).update(
             {DraftShifu.llm_system_prompt: "course system prompt"},
             synchronize_session=False,
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/prompt",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/prompt")
     assert payload["data"] == {
         "course_prompt": "course system prompt",
     }
 
 
-def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
+@pytest.mark.parametrize(
+    ("course_prompt", "published", "chapter_prompt", "lesson_prompt", "expected"),
+    [
+        pytest.param(
+            "",
+            True,
+            None,
+            "lesson system prompt",
+            ("lesson system prompt", "lesson"),
+            id="lesson-prompt",
+        ),
+        pytest.param(
+            "course system prompt",
+            False,
+            "chapter system prompt",
+            "",
+            ("chapter system prompt", "chapter"),
+            id="falls-back-to-chapter",
+        ),
+        pytest.param(
+            "course system prompt",
+            False,
+            "",
+            "",
+            ("course system prompt", "course"),
+            id="falls-back-to-course",
+        ),
+    ],
+)
+def test_admin_operation_course_chapter_detail_route_resolves_prompt_source(
     app: object,
     test_client: object,
-    monkeypatch: object,
+    course_prompt: str,
+    published: bool,
+    chapter_prompt: str | None,
+    lesson_prompt: str,
+    expected: tuple[str, str],
 ) -> None:
-    _mock_operator(monkeypatch)
+    """The lesson prompt wins, then the parent chapter's, then the course's.
+
+    ``chapter_prompt=None`` leaves the lesson's parent chapter unseeded.
+    """
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=updated_at,
-            updated_at=updated_at,
+            created_at=updated_at, llm_system_prompt=course_prompt, published=published
         )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            title="Lesson 1",
-            position="1.1",
-            parent_bid="chapter-1",
-            updated_at=updated_at,
-            content="# Lesson 1 content",
-            llm_system_prompt="lesson system prompt",
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
-    assert payload["data"] == {
-        "outline_item_bid": "lesson-1",
-        "title": "Lesson 1",
-        "content": "# Lesson 1 content",
-        "llm_system_prompt": "lesson system prompt",
-        "llm_system_prompt_source": "lesson",
-    }
-
-
-def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_course(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-    updated_at = datetime(2026, 4, 3, 15, 30, 0)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        db.session.add(
-            DraftShifu(
-                shifu_bid="course-detail",
-                title="Draft Detail Course",
-                description="draft",
-                avatar_res_bid="",
-                keywords="",
-                llm="gpt-test",
-                llm_temperature=Decimal(0),
-                llm_system_prompt="course system prompt",
-                price=Decimal("199.00"),
-                deleted=0,
-                created_at=updated_at,
-                created_user_bid="creator-1",
+        if chapter_prompt is not None:
+            _seed_outline(
+                outline_item_bid="chapter-1",
+                title="Chapter 1",
+                position="1",
                 updated_at=updated_at,
-                updated_user_bid="creator-1",
+                llm_system_prompt=chapter_prompt,
             )
-        )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            updated_at=updated_at,
-            llm_system_prompt="chapter system prompt",
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             position="1.1",
             parent_bid="chapter-1",
             updated_at=updated_at,
             content="# Lesson 1 content",
+            llm_system_prompt=lesson_prompt,
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/chapters/lesson-1/detail")
     assert payload["data"] == {
         "outline_item_bid": "lesson-1",
         "title": "Lesson 1",
         "content": "# Lesson 1 content",
-        "llm_system_prompt": "chapter system prompt",
-        "llm_system_prompt_source": "chapter",
-    }
-
-
-def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-    updated_at = datetime(2026, 4, 3, 15, 30, 0)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        db.session.add(
-            DraftShifu(
-                shifu_bid="course-detail",
-                title="Draft Detail Course",
-                description="draft",
-                avatar_res_bid="",
-                keywords="",
-                llm="gpt-test",
-                llm_temperature=Decimal(0),
-                llm_system_prompt="course system prompt",
-                price=Decimal("199.00"),
-                deleted=0,
-                created_at=updated_at,
-                created_user_bid="creator-1",
-                updated_at=updated_at,
-                updated_user_bid="creator-1",
-            )
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            updated_at=updated_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            title="Lesson 1",
-            position="1.1",
-            parent_bid="chapter-1",
-            updated_at=updated_at,
-            content="# Lesson 1 content",
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
-    assert payload["data"] == {
-        "outline_item_bid": "lesson-1",
-        "title": "Lesson 1",
-        "content": "# Lesson 1 content",
-        "llm_system_prompt": "course system prompt",
-        "llm_system_prompt_source": "course",
+        "llm_system_prompt": expected[0],
+        "llm_system_prompt_source": expected[1],
     }
 
 
 def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+        _seed_course(created_at=created_at, updated_at=updated_at)
         _seed_outline(
-            shifu_bid="course-detail",
             model=PublishedOutlineItem,
             outline_item_bid="published-chapter",
             title="Published Chapter",
@@ -1628,160 +1476,98 @@ def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/detail")
     assert payload["data"]["basic_info"]["course_name"] == "Draft Detail Course"
     assert payload["data"]["chapters"] == []
 
 
 def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline_revision(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=updated_at,
-            updated_at=updated_at,
-        )
-        db.session.add(
-            DraftOutlineItem(
+        _seed_course(created_at=updated_at)
+        for title, deleted in (("Chapter 1", 0), ("Chapter 1 deleted", 1)):
+            _seed_outline(
                 outline_item_bid="chapter-1",
-                shifu_bid="course-detail",
-                title="Chapter 1",
-                parent_bid="",
+                title=title,
                 position="1",
-                hidden=0,
-                type=UNIT_TYPE_VALUE_GUEST,
-                llm_system_prompt="",
-                ask_enabled_status=0,
-                ask_llm_system_prompt="",
-                content="",
-                deleted=0,
-                created_at=updated_at,
-                created_user_bid="creator-1",
+                item_type=UNIT_TYPE_VALUE_GUEST,
                 updated_at=updated_at,
-                updated_user_bid="creator-1",
+                deleted=deleted,
             )
-        )
-        db.session.add(
-            DraftOutlineItem(
-                outline_item_bid="chapter-1",
-                shifu_bid="course-detail",
-                title="Chapter 1 deleted",
-                parent_bid="",
-                position="1",
-                hidden=0,
-                type=UNIT_TYPE_VALUE_GUEST,
-                llm_system_prompt="",
-                ask_enabled_status=0,
-                ask_llm_system_prompt="",
-                content="",
-                deleted=1,
-                created_at=updated_at,
-                created_user_bid="creator-1",
-                updated_at=updated_at,
-                updated_user_bid="creator-1",
-            )
-        )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/detail")
     assert payload["data"]["chapters"] == []
 
 
-def test_admin_operation_course_detail_route_rejects_missing_course(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+@pytest.mark.parametrize(
+    ("seed_course", "path", "error_key"),
+    [
+        pytest.param(
+            False,
+            "/api/shifu/admin/operations/courses/missing-course/detail",
+            "server.shifu.shifuNotFound",
+            id="detail-missing-course",
+        ),
+        pytest.param(
+            False,
+            "/api/shifu/admin/operations/courses/missing-course/credit-usages"
+            "?page=1&page_size=20&view=grouped&keyword=&mode=&start_time=&end_time=",
+            "server.shifu.shifuNotFound",
+            id="credit-usages-missing-course",
+        ),
+        pytest.param(
+            True,
+            f"{COURSE_URL}/chapters/missing-lesson/detail",
+            "server.shifu.outlineItemNotFound",
+            id="chapter-detail-missing-outline-item",
+        ),
+    ],
+)
+def test_admin_operation_course_routes_reject_missing_resources(
+    app: object, test_client: object, seed_course: bool, path: str, error_key: str
 ) -> None:
-    _ = app
-    _mock_operator(monkeypatch)
+    if seed_course:
+        with app.app_context():
+            _seed_user(app, user_bid="creator-1", phone="13800001234")
+            _seed_course(created_at=datetime(2026, 4, 3, 15, 30, 0))
+            db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/missing-course/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 4008
+    payload = get_json(test_client, path)
+    assert payload["code"] == ERROR_CODE[error_key]
 
 
-def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_item(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-    updated_at = datetime(2026, 4, 3, 15, 30, 0)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=updated_at,
-            updated_at=updated_at,
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/chapters/missing-lesson/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 4009
-
-
-def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(
-    app: object,
-) -> None:
-    with pytest.raises(AppError) as exc_info:
-        get_operator_course_detail(app, shifu_bid="   ")
-
-    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
-
-
-def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_error(
-    app: object,
+@pytest.mark.parametrize(
+    "load_detail",
+    [
+        pytest.param(
+            lambda app: get_operator_course_detail(app, shifu_bid="   "),
+            id="course-detail",
+        ),
+        pytest.param(
+            lambda app: get_operator_course_chapter_detail(
+                app, shifu_bid="   ", outline_item_bid="lesson-1"
+            ),
+            id="chapter-detail",
+        ),
+    ],
+)
+def test_get_operator_course_details_reject_blank_shifu_bid_with_params_error(
+    app: object, load_detail: object
 ) -> None:
     with pytest.raises(AppError) as exc_info:
-        get_operator_course_chapter_detail(
-            app,
-            shifu_bid="   ",
-            outline_item_bid="lesson-1",
-        )
+        load_detail(app)
+
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
 def test_admin_operation_course_users_route_returns_course_related_users(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1790,15 +1576,8 @@ def test_admin_operation_course_users_route_returns_course_related_users(
         _seed_user(app, user_bid="student-1", phone="13900001234")
         _seed_user(app, user_bid="student-2", email="student2@example.com")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+        _seed_course(created_at=created_at, updated_at=updated_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-1",
             title="Chapter 1",
             position="1",
@@ -1806,8 +1585,6 @@ def test_admin_operation_course_users_route_returns_course_related_users(
             updated_at=updated_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             parent_bid="chapter-1",
@@ -1816,17 +1593,13 @@ def test_admin_operation_course_users_route_returns_course_related_users(
             updated_at=updated_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-2",
             title="Lesson 2",
             parent_bid="chapter-1",
             position="1.2",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=updated_at,
         )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             user_bid="student-1",
             status=LEARN_STATUS_IN_PROGRESS,
@@ -1834,7 +1607,6 @@ def test_admin_operation_course_users_route_returns_course_related_users(
             updated_at=datetime(2026, 4, 4, 10, 5, 0),
         )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             user_bid="student-2",
             status=LEARN_STATUS_COMPLETED,
@@ -1842,7 +1614,6 @@ def test_admin_operation_course_users_route_returns_course_related_users(
             updated_at=datetime(2026, 4, 2, 9, 10, 0),
         )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-2",
             user_bid="student-2",
             status=LEARN_STATUS_COMPLETED,
@@ -1850,15 +1621,12 @@ def test_admin_operation_course_users_route_returns_course_related_users(
             updated_at=datetime(2026, 4, 3, 9, 10, 0),
         )
         _seed_paid_order(
-            shifu_bid="course-detail",
             user_bid="student-1",
             paid_price="99.00",
             created_at=datetime(2026, 4, 5, 8, 0, 0),
         )
         _seed_course_permission(
-            shifu_bid="course-detail",
-            user_bid="student-2",
-            created_at=datetime(2026, 4, 2, 8, 30, 0),
+            user_bid="student-2", created_at=datetime(2026, 4, 2, 8, 30, 0)
         )
         _seed_user_token(
             user_bid="student-1",
@@ -1872,14 +1640,7 @@ def test_admin_operation_course_users_route_returns_course_related_users(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/users?page=1&page_size=20")
     assert payload["data"]["total"] == 3
 
     items_by_user_bid = {item["user_bid"]: item for item in payload["data"]["items"]}
@@ -1917,11 +1678,8 @@ def test_admin_operation_course_users_route_returns_course_related_users(
 
 
 def test_admin_operation_course_users_route_applies_filters(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1929,23 +1687,14 @@ def test_admin_operation_course_users_route_applies_filters(
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(app, user_bid="student-1", phone="13900001234")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+        _seed_course(created_at=created_at, updated_at=updated_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=updated_at,
         )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             user_bid="student-1",
             status=LEARN_STATUS_COMPLETED,
@@ -1953,22 +1702,17 @@ def test_admin_operation_course_users_route_applies_filters(
             updated_at=datetime(2026, 4, 4, 10, 5, 0),
         )
         _seed_paid_order(
-            shifu_bid="course-detail",
             user_bid="student-1",
             paid_price="299.00",
             created_at=datetime(2026, 4, 5, 8, 0, 0),
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20"
+    payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/users?page=1&page_size=20"
         "&payment_status=paid&learning_status=completed&keyword=1390",
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["total"] == 1
     item = payload["data"]["items"][0]
     assert item["user_bid"] == "student-1"
@@ -1976,11 +1720,8 @@ def test_admin_operation_course_users_route_applies_filters(
 
 
 def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1989,30 +1730,20 @@ def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
         _seed_user(app, user_bid="redeem-user", phone="13900001235")
         _seed_user(app, user_bid="zero-user", phone="13900001236")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+        _seed_course(created_at=created_at, updated_at=updated_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=updated_at,
         )
         _seed_paid_order(
-            shifu_bid="course-detail",
             user_bid="redeem-user",
             paid_price="0.00",
             payable_price="199.00",
             created_at=datetime(2026, 4, 4, 10, 0, 0),
         )
         _seed_paid_order(
-            shifu_bid="course-detail",
             user_bid="zero-user",
             paid_price="0.00",
             payable_price="0.00",
@@ -2020,14 +1751,7 @@ def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/users?page=1&page_size=20")
 
     items_by_user_bid = {item["user_bid"]: item for item in payload["data"]["items"]}
     assert items_by_user_bid["redeem-user"]["is_paid"] is True
@@ -2035,25 +1759,16 @@ def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
     assert items_by_user_bid["zero-user"]["is_paid"] is False
     assert items_by_user_bid["zero-user"]["total_paid_amount"] == "0"
 
-    paid_only_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20"
-        "&payment_status=paid",
-        headers={"Token": "test-token"},
+    paid_only_payload = get_ok(
+        test_client, f"{COURSE_URL}/users?page=1&page_size=20&payment_status=paid"
     )
-    paid_only_payload = paid_only_response.get_json(force=True)
-
-    assert paid_only_response.status_code == 200
-    assert paid_only_payload["code"] == 0
     assert paid_only_payload["data"]["total"] == 1
     assert paid_only_payload["data"]["items"][0]["user_bid"] == "redeem-user"
 
 
 def test_admin_operation_course_detail_metrics_include_credit_usage_and_completed_average(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
@@ -2061,60 +1776,42 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
         _seed_user(app, user_bid="student-completed", phone="13900001235")
         _seed_user(app, user_bid="student-learning", phone="13900001236")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-1",
             title="Chapter 1",
             position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=created_at,
         )
         for lesson_bid, position in [("lesson-1", "1.1"), ("lesson-2", "1.2")]:
             _seed_outline(
-                shifu_bid="course-detail",
-                model=DraftOutlineItem,
                 outline_item_bid=lesson_bid,
                 parent_bid="chapter-1",
                 title=lesson_bid,
                 position=position,
-                item_type=UNIT_TYPE_VALUE_NORMAL,
                 updated_at=created_at,
             )
             _seed_progress(
-                shifu_bid="course-detail",
                 outline_item_bid=lesson_bid,
                 user_bid="student-completed",
                 status=LEARN_STATUS_COMPLETED,
                 created_at=created_at,
-                updated_at=created_at,
             )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             user_bid="student-learning",
             status=LEARN_STATUS_COMPLETED,
             created_at=created_at,
-            updated_at=created_at,
         )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-2",
             user_bid="student-learning",
             status=LEARN_STATUS_IN_PROGRESS,
             created_at=created_at,
-            updated_at=created_at,
         )
         _seed_credit_usage(
             usage_bid="usage-completed",
             user_bid="student-completed",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="progress-completed",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -2127,7 +1824,6 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
         _seed_credit_usage(
             usage_bid="usage-learning",
             user_bid="student-learning",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="progress-learning",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -2139,14 +1835,7 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/detail")
     assert payload["data"]["metrics"]["credit_consumed_total"] == 20
     assert payload["data"]["metrics"]["credit_usage_count"] == 2
     assert payload["data"]["metrics"]["credit_user_count"] == 2
@@ -2155,77 +1844,38 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
 
 
 def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_filters(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(
-            app,
-            user_bid="student-1",
-            phone="13900001235",
-            email="student1@example.com",
+            app, user_bid="student-1", phone="13900001235", email="student1@example.com"
         )
         _seed_user(
-            app,
-            user_bid="student-2",
-            phone="13900001236",
-            email="student2@example.com",
+            app, user_bid="student-2", phone="13900001236", email="student2@example.com"
         )
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
+        _seed_chapter_with_lesson(updated_at=created_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-2",
             title="Chapter 2",
             position="2",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=created_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-2",
             parent_bid="chapter-2",
             title="Lesson 2",
             position="2.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=created_at,
         )
 
         _seed_credit_usage(
             usage_bid="usage-learn-1",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="progress-1",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -2238,7 +1888,6 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
         _seed_credit_usage(
             usage_bid="usage-learn-2",
             user_bid="student-2",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-2",
             progress_record_bid="progress-3",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -2251,7 +1900,6 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
         _seed_credit_usage(
             usage_bid="usage-ask-1",
             user_bid="student-2",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-2",
             progress_record_bid="progress-2",
             generated_block_bid="answer-ask-1",
@@ -2265,7 +1913,6 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
         _seed_credit_usage(
             usage_bid="usage-listen-1",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="progress-1",
             generated_block_bid="audio-block-1",
@@ -2278,7 +1925,6 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
         _seed_credit_usage(
             usage_bid="usage-preview-1",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="progress-preview",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -2291,14 +1937,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20")
     assert payload["data"]["view"] == "grouped"
     assert payload["data"]["total"] == 5
     assert [item["group_key"] for item in payload["data"]["items"]] == [
@@ -2324,15 +1963,11 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert payload["data"]["items"][3]["usage_mode"] == "learn"
     assert payload["data"]["items"][3]["consumed_credits"] == 5
 
-    filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
+    filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/credit-usages?page=1&page_size=20"
         "&keyword=student2@example.com&mode=ask&start_time=2026-04-05&end_time=2026-04-05",
-        headers={"Token": "test-token"},
     )
-    filtered_payload = filtered_response.get_json(force=True)
-
-    assert filtered_response.status_code == 200
-    assert filtered_payload["code"] == 0
     assert filtered_payload["data"]["total"] == 1
     assert (
         filtered_payload["data"]["items"][0]["group_key"]
@@ -2340,15 +1975,11 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     )
     assert filtered_payload["data"]["items"][0]["usage_bid"] == "usage-ask-1"
 
-    phone_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
+    phone_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/credit-usages?page=1&page_size=20"
         "&keyword=13900001235&mode=listen",
-        headers={"Token": "test-token"},
     )
-    phone_filtered_payload = phone_filtered_response.get_json(force=True)
-
-    assert phone_filtered_response.status_code == 200
-    assert phone_filtered_payload["code"] == 0
     assert phone_filtered_payload["data"]["total"] == 1
     assert (
         phone_filtered_payload["data"]["items"][0]["group_key"]
@@ -2357,15 +1988,9 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert phone_filtered_payload["data"]["items"][0]["usage_count"] == 1
     assert phone_filtered_payload["data"]["items"][0]["consumed_credits"] == 12
 
-    learn_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
-        "&mode=learn",
-        headers={"Token": "test-token"},
+    learn_filtered_payload = get_ok(
+        test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20&mode=learn"
     )
-    learn_filtered_payload = learn_filtered_response.get_json(force=True)
-
-    assert learn_filtered_response.status_code == 200
-    assert learn_filtered_payload["code"] == 0
     assert learn_filtered_payload["data"]["total"] == 3
     assert [item["group_key"] for item in learn_filtered_payload["data"]["items"]] == [
         "student-1:lesson-1:preview:learn",
@@ -2376,68 +2001,39 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert learn_filtered_payload["data"]["items"][0]["usage_mode"] == "learn"
     assert learn_filtered_payload["data"]["items"][0]["consumed_credits"] == 1
 
-    preview_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
-        "&usage_scene=preview",
-        headers={"Token": "test-token"},
+    preview_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/credit-usages?page=1&page_size=20&usage_scene=preview",
     )
-    preview_filtered_payload = preview_filtered_response.get_json(force=True)
-
-    assert preview_filtered_response.status_code == 200
-    assert preview_filtered_payload["code"] == 0
     assert preview_filtered_payload["data"]["total"] == 1
     assert (
         preview_filtered_payload["data"]["items"][0]["group_key"]
         == "student-1:lesson-1:preview:learn"
     )
 
-    paged_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=2&page_size=2",
-        headers={"Token": "test-token"},
+    paged_payload = get_ok(
+        test_client, f"{COURSE_URL}/credit-usages?page=2&page_size=2"
     )
-    paged_payload = paged_response.get_json(force=True)
-
-    assert paged_response.status_code == 200
-    assert paged_payload["code"] == 0
     assert paged_payload["data"]["total"] == 5
     assert [item["group_key"] for item in paged_payload["data"]["items"]] == [
         "student-2:lesson-2:learning:ask",
         "student-1:lesson-1:learning:learn",
     ]
 
-    partial_phone_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
-        "&keyword=1390000123",
-        headers={"Token": "test-token"},
+    partial_phone_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/credit-usages?page=1&page_size=20&keyword=1390000123",
     )
-    partial_phone_filtered_payload = partial_phone_filtered_response.get_json(
-        force=True
-    )
-
-    assert partial_phone_filtered_response.status_code == 200
-    assert partial_phone_filtered_payload["code"] == 0
     assert partial_phone_filtered_payload["data"]["total"] == 0
 
-    nickname_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
-        "&keyword=studen",
-        headers={"Token": "test-token"},
+    nickname_filtered_payload = get_ok(
+        test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20&keyword=studen"
     )
-    nickname_filtered_payload = nickname_filtered_response.get_json(force=True)
-
-    assert nickname_filtered_response.status_code == 200
-    assert nickname_filtered_payload["code"] == 0
     assert nickname_filtered_payload["data"]["total"] == 5
 
-    raw_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
-        "&view=raw",
-        headers={"Token": "test-token"},
+    raw_payload = get_ok(
+        test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20&view=raw"
     )
-    raw_payload = raw_response.get_json(force=True)
-
-    assert raw_response.status_code == 200
-    assert raw_payload["code"] == 0
     assert raw_payload["data"]["view"] == "raw"
     assert raw_payload["data"]["total"] == 5
     assert [item["group_key"] for item in raw_payload["data"]["items"]] == [
@@ -2452,11 +2048,8 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
 
 def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object, monkeypatch: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     load_counts = {"llm": 0, "tts": 0}
 
@@ -2501,31 +2094,8 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(app, user_bid="student-1", phone="13900001235")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
+        _seed_chapter_with_lesson(updated_at=created_at)
         usage_specs = [
             ("usage-llm-1", BILL_USAGE_TYPE_LLM, "openai", "gpt-known", "4"),
             ("usage-llm-2", BILL_USAGE_TYPE_LLM, "gemini", "shared-model", "3"),
@@ -2538,7 +2108,6 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
             _seed_credit_usage(
                 usage_bid=usage_bid,
                 user_bid="student-1",
-                shifu_bid="course-detail",
                 outline_item_bid="lesson-1",
                 progress_record_bid=f"progress-{index}",
                 usage_type=usage_type,
@@ -2550,15 +2119,9 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
             )
         db.session.commit()
 
-    raw_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages"
-        "?page=1&page_size=20&view=raw",
-        headers={"Token": "test-token"},
+    raw_payload = get_ok(
+        test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20&view=raw"
     )
-    raw_payload = raw_response.get_json(force=True)
-
-    assert raw_response.status_code == 200
-    assert raw_payload["code"] == 0
     assert load_counts == {"llm": 1, "tts": 1}
     raw_labels = {
         item["usage_bid"]: item["model_label"] for item in raw_payload["data"]["items"]
@@ -2568,15 +2131,9 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
     assert raw_labels["usage-tts-1"] == "Flagship Voice"
     assert raw_labels["usage-legacy-1"] == "Old-Model"
 
-    grouped_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages"
-        "?page=1&page_size=20",
-        headers={"Token": "test-token"},
+    grouped_payload = get_ok(
+        test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20"
     )
-    grouped_payload = grouped_response.get_json(force=True)
-
-    assert grouped_response.status_code == 200
-    assert grouped_payload["code"] == 0
     assert load_counts == {"llm": 2, "tts": 2}
     grouped_labels = {
         item["usage_bid"]: item["model_label"]
@@ -2585,15 +2142,11 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
     assert grouped_labels["usage-tts-1"] == "Flagship Voice"
     assert grouped_labels["usage-legacy-1"] == "Old-Model"
 
-    detail_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+    detail_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/credit-usages/details"
         "?page=1&page_size=20&user_bid=student-1&outline_item_bid=lesson-1",
-        headers={"Token": "test-token"},
     )
-    detail_payload = detail_response.get_json(force=True)
-
-    assert detail_response.status_code == 200
-    assert detail_payload["code"] == 0
     assert load_counts == {"llm": 3, "tts": 3}
     detail_labels = {
         item["usage_bid"]: item["model_label"]
@@ -2603,51 +2156,21 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
 
 
 def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(
-            app,
-            user_bid="student-1",
-            phone="13900001235",
-            email="student1@example.com",
+            app, user_bid="student-1", phone="13900001235", email="student1@example.com"
         )
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
+        _seed_chapter_with_lesson(updated_at=created_at)
         _seed_credit_usage(
             usage_bid="usage-blank-model",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="",
@@ -2658,142 +2181,25 @@ def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20")
     assert payload["data"]["total"] == 1
     assert payload["data"]["items"][0]["model_variant_count"] == 0
 
 
-@pytest.mark.parametrize(
-    ("query", "field"),
-    [
-        ("mode=invalid_mode", "mode"),
-        ("usage_scene=invalid_scene", "usage_scene"),
-        ("start_time=2026-05-02&end_time=2026-05-01", "start_time"),
-    ],
-)
-def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-    query: object,
-    field: object,
-) -> None:
-    _mock_operator(monkeypatch)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 9, 0, 0),
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        f"/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20&{query}",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == f"Params Error {field}"
-
-
-def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 9, 0, 0),
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20&view=invalid_view",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == "Params Error view"
-
-
-def test_admin_operation_course_credit_usages_route_rejects_missing_course(
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/missing-course/credit-usages?page=1&page_size=20"
-        "&view=grouped&keyword=&mode=&start_time=&end_time=",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == ERROR_CODE["server.shifu.shifuNotFound"]
-
-
 def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summary(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(app, user_bid="student-1", phone="13900001235")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
+        _seed_chapter_with_lesson(updated_at=created_at)
         _seed_credit_usage(
             usage_bid="usage-detail-1",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="progress-1",
             generated_block_bid="block-detail-1",
@@ -2820,21 +2226,16 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
             user_bid="student-1",
             generated_block_bid="block-detail-1",
             outline_item_bid="lesson-1",
-            shifu_bid="course-detail",
             created_at=datetime(2026, 4, 4, 10, 0, 1),
             content_text="Generated answer",
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+    payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/credit-usages/details"
         "?page=1&page_size=10&user_bid=student-1&outline_item_bid=lesson-1&mode=learn",
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["page"] == 1
     assert payload["data"]["page_size"] == 10
     assert payload["data"]["total"] == 1
@@ -2851,37 +2252,25 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
 
 
 def test_admin_operation_course_credit_usage_details_route_paginates_and_filters_mode(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(app, user_bid="student-1", phone="13900001235")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=created_at,
         )
         for index in range(3):
             _seed_credit_usage(
                 usage_bid=f"usage-detail-{index}",
                 user_bid="student-1",
-                shifu_bid="course-detail",
                 outline_item_bid="lesson-1",
                 usage_type=BILL_USAGE_TYPE_LLM,
                 provider="openai",
@@ -2893,7 +2282,6 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
         _seed_credit_usage(
             usage_bid="usage-detail-listen",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             usage_type=BILL_USAGE_TYPE_TTS,
             provider="volcengine",
@@ -2903,15 +2291,11 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+    payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/credit-usages/details"
         "?page=2&page_size=2&user_bid=student-1&outline_item_bid=lesson-1&mode=learn",
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["total"] == 3
     assert payload["data"]["page_count"] == 2
     assert [item["usage_bid"] for item in payload["data"]["items"]] == [
@@ -2921,46 +2305,19 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
 
 
 def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_progress_separate(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(app, user_bid="student-1", phone="13900001235")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
+        _seed_chapter_with_lesson(updated_at=created_at)
         _seed_credit_usage(
             usage_bid="usage-no-progress-1",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -2973,7 +2330,6 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
         _seed_credit_usage(
             usage_bid="usage-no-progress-2",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -2985,14 +2341,7 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20")
     assert payload["data"]["view"] == "grouped"
     assert payload["data"]["total"] == 1
     assert [item["group_key"] for item in payload["data"]["items"]] == [
@@ -3003,51 +2352,21 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
 
 
 def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(
-            app,
-            user_bid="student-1",
-            phone="13900001235",
-            email="student1@example.com",
+            app, user_bid="student-1", phone="13900001235", email="student1@example.com"
         )
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
+        _seed_chapter_with_lesson(updated_at=created_at)
         _seed_credit_usage(
             usage_bid="usage-split-1",
             user_bid="student-1",
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             progress_record_bid="progress-1",
             usage_type=BILL_USAGE_TYPE_LLM,
@@ -3078,14 +2397,7 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/credit-usages?page=1&page_size=20")
     assert payload["data"]["total"] == 1
     assert len(payload["data"]["items"]) == 1
     assert payload["data"]["items"][0]["usage_bid"] == "usage-split-1"
@@ -3093,11 +2405,8 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
 
 
 def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -3106,71 +2415,34 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         _seed_user(app, user_bid="student-1", phone="13900001235")
         _seed_user(app, user_bid="student-2", email="student2@example.com")
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+        _seed_course(created_at=created_at, updated_at=updated_at)
+        _seed_chapter_with_lesson(updated_at=updated_at)
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=updated_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=updated_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-2",
             title="Chapter 2",
             position="2",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=updated_at,
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-2",
             parent_bid="chapter-2",
             title="Lesson 2",
             position="2.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=updated_at,
         )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             user_bid="student-1",
             status=LEARN_STATUS_IN_PROGRESS,
             created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
         )
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-2",
             user_bid="student-2",
             status=LEARN_STATUS_IN_PROGRESS,
             created_at=datetime(2026, 4, 5, 11, 0, 0),
-            updated_at=datetime(2026, 4, 5, 11, 0, 0),
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-1",
             ask_content="Why is chapter one calculated like this?",
             ask_position=1,
@@ -3181,20 +2453,12 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         )
         _seed_teacher_output_block(
             generated_block_bid="source-interaction-2",
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
             position=2,
             created_at=datetime(2026, 4, 4, 10, 1, 30),
             block_content_conf="Please describe your understanding before step two.",
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-2",
             ask_content="Can you explain the second step?",
             ask_position=2,
@@ -3204,7 +2468,6 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
             answer_created_at=datetime(2026, 4, 4, 10, 2, 3),
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-2",
             progress_record_bid="progress-student-2-lesson-2-602",
             user_bid="student-2",
@@ -3219,14 +2482,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/follow-ups?page=1&page_size=20")
     assert payload["data"]["summary"] == {
         "follow_up_count": 3,
         "user_count": 2,
@@ -3247,14 +2503,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert payload["data"]["items"][1]["lesson_title"] == "Lesson 1"
     assert payload["data"]["items"][2]["has_source_output"] is False
 
-    paged_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=2&page_size=1",
-        headers={"Token": "test-token"},
-    )
-    paged_payload = paged_response.get_json(force=True)
-
-    assert paged_response.status_code == 200
-    assert paged_payload["code"] == 0
+    paged_payload = get_ok(test_client, f"{COURSE_URL}/follow-ups?page=2&page_size=1")
     assert paged_payload["data"]["summary"] == {
         "follow_up_count": 3,
         "user_count": 2,
@@ -3268,16 +2517,12 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert paged_payload["data"]["items"][0]["turn_index"] == 2
     assert paged_payload["data"]["items"][0]["has_source_output"] is True
 
-    filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+    filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/follow-ups?page=1&page_size=20"
         "&keyword=student2@example.com&chapter_keyword=Chapter 2"
         "&start_time=2026-04-05&end_time=2026-04-05",
-        headers={"Token": "test-token"},
     )
-    filtered_payload = filtered_response.get_json(force=True)
-
-    assert filtered_response.status_code == 200
-    assert filtered_payload["code"] == 0
     assert filtered_payload["data"]["summary"] == {
         "follow_up_count": 1,
         "user_count": 1,
@@ -3287,16 +2532,12 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
     assert filtered_payload["data"]["items"][0]["has_source_output"] is False
 
-    lightweight_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+    lightweight_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/follow-ups?page=1&page_size=20"
         "&keyword=student2@example.com&chapter_keyword=Chapter 2"
         "&start_time=2026-04-05&end_time=2026-04-05&include_summary=false",
-        headers={"Token": "test-token"},
     )
-    lightweight_filtered_payload = lightweight_filtered_response.get_json(force=True)
-
-    assert lightweight_filtered_response.status_code == 200
-    assert lightweight_filtered_payload["code"] == 0
     assert lightweight_filtered_payload["data"]["summary"] == {
         "follow_up_count": 1,
         "user_count": 0,
@@ -3309,41 +2550,26 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         == "ask-3"
     )
 
-    lesson_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
-        "&chapter_keyword=Lesson 2",
-        headers={"Token": "test-token"},
+    lesson_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/follow-ups?page=1&page_size=20&chapter_keyword=Lesson 2",
     )
-    lesson_filtered_payload = lesson_filtered_response.get_json(force=True)
-
-    assert lesson_filtered_response.status_code == 200
-    assert lesson_filtered_payload["code"] == 0
     assert lesson_filtered_payload["data"]["total"] == 1
     assert lesson_filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
 
-    resolved_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
-        "&source_status=resolved",
-        headers={"Token": "test-token"},
+    resolved_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/follow-ups?page=1&page_size=20&source_status=resolved",
     )
-    resolved_filtered_payload = resolved_filtered_response.get_json(force=True)
-
-    assert resolved_filtered_response.status_code == 200
-    assert resolved_filtered_payload["code"] == 0
     assert resolved_filtered_payload["data"]["total"] == 1
     assert resolved_filtered_payload["data"]["items"][0]["generated_block_bid"] == (
         "ask-2"
     )
 
-    missing_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
-        "&source_status=missing",
-        headers={"Token": "test-token"},
+    missing_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/follow-ups?page=1&page_size=20&source_status=missing",
     )
-    missing_filtered_payload = missing_filtered_response.get_json(force=True)
-
-    assert missing_filtered_response.status_code == 200
-    assert missing_filtered_payload["code"] == 0
     assert missing_filtered_payload["data"]["total"] == 2
     assert [
         item["generated_block_bid"]
@@ -3353,15 +2579,9 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "ask-1",
     ]
 
-    phone_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
-        "&keyword=13900001235",
-        headers={"Token": "test-token"},
+    phone_filtered_payload = get_ok(
+        test_client, f"{COURSE_URL}/follow-ups?page=1&page_size=20&keyword=13900001235"
     )
-    phone_filtered_payload = phone_filtered_response.get_json(force=True)
-
-    assert phone_filtered_response.status_code == 200
-    assert phone_filtered_payload["code"] == 0
     assert phone_filtered_payload["data"]["total"] == 2
     assert [
         item["generated_block_bid"] for item in phone_filtered_payload["data"]["items"]
@@ -3370,72 +2590,15 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "ask-1",
     ]
 
-    user_bid_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
-        "&keyword=student-1",
-        headers={"Token": "test-token"},
+    user_bid_filtered_payload = get_ok(
+        test_client, f"{COURSE_URL}/follow-ups?page=1&page_size=20&keyword=student-1"
     )
-    user_bid_filtered_payload = user_bid_filtered_response.get_json(force=True)
-
-    assert user_bid_filtered_response.status_code == 200
-    assert user_bid_filtered_payload["code"] == 0
     assert user_bid_filtered_payload["data"]["total"] == 0
 
 
-def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups"
-        "?page=1&page_size=20&start_time=2026-05-02&end_time=2026-05-01",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == "Params Error start_time"
-
-
-def test_admin_operation_course_follow_ups_route_rejects_invalid_source_status(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 9, 0, 0),
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups"
-        "?page=1&page_size=20&source_status=invalid",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == "Params Error source_status"
-
-
 def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
@@ -3458,42 +2621,15 @@ def test_admin_operation_course_follow_ups_route_supports_google_email_credentia
             verified=True,
         )
         _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
+        _seed_course(created_at=created_at)
+        _seed_chapter_with_lesson(updated_at=created_at)
         _seed_progress(
-            shifu_bid="course-detail",
             outline_item_bid="lesson-1",
             user_bid="google-student-1",
             status=LEARN_STATUS_IN_PROGRESS,
             created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
             progress_record_bid="progress-google-student-1-lesson-1-602",
             user_bid="google-student-1",
             ask_bid="ask-google-1",
@@ -3506,89 +2642,58 @@ def test_admin_operation_course_follow_ups_route_supports_google_email_credentia
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+    payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/follow-ups?page=1&page_size=20"
         "&keyword=google-student@example.com",
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["total"] == 1
     assert payload["data"]["items"][0]["user_bid"] == "google-student-1"
     assert payload["data"]["items"][0]["email"] == "google-student@example.com"
 
 
 def test_admin_operation_course_ratings_route_returns_summary_and_filters(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
-
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
         _seed_user(
-            app,
-            user_bid="student-1",
-            phone="13900001235",
-            email="student1@example.com",
+            app, user_bid="student-1", phone="13900001235", email="student1@example.com"
         )
         _seed_user(
-            app,
-            user_bid="student-2",
-            phone="13900001236",
-            email="student2@example.com",
+            app, user_bid="student-2", phone="13900001236", email="student2@example.com"
         )
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 9, 0, 0),
-        )
+        _seed_course(created_at=datetime(2026, 4, 1, 9, 0, 0))
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-1",
             title="Chapter 1",
             position="1",
             updated_at=datetime(2026, 4, 1, 9, 0, 0),
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="chapter-2",
             title="Chapter 2",
             position="2",
             updated_at=datetime(2026, 4, 1, 9, 0, 0),
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-1",
             title="Lesson 1",
             parent_bid="chapter-1",
             position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=datetime(2026, 4, 1, 9, 0, 0),
         )
         _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
             outline_item_bid="lesson-2",
             title="Lesson 2",
             parent_bid="chapter-2",
             position="2.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
             updated_at=datetime(2026, 4, 1, 9, 0, 0),
         )
         db.session.add_all(
             [
-                LearnLessonFeedback(
-                    bid="feedback-1",
-                    lesson_feedback_bid="feedback-1",
-                    shifu_bid="course-detail",
+                _lesson_feedback(
+                    "feedback-1",
                     outline_item_bid="lesson-1",
                     progress_record_bid="progress-1",
                     user_bid="student-1",
@@ -3598,10 +2703,8 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
                     created_at=datetime(2026, 4, 4, 10, 0, 0),
                     updated_at=datetime(2026, 4, 4, 10, 3, 0),
                 ),
-                LearnLessonFeedback(
-                    bid="feedback-2",
-                    lesson_feedback_bid="feedback-2",
-                    shifu_bid="course-detail",
+                _lesson_feedback(
+                    "feedback-2",
                     outline_item_bid="lesson-2",
                     progress_record_bid="progress-2",
                     user_bid="student-2",
@@ -3611,10 +2714,8 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
                     created_at=datetime(2026, 4, 5, 11, 0, 0),
                     updated_at=datetime(2026, 4, 5, 11, 2, 0),
                 ),
-                LearnLessonFeedback(
-                    bid="feedback-3",
-                    lesson_feedback_bid="feedback-3",
-                    shifu_bid="course-detail",
+                _lesson_feedback(
+                    "feedback-3",
                     outline_item_bid="lesson-2",
                     progress_record_bid="progress-4",
                     user_bid="student-1",
@@ -3624,10 +2725,8 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
                     created_at=datetime(2026, 4, 6, 9, 0, 0),
                     updated_at=datetime(2026, 4, 6, 9, 5, 0),
                 ),
-                LearnLessonFeedback(
-                    bid="feedback-deleted",
-                    lesson_feedback_bid="feedback-deleted",
-                    shifu_bid="course-detail",
+                _lesson_feedback(
+                    "feedback-deleted",
                     outline_item_bid="lesson-2",
                     progress_record_bid="progress-3",
                     user_bid="student-2",
@@ -3642,14 +2741,7 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/ratings?page=1&page_size=20")
     assert payload["data"]["summary"] == {
         "average_score": "4.0",
         "rating_count": 3,
@@ -3666,16 +2758,12 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
     assert payload["data"]["items"][1]["mode"] == "listen"
     assert payload["data"]["items"][1]["rated_at"] == "2026-04-05T11:02:00Z"
 
-    filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+    filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/ratings?page=1&page_size=20"
         "&keyword=student2@example.com&chapter_keyword=Chapter 2"
         "&score=3&mode=listen&start_time=2026-04-05&end_time=2026-04-05",
-        headers={"Token": "test-token"},
     )
-    filtered_payload = filtered_response.get_json(force=True)
-
-    assert filtered_response.status_code == 200
-    assert filtered_payload["code"] == 0
     assert filtered_payload["data"]["summary"] == {
         "average_score": "3.0",
         "rating_count": 1,
@@ -3684,17 +2772,13 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
     }
     assert filtered_payload["data"]["items"][0]["lesson_feedback_bid"] == "feedback-2"
 
-    lightweight_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+    lightweight_filtered_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/ratings?page=1&page_size=20"
         "&keyword=student2@example.com&chapter_keyword=Chapter 2"
         "&score=3&mode=listen&start_time=2026-04-05&end_time=2026-04-05"
         "&include_summary=false",
-        headers={"Token": "test-token"},
     )
-    lightweight_filtered_payload = lightweight_filtered_response.get_json(force=True)
-
-    assert lightweight_filtered_response.status_code == 200
-    assert lightweight_filtered_payload["code"] == 0
     assert lightweight_filtered_payload["data"]["summary"] == {
         "average_score": "",
         "rating_count": 0,
@@ -3707,15 +2791,10 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
         == "feedback-2"
     )
 
-    commented_low_score_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
-        "&has_comment=true&sort_by=score_asc",
-        headers={"Token": "test-token"},
+    commented_low_score_payload = get_ok(
+        test_client,
+        f"{COURSE_URL}/ratings?page=1&page_size=20&has_comment=true&sort_by=score_asc",
     )
-    commented_low_score_payload = commented_low_score_response.get_json(force=True)
-
-    assert commented_low_score_response.status_code == 200
-    assert commented_low_score_payload["code"] == 0
     assert commented_low_score_payload["data"]["summary"] == {
         "average_score": "4.0",
         "rating_count": 2,
@@ -3730,109 +2809,21 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
         "feedback-1",
     ]
 
-    nickname_filtered_response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
-        "&keyword=user-st",
-        headers={"Token": "test-token"},
+    nickname_filtered_payload = get_ok(
+        test_client, f"{COURSE_URL}/ratings?page=1&page_size=20&keyword=user-st"
     )
-    nickname_filtered_payload = nickname_filtered_response.get_json(force=True)
-
-    assert nickname_filtered_response.status_code == 200
-    assert nickname_filtered_payload["code"] == 0
     assert nickname_filtered_payload["data"]["total"] == 3
 
 
-@pytest.mark.parametrize(
-    ("query_string", "expected_param"),
-    [
-        ("score=999", "score"),
-        ("mode=invalid_mode", "mode"),
-        ("has_comment=not_bool", "has_comment"),
-        ("sort_by=bad_sort", "sort_by"),
-        ("start_time=2026-05-02&end_time=2026-05-01", "start_time"),
-    ],
-)
-def test_admin_operation_course_ratings_route_rejects_invalid_filters(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-    query_string: object,
-    expected_param: object,
-) -> None:
-    _mock_operator(monkeypatch)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 9, 0, 0),
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        f"/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20&{query_string}",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == f"Params Error {expected_param}"
-
-
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=updated_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=updated_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=updated_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at, updated_at=updated_at)
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-1",
             ask_content="First follow-up question",
             ask_position=1,
@@ -3843,20 +2834,12 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
         )
         _seed_teacher_output_block(
             generated_block_bid="source-content-2",
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             block_type=BLOCK_TYPE_MDCONTENT_VALUE,
             position=2,
             created_at=datetime(2026, 4, 4, 10, 1, 30),
             generated_content="Please tell me your current understanding.",
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-2",
             ask_content="Second follow-up question",
             ask_position=2,
@@ -3868,14 +2851,7 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-2/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/follow-ups/ask-2/detail")
     assert payload["data"]["basic_info"]["generated_block_bid"] == "ask-2"
     assert payload["data"]["basic_info"]["turn_index"] == 2
     assert payload["data"]["basic_info"]["chapter_title"] == "Chapter 1"
@@ -3918,57 +2894,19 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
 
 
 def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks_when_resolving_answer(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at)
         db.session.add(
             make_generated_block(
                 generated_block_bid="ask-gap-1",
                 progress_record_bid="progress-student-1-lesson-1-602",
                 user_bid="student-1",
                 outline_item_bid="lesson-1",
-                shifu_bid="course-detail",
+                shifu_bid=COURSE_BID,
                 type=BLOCK_TYPE_MDASK_VALUE,
                 role=ROLE_STUDENT,
                 generated_content="Question with an intermediate block",
@@ -3980,10 +2918,6 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
         )
         _seed_teacher_output_block(
             generated_block_bid="source-interaction-gap-1",
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
             position=7,
             created_at=datetime(2026, 4, 4, 10, 2, 1),
@@ -3995,7 +2929,7 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
                 progress_record_bid="progress-student-1-lesson-1-602",
                 user_bid="student-1",
                 outline_item_bid="lesson-1",
-                shifu_bid="course-detail",
+                shifu_bid=COURSE_BID,
                 type=BLOCK_TYPE_MDANSWER_VALUE,
                 role=ROLE_TEACHER,
                 generated_content="Answer after an intermediate block",
@@ -4007,14 +2941,7 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-gap-1/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/follow-ups/ask-gap-1/detail")
     assert payload["data"]["current_record"]["answer_content"] == (
         "Answer after an intermediate block"
     )
@@ -4035,66 +2962,20 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
 
 
 def test_admin_operation_course_follow_up_detail_route_prefers_interaction_source_content(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at)
         _seed_teacher_output_block(
             generated_block_bid="source-interaction-1",
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
             position=3,
             created_at=datetime(2026, 4, 4, 10, 1, 0),
             block_content_conf="Please tell me your current understanding of Spring Festival.",
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-3",
             ask_content="I know a little bit.",
             ask_position=3,
@@ -4105,14 +2986,7 @@ def test_admin_operation_course_follow_up_detail_route_prefers_interaction_sourc
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-3/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/follow-ups/ask-3/detail")
     assert payload["data"]["current_record"]["source_output_content"] == (
         "Please tell me your current understanding of Spring Festival."
     )
@@ -4121,57 +2995,19 @@ def test_admin_operation_course_follow_up_detail_route_prefers_interaction_sourc
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_from_block_content_conf(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at)
         db.session.add(
             make_generated_block(
                 generated_block_bid="ask-mdcontent-1",
                 progress_record_bid="progress-student-1-lesson-1-602",
                 user_bid="student-1",
                 outline_item_bid="lesson-1",
-                shifu_bid="course-detail",
+                shifu_bid=COURSE_BID,
                 type=BLOCK_TYPE_MDASK_VALUE,
                 role=ROLE_STUDENT,
                 generated_content="Can you restate that content answer?",
@@ -4183,10 +3019,6 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
         )
         _seed_teacher_output_block(
             generated_block_bid="answer-mdcontent-1",
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             block_type=BLOCK_TYPE_MDCONTENT_VALUE,
             position=5,
             created_at=datetime(2026, 4, 4, 10, 2, 2),
@@ -4195,14 +3027,7 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-mdcontent-1/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/follow-ups/ask-mdcontent-1/detail")
     assert payload["data"]["current_record"]["answer_content"] == (
         "The content answer is stored in block_content_conf."
     )
@@ -4223,56 +3048,14 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_source(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at)
         _seed_teacher_output_block(
             generated_block_bid="source-content-history",
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             block_type=BLOCK_TYPE_MDCONTENT_VALUE,
             position=5,
             created_at=datetime(2026, 4, 4, 10, 1, 0),
@@ -4280,10 +3063,6 @@ def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_sour
             status=0,
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-history-1",
             ask_content="Follow-up on a superseded prompt",
             ask_position=5,
@@ -4295,14 +3074,7 @@ def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_sour
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-history-1/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/follow-ups/ask-history-1/detail")
     assert payload["data"]["current_record"]["source_output_content"] == (
         "Historical prompt that was later superseded."
     )
@@ -4311,55 +3083,13 @@ def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_sour
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_source(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at)
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-listen-1",
             ask_content="Can you explain this image?",
             ask_position=4,
@@ -4369,10 +3099,6 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
             answer_created_at=datetime(2026, 4, 4, 10, 2, 3),
         )
         _seed_follow_up_anchor_element(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             answer_generated_block_bid="answer-listen-1",
             anchor_element_bid="anchor-element-1",
             anchor_element_type="img",
@@ -4394,14 +3120,7 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-listen-1/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, f"{COURSE_URL}/follow-ups/ask-listen-1/detail")
     assert payload["data"]["current_record"]["source_output_content"] == (
         "Spring Festival poster image"
     )
@@ -4412,54 +3131,16 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
 
 
 def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_progress_record(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at)
         db.session.add(
             make_progress_record(
                 progress_record_bid="progress-student-1-lesson-1-603",
-                shifu_bid="course-detail",
+                shifu_bid=COURSE_BID,
                 outline_item_bid="lesson-1",
                 user_bid="student-1",
                 status=LEARN_STATUS_IN_PROGRESS,
@@ -4468,10 +3149,6 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
             )
         )
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-listen-progress-1",
             ask_content="Can you explain this image from the current attempt?",
             ask_position=4,
@@ -4481,10 +3158,6 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
             answer_created_at=datetime(2026, 4, 4, 10, 2, 3),
         )
         _seed_follow_up_anchor_element(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             answer_generated_block_bid="answer-listen-progress-1",
             anchor_element_bid="shared-anchor-element-1",
             anchor_element_type="img",
@@ -4497,7 +3170,6 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
             user_bid="student-1",
             generated_block_bid="other-progress-source-block-1",
             outline_item_bid="lesson-1",
-            shifu_bid="course-detail",
             created_at=datetime(2026, 4, 4, 10, 1, 50),
             role="teacher",
             element_type="img",
@@ -4506,14 +3178,9 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-listen-progress-1/detail",
-        headers={"Token": "test-token"},
+    payload = get_ok(
+        test_client, f"{COURSE_URL}/follow-ups/ask-listen-progress-1/detail"
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["current_record"]["source_output_content"] == (
         "Current progress image description"
     )
@@ -4524,55 +3191,13 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_snapshot(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_user(app, user_bid="student-1", phone="13900001235")
-        _set_user_flags(user_bid="creator-1", is_creator=1)
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="chapter-1",
-            title="Chapter 1",
-            position="1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_outline(
-            shifu_bid="course-detail",
-            model=DraftOutlineItem,
-            outline_item_bid="lesson-1",
-            parent_bid="chapter-1",
-            title="Lesson 1",
-            position="1.1",
-            item_type=UNIT_TYPE_VALUE_NORMAL,
-            updated_at=created_at,
-        )
-        _seed_progress(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            user_bid="student-1",
-            status=LEARN_STATUS_IN_PROGRESS,
-            created_at=datetime(2026, 4, 4, 10, 0, 0),
-            updated_at=datetime(2026, 4, 4, 10, 0, 0),
-        )
+        _seed_student_lesson(app, created_at=created_at)
         _seed_follow_up_pair(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             ask_bid="ask-listen-history-1",
             ask_content="Please explain the picture",
             ask_position=6,
@@ -4582,10 +3207,6 @@ def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_s
             answer_created_at=datetime(2026, 4, 4, 10, 2, 3),
         )
         _seed_follow_up_anchor_element(
-            shifu_bid="course-detail",
-            outline_item_bid="lesson-1",
-            progress_record_bid="progress-student-1-lesson-1-602",
-            user_bid="student-1",
             answer_generated_block_bid="answer-listen-history-1",
             anchor_element_bid="anchor-element-history-1",
             anchor_element_type="img",
@@ -4606,7 +3227,6 @@ def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_s
             user_bid="student-1",
             generated_block_bid="source-block-2",
             outline_item_bid="lesson-1",
-            shifu_bid="course-detail",
             created_at=datetime(2026, 4, 4, 10, 5, 0),
             role="teacher",
             element_type="img",
@@ -4615,14 +3235,9 @@ def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_s
         )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-listen-history-1/detail",
-        headers={"Token": "test-token"},
+    payload = get_ok(
+        test_client, f"{COURSE_URL}/follow-ups/ask-listen-history-1/detail"
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["current_record"]["source_output_content"] == (
         "Historical image description"
     )
@@ -4632,315 +3247,189 @@ def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_s
     )
 
 
-def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
+def _seed_success_orders(
+    orders: tuple[tuple[str, str, str, str | None], ...], created_at: datetime
+) -> None:
+    """Seed ``(name, payable_price, paid_price, payment_channel)`` success orders.
+
+    A ``None`` channel keeps the model default.
+    """
+    for name, payable_price, paid_price, channel in orders:
+        extra = {} if channel is None else {"payment_channel": channel}
+        db.session.add(
+            Order(
+                order_bid=f"order-{name}",
+                shifu_bid=COURSE_BID,
+                user_bid=f"user-{name}",
+                payable_price=Decimal(payable_price),
+                paid_price=Decimal(paid_price),
+                status=ORDER_STATUS_SUCCESS,
+                deleted=0,
+                created_at=created_at,
+                updated_at=created_at,
+                **extra,
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("orders", "redemption", "expected_count", "expected_amount"),
+    [
+        pytest.param(
+            (
+                ("direct-paid", "88.00", "88.00", None),
+                ("full-coupon", "66.00", "0.00", None),
+                ("activation", "0.00", "0.00", None),
+            ),
+            "coupon",
+            3,
+            "154",
+            id="full-coupon-redemption",
+        ),
+        pytest.param(
+            (
+                ("direct-paid", "88.00", "88.00", None),
+                ("full-promo", "66.00", "0.00", None),
+            ),
+            "promo",
+            2,
+            "154",
+            id="full-promo-redemption",
+        ),
+        pytest.param(
+            (
+                ("direct-paid", "88.00", "88.00", None),
+                ("partial-discount", "49.00", "19.00", None),
+                ("external-paid", "66.00", "0.00", None),
+            ),
+            None,
+            3,
+            "173",
+            id="prefers-paid-price-then-payable-price",
+        ),
+        pytest.param(
+            (
+                ("manual-paid", "88.00", "88.00", "manual"),
+                ("manual-external-redeem", "66.00", "0.00", "manual"),
+                ("openapi-external-redeem", "99.00", "0.00", "open_api"),
+                ("activation-zero", "0.00", "0.00", "manual"),
+            ),
+            None,
+            4,
+            "253",
+            id="successful-orders-across-channels",
+        ),
+    ],
+)
+def test_admin_operation_course_detail_order_metrics(
     app: object,
     test_client: object,
-    monkeypatch: object,
+    orders: tuple[tuple[str, str, str, str | None], ...],
+    redemption: str | None,
+    expected_count: int,
+    expected_amount: str,
 ) -> None:
-    _mock_operator(monkeypatch)
+    """Order metrics count every successful order and fall back to payable price."""
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        db.session.add_all(
-            [
-                Order(
-                    order_bid="order-direct-paid",
-                    shifu_bid="course-detail",
-                    user_bid="user-direct-paid",
-                    payable_price=Decimal("88.00"),
-                    paid_price=Decimal("88.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-full-coupon",
-                    shifu_bid="course-detail",
-                    user_bid="user-full-coupon",
-                    payable_price=Decimal("66.00"),
-                    paid_price=Decimal("0.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-activation",
-                    shifu_bid="course-detail",
-                    user_bid="user-activation",
-                    payable_price=Decimal("0.00"),
-                    paid_price=Decimal("0.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-            ]
-        )
-        _seed_coupon_usage(
-            coupon_usage_bid="coupon-usage-full-coupon",
-            order_bid="order-full-coupon",
-            shifu_bid="course-detail",
-            user_bid="user-full-coupon",
-        )
+        _seed_course(created_at=created_at)
+        _seed_success_orders(orders, created_at)
+        if redemption == "coupon":
+            _seed_coupon_usage(
+                coupon_usage_bid="coupon-usage-full-coupon",
+                order_bid="order-full-coupon",
+                user_bid="user-full-coupon",
+            )
+        elif redemption == "promo":
+            _seed_promo_redemption(
+                redemption_bid="promo-redemption-full",
+                promo_bid="promo-full",
+                order_bid="order-full-promo",
+                user_bid="user-full-promo",
+                discount_amount="66.00",
+            )
         db.session.commit()
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
-    assert payload["data"]["metrics"]["order_count"] == 3
-    assert payload["data"]["metrics"]["order_amount"] == "154"
+    payload = get_ok(test_client, f"{COURSE_URL}/detail")
+    assert payload["data"]["metrics"]["order_count"] == expected_count
+    assert payload["data"]["metrics"]["order_amount"] == expected_amount
 
 
-def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-    created_at = datetime(2026, 4, 2, 9, 0, 0)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        db.session.add_all(
-            [
-                Order(
-                    order_bid="order-direct-paid",
-                    shifu_bid="course-detail",
-                    user_bid="user-direct-paid",
-                    payable_price=Decimal("88.00"),
-                    paid_price=Decimal("88.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-full-promo",
-                    shifu_bid="course-detail",
-                    user_bid="user-full-promo",
-                    payable_price=Decimal("66.00"),
-                    paid_price=Decimal("0.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-            ]
-        )
-        _seed_promo_redemption(
-            redemption_bid="promo-redemption-full",
-            promo_bid="promo-full",
-            order_bid="order-full-promo",
-            shifu_bid="course-detail",
-            user_bid="user-full-promo",
-            discount_amount="66.00",
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
-    assert payload["data"]["metrics"]["order_count"] == 2
-    assert payload["data"]["metrics"]["order_amount"] == "154"
-
-
-def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to_payable_price(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-    created_at = datetime(2026, 4, 3, 9, 0, 0)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        db.session.add_all(
-            [
-                Order(
-                    order_bid="order-direct-paid",
-                    shifu_bid="course-detail",
-                    user_bid="user-direct-paid",
-                    payable_price=Decimal("88.00"),
-                    paid_price=Decimal("88.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-partial-discount",
-                    shifu_bid="course-detail",
-                    user_bid="user-partial-discount",
-                    payable_price=Decimal("49.00"),
-                    paid_price=Decimal("19.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-external-paid",
-                    shifu_bid="course-detail",
-                    user_bid="user-external-paid",
-                    payable_price=Decimal("66.00"),
-                    paid_price=Decimal("0.00"),
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-            ]
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
-    assert payload["data"]["metrics"]["order_count"] == 3
-    assert payload["data"]["metrics"]["order_amount"] == "173"
-
-
-def test_admin_operation_course_detail_metrics_include_successful_orders_across_channels(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-    created_at = datetime(2026, 4, 4, 9, 0, 0)
-
-    with app.app_context():
-        _seed_user(app, user_bid="creator-1", phone="13800001234")
-        _seed_course(
-            shifu_bid="course-detail",
-            creator_user_bid="creator-1",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-        db.session.add_all(
-            [
-                Order(
-                    order_bid="order-manual-paid",
-                    shifu_bid="course-detail",
-                    user_bid="user-manual-paid",
-                    payable_price=Decimal("88.00"),
-                    paid_price=Decimal("88.00"),
-                    payment_channel="manual",
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-manual-external-redeem",
-                    shifu_bid="course-detail",
-                    user_bid="user-manual-redeem",
-                    payable_price=Decimal("66.00"),
-                    paid_price=Decimal("0.00"),
-                    payment_channel="manual",
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-openapi-external-redeem",
-                    shifu_bid="course-detail",
-                    user_bid="user-openapi-redeem",
-                    payable_price=Decimal("99.00"),
-                    paid_price=Decimal("0.00"),
-                    payment_channel="open_api",
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-                Order(
-                    order_bid="order-activation-zero",
-                    shifu_bid="course-detail",
-                    user_bid="user-activation-zero",
-                    payable_price=Decimal("0.00"),
-                    paid_price=Decimal("0.00"),
-                    payment_channel="manual",
-                    status=ORDER_STATUS_SUCCESS,
-                    deleted=0,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ),
-            ]
-        )
-        db.session.commit()
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
-    assert payload["data"]["metrics"]["order_count"] == 4
-    assert payload["data"]["metrics"]["order_amount"] == "253"
+_PAGE = "page=1&page_size=20"
 
 
 @pytest.mark.parametrize(
-    ("query_string", "expected_param"),
+    ("route", "query", "field"),
     [
-        ("page=abc&page_size=20", "page"),
-        ("page=1&page_size=xyz", "page_size"),
-        ("page=0&page_size=20", "page"),
-        ("page=1&page_size=0", "page_size"),
+        pytest.param("users", "page=abc&page_size=20", "page", id="users-page-not-int"),
+        pytest.param(
+            "users", "page=1&page_size=xyz", "page_size", id="users-page-size-not-int"
+        ),
+        pytest.param("users", "page=0&page_size=20", "page", id="users-page-zero"),
+        pytest.param(
+            "users", "page=1&page_size=0", "page_size", id="users-page-size-zero"
+        ),
+        pytest.param(
+            "credit-usages", f"{_PAGE}&mode=invalid_mode", "mode", id="credit-mode"
+        ),
+        pytest.param(
+            "credit-usages",
+            f"{_PAGE}&usage_scene=invalid_scene",
+            "usage_scene",
+            id="credit-usage-scene",
+        ),
+        pytest.param(
+            "credit-usages",
+            f"{_PAGE}&start_time=2026-05-02&end_time=2026-05-01",
+            "start_time",
+            id="credit-inverted-time-range",
+        ),
+        pytest.param(
+            "credit-usages", f"{_PAGE}&view=invalid_view", "view", id="credit-view"
+        ),
+        pytest.param(
+            "follow-ups",
+            f"{_PAGE}&start_time=2026-05-02&end_time=2026-05-01",
+            "start_time",
+            id="follow-ups-inverted-time-range",
+        ),
+        pytest.param(
+            "follow-ups",
+            f"{_PAGE}&source_status=invalid",
+            "source_status",
+            id="follow-ups-source-status",
+        ),
+        pytest.param("ratings", f"{_PAGE}&score=999", "score", id="ratings-score"),
+        pytest.param(
+            "ratings", f"{_PAGE}&mode=invalid_mode", "mode", id="ratings-mode"
+        ),
+        pytest.param(
+            "ratings",
+            f"{_PAGE}&has_comment=not_bool",
+            "has_comment",
+            id="ratings-has-comment",
+        ),
+        pytest.param(
+            "ratings", f"{_PAGE}&sort_by=bad_sort", "sort_by", id="ratings-sort-by"
+        ),
+        pytest.param(
+            "ratings",
+            f"{_PAGE}&start_time=2026-05-02&end_time=2026-05-01",
+            "start_time",
+            id="ratings-inverted-time-range",
+        ),
     ],
 )
-def test_admin_operation_course_users_route_rejects_invalid_pagination_params(
-    test_client: object,
-    monkeypatch: object,
-    query_string: object,
-    expected_param: object,
+def test_admin_operation_course_list_routes_reject_invalid_params(
+    app: object, test_client: object, route: str, query: str, field: str
 ) -> None:
-    _mock_operator(monkeypatch)
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(created_at=datetime(2026, 4, 1, 9, 0, 0))
+        db.session.commit()
 
-    response = test_client.get(
-        f"/api/shifu/admin/operations/courses/course-detail/users?{query_string}",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
+    payload = get_json(test_client, f"{COURSE_URL}/{route}?{query}")
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == f"Params Error {expected_param}"
+    assert payload["message"] == f"Params Error {field}"
