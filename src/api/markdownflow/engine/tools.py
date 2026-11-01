@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -20,10 +19,8 @@ from pydantic_ai.messages import (
 
 from markdownflow.syntax.parser.marker_context import (
     analyze_marker_context,
-    marker_syntax_source,
 )
 from markdownflow.syntax.variable_names import (
-    find_interaction_spans,
     normalize_variable_name,
     read_interaction_variable,
     read_variable_marker,
@@ -277,13 +274,19 @@ class _Question:
 
 
 def _script_questions(script_text: str) -> list[_Question]:
-    """Return the script's `?[...]` questions, outside code fences, in order."""
+    """Return the script's `?[...]` questions, in order.
+
+    A `?[...]` inside literal Markdown (code, HTML, link resources, reference
+    titles, math or autolinks) is an example of the notation, not a question.
+    """
+    return [question for _, _, question in _script_question_spans(script_text)]
+
+
+def _script_question_spans(script_text: str) -> list[tuple[int, int, _Question]]:
+    """Return each question with its source span, from the shared marker scanner."""
     text = script_text
-    context = analyze_marker_context(text, fence_indent=3)
-    questions: list[_Question] = []
-    for start, end_exclusive in find_interaction_spans(
-        text, syntax_source=marker_syntax_source(text, context)
-    ):
+    questions: list[tuple[int, int, _Question]] = []
+    for start, end_exclusive in analyze_marker_context(text).controls:
         end = end_exclusive - 1
         raw = text[start + 2 : end]
         variable = read_interaction_variable(raw)
@@ -307,66 +310,29 @@ def _script_questions(script_text: str) -> list[_Question]:
         if len(choices) == 1:
             choices = _split_unescaped(body, "||")
         questions.append(
-            _Question(
-                variable=variable.name if variable is not None else None,
-                text=ellipsis >= 0,
-                choices=choices,
-                placeholder=_unescape(first_line[ellipsis + 3 :].strip())
-                if ellipsis >= 0
-                else None,
-                written_placeholder=first_line[ellipsis + 3 :].strip()
-                if ellipsis >= 0
-                else None,
-                multi=multi,
+            (
+                start,
+                end_exclusive,
+                _Question(
+                    variable=variable.name if variable is not None else None,
+                    text=ellipsis >= 0,
+                    choices=choices,
+                    placeholder=_unescape(first_line[ellipsis + 3 :].strip())
+                    if ellipsis >= 0
+                    else None,
+                    written_placeholder=first_line[ellipsis + 3 :].strip()
+                    if ellipsis >= 0
+                    else None,
+                    multi=multi,
+                ),
             )
         )
     return questions
 
 
 def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
-    """Read authored input hints; examples in comments do not define a learner question."""
-    context = analyze_marker_context(script_text, fence_indent=3)
-    syntax = list(script_text)
-    for marker in context.markers:
-        # Document scanning bounds examples before protection, so an unfinished
-        # literal marker cannot hide a real outer comment or fence terminator.
-        syntax[marker.start : marker.end] = [
-            char if char in "\r\n" else "x"
-            for char in script_text[marker.start : marker.end]
-        ]
-    lines: list[str] = []
-    syntax_lines: list[str] = []
-    opening: str | None = None
-    offset = 0
-    for line in "".join(syntax).splitlines(keepends=True):
-        fence = re.match(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$", line)
-        if opening is not None:
-            if (
-                fence
-                and fence.group(1)[0] == opening[0]
-                and len(fence.group(1)) >= len(opening)
-                and not fence.group(2).strip()
-            ):
-                opening = None
-        elif fence:
-            opening = fence.group(1)
-        elif line.expandtabs(4).startswith("    "):
-            ending = line[len(line.rstrip("\r\n")) :]
-            lines.append(ending)  # Retain the blank line after an indented example.
-            syntax_lines.append(ending)
-        else:
-            lines.append(script_text[offset : offset + len(line)])
-            syntax_lines.append(line)
-        offset += len(line)
-    source = "".join(lines)
-    parts: list[str] = []
-    offset = 0
-    for comment in re.finditer(r"<!--.*?-->", "".join(syntax_lines), re.DOTALL):
-        parts.append(source[offset : comment.start()])
-        offset = comment.end()
-    parts.append(source[offset:])
-    text = "".join(parts)
-    return tuple(q for q in _script_questions(text) if q.placeholder)
+    """Read authored input hints; examples in code or comments are not questions."""
+    return tuple(q for q in _script_questions(script_text) if q.placeholder)
 
 
 def normalize_script_text_input(

@@ -463,8 +463,15 @@ def scan_marker_document(
     for index, line in enumerate(blocks.lines):
         value = blocks.projected_line(index)
         opening = _raw_html_opening(text, line.start, last_html_ends, blocks)
+        # A stream's unfinished last line that is still blank may yet carry text,
+        # so it does not end the paragraph before its line ending arrives.
+        unfinished = (
+            not final
+            and line.end == line.content_end == len(text)
+            and not value.strip(" \t")
+        )
         if (
-            not value.strip(" \t")
+            (not value.strip(" \t") and not unfinished)
             or fence_opening(value) is not None
             or opening is not None
             or blocks.inline_block_interrupts(index)
@@ -472,7 +479,7 @@ def scan_marker_document(
             breaks.append(
                 (line.start, opening[1] if opening is not None else line.content_end)
             )
-        if blocks.paragraph_interrupts(index):
+        if blocks.paragraph_interrupts(index) and not unfinished:
             breaks.append((line.start, line.start))
         if COMPILED_ATX_START_REGEX.match(value) is not None:
             breaks.extend(
@@ -759,6 +766,14 @@ def scan_marker_document(
             index = blocks.by_start[blocks.line_at(at).start]
             # Inline HTML ends with its paragraph; it cannot cross a boundary.
             inline_limit = blocks.inline_limit(at)
+            last_line = blocks.lines[-1]
+            # A stream's unfinished last line may still continue the paragraph, or
+            # still turn out to interrupt it: a token cannot close on it yet.
+            undecided_line = (
+                not final
+                and inline_limit == last_line.start
+                and last_line.end == last_line.content_end == len(text)
+            )
             html_end = (
                 blocks.html_token_end(index, at, final=final, limit=inline_limit)
                 if html_can_close(text, at, last_html_ends)
@@ -774,6 +789,7 @@ def scan_marker_document(
                     # An inline token cannot resume after its paragraph ended.
                     and (
                         inline_limit == len(text)
+                        or undecided_line
                         or blocks.block_content_start(index) == at
                     )
                     and (at + 1 == len(text) or _HTML_PREFIX.match(text, at))

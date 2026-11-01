@@ -11,7 +11,11 @@ from pydantic import ValidationError
 from pydantic_ai.messages import ModelRequest, ToolCallPart
 
 from .interaction import InteractionSpec
-from .tools import _script_questions, normalize_script_text_input, script_text_inputs
+from .tools import (
+    _script_question_spans,
+    normalize_script_text_input,
+    script_text_inputs,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
@@ -66,19 +70,24 @@ def _authored_answer_scope(
     if spec.type != "text" or not spec.placeholder:
         return None
     lines = _masked_lines(script)
+    questions = _script_question_spans(script)
     controls = []
     headings = []
     offset = 0
     for line in lines:
         if heading := _HEADING.match(line):
             headings.append((offset, len(heading[1])))
-        if line.lstrip(" ").startswith("?["):
-            questions = _script_questions(line)
-            if len(questions) == 1:
-                controls.append((offset, questions[0]))
+        opening = offset + len(line) - len(line.lstrip(" "))
+        on_line = [
+            (start, question)
+            for start, end, question in questions
+            if offset <= start and end <= offset + len(line.rstrip("\r\n"))
+        ]
+        if len(on_line) == 1 and on_line[0][0] == opening:
+            controls.append((offset, on_line[0][1]))
         offset += len(line)
     # Multiline or inline controls cannot establish exact standalone boundaries.
-    if len(_script_questions("".join(lines))) != len(controls):
+    if len(questions) != len(controls):
         return None
     matches = [
         i

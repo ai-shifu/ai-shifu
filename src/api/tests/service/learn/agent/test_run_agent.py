@@ -2881,11 +2881,15 @@ def test_code_is_read_as_code_however_it_is_written() -> None:
     indented_fence = "  ```\n?[x]\n  ```\n后"
     assert _filtered(indented_fence) == (indented_fence, [])
 
-    # Four spaces is a code block in its own right, with no fence around it.
-    assert _filtered("示例：\n    ?[y]\n后面?[甲|乙]") == (
-        "示例：\n    ?[y]\n后面",
+    # Four spaces after a blank line is a code block in its own right.
+    assert _filtered("示例：\n\n    ?[y]\n\n后面?[甲|乙]") == (
+        "示例：\n\n    ?[y]\n\n后面",
         ["?[甲|乙]"],
     )
+    # Directly under a paragraph line, the indented line continues the paragraph.
+    assert _filtered("示例：\n    ?[y]") == ("示例：\n    ", ["?[y]"])
+    # Inline code is literal text as well.
+    assert _filtered("写 `?[甲|乙]` 即可。") == ("写 `?[甲|乙]` 即可。", [])
 
 
 def test_a_line_that_only_looks_like_a_fence_does_not_open_or_close_one() -> None:

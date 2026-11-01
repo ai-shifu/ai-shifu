@@ -22,12 +22,13 @@ A span is not turned back into a pending question inside the engine: the engine 
 an answer arrives as a remark for it to react to. That is a lesser wrong than a lesson that
 sprints past a question it just put on the screen.
 
-What counts as code is approximated, not parsed: fenced blocks and four-space indents, which
-is what a lesson showing the notation uses. Markdown has other ways to make something code --
-a list item holding an indented block, an HTML block -- and inside those a question would still
-be taken as one. The approximation is worth naming rather than hiding: getting it exactly right
-means running the browser's Markdown parser here, and the failure it leaves is the one that
-existed before any of this.
+What counts as literal text is decided by the shared marker scanner, the same CommonMark reading
+the browser renders: a `?[...]` inside fenced or indented code, inline code, HTML, a link
+destination or title, a reference title, math or an autolink is an example of the notation and
+stays in the narration. While a literal that could still enclose an opener is unfinished (an
+unmatched backtick or dollar run, an unclosed HTML token, link resource or autolink earlier in
+the paragraph), the opener waits until that literal closes or its paragraph ends, so a question
+is classified the same way whatever the stream cuts are.
 
 `\?[` is left exactly as it is. The grammar treats it as text rather than an interaction, which
 is how a lesson about the syntax shows the syntax.
@@ -45,6 +46,7 @@ from markdownflow.engine.stream_marker_context import (
 from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
 from markdownflow.syntax.parser.document_blocks import DocumentBlocks
 from markdownflow.syntax.parser.marker_context import (
+    MarkerContext,
     analyze_marker_context,
     marker_syntax_source,
 )
@@ -62,6 +64,11 @@ _FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
 _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]", re.MULTILINE)
 _LINE_BREAK = re.compile(r"\r\n|\r(?=.)|\n")
 _CLOSE = "]"
+# A blank line followed by a line that starts a top-level block other than a
+# container or indented continuation: no Markdown state from before it remains.
+_SAFE_POINT = re.compile(r"(?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n)(?=[^\s>0-9*+\-])")
+# The raw text kept for literal decisions, before falling back to the witness.
+_RAW_LIMIT = 4096
 
 
 class InteractionSyntaxFilter:
@@ -96,6 +103,19 @@ class InteractionSyntaxFilter:
         self._raw_marker_tail = ""
         self._raw_marker_boundary: tuple[str, str] | None = None
         self.spans: list[str] = []
+        # The last scan of the context prefix plus held text, reused by `_find_open`.
+        self._scan: tuple[MarkerContext, int, tuple[int, str] | None] | None = None
+        # Raw emitted text since the last point where no Markdown state carries over,
+        # after a witness of everything before it. Literal decisions read it, so the
+        # current paragraph's containers, indentation and info strings stay exact.
+        # None while that text is longer than `_RAW_LIMIT`.
+        self._raw_base = ""
+        self._raw: str | None = ""
+        self._raw_tail = ""
+        self._pending_witness = ""
+        self._raw_scan: (
+            tuple[tuple[str, bool], MarkerContext, tuple[int, str] | None] | None
+        ) = None
 
     def feed(self, text: str) -> str:
         """Return `text` with any complete span removed, holding back an unfinished one."""
@@ -132,14 +152,24 @@ class InteractionSyntaxFilter:
         out: list[str] = []
         while self._held:
             if self._inside:
+                # Read the control's paragraph with the emitted context before it, so
+                # container prefixes and lazy lines end it as in the whole text.
+                before = (
+                    self._raw_base + self._raw
+                    if self._raw is not None
+                    else self._context_prefix
+                )
+                base = len(before)
+                source = before + self._held
 
-                def marker_end(at: int) -> int | None:
-                    marker = read_variable_marker(self._held, at)
+                def marker_end(at: int, source: str = source) -> int | None:
+                    marker = read_variable_marker(source, at)
                     return marker.end if marker is not None else None
 
                 limit, closed = DocumentBlocks(
-                    self._held, COMPILED_INLINE_HTML_REGEX
-                ).interaction_limit(2, marker_end, final=False)
+                    source, COMPILED_INLINE_HTML_REGEX
+                ).interaction_limit(base + 2, marker_end, final=final)
+                limit -= base
                 if (
                     not closed
                     and limit < len(self._held)
@@ -161,13 +191,13 @@ class InteractionSyntaxFilter:
                     self._held = self._held[end + 2 :]
                     self._inside = False
                     continue
-                self.spans.append(self._held[: end + 1])
+                self._take_span(self._held[: end + 1])
                 self._held = self._held[end + 1 :]
                 self._inside = False
                 continue
             fence = self._next_fence_line(self._held, final=final)
-            start, pending_literal = (
-                (-1, None)
+            start, pending_literal, defer = (
+                (-1, None, False)
                 if self._fence is not None
                 else self._find_open(self._held, self._previous, final=final)
             )
@@ -196,17 +226,15 @@ class InteractionSyntaxFilter:
                 self._emit(out, self._held[:line_end])
                 self._context_prefix = ""
                 self._context_label_counts.clear()
+                self._reset_raw()
                 self._held = self._held[line_end:]
                 continue
-            if start >= 0 and self._in_indented_code(self._held, start):
-                # Four spaces of indent is a code block of its own in Markdown, and the browser
-                # renders its contents as code rather than as controls. Left as text.
-                line_break = _LINE_BREAK.search(self._held, start)
-                if line_break is None:
-                    return "".join(out)
-                self._emit(out, self._held[: line_break.end()])
-                self._held = self._held[line_break.end() :]
-                continue
+            if defer:
+                # An unfinished literal earlier in the paragraph may still enclose this
+                # opener. Hold it, and what follows, until the literal is decided.
+                self._emit(out, self._held[:start])
+                self._held = self._held[start:]
+                return "".join(out)
             if start < 0 and self._fence is not None:
                 # Inside a code block with no fence in sight: all text, but a line that may yet
                 # close the block waits for its end.
@@ -280,11 +308,61 @@ class InteractionSyntaxFilter:
             self._inside = True
         return "".join(out)
 
+    def _take_span(self, span: str) -> None:
+        """Remove a question from the narration, keeping its place in the document.
+
+        The span leaves the narration, but later text must still be read as following
+        a paragraph's text: otherwise a removed question would look like a blank line.
+        """
+        self.spans.append(span)
+        if self._fence is None:
+            self._track_raw(self._context_prefix, "x")
+            counts: dict[int, int] = {}
+            self._context_prefix = compact_marker_context(
+                self._context_prefix + "x",
+                label_counts=self._context_label_counts,
+                counts_out=counts,
+            )
+            self._context_label_counts = counts
+        self._previous = ""
+        self._line_so_far = "x"
+
+    def _track_raw(self, prefix_before: str, text: str) -> None:
+        """Extend the raw literal context, restarting it at the last safe point."""
+        if self._raw is not None:
+            raw = self._raw + text
+            safe = [match.end() for match in _SAFE_POINT.finditer(raw)]
+            if safe:
+                self._raw_base = compact_marker_context(
+                    self._raw_base + raw[: safe[-1]]
+                )
+                raw = raw[safe[-1] :]
+        else:
+            tail = self._raw_tail
+            safe = [
+                match.end()
+                for match in _SAFE_POINT.finditer(tail + text)
+                if match.end() > len(tail)
+            ]
+            raw = None
+            if safe:
+                cut = safe[-1] - len(tail)
+                self._raw_base = compact_marker_context(prefix_before + text[:cut])
+                raw = text[cut:]
+        self._raw = raw if raw is not None and len(raw) <= _RAW_LIMIT else None
+        self._raw_tail = (self._raw_tail + text)[-8:]
+
+    def _reset_raw(self) -> None:
+        self._raw_base = ""
+        self._raw = ""
+        self._raw_tail = ""
+
     def _emit(self, out: list[str], text: str) -> None:
         """Send text on, remembering its last character for the next escape check."""
         if not text:
             return
         if self._fence is None:
+            self._track_raw(self._context_prefix, text)
             counts: dict[int, int] = {}
             self._context_prefix = compact_marker_context(
                 self._context_prefix + text,
@@ -296,6 +374,7 @@ class InteractionSyntaxFilter:
         else:
             self._context_prefix = ""
             self._context_label_counts.clear()
+            self._reset_raw()
         out.append(text)
         run = len(text) - len(text.rstrip("\\"))
         odd = run % 2 == 1
@@ -320,6 +399,9 @@ class InteractionSyntaxFilter:
             self._pending_literal_chunks.clear()
             self._pending_literal = None
             released = self._drain(final=True)
+        elif self._held and not self._inside:
+            # Nothing else is coming, so held text is classified as the whole text is.
+            released = self._drain(final=True)
         if self._inside and find_interaction_end(self._held, 2) == len(self._held) - 1:
             self.spans.append(self._held)
             self._held = ""
@@ -328,6 +410,7 @@ class InteractionSyntaxFilter:
         self._fence = None
         self._context_prefix = ""
         self._context_label_counts.clear()
+        self._reset_raw()
         if self._raw_marker_active and self._raw_marker_boundary is not None:
             # Before incremental emission, an unfinished raw name left these
             # boundary witnesses at the prose preceding its opener on flush.
@@ -362,6 +445,7 @@ class InteractionSyntaxFilter:
             if not final and provisional_markers is not None
             else None
         )
+        self._scan = (context, len(prefix), pending)
         owned = [
             marker
             for marker in context.markers
@@ -429,11 +513,22 @@ class InteractionSyntaxFilter:
         """
         scan_text = text
         reference_wait: int | None = None
+        # Block literals that start before a line, in held-text offsets: a fence-like
+        # line inside an HTML block or indented code opens nothing.
+        enclosing: list[tuple[int, int]] = []
+        line_source_text = ""
         if self._fence is None:
             source = self._context_prefix + text
             context = analyze_marker_context(
                 source, final=final, label_counts=self._context_label_counts
             )
+            base = len(self._context_prefix)
+            line_source_text = source
+            enclosing = [
+                (start - base, end - base)
+                for start, end in context.literals
+                if end > base
+            ]
             if any(
                 not marker.complete
                 and marker.start < len(self._context_prefix)
@@ -491,15 +586,27 @@ class InteractionSyntaxFilter:
             if reference_wait is not None and reference_wait <= match.start():
                 return (reference_wait, None)
             line_break = _LINE_BREAK.search(text, match.start())
-            if line_break is None:
+            if line_break is None and not final:
                 return (match.start(), None)
+            # At the end of the text, the last line is complete without a line ending.
+            line_end = line_break.start() if line_break is not None else len(text)
+            next_line = line_break.end() if line_break is not None else len(text)
             if self._fence is not None and not self._closes_here(
-                text[match.start() : line_break.start()]
+                text[match.start() : line_end]
             ):
                 # Inside a block, a line that is not a valid closer is part of the code.
                 continue
-            return (match.start(), line_break.end())
-        for partial in _MAY_BE_FENCE.finditer(line_source):
+            # Indentation already sent out on this line counts toward the fence's three.
+            emitted = self._line_so_far if match.start() == 0 else ""
+            if self._fence is None and not self._opens_here(
+                emitted + text[match.start() : line_end],
+                self._line_start(line_source_text, match.start()),
+                enclosing,
+            ):
+                # Not a CommonMark fence opening: ordinary text, scanned as such.
+                continue
+            return (match.start(), next_line)
+        for partial in _MAY_BE_FENCE.finditer(line_source if not final else ""):
             if (
                 self._at_line_start(text, partial.start())
                 and _LINE_BREAK.search(text, partial.start()) is None
@@ -508,14 +615,6 @@ class InteractionSyntaxFilter:
                     return (reference_wait, None)
                 return (partial.start(), None)
         return (reference_wait, None) if reference_wait is not None else None
-
-    def _in_indented_code(self, text: str, at: int) -> bool:
-        """Whether the line `at` sits on is indented far enough to be a code block."""
-        before = text[:at]
-        cut = max(before.rfind("\n"), before.rfind("\r"))
-        line = before[cut + 1 :] if cut >= 0 else self._line_so_far + before
-        indent = len(line) - len(line.lstrip(" "))
-        return line[:indent] == line and indent >= 4
 
     def _at_line_start(self, text: str, at: int) -> bool:
         """Whether `at` really begins a line, counting what has already been sent out.
@@ -534,6 +633,34 @@ class InteractionSyntaxFilter:
         # counts as nothing only when it is that indent. The indent may have left in an earlier
         # chunk, which is why this is tracked rather than read off the character before.
         return line == "" or (len(line) <= 3 and line.isspace() and "\n" not in line)
+
+    def _line_start(self, source: str, at: int) -> int:
+        """Where the physical line holding held offset `at` starts, in held offsets.
+
+        The line's indentation may already have been emitted, so the start can be negative.
+        """
+        position = len(self._context_prefix) + at
+        if not source:
+            return at
+        start = (
+            max(source.rfind("\n", 0, position), source.rfind("\r", 0, position)) + 1
+        )
+        return start - len(self._context_prefix)
+
+    @staticmethod
+    def _opens_here(line: str, at: int, enclosing: list[tuple[int, int]]) -> bool:
+        """Whether this complete line opens a fenced code block, as CommonMark reads it.
+
+        `at` is where the line starts; only a literal that began before it can enclose it.
+        """
+        match = _FENCE_OPEN.match(line)
+        if match is None:
+            return False
+        run = match.group(1)
+        if run[0] == "`" and "`" in line[match.end() :]:
+            # A backtick fence's info string cannot contain a backtick.
+            return False
+        return not any(start < at < end for start, end in enclosing)
 
     @staticmethod
     def _closes_here(line: str) -> bool:
@@ -557,11 +684,13 @@ class InteractionSyntaxFilter:
 
     def _find_open(
         self, text: str, previous: str, *, final: bool = False
-    ) -> tuple[int, str | None]:
+    ) -> tuple[int, str | None, bool]:
         """Locate the next `?[` and any literal state delaying its classification.
 
         `previous` is a backslash when the text before `text` ends in an odd run of backslashes,
-        which decides an opener preceded only by backslashes in what is left to scan.
+        which decides an opener preceded only by backslashes in what is left to scan. The last
+        flag asks the caller to hold an opener that an unfinished literal may still enclose;
+        an opener inside a decided literal is text and is skipped.
         """
         provisional_markers: list[tuple[int, int, str]] = []
         marker_scan = self._marker_scan_text(
@@ -572,13 +701,23 @@ class InteractionSyntaxFilter:
             if marker_scan.startswith("{{", at):
                 marker = read_variable_marker(text, at)
                 if marker is None:
-                    return -1, None
+                    return -1, None, False
                 at = marker.end
             elif text.startswith(_OPEN, at):
                 before = at
                 while before and text[before - 1] == "\\":
                     before -= 1
                 run = at - before + int(not before and previous == "\\")
+                literal = self._literal_state(at, final=final)
+                if run % 2 == 0 and literal == "literal":
+                    at += len(_OPEN)
+                    continue
+                if run % 2 == 0 and literal == "pending":
+                    return at, None, True
+                if run % 2 == 0 and literal == "witness":
+                    # A viable HTML token, autolink, link resource or reference
+                    # may still enclose it: buffer through its bounded witness.
+                    return at, self._pending_witness, False
                 if run % 2 == 0:
                     witness = next(
                         (
@@ -588,11 +727,63 @@ class InteractionSyntaxFilter:
                         ),
                         None,
                     )
-                    return at, witness
+                    return at, witness, False
                 at += len(_OPEN)
             else:
                 at += 1
-        return -1, None
+        return -1, None, False
+
+    def _literal_state(self, at: int, *, final: bool) -> str | None:
+        """Classify the opener at `at` of the held text against the scanned literals.
+
+        Returns "literal" inside a decided literal, "witness" while a viable HTML token,
+        autolink, link resource or reference may still enclose it, "pending" while an
+        unmatched code or math run or a provisional block before it is undecided, and
+        None when it is live. Reads the scan `_marker_scan_text` just made.
+        """
+        if self._scan is None:
+            return None
+        context, base, pending = self._scan
+        if self._raw is not None:
+            # Decide on the exact current paragraph rather than its witness.
+            source = self._raw_base + self._raw + self._held
+            if self._raw_scan is None or self._raw_scan[0] != (source, final):
+                self._raw_scan = (
+                    (source, final),
+                    analyze_marker_context(source, final=final),
+                    None if final else pending_literal_context(source),
+                )
+            _, context, pending = self._raw_scan
+            base = len(self._raw_base) + len(self._raw)
+        source_at = base + at
+        if not final:
+            if pending is not None and pending[0] < source_at:
+                self._pending_witness = pending[1]
+                return "witness"
+            if any(
+                start < source_at
+                for start, _ in (*context.unmatched_backticks, *context.unmatched_math)
+            ):
+                return "pending"
+            html = context.pending_html_start
+            if html is not None and html < source_at and context.pending_block_steps:
+                # The bounded HTML witness cannot see container prefixes, so an
+                # unfinished HTML token inside a container is decided on the text.
+                return "pending"
+            block = context.pending_block_start
+            if (
+                block is not None
+                and block < source_at
+                and (
+                    context.pending_html_provisional
+                    or context.pending_html_name
+                    or context.pending_container_fence is not None
+                )
+            ):
+                return "pending"
+        if any(start <= source_at < end for start, end in context.literals):
+            return "literal"
+        return None
 
     def _unclosed_marker_start(self, text: str, *, final: bool = False) -> int:
         marker_scan = self._marker_scan_text(text, final=final)

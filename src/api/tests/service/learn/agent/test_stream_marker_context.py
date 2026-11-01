@@ -164,6 +164,7 @@ def test_type_seven_html_cannot_interrupt_an_existing_paragraph(newline: str) ->
 
 @pytest.mark.parametrize("tag", ["<div>", "</div>", "<section>"])
 def test_type_six_html_remains_a_block_with_same_line_body_text(tag: str) -> None:
+    # The HTML block owns its line, so the example in it is literal text.
     prefix = tag + "{{"
     source = prefix + QUESTION
     for stream in [[source], list(source)] + [
@@ -171,8 +172,8 @@ def test_type_six_html_remains_a_block_with_same_line_body_text(tag: str) -> Non
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == prefix, stream
-        assert syntax.spans == [QUESTION], stream
+        assert shown == source, stream
+        assert syntax.spans == [], stream
 
 
 @pytest.mark.parametrize(
@@ -331,32 +332,35 @@ def test_angle_link_fallback_keeps_counted_label_and_resource_state() -> None:
 
 
 @pytest.mark.parametrize(
-    ("opening", "ending", "inner_is_question"),
+    ("opening", "ending"),
     [
-        ("<https://{{", "answer}}>", True),
-        ("<aa:{{", "answer}}>", True),
-        ("<" + "a" * 32 + ":{{", "answer}}>", True),
-        ("<a:{{", "answer}}>", False),
-        ("<" + "a" * 33 + ":{{", "answer}}>", False),
-        ("<https://%{{", "answer}}>", True),
-        ("<https://{{", " answer}}>", False),
-        ("<https://{{", "\tanswer}}>", False),
-        ("<https://{{", "\r\nanswer}}>", False),
-        ("<https://{{", "\x7fanswer}}>", False),
-        ("<https://{{", "\x00answer}}>", True),
-        ("<https://{{", "\u00a0answer}}>", True),
-        ("<https://{{", "&#32;answer}}>", True),
-        ("<https://{{", "answer}}", False),
-        (r"\<https://{{", "answer}}>", False),
-        (r"<https://\{{", " answer}}>", True),
-        (r"<https://\\{{", " answer}}>", False),
+        ("<https://{{", "answer}}>"),
+        ("<aa:{{", "answer}}>"),
+        ("<" + "a" * 32 + ":{{", "answer}}>"),
+        ("<a:{{", "answer}}>"),
+        ("<" + "a" * 33 + ":{{", "answer}}>"),
+        ("<https://%{{", "answer}}>"),
+        ("<https://{{", " answer}}>"),
+        ("<https://{{", "\tanswer}}>"),
+        ("<https://{{", "\r\nanswer}}>"),
+        ("<https://{{", "\x7fanswer}}>"),
+        ("<https://{{", "\x00answer}}>"),
+        ("<https://{{", "\u00a0answer}}>"),
+        ("<https://{{", "&#32;answer}}>"),
+        ("<https://{{", "answer}}"),
+        (r"\<https://{{", "answer}}>"),
+        (r"<https://\{{", " answer}}>"),
+        (r"<https://\\{{", " answer}}>"),
     ],
 )
 def test_provisional_angle_link_defers_questions_owned_by_a_possible_raw_marker(
-    opening: str, ending: str, inner_is_question: bool
+    opening: str, ending: str
 ) -> None:
+    # A valid autolink is literal text and an invalid one leaves the opener in a
+    # raw marker name. Only escaped braces outside an autolink leave it a question.
     inner = "?[A|B]"
     source = opening + inner + ending + QUESTION
+    inner_is_question = opening == r"<https://\{{"
     expected = (
         opening + ending if inner_is_question else opening + inner + ending,
         ([inner] if inner_is_question else []) + [QUESTION],
@@ -393,19 +397,18 @@ def test_provisional_angle_link_eof_replays_native_raw_marker_ownership(
 
 
 @pytest.mark.parametrize(
-    ("opening", "ending", "inner_is_question"),
+    ("opening", "ending"),
     [
-        ("<https://{{", "}}>", True),
-        ("<https://{{", " answer}}>", False),
-        ("<https://{{", "}}", False),
-        ("<!-- <https://{{", " answer}}> -->", True),
-        ("[label](<https://{{", " answer}}>)", True),
+        ("<https://{{", "}}>"),
+        ("<https://{{", " answer}}>"),
+        ("<https://{{", "}}"),
+        ("<!-- <https://{{", " answer}}> -->"),
+        ("[label](<https://{{", " answer}}>)"),
     ],
 )
 def test_deferred_angle_candidate_buffers_output_without_rescanning_its_growing_tail(
     opening: str,
     ending: str,
-    inner_is_question: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     inspected = 0
@@ -428,43 +431,41 @@ def test_deferred_angle_candidate_buffers_output_without_rescanning_its_growing_
         assert len(syntax._held) <= 128
         assert len(syntax._pending_literal or "") <= 128
     pieces.append(syntax.flush())
-    expected = source[: -len(QUESTION)]
-    if inner_is_question:
-        expected = expected.replace(inner, "", 1)
-    assert "".join(pieces) == expected
-    assert syntax.spans == ([inner] if inner_is_question else []) + [QUESTION]
+    # The example is literal or inside a raw marker name: never a question. An HTML
+    # comment block also owns the rest of its closing line, the authored question too.
+    owned = opening.startswith("<!--")
+    assert "".join(pieces) == (source if owned else source[: -len(QUESTION)])
+    assert syntax.spans == ([] if owned else [QUESTION])
     assert syntax._pending_literal is None
     assert syntax._pending_literal_chunks == []
     assert inspected <= 400 * len(source)
 
 
 @pytest.mark.parametrize(
-    ("opening", "ending", "inner_is_question"),
+    ("opening", "ending"),
     [
-        ("<!-- <https://{{", " answer}}> -->", True),
-        ("<!-- <https://{{", " answer}}>", False),
-        ("<!-- <https://{{", "answer}}>", True),
-        ("[label](<https://{{", " answer}}>)", True),
-        ("[label](<https://{{", " answer}}>", False),
-        ("[label](<https://{{", "answer}}>", True),
-        ("[label](<https://{{", "answer}}>\n\n", True),
-        ("<!-- <" + "a" * 32 + ":{{", "answer}}>", True),
-        ("<!-- <" + "a" * 33 + ":{{", "answer}}>", False),
-        ("[label](<" + "a" * 32 + ":{{", "answer}}>", True),
-        ("[label](<" + "a" * 33 + ":{{", "answer}}>", False),
-        ('<span title="<https://{{', ' answer}}>">', True),
-        ('<span title="<https://{{', " answer}}>", False),
+        ("<!-- <https://{{", " answer}}> -->"),
+        ("<!-- <https://{{", " answer}}>"),
+        ("<!-- <https://{{", "answer}}>"),
+        ("[label](<https://{{", " answer}}>)"),
+        ("[label](<https://{{", " answer}}>"),
+        ("[label](<https://{{", "answer}}>"),
+        ("[label](<https://{{", "answer}}>\n\n"),
+        ("<!-- <" + "a" * 32 + ":{{", "answer}}>"),
+        ("<!-- <" + "a" * 33 + ":{{", "answer}}>"),
+        ("[label](<" + "a" * 32 + ":{{", "answer}}>"),
+        ("[label](<" + "a" * 33 + ":{{", "answer}}>"),
+        ('<span title="<https://{{', ' answer}}>">'),
+        ('<span title="<https://{{', " answer}}>"),
     ],
 )
 def test_angle_candidate_keeps_its_enclosing_native_literal_until_it_is_settled(
-    opening: str, ending: str, inner_is_question: bool
+    opening: str, ending: str
 ) -> None:
+    # Inside a settled literal or a raw marker name, the example is not a question.
     inner = "?[A|B]"
     source = opening + inner + ending + "\n\n" + QUESTION
-    expected = (
-        opening + ("" if inner_is_question else inner) + ending + "\n\n",
-        ([inner] if inner_is_question else []) + [QUESTION],
-    )
+    expected = (opening + inner + ending + "\n\n", [QUESTION])
     for stream in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:
@@ -483,10 +484,9 @@ def test_resolved_angle_candidate_does_not_leak_into_the_next_pending_literal(
     source = (
         "<https://{{" + first + first_tail + " then <https://{{" + second + second_tail
     )
-    expected = (
-        source.replace(first if first_is_question else second, "", 1),
-        [first if first_is_question else second],
-    )
+    # The valid autolink is literal text and the invalid one leaves its opener in
+    # a raw marker name, so neither example is a question.
+    expected = (source, [])
     for stream in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:

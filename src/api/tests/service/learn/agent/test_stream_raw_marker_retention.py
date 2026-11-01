@@ -85,15 +85,15 @@ def test_streamed_raw_name_keeps_opaque_body_and_first_closing_pair(
 def test_unfinished_inline_literal_keeps_raw_marker_ownership_provisional(
     run: str,
 ) -> None:
+    # Once the code or math span closes, the example inside it is literal text.
     inner = "?[A|B]"
     source = "Text " + run + "{{" + inner + " value" + run + " outside"
-    expected = source.replace(inner, "")
     for chunks in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in chunks) + syntax.flush()
-        assert (shown, syntax.spans) == (expected, [inner]), chunks
+        assert (shown, syntax.spans) == (source, []), chunks
 
 
 @pytest.mark.parametrize("suffix", ["", "suffix"])

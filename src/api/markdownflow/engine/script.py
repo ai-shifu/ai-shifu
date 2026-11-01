@@ -12,18 +12,16 @@ from typing import TYPE_CHECKING, Any
 from markdownflow.syntax.parser.marker_context import (
     MarkerContext,
     analyze_marker_context,
-    marker_syntax_source,
 )
 from markdownflow.syntax.variable_names import (
-    find_interaction_spans,
     read_interaction_variable,
 )
 
 # Anything that only makes sense with the MarkdownFlow syntax note.
+# Questions are not matched here: the shared marker scanner decides which
+# `?[...]` is a live control and which is an example inside literal Markdown.
 SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
-    # ?[...] interaction: not escaped by an odd backslash run, not a link.
-    r"|(?<!\\)(?:\\\\)*\?\[[^\]\n]*\](?!\()"
     r"|^!?===.*$",  # ===preserved=== / !=== fences
     re.MULTILINE,
 )
@@ -91,6 +89,8 @@ class ScriptBundle:
 
 def detect_syntax(text: str) -> bool:
     """Report whether the text uses any MarkdownFlow notation outside fenced code blocks."""
+    if "?[" in text and analyze_marker_context(text).controls:
+        return True
     source = _strip_fences(text)
     return bool(SYNTAX_RE.search(source)) or any(
         marker.name is not None for marker in analyze_marker_context(source).markers
@@ -110,7 +110,8 @@ def _project_variable_markers(
     masked: list[str] = []
     at = 0
     context = analyze_marker_context(text, fence_indent=0)
-    bindings = _interaction_bindings(text, context)
+    # Bindings follow the CommonMark document, as everywhere else.
+    bindings = _interaction_bindings(text, analyze_marker_context(text))
     for marker in context.markers:
         token = f"{marker_prefix}{len(markers)}\x00"
         markers[token] = (
@@ -143,21 +144,9 @@ def _strip_fences(text: str) -> str:
 
 
 def _interaction_bindings(text: str, context: MarkerContext) -> set[int]:
-    """Locate leading bindings within the existing document control boundaries."""
+    """Locate the leading binding of every live control the scanner found."""
     bindings: set[int] = set()
-    syntax = list(marker_syntax_source(text, context))
-    # An unfinished literal example must not consume a later real control's end.
-    for opening, closing in context.literals:
-        at = text.find("?[", opening, closing)
-        while at >= 0:
-            syntax[at] = "\x00"
-            at = text.find("?[", at + 2, closing)
-    literal = 0
-    for start, end in find_interaction_spans(text, syntax_source="".join(syntax)):
-        while literal < len(context.literals) and context.literals[literal][1] <= start:
-            literal += 1
-        if literal < len(context.literals) and context.literals[literal][0] <= start:
-            continue
+    for start, end in context.controls:
         marker = read_interaction_variable(text[start + 2 : end - 1])
         if marker is not None and marker.name is not None:
             bindings.add(start + 2 + marker.start)
