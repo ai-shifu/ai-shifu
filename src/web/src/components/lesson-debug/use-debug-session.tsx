@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { SSE } from 'sse.js';
+import type { SSE } from 'sse.js';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser, normalizeVariableName } from 'remark-flow';
 import {
@@ -31,7 +31,7 @@ import LoadingBar from '@/components/chat/LoadingBar';
 import { ChatContentItem, ChatContentItemType } from '@/types/chat-ui';
 import { normalizeLegacyBlockCompatList } from '@/lib/chat-ui-compat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import { useShifu, useUserStore } from '@/store';
+import { useShifu } from '@/store';
 import { toast } from '@/hooks/use-toast';
 import {
   resolveLearnerErrorMessage,
@@ -44,12 +44,8 @@ import {
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
 } from '@/lib/credit-insufficient-toast';
-import {
-  attachSseBusinessResponseFallback,
-  getCurrentLanguageHeaders,
-} from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
-import { buildTraceHeaders } from '@/lib/request-trace';
+import { onSseData, openSseStream } from '@/lib/sse-client';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/hooks/use-tracking';
 import type {
@@ -1449,17 +1445,6 @@ export function useDebugSession({
       currentStreamingElementBidRef.current = null;
 
       try {
-        const tokenValue = useUserStore.getState().getToken();
-        const traceHeaders = buildTraceHeaders({
-          'Content-Type': 'application/json',
-          ...getCurrentLanguageHeaders(),
-          ...(tokenValue
-            ? {
-                Authorization: `Bearer ${tokenValue}`,
-                Token: tokenValue,
-              }
-            : {}),
-        });
         const payload: Record<string, unknown> = {
           block_index: finalBlockIndex,
           content: finalMdflow,
@@ -1475,31 +1460,20 @@ export function useDebugSession({
           payload.user_input = normalizedUserInput;
         }
         const url = `${resolvedBaseUrl}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`;
-        const source = new SSE(url, {
-          headers: traceHeaders.headers,
-          payload: JSON.stringify(payload),
+        const source = openSseStream({
+          url,
           method: 'POST',
-        });
-        runStreamRef.current = source;
-        attachSseBusinessResponseFallback(source, {
-          requestToken: tokenValue || '',
-          meta: {
-            url,
-            method: 'POST',
-            requestToken: tokenValue || '',
-            requestId: traceHeaders.requestId,
-            harnessRunId: traceHeaders.harnessRunId,
-            skipErrorToast: true,
-            creditInsufficientAudience,
-          },
-          onHandled: error => {
-            if (runStreamRef.current !== source) {
+          payload,
+          meta: { skipErrorToast: true, creditInsufficientAudience },
+          onBusinessError: (error, erroredSource) => {
+            if (runStreamRef.current !== erroredSource) {
               return;
             }
             handleDebugBusinessError(error);
           },
         });
-        source.addEventListener('message', event => {
+        runStreamRef.current = source;
+        onSseData(source, data => {
           if (
             !isCurrentStreamGeneration(streamGeneration) ||
             debugFailedRef.current ||
@@ -1507,13 +1481,8 @@ export function useDebugSession({
           ) {
             return;
           }
-          const raw = event?.data;
-          if (!raw) return;
-          const payload = String(raw).trim();
-          if (payload) {
-            handlePayload(payload);
-            setIsLoading(false);
-          }
+          handlePayload(data);
+          setIsLoading(false);
         });
         source.addEventListener('error', err => {
           if (
@@ -1993,24 +1962,14 @@ export function useDebugSession({
         ),
       );
 
-      const tokenValue = useUserStore.getState().getToken();
-      const traceHeaders = buildTraceHeaders({
-        'Content-Type': 'application/json',
-        ...getCurrentLanguageHeaders(),
-        ...(tokenValue
-          ? {
-              Authorization: `Bearer ${tokenValue}`,
-              Token: tokenValue,
-            }
-          : {}),
-      });
-
       return new Promise((resolve, reject) => {
         const url = `${resolvedBaseUrl}/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`;
-        const source = new SSE(url, {
-          headers: traceHeaders.headers,
-          payload: JSON.stringify({ text: text || '' }),
+        const source = openSseStream({
+          url,
           method: 'POST',
+          payload: { text: text || '' },
+          meta: { creditInsufficientAudience },
+          onBusinessError: error => fail(error),
         });
         audioStreamsByElementRef.current[elementBid] = source;
         let settled = false;
@@ -2049,20 +2008,7 @@ export function useDebugSession({
           settleFailure(
             new DOMException('Preview audio request cancelled', 'AbortError'),
           );
-        attachSseBusinessResponseFallback(source, {
-          requestToken: tokenValue || '',
-          meta: {
-            url,
-            method: 'POST',
-            requestToken: tokenValue || '',
-            requestId: traceHeaders.requestId,
-            harnessRunId: traceHeaders.harnessRunId,
-            creditInsufficientAudience,
-          },
-          onHandled: fail,
-        });
-
-        source.addEventListener('message', event => {
+        onSseData(source, payload => {
           if (
             !isCurrentStreamGeneration(streamGeneration) ||
             debugFailedRef.current ||
@@ -2070,10 +2016,6 @@ export function useDebugSession({
           ) {
             return;
           }
-          const raw = event?.data;
-          if (!raw) return;
-          const payload = String(raw).trim();
-          if (!payload) return;
 
           try {
             const response = JSON.parse(payload);

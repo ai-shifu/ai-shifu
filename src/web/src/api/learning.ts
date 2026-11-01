@@ -1,12 +1,10 @@
-import { SSE } from 'sse.js';
-import request, {
-  attachSseBusinessResponseFallback,
-  getCurrentLanguageHeaders,
-  getCurrentRequestLanguage,
-} from '@/lib/request';
-import { buildTraceHeaders } from '@/lib/request-trace';
+import request, { getCurrentRequestLanguage } from '@/lib/request';
+import {
+  dispatchSseBusinessError,
+  onSseJson,
+  openSseStream,
+} from '@/lib/sse-client';
 import { getResolvedBaseURL } from '@/lib/env-utils';
-import { useUserStore } from '@/store/use-user-store';
 import type { CreditInsufficientAudience } from '@/lib/credit-insufficient-toast';
 import {
   getMockRunFixtureMode,
@@ -230,21 +228,6 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
-const dispatchSseBusinessError = (
-  source: { dispatchEvent: (event: Event) => void },
-  error: { message: string; code?: number },
-) => {
-  const event = new CustomEvent('error', {
-    detail: error,
-  }) as CustomEvent<{ message: string; code?: number }> & {
-    data?: string;
-    responseCode?: number;
-  };
-  event.data = error.message;
-  event.responseCode = error.code;
-  source.dispatchEvent(event);
-};
-
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -259,7 +242,6 @@ export const getRunMessage = (
   onMessage: (data: any) => void,
   onError?: (error: unknown) => void,
 ) => {
-  const token = useUserStore.getState().getToken();
   const payload = { ...body };
   payload.listen = Boolean(body.listen);
   const requestLanguage =
@@ -290,16 +272,7 @@ export const getRunMessage = (
   if (mockRunFixtureMode) {
     const source = new MockRunStreamFixtureSource(mockRunFixtureMode);
 
-    source.addEventListener('message', event => {
-      try {
-        const response = JSON.parse((event as MessageEvent<string>).data);
-        if (onMessage) {
-          onMessage(response);
-        }
-      } catch {
-        // ignore malformed SSE payloads
-      }
-    });
+    onSseJson(source, onMessage);
 
     source.addEventListener('error', e => {
       if (onError) {
@@ -315,61 +288,26 @@ export const getRunMessage = (
   }
 
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`;
-  const traceHeaders = buildTraceHeaders({
-    'Content-Type': 'application/json',
-    ...getCurrentLanguageHeaders(requestLanguage),
-    ...(token
-      ? {
-          Authorization: `Bearer ${token}`,
-          Token: token,
-        }
-      : {}),
-  });
-  const source = new SSE(url, {
-    headers: traceHeaders.headers,
-    payload: JSON.stringify(payload),
+  const source = openSseStream({
+    url,
     method: 'PUT',
+    payload,
+    language: requestLanguage,
+    meta: { creditInsufficientAudience },
+    onBusinessError: (error, stream) => dispatchSseBusinessError(stream, error),
   });
 
-  source.addEventListener('message', event => {
-    try {
-      const response = JSON.parse(event.data);
-      if (onMessage) {
-        onMessage(response);
-      }
-    } catch {
-      // ignore malformed SSE payloads
-    }
-  });
+  onSseJson(source, onMessage);
 
   source.addEventListener('error', e => {
-    if ((e as { detail?: unknown }).detail) {
-      if (onError) {
-        onError(e);
-      }
-      return;
-    }
-
     if (onError) {
       onError(e);
       return;
     }
-    console.error('[SSE error]', e);
-  });
-
-  attachSseBusinessResponseFallback(source, {
-    requestToken: token || '',
-    meta: {
-      url,
-      method: 'PUT',
-      requestToken: token || '',
-      requestId: traceHeaders.requestId,
-      harnessRunId: traceHeaders.harnessRunId,
-      creditInsufficientAudience,
-    },
-    onHandled: error => {
-      dispatchSseBusinessError(source, error);
-    },
+    // Business errors (with `detail`) are never logged without a handler.
+    if (!(e as { detail?: unknown }).detail) {
+      console.error('[SSE error]', e);
+    }
   });
 
   source.stream();
@@ -384,50 +322,18 @@ const createSseSource = (
   onError?: (error: unknown) => void,
   creditInsufficientAudience: CreditInsufficientAudience = 'learner',
 ) => {
-  const token = useUserStore.getState().getToken();
-  const traceHeaders = buildTraceHeaders({
-    'Content-Type': 'application/json',
-    ...getCurrentLanguageHeaders(),
-    ...(token
-      ? {
-          Authorization: `Bearer ${token}`,
-          Token: token,
-        }
-      : {}),
-  });
-
-  const source = new SSE(url, {
-    headers: traceHeaders.headers,
-    payload: JSON.stringify(payload),
+  const source = openSseStream({
+    url,
     method: 'POST',
+    payload,
+    meta: { creditInsufficientAudience },
+    onBusinessError: (error, stream) => dispatchSseBusinessError(stream, error),
   });
 
-  source.addEventListener('message', event => {
-    try {
-      const response = JSON.parse(event.data);
-      onMessage(response);
-    } catch {
-      // ignore malformed SSE payloads
-    }
-  });
+  onSseJson(source, onMessage);
 
   source.addEventListener('error', e => {
     onError?.(e);
-  });
-
-  attachSseBusinessResponseFallback(source, {
-    requestToken: token || '',
-    meta: {
-      url,
-      method: 'POST',
-      requestToken: token || '',
-      requestId: traceHeaders.requestId,
-      harnessRunId: traceHeaders.harnessRunId,
-      creditInsufficientAudience,
-    },
-    onHandled: error => {
-      dispatchSseBusinessError(source, error);
-    },
   });
 
   source.stream();

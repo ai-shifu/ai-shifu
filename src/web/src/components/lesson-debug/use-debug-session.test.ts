@@ -95,6 +95,10 @@ jest.mock('@/store', () => {
   };
 });
 
+// The shared SSE client reads the token from the user store module directly.
+jest.mock('@/store/use-user-store', () => ({
+  useUserStore: { getState: () => ({ getToken: () => '' }) },
+}));
 jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
