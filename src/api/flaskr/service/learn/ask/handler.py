@@ -532,6 +532,7 @@ def handle_input_ask(
         return plain_stream()
 
     llm_runtime = AskProviderRuntime(
+        search_query=raw_input,
         # Pass complete conversation history; an empty knowledge context
         # clears the ask-template {knowledge} placeholder.
         llm_stream_factory=lambda: _chat_llm_stream(

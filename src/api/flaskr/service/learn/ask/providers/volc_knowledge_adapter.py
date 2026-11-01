@@ -25,6 +25,7 @@ from .base import (
     AskProviderError,
     AskProviderRuntime,
     AskProviderTimeoutError,
+    retrieval_query,
 )
 from .common import extract_text, safe_provider_client
 from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
@@ -163,9 +164,14 @@ def _with_follow_up_context(
     config_value: object,
     path: str,
     user_query: str,
+    search_query: str,
     messages: list[dict[str, object]],
 ) -> dict[str, object] | None:
-    """Fill native rewriting context without overriding explicit teacher contracts."""
+    """Fill native rewriting context without overriding explicit teacher contracts.
+
+    The host's copy of the current question (`user_query`) is dropped from the end
+    of the history, and the rewrite sees the learner's own `search_query` instead.
+    """
     if path.rstrip("/") != "/api/knowledge/collection/search_knowledge":
         return pre_processing
     if config_value is not None and not isinstance(config_value, dict):
@@ -186,11 +192,14 @@ def _with_follow_up_context(
             and content.strip()
         ):
             contextual_messages.append({"role": role, "content": content})
-    current = {"role": "user", "content": user_query}
-    if contextual_messages and contextual_messages[-1] == current:
+    if contextual_messages and contextual_messages[-1] == {
+        "role": "user",
+        "content": user_query,
+    }:
         contextual_messages.pop()
     if not contextual_messages:
         return pre_processing
+    current = {"role": "user", "content": search_query}
     return {**result, "rewrite": True, "messages": [*contextual_messages, current]}
 
 
@@ -252,7 +261,8 @@ class VolcKnowledgeAskProviderAdapter:
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
         """Stream answer chunks from the configured provider."""
-        _ = (user_id, runtime)
+        _ = user_id
+        query = retrieval_query(user_query, runtime)
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
             config = {}
@@ -282,7 +292,7 @@ class VolcKnowledgeAskProviderAdapter:
         payload: dict[str, Any] = {
             "project": project,
             "name": collection_name,
-            "query": user_query,
+            "query": query,
             "limit": _to_positive_int(config.get("limit"), 20),
         }
         dense_weight = config.get("dense_weight")
@@ -293,14 +303,13 @@ class VolcKnowledgeAskProviderAdapter:
         if image_query:
             payload["image_query"] = image_query
 
-        pre_processing = _normalize_pre_processing(
-            config.get("pre_processing"), user_query
-        )
+        pre_processing = _normalize_pre_processing(config.get("pre_processing"), query)
         pre_processing = _with_follow_up_context(
             pre_processing,
             config_value=config.get("pre_processing"),
             path=path,
             user_query=user_query,
+            search_query=query,
             messages=messages,
         )
         if pre_processing is not None:
