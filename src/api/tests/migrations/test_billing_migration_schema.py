@@ -11,6 +11,7 @@ the opt-in fresh-MySQL smoke test.
 from __future__ import annotations
 
 import ast
+import copy
 from pathlib import Path
 
 import pytest
@@ -24,16 +25,6 @@ RAW_PROVIDER_TABLES = {"order_pingxx_orders", "order_stripe_orders"}
 # drift, tracked separately). Remove an entry once a migration adds the index.
 KNOWN_UNMIGRATED_INDEXES = frozenset(
     {
-        "ix_bill_campaign_provider_discounts_campaign_bid",
-        "ix_bill_campaign_provider_discounts_created_user_bid",
-        "ix_bill_campaign_provider_discounts_deleted",
-        "ix_bill_campaign_provider_discounts_product_bid",
-        "ix_bill_campaign_provider_discounts_product_provider_price_bid",
-        "ix_bill_campaign_provider_discounts_provider",
-        "ix_bill_campaign_provider_discounts_provider_coupon_id",
-        "ix_bill_campaign_provider_discounts_provider_price_id",
-        "ix_bill_campaign_provider_discounts_status",
-        "ix_bill_campaign_provider_discounts_updated_user_bid",
         "ix_bill_daily_ledger_summary_creator_bid",
         "ix_bill_daily_ledger_summary_daily_ledger_summary_bid",
         "ix_bill_daily_ledger_summary_deleted",
@@ -80,6 +71,18 @@ def _str(node: ast.AST | None) -> str | None:
     # op.f("ix_...") / batch_op.f("ix_...") only marks a name as already final.
     if isinstance(node, ast.Call) and _call_name(node) == "f" and node.args:
         node = node.args[0]
+    if isinstance(node, ast.JoinedStr) and all(
+        isinstance(part, ast.Constant)
+        or (
+            isinstance(part, ast.FormattedValue)
+            and isinstance(part.value, ast.Constant)
+        )
+        for part in node.values
+    ):
+        return "".join(
+            str(part.value if isinstance(part, ast.Constant) else part.value.value)
+            for part in node.values
+        )
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     return None
@@ -171,6 +174,19 @@ def _model_definition(column: Column) -> dict[str, object]:
     }
 
 
+class _Substitute(ast.NodeTransformer):
+    """Replace a loop variable with one of its constant values."""
+
+    def __init__(self, name: str, value: str) -> None:
+        self.name = name
+        self.value = value
+
+    def visit_Name(self, node: ast.Name) -> ast.AST:
+        if node.id == self.name:
+            return ast.copy_location(ast.Constant(self.value), node)
+        return node
+
+
 class _SchemaReplay:
     """Track each table's columns, indexes and unique constraints across migrations."""
 
@@ -232,6 +248,19 @@ class _SchemaReplay:
 
     def _visit(self, statements: list[ast.stmt], batch_table: str | None) -> None:
         for statement in statements:
+            if (
+                isinstance(statement, ast.For)
+                and isinstance(statement.target, ast.Name)
+                and isinstance(statement.iter, ast.Tuple | ast.List)
+                and all(_str(item) is not None for item in statement.iter.elts)
+            ):
+                # Unroll ``for column in ("a", "b"): op.create_index(f"..._{column}", ...)``.
+                for item in statement.iter.elts:
+                    body = _Substitute(statement.target.id, _str(item)).visit(
+                        ast.Module(body=copy.deepcopy(statement.body), type_ignores=[])
+                    )
+                    self._visit(body.body, batch_table)
+                continue
             if isinstance(statement, ast.With):
                 table = batch_table
                 for item in statement.items:
@@ -428,10 +457,23 @@ def test_migrations_build_the_billing_model_schema(table: Table) -> None:
     migrated_unique_columns = {
         columns for columns, unique in migrated_indexes.values() if unique
     }
-    for constraint in table.constraints:
-        if isinstance(constraint, UniqueConstraint) and not constraint.name:
-            columns = tuple(column.name for column in constraint.columns)
-            assert columns in migrated_unique_columns, columns
+    unnamed_model_uniques = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint) and not constraint.name
+    }
+    assert unnamed_model_uniques <= migrated_unique_columns
+
+    # The other direction: a migrated index or unique constraint the model does
+    # not declare is drift too, unless it implements an unnamed model unique.
+    extra = {
+        name
+        for name, (columns, unique) in migrated_indexes.items()
+        if name not in model_indexes
+        and name not in KNOWN_UNMIGRATED_INDEXES
+        and not (unique and columns in unnamed_model_uniques)
+    }
+    assert not extra
 
 
 def test_billing_migrations_do_not_seed_rows() -> None:
