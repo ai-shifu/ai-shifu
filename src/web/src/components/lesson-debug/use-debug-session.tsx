@@ -1335,10 +1335,12 @@ export function useDebugSession({
           : undefined;
       if (
         hasSessionStartedRef.current &&
-        mdflow !== runParamsRef.current.mdflow
+        mdflow !== runParamsRef.current.mdflow &&
+        !normalizedUserInput
       ) {
-        // An answer to an edited question belongs to the old script. Start the
-        // new draft from its beginning with a new debug session instead.
+        // Without an answer there is nothing to continue: start the edited draft
+        // from its beginning with a new debug session. An answer keeps the
+        // session, and the server continues it under the edited draft.
         variableValues = { ...(initialVariableValuesRef.current || {}) };
         resetSession();
         normalizedUserInput = undefined;

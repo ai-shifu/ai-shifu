@@ -259,6 +259,10 @@ def _load_or_start(
     """
     if debug_store is not None:
         stored = debug_store.load(script=script)
+        if stored is not None and stored.script.script != script:
+            # Editor debug only: an author who edited the draft and answered expects the
+            # rest of the lesson to follow the edited script (see follow_script_edits).
+            stored.script = replace(stored.script, script=script)
     else:
         try:
             stored = load_agent_session(
