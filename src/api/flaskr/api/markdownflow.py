@@ -35,6 +35,7 @@ from markdownflow import (
     collected_names,
     iter_turn,
     normalize_answer,
+    rebase_initial_script,
     substitute_variables,
 )
 
@@ -71,6 +72,7 @@ __all__ = [
     "collected_names",
     "iter_turn",
     "normalize_answer",
+    "rebase_initial_script",
     "render_interaction",
     "render_narrated_interaction",
     "render_question",

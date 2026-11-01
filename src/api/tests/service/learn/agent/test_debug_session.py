@@ -560,7 +560,16 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
     from flaskr.service.learn.agent import run_agent
 
     monkeypatch.setattr(debug_session, "cache", _Cache())
+    from markdownflow import render_first_prompt
+
     session = Session(script=ScriptBundle(script="Old draft"))
+    session.messages = [
+        ModelRequest(
+            parts=[
+                UserPromptPart(render_first_prompt(session.script, {"goal": "learn"}))
+            ]
+        )
+    ]
     session.pending = [
         PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?"))
     ]
@@ -592,6 +601,13 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
     assert resumed.pending[0].tool_call_id == "pause"
     assert resumed.memory["kept"] == "earlier answer"
     assert resumed.script.script == "Edited draft"
+    # The model reads the script from the first prompt, so it carries the edit too.
+    first_prompt = resumed.messages[0].parts[0].content
+    assert "<script>\nEdited draft\n</script>" in first_prompt
+    assert "Old draft" not in first_prompt
+    assert first_prompt.startswith(
+        render_first_prompt(session.script, {"goal": "learn"}).split("\n\n<script>")[0]
+    )
     following.save(resumed)
     # Saved under the edited draft, so the next answer resumes without the flag.
     assert _store(app).load(script="Edited draft").id == session.id

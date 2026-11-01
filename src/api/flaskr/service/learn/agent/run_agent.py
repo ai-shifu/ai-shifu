@@ -42,6 +42,7 @@ from flaskr.api.markdownflow import (
     StartTurn,
     TurnDone,
     collected_names,
+    rebase_initial_script,
 )
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
@@ -257,12 +258,14 @@ def _load_or_start(
     snapshot taken when it was last saved, so an author editing a learner's profile would otherwise
     never reach the lesson already in progress.
     """
+    script_edited = False
     if debug_store is not None:
         stored = debug_store.load(script=script)
         if stored is not None and stored.script.script != script:
             # Editor debug only: an author who edited the draft and answered expects the
             # rest of the lesson to follow the edited script (see follow_script_edits).
             stored.script = replace(stored.script, script=script)
+            script_edited = True
     else:
         try:
             stored = load_agent_session(
@@ -364,6 +367,12 @@ def _load_or_start(
             # Only the brief, not the script. Replacing the script under a conversation that has
             # already been taught from it would leave the two disagreeing about what was said.
             stored.script = replace(stored.script, constraints=teaching_brief or None)
+            if script_edited:
+                # The model reads the script from the first user message, not from the
+                # bundle, so the edited draft has to replace it there as well.
+                rebased = rebase_initial_script(stored.messages, stored.script)
+                if rebased is not None:
+                    stored.messages = rebased
             return stored
         # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
         # the engine's own listen mode -- which we do not use, and which a session would keep
