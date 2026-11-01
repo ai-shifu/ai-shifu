@@ -1,23 +1,25 @@
-"""Keep the syntax-layer and engine marker scanners on one CommonMark answer.
+"""Keep every view of the single marker scanner on one CommonMark answer.
 
-Each case came from a differential run of both scanners over the test corpus,
-real lessons and generated literal contexts. The expected values follow
-CommonMark 0.31.2 as rendered by the web client's parser (micromark).
+The editor/publish document helpers and the engine's projection both read
+``syntax.parser.marker_context``. Each case came from a differential run of the
+two former scanners over the test corpus, real lessons and generated literal
+contexts. The expected values follow CommonMark 0.31.2 as rendered by the web
+client's parser (micromark).
 """
 
 from dataclasses import dataclass
 
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
-from markdownflow.engine.marker_context import (
-    analyze_marker_context,
-    marker_syntax_source,
-)
 from markdownflow.engine.tools import _script_questions
 from markdownflow.syntax.parser.document_context import (
     find_document_interaction_spans,
     find_document_protected_spans,
     find_document_variable_markers,
+)
+from markdownflow.syntax.parser.marker_context import (
+    analyze_marker_context,
+    marker_syntax_source,
 )
 from markdownflow.syntax.variable_names import (
     find_interaction_spans,
@@ -265,7 +267,7 @@ def _wrap(source: str, first: str, continued: str, newline: str) -> str:
     [case[1:] for case in CASES],
     ids=[case[0] for case in CASES],
 )
-def test_both_scanners_return_the_commonmark_answer(
+def test_document_and_engine_views_return_the_commonmark_answer(
     source: str,
     live: set[str],
     literal: set[str],
@@ -288,6 +290,18 @@ def test_both_scanners_return_the_commonmark_answer(
         (question.variable, [choice.strip() for choice in question.choices])
         for question in _script_questions(text)
     ] == [("real", ["A", "B"])] * len(controls)
+
+
+@pytest.mark.parametrize("boundary", ["- b", "> b", "# H\n", "***\n", "```\nc\n```\n"])
+def test_link_label_does_not_reach_across_a_block_boundary(boundary: str) -> None:
+    # micromark renders "[a" and "](/u)" as text in separate blocks.
+    text = "[a\n" + boundary + "](/u)"
+    literals = [
+        span
+        for span in find_document_protected_spans(text)
+        if text.startswith("(", span[0])
+    ]
+    assert literals == []
 
 
 def test_container_inline_html_keeps_one_global_token_boundary() -> None:

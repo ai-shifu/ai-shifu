@@ -1,10 +1,10 @@
 """Reuse native container bounds without changing their physical source scope."""
 
 import pytest
-from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
 from markdownflow.syntax.parser import document_blocks
 from markdownflow.syntax.parser.document_blocks import DocumentBlocks
+from markdownflow.syntax.parser.marker_context import analyze_marker_context
 
 HTML_PATTERN = COMPILED_INLINE_HTML_REGEX
 

@@ -15,9 +15,9 @@ from markdownflow.syntax.parser.document_blocks import (
     indentation,
     physical_lines,
 )
+from markdownflow.syntax.parser.marker_context import analyze_marker_context
 from markdownflow.syntax.variable_names import read_variable_marker
 
-from .marker_context import analyze_marker_context
 from .stream_html_context import pending_html_prefix
 
 _HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]|$)")
