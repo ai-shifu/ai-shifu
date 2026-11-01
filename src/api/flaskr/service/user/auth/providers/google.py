@@ -9,6 +9,7 @@ from typing import Any, Never
 import jwt
 from authlib.integrations.requests_client import OAuth2Session
 from flask import current_app, request
+from flaskr.common.i18n_utils import first_accept_language
 from flaskr.common.public_urls import build_google_oauth_callback_url
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.dtos import UserToken
@@ -85,17 +86,8 @@ def _extract_browser_language() -> str | None:
     1. First language in the Accept-Language header
     2. None if header is missing or cannot be parsed
     """
-    accept_language = request.headers.get("Accept-Language")
-    if not accept_language:
-        return None
-
-    # Example header: "zh-CN,zh;q=0.9,en;q=0.8"
-    first_part = accept_language.split(",")[0].strip()
-    if not first_part:
-        return None
-
-    # Strip any quality value if present, e.g. "en-US;q=0.9" -> "en-US"
-    language_token = first_part.split(";")[0].strip()
+    # Example header: "zh-CN,zh;q=0.9,en;q=0.8" -> "zh-CN"
+    language_token = first_accept_language(request.headers.get("Accept-Language"))
     if not language_token:
         return None
 

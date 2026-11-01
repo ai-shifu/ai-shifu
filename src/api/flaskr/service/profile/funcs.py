@@ -3,14 +3,10 @@
 import logging
 
 from flask import Flask
-from flaskr.api.check import (
-    CHECK_RESULT_PASS,
-    CHECK_RESULT_REJECT,
-    check_text,
-)
+from flaskr.api.check import CHECK_RESULT_REJECT
 from flaskr.dao import db
 from flaskr.i18n import _, get_locale_labels
-from flaskr.service.check_risk.funcs import add_risk_control_result
+from flaskr.service.check_risk.api import check_and_record_text
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.profile.course_references import is_course_reference
@@ -126,18 +122,8 @@ def check_text_content(
     user_input: str,
 ) -> bool:
     """Check text content."""
-    check_id = generate_id(app)
-    res = check_text(app, check_id, user_input, user_id)
-    add_risk_control_result(
-        app,
-        check_id,
-        user_id,
-        user_input,
-        res.provider,
-        res.check_result,
-        str(res.raw_data),
-        1 if res.check_result == CHECK_RESULT_PASS else 0,
-        "check_text",
+    res = check_and_record_text(
+        app, generate_id(app), user_id, user_input, "check_text"
     )
     return res.check_result != CHECK_RESULT_REJECT
 

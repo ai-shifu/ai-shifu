@@ -19,6 +19,10 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.config import get_redis_derived_prefix
+from flaskr.common.i18n_utils import (
+    canonicalize_language_tag,
+    match_supported_language,
+)
 from flaskr.dao import db, uow
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
@@ -56,27 +60,7 @@ def _normalize_language_code(language_code: str) -> str:
     """Normalize legacy or inconsistent language codes into a canonical form."""
     if not language_code:
         return ""
-
-    normalized = language_code.replace("_", "-")
-    parts = [segment for segment in normalized.split("-") if segment]
-
-    if not parts:
-        return ""
-
-    primary = parts[0].lower()
-    subtags = []
-
-    for segment in parts[1:]:
-        if len(segment) == 2 and segment.isalpha():
-            subtags.append(segment.upper())
-        elif len(segment) == 4 and segment.isalpha():
-            subtags.append(segment.title())
-        else:
-            subtags.append(segment)
-
-    normalized_parts = [primary]
-    normalized_parts.extend(subtags)
-    return "-".join(normalized_parts)
+    return canonicalize_language_tag(language_code)
 
 
 def _resolve_supported_language_code(language_code: str) -> str:
@@ -85,18 +69,7 @@ def _resolve_supported_language_code(language_code: str) -> str:
     if not normalized:
         return "en-US"
 
-    supported_languages = get_i18n_list()
-    normalized_lower = normalized.lower()
-    for supported_language in supported_languages:
-        if supported_language.lower() == normalized_lower:
-            return supported_language
-
-    primary_language = normalized_lower.split("-", maxsplit=1)[0]
-    for supported_language in supported_languages:
-        if supported_language.lower().split("-", maxsplit=1)[0] == primary_language:
-            return supported_language
-
-    return "en-US"
+    return match_supported_language(normalized, get_i18n_list()) or "en-US"
 
 
 def get_user_language(user: object) -> str:

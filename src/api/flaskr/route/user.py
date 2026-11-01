@@ -10,6 +10,11 @@ from flask import Flask, Response, current_app, g, make_response, request
 
 from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.http import sensitive_body
+from flaskr.common.i18n_utils import (
+    canonicalize_language_tag,
+    first_accept_language,
+    match_supported_language,
+)
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao.uow import unit_of_work
@@ -144,20 +149,7 @@ _EMAIL_LOGIN_CONFIG = _VerificationLoginConfig(
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:
-    normalized = str(language_code or "").strip().replace("_", "-")
-    parts = [segment for segment in normalized.split("-") if segment]
-    if not parts:
-        return ""
-
-    normalized_parts = [parts[0].lower()]
-    for segment in parts[1:]:
-        if len(segment) == 2 and segment.isalpha():
-            normalized_parts.append(segment.upper())
-        elif len(segment) == 4 and segment.isalpha():
-            normalized_parts.append(segment.title())
-        else:
-            normalized_parts.append(segment)
-    return "-".join(normalized_parts)
+    return canonicalize_language_tag(str(language_code or "").strip())
 
 
 def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
@@ -168,17 +160,10 @@ def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
     supported_languages = (
         tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
     )
-    normalized_language_lower = normalized_language.lower()
-    for supported_language in supported_languages:
-        if supported_language.lower() == normalized_language_lower:
-            return supported_language
-
-    primary_language = normalized_language_lower.split("-", 1)[0]
-    for supported_language in supported_languages:
-        if supported_language.lower().split("-", 1)[0] == primary_language:
-            return supported_language
-
-    return normalized_language
+    return (
+        match_supported_language(normalized_language, supported_languages)
+        or normalized_language
+    )
 
 
 def _resolve_profile_onboarding_runtime_language(
@@ -214,14 +199,7 @@ def _extract_request_language(payload: dict | None = None) -> str | None:
             raw_language = str(language).strip()
 
     if not raw_language:
-        accept_language = request.headers.get("Accept-Language", "")
-        if not accept_language:
-            return None
-
-        first_part = accept_language.split(",")[0].strip()
-        if not first_part:
-            return None
-        raw_language = first_part.split(";")[0].strip()
+        raw_language = first_accept_language(request.headers.get("Accept-Language"))
 
     return _resolve_supported_runtime_language(raw_language)
 
