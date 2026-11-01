@@ -19,7 +19,8 @@ from .marker_context import MarkerContext, analyze_marker_context, marker_syntax
 # Anything that only makes sense with the MarkdownFlow syntax note.
 SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
-    r"|(?<!\\)\?\[[^\]\n]*\](?!\()"  # ?[...] interaction (not an escaped one, not a link)
+    # ?[...] interaction: not escaped by an odd backslash run, not a link.
+    r"|(?<!\\)(?:\\\\)*\?\[[^\]\n]*\](?!\()"
     r"|^!?===.*$",  # ===preserved=== / !=== fences
     re.MULTILINE,
 )

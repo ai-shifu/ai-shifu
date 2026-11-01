@@ -321,3 +321,22 @@ def test_learner_filter_counts_the_whole_backslash_run(
         )
         assert syntax.spans == spans, chunk_size
         assert output + "".join(spans) == source
+
+
+@pytest.mark.parametrize(
+    ("text", "uses_syntax"),
+    [
+        ("?[A|B]", True),
+        ("\\?[A|B]", False),
+        ("\\\\?[A|B]", True),
+        ("\\\\\\?[A|B]", False),
+    ],
+    ids=["plain", "escaped", "escaped-backslash", "escaped-after-escaped-backslash"],
+)
+def test_syntax_detection_counts_the_backslash_run(
+    text: str, uses_syntax: bool
+) -> None:
+    # An even run is escaped backslashes, so the control still makes the script use syntax.
+    from markdownflow.engine.script import detect_syntax
+
+    assert detect_syntax(text) is uses_syntax
