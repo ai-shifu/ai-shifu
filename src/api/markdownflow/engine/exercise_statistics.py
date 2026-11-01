@@ -66,7 +66,9 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "Audit qualifying hint rounds both before and after the first actual answer; "
             "hints is their sum, while hints_before_first is only the earlier subset. "
             "Supply hint_before and each submission's hint_after from original "
-            "teaching; omit scalar count assertions and let the calculator sum rounds. "
+            "teaching; omit scalar count assertions and let the calculator sum rounds, "
+            "except for a question with empty submissions: assert its hints total "
+            "from the original teaching, including rounds after a confirmation pause. "
             "For hint_before inspect the first record's teaching, not following_teaching, "
             "plus its visible question fields, including qualifying placeholder help. "
             "Keep course logistics and question-only teaching false under rules that exclude "
@@ -312,7 +314,9 @@ class ExerciseQuestion(BaseModel):
             "answer. One pre-answer explanation plus one later correction hint "
             "means two rounds, not one. Exclude post-correct analysis. "
             "Prefer omitting this assertion: supply hint_before and hint_after "
-            "for each input, and the calculator derives the count. Use null when unknown."
+            "for each input, and the calculator derives the count. A question with "
+            "empty submissions has no rounds to derive from, so assert its total. "
+            "Use null when unknown."
         ),
     )
     hints_before_first: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = Field(
