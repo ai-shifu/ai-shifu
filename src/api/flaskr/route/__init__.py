@@ -5,10 +5,16 @@ from flask import Flask
 
 def register_route(app: Flask) -> Flask:
     """Register every API route group on the Flask application."""
+    from flaskr.service.billing.routes import register_billing_routes
     from flaskr.service.common.skill_request_analytics import (
         register_skill_request_analytics,
     )
+    from flaskr.service.dashboard.routes import register_dashboard_routes
+    from flaskr.service.learn.routes import register_learn_routes
+    from flaskr.service.llm.route import register_llm_routes
+    from flaskr.service.profile.routes import register_learner_profile_routes
     from flaskr.service.referral.routes import register_referral_routes
+    from flaskr.service.shifu.route import register_shifu_routes
 
     from .callback import register_callback_handler
     from .common import register_common_handler
@@ -20,6 +26,15 @@ def register_route(app: Flask) -> Flask:
     from .order import register_order_handler
     from .storage import register_storage_handler
     from .user import register_user_handler
+
+    # Service route groups keep their own /api paths, independent of PATH_PREFIX.
+    with app.app_context():
+        register_billing_routes(app)
+        register_dashboard_routes(app)
+        register_learn_routes(app)
+        register_llm_routes(app)
+        register_learner_profile_routes(app)
+        register_shifu_routes(app)
 
     prefix = app.config.get("PATH_PREFIX", "")
     app = register_skill_request_analytics(app)

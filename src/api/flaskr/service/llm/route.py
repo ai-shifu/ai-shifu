@@ -6,12 +6,10 @@ from flaskr.api.llm import (
     get_follow_up_models,
     get_legacy_course_model_options,
 )
-from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.llm.dtos import FollowUpModelOptionDTO
 
 
-@inject
 def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
     """Register LLM routes."""
     app.logger.info("register llm routes %s", path_prefix)
