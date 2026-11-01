@@ -2463,6 +2463,83 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
     assert captured["completion_kwargs"]["temperature"] == 0.4
 
 
+def _single_test_provider(monkeypatch: object) -> None:
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "test": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key"},
+                models=["test-model"],
+            )
+        },
+    )
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"test-model": ("test", "test-model")})
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+
+
+def test_invoke_llm_reports_the_finish_chunk_and_truncation(
+    monkeypatch: object, app: object
+) -> None:
+    # Prompt callers reject cut-off answers from the finish-reason-only chunk.
+    _single_test_provider(monkeypatch)
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("c1", content="partial"),
+                FakeResponse("c1", finish_reason="length"),
+            ]
+        ),
+    )
+    span = DummySpan()
+
+    chunks = list(
+        llm.invoke_llm(
+            app=app, user_id="u1", span=span, model="test-model", message="hi"
+        )
+    )
+
+    assert [(c.result, c.finish_reason, c.is_truncated) for c in chunks] == [
+        ("partial", None, False),
+        ("", "length", True),
+    ]
+    assert span.update_args == {"output": "partial"}
+
+
+def test_invoke_llm_records_a_failed_request(monkeypatch: object, app: object) -> None:
+    _single_test_provider(monkeypatch)
+    recorded: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: recorded.append(kwargs)
+    )
+
+    def failing_stream(*_args: object, **_kwargs: object) -> object:
+        yield FakeResponse("c1", content="part")
+        message = "provider dropped the stream"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(llm.litellm, "completion", failing_stream)
+
+    with pytest.raises(RuntimeError):
+        list(
+            llm.invoke_llm(
+                app=app,
+                user_id="u1",
+                span=DummySpan(),
+                model="test-model",
+                message="hi",
+            )
+        )
+
+    assert [(r["status"], r["error_message"]) for r in recorded] == [
+        (1, "RuntimeError")
+    ]
+
+
 def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     monkeypatch: object, app: object
 ) -> None:
@@ -2500,6 +2577,38 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     )
 
     assert [resp.result for resp in responses] == ["你好"]
+
+
+def test_invoke_llm_raises_on_repeated_stream_chunk_after_text(
+    monkeypatch: object, app: object
+) -> None:
+    # A prompt answer cut off by the error must not reach publishing or profiles.
+    class RepeatedChunkError(Exception):
+        __module__ = "litellm.exceptions"
+
+    def fake_completion(*_args: object, **_kwargs: object) -> object:
+        yield FakeResponse("chunk-1", content="Chapter 1: Par")
+        message = "The model is repeating the same chunk."
+        raise RepeatedChunkError(message)
+
+    _single_test_provider(monkeypatch)
+    recorded: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: recorded.append(kwargs)
+    )
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    with pytest.raises(RepeatedChunkError):
+        list(
+            llm.invoke_llm(
+                app=app,
+                user_id="u1",
+                span=DummySpan(),
+                model="test-model",
+                message="hi",
+            )
+        )
+    assert [r["status"] for r in recorded] == [1]
 
 
 @pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
