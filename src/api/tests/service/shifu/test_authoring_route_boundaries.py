@@ -15,6 +15,7 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import route as shifu_routes
 from flaskr.service.shifu import shifu_draft_funcs
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
+from werkzeug.http import parse_options_header
 
 from tests.common.fixtures.fake_llm import fake_chat_llm
 
@@ -765,22 +766,28 @@ def test_file_upload_requires_a_file(test_client: object) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "course_bid", ["course", "another-course", "..", r"tenant\course"]
+)
 def test_export_download_cleans_temporary_file_after_response(
-    test_client: object, monkeypatch: pytest.MonkeyPatch
+    test_client: object, monkeypatch: pytest.MonkeyPatch, course_bid: str
 ) -> None:
     exported = []
 
     def export(_app: object, shifu_bid: str, target: str) -> None:
-        assert shifu_bid == "course"
+        assert shifu_bid == course_bid
         path = Path(target)
+        assert path.name == "course.json"
+        assert path.parent.name.startswith("shifu_export_")
         path.write_text('{"course":"export"}')
         exported.append(path)
 
     monkeypatch.setattr(shifu_routes, "export_shifu", export)
-    response = test_client.get(f"{COURSE}/export", headers=HEADERS)
+    response = test_client.get(f"{PREFIX}/shifus/{course_bid}/export", headers=HEADERS)
     assert response.status_code == 200
     assert response.get_json(force=True) == {"course": "export"}
-    assert "course.json" in response.headers["Content-Disposition"]
+    _, options = parse_options_header(response.headers["Content-Disposition"])
+    assert options["filename"] == f"{course_bid}.json"
     assert not exported[0].exists()
     assert not exported[0].parent.exists()
 
