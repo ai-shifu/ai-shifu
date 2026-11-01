@@ -1015,8 +1015,9 @@ def test_new_debug_request_prevents_a_stopped_stream_from_overwriting_its_save(
     ] == ["replacement"]
 
 
+@pytest.mark.parametrize("answering", [False, True])
 def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
-    app: object, monkeypatch: object
+    app: object, monkeypatch: object, answering: bool
 ) -> None:
     """The runtime re-plans after claiming the request, including a racing old save."""
     from flaskr.service.learn.agent.rewind import restore
@@ -1031,20 +1032,37 @@ def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
     first = _record(session)
     session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching A")]))
     session.memory["prefix"] = "kept"
-    older.save(session, generated_block_bid="A", turn_record=first)
-    selected = _record(session)
-    session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching B")]))
-    session.memory["selected"] = "old B"
-    older.save(session, generated_block_bid="B", turn_record=selected)
+    if answering:
+        session.pending = [
+            PendingInteraction("q", InteractionSpec(type="text", prompt="Choose?"))
+        ]
+    older.save(
+        session,
+        generated_block_bid="A",
+        turn_record=first,
+        question_ids=["q"] if answering else [],
+    )
+    if answering:
+        older.bind_interactions(script="Current draft", elements={"A": ["A-question"]})
+    selected = _record(session, ["old answer"] if answering else [])
+    if not answering:
+        session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching B")]))
+        session.memory["selected"] = "old B"
+        older.save(session, generated_block_bid="B", turn_record=selected)
 
     begin_request = debug_session.DebugSessionStore.begin_request
 
     def racing_claim(store: debug_session.DebugSessionStore) -> None:
         # The stopped host completes between the preview's early plan and token claim.
-        racing = _record(session)
-        session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching C")]))
+        racing = selected if answering else _record(session)
+        session.messages.append(ModelRequest(parts=[UserPromptPart("Racing teaching")]))
         session.memory["future"] = "discard"
-        older.save(session, generated_block_bid="C", turn_record=racing)
+        if answering:
+            session.pending = []
+            session.answers["q"] = "old answer"
+        older.save(
+            session, generated_block_bid="B" if answering else "C", turn_record=racing
+        )
         begin_request(store)
 
     monkeypatch.setattr(debug_session.DebugSessionStore, "begin_request", racing_claim)
@@ -1055,6 +1073,9 @@ def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
         store = kwargs["debug_store"]
         plan = kwargs["rewind"]
         retired.extend(plan.retired_block_bids)
+        if answering:
+            assert kwargs["user_input"] == {"input": ["new answer"]}
+            assert plan.replay_values is None
         restored = store.load(script="Current draft")
         restore(restored, plan.checkpoint)
         restored.user_memory = dict(plan.checkpoint["user_memory"])
@@ -1083,7 +1104,11 @@ def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
         lambda: debug_session.stream_debug_preview(
             app,
             preview_request=PlaygroundPreviewRequest(
-                content="Current draft", block_index=0, reload_generated_block_bid="B"
+                content="Current draft",
+                block_index=0,
+                reload_generated_block_bid="A" if answering else "B",
+                reload_element_bid="A-question" if answering else None,
+                user_input={"input": ["new answer"]} if answering else None,
             ),
             shifu_bid="course",
             outline_bid="lesson",
@@ -1091,7 +1116,7 @@ def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
             run_bid="one",
         ),
     )
-    assert retired == ["B", "C"]
+    assert retired == (["B"] if answering else ["B", "C"])
     snapshots = [
         json.loads(message.content)
         for message in messages
@@ -1106,7 +1131,7 @@ def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
         turn["block_bid"] for turn in latest._payload(script="Current draft")["turns"]
     ] == ["A", "replacement"]
     with pytest.raises(RewindUnavailableError):
-        latest.plan_rewind(script="Current draft", block_bid="C")
+        latest.plan_rewind(script="Current draft", block_bid="B" if answering else "C")
 
 
 def test_debug_automatic_continuation_preserves_restored_output_language(

@@ -407,7 +407,11 @@ describe('useDebugSession helpers and business error rendering', () => {
     const message = debugServiceUnavailableMessages.find(
       entry => entry.locale === 'en-US',
     )!.message;
-    const sources = [buildMockSseSource(), buildMockSseSource()];
+    const sources = [
+      buildMockSseSource(),
+      buildMockSseSource(),
+      buildMockSseSource(),
+    ];
     sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
     const { result } = renderHook(() =>
       useDebugSession({ creditInsufficientAudience: 'teacher' }),
@@ -492,6 +496,20 @@ describe('useDebugSession helpers and business error rendering', () => {
       variant: 'destructive',
     });
     expect(toastOnce).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    await act(async () =>
+      result.current.submitInteraction(
+        { variableName: 'answer', selectedValues: ['Private choice'] },
+        'question',
+      ),
+    );
+    expect(result.current.regenerationConfirmation.open).toBe(false);
+    const retry = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+    expect(retry.debug_session_id).toBe(originalRequest.debug_session_id);
+    expect(retry.user_input).toEqual({ answer: ['Private choice'] });
+    expect(retry.reload_element_bid).toBeUndefined();
+    expect(retry.reload_generated_block_bid).toBeUndefined();
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 

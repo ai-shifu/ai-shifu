@@ -47,6 +47,8 @@ and authorized submission and merge into main.
 - Real FunctionModel runs verify single and same-turn multiple questions: the
   new answer reaches the model while discarded answers leave its context.
 - The user verified the local Debug flow. Hosted deployment verification is outside this change.
+- Review regression: error rows do not advance the current interaction; racing saves
+  between preflight and request admission are retired by the post-claim replan.
 
 ## Context and Orientation
 

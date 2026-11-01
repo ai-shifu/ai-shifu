@@ -10,8 +10,8 @@ const resolveLastActionableElementBid = (items: ChatContentItem[]) =>
       item =>
         item.element_bid &&
         item.element_bid !== 'loading' &&
-        item.type !== ChatContentItemType.LIKE_STATUS &&
-        item.type !== ChatContentItemType.ASK,
+        (item.type === ChatContentItemType.CONTENT ||
+          item.type === ChatContentItemType.INTERACTION),
     )?.element_bid || '';
 
 export const requiresInteractionRewind = (
