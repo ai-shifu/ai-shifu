@@ -21,9 +21,9 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 
-from tests.service.learn import test_element_protocol as protocol
+from tests.service.learn import listen_element_helpers as helpers
 
-adapter_app = protocol.adapter_app
+adapter_app = helpers.adapter_app
 
 
 def _audio(block: str, position: int, suffix: str, **overrides: object) -> None:
