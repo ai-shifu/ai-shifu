@@ -130,12 +130,7 @@ class LiveFollowUpModelUnavailableError(RuntimeError):
 
 
 def _make_live_response(data: dict[str, object]) -> Response:
-    serialized = make_common_response(data)
-    return Response(
-        serialized,
-        mimetype="application/json",
-        headers={"X-Content-Type-Options": "nosniff"},
-    )
+    return make_common_response(data)
 
 
 def _validate_token_deadlines(

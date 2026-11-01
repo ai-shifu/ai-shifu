@@ -312,8 +312,14 @@ pytest -q tests/migrations/test_fresh_mysql_upgrade.py
 ```
 
 This is the success envelope emitted by `make_common_response()` in
-`src/api/flaskr/common/http.py`. Error responses contain `code` and `message`
-and may omit `data`. Streaming and file responses have their own contracts.
+`src/api/flaskr/common/http.py`. The helper returns a Flask `Response` with
+`Content-Type: application/json` and `X-Content-Type-Options: nosniff`, including
+when response values contain HTML. Return that response directly; callers that
+need a different HTTP status set its `status_code` instead of wrapping it in a
+second response. Direct Python callers inspect its body with `get_json()` or
+`get_data()`. Custom DTO, decimal, date, and UTC datetime serialization still
+goes through `fmt()`. Error responses contain `code` and `message` and may omit
+`data`. Streaming and file responses have their own contracts.
 
 ### Common Error Code Expectations
 

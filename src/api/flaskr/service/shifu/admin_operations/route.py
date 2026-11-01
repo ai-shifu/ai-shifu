@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 
-from flask import Flask, request
+from flask import Flask, Response, request
 from flaskr.common.config import get_config
 from flaskr.common.http import sensitive_body
 from flaskr.route.admin_profile_onboarding import (
@@ -350,7 +350,7 @@ def register_admin_operations_routes(
     )
 
     @app.route(path_prefix + "/admin/operations/courses", methods=["GET"])
-    def admin_operations_courses() -> str:
+    def admin_operations_courses() -> Response:
         """Operator course list.
 
         ---
@@ -476,7 +476,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/courses/overview", methods=["GET"])
-    def admin_operations_course_overview() -> str:
+    def admin_operations_course_overview() -> Response:
         """Operator course overview.
 
         ---
@@ -500,7 +500,7 @@ def register_admin_operations_routes(
         return make_common_response(get_operator_course_overview(app))
 
     @app.route(path_prefix + "/admin/operations/users", methods=["GET"])
-    def admin_operations_users() -> str:
+    def admin_operations_users() -> Response:
         """Operator user list.
 
         ---
@@ -615,7 +615,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/users/overview", methods=["GET"])
-    def admin_operations_user_overview() -> str:
+    def admin_operations_user_overview() -> Response:
         """Operator user overview.
 
         ---
@@ -639,7 +639,7 @@ def register_admin_operations_routes(
         return make_common_response(get_operator_user_overview(app))
 
     @app.route(path_prefix + "/admin/operations/voice-clones", methods=["GET"])
-    def admin_operations_voice_clones() -> str:
+    def admin_operations_voice_clones() -> Response:
         """Operator MiniMax cloned voice list.
 
         ---
@@ -760,7 +760,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/voice-clones", methods=["POST"])
-    def admin_operations_register_voice_clone() -> str:
+    def admin_operations_register_voice_clone() -> Response:
         """Register a voice cloned on a provider console and assign it to a teacher.
 
         ---
@@ -802,7 +802,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
-    def admin_operations_orders() -> str:
+    def admin_operations_orders() -> Response:
         """Operator global order list.
 
         ---
@@ -904,7 +904,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/orders/overview", methods=["GET"])
-    def admin_operations_order_overview() -> str:
+    def admin_operations_order_overview() -> Response:
         """Operator learning order overview.
 
         ---
@@ -931,7 +931,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/overview",
         methods=["GET"],
     )
-    def admin_operation_credit_notifications_overview() -> str:
+    def admin_operation_credit_notifications_overview() -> Response:
         """Return global operator credit notification overview."""
         _require_operator()
         return make_common_response(get_operator_credit_notification_overview(app))
@@ -940,7 +940,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications",
         methods=["GET"],
     )
-    def admin_operation_credit_notifications() -> str:
+    def admin_operation_credit_notifications() -> Response:
         """List operator credit notification records."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1012,7 +1012,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/<notification_bid>",
         methods=["GET"],
     )
-    def admin_operation_credit_notification_detail(notification_bid: str) -> str:
+    def admin_operation_credit_notification_detail(notification_bid: str) -> Response:
         """Return one operator credit notification record detail."""
         _require_operator()
         return make_common_response(
@@ -1026,7 +1026,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/config",
         methods=["GET"],
     )
-    def admin_operation_credit_notification_config() -> str:
+    def admin_operation_credit_notification_config() -> Response:
         """Get operator credit notification config."""
         _require_operator()
         return make_common_response(get_operator_credit_notification_config(app))
@@ -1035,7 +1035,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/config",
         methods=["POST"],
     )
-    def admin_operation_update_credit_notification_config() -> str:
+    def admin_operation_update_credit_notification_config() -> Response:
         """Update operator credit notification config."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1053,7 +1053,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/config/rates",
         methods=["GET"],
     )
-    def admin_operation_rate_config() -> str:
+    def admin_operation_rate_config() -> Response:
         """Get operator-managed model and TTS credit rate config."""
         _require_operator()
         return make_common_response(get_operator_rate_config(app))
@@ -1062,7 +1062,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/config/rates",
         methods=["POST"],
     )
-    def admin_operation_update_rate_config() -> str:
+    def admin_operation_update_rate_config() -> Response:
         """Update one operator-managed model or TTS credit rate config."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1080,7 +1080,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/templates/sync",
         methods=["POST"],
     )
-    def admin_operation_credit_notification_template_sync() -> str:
+    def admin_operation_credit_notification_template_sync() -> Response:
         """Sync one SMS template for operator credit notification config."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1098,7 +1098,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/templates",
         methods=["GET"],
     )
-    def admin_operation_credit_notification_templates() -> str:
+    def admin_operation_credit_notification_templates() -> Response:
         """List SMS templates for operator credit notification config."""
         _require_operator()
         return make_common_response(list_operator_credit_notification_templates(app))
@@ -1107,7 +1107,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/email-templates",
         methods=["GET"],
     )
-    def admin_operation_credit_notification_email_templates() -> str:
+    def admin_operation_credit_notification_email_templates() -> Response:
         """List operator-managed notification email templates."""
         _require_operator()
         return make_common_response(
@@ -1118,7 +1118,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/email-templates",
         methods=["POST"],
     )
-    def admin_operation_create_credit_notification_email_template() -> str:
+    def admin_operation_create_credit_notification_email_template() -> Response:
         """Create an operator-managed notification email template."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1139,7 +1139,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_update_credit_notification_email_template(
         notification_template_bid: str,
-    ) -> str:
+    ) -> Response:
         """Update an operator-managed notification email template."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1161,7 +1161,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_update_credit_notification_email_template_status(
         notification_template_bid: str,
-    ) -> str:
+    ) -> Response:
         """Update one operator-managed notification email template's availability."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1180,7 +1180,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/credit-notifications/dry-run",
         methods=["POST"],
     )
-    def admin_operation_credit_notification_dry_run() -> str:
+    def admin_operation_credit_notification_dry_run() -> Response:
         """Dry-run operator credit notification scans."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1199,7 +1199,7 @@ def register_admin_operations_routes(
         + "/admin/operations/credit-notifications/<notification_bid>/requeue",
         methods=["POST"],
     )
-    def admin_operation_credit_notification_requeue(notification_bid: str) -> str:
+    def admin_operation_credit_notification_requeue(notification_bid: str) -> Response:
         """Requeue one failed provider credit notification."""
         _require_operator()
         return make_common_response(
@@ -1214,7 +1214,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/orders/<order_bid>/detail",
         methods=["GET"],
     )
-    def admin_operation_order_detail(order_bid: str) -> str:
+    def admin_operation_order_detail(order_bid: str) -> Response:
         """Get operator order detail.
 
         ---
@@ -1236,7 +1236,7 @@ def register_admin_operations_routes(
         return make_common_response(get_operator_order_detail(app, order_bid))
 
     @app.route(path_prefix + "/admin/operations/orders/credits", methods=["GET"])
-    def admin_operations_credit_orders() -> str:
+    def admin_operations_credit_orders() -> Response:
         """Operator global credit order list.
 
         ---
@@ -1341,7 +1341,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/orders/credits/overview",
         methods=["GET"],
     )
-    def admin_operations_credit_order_overview() -> str:
+    def admin_operations_credit_order_overview() -> Response:
         """Operator credit order overview.
 
         ---
@@ -1365,7 +1365,7 @@ def register_admin_operations_routes(
         return make_common_response(build_operator_credit_orders_overview(app))
 
     @app.route(path_prefix + "/admin/operations/referrals", methods=["GET"])
-    def admin_operations_referrals() -> str:
+    def admin_operations_referrals() -> Response:
         """List operator-visible referral invite relations."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1421,7 +1421,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/referrals/overview", methods=["GET"])
-    def admin_operations_referrals_overview() -> str:
+    def admin_operations_referrals_overview() -> Response:
         """Return operator referral overview metrics."""
         _require_operator()
         return make_common_response(get_operator_referral_overview(app))
@@ -1430,7 +1430,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/referrals/<relation_bid>",
         methods=["GET"],
     )
-    def admin_operations_referral_detail(relation_bid: str) -> str:
+    def admin_operations_referral_detail(relation_bid: str) -> Response:
         """Return one operator referral relation detail."""
         _require_operator()
         return make_common_response(
@@ -1441,7 +1441,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/referrals/<relation_bid>/status",
         methods=["POST"],
     )
-    def admin_operations_referral_status(relation_bid: str) -> str:
+    def admin_operations_referral_status(relation_bid: str) -> Response:
         """Update one referral relation or reward operator status."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1460,7 +1460,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/referrals/<relation_bid>/adjustment",
         methods=["POST"],
     )
-    def admin_operations_referral_adjustment(relation_bid: str) -> str:
+    def admin_operations_referral_adjustment(relation_bid: str) -> Response:
         """Apply an audited operator adjustment to one referral relation."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1479,7 +1479,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/referral-campaigns",
         methods=["GET"],
     )
-    def admin_operations_promotion_referral_campaigns() -> str:
+    def admin_operations_promotion_referral_campaigns() -> Response:
         """Operator referral campaign configuration list."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1528,7 +1528,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/referral-campaigns",
         methods=["POST"],
     )
-    def admin_create_operations_promotion_referral_campaign() -> str:
+    def admin_create_operations_promotion_referral_campaign() -> Response:
         """Create operator referral campaign configuration."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1548,7 +1548,7 @@ def register_admin_operations_routes(
     )
     def admin_operations_promotion_referral_campaign_detail(
         campaign_bid: str,
-    ) -> str:
+    ) -> Response:
         """Get operator referral campaign configuration detail."""
         _require_operator()
         return make_common_response(
@@ -1562,7 +1562,7 @@ def register_admin_operations_routes(
     )
     def admin_operations_promotion_referral_campaign_relations(
         campaign_bid: str,
-    ) -> str:
+    ) -> Response:
         """List invite relations for one referral campaign."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1624,7 +1624,7 @@ def register_admin_operations_routes(
     )
     def admin_operations_promotion_referral_campaign_invitations(
         campaign_bid: str,
-    ) -> str:
+    ) -> Response:
         """List invite-code funnel data for one referral campaign."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1678,7 +1678,7 @@ def register_admin_operations_routes(
     )
     def admin_update_operations_promotion_referral_campaign(
         campaign_bid: str,
-    ) -> str:
+    ) -> Response:
         """Update operator referral campaign configuration."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1700,7 +1700,7 @@ def register_admin_operations_routes(
     )
     def admin_operations_promotion_referral_campaign_status(
         campaign_bid: str,
-    ) -> str:
+    ) -> Response:
         """Update operator referral campaign configuration status."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1716,7 +1716,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
-    def admin_operations_promotion_coupons() -> str:
+    def admin_operations_promotion_coupons() -> Response:
         """Operator coupon batch list."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1765,7 +1765,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["POST"])
-    def admin_create_operations_promotion_coupon() -> str:
+    def admin_create_operations_promotion_coupon() -> Response:
         """Create operator coupon batch."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1777,7 +1777,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>",
         methods=["POST"],
     )
-    def admin_update_operations_promotion_coupon(coupon_bid: str) -> str:
+    def admin_update_operations_promotion_coupon(coupon_bid: str) -> Response:
         """Update operator coupon batch."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1791,7 +1791,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/orders/credits/<bill_order_bid>/detail",
         methods=["GET"],
     )
-    def admin_operation_credit_order_detail(bill_order_bid: str) -> str:
+    def admin_operation_credit_order_detail(bill_order_bid: str) -> Response:
         """Get operator credit order detail.
 
         ---
@@ -1821,7 +1821,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>",
         methods=["GET"],
     )
-    def admin_operations_promotion_coupon_detail(coupon_bid: str) -> str:
+    def admin_operations_promotion_coupon_detail(coupon_bid: str) -> Response:
         """Get operator coupon batch detail."""
         _require_operator()
         return make_common_response(
@@ -1832,7 +1832,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/status",
         methods=["POST"],
     )
-    def admin_operations_promotion_coupon_status(coupon_bid: str) -> str:
+    def admin_operations_promotion_coupon_status(coupon_bid: str) -> Response:
         """Update operator coupon batch status."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1850,7 +1850,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/usages",
         methods=["GET"],
     )
-    def admin_operations_promotion_coupon_usages(coupon_bid: str) -> str:
+    def admin_operations_promotion_coupon_usages(coupon_bid: str) -> Response:
         """Get operator coupon usage list."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1881,7 +1881,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/codes",
         methods=["GET"],
     )
-    def admin_operations_promotion_coupon_codes(coupon_bid: str) -> str:
+    def admin_operations_promotion_coupon_codes(coupon_bid: str) -> Response:
         """Get operator coupon code pool list."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1904,7 +1904,7 @@ def register_admin_operations_routes(
         )
 
     @app.route(path_prefix + "/admin/operations/promotions/campaigns", methods=["GET"])
-    def admin_operations_promotion_campaigns() -> str:
+    def admin_operations_promotion_campaigns() -> Response:
         """Operator campaign list."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1955,7 +1955,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/campaigns",
         methods=["POST"],
     )
-    def admin_create_operations_promotion_campaign() -> str:
+    def admin_create_operations_promotion_campaign() -> Response:
         """Create operator campaign."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1967,7 +1967,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>",
         methods=["GET"],
     )
-    def admin_operations_promotion_campaign_detail(promo_bid: str) -> str:
+    def admin_operations_promotion_campaign_detail(promo_bid: str) -> Response:
         """Get operator campaign detail."""
         _require_operator()
         return make_common_response(
@@ -1978,7 +1978,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>",
         methods=["POST"],
     )
-    def admin_update_operations_promotion_campaign(promo_bid: str) -> str:
+    def admin_update_operations_promotion_campaign(promo_bid: str) -> Response:
         """Update operator campaign."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1992,7 +1992,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>/status",
         methods=["POST"],
     )
-    def admin_operations_promotion_campaign_status(promo_bid: str) -> str:
+    def admin_operations_promotion_campaign_status(promo_bid: str) -> Response:
         """Update operator campaign status."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -2010,7 +2010,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>/redemptions",
         methods=["GET"],
     )
-    def admin_operations_promotion_campaign_redemptions(promo_bid: str) -> str:
+    def admin_operations_promotion_campaign_redemptions(promo_bid: str) -> Response:
         """Get operator campaign redemption list."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -2039,7 +2039,7 @@ def register_admin_operations_routes(
     @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/detail", methods=["GET"]
     )
-    def admin_operation_user_detail(user_bid: str) -> str:
+    def admin_operation_user_detail(user_bid: str) -> Response:
         """Get operator user detail.
 
         ---
@@ -2063,7 +2063,7 @@ def register_admin_operations_routes(
         methods=["POST"],
     )
     @sensitive_body(max_bytes=4096)
-    def admin_operation_user_contact_change(user_bid: str) -> str:
+    def admin_operation_user_contact_change(user_bid: str) -> Response:
         """Replace an operator-managed user's configured login contact."""
         _require_operator()
         try:
@@ -2087,7 +2087,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/cancellation-preview",
         methods=["GET"],
     )
-    def admin_operation_user_cancellation_preview(user_bid: str) -> str:
+    def admin_operation_user_cancellation_preview(user_bid: str) -> Response:
         """Preview blockers and warnings for operator account cancellation."""
         _require_operator()
         operator_user_bid = str(getattr(request.user, "user_id", "") or "")
@@ -2103,7 +2103,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/transfer-published-courses",
         methods=["POST"],
     )
-    def admin_operation_user_transfer_published_courses(user_bid: str) -> str:
+    def admin_operation_user_transfer_published_courses(user_bid: str) -> Response:
         """Transfer every published course before cancelling its owner."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -2135,7 +2135,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/cancel-subscription-renewals",
         methods=["POST"],
     )
-    def admin_operation_user_cancel_subscription_renewals(user_bid: str) -> str:
+    def admin_operation_user_cancel_subscription_renewals(user_bid: str) -> Response:
         """Cancel future renewals before final account cancellation."""
         _require_operator()
         return make_common_response(
@@ -2150,7 +2150,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/cancel",
         methods=["POST"],
     )
-    def admin_operation_user_cancel(user_bid: str) -> str:
+    def admin_operation_user_cancel(user_bid: str) -> Response:
         """Cancel and de-identify one user account."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -2179,7 +2179,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_user_cancellation_status(
         user_bid: str, cancellation_bid: str
-    ) -> str:
+    ) -> Response:
         """Return the durable account-cancellation task state."""
         _require_operator()
         return make_common_response(
@@ -2193,7 +2193,7 @@ def register_admin_operations_routes(
     @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/credits", methods=["GET"]
     )
-    def admin_operation_user_credits(user_bid: str) -> str:
+    def admin_operation_user_credits(user_bid: str) -> Response:
         """Get operator user credits detail.
 
         ---
@@ -2300,7 +2300,9 @@ def register_admin_operations_routes(
         + "/admin/operations/users/<user_bid>/credits/usages/<usage_bid>/detail",
         methods=["GET"],
     )
-    def admin_operation_user_credit_usage_detail(user_bid: str, usage_bid: str) -> str:
+    def admin_operation_user_credit_usage_detail(
+        user_bid: str, usage_bid: str
+    ) -> Response:
         """Get operator user credit usage content detail.
 
         ---
@@ -2334,7 +2336,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/credit-grant/bootstrap",
         methods=["GET"],
     )
-    def admin_operation_user_credit_grant_bootstrap(user_bid: str) -> str:
+    def admin_operation_user_credit_grant_bootstrap(user_bid: str) -> Response:
         """Get operator user grant bootstrap.
 
         ---
@@ -2362,7 +2364,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/credits/grant",
         methods=["POST"],
     )
-    def admin_operation_user_credit_grant(user_bid: str) -> str:
+    def admin_operation_user_credit_grant(user_bid: str) -> Response:
         """Grant operator user credits.
 
         ---
@@ -2405,7 +2407,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/credits/deduct",
         methods=["POST"],
     )
-    def admin_operation_user_credit_deduct(user_bid: str) -> str:
+    def admin_operation_user_credit_deduct(user_bid: str) -> Response:
         """Deduct operator user credits with paid credits first."""
         _require_operator()
         payload_data = request.get_json(silent=True) or {}
@@ -2428,7 +2430,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/packages/grant",
         methods=["POST"],
     )
-    def admin_operation_user_package_grant(user_bid: str) -> str:
+    def admin_operation_user_package_grant(user_bid: str) -> Response:
         """Grant operator user package.
 
         ---
@@ -2471,7 +2473,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/courses/<shifu_bid>/prompt",
         methods=["GET"],
     )
-    def admin_operation_course_prompt(shifu_bid: str) -> str:
+    def admin_operation_course_prompt(shifu_bid: str) -> Response:
         """Get operator course prompt."""
         _require_operator()
         return make_common_response(
@@ -2481,7 +2483,7 @@ def register_admin_operations_routes(
     @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]
     )
-    def admin_operation_course_detail(shifu_bid: str) -> str:
+    def admin_operation_course_detail(shifu_bid: str) -> Response:
         """Get operator course detail.
 
         ---
@@ -2522,7 +2524,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_chapter_detail(
         shifu_bid: str, outline_item_bid: str
-    ) -> str:
+    ) -> Response:
         """Get operator course chapter detail.
 
         ---
@@ -2565,7 +2567,7 @@ def register_admin_operations_routes(
     @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/users", methods=["GET"]
     )
-    def admin_operation_course_users(shifu_bid: str) -> str:
+    def admin_operation_course_users(shifu_bid: str) -> Response:
         """Get operator course users.
 
         ---
@@ -2642,7 +2644,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/courses/<shifu_bid>/credit-usages",
         methods=["GET"],
     )
-    def admin_operation_course_credit_usages(shifu_bid: str) -> str:
+    def admin_operation_course_credit_usages(shifu_bid: str) -> Response:
         """Get operator course credit usage list.
 
         ---
@@ -2744,7 +2746,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/courses/<shifu_bid>/credit-usages/details",
         methods=["GET"],
     )
-    def admin_operation_course_credit_usage_details(shifu_bid: str) -> str:
+    def admin_operation_course_credit_usage_details(shifu_bid: str) -> Response:
         """Get operator course credit usage detail list.
 
         ---
@@ -2781,7 +2783,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/courses/<shifu_bid>/ratings",
         methods=["GET"],
     )
-    def admin_operation_course_ratings(shifu_bid: str) -> str:
+    def admin_operation_course_ratings(shifu_bid: str) -> Response:
         """Get operator course rating list.
 
         ---
@@ -2906,7 +2908,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/courses/<shifu_bid>/follow-ups",
         methods=["GET"],
     )
-    def admin_operation_course_follow_ups(shifu_bid: str) -> str:
+    def admin_operation_course_follow_ups(shifu_bid: str) -> Response:
         """Get operator course follow-up list.
 
         ---
@@ -3017,7 +3019,7 @@ def register_admin_operations_routes(
     def admin_operation_course_follow_up_detail(
         shifu_bid: str,
         generated_block_bid: str,
-    ) -> str:
+    ) -> Response:
         """Get operator course follow-up detail.
 
         ---
@@ -3051,7 +3053,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/courses/<shifu_bid>/copy",
         methods=["POST"],
     )
-    def admin_copy_course(shifu_bid: str) -> str:
+    def admin_copy_course(shifu_bid: str) -> Response:
         _require_operator()
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
@@ -3085,7 +3087,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/courses/<shifu_bid>/transfer-creator",
         methods=["POST"],
     )
-    def admin_transfer_course_creator(shifu_bid: str) -> str:
+    def admin_transfer_course_creator(shifu_bid: str) -> Response:
         _require_operator()
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
