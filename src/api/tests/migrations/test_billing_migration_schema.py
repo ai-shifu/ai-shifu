@@ -133,6 +133,8 @@ class _SchemaReplay:
         # name -> (ordered columns, unique)
         self.indexes: dict[str, dict[str, tuple[tuple[str | None, ...], bool]]] = {}
         self.primary_keys: dict[str, set[str]] = {}
+        # Tables that a migration writes rows into with op.bulk_insert.
+        self.seeded: set[str] = set()
 
     def run(self, tree: ast.Module) -> None:
         upgrade = next(
@@ -212,7 +214,11 @@ class _SchemaReplay:
         columns[_str(_keyword(call, "new_column_name")) or name] = definition
 
     def _apply(self, operation: str, call: ast.Call, args: list[ast.expr]) -> None:
-        if operation == "create_table":
+        if operation == "bulk_insert":
+            target = args[0] if args else None
+            if isinstance(target, ast.Call) and target.args:
+                self.seeded.add(_str(target.args[0]))
+        elif operation == "create_table":
             table = _str(args[0])
             self.columns[table] = {}
             self.indexes[table] = {}
@@ -349,3 +355,9 @@ def test_migrations_build_the_billing_model_schema(table: Table) -> None:
     migrated_indexes = _REPLAY.indexes.get(table.name, {})
     for name, definition in model_indexes.items():
         assert migrated_indexes.get(name) == definition, name
+
+
+def test_billing_migrations_do_not_seed_rows() -> None:
+    # Products and system config are seeded by the billing CLI, not by Alembic.
+    billing = {table.name for table in _billing_tables()}
+    assert not (_REPLAY.seeded & billing)
