@@ -10,7 +10,7 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 import { ErrorWithCode } from '@/lib/request';
 import {
   resolveLoginIdentifierTypes,
@@ -28,7 +28,7 @@ import {
   buildAdminDashboardCourseRatingsUrl,
   buildAdminOrdersUrl,
 } from '../admin-dashboard-routes';
-import { formatOrderAmount } from '../dashboardCourseTableRow';
+import { formatOrderAmount } from '../dashboard-course-table-row';
 import CourseMetricsCardGrid from '../../operations/[shifu_bid]/CourseMetricsCardGrid';
 import DashboardCourseLearningModeCard from './DashboardCourseLearningModeCard';
 import DashboardCourseLearnersCard from './DashboardCourseLearnersCard';

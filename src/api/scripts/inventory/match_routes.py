@@ -2,7 +2,7 @@
 """Cross-reference backend routes against ALL known consumer surfaces.
 
 Surfaces:
-1. web       : src/web/src/api/api.ts catalog + any raw '/api/...' string
+1. web       : src/web/src/api/endpoint-definitions.ts catalog + raw '/api/...' strings
 2. cli       : the skills repo (shifu-cli.py uses /api/shifu as base for
                relative '/shifus...' paths; also full /api/... refs)
 3. miniprogram: the mini-program client repo (grep /api/ paths)
@@ -70,7 +70,9 @@ surfaces = {}
 # --- web frontend -----------------------------------------------------------
 fe = set()
 cat = None
-with (Path(ROOT) / "src/web/src/api/api.ts").open(encoding="utf-8") as catalog_file:
+with (Path(ROOT) / "src/web/src/api/endpoint-definitions.ts").open(
+    encoding="utf-8"
+) as catalog_file:
     cat = catalog_file.read()
 for m in re.finditer(
     r"'(GET|POST|PUT|DELETE|PATCH|STREAM|STREAMLINE|PROXY)\s+([^']+)'", cat

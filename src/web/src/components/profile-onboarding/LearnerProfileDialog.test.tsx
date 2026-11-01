@@ -16,14 +16,14 @@ import {
   runProfileOnboardingSession,
   type ProfileOnboardingStatus,
   updateLearnerProfile,
-} from '@/api/learnerProfile';
+} from '@/api/learner-profile';
 import { PROFILE_ONBOARDING_EVENTS } from './events';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConversation';
 import type {
   ProfileAssistantFailureCategory,
   ProfileCollectionRoute,
-} from './profileOnboardingAnalytics';
+} from './profile-onboarding-analytics';
 
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -247,7 +247,7 @@ function MockProfileOnboardingConversation(
   );
 }
 
-jest.mock('@/api/learnerProfile', () => ({
+jest.mock('@/api/learner-profile', () => ({
   completeGuidedProfileOnboarding: jest.fn(),
   createProfileOnboardingSession: jest.fn(),
   getLearnerProfile: jest.fn(),
@@ -262,11 +262,11 @@ jest.mock('@/api/learnerProfile', () => ({
   updateLearnerProfile: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEventIdentity }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 

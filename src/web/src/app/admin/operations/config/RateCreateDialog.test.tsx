@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import RateCreateDialog from './RateCreateDialog';
-import type { RateRow } from './rateConfig';
+import type { RateRow } from './rate-config';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({

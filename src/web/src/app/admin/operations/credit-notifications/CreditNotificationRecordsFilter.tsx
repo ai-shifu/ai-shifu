@@ -18,7 +18,7 @@ import {
   NOTIFICATION_SOURCE_TYPES,
   NOTIFICATION_SKIP_REASONS,
   NOTIFICATION_TYPES,
-} from './creditNotificationUtils';
+} from './credit-notification-utils';
 import type { LoginIdentifierType } from '@/lib/login-identifiers';
 
 const SELECT_ITEM_CLASS = 'pl-3 pr-8';

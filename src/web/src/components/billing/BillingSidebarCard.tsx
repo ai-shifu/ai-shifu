@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import type { CreatorBillingOverview } from '@/types/billing';
 import {
   formatBillingCreditBalance,
@@ -10,11 +10,11 @@ import {
 import {
   BILLING_DETAILS_HREF,
   BILLING_PACKAGES_HREF,
-} from '@/lib/billingNavigation';
+} from '@/lib/billing-navigation';
 import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
+} from '@/lib/onboarding-targets';
 
 type BillingSidebarCardProps = {
   overview?: CreatorBillingOverview;

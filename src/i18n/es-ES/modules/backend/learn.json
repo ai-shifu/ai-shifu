@@ -11,6 +11,7 @@
     "askProviderTimeout": "La base de conocimientos externa ha tardado demasiado en responder. Inténtalo más tarde.",
     "askProviderUnavailable": "La base de conocimientos externa no está disponible temporalmente.",
     "continueButton": "Continuar",
+    "debugServiceUnavailable": "El servicio de depuración no está disponible temporalmente. Inténtalo de nuevo más tarde.",
     "debugSessionExpired": "Esta sesión de depuración ha caducado o el guion ha cambiado. Inicia la depuración de nuevo.",
     "defaultLearnerName": "Estudiante",
     "freeTextPlaceholder": "Tu respuesta",

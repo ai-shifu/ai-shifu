@@ -211,7 +211,7 @@ The dashboard uses these admin routes:
 
 Dashboard endpoints are registered in:
 
-- `src/web/src/api/api.ts`
+- `src/web/src/api/endpoint-definitions.ts`
 
 Then use the generated functions via `import api from '@/api'`.
 

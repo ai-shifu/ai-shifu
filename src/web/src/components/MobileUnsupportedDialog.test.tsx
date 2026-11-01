@@ -10,7 +10,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/store/useUiLayoutStore', () => ({
+jest.mock('@/store/use-ui-layout-store', () => ({
   __esModule: true,
   useUiLayoutStore: (selector: (state: { inMobile: boolean }) => boolean) =>
     mockUseUiLayoutStore(selector),

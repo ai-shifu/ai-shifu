@@ -1,0 +1,605 @@
+import styles from './MainMenuModal.module.scss';
+
+import {
+  memo,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
+import { cn } from '@/lib/utils';
+import { useShallow } from 'zustand/react/shallow';
+import { normalizeLanguage } from '@/i18n';
+import { useSystemStore } from '@/store/use-system-store';
+import api from '@/api';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
+import PopupModal from '@/components/PopupModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import { useTranslation } from 'react-i18next';
+import { useUserStore } from '@/store';
+import { shifu } from '@/lib/shifu/shifu-runtime';
+import { useTracking, EVENT_NAMES } from '@/hooks/use-tracking';
+import { useEnvStore } from '@/store/env-store';
+import { environment } from '@/config/environment';
+import { resolveWideLogoSource } from '@/components/logo/logo-source';
+import SetPasswordModal from '../settings/SetPasswordModal';
+import SessionManagerModal from '../settings/SessionManagerModal';
+import CourseMemoryDialog from '../settings/CourseMemoryDialog';
+
+import Image from 'next/image';
+import imgPersonal from '@/assets/learner/light/personal.png';
+import imgMultiLanguage from '@/assets/learner/light/multi-language.png';
+import imgSignIn from '@/assets/learner/light/signin.png';
+import {
+  Monitor,
+  MonitorSmartphone,
+  BookOpen,
+  BookPlus,
+  Info,
+  KeyRound,
+  ExternalLink,
+} from 'lucide-react';
+
+import LanguageSelect from '@/components/language-select';
+
+type MainMenuModalProps = {
+  open: boolean;
+  onClose?: (event: MouseEvent | ReactMouseEvent) => void;
+  style?: CSSProperties;
+  mobileStyle?: boolean;
+  className?: string;
+  onPersonalInfoClick: () => void;
+  onAboutCloseAutoFocus?: () => void;
+  surface: 'learner' | 'admin';
+  courseId?: string;
+};
+
+const AboutVersion = ({
+  open,
+  surface,
+  previewMode,
+  aboutViewed,
+}: Pick<MainMenuModalProps, 'open' | 'surface'> & {
+  previewMode: boolean;
+  aboutViewed: RefObject<boolean>;
+}) => {
+  const { t } = useTranslation();
+  const { trackEvent } = useTracking();
+  const appVersion = environment.appVersion;
+  const appBuildSha = environment.appBuildSha.slice(0, 7);
+  const versionText = `v${appVersion}${appBuildSha ? ` (${appBuildSha})` : ''}`;
+
+  // This component mounts with the portal content, after the version is visible.
+  useEffect(() => {
+    if (
+      !open ||
+      !appVersion ||
+      (surface === 'learner' && previewMode) ||
+      aboutViewed.current
+    ) {
+      return;
+    }
+
+    aboutViewed.current = true;
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.USER_APP_ABOUT_VIEWED, { surface }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never affect the visible version information.
+    }
+  }, [open, appVersion, previewMode, surface, trackEvent, aboutViewed]);
+
+  return (
+    <DialogDescription className={styles.aboutVersion}>
+      {appVersion ? (
+        <>
+          {t('component.menus.navigationMenus.version')}{' '}
+          <bdi dir='ltr'>{versionText}</bdi>
+        </>
+      ) : null}
+    </DialogDescription>
+  );
+};
+
+const MainMenuModal = ({
+  open,
+  onClose = () => {},
+  style = {},
+  mobileStyle = false,
+  className = '',
+  onPersonalInfoClick,
+  onAboutCloseAutoFocus,
+  surface,
+  courseId,
+}: MainMenuModalProps) => {
+  const { t } = useTranslation();
+
+  const htmlRef = useRef<HTMLDivElement | null>(null);
+  const { isLoggedIn, logout, userInfo, refreshUserInfo } = useUserStore(
+    useShallow(state => ({
+      logout: state.logout,
+      isLoggedIn: state.isLoggedIn,
+      userInfo: state.userInfo,
+      refreshUserInfo: state.refreshUserInfo,
+    })),
+  );
+
+  const isCreator = userInfo?.is_creator ?? false;
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
+    ? loginMethodsEnabled.includes('password')
+    : false;
+  const hasMobile =
+    typeof userInfo?.mobile === 'string' && userInfo.mobile.trim() !== '';
+  const hasEmail =
+    typeof userInfo?.email === 'string' && userInfo.email.trim() !== '';
+  const canSetPassword = isPasswordEnabled && (hasMobile || hasEmail);
+
+  const { trackEvent } = useTracking();
+  const previewMode = useSystemStore(state => state.previewMode);
+  const logoWideUrl = useEnvStore(state => state.logoWideUrl);
+  const logoHorizontal = useEnvStore(state => state.logoHorizontal);
+  const logoSource = resolveWideLogoSource(logoWideUrl, logoHorizontal);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutOpenRef = useRef(false);
+  const aboutFocusRestorePending = useRef(false);
+  const aboutDismissMethod = useRef<'close_button' | 'escape' | 'outside'>(
+    'close_button',
+  );
+  const changeAboutOpen = (nextOpen: boolean) => {
+    const wasOpen = aboutOpenRef.current;
+    aboutOpenRef.current = nextOpen;
+    if (nextOpen && !wasOpen) {
+      aboutFocusRestorePending.current = true;
+      aboutDismissMethod.current = 'close_button';
+    }
+    setAboutOpen(nextOpen);
+    if (
+      !wasOpen ||
+      nextOpen ||
+      !environment.appVersion ||
+      (surface === 'learner' && previewMode)
+    ) {
+      return;
+    }
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.USER_APP_ABOUT_CLOSED, {
+          surface,
+          method: aboutDismissMethod.current,
+        }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never prevent closing About or restoring focus.
+    }
+  };
+  const aboutViewed = useRef(false);
+  useEffect(() => {
+    // Portal remounts during fullscreen changes belong to the same open.
+    if (!aboutOpen) aboutViewed.current = false;
+  }, [aboutOpen]);
+  const onOpenSourceClick = () => {
+    if (surface === 'learner' && previewMode) return;
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.USER_APP_OPEN_SOURCE_CLICKED, { surface }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never prevent navigation to the source repository.
+    }
+  };
+  const memoryContext = `${courseId || ''}:${userInfo?.user_id || ''}`;
+  const [memoryOpen, setMemoryOpen] = useState<string | null>(null);
+  const memoryOpening = useRef<string | null>(null);
+  useEffect(() => {
+    setMemoryOpen(null);
+    memoryOpening.current = null;
+  }, [memoryContext, previewMode]);
+
+  const _onPersonalInfoClick = (evt: ReactMouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    trackEvent(EVENT_NAMES.USER_MENU_PERSONALIZED, {});
+    if (!isLoggedIn) {
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
+      shifu.loginTools.openLogin();
+      return;
+    }
+
+    onClose?.(evt);
+    onPersonalInfoClick();
+  };
+
+  const [setPasswordModalOpen, setSetPasswordModalOpen] = useState(false);
+  const onSetPasswordClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    trackEvent(EVENT_NAMES.USER_MENU_SET_PASSWORD, {});
+    if (!isLoggedIn) {
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu_set_password' });
+      shifu.loginTools.openLogin();
+      return;
+    }
+
+    setSetPasswordModalOpen(true);
+    onClose?.(evt);
+  };
+  const setPasswordRow = canSetPassword ? (
+    <button
+      type='button'
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onSetPasswordClick}
+      title={t('module.settings.setPassword')}
+    >
+      <KeyRound
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
+    </button>
+  ) : null;
+
+  const [sessionsModalOpen, setSessionsModalOpen] = useState(false);
+  const onSessionsClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    if (!isLoggedIn) {
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu_sessions' });
+      shifu.loginTools.openLogin();
+      return;
+    }
+    trackEvent(EVENT_NAMES.SESSION_LIST_OPENED, { surface });
+    setSessionsModalOpen(true);
+    onClose?.(evt);
+  };
+  const sessionsRow = isLoggedIn ? (
+    <button
+      type='button'
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onSessionsClick}
+      title={t('module.settings.sessions')}
+    >
+      <MonitorSmartphone
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>{t('module.settings.sessions')}</div>
+    </button>
+  ) : null;
+
+  const onAdminEntryClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    window.open('/admin', '_blank');
+    onClose?.(evt);
+  };
+
+  const onLoginClick = () => {
+    shifu.loginTools.openLogin();
+  };
+
+  const onLogoutClick = (evt: ReactMouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    setLogoutConfirmOpen(true);
+    onClose?.(evt);
+  };
+
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const onLogoutConfirm = async () => {
+    try {
+      await logout();
+      setLogoutConfirmOpen(false);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Logout failed:', error);
+      setLogoutConfirmOpen(false);
+    }
+  };
+
+  const updateLanguage = async (language: string) => {
+    const normalized = normalizeLanguage(language);
+    try {
+      await api.updateUserInfo({ language: normalized });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to persist language preference', e);
+    }
+    useUserStore.getState().updateUserInfo({ language: normalized });
+    try {
+      useSystemStore.getState().updateLanguage(normalized);
+    } catch {}
+  };
+
+  return (
+    <>
+      <AlertDialog
+        open={logoutConfirmOpen}
+        onOpenChange={open => setLogoutConfirmOpen(open)}
+      >
+        <AlertDialogContent className={mobileStyle ? 'w-[80%]' : ''}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('module.user.confirmLogoutTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('module.user.confirmLogoutContent')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.core.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={onLogoutConfirm}>
+              {t('common.core.ok')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <PopupModal
+        open={open}
+        onClose={onClose}
+        wrapStyle={{ ...style }}
+        className={cn(
+          className,
+          styles.mainMenuModalWrapper,
+          mobileStyle && styles.mobile,
+        )}
+      >
+        <div
+          className={styles.mainMenuModal}
+          ref={htmlRef}
+        >
+          {surface === 'learner' ? (
+            <div className={styles.contextGroup}>
+              {courseId && !previewMode ? (
+                <button
+                  type='button'
+                  className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                  onClick={event => {
+                    event.stopPropagation();
+                    if (memoryOpening.current === memoryContext) return;
+                    memoryOpening.current = memoryContext;
+                    setMemoryOpen(memoryContext);
+                    onClose?.(event);
+                  }}
+                >
+                  <BookOpen
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                  <div className={styles.rowTitle}>
+                    {t('module.settings.memoryTitle')}
+                  </div>
+                </button>
+              ) : null}
+              <button
+                type='button'
+                className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                onClick={onAdminEntryClick}
+              >
+                {isCreator ? (
+                  <Monitor
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                ) : (
+                  <BookPlus
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                )}
+                <div className={styles.rowTitle}>
+                  {isCreator
+                    ? t('component.menus.navigationMenus.adminConsole')
+                    : t('component.menus.navigationMenus.createCourse')}
+                </div>
+              </button>
+            </div>
+          ) : null}
+          <button
+            type='button'
+            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            onClick={_onPersonalInfoClick}
+          >
+            <Image
+              className={styles.rowIcon}
+              width={16}
+              height={16}
+              src={imgPersonal.src}
+              alt=''
+            />
+            <div className={styles.rowTitle}>
+              {t('component.menus.navigationMenus.personalInfo')}
+            </div>
+          </button>
+          <div className={styles.languageRow}>
+            <div
+              className={cn(
+                styles.mainMenuModalRow,
+                styles.languageRowInner,
+                'px-2.5',
+              )}
+            >
+              <div className={styles.languageRowLeft}>
+                <Image
+                  className={styles.rowIcon}
+                  width={16}
+                  height={16}
+                  src={imgMultiLanguage.src}
+                  alt=''
+                />
+                <div className={styles.rowTitle}>
+                  {t('component.menus.navigationMenus.language')}
+                </div>
+              </div>
+              <div className={styles.languageRowRight}>
+                <LanguageSelect
+                  analyticsSurface={
+                    surface === 'admin' ? 'admin_menu' : 'learner_menu'
+                  }
+                  onSetLanguage={updateLanguage}
+                  contentClassName='z-[1001]'
+                />
+              </div>
+            </div>
+          </div>
+          {setPasswordRow}
+          {sessionsRow}
+          <button
+            type='button'
+            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            onClick={event => {
+              event.preventDefault();
+              event.stopPropagation();
+              changeAboutOpen(true);
+              onClose?.(event);
+            }}
+          >
+            <Info
+              className={styles.rowIcon}
+              size={16}
+            />
+            <div className={styles.rowTitle}>
+              {t('component.menus.navigationMenus.about')}
+            </div>
+          </button>
+          {!isLoggedIn ? (
+            <div
+              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              onClick={onLoginClick}
+            >
+              <Image
+                className={styles.rowIcon}
+                width={16}
+                height={16}
+                src={imgSignIn.src}
+                alt=''
+              />
+              <div className={styles.rowTitle}>{t('module.user.login')}</div>
+            </div>
+          ) : (
+            <div
+              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              onClick={onLogoutClick}
+            >
+              <Image
+                className={styles.rowIcon}
+                width={16}
+                height={16}
+                src={imgSignIn.src}
+                alt=''
+              />
+              <div className={styles.rowTitle}>{t('module.user.logout')}</div>
+            </div>
+          )}
+        </div>
+      </PopupModal>
+      <Dialog
+        open={aboutOpen}
+        onOpenChange={changeAboutOpen}
+      >
+        <DialogContent
+          className={styles.aboutDialog}
+          closeOnOutsideClick
+          onEscapeKeyDown={() => {
+            aboutDismissMethod.current = 'escape';
+          }}
+          onPointerDownOutside={() => {
+            aboutDismissMethod.current = 'outside';
+          }}
+          onClickCapture={() => {
+            aboutDismissMethod.current = 'close_button';
+          }}
+          onCloseAutoFocus={event => {
+            // Fullscreen portal migration unmounts content without closing About.
+            if (aboutOpenRef.current) {
+              event.preventDefault();
+              return;
+            }
+            if (onAboutCloseAutoFocus) {
+              event.preventDefault();
+              if (!aboutFocusRestorePending.current) return;
+              aboutFocusRestorePending.current = false;
+              onAboutCloseAutoFocus();
+            }
+          }}
+        >
+          <DialogHeader className={styles.aboutHeader}>
+            <DialogTitle className={styles.aboutTitle}>
+              {t('component.menus.navigationMenus.about')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className={styles.aboutBody}>
+            <Image
+              src={logoSource}
+              alt=''
+              width={160}
+              height={40}
+              className={styles.aboutLogo}
+            />
+            <AboutVersion
+              open={aboutOpen}
+              surface={surface}
+              previewMode={previewMode}
+              aboutViewed={aboutViewed}
+            />
+          </div>
+          <a
+            href='https://github.com/ai-shifu/ai-shifu'
+            target='_blank'
+            rel='noopener noreferrer'
+            className={styles.aboutSourceLink}
+            onClick={onOpenSourceClick}
+          >
+            {t('component.menus.navigationMenus.openSource')}
+            <ExternalLink
+              size={14}
+              aria-hidden='true'
+            />
+          </a>
+        </DialogContent>
+      </Dialog>
+      <SessionManagerModal
+        open={sessionsModalOpen}
+        onClose={() => setSessionsModalOpen(false)}
+      />
+      {memoryOpen === memoryContext &&
+      courseId &&
+      surface === 'learner' &&
+      !previewMode ? (
+        <CourseMemoryDialog
+          key={`${courseId}:${userInfo?.user_id || ''}`}
+          courseId={courseId}
+          onClose={() => {
+            setMemoryOpen(null);
+            memoryOpening.current = null;
+          }}
+        />
+      ) : null}
+      <SetPasswordModal
+        open={setPasswordModalOpen}
+        onClose={() => setSetPasswordModalOpen(false)}
+        onSuccess={refreshUserInfo}
+      />
+    </>
+  );
+};
+
+export default memo(MainMenuModal);

@@ -11,6 +11,7 @@
     "askProviderTimeout": "Le service de connaissances externe a expiré. Veuillez réessayer plus tard.",
     "askProviderUnavailable": "Le service de connaissances externe est temporairement indisponible.",
     "continueButton": "Continuer",
+    "debugServiceUnavailable": "Le service de débogage est temporairement indisponible. Veuillez réessayer plus tard.",
     "debugSessionExpired": "Cette session de débogage a expiré ou le script a changé. Relancez le débogage.",
     "defaultLearnerName": "Apprenant",
     "freeTextPlaceholder": "Votre réponse",

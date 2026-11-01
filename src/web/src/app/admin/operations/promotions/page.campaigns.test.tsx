@@ -6,7 +6,7 @@ import {
   mockGetCoupons,
   mockToast,
   mockUpdateCampaignStatus,
-} from './promotionsTestUtils.test-support';
+} from './promotions-test-utils.test-support';
 import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage campaigns', () => {

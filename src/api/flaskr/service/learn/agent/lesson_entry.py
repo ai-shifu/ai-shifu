@@ -342,18 +342,28 @@ def agent_lesson_events(
                         plan_preview_rewind,
                     )
 
-                    if debug_store is not None or preview_generation is None:
+                    if debug_store is not None:
+                        if script_override is None or learner_values(user_input):
+                            raise_error("server.learn.agentRewindUnavailable")
+                        rewind = debug_store.plan_rewind(
+                            script=script_override, block_bid=anchor
+                        )
+                    elif preview_generation is None:
                         raise_error("server.learn.agentRewindUnavailable")
-                    rewind = plan_preview_rewind(
-                        app,
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                        anchor=anchor,
-                        answering=bool(learner_values(user_input)),
-                    )
-                    if rewind is not None and rewind.generation != preview_generation:
-                        raise_error("server.learn.agentRewindUnavailable")
+                    else:
+                        rewind = plan_preview_rewind(
+                            app,
+                            user_bid=user_bid,
+                            shifu_bid=shifu_bid,
+                            outline_bid=outline_bid,
+                            anchor=anchor,
+                            answering=bool(learner_values(user_input)),
+                        )
+                        if (
+                            rewind is not None
+                            and rewind.generation != preview_generation
+                        ):
+                            raise_error("server.learn.agentRewindUnavailable")
                 else:
                     rewind = plan_rewind(
                         user_bid=user_bid,
@@ -535,6 +545,10 @@ def agent_lesson_events(
                 # model has nothing to add and did not say so, and asking again would only loop.
                 if outcome is None or outcome.reason != "end" or not outcome.taught:
                     break
+                if debug_store is not None and rewind is not None:
+                    # The browser snapshot belongs to the discarded suffix. Later automatic
+                    # turns resume only memory saved by the replacement teaching.
+                    preview_variables = None
                 user_input, rewind = None, None
         except RewindUnavailableError:
             # The session the rows point back into is gone (unreadable, or never stored).
