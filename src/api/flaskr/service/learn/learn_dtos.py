@@ -1015,6 +1015,8 @@ class RunMarkdownFlowDTO(BaseModel):
 class PlaygroundPreviewRequest(BaseModel):
     """Represent the playground preview request API payload."""
 
+    model_config = ConfigDict(extra="forbid")
+
     content: str | None = Field(
         default=None, description="Markdown-Flow document content"
     )
@@ -1025,12 +1027,6 @@ class PlaygroundPreviewRequest(BaseModel):
     )
     user_input: dict[str, list[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
-    )
-    reload_generated_block_bid: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=128,
-        description="Debug turn to regenerate together with its following steps",
     )
 
     def get_document(self) -> str:

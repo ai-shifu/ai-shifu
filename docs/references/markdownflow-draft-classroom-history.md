@@ -84,68 +84,40 @@ profile/memory admission rules. Preview rewind analytics uses its own start and
 terminal-result family, as defined in the frontend analytics reference.
 1.0 runtime behavior, engine fallback and code remain available.
 
-## Editor Debug sessions and legacy regeneration compatibility
+## Editor Debug sessions
 
-The current editor Debug panel supports new Debug runs, interaction answers and
-the existing TTS controls. It no longer offers per-element content regeneration
-or a regeneration Retry action. Its frontend hook does not accept or send
-reload anchors. Starting Debug again creates a fresh session; answering the
-current interaction continues the session, and resubmitting an earlier answer
-retains its confirmation and whole-session restart behavior. Full-course draft
-classroom rewind remains a separate supported flow.
+Editor Debug supports new Debug runs, interaction answers and its existing TTS
+controls. It does not offer content regeneration or a regeneration Retry action.
+The Debug request DTO and endpoint reject removed `reload_generated_block_bid`
+and `reload_element_bid` fields with a parameter error before usage admission
+or generation. Direct Debug runtime calls with reload identifiers are rejected
+before planning or model execution. Learner and full-course draft classroom
+rewind remain separate supported flows.
 
-Each Debug store binds its lock, request token and session/checkpoint state to
-one backend. When Redis is configured, all of those operations use strict Redis;
-an outage never switches reads or writes to process-local state. Without Redis,
-Debug retains an explicitly process-local development cache. These choices do
-not change the shared cache provider's fallback behavior for other consumers.
+Starting Debug again creates a fresh session. Answering the current interaction
+continues the session; resubmitting an earlier answer retains its confirmation
+and whole-session restart behavior. An answer after a draft edit resumes the
+conversation under the edited script.
 
-Temporary cache or lock failures use `server.learn.debugServiceUnavailable`
-(business code `4023`) rather than an expired-session or classroom-reset error.
-The preview SSE error preserves that code and the request-language message,
-including after nested streaming contexts clear translation state. The frontend
-stops the failed request and retains its existing business-error display. If a
-save succeeded before lock release failed, its checkpoint and compatibility
-retry mapping remain committed; no rollback is claimed.
+Editor Debug uses a separate 30-minute cache, scoped to the authenticated teacher,
+course, lesson and browser-generated Debug run ID. Its payload contains only
+the script hash and serialized engine session. Debug does not capture or store
+per-turn checkpoints, original-input sidecars or regeneration retry mappings.
+An older cached payload can still load its engine session; its next save drops
+the unused sidecar fields. No database migration or published learner state
+change is needed.
 
-Editor Debug uses its separate 30-minute cache, scoped to the authenticated
-teacher, course, lesson and browser-generated Debug run ID. Its cached sidecar
-records each turn's checkpoint and original inputs alongside the engine session;
-it does not reuse classroom presentation ownership or published learner state.
+Each Debug store binds its lock, request token and session state to one backend.
+When Redis is configured, every operation uses strict Redis; an outage never
+switches to process-local state. Without Redis, the explicitly process-local
+development cache remains available. Temporary cache or lock failures retain
+`server.learn.debugServiceUnavailable` (business code `4023`) and the request
+language even after nested streaming contexts clear translation state.
 
-The backend preview endpoint retains `reload_generated_block_bid`, turn
-checkpoints and retry mappings for compatibility with older clients. This
-compatibility path requires the same `debug_session_id` and unchanged script.
-Several rendered elements can share one engine turn, so a legacy reload
-restores the selected generated block's checkpoint and original input, then
-replaces that entire turn and its successors through the normal teaching flow.
-Checkpoints for the replaced suffix retire when replacement state is saved.
-Earlier checkpoints remain available to compatible clients.
-
-The cache keeps one mapping from a requested logical target to its first
-replacement block. Only that mapping, while its replacement remains active in
-the same Debug session and script, can resolve a retired target for a legacy
-retry. Ordinary subsequent turns preserve it; another regeneration replaces
-it. Other retired suffix anchors remain unavailable. The current frontend has
-no retry target or Retry producer.
-
-The restored Debug memory includes the checkpoint's user-memory snapshot. The
-request's echoed current variables cannot reintroduce discarded future answers.
-`debug_variables` SSE messages carry a JSON-encoded variable map before replacement
-output and before its DONE boundary, replacing the frontend variable snapshot.
-For a legacy reload, the anchor belongs only to that request; later answers and
-continuations do not resend it. Old SSE and audio callbacks cannot update a
-replacement run.
-Each Debug request claims a fresh cache token; a short write lock guards the
-token check and session save together. A stopped request that finishes after
-its replacement cannot overwrite the new session or restore retired anchors.
-
-For compatible clients, an unknown, expired or incompatible checkpoint reports
-the existing rewind or Debug-session error instead of silently restarting.
-Historical cached sessions without turn checkpoints can continue normally but
-require an explicit restart before a legacy reload can use checkpoints.
-Whole-lesson restart creates a new Debug run, and checkpoints from a different
-draft are never reused for a reload. Legacy regeneration does not refund prior
-model calls or modify published learning progress. The retired frontend event
+Each request claims a fresh cache token, and a short write lock guards the token
+check and session save together. A superseded request cannot overwrite the newer
+session. If a save succeeds before lock release fails, the saved engine session
+remains committed; no rollback is claimed. Existing frontend business-error
+display and normal Debug restart remain available. The retired frontend event
 family retains its historical definitions in the
 [frontend analytics reference](frontend-product-analytics.md).

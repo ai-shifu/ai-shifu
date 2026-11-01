@@ -330,10 +330,14 @@ def agent_lesson_events(
     what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
 
     The reload identifiers take the lesson back to an earlier turn first, as a 1.0 reload does
-    (see `agent.rewind`). A lesson that cannot be taken back says so rather than going to 1.0.
+    (see `agent.rewind`). Learner and full-course classroom requests retain this behavior;
+    editor Debug rejects reload identifiers. A lesson that cannot be taken back says so
+    rather than going to 1.0.
     """
     rewind = None
     anchor = reload_element_bid or reload_generated_block_bid
+    if debug_store is not None and anchor:
+        raise_error("server.learn.agentRewindUnavailable")
     if anchor:
         try:
             with app_context_scope(app):
@@ -342,13 +346,7 @@ def agent_lesson_events(
                         plan_preview_rewind,
                     )
 
-                    if debug_store is not None:
-                        if script_override is None or learner_values(user_input):
-                            raise_error("server.learn.agentRewindUnavailable")
-                        rewind = debug_store.plan_rewind(
-                            script=script_override, block_bid=anchor
-                        )
-                    elif preview_generation is None:
+                    if preview_generation is None:
                         raise_error("server.learn.agentRewindUnavailable")
                     else:
                         rewind = plan_preview_rewind(
@@ -545,10 +543,6 @@ def agent_lesson_events(
                 # model has nothing to add and did not say so, and asking again would only loop.
                 if outcome is None or outcome.reason != "end" or not outcome.taught:
                     break
-                if debug_store is not None and rewind is not None:
-                    # The browser snapshot belongs to the discarded suffix. Later automatic
-                    # turns resume only memory saved by the replacement teaching.
-                    preview_variables = None
                 user_input, rewind = None, None
         except RewindUnavailableError:
             # The session the rows point back into is gone (unreadable, or never stored).

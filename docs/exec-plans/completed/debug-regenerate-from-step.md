@@ -4,8 +4,8 @@
 
 Historical implementation record: the current editor Debug frontend retires
 content regeneration and Retry in the
-[removal plan](remove-debug-content-regeneration.md). Backend checkpoint and
-reload compatibility remains; this plan does not describe current UI controls.
+[removal plan](remove-debug-content-regeneration.md). The removal also
+covers Debug backend checkpoints and reload handling; this plan is historical.
 
 The editor Debug regenerate button currently restarts the entire lesson even
 though its callback identifies the selected content element. Preserve completed

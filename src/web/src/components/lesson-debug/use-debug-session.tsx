@@ -93,7 +93,6 @@ const createDebugSessionId = () => {
 };
 
 enum DebugStreamEventType {
-  DEBUG_VARIABLES = 'debug_variables',
   DEBUG_ENGINE = 'preview_engine',
   ELEMENT = 'element',
   INTERACTION = 'interaction',
@@ -1044,14 +1043,7 @@ export function useDebugSession({
           );
         }
 
-        if (responseType === DebugStreamEventType.DEBUG_VARIABLES) {
-          if (payloadObject) {
-            runParamsRef.current.variableValues = { ...payloadObject };
-            setVariableValuesSnapshot(
-              normalizeDebugVariableValues(payloadObject),
-            );
-          }
-        } else if (responseType === DebugStreamEventType.ELEMENT) {
+        if (responseType === DebugStreamEventType.ELEMENT) {
           upsertElementDebugItem(response);
         } else if (responseType === DebugStreamEventType.INTERACTION) {
           const interactionContent = resolveResponseStringPayload(response);

@@ -422,7 +422,9 @@ no longer sends reload anchors. `teacher_debug_regenerate_start` and
 `teacher_debug_regenerate_result` have no new frontend producer or replacement
 family. Historical event names, payloads and meanings remain unchanged for
 downstream reports; the following contract describes those historical events.
-New runs, interaction answers and existing TTS behavior retain their own paths.
+Debug backend reload and retry handling is removed as well. Old reload requests
+are rejected rather than producing regeneration events. New runs, interaction
+answers and existing TTS behavior retain their own paths.
 
 Historically, accepted retries after a failed or stopped regeneration used the
 same attempt and terminal-result family. Retry was available only for the
