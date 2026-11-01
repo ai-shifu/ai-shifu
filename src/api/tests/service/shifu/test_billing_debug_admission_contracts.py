@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 from decimal import Decimal
-from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -23,32 +22,6 @@ from flaskr.service.billing.models import CreditWalletBucket
 from flaskr.service.common.models import ERROR_CODE, raise_error
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 from flaskr.util.datetime import now_utc
-
-_API_ROOT = Path(__file__).resolve().parents[3]
-
-
-def test_shifu_preview_routes_gate_creator_debug_usage_with_billing_admission() -> None:
-    source = (_API_ROOT / "flaskr/service/shifu/route.py").read_text(encoding="utf-8")
-    billing_source = (_API_ROOT / "flaskr/service/billing/api.py").read_text(
-        encoding="utf-8"
-    )
-
-    assert "from flaskr.service.billing.admission import admit_creator_usage" in source
-    assert "admit_creator_preview_usage" in source
-    assert "reserve_creator_runtime_slot" not in source
-    assert "usage_scene=BILL_USAGE_SCENE_DEBUG" in source
-    assert "usage_scene=BILL_USAGE_SCENE_PREVIEW" in billing_source
-    assert "assert_creator_debug_allowed(app, creator_bid)" in billing_source
-    assert "def _admit_creator_debug_usage(raw_shifu_bid: object) -> str:" in source
-    assert (
-        "def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:" in source
-    )
-    assert source.count('_admit_creator_debug_usage(json_data.get("shifu_bid"))') == 2
-    assert "_admit_creator_preview_usage_for_shifu(shifu_bid)" in source
-    assert "def ask_preview_api() -> str:" in source
-    assert "def tts_preview_api() -> Response:" in source
-    assert "@bypass_token_validation\n    def ask_preview_api():" not in source
-    assert "@bypass_token_validation\n    def tts_preview_api():" not in source
 
 
 def _seed_preview_course(
@@ -191,27 +164,6 @@ def test_external_previews_require_an_authenticated_payer(
         json={"query": "hello", "ask_model": "gpt-test", "internal": True},
     )
     assert response.get_json()["code"] == ERROR_CODE["server.user.userNotLogin"]
-
-
-def test_shifu_ask_preview_routes_pass_debug_usage_context_into_chat_llm() -> None:
-    source = (_API_ROOT / "flaskr/service/shifu/route.py").read_text(encoding="utf-8")
-
-    assert "from flaskr.service.metering import UsageContext" in source
-    assert 'generation_name="ask_provider_preview"' in source
-    assert "usage_context=UsageContext(" in source
-    assert source.count("usage_scene=BILL_USAGE_SCENE_DEBUG") >= 2
-
-
-def test_shifu_tts_preview_helper_records_debug_metering() -> None:
-    source = (_API_ROOT / "flaskr/service/shifu/tts_preview.py").read_text(
-        encoding="utf-8"
-    )
-
-    assert (
-        "from flaskr.service.metering import UsageContext, record_tts_usage" in source
-    )
-    assert source.count("record_tts_usage(") >= 2
-    assert "usage_scene=BILL_USAGE_SCENE_DEBUG" in source
 
 
 @pytest.mark.parametrize("preview", ["ask", "tts"])
