@@ -21,6 +21,36 @@ if TYPE_CHECKING:
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 
 
+def structured_user_input(raw_spec: object, values: list[str]) -> str | None:
+    """Encode a submitted answer as the renderer's structured control defaults.
+
+    Existing structured defaults preserve commas/newlines inside each submitted value.
+    Returns None for a confirmation, an invalid spec or an unusable answer.
+    """
+    try:
+        spec = InteractionSpec.model_validate(raw_spec)
+    except ValidationError:
+        return None
+    if spec.type == "confirm":
+        return None
+    answer = normalize_answer(spec, InteractionAnswer(values=values))
+    if not answer_is_usable(spec, answer):
+        return None
+    option_values = {option.stored for option in spec.options}
+    selected = [value for value in answer.values if value in option_values]
+    free_text = [value for value in answer.values if value not in option_values]
+    return json.dumps(
+        {
+            "selectedValues": selected,
+            "inputText": ", ".join(free_text),
+            "buttonText": selected[0]
+            if selected and spec.type in ("single", "single_or_text")
+            else "",
+        },
+        ensure_ascii=False,
+    )
+
+
 def _matches_control(spec: InteractionSpec, content: str) -> bool:
     """Compare original controls without translating an omitted input hint again."""
     parser = InteractionParser()
@@ -146,29 +176,9 @@ def project_interaction_inputs(
         identities = questions.get(first.get("tool_call_id"), [])
         if not identities:
             continue
-        try:
-            spec = InteractionSpec.model_validate(first.get("spec"))
-        except ValidationError:
+        user_input = structured_user_input(first.get("spec"), values)
+        if user_input is None:
             continue
-        if spec.type == "confirm":
-            continue
-        answer = normalize_answer(spec, InteractionAnswer(values=values))
-        if not answer_is_usable(spec, answer):
-            continue
-        option_values = {option.stored for option in spec.options}
-        selected = [value for value in answer.values if value in option_values]
-        free_text = [value for value in answer.values if value not in option_values]
-        # Existing structured defaults preserve commas/newlines inside each submitted value.
-        user_input = json.dumps(
-            {
-                "selectedValues": selected,
-                "inputText": ", ".join(free_text),
-                "buttonText": selected[0]
-                if selected and spec.type in ("single", "single_or_text")
-                else "",
-            },
-            ensure_ascii=False,
-        )
         for identity in identities:
             result[identity] = user_input
     return result
