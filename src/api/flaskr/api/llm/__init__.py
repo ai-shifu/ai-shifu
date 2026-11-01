@@ -1283,181 +1283,38 @@ def invoke_llm(
     usage_metadata: dict[str, object] | None = None,
     **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
-    """Invoke LLM."""
-    stream_flag = bool(kwargs.get("stream", True))
-    kwargs.pop("stream", None)
-    usage_scene = (
-        usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
-    )
-    billable = billable if billable is not None else kwargs.pop("billable", None)
-    request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
-    trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
-    usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
-    model, usage_metadata = resolve_selection(model, usage_metadata)
-    generation_input = []
+    """Run a single system/user prompt through ``chat_llm``.
+
+    Unlike plain chat calls, the stream also carries the final finish-reason
+    chunk with ``is_truncated`` set, which prompt callers use to reject cut-off
+    answers. The span's output is set to the full response text.
+    """
+    messages = []
     if system:
-        generation_input.append({"role": "system", "content": system})
-    generation_input.append({"role": "user", "content": message})
-    generation_link = build_langfuse_observation_link(span, trace_id)
-    generation = span.generation(
-        model=model,
-        input=generation_input,
-        name=generation_name,
-        metadata={
-            key: value
-            for key, value in usage_metadata.items()
-            if key.startswith("model_") or key == "resolved_model"
-        },
-        **generation_link,
-    )
-    app.logger.info(
-        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
-        request_id or "",
-        generation_link.get("trace_id", ""),
-        generation_link.get("parent_observation_id", ""),
-        generation_name,
-        model,
-    )
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": message})
+    if json:
+        kwargs["response_format"] = {"type": "json_object"}
     response_text = ""
-    reasoning_text = ""
-    usage = None
-    input_cache_tokens = 0
-    provider_name = ""
-    start_time = time.monotonic()
-    params, invoke_model, provider_key = get_litellm_params_and_model(model)
-    start_completion_time = None
-    if params:
-        provider_name = provider_key or ""
-        messages = []
-        if system:
-            messages.append({"content": system, "role": "system"})
-        messages.append({"content": message, "role": "user"})
-        if json:
-            kwargs["response_format"] = {"type": "json_object"}
-        kwargs["stream_options"] = {"include_usage": True}
-        kwargs = _prepare_litellm_request_kwargs(
-            provider_name,
-            invoke_model,
-            params,
-            kwargs,
-        )
-        response = _iter_stream_with_precontent_retry(
-            app,
-            model,
-            invoke_model,
-            messages,
-            params,
-            kwargs,
-        )
-
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = now_utc()
-            if len(res.choices):
-                choice = res.choices[0]
-                reasoning_text += _extract_reasoning_delta(choice.delta)
-                content = choice.delta.content or ""
-                if content:
-                    response_text += content
-                is_truncated = choice.finish_reason in _INCOMPLETE_FINISH_REASONS
-                if content or choice.finish_reason is not None:
-                    yield LLMStreamResponse(
-                        res.id,
-                        bool(choice.finish_reason),
-                        is_truncated=is_truncated,
-                        result=content,
-                        finish_reason=choice.finish_reason,
-                        usage=None,
-                    )
-            res_usage = getattr(res, "usage", None)
-            if res_usage:
-                input_cache_tokens = _extract_input_cache(res_usage)
-                usage = {
-                    "input": res_usage.prompt_tokens,
-                    "output": res_usage.completion_tokens,
-                    "total": res_usage.total_tokens,
-                }
-    else:
-        raise_error_with_args(
-            "server.llm.modelNotSupported",
-            model=model,
-        )
-
-    app.logger.info("invoke_llm response_chars=%s", len(response_text))
-    if usage is None:
-        app.logger.info("invoke_llm usage: None")
-    else:
-        app.logger.info("invoke_llm usage: %s", usage.__str__())
-    latency_ms = int((time.monotonic() - start_time) * 1000)
-    resolved_usage_scene = normalize_usage_scene(usage_scene)
-    if usage_context is None:
-        usage_context = UsageContext(
-            user_bid=user_id or "",
-            request_id=request_id or "",
-            trace_id=trace_id or "",
-            usage_scene=resolved_usage_scene,
-            billable=billable,
-        )
-    else:
-        usage_context = replace(
-            usage_context,
-            request_id=request_id or usage_context.request_id,
-            trace_id=trace_id or usage_context.trace_id,
-            usage_scene=resolved_usage_scene,
-            billable=billable if billable is not None else usage_context.billable,
-        )
-    usage_metadata.setdefault("generation_name", generation_name)
-    if "temperature" in kwargs:
-        usage_metadata.setdefault("temperature", kwargs.get("temperature"))
-    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
-    if usage is None:
-        usage_metadata.setdefault("usage_source", "missing")
-        record_llm_usage(
-            app,
-            usage_context,
-            provider=provider_name or "",
-            model=model,
-            is_stream=stream_flag,
-            input=0,
-            input_cache=input_cache_tokens,
-            output=0,
-            total=0,
-            latency_ms=latency_ms,
-            status=0,
-            error_message="",
-            extra=usage_metadata,
-        )
-    else:
-        usage_metadata.setdefault("usage_source", "litellm")
-        record_llm_usage(
-            app,
-            usage_context,
-            provider=provider_name or "",
-            model=model,
-            is_stream=stream_flag,
-            input=_extract_usage_value(usage, "input"),
-            input_cache=input_cache_tokens,
-            output=_extract_usage_value(usage, "output"),
-            total=_extract_usage_value(usage, "total"),
-            latency_ms=latency_ms,
-            status=0,
-            error_message="",
-            extra=usage_metadata,
-        )
-    generation.end(
-        input=generation_input,
-        output=_build_langfuse_llm_output(response_text, reasoning_text),
-        usage=usage,
-        metadata={
-            **kwargs,
-            **{
-                key: value
-                for key, value in usage_metadata.items()
-                if key.startswith("model_") or key == "resolved_model"
-            },
-        },
-        completion_start_time=start_completion_time,
-    )
+    for chunk in chat_llm(
+        app,
+        user_id,
+        span,
+        model,
+        messages,
+        json=json,
+        generation_name=generation_name,
+        usage_context=usage_context,
+        usage_scene=usage_scene,
+        billable=billable,
+        request_id=request_id,
+        trace_id=trace_id,
+        usage_metadata=usage_metadata,
+        emit_finish=True,
+        **kwargs,
+    ):
+        response_text += chunk.result or ""
+        yield chunk
     span.update(output=response_text)
 
 
@@ -1488,6 +1345,8 @@ def chat_llm(
     kwargs.pop("stream", None)
     # Off by default: the 1.0 runtime only reads text, and a tool-call-only chunk carries none.
     emit_tool_calls = bool(kwargs.pop("emit_tool_calls", False))
+    # invoke_llm callers also need the finish-reason chunk and a real truncation flag.
+    emit_finish = bool(kwargs.pop("emit_finish", False))
     retry_cancelled = kwargs.pop("retry_cancelled", None)
     usage_scene = (
         usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
@@ -1594,11 +1453,16 @@ def chat_llm(
                             "total": res_usage.total_tokens,
                         }
                     # Without emit_tool_calls this is exactly the old condition: text chunks only.
-                    if content or tool_deltas or (emit_tool_calls and finish_reason):
+                    if (
+                        content
+                        or tool_deltas
+                        or ((emit_tool_calls or emit_finish) and finish_reason)
+                    ):
                         yield LLMStreamResponse(
                             res.id,
                             bool(finish_reason),
-                            is_truncated=False,
+                            is_truncated=emit_finish
+                            and finish_reason in _INCOMPLETE_FINISH_REASONS,
                             result=content or "",
                             finish_reason=finish_reason,
                             usage=None,
