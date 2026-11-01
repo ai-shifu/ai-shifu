@@ -22,5 +22,6 @@ export interface DebugRunParams {
   blockIndex?: number;
   maxBlockCount?: number;
   reloadGeneratedBlockBid?: string;
+  reloadElementBid?: string;
   systemVariableKeys?: string[];
 }

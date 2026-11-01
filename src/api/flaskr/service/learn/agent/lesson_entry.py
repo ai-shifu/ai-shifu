@@ -343,10 +343,13 @@ def agent_lesson_events(
                     )
 
                     if debug_store is not None:
-                        if script_override is None or learner_values(user_input):
+                        if script_override is None:
                             raise_error("server.learn.agentRewindUnavailable")
                         rewind = debug_store.plan_rewind(
-                            script=script_override, block_bid=anchor
+                            script=script_override,
+                            block_bid=reload_generated_block_bid or anchor,
+                            answering=bool(learner_values(user_input)),
+                            element_bid=reload_element_bid,
                         )
                     elif preview_generation is None:
                         raise_error("server.learn.agentRewindUnavailable")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Flask, request
+from flask import Flask, Response, request
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.dashboard.funcs import (
@@ -41,7 +41,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
     app.logger.info("register dashboard routes %s", path_prefix)
 
     @app.route(path_prefix + "/entry", methods=["GET"])
-    def dashboard_entry_api() -> str:
+    def dashboard_entry_api() -> Response:
         user_id = request.user.user_id
         page_index, page_size = _get_pagination_args()
         timezone_name = _get_timezone_name()
@@ -59,7 +59,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
-    def dashboard_course_detail_api(shifu_bid: str) -> str:
+    def dashboard_course_detail_api(shifu_bid: str) -> Response:
         user_id = request.user.user_id
         return make_common_response(
             build_dashboard_course_detail(
@@ -71,7 +71,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/learners", methods=["GET"])
-    def dashboard_course_learners_api(shifu_bid: str) -> str:
+    def dashboard_course_learners_api(shifu_bid: str) -> Response:
         user_id = request.user.user_id
         page_index, page_size = _get_pagination_args()
         return make_common_response(
@@ -90,7 +90,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/follow-ups", methods=["GET"])
-    def dashboard_course_follow_ups_api(shifu_bid: str) -> str:
+    def dashboard_course_follow_ups_api(shifu_bid: str) -> Response:
         user_id = request.user.user_id
         page_index, page_size = _get_pagination_args()
         return make_common_response(
@@ -111,7 +111,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/ratings", methods=["GET"])
-    def dashboard_course_ratings_api(shifu_bid: str) -> str:
+    def dashboard_course_ratings_api(shifu_bid: str) -> Response:
         user_id = request.user.user_id
         page_index, page_size = _get_pagination_args()
         return make_common_response(
@@ -138,7 +138,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
     def dashboard_course_follow_up_detail_api(
         shifu_bid: str,
         generated_block_bid: str,
-    ) -> str:
+    ) -> Response:
         user_id = request.user.user_id
         return make_common_response(
             build_dashboard_course_follow_up_detail(

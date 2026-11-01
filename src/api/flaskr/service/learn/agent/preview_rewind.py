@@ -11,6 +11,7 @@ from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.agent.rewind import (
     RewindPlan,
     RewindUnavailableError,
+    plan_turn_rewind,
     restore,
 )
 from flaskr.service.learn.agent.session_store import (
@@ -113,51 +114,19 @@ def plan_preview_rewind(
         for turn in turns
     ):
         raise RewindUnavailableError
-    target = next(
-        (
-            i
-            for i, turn in enumerate(turns)
-            if (
-                turn.get("answered_question_id") == question_id
-                if answering
-                else turn.get("block_bid") == block_bid
-            )
-        ),
-        None,
+    plan = plan_turn_rewind(
+        turns, block_bid=block_bid, answering=answering, question_id=question_id
     )
-    if target is None:
-        raise RewindUnavailableError
-    record = turns[target].get("record", {})
-    checkpoint = record.get("checkpoint")
-    if (
-        record.get("version") != 1
-        or not isinstance(checkpoint, dict)
-        or not {"messages", "memory", "pending", "answers", "turn", "finished"}
-        <= checkpoint.keys()
-        or not isinstance(checkpoint["messages"], int)
-        or not 0 <= checkpoint["messages"] <= len(session.messages)
-    ):
-        raise RewindUnavailableError
-    if not isinstance(checkpoint["pending"], list) or any(
-        not isinstance(question, dict) for question in checkpoint["pending"]
-    ):
+    if plan is None or plan.checkpoint["messages"] > len(session.messages):
         raise RewindUnavailableError
     try:
-        restore(Session.from_dict(session.to_dict()), checkpoint)
+        restore(Session.from_dict(session.to_dict()), plan.checkpoint)
     except (KeyError, TypeError, ValueError, AttributeError) as exc:
         raise RewindUnavailableError from exc
-    values = record.get("values")
-    if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
-        raise RewindUnavailableError
-    if answering and (
-        not checkpoint["pending"]
-        or checkpoint["pending"][0].get("tool_call_id") != question_id
-    ):
-        raise RewindUnavailableError
     return PreviewRewindPlan(
-        checkpoint=checkpoint,
-        replay_values=None if answering else list(values),
-        retired_block_bids=[turn["block_bid"] for turn in turns[target:]],
+        checkpoint=plan.checkpoint,
+        replay_values=plan.replay_values,
+        retired_block_bids=plan.retired_block_bids,
         generation=row.agent_session_bid,
         source_blocks=[turn["block_bid"] for turn in turns],
     )

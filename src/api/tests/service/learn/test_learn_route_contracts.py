@@ -563,6 +563,8 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
             "visual_mode": True,
             "debug_session_id": "editor-run-1",
             "reload_generated_block_bid": "selected-step",
+            "reload_element_bid": "selected-question",
+            "request_generation": 7,
         },
         headers={"Token": "test-token"},
     )
@@ -572,6 +574,8 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     assert args["preview_request"].get_document() == "Lesson text"
     assert args["preview_request"].user_input == {"choice": ["answer"]}
     assert args["preview_request"].reload_generated_block_bid == "selected-step"
+    assert args["preview_request"].reload_element_bid == "selected-question"
+    assert args["preview_request"].request_generation == 7
     for retired in ("context", "document_prompt", "visual_mode"):
         assert not hasattr(args["preview_request"], retired)
     preview.reset_mock()
@@ -603,7 +607,7 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     preview.assert_not_called()
 
 
-@pytest.mark.parametrize("phase", ["initial", "answer", "regenerate"])
+@pytest.mark.parametrize("phase", ["initial", "answer", "regenerate", "answer_edit"])
 @pytest.mark.parametrize("language", ["en-US", "zh-CN", "fr-FR"])
 def test_debug_cache_failure_keeps_its_business_code_and_request_language(
     monkeypatch: object,
@@ -636,8 +640,11 @@ def test_debug_cache_failure_keeps_its_business_code_and_request_language(
     }
     if phase == "answer":
         payload["user_input"] = {"answer": ["Selected answer"]}
-    elif phase == "regenerate":
+    elif phase in {"regenerate", "answer_edit"}:
         payload["reload_generated_block_bid"] = "selected-turn"
+        if phase == "answer_edit":
+            payload["reload_element_bid"] = "selected-question"
+            payload["user_input"] = {"answer": ["New answer"]}
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
         json=payload,

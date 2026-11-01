@@ -366,3 +366,36 @@ def test_old_checkpoint_does_not_inherit_a_future_interruption() -> None:
     session.interrupted = True
     rewind.restore(session, checkpoint)
     assert not session.interrupted
+
+
+@pytest.mark.parametrize("selected", [0, 1])
+def test_learner_answer_edit_preserves_the_existing_block_based_replay_boundary(
+    app: object, selected: int
+) -> None:
+    with app.app_context():
+        _clean()
+        _record()
+        _block("questions", checkpoint=_BEFORE_B1, values=[])
+        first = {
+            **_WAITING,
+            "pending": [
+                {"tool_call_id": "q1", "spec": _QUESTION.model_dump(mode="json")},
+                {"tool_call_id": "q2", "spec": _QUESTION.model_dump(mode="json")},
+            ],
+        }
+        second = {**first, "pending": first["pending"][1:]}
+        _block("answer-0", checkpoint=first, values=["old-0"])
+        _block("answer-1", checkpoint=second, values=["old-1"])
+        for i in range(2):
+            _element(f"control-{i}", "questions")
+            row = LearnGeneratedElement.query.filter_by(
+                element_bid=f"control-{i}"
+            ).one()
+            row.element_type = "interaction"
+            row.content_text = "?[Left|Right]"
+        db.session.commit()
+        plan = _plan(f"control-{selected}", answering=True)
+    assert plan is not None
+    assert plan.checkpoint["pending"][0]["tool_call_id"] == "q1"
+    assert plan.replay_values is None
+    assert plan.retired_block_bids == ["answer-0", "answer-1"]

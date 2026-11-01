@@ -120,14 +120,18 @@ def fmt(o: object) -> object:
     return o.__json__()
 
 
-def make_common_response(data: object) -> str:
-    """Build the common JSON response envelope."""
+def make_common_response(data: object) -> Response:
+    """Build the common response envelope with an explicit JSON media type."""
     if data is None:
         data = {}
-    return json.dumps(
-        {"code": 0, "message": "success", "data": data},
-        default=fmt,
-        ensure_ascii=False,
+    return Response(
+        json.dumps(
+            {"code": 0, "message": "success", "data": data},
+            default=fmt,
+            ensure_ascii=False,
+        ),
+        mimetype="application/json",
+        headers={"X-Content-Type-Options": "nosniff"},
     )
 
 

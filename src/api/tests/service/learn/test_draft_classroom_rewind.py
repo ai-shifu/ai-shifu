@@ -446,3 +446,34 @@ def test_separate_model_turns_keep_earlier_displayed_answers(
         "",
     ]
     assert len(elements) == 6
+
+
+def test_existing_draft_accepting_checkpoint_ignores_an_unaccepted_attempt(
+    app: Flask, classroom: tuple
+) -> None:
+    identity, run, history, _calls = classroom
+    run()
+    anchor = history().elements[1].element_bid
+    run("Accepted answer")
+    with app.app_context(), unit_of_work():
+        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
+        data = json.loads(row.session_data)
+        turns = data["ai_shifu_preview_presentation"]["turns"]
+        accepting_block = turns[1]["block_bid"]
+        rejected = json.loads(json.dumps(turns[1]))
+        rejected["block_bid"] = "unaccepted-attempt"
+        rejected["answered_question_id"] = None
+        rejected["record"]["values"] = []
+        turns.insert(1, rejected)
+        row.session_data = json.dumps(data)
+    with app.app_context():
+        plan = preview_rewind.plan_preview_rewind(
+            app,
+            user_bid=identity,
+            shifu_bid=identity,
+            outline_bid=identity,
+            anchor=anchor,
+            answering=True,
+        )
+    assert plan.retired_block_bids == [accepting_block]
+    assert plan.replay_values is None

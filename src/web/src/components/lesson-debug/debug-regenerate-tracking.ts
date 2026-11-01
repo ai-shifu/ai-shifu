@@ -4,11 +4,13 @@ type TrackEvent = (name: string, payload: Record<string, unknown>) => unknown;
 /** Track one admitted Debug regeneration without collecting the selected step. */
 export function startDebugRegenerateTracking({
   anchor,
+  answerEdit = false,
   shifuBid,
   outlineBid,
   trackEvent,
 }: {
   anchor?: string;
+  answerEdit?: boolean;
   shifuBid: string;
   outlineBid: string;
   trackEvent: TrackEvent;
@@ -23,11 +25,14 @@ export function startDebugRegenerateTracking({
       void Promise.resolve(trackEvent(name, data)).catch(() => {});
     } catch {}
   };
-  emit('teacher_debug_regenerate_start', payload);
+  const family = answerEdit
+    ? 'teacher_debug_answer_edit'
+    : 'teacher_debug_regenerate';
+  emit(`${family}_start`, payload);
   let finished = false;
   return result => {
     if (finished) return;
     finished = true;
-    emit('teacher_debug_regenerate_result', { ...payload, result });
+    emit(`${family}_result`, { ...payload, result });
   };
 }

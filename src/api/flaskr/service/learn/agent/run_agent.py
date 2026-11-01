@@ -529,6 +529,13 @@ def run_agent_lesson(
             if debug_store is not None:
                 checkpoint["user_memory"] = dict(session.user_memory)
             session_holder["turn_record"] = turn_record(checkpoint, values)
+            if debug_store is not None:
+                debug_store.save(
+                    session,
+                    generated_block_bid=generated_block_bid,
+                    turn_record=session_holder["turn_record"],
+                    rewind=rewind,
+                )
             deleted_policy = (
                 {"memory_deleted_keys": frozenset(memory_deleted_keys)}
                 if memory_deleted_keys
@@ -1103,6 +1110,8 @@ def _stream_turn(
                         generated_block_bid=generated_block_bid,
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
+                        question_ids=preview_question_ids
+                        or [p.tool_call_id for p in session.pending],
                     )
                     kept = True
                 else:
@@ -1219,6 +1228,7 @@ def _stream_turn(
                         generated_block_bid=generated_block_bid,
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
+                        question_ids=preview_question_ids,
                     )
                     kept = True
                 else:
@@ -1357,6 +1367,7 @@ def _stream_turn(
                 generated_block_bid=generated_block_bid,
                 turn_record=session_holder.get("turn_record", ""),
                 rewind=session_holder.get("rewind"),
+                question_ids=preview_question_ids,
             )
         else:
             discarded = not _persist(
