@@ -44,6 +44,13 @@ input selects answer editing. Existing content regeneration continues replaying
 the original input of the selected content turn. Ordinary answers have no reload
 anchor. The SSE envelope and terminal-event contract remain unchanged.
 
+Debug requests include an increasing `request_generation` within their session.
+Admission rejects older or duplicate generations before they can replace the
+active request, including when HTTP requests arrive out of order. The saved
+session retains the highest generation for its lifetime. Existing clients can
+omit the field until their session admits a sequenced request; learner requests
+and persistence do not use this Debug-only contract.
+
 Edited scripts start a fresh Debug session. Expired sessions, unknown controls,
 missing checkpoints and old cache entries without exact interaction ownership
 report the existing localized errors; they do not silently restart the lesson.

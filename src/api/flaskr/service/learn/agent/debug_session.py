@@ -74,6 +74,7 @@ class DebugSessionStore:
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
         self._key = f"{prefix}:agent_debug:{digest}"
         self._request_bid: str | None = None
+        self._request_generation: int | None = None
         self._cache = redis_cache if get_redis_client() is not None else cache
 
     @contextmanager
@@ -107,13 +108,35 @@ class DebugSessionStore:
         if current != self._request_bid:
             raise RewindUnavailableError
 
-    def begin_request(self) -> None:
-        """Supersede saves from an earlier stream the browser may have just stopped."""
+    def begin_request(self, *, generation: int | None = None) -> None:
+        """Admit only a newer client request, independently of server scheduling."""
         request_bid = uuid.uuid4().hex
         with self._write_lock():
             with _debug_cache_access():
-                self._cache.setex(f"{self._key}:request", self.TTL_SECONDS, request_bid)
-            self._request_bid = request_bid
+                current = self._cache.get(f"{self._key}:request")
+                stored = self._cache.get(self._key)
+            highest = 0
+            for raw, field in ((current, "generation"), (stored, "request_generation")):
+                try:
+                    data = json.loads(raw) if raw else {}
+                except (TypeError, ValueError):
+                    data = {}
+                value = data.get(field) if isinstance(data, dict) else None
+                if isinstance(value, int):
+                    highest = max(highest, value)
+            if highest and (generation is None or generation <= highest):
+                raise RewindUnavailableError
+            # Keep order and ownership in one cache write. Legacy unsequenced
+            # clients remain compatible until this session admits a sequenced run.
+            token = (
+                json.dumps({"request_bid": request_bid, "generation": generation})
+                if generation is not None
+                else request_bid
+            )
+            with _debug_cache_access():
+                self._cache.setex(f"{self._key}:request", self.TTL_SECONDS, token)
+            self._request_bid = token
+            self._request_generation = generation
 
     def _payload(self, *, script: str) -> dict | None:
         with _debug_cache_access():
@@ -225,6 +248,11 @@ class DebugSessionStore:
             "session": session.dumps(),
             "turns": turns,
         }
+        generation = self._request_generation or previous.get("request_generation")
+        if generation is not None:
+            # Retain ordering for as long as the session lives, even if the
+            # shorter-lived admission token expires before the saved session.
+            payload["request_generation"] = generation
         if (
             isinstance(retry, dict)
             and isinstance(retry.get("requested_block_bid"), str)
@@ -384,7 +412,10 @@ def stream_debug_preview(
             raise_error("server.learn.agentRewindUnavailable")
         restore(session, rewind.checkpoint)
         session.user_memory = dict(rewind.checkpoint["user_memory"])
-    store.begin_request()
+    try:
+        store.begin_request(generation=preview_request.request_generation)
+    except RewindUnavailableError:
+        raise_error("server.learn.agentRewindUnavailable")
     if anchor:
         yield RunElementSSEMessageDTO(
             type="debug_variables",

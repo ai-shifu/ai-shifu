@@ -32,6 +32,7 @@ cache snapshot to avoid racing an old stream's save.
 - Preserve all existing learner decisions and replay boundaries; new answer-edit behavior is Debug-only.
 - Permit confirmed answer edits during streaming; reject late old-stream writes and UI events.
 - Only Debug enables current-answer edits before first output, after durably saving its checkpoint.
+- Order Debug admission by client generation so a late older HTTP request cannot supersede its replacement.
 - Editing the script still starts a fresh Debug session. Missing checkpoints report an error.
 - Keep existing content-regeneration analytics compatible; use a separate answer-edit family.
 - Preserve the original dirty checkout. Submission and merge are authorized for this isolated branch.
@@ -54,6 +55,9 @@ and authorized submission and merge into main.
 - Review regression: Debug can change an active answer before first content;
   published learning and draft preview keep their existing pre-output run guard.
   Both use the shared decision; duplicate Debug submissions stay blocked.
+- Review regression: late and duplicate Debug requests cannot replace a newer
+  admitted request, including after its separate fence expires. Invalid
+  generations fail DTO validation, and stale requests never start the engine.
 
 ## Context and Orientation
 
@@ -96,3 +100,6 @@ sessions without exact interaction metadata fail safely for unsupported rewinds.
 Add optional Debug `reload_element_bid`; paired input means answer editing and an
 anchor without input retains content regeneration. Keep the existing engine, SSE
 terminal events, request identity guards, and learner storage contracts.
+Add optional positive integer `request_generation` to Debug only. Updated clients
+increase it for each request in a session; admission and session saves retain the
+highest value. Legacy clients remain supported until a sequenced run is admitted.

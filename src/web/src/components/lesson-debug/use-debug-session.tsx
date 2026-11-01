@@ -1469,6 +1469,7 @@ export function useDebugSession({
             : {}),
         });
         const payload: Record<string, unknown> = {
+          request_generation: streamGeneration,
           block_index: finalBlockIndex,
           content: finalMdflow,
           variables: finalVariableValues,

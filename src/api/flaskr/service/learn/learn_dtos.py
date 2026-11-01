@@ -1040,6 +1040,14 @@ class PlaygroundPreviewRequest(BaseModel):
         description="Exact Debug interaction whose answer is being revised",
     )
 
+    request_generation: int | None = Field(
+        default=None,
+        strict=True,
+        ge=1,
+        le=9007199254740991,
+        description="Increasing client request generation within this Debug session",
+    )
+
     def get_document(self) -> str:
         """Return the requested playground document."""
         return self.content or ""

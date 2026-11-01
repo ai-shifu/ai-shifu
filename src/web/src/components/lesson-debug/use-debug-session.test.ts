@@ -640,6 +640,9 @@ describe('useDebugSession helpers and business error rendering', () => {
         ),
       );
       const oldSource = sources.at(-1)!;
+      const oldGeneration = JSON.parse(
+        (SSE as jest.Mock).mock.lastCall[1].payload,
+      ).request_generation;
       mockTrackEvent.mockClear();
       const count = sources.length;
       expect(result.current.isStreaming).toBe(true);
@@ -670,6 +673,12 @@ describe('useDebugSession helpers and business error rendering', () => {
         user_input: { answer: ['B'] },
       });
       expect(sources).toHaveLength(count + 1);
+      expect(Number.isSafeInteger(oldGeneration)).toBe(true);
+      expect(oldGeneration).toBeGreaterThan(0);
+      expect(
+        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload)
+          .request_generation,
+      ).toBeGreaterThan(oldGeneration);
       expect(oldSource.close).toHaveBeenCalledTimes(1);
       act(() => emitText(oldSource, 'late-output', 'old-turn', 'Discarded'));
       expect(

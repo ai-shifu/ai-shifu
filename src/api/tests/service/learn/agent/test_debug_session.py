@@ -1052,7 +1052,9 @@ def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
 
     begin_request = debug_session.DebugSessionStore.begin_request
 
-    def racing_claim(store: debug_session.DebugSessionStore) -> None:
+    def racing_claim(
+        store: debug_session.DebugSessionStore, *, generation: int | None = None
+    ) -> None:
         # The stopped host completes between the preview's early plan and token claim.
         racing = selected if answering else _record(session)
         session.messages.append(ModelRequest(parts=[UserPromptPart("Racing teaching")]))
@@ -1063,7 +1065,7 @@ def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
         older.save(
             session, generated_block_bid="B" if answering else "C", turn_record=racing
         )
-        begin_request(store)
+        begin_request(store, generation=generation)
 
     monkeypatch.setattr(debug_session.DebugSessionStore, "begin_request", racing_claim)
     runner = _entry_with_runner(monkeypatch)
@@ -1466,3 +1468,84 @@ def test_real_debug_answer_edit_uses_new_input_and_keeps_only_the_original_prefi
     assert "OLD ANSWER" not in " ".join(replacement_history)
     assert "FUTURE ANSWER" not in " ".join(replacement_history)
     assert any(message.type == "debug_variables" for message in result)
+
+
+@pytest.mark.parametrize("expired_fence", [False, True])
+def test_late_older_debug_admission_cannot_replace_newer_request(
+    app: object, monkeypatch: object, expired_fence: bool
+) -> None:
+    backend = _Cache()
+    monkeypatch.setattr(debug_session, "cache", backend)
+    older, newer = _store(app), _store(app)
+    session = Session(script=ScriptBundle(script="Current draft"))
+    newer.begin_request(generation=2)
+    admitted = dict(backend.values)
+    with pytest.raises(RewindUnavailableError):
+        older.begin_request(generation=1)
+    assert backend.values == admitted
+    session.memory["choice"] = "new answer"
+    newer.save(session)
+    if expired_fence:
+        del backend.values[f"{newer._key}:request"]
+    before = dict(backend.values)
+    for generation in (1, 2, None):
+        with pytest.raises(RewindUnavailableError):
+            older.begin_request(generation=generation)
+        assert backend.values == before
+    if not expired_fence:
+        newer.save(session)
+        assert newer.load(script="Current draft").memory["choice"] == "new answer"
+    latest = _store(app)
+    latest.begin_request(generation=3)
+    session.memory["choice"] = "latest answer"
+    latest.save(session)
+    with pytest.raises(RewindUnavailableError):
+        newer.save(session)
+    assert latest.load(script="Current draft").memory["choice"] == "latest answer"
+
+
+@pytest.mark.parametrize("generation", [0, -1, True, 1.5, "2", 9007199254740992])
+def test_debug_generation_rejects_non_positive_or_unsafe_integers(
+    generation: object,
+) -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        PlaygroundPreviewRequest(
+            content="Draft", block_index=0, request_generation=generation
+        )
+
+
+def test_stale_debug_http_generation_is_rejected_before_starting_the_engine(
+    app: object, monkeypatch: object
+) -> None:
+    from tests.service.learn.agent.test_lesson_entry_contracts import _entry_with_runner
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    latest = _store(app)
+    latest.begin_request(generation=2)
+    session = Session(
+        script=ScriptBundle(script="Current draft"), memory={"choice": "new"}
+    )
+    latest.save(session)
+    runner = _entry_with_runner(monkeypatch)
+    with pytest.raises(AppError):
+        _request_messages(
+            app,
+            lambda: debug_session.stream_debug_preview(
+                app,
+                preview_request=PlaygroundPreviewRequest(
+                    content="Current draft",
+                    block_index=0,
+                    user_input={"input": ["old"]},
+                    request_generation=1,
+                ),
+                user_bid="teacher",
+                shifu_bid="course",
+                outline_bid="lesson",
+                run_bid="one",
+            ),
+        )
+    runner.assert_not_called()
+    latest.save(session)
+    assert latest.load(script="Current draft").memory == {"choice": "new"}
