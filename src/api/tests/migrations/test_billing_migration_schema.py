@@ -1,8 +1,9 @@
 """Billing tables built by the Alembic chain must match the models.
 
 The test replays the ``op.*`` calls in every migration's ``upgrade()`` in
-revision order, without a database, and compares the resulting columns and
-unique constraints with the SQLAlchemy models. It runs in every CI job, unlike
+revision order, without a database, and compares the resulting columns (type,
+length or precision and scale, nullability, computed) and the explicitly
+declared indexes and unique constraints with the SQLAlchemy models. It runs in every CI job, unlike
 the opt-in fresh-MySQL smoke test.
 """
 
@@ -14,13 +15,24 @@ from pathlib import Path
 import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import Table, UniqueConstraint
+from sqlalchemy import Column, Table, UniqueConstraint
 
 API_ROOT = Path(__file__).resolve().parents[2]
 RAW_PROVIDER_TABLES = {"order_pingxx_orders", "order_stripe_orders"}
+_TYPE_ALIASES = {
+    "varchar": "string",
+    "decimal": "numeric",
+    "bigint": "biginteger",
+    "smallint": "smallinteger",
+    "int": "integer",
+    "longtext": "text",
+}
 
 
 def _str(node: ast.AST | None) -> str | None:
+    # op.f("ix_...") / batch_op.f("ix_...") only marks a name as already final.
+    if isinstance(node, ast.Call) and _call_name(node) == "f" and node.args:
+        node = node.args[0]
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     return None
@@ -42,12 +54,71 @@ def _is_unique(call: ast.Call) -> bool:
     return isinstance(flag, ast.Constant) and flag.value is True
 
 
+def _int(node: ast.AST | None) -> int | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, int):
+        return node.value
+    return None
+
+
+def _type_signature(node: ast.AST | None) -> tuple[object, ...] | None:
+    """Reduce ``sa.Numeric(20, 10)`` and similar to (kind, length, precision, scale)."""
+    if isinstance(node, ast.Attribute | ast.Name):
+        node = ast.Call(func=node, args=[], keywords=[])
+    if not isinstance(node, ast.Call):
+        return None
+    kind = _call_name(node).lower()
+    kind = _TYPE_ALIASES.get(kind, kind)
+    first = _int(node.args[0]) if node.args else None
+    second = _int(node.args[1]) if len(node.args) > 1 else None
+    if kind == "numeric":
+        return (
+            kind,
+            None,
+            first or _int(_keyword(node, "precision")),
+            second or _int(_keyword(node, "scale")),
+        )
+    if kind == "string":
+        return (kind, first or _int(_keyword(node, "length")), None, None)
+    return (kind, None, None, None)
+
+
+def _column_definition(column: ast.Call) -> dict[str, object]:
+    nullable = _keyword(column, "nullable")
+    primary = _keyword(column, "primary_key")
+    is_primary = isinstance(primary, ast.Constant) and primary.value is True
+    return {
+        "type": _type_signature(column.args[1] if len(column.args) > 1 else None),
+        "nullable": nullable.value
+        if isinstance(nullable, ast.Constant)
+        else not is_primary,
+        "computed": any(
+            isinstance(arg, ast.Call) and _call_name(arg) == "Computed"
+            for arg in column.args[2:]
+        ),
+    }
+
+
+def _model_definition(column: Column) -> dict[str, object]:
+    kind = type(column.type).__name__.lower()
+    kind = _TYPE_ALIASES.get(kind, kind)
+    return {
+        "type": (
+            kind,
+            getattr(column.type, "length", None) if kind == "string" else None,
+            getattr(column.type, "precision", None) if kind == "numeric" else None,
+            getattr(column.type, "scale", None) if kind == "numeric" else None,
+        ),
+        "nullable": bool(column.nullable),
+        "computed": column.computed is not None,
+    }
+
+
 class _SchemaReplay:
-    """Track table columns and unique constraint names across migrations."""
+    """Track each table's columns, indexes and unique constraints across migrations."""
 
     def __init__(self) -> None:
-        self.columns: dict[str, set[str]] = {}
-        self.uniques: dict[str, set[str]] = {}
+        self.columns: dict[str, dict[str, dict[str, object]]] = {}
+        self.indexes: dict[str, set[str]] = {}
 
     def run(self, tree: ast.Module) -> None:
         upgrade = next(
@@ -73,7 +144,11 @@ class _SchemaReplay:
             if isinstance(arg, ast.Starred) and isinstance(arg.value, ast.Call):
                 helper = self._helpers.get(_call_name(arg.value))
             if helper is not None:
-                expanded.extend(n for n in ast.walk(helper) if isinstance(n, ast.Call))
+                expanded.extend(
+                    n
+                    for n in ast.walk(helper)
+                    if isinstance(n, ast.Call) and _call_name(n) == "Column"
+                )
             else:
                 expanded.append(arg)
         return expanded
@@ -98,68 +173,79 @@ class _SchemaReplay:
                 ):
                     continue
                 if func.value.id == "op":
-                    self._apply(func.attr, call, call.args)
+                    self._apply(func.attr, call, list(call.args))
                 elif func.value.id == "batch_op" and batch_table:
-                    self._apply(
-                        func.attr, call, [ast.Constant(batch_table), *call.args]
-                    )
+                    self._apply_batch(func.attr, call, batch_table)
+
+    def _add_column(self, table: str, column: ast.AST) -> None:
+        # Columns built in a loop are not resolved; billing migrations spell them out.
+        if isinstance(column, ast.Call) and column.args:
+            self.columns.setdefault(table, {})[_str(column.args[0])] = (
+                _column_definition(column)
+            )
+
+    def _alter_column(self, table: str, name: str | None, call: ast.Call) -> None:
+        columns = self.columns.setdefault(table, {})
+        definition = columns.pop(
+            name, {"type": None, "nullable": True, "computed": False}
+        )
+        type_node = _keyword(call, "type_")
+        if type_node is not None:
+            definition = {**definition, "type": _type_signature(type_node)}
+        nullable = _keyword(call, "nullable")
+        if isinstance(nullable, ast.Constant):
+            definition = {**definition, "nullable": nullable.value}
+        columns[_str(_keyword(call, "new_column_name")) or name] = definition
 
     def _apply(self, operation: str, call: ast.Call, args: list[ast.expr]) -> None:
-        table = _str(args[0]) if args else _str(_keyword(call, "table_name"))
         if operation == "create_table":
-            self.columns[table] = set()
-            self.uniques[table] = set()
+            table = _str(args[0])
+            self.columns[table] = {}
+            self.indexes[table] = set()
             for item in self._expand(args[1:]):
-                if (
-                    isinstance(item, ast.Call)
-                    and item.args
-                    and _call_name(item) == "Column"
-                ):
-                    self.columns[table].add(_str(item.args[0]))
-                if (
-                    isinstance(item, ast.Call)
-                    and _call_name(item) == "UniqueConstraint"
-                ):
-                    name = _str(_keyword(item, "name"))
+                if not isinstance(item, ast.Call):
+                    continue
+                if _call_name(item) == "Column" and item.args:
+                    self._add_column(table, item)
+                elif _call_name(item) in ("UniqueConstraint", "Index"):
+                    name = _str(_keyword(item, "name")) or (
+                        _str(item.args[0]) if _call_name(item) == "Index" else None
+                    )
                     if name:
-                        self.uniques[table].add(name)
+                        self.indexes[table].add(name)
         elif operation == "drop_table":
+            table = _str(args[0]) if args else _str(_keyword(call, "table_name"))
             self.columns.pop(table, None)
-            self.uniques.pop(table, None)
+            self.indexes.pop(table, None)
         elif operation == "rename_table":
-            new = _str(args[1])
-            self.columns[new] = self.columns.pop(table, set())
-            self.uniques[new] = self.uniques.pop(table, set())
+            old, new = _str(args[0]), _str(args[1])
+            self.columns[new] = self.columns.pop(old, {})
+            self.indexes[new] = self.indexes.pop(old, set())
         elif operation == "add_column":
-            column = args[1]
-            # Columns built in a loop are not resolved; billing migrations spell them out.
-            if isinstance(column, ast.Call) and column.args:
-                self.columns.setdefault(table, set()).add(_str(column.args[0]))
+            self._add_column(_str(args[0]), args[1])
         elif operation == "drop_column":
-            self.columns.get(table, set()).discard(_str(args[1]))
+            self.columns.get(_str(args[0]), {}).pop(_str(args[1]), None)
         elif operation == "alter_column":
-            new = _str(_keyword(call, "new_column_name"))
-            if new:
-                self.columns.get(table, set()).discard(_str(args[1]))
-                self.columns.setdefault(table, set()).add(new)
-        elif operation == "create_unique_constraint" or (
-            operation == "create_index" and _is_unique(call)
-        ):
-            # op takes the constraint name then the table; batch_op only the name.
-            name, target = (
-                (_str(args[1]), table)
-                if call.func.value.id == "batch_op"
-                else (_str(args[0]), _str(args[1]))
-            )
-            self.uniques.setdefault(target, set()).add(name)
+            self._alter_column(_str(args[0]), _str(args[1]), call)
+        elif operation in ("create_unique_constraint", "create_index"):
+            self.indexes.setdefault(_str(args[1]), set()).add(_str(args[0]))
         elif operation in ("drop_constraint", "drop_index"):
-            if call.func.value.id == "batch_op":
-                name, target = _str(args[1]), table
-            else:
-                name = _str(args[0])
-                target = _str(args[1]) if len(args) > 1 else None
-                target = target or _str(_keyword(call, "table_name"))
-            self.uniques.get(target, set()).discard(name)
+            table = _str(args[1]) if len(args) > 1 else None
+            table = table or _str(_keyword(call, "table_name"))
+            self.indexes.get(table, set()).discard(_str(args[0]))
+
+    def _apply_batch(self, operation: str, call: ast.Call, table: str) -> None:
+        args = call.args
+        if operation == "add_column":
+            self._add_column(table, args[0])
+        elif operation == "drop_column":
+            self.columns.get(table, {}).pop(_str(args[0]), None)
+        elif operation == "alter_column":
+            self._alter_column(table, _str(args[0]), call)
+        elif operation in ("create_unique_constraint", "create_index"):
+            self.indexes.setdefault(table, set()).add(_str(args[0]))
+        elif operation in ("drop_constraint", "drop_index"):
+            self.indexes.get(table, set()).discard(_str(args[0]))
 
 
 def _replayed_schema() -> _SchemaReplay:
@@ -200,12 +286,20 @@ def test_billing_scope_covers_the_core_tables() -> None:
 @pytest.mark.parametrize("table", _billing_tables(), ids=lambda table: table.name)
 def test_migrations_build_the_billing_model_schema(table: Table) -> None:
     assert table.name in _REPLAY.columns, f"no migration creates {table.name}"
-    model_columns = {column.name for column in table.columns}
-    assert model_columns == _REPLAY.columns[table.name]
+    migrated = _REPLAY.columns[table.name]
+    assert set(migrated) == {column.name for column in table.columns}
+    for column in table.columns:
+        assert migrated[column.name] == _model_definition(column), column.name
 
-    model_uniques = {
+    # Explicit Index(...) / UniqueConstraint(...) declarations. Single-column
+    # ``index=True`` flags are not compared: several were never migrated.
+    model_indexes = {
         constraint.name
         for constraint in table.constraints
         if isinstance(constraint, UniqueConstraint) and constraint.name
-    } | {index.name for index in table.indexes if index.unique}
-    assert model_uniques <= _REPLAY.uniques.get(table.name, set())
+    } | {
+        index.name
+        for index in table.indexes
+        if index.unique or not getattr(index, "_column_flag", False)
+    }
+    assert model_indexes <= _REPLAY.indexes.get(table.name, set())
