@@ -584,7 +584,7 @@ def test_container_document_context_survives_every_stream_cut(
             for tag in ("script", "style", "pre", "textarea")
         ],
         'Show <span title="{{">\n',
-        'Show <span title="long\n\n{{">\n',
+        'Show <span title="long\n{{">\n',
         "Show <!-- {{ -->\n",
         "Show <? {{ ?>\n",
         "Show <![CDATA[ {{ ]]>\n",

@@ -9,9 +9,10 @@ from markdownflow.syntax.constants import (
     COMPILED_BLANK_LINE_REGEX,
     COMPILED_DOLLAR_RUN_REGEX,
     COMPILED_INLINE_HTML_REGEX,
-    COMPILED_PHYSICAL_LINE_END_REGEX,
     COMPILED_RAW_HTML_END_REGEX,
     COMPILED_RAW_HTML_START_REGEX,
+    HTML_EMPTY_COMMENTS,
+    HTML_TERMINATORS,
 )
 from markdownflow.syntax.variable_names import (
     VariableMarker,
@@ -23,27 +24,27 @@ from .document_blocks import (
     DocumentBlocks,
     container_content_info,
     container_content_start,
-    container_opening,
     fence_opening,
     indentation,
     read_angle_autolink,
 )
-
-_HTML_TERMINATORS = (("<!--", "-->"), ("<?", "?>"), ("<![CDATA[", "]]>"))
 
 
 def document_html_ends(text: str) -> dict[str, int]:
     """Index possible native HTML closers once for a document scan."""
     return {
         ending: text.rfind(ending)
-        for ending in (">", *(closing for _, closing in _HTML_TERMINATORS))
+        for ending in (">", *(closing for _, closing in HTML_TERMINATORS))
     }
 
 
-def _html_can_close(text: str, start: int, last_ends: dict[str, int]) -> bool:
+def html_can_close(text: str, start: int, last_ends: dict[str, int]) -> bool:
+    """Reject impossible tails before the native regex rescans them at each opener."""
     if last_ends[">"] < start:
         return False
-    for opening, closing in _HTML_TERMINATORS:
+    if text.startswith(HTML_EMPTY_COMMENTS, start):
+        return True
+    for opening, closing in HTML_TERMINATORS:
         if text.startswith(opening, start):
             return last_ends[closing] >= start + len(opening)
     return True
@@ -133,24 +134,14 @@ def _raw_html_bounds(
 
 
 def literal_variable_markers(
-    text: str, start: int, end: int
+    text: str, start: int, end: int, split: int | None = None
 ) -> Iterator[VariableMarker]:
-    """Keep opening attributes and raw HTML bodies as separate local examples."""
-    ending = COMPILED_PHYSICAL_LINE_END_REGEX.search(text, start, end)
-    opening_line = text[start : ending.start() if ending is not None else end]
-    content, _ = container_opening(opening_line)
-    tag_start = start + content
-    while tag_start < end and text[tag_start] == " ":
-        tag_start += 1
-    token_end = None
-    if tag_start < end and text[tag_start] == "<":
-        local = DocumentBlocks(text[start:end], COMPILED_INLINE_HTML_REGEX)
-        token_end = local.html_token_end(0, tag_start - start)
-    boundaries = (
-        (start, start + token_end, end)
-        if token_end is not None and start + token_end <= end
-        else (start, end)
-    )
+    """Collect local examples, keeping both sides of ``split`` separate.
+
+    ``split`` is the native boundary inside the literal: the end of an HTML
+    block's opening token, or the start of a reference definition's body.
+    """
+    boundaries = (start, split, end) if split is not None else (start, end)
     for left, right in itertools.pairwise(boundaries):
         for marker in find_variable_markers(text[left:right]):
             yield VariableMarker(
@@ -370,6 +361,8 @@ class DocumentLiteralReader:
         self.active_links: set[int] = set()
         self.resource_start = -1
         self.resource_image = False
+        # Literal start -> native boundary that local examples must not cross.
+        self.splits: dict[int, int] = {}
 
     def read(self, start: int) -> int | None:
         """Return the end of the literal starting at ``start``, if there is one."""
@@ -381,11 +374,16 @@ class DocumentLiteralReader:
         if reference_start is not None:
             reference_end = read_reference_end(self.text, reference_start, self.blocks)
             if reference_end is not None:
+                # The label and the destination/title are separate inline texts.
+                self.splits[start] = reference_start
                 return reference_end
-        end = read_document_literal_end(
+        literal = _read_document_literal(
             self.text, start, last_html_ends=self.last_html_ends, blocks=self.blocks
         )
-        if end is not None:
+        if literal is not None:
+            end, split = literal
+            if split is not None:
+                self.splits[start] = split
             return end
         if self.text[start] == "$" and start in self.math_spans:
             return self.math_spans[start]
@@ -420,6 +418,20 @@ def read_document_literal_end(
     blocks: DocumentBlocks | None = None,
 ) -> int | None:
     """Read a literal region using physical line offsets without rewriting names."""
+    literal = _read_document_literal(
+        text, start, last_html_ends=last_html_ends, blocks=blocks
+    )
+    return literal[0] if literal is not None else None
+
+
+def _read_document_literal(
+    text: str,
+    start: int,
+    *,
+    last_html_ends: dict[str, int] | None = None,
+    blocks: DocumentBlocks | None = None,
+) -> tuple[int, int | None] | None:
+    """Read a literal region's end and, for HTML blocks, its opening-token end."""
     blocks = (
         blocks
         if blocks is not None
@@ -430,19 +442,27 @@ def read_document_literal_end(
     )
     fenced = blocks.fence(start)
     if fenced is not None:
-        return fenced.end
+        return fenced.end, None
     indented_end = _indented_code_end(text, start, blocks)
     if indented_end is not None:
-        return indented_end
+        return indented_end, None
     raw_html = _raw_html_bounds(text, start, last_html_ends, blocks)
     if raw_html is not None:
-        return raw_html[1]
+        return raw_html[1], raw_html[0]
     special_html = blocks.terminated_html(start)
     if special_html is not None:
-        return special_html.end
+        return special_html.end, special_html.opening_end
     ordinary = blocks.ordinary_html(start)
     if ordinary is not None:
-        return ordinary.end
+        return ordinary.end, ordinary.opening_end
+    end = _read_inline_literal_end(text, start, last_html_ends, blocks)
+    return (end, None) if end is not None else None
+
+
+def _read_inline_literal_end(
+    text: str, start: int, last_html_ends: dict[str, int], blocks: DocumentBlocks
+) -> int | None:
+    """Read an escape, autolink, inline HTML token or code span."""
     if text[start] == "\\":
         return (
             start + 2
@@ -452,10 +472,12 @@ def read_document_literal_end(
     if text[start] == "<":
         if (autolink_end := read_angle_autolink(text, start)) is not None:
             return autolink_end
-        if not _html_can_close(text, start, last_html_ends):
+        if not html_can_close(text, start, last_html_ends):
             return None
         return blocks.html_token_end(
-            blocks.by_start[blocks.line_at(start).start], start
+            blocks.by_start[blocks.line_at(start).start],
+            start,
+            limit=blocks.inline_limit(start),
         )
     if text[start] != "`":
         return None
@@ -503,11 +525,13 @@ def read_document_literal_end(
     return opening_end
 
 
-def _document_units(text: str) -> Iterator[tuple[int, int, bool]]:
+def _document_units(
+    text: str, reader: DocumentLiteralReader | None = None
+) -> Iterator[tuple[int, int, bool]]:
     """Yield literal markup and raw-marker regions, keeping interaction bodies raw."""
     at = 0
     interaction_until = -1
-    reader = DocumentLiteralReader(text)
+    reader = reader if reader is not None else DocumentLiteralReader(text)
     while at < len(text):
         if at > interaction_until:
             literal_end = reader.read(at)
@@ -539,11 +563,14 @@ def find_document_variable_markers(text: str) -> Iterator[VariableMarker]:
     """Collect complete examples inside markup, without letting them cross its edge."""
     if "{{" not in text:
         return
-    for start, end, literal in _document_units(text):
+    reader = DocumentLiteralReader(text)
+    for start, end, literal in _document_units(text, reader):
         if literal:
             if text[start] == "\\":
                 continue
-            yield from literal_variable_markers(text, start, end)
+            yield from literal_variable_markers(
+                text, start, end, reader.splits.get(start)
+            )
         else:
             marker = read_variable_marker(text, start)
             if marker is not None:

@@ -6,8 +6,7 @@ import re
 from dataclasses import dataclass, field
 from string import punctuation
 
-from markdown_it.common.html_re import HTML_TAG_RE
-
+from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
 from markdownflow.syntax.parser.document_blocks import (
     DocumentBlocks,
     container_content_info,
@@ -15,6 +14,10 @@ from markdownflow.syntax.parser.document_blocks import (
     fence_opening,
     indentation,
     read_angle_autolink,
+)
+from markdownflow.syntax.parser.document_context import (
+    document_html_ends,
+    html_can_close,
 )
 from markdownflow.syntax.variable_names import (
     normalize_variable_name,
@@ -31,11 +34,9 @@ _ATX_START = re.compile(r"^ {0,3}#{1,6}(?=[ \t\r\n]|$)", re.MULTILINE)
 _INLINE_CODE_BREAK = re.compile(
     r"^[ \t]*\r?$|^[ ]{0,3}(?:`{3,}[^`\r\n]*|~{3,}[^\r\n]*)\r?$", re.MULTILINE
 )
-# markdown-it anchors its public pattern for a substring. Drop only that anchor
-# so matching at an existing source offset does not copy the remaining document.
-_INLINE_HTML = re.compile(HTML_TAG_RE.pattern.removeprefix("^"))
+# The shared CommonMark 0.31.2 raw-HTML grammar, also used by the syntax layer.
+_INLINE_HTML = COMPILED_INLINE_HTML_REGEX
 _HTML_PREFIX = re.compile(r"<(?:/?[A-Za-z]|[!?])")
-_HTML_TERMINATORS = (("<!--", "-->"), ("<?", "?>"), ("<![CDATA[", "]]>"))
 _LINE_END = re.compile(r"\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
 _LINE_END_CHARS = "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"
 _INDENTED_CODE = re.compile(r"(?: {4}| {0,3}\t)")
@@ -118,19 +119,6 @@ def _literal_markers(text: str, start: int, end: int) -> list[ContextMarker]:
         )
         start = close + 2
     return markers
-
-
-def _html_can_close(text: str, at: int, last_ends: dict[str, int]) -> bool:
-    """Reject impossible tails before the native regex rescans them at each opener."""
-    if last_ends[">"] < at:
-        return False
-    for opening, closing in _HTML_TERMINATORS:
-        if text.startswith(opening, at):
-            # CommonMark also accepts these two empty-comment spellings.
-            if opening == "<!--" and text.startswith(("<!-->", "<!--->"), at):
-                return True
-            return last_ends[closing] >= at + len(opening)
-    return True
 
 
 def _indented_code_end(text: str, start: int, blocks: DocumentBlocks) -> int | None:
@@ -442,10 +430,7 @@ def analyze_marker_context(
     filter already owns their state, while document callers need whole blocks.
     """
     context = MarkerContext()
-    last_html_ends = {
-        ending: text.rfind(ending)
-        for ending in (">", *(closing for _, closing in _HTML_TERMINATORS))
-    }
+    last_html_ends = document_html_ends(text)
     blocks = DocumentBlocks(text, _INLINE_HTML)
     breaks: list[tuple[int, int]] = []
     for index, line in enumerate(blocks.lines):
@@ -482,8 +467,17 @@ def analyze_marker_context(
     resource_image = False
     resource_label_start = -1
     interaction_until = -1
+    interaction_inactive = False
     while at < len(text):
         if at <= interaction_until and not text.startswith("{{", at):
+            if (
+                interaction_inactive
+                and text.startswith("?[", at)
+                and not _escaped(text, at)
+            ):
+                # An opener inside an unclosed control's body is just as inactive.
+                # Otherwise its own search for "]" would cross the paragraph end.
+                context.inactive_document_controls.append(at)
             at += 1
             continue
         if at <= interaction_until:
@@ -690,6 +684,7 @@ def analyze_marker_context(
                 context.inactive_document_controls.append(at)
             if not (closed and text[limit + 1 : limit + 2] == "("):
                 interaction_until = limit if closed else limit - 1
+                interaction_inactive = not closed and limit < len(text)
         if text.startswith("{{", at):
             if _escaped(text, at):
                 context.escaped_openers.append(at)
@@ -732,9 +727,11 @@ def analyze_marker_context(
             ):
                 context.pending_autolink_start = at
             index = blocks.by_start[blocks.line_at(at).start]
+            # Inline HTML ends with its paragraph; it cannot cross a boundary.
+            inline_limit = blocks.inline_limit(at)
             html_end = (
-                blocks.html_token_end(index, at, final=final)
-                if _html_can_close(text, at, last_html_ends)
+                blocks.html_token_end(index, at, final=final, limit=inline_limit)
+                if html_can_close(text, at, last_html_ends)
                 else None
             )
             if html_end is not None:
@@ -742,8 +739,14 @@ def analyze_marker_context(
                 context.markers.extend(_literal_markers(text, at, html_end))
                 at = html_end
             else:
-                if context.pending_html_start is None and (
-                    at + 1 == len(text) or _HTML_PREFIX.match(text, at)
+                if (
+                    context.pending_html_start is None
+                    # An inline token cannot resume after its paragraph ended.
+                    and (
+                        inline_limit == len(text)
+                        or blocks.block_content_start(index) == at
+                    )
+                    and (at + 1 == len(text) or _HTML_PREFIX.match(text, at))
                 ):
                     context.pending_html_start = at
                     context.pending_block_steps = blocks.container_steps[index]

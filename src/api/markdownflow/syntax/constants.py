@@ -5,28 +5,40 @@ import re
 COMPILED_VARIABLE_NAME_PLACEHOLDER_REGEX = re.compile(r"\x00mdf-name:+[0-9]+\x00")
 
 # Inline HTML owns braces in its tag source before document-level MDF scanning.
-_HTML_SPACE = r"[ \t\r\n]"
+# The grammar is CommonMark 0.31.2 raw HTML, the dialect the web renderer
+# (micromark) uses. Tag whitespace is spaces and tabs with at most one line
+# ending; other Unicode or control spacing is ordinary tag text.
+_HTML_LINE_ENDING = r"(?:\r\n|\r|\n)"
+_HTML_OPTIONAL_SPACE = r"[ \t]*(?:" + _HTML_LINE_ENDING + r"[ \t]*)?"
+_HTML_REQUIRED_SPACE = (
+    r"(?:[ \t]+(?:" + _HTML_LINE_ENDING + r"[ \t]*)?|" + _HTML_LINE_ENDING + r"[ \t]*)"
+)
 
 _HTML_ATTRIBUTE = (
     r"[A-Za-z_:][A-Za-z0-9_.:-]*(?:"
-    + _HTML_SPACE
-    + r"*="
-    + _HTML_SPACE
-    + r"*(?:[^ \t\r\n\"'=<>`]+|'[^']*'|\"[^\"]*\"))?"
+    + _HTML_OPTIONAL_SPACE
+    + r"="
+    + _HTML_OPTIONAL_SPACE
+    + r"(?:[^ \t\r\n\"'=<>`]+|'[^']*'|\"[^\"]*\"))?"
 )
+
+# Comments spelled `<!-->` and `<!--->` are complete; their closer is `>`.
+HTML_EMPTY_COMMENTS = ("<!-->", "<!--->")
+# Openers whose token ends only at a dedicated terminator, rather than `>`.
+HTML_TERMINATORS = (("<!--", "-->"), ("<?", "?>"), ("<![CDATA[", "]]>"))
 
 COMPILED_INLINE_HTML_REGEX = re.compile(
     r"(?:<[A-Za-z][A-Za-z0-9-]*(?:"
-    + _HTML_SPACE
-    + r"+"
+    + _HTML_REQUIRED_SPACE
     + _HTML_ATTRIBUTE
     + r")*"
-    + _HTML_SPACE
-    + r"*/?>"
-    r"|</[A-Za-z][A-Za-z0-9-]*" + _HTML_SPACE + r"*>"
-    r"|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<![A-Z]+"
-    + _HTML_SPACE
-    + r"+[^>]*>|<!\[CDATA\[[\s\S]*?\]\]>)"
+    + _HTML_OPTIONAL_SPACE
+    + r"/?>"
+    r"|</[A-Za-z][A-Za-z0-9-]*" + _HTML_OPTIONAL_SPACE + r">"
+    r"|<!---?>|<!--[\s\S]*?-->"
+    r"|<\?[\s\S]*?\?>"
+    r"|<![A-Za-z][^>]*>"
+    r"|<!\[CDATA\[[\s\S]*?\]\]>)"
 )
 
 COMPILED_RAW_HTML_START_REGEX = re.compile(

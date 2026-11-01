@@ -71,6 +71,17 @@ def format_variable_assignment(raw: str) -> str | None:
     return "%" + reference if reference is not None else None
 
 
+def is_escaped(text: str, at: int) -> bool:
+    r"""Whether an odd run of backslashes escapes the character at ``at``.
+
+    An even run is made of escaped backslashes, so ``\\?[`` still opens a control.
+    """
+    before = at
+    while before and text[before - 1] == "\\":
+        before -= 1
+    return (at - before) % 2 == 1
+
+
 def find_interaction_end(text: str, start: int = 0) -> int:
     """Find a closing bracket after skipping whole assignment markers and option escapes."""
     at = start
@@ -101,7 +112,7 @@ def find_interaction_spans(
             if marker is None:
                 return
             at = marker.end
-        elif source.startswith("?[", at) and (not at or text[at - 1] != "\\"):
+        elif source.startswith("?[", at) and not is_escaped(text, at):
             end = find_interaction_end(text, at + 2)
             if end < 0:
                 return

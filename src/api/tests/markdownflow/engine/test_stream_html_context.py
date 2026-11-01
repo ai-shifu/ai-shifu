@@ -3,10 +3,12 @@
 from unittest.mock import patch
 
 import pytest
-from markdown_it.common.html_re import HTML_TAG_RE
 from markdownflow.engine import stream_html_context
 from markdownflow.engine.stream_html_context import pending_html_prefix
+from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
 from markdownflow.syntax.parser.document_blocks import HTML_BLOCK_TAGS
+
+HTML_TAG_RE = COMPILED_INLINE_HTML_REGEX
 
 
 @pytest.mark.parametrize(
@@ -23,8 +25,12 @@ from markdownflow.syntax.parser.document_blocks import HTML_BLOCK_TAGS
         "<?instruction ???>",
         "<!DOCTYPE html>",
         "<![CDATA[data ] ]] end]]>",
-        "<b\u0085a=x\u0085汉>",
-        "<b a=\u0085\u0085'value'>",
+        "<!doctype html>",
+        "<!DOCTYPEx>",
+        "<b a=x\u0085汉\x01>",
+        "<b\na=\r\n 'value'>",
+        "<b \r\n a \n = \n'value' \r/>",
+        "</b \r>",
     ],
 )
 def test_every_native_token_prefix_keeps_its_original_completion(token: str) -> None:
@@ -97,13 +103,30 @@ def test_native_block_tag_prefixes_preserve_their_classification(
 
 
 @pytest.mark.parametrize(
-    ("prefix", "suffix"),
-    [("<b a=x\u0085z\u0085", "=foo>"), ("<b a=\u0085 ", ">")],
+    "token",
+    [
+        "<b\u0085a=x>",
+        "<b\u3000a=x>",
+        "<b\x0ca=x>",
+        "<b\n\na=x>",
+        "<b \r\r a=x>",
+        "<b a=\n \n'x'>",
+        "</b\n\n>",
+    ],
 )
-def test_unicode_padding_retains_every_native_attribute_value_branch(
-    prefix: str, suffix: str
-) -> None:
+def test_tag_space_is_space_or_tab_with_at_most_one_line_ending(token: str) -> None:
+    assert HTML_TAG_RE.fullmatch(token) is None
+    # The lexer rejects the same token at the first character past the budget.
+    assert pending_html_prefix(token[:-1], 0) is None
+
+
+@pytest.mark.parametrize(
+    ("prefix", "suffix"),
+    [("<b\r", "\na=x>"), ("<b a\n", "='x'>"), ("<b a=x\r\n", " c>")],
+)
+def test_witness_keeps_a_spent_line_ending_budget(prefix: str, suffix: str) -> None:
     result = pending_html_prefix(prefix, 0)
     assert result is not None
     assert HTML_TAG_RE.fullmatch(prefix + suffix)
     assert HTML_TAG_RE.fullmatch(result[1] + suffix)
+    assert not HTML_TAG_RE.fullmatch(result[1] + "\n" + suffix)
