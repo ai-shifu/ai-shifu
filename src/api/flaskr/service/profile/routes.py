@@ -1,7 +1,6 @@
 """Expose HTTP routes for learner profiles."""
 
 from flask import Flask, request
-from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.common import raise_error
 from flaskr.service.profile.profile_manage import (
@@ -12,8 +11,9 @@ from flaskr.service.profile.profile_manage import (
 )
 
 
-@inject
-def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> Flask:
+def register_learner_profile_routes(
+    app: Flask, path_prefix: str = "/api/profiles"
+) -> Flask:
     """Register learner-profile routes on the Flask application."""
 
     @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])

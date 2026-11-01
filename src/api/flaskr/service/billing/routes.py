@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from flask import Flask, request
 from flaskr.dao.uow import unit_of_work
-from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.admin_ops_state import (
     build_admin_billing_ops_state,
@@ -204,7 +203,6 @@ def _raise_campaign_provider_discount_route_error(exc: Exception) -> None:
     _raise_provider_price_mapping_route_error(exc)
 
 
-@inject
 def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> None:
     """Register creator billing routes."""
     app.logger.info("register billing routes %s", path_prefix)
