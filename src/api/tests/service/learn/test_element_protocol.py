@@ -138,9 +138,11 @@ def _setup_handle_input_ask_test_doubles(
             self,
             llm_stream_factory: object = None,
             llm_context_stream_factory: object = None,
+            search_query: object = None,
         ) -> None:
             self.llm_stream_factory = llm_stream_factory
             self.llm_context_stream_factory = llm_context_stream_factory
+            self.search_query = search_query
 
     class _DummyAskProviderTimeoutError(AskProviderError):
         pass
