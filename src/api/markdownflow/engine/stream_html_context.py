@@ -33,14 +33,41 @@ def _attribute_start(character: str) -> bool:
 
 
 def _unquoted(character: str) -> bool:
-    return ord(character) > 32 and character not in "\"'=<>`"
+    return character not in " \t\r\n\"'=<>`"
+
+
+# Tag whitespace is spaces and tabs with at most one line ending. A whitespace
+# kind carries its line-ending budget as a suffix: "" (none seen), "/cr" (a
+# carriage return that a line feed may still complete) or "/nl" (spent).
+_OVER_BUDGET = "!"
+
+
+def _space(eol: str, character: str) -> str | None:
+    """Return the next line-ending budget, None for non-space, or over budget."""
+    if character in " \t":
+        return "nl" if eol else ""
+    if character == "\n":
+        return _OVER_BUDGET if eol == "nl" else "nl"
+    if character == "\r":
+        return "cr" if not eol else _OVER_BUDGET
+    return None
 
 
 def _step(state: _State, character: str) -> tuple[Iterable[_State], bool]:
     kind, name = state
+    kind, _, eol = kind.partition("/")
 
     def one(next_kind: str, next_name: str = name) -> tuple[Iterable[_State], bool]:
         return ((next_kind, next_name),), False
+
+    def space(next_kind: str) -> tuple[Iterable[_State], bool] | None:
+        """Continue a whitespace run in ``next_kind``, or None for non-space."""
+        budget = _space(eol if next_kind == kind else "", character)
+        if budget is None:
+            return None
+        if budget == _OVER_BUDGET:
+            return (), False
+        return one(next_kind + ("/" + budget if budget else ""))
 
     if kind == "lt":
         if _letter(character):
@@ -59,18 +86,22 @@ def _step(state: _State, character: str) -> tuple[Iterable[_State], bool]:
     if kind in ("name", "close_name"):
         if _letter(character) or "0" <= character <= "9" or character == "-":
             return one(kind, _name(name, character))
-        if character.isspace():
-            return one("space" if kind == "name" else "close_space")
+        if (spaced := space("space" if kind == "name" else "close_space")) is not None:
+            return spaced
         if character == ">":
             return (), True
         return (
             one("slash_direct") if kind == "name" and character == "/" else ((), False)
         )
     if kind == "close_space":
-        return one(kind) if character.isspace() else ((), character == ">")
+        if (spaced := space(kind)) is not None:
+            return spaced
+        return (), character == ">"
     if kind in ("space", "attr_space", "quoted_end"):
-        if character.isspace():
-            return one("attr_space" if kind == "attr_space" else "space")
+        if (
+            spaced := space("attr_space" if kind == "attr_space" else "space")
+        ) is not None:
+            return spaced
         if character == ">":
             return (), True
         if character == "/":
@@ -83,34 +114,29 @@ def _step(state: _State, character: str) -> tuple[Iterable[_State], bool]:
     if kind == "attr":
         if _attribute_start(character) or "0" <= character <= "9" or character in ".-":
             return one(kind)
-        if character.isspace():
-            return one("attr_space")
+        if (spaced := space("attr_space")) is not None:
+            return spaced
         if character == "=":
             return one("before_value")
         if character == ">":
             return (), True
         return one("slash") if character == "/" else ((), False)
     if kind == "before_value":
-        choices: list[_State] = []
-        if character.isspace():
-            choices.append((kind, name))
+        if (spaced := space(kind)) is not None:
+            return spaced
         if character in "\"'":
-            choices.append(("double" if character == '"' else "single", name))
-        elif _unquoted(character):
-            choices.append(("unquoted", name))
-        return choices, False
+            return one("double" if character == '"' else "single")
+        return one("unquoted") if _unquoted(character) else ((), False)
     if kind in ("single", "double"):
         quote = "'" if kind == "single" else '"'
         return one("quoted_end" if character == quote else kind)
     if kind == "unquoted":
         if character == ">":
             return (), True
-        choices = []
         if _unquoted(character):
-            choices.append((kind, name))
-        if character.isspace():
-            choices.append(("space", name))
-        return choices, False
+            return one(kind)
+        spaced = space("space")
+        return spaced if spaced is not None else ((), False)
     if kind in ("slash", "slash_direct"):
         return (), character == ">"
     if kind == "bang":
@@ -164,22 +190,13 @@ def _step(state: _State, character: str) -> tuple[Iterable[_State], bool]:
 
 
 def _witness(states: _States, tokens: str) -> str:
-    kinds = {kind for kind, _ in states}
+    # The grammar is deterministic: a character is tag space or value text,
+    # never both, so a viable prefix always has exactly one lexer state.
     kind, name = min(states)
+    kind, _, eol = kind.partition("/")
+    # Replay a spent or pending line ending so the witness keeps its budget.
+    ending = {"": "", "cr": "\r", "nl": "\n"}[eol]
     kept = tokens + "x"
-    if kinds == {"before_value", "space"}:
-        return "<" + name + ' data-x="' + kept + '" y=\u0085 '
-    if "unquoted" in kinds and len(kinds) > 1:
-        tag = "<" + name + ' data-x="' + kept + '" y='
-        if "before_value" in kinds:
-            return tag + "\u0085" * (2 if "space" in kinds else 1)
-        if "attr_space" in kinds:
-            return tag + "x\u0085z\u0085"
-        return (
-            tag
-            + "x\u0085"
-            + ("z/" if "slash" in kinds else "z" if "attr" in kinds else "")
-        )
     if kind == "lt":
         return "<"
     if kind == "close_start":
@@ -203,7 +220,7 @@ def _witness(states: _States, tokens: str) -> str:
     if kind.startswith("comment"):
         return "<!--" + kept + "-" * int(kind[-1])
     if kind in ("close_name", "close_space"):
-        return "</" + name + (" " if kind == "close_space" else "")
+        return "</" + name + (" " + ending if kind == "close_space" else "")
     tag = "<" + name
     if kind == "name":
         return tag
@@ -224,6 +241,7 @@ def _witness(states: _States, tokens: str) -> str:
             "unquoted": " y=x",
             "slash": "/",
         }[kind]
+        + ending
     )
 
 

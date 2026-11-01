@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import re
 
-from markdown_it.common.html_re import HTML_TAG_RE
 from markdownflow.engine.marker_context import (
     analyze_marker_context,
     marker_syntax_source,
@@ -47,6 +46,7 @@ from markdownflow.engine.stream_marker_context import (
     pending_autolink_is_primary,
     pending_literal_context,
 )
+from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
 from markdownflow.syntax.parser.document_blocks import DocumentBlocks
 from markdownflow.syntax.variable_names import (
     find_interaction_end,
@@ -75,8 +75,9 @@ class InteractionSyntaxFilter:
         # notation shows the notation in a code block, and the grammar does not read one as an
         # interaction either.
         self._fence: tuple[str, int] | None = None
-        # The last character already sent out. An opener is escaped by the character before it,
-        # and that character may have left in an earlier chunk, so it has to be remembered.
+        # A backslash when the text already sent out ends in an odd run of backslashes, else
+        # empty. An opener is escaped by an odd run before it, and that run may have left in an
+        # earlier chunk, so its parity has to be remembered.
         self._previous = ""
         # Classify the emitted line prefix, so an indent from an earlier chunk
         # still counts without retaining the narration on that line.
@@ -137,7 +138,7 @@ class InteractionSyntaxFilter:
                     return marker.end if marker is not None else None
 
                 limit, closed = DocumentBlocks(
-                    self._held, HTML_TAG_RE
+                    self._held, COMPILED_INLINE_HTML_REGEX
                 ).interaction_limit(2, marker_end, final=False)
                 if (
                     not closed
@@ -296,7 +297,12 @@ class InteractionSyntaxFilter:
             self._context_prefix = ""
             self._context_label_counts.clear()
         out.append(text)
-        self._previous = text[-1]
+        run = len(text) - len(text.rstrip("\\"))
+        odd = run % 2 == 1
+        if run == len(text) and self._previous == "\\":
+            # Only backslashes: they extend the run carried from earlier chunks.
+            odd = not odd
+        self._previous = "\\" if odd else ""
         cut = max(text.rfind("\n"), text.rfind("\r"))
         line = text[cut + 1 :] if cut >= 0 else self._line_so_far + text
         self._line_so_far = line[:4] if not line.strip(" \t\r") else "x"
@@ -554,8 +560,8 @@ class InteractionSyntaxFilter:
     ) -> tuple[int, str | None]:
         """Locate the next `?[` and any literal state delaying its classification.
 
-        `previous` is the character before `text`, which decides the case where an opener sits at
-        the very start of what is left to scan.
+        `previous` is a backslash when the text before `text` ends in an odd run of backslashes,
+        which decides an opener preceded only by backslashes in what is left to scan.
         """
         provisional_markers: list[tuple[int, int, str]] = []
         marker_scan = self._marker_scan_text(
@@ -569,8 +575,11 @@ class InteractionSyntaxFilter:
                     return -1, None
                 at = marker.end
             elif text.startswith(_OPEN, at):
-                before = text[at - 1] if at else previous
-                if before != "\\":
+                before = at
+                while before and text[before - 1] == "\\":
+                    before -= 1
+                run = at - before + int(not before and previous == "\\")
+                if run % 2 == 0:
                     witness = next(
                         (
                             value

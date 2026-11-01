@@ -127,7 +127,7 @@ class CodeBlockPreprocessor:
                 literal_end = literal_reader.read(scan)
                 if literal_end is not None:
                     for example in literal_variable_markers(
-                        document, scan, literal_end
+                        document, scan, literal_end, literal_reader.splits.get(scan)
                     ):
                         protect_marker(example.start, example.end)
                     scan = literal_end

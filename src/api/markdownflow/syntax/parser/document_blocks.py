@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from re import Pattern
 
+from markdownflow.syntax.constants import HTML_EMPTY_COMMENTS
+
 COMPILED_PHYSICAL_LINE_END_REGEX = re.compile(r"\r\n|\r|\n")
 COMPILED_CONTAINER_LIST_REGEX = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t])")
 COMPILED_DOCUMENT_FENCE_REGEX = re.compile(r"(`{3,})([^`]*$)|(~{3,})(.*$)")
@@ -599,7 +601,7 @@ class DocumentBlocks:
         if not special and not declaration:
             return None
         if self.text.startswith("<!--", at):
-            closing = ">" if self.text.startswith(("<!-->", "<!--->"), at) else "-->"
+            closing = ">" if self.text.startswith(HTML_EMPTY_COMMENTS, at) else "-->"
         elif self.text.startswith("<?", at):
             closing = "?>"
         elif self.text.startswith("<![CDATA[", at):
