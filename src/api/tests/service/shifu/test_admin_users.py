@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import sys
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
@@ -114,85 +115,65 @@ from tests.common.fixtures.model_factories import (
     make_generated_element,
     make_progress_record,
 )
+from tests.service.shifu.admin_operation_helpers import (
+    get_json,
+    get_ok,
+    install_fake_bcrypt,
+    mock_operator,
+    post_json,
+    post_ok,
+)
+
+_TABLES = (
+    CreditLedgerEntry,
+    BillUsageRecord,
+    LearnGeneratedElement,
+    LearnGeneratedBlock,
+    BillingOrder,
+    BillingSubscription,
+    BillingProduct,
+    CreditWalletBucket,
+    CreditWallet,
+    LearnProgressRecord,
+    AiCourseAuth,
+    PublishedOutlineItem,
+    UserToken,
+    Order,
+    PublishedShifu,
+    DraftShifu,
+    AuthCredential,
+    UserEntity,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+
+def _clear_tables() -> None:
+    for model in _TABLES:
+        db.session.query(model).delete()
+    db.session.commit()
+    db.session.remove()
 
 
 @pytest.fixture(autouse=True)
-def _mock_bcrypt_module(monkeypatch: object) -> None:
-    monkeypatch.setitem(
-        sys.modules,
-        "bcrypt",
-        SimpleNamespace(
-            gensalt=lambda _rounds=12: b"salt",
-            hashpw=lambda plain, salt: plain + b":" + salt,
-            checkpw=lambda plain, hashed: hashed == plain + b":salt",
-        ),
-    )
+def _mock_bcrypt_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fake_bcrypt(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_operator(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Treat every request as an operator; denial tests re-mock as non-operator."""
+    mock_operator(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
 def _isolate_tables(app: object) -> object:
     with app.app_context():
-        db.session.query(CreditLedgerEntry).delete()
-        db.session.query(BillUsageRecord).delete()
-        db.session.query(LearnGeneratedElement).delete()
-        db.session.query(LearnGeneratedBlock).delete()
-        db.session.query(BillingOrder).delete()
-        db.session.query(BillingSubscription).delete()
-        db.session.query(BillingProduct).delete()
-        db.session.query(CreditWalletBucket).delete()
-        db.session.query(CreditWallet).delete()
-        db.session.query(LearnProgressRecord).delete()
-        db.session.query(AiCourseAuth).delete()
-        db.session.query(PublishedOutlineItem).delete()
-        db.session.query(UserToken).delete()
-        db.session.query(Order).delete()
-        db.session.query(PublishedShifu).delete()
-        db.session.query(DraftShifu).delete()
-        db.session.query(AuthCredential).delete()
-        db.session.query(UserEntity).delete()
-        db.session.commit()
-        db.session.remove()
+        _clear_tables()
     yield
     with app.app_context():
-        db.session.query(CreditLedgerEntry).delete()
-        db.session.query(BillUsageRecord).delete()
-        db.session.query(LearnGeneratedElement).delete()
-        db.session.query(LearnGeneratedBlock).delete()
-        db.session.query(BillingOrder).delete()
-        db.session.query(BillingSubscription).delete()
-        db.session.query(BillingProduct).delete()
-        db.session.query(CreditWalletBucket).delete()
-        db.session.query(CreditWallet).delete()
-        db.session.query(LearnProgressRecord).delete()
-        db.session.query(AiCourseAuth).delete()
-        db.session.query(PublishedOutlineItem).delete()
-        db.session.query(UserToken).delete()
-        db.session.query(Order).delete()
-        db.session.query(PublishedShifu).delete()
-        db.session.query(DraftShifu).delete()
-        db.session.query(AuthCredential).delete()
-        db.session.query(UserEntity).delete()
-        db.session.commit()
-        db.session.remove()
-
-
-def _mock_operator(
-    monkeypatch: object,
-    user_id: str = "operator-1",
-    *,
-    is_operator: bool = True,
-) -> None:
-    dummy_user = SimpleNamespace(
-        user_id=user_id,
-        is_operator=is_operator,
-        is_creator=False,
-        language="en-US",
-    )
-    monkeypatch.setattr(
-        "flaskr.route.user.validate_user",
-        lambda _app, _token: dummy_user,
-        raising=False,
-    )
+        _clear_tables()
 
 
 def _z(value: object) -> object:
@@ -213,19 +194,30 @@ def _build_active_window(
 
 def _seed_user(
     app: object,
-    *,
     user_bid: str,
     identify: str,
     nickname: str,
+    *,
     state: int,
     language: str = "en-US",
     is_creator: bool = False,
     is_operator: bool = False,
     created_at: datetime,
-    updated_at: datetime,
+    updated_at: datetime | None = None,
+    login: str = "",
     providers: list[tuple[str, str]] | None = None,
     credential_created_at: datetime | None = None,
 ) -> None:
+    """Seed a user and its verified credentials.
+
+    ``updated_at`` defaults to one hour after ``created_at``. ``login`` is a
+    shortcut for one credential of that provider whose identifier is
+    ``identify``; ``providers`` lists ``(provider, identifier)`` pairs instead.
+    """
+    if updated_at is None:
+        updated_at = created_at + timedelta(hours=1)
+    if login:
+        providers = [(login, identify)]
     entity = create_user_entity(
         user_bid=user_bid,
         identify=identify,
@@ -255,6 +247,27 @@ def _seed_user(
             credential.updated_at = credential_created_at
     db.session.commit()
     db.session.remove()
+
+
+def _seed_paid_creator(
+    app: object,
+    user_bid: str,
+    identify: str,
+    nickname: str,
+    *,
+    created_at: datetime = datetime(2026, 4, 9, 9, 0, 0),
+) -> None:
+    """Seed a paid creator who signs in with the email ``identify``."""
+    _seed_user(
+        app,
+        user_bid,
+        identify,
+        nickname,
+        state=USER_STATE_PAID,
+        is_creator=True,
+        created_at=created_at,
+        login="email",
+    )
 
 
 def _seed_course(
@@ -329,11 +342,9 @@ def _seed_published_outline_item(
 
 
 def _seed_credit_wallet(
-    *,
-    creator_bid: str,
-    wallet_bid: str,
-    available_credits: str,
+    *, creator_bid: str, wallet_bid: str = "", available_credits: str
 ) -> object:
+    wallet_bid = wallet_bid or f"wallet-{creator_bid}"
     wallet = CreditWallet(
         wallet_bid=wallet_bid,
         creator_bid=creator_bid,
@@ -346,10 +357,7 @@ def _seed_credit_wallet(
 
 
 def _seed_billing_order(
-    *,
-    creator_bid: str,
-    bill_order_bid: str,
-    metadata_json: dict | None = None,
+    *, creator_bid: str, bill_order_bid: str, metadata_json: dict | None = None
 ) -> object:
     order = make_billing_order(
         bill_order_bid=bill_order_bid,
@@ -403,7 +411,7 @@ def _seed_billing_subscription(
 def _seed_credit_wallet_bucket(
     *,
     creator_bid: str,
-    wallet_bid: str,
+    wallet_bid: str = "",
     bucket_bid: str,
     available_credits: str,
     bucket_category: int,
@@ -411,6 +419,7 @@ def _seed_credit_wallet_bucket(
     effective_from: datetime,
     effective_to: datetime | None = None,
 ) -> object:
+    wallet_bid = wallet_bid or f"wallet-{creator_bid}"
     bucket = CreditWalletBucket(
         wallet_bucket_bid=bucket_bid,
         wallet_bid=wallet_bid,
@@ -437,7 +446,7 @@ def _seed_credit_wallet_bucket(
 def _seed_credit_ledger_entry(
     *,
     creator_bid: str,
-    wallet_bid: str,
+    wallet_bid: str = "",
     wallet_bucket_bid: str,
     ledger_bid: str,
     entry_type: int,
@@ -450,6 +459,7 @@ def _seed_credit_ledger_entry(
     consumable_from: datetime | None = None,
     metadata_json: dict | None = None,
 ) -> object:
+    wallet_bid = wallet_bid or f"wallet-{creator_bid}"
     entry = CreditLedgerEntry(
         ledger_bid=ledger_bid,
         creator_bid=creator_bid,
@@ -615,11 +625,7 @@ def _seed_learn_progress(
 
 
 def _seed_course_auth(
-    *,
-    course_id: str,
-    user_id: str,
-    created_at: datetime,
-    status: int = 1,
+    *, course_id: str, user_id: str, created_at: datetime, status: int = 1
 ) -> object:
     course_auth = AiCourseAuth(
         course_auth_id=f"course-auth-{user_id}-{course_id}",
@@ -649,26 +655,78 @@ def _seed_user_token(*, user_bid: str, token: str, created_at: datetime) -> obje
     return user_token
 
 
+def _user_credits(app: object, user_bid: str, filters: dict | None = None) -> object:
+    """First page (20 rows) of ``user_bid``'s credit ledger."""
+    kwargs = {} if filters is None else {"filters": filters}
+    return get_operator_user_credits(
+        app, user_bid=user_bid, page_index=1, page_size=20, **kwargs
+    )
+
+
+def _grant_credits(app: object, user_bid: str, payload: object) -> object:
+    return grant_operator_user_credits(
+        app, user_bid=user_bid, operator_user_bid="operator-1", payload=payload
+    )
+
+
+def _grant_package(app: object, user_bid: str, payload: object) -> object:
+    return grant_operator_user_package(
+        app, user_bid=user_bid, operator_user_bid="operator-1", payload=payload
+    )
+
+
+def _deduct_credits(app: object, user_bid: str, payload: object) -> object:
+    return deduct_operator_user_credits(
+        app, user_bid=user_bid, operator_user_bid="operator-1", payload=payload
+    )
+
+
+class _ForbiddenUserQuery:
+    def filter(self, *_args: object, **_kwargs: object) -> None:
+        message = "expected no user query when users=[] is provided"
+        raise AssertionError(message)
+
+
+def _forbid_user_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail the test if the code under test queries ``UserEntity``."""
+    monkeypatch.setattr(
+        user_profiles_module.UserEntity,
+        "query",
+        _ForbiddenUserQuery(),
+        raising=False,
+    )
+
+
+@contextmanager
+def _app_timezone(app: object, tz: str) -> Iterator[None]:
+    original_tz = app.config.get("TZ")
+    app.config["TZ"] = tz
+    try:
+        yield
+    finally:
+        app.config["TZ"] = original_tz
+
+
 def test_list_operator_users_returns_paginated_summaries_with_resolved_metadata(
     app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-regular",
-            identify="13800138000",
-            nickname="Regular User",
+            "user-regular",
+            "13800138000",
+            "Regular User",
             state=USER_STATE_REGISTERED,
             language="zh-CN",
             created_at=datetime(2026, 4, 1, 9, 0, 0),
             updated_at=datetime(2026, 4, 2, 9, 0, 0),
-            providers=[("phone", "13800138000")],
+            login="phone",
         )
         _seed_user(
             app,
-            user_bid="user-operator",
-            identify="operator@example.com",
-            nickname="Operator User",
+            "user-operator",
+            "operator@example.com",
+            "Operator User",
             state=USER_STATE_PAID,
             language="en-US",
             is_creator=True,
@@ -713,24 +771,22 @@ def test_list_operator_users_filters_by_identifier_status_role_and_created_time(
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-a",
-            identify="13900001111",
-            nickname="Alice",
+            "user-a",
+            "13900001111",
+            "Alice",
             state=USER_STATE_REGISTERED,
             is_creator=True,
             created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 10, 0, 0),
-            providers=[("phone", "13900001111")],
+            login="phone",
         )
         _seed_user(
             app,
-            user_bid="user-b",
-            identify="13900002222",
-            nickname="Bob",
+            "user-b",
+            "13900002222",
+            "Bob",
             state=USER_STATE_TRAIL,
             created_at=datetime(2026, 4, 5, 9, 0, 0),
-            updated_at=datetime(2026, 4, 5, 10, 0, 0),
-            providers=[("phone", "13900002222")],
+            login="phone",
         )
         result = list_operator_users(
             app,
@@ -762,26 +818,24 @@ def test_list_operator_users_filters_creator_role_includes_operator_creators(
     with app.app_context():
         _seed_user(
             app,
-            user_bid="operator-creator",
-            identify="13900003333",
-            nickname="Operator Creator",
+            "operator-creator",
+            "13900003333",
+            "Operator Creator",
             state=USER_STATE_REGISTERED,
             is_creator=True,
             is_operator=True,
             created_at=datetime(2026, 4, 3, 9, 0, 0),
-            updated_at=datetime(2026, 4, 3, 10, 0, 0),
-            providers=[("phone", "13900003333")],
+            login="phone",
         )
         _seed_user(
             app,
-            user_bid="creator-only",
-            identify="13900004444",
-            nickname="Creator Only",
+            "creator-only",
+            "13900004444",
+            "Creator Only",
             state=USER_STATE_REGISTERED,
             is_creator=True,
             created_at=datetime(2026, 4, 2, 9, 0, 0),
-            updated_at=datetime(2026, 4, 2, 10, 0, 0),
-            providers=[("phone", "13900004444")],
+            login="phone",
         )
 
         result = list_operator_users(
@@ -805,13 +859,12 @@ def test_list_operator_users_filters_by_email_identifier(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-email",
-            identify="user@example.com",
-            nickname="Email User",
+            "user-email",
+            "user@example.com",
+            "Email User",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 6, 9, 0, 0),
-            updated_at=datetime(2026, 4, 6, 10, 0, 0),
-            providers=[("email", "user@example.com")],
+            login="email",
         )
 
         result = list_operator_users(
@@ -836,23 +889,21 @@ def test_list_operator_users_filters_by_combined_user_query(app: object) -> None
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-query-email",
-            identify="query@example.com",
-            nickname="Email Query",
+            "user-query-email",
+            "query@example.com",
+            "Email Query",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 6, 9, 0, 0),
-            updated_at=datetime(2026, 4, 6, 10, 0, 0),
-            providers=[("email", "query@example.com")],
+            login="email",
         )
         _seed_user(
             app,
-            user_bid="user-query-nickname",
-            identify="13900005555",
-            nickname="Nickname Query",
+            "user-query-nickname",
+            "13900005555",
+            "Nickname Query",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 7, 9, 0, 0),
-            updated_at=datetime(2026, 4, 7, 10, 0, 0),
-            providers=[("phone", "13900005555")],
+            login="phone",
         )
 
         email_result = list_operator_users(
@@ -893,46 +944,42 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-guest",
-            identify="guest@example.com",
-            nickname="Guest User",
+            "user-guest",
+            "guest@example.com",
+            "Guest User",
             state=USER_STATE_UNREGISTERED,
             created_at=datetime(2026, 5, 5, 9, 0, 0),
-            updated_at=datetime(2026, 5, 5, 10, 0, 0),
-            providers=[("email", "guest@example.com")],
+            login="email",
         )
         _seed_user(
             app,
-            user_bid="user-creator",
-            identify="creator@example.com",
-            nickname="Creator User",
+            "user-creator",
+            "creator@example.com",
+            "Creator User",
             state=USER_STATE_REGISTERED,
             is_creator=True,
             created_at=datetime(2026, 5, 1, 9, 0, 0),
-            updated_at=datetime(2026, 5, 1, 10, 0, 0),
-            providers=[("email", "creator@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 5, 1, 9, 0, 0),
         )
         _seed_user(
             app,
-            user_bid="user-learner",
-            identify="learner@example.com",
-            nickname="Learner User",
+            "user-learner",
+            "learner@example.com",
+            "Learner User",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "learner@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 4, 20, 9, 0, 0),
         )
         _seed_user(
             app,
-            user_bid="user-paid",
-            identify="paid@example.com",
-            nickname="Paid User",
+            "user-paid",
+            "paid@example.com",
+            "Paid User",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 10, 0, 0),
-            providers=[("email", "paid@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 5, 2, 8, 0, 0),
         )
         _seed_learn_progress(
@@ -1007,68 +1054,68 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-created-in-range",
-            identify="created-in-range@example.com",
-            nickname="Created In Range",
+            "user-created-in-range",
+            "created-in-range@example.com",
+            "Created In Range",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
             updated_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
-            providers=[("email", "created-in-range@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
         )
         _seed_user(
             app,
-            user_bid="user-created-future",
-            identify="created-future@example.com",
-            nickname="Created Future",
+            "user-created-future",
+            "created-future@example.com",
+            "Created Future",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
             updated_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
-            providers=[("email", "created-future@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
         )
         _seed_user(
             app,
-            user_bid="user-learning-in-range",
-            identify="learning-in-range@example.com",
-            nickname="Learning In Range",
+            "user-learning-in-range",
+            "learning-in-range@example.com",
+            "Learning In Range",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 1, 9, 0, 0),
             updated_at=datetime(2026, 4, 1, 9, 0, 0),
-            providers=[("email", "learning-in-range@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
         )
         _seed_user(
             app,
-            user_bid="user-learning-future",
-            identify="learning-future@example.com",
-            nickname="Learning Future",
+            "user-learning-future",
+            "learning-future@example.com",
+            "Learning Future",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 1, 10, 0, 0),
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
-            providers=[("email", "learning-future@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 4, 1, 10, 0, 0),
         )
         _seed_user(
             app,
-            user_bid="user-paid-in-range",
-            identify="paid-in-range@example.com",
-            nickname="Paid In Range",
+            "user-paid-in-range",
+            "paid-in-range@example.com",
+            "Paid In Range",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 1, 8, 0, 0),
             updated_at=datetime(2026, 4, 1, 8, 0, 0),
-            providers=[("email", "paid-in-range@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 4, 1, 8, 0, 0),
         )
         _seed_user(
             app,
-            user_bid="user-paid-future",
-            identify="paid-future@example.com",
-            nickname="Paid Future",
+            "user-paid-future",
+            "paid-future@example.com",
+            "Paid Future",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 1, 9, 0, 0),
             updated_at=datetime(2026, 4, 1, 9, 0, 0),
-            providers=[("email", "paid-future@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
         )
         _seed_learn_progress(
@@ -1127,23 +1174,21 @@ def test_list_operator_users_caps_page_size(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-page-size-a",
-            identify="13810000001",
-            nickname="Page Size A",
+            "user-page-size-a",
+            "13810000001",
+            "Page Size A",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 1, 9, 0, 0),
-            updated_at=datetime(2026, 4, 1, 10, 0, 0),
-            providers=[("phone", "13810000001")],
+            login="phone",
         )
         _seed_user(
             app,
-            user_bid="user-page-size-b",
-            identify="13810000002",
-            nickname="Page Size B",
+            "user-page-size-b",
+            "13810000002",
+            "Page Size B",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 2, 9, 0, 0),
-            updated_at=datetime(2026, 4, 2, 10, 0, 0),
-            providers=[("phone", "13810000002")],
+            login="phone",
         )
 
         result = list_operator_users(app, 1, 999, {})
@@ -1158,24 +1203,22 @@ def test_list_operator_users_returns_learning_and_created_courses(app: object) -
     with app.app_context():
         _seed_user(
             app,
-            user_bid="creator-user",
-            identify="13800001111",
-            nickname="Creator User",
+            "creator-user",
+            "13800001111",
+            "Creator User",
             state=USER_STATE_REGISTERED,
             is_creator=True,
             created_at=datetime(2026, 4, 8, 9, 0, 0),
-            updated_at=datetime(2026, 4, 8, 10, 0, 0),
-            providers=[("phone", "13800001111")],
+            login="phone",
         )
         _seed_user(
             app,
-            user_bid="learner-user",
-            identify="13900002222",
-            nickname="Learner User",
+            "learner-user",
+            "13900002222",
+            "Learner User",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 7, 9, 0, 0),
-            updated_at=datetime(2026, 4, 7, 10, 0, 0),
-            providers=[("phone", "13900002222")],
+            login="phone",
         )
         _seed_course(
             model=DraftShifu,
@@ -1304,31 +1347,24 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
     with app.app_context():
         active_start_at, active_end_at = _build_active_window()
         future_start_at = active_end_at + timedelta(days=1)
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="creator-credits-user",
-            identify="creator-credits@example.com",
-            nickname="Creator Credits",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "creator-credits-user",
+            "creator-credits@example.com",
+            "Creator Credits",
             created_at=datetime(2026, 4, 12, 9, 0, 0),
-            updated_at=datetime(2026, 4, 12, 10, 0, 0),
-            providers=[("email", "creator-credits@example.com")],
         )
         _seed_user(
             app,
-            user_bid="regular-no-credits",
-            identify="13810009999",
-            nickname="Regular No Credits",
+            "regular-no-credits",
+            "13810009999",
+            "Regular No Credits",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 11, 9, 0, 0),
-            updated_at=datetime(2026, 4, 11, 10, 0, 0),
-            providers=[("phone", "13810009999")],
+            login="phone",
         )
         _seed_credit_wallet(
-            creator_bid="creator-credits-user",
-            wallet_bid="wallet-creator-credits-user",
-            available_credits="999.0000000000",
+            creator_bid="creator-credits-user", available_credits="999.0000000000"
         )
         _seed_billing_subscription(
             creator_bid="creator-credits-user",
@@ -1338,7 +1374,6 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
         )
         _seed_credit_wallet_bucket(
             creator_bid="creator-credits-user",
-            wallet_bid="wallet-creator-credits-user",
             bucket_bid="bucket-subscription-active",
             available_credits="12.5000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -1348,7 +1383,6 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
         )
         _seed_credit_wallet_bucket(
             creator_bid="creator-credits-user",
-            wallet_bid="wallet-creator-credits-user",
             bucket_bid="bucket-topup-active",
             available_credits="8.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -1358,7 +1392,6 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
         )
         _seed_credit_wallet_bucket(
             creator_bid="creator-credits-user",
-            wallet_bid="wallet-creator-credits-user",
             bucket_bid="bucket-topup-expired",
             available_credits="5.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -1368,7 +1401,6 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
         )
         _seed_credit_wallet_bucket(
             creator_bid="creator-credits-user",
-            wallet_bid="wallet-creator-credits-user",
             bucket_bid="bucket-subscription-future",
             available_credits="9.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -1402,23 +1434,21 @@ def test_list_operator_users_filters_by_learner_role(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
-            user_bid="learner-filter-user",
-            identify="13700001111",
-            nickname="Learner Filter",
+            "learner-filter-user",
+            "13700001111",
+            "Learner Filter",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 11, 9, 0, 0),
-            updated_at=datetime(2026, 4, 11, 10, 0, 0),
-            providers=[("phone", "13700001111")],
+            login="phone",
         )
         _seed_user(
             app,
-            user_bid="regular-filter-user",
-            identify="13700002222",
-            nickname="Regular Filter",
+            "regular-filter-user",
+            "13700002222",
+            "Regular Filter",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 11, 9, 0, 0),
-            updated_at=datetime(2026, 4, 11, 10, 0, 0),
-            providers=[("phone", "13700002222")],
+            login="phone",
         )
         _seed_success_order(
             order_bid="order-learner-filter",
@@ -1436,17 +1466,7 @@ def test_list_operator_users_filters_by_learner_role(app: object) -> None:
 
 def test_get_operator_user_detail_returns_full_summary(app: object) -> None:
     with app.app_context():
-        _seed_user(
-            app,
-            user_bid="detail-user",
-            identify="detail@example.com",
-            nickname="Detail User",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "detail@example.com")],
-        )
+        _seed_paid_creator(app, "detail-user", "detail@example.com", "Detail User")
         _seed_course(
             model=PublishedShifu,
             shifu_bid="detail-course",
@@ -1477,13 +1497,12 @@ def test_get_operator_user_detail_returns_registration_login_payment_and_learnin
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-profile-rich",
-            identify="rich@example.com",
-            nickname="Rich User",
+            "user-profile-rich",
+            "rich@example.com",
+            "Rich User",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "rich@example.com")],
+            login="email",
         )
         _seed_user_token(
             user_bid="user-profile-rich",
@@ -1519,21 +1538,11 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(
 ) -> None:
     with app.app_context():
         active_start_at, active_end_at = _build_active_window()
-        _seed_user(
-            app,
-            user_bid="credits-detail-user",
-            identify="credits-detail@example.com",
-            nickname="Credits Detail",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-detail@example.com")],
+        _seed_paid_creator(
+            app, "credits-detail-user", "credits-detail@example.com", "Credits Detail"
         )
         _seed_credit_wallet(
-            creator_bid="credits-detail-user",
-            wallet_bid="wallet-credits-detail-user",
-            available_credits="18.0000000000",
+            creator_bid="credits-detail-user", available_credits="18.0000000000"
         )
         _seed_billing_subscription(
             creator_bid="credits-detail-user",
@@ -1543,7 +1552,6 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(
         )
         _seed_credit_wallet_bucket(
             creator_bid="credits-detail-user",
-            wallet_bid="wallet-credits-detail-user",
             bucket_bid="bucket-credits-subscription",
             available_credits="10.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -1553,7 +1561,6 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(
         )
         _seed_credit_wallet_bucket(
             creator_bid="credits-detail-user",
-            wallet_bid="wallet-credits-detail-user",
             bucket_bid="bucket-credits-topup",
             available_credits="8.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -1563,7 +1570,6 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-detail-user",
-            wallet_bid="wallet-credits-detail-user",
             wallet_bucket_bid="bucket-credits-subscription",
             ledger_bid="ledger-consume",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -1577,7 +1583,6 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-detail-user",
-            wallet_bid="wallet-credits-detail-user",
             wallet_bucket_bid="bucket-credits-topup",
             ledger_bid="ledger-adjustment",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
@@ -1622,25 +1627,17 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-reserved-grant-user",
-            identify="credits-reserved-grant@example.com",
-            nickname="Reserved Grant",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-reserved-grant@example.com")],
+            "credits-reserved-grant-user",
+            "credits-reserved-grant@example.com",
+            "Reserved Grant",
         )
         _seed_credit_wallet(
-            creator_bid="credits-reserved-grant-user",
-            wallet_bid="wallet-credits-reserved-grant-user",
-            available_credits="5.0000000000",
+            creator_bid="credits-reserved-grant-user", available_credits="5.0000000000"
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-reserved-grant-user",
-            wallet_bid="wallet-credits-reserved-grant-user",
             wallet_bucket_bid="bucket-reserved-grant-user",
             ledger_bid="ledger-available-grant",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -1653,7 +1650,6 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-reserved-grant-user",
-            wallet_bid="wallet-credits-reserved-grant-user",
             wallet_bucket_bid="bucket-reserved-grant-user",
             ledger_bid="ledger-reserved-grant",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -1666,7 +1662,6 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-reserved-grant-user",
-            wallet_bid="wallet-credits-reserved-grant-user",
             wallet_bucket_bid="bucket-reserved-grant-user",
             ledger_bid="ledger-absorbed-grant",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -1678,18 +1673,9 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(
             metadata_json={"bucket_credit_state": " AbSoRbEd "},
         )
 
-        all_result = get_operator_user_credits(
-            app,
-            user_bid="credits-reserved-grant-user",
-            page_index=1,
-            page_size=20,
-        )
-        grant_result = get_operator_user_credits(
-            app,
-            user_bid="credits-reserved-grant-user",
-            page_index=1,
-            page_size=20,
-            filters={"credit_type": "grant"},
+        all_result = _user_credits(app, "credits-reserved-grant-user")
+        grant_result = _user_credits(
+            app, "credits-reserved-grant-user", {"credit_type": "grant"}
         )
 
         reserved_entry = CreditLedgerEntry.query.filter_by(
@@ -1698,12 +1684,8 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(
         reserved_entry.metadata_json = {"bucket_credit_state": "available"}
         db.session.add(reserved_entry)
         db.session.commit()
-        activated_result = get_operator_user_credits(
-            app,
-            user_bid="credits-reserved-grant-user",
-            page_index=1,
-            page_size=20,
-            filters={"credit_type": "grant"},
+        activated_result = _user_credits(
+            app, "credits-reserved-grant-user", {"credit_type": "grant"}
         )
 
     assert [item.ledger_bid for item in all_result.items] == ["ledger-available-grant"]
@@ -1721,25 +1703,17 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(
 
 def test_get_operator_user_credits_handles_invalid_source_type(app: object) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-invalid-source-user",
-            identify="credits-invalid-source@example.com",
-            nickname="Invalid Source",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-invalid-source@example.com")],
+            "credits-invalid-source-user",
+            "credits-invalid-source@example.com",
+            "Invalid Source",
         )
         _seed_credit_wallet(
-            creator_bid="credits-invalid-source-user",
-            wallet_bid="wallet-credits-invalid-source-user",
-            available_credits="1.0000000000",
+            creator_bid="credits-invalid-source-user", available_credits="1.0000000000"
         )
         entry = _seed_credit_ledger_entry(
             creator_bid="credits-invalid-source-user",
-            wallet_bid="wallet-credits-invalid-source-user",
             wallet_bucket_bid="bucket-invalid-source",
             ledger_bid="ledger-invalid-source",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
@@ -1753,12 +1727,7 @@ def test_get_operator_user_credits_handles_invalid_source_type(app: object) -> N
         db.session.add(entry)
         db.session.commit()
 
-        result = get_operator_user_credits(
-            app,
-            user_bid="credits-invalid-source-user",
-            page_index=1,
-            page_size=20,
-        )
+        result = _user_credits(app, "credits-invalid-source-user")
 
     assert result.total == 1
     assert result.items[0].display_source_type == "manual"
@@ -1768,25 +1737,17 @@ def test_get_operator_user_credits_uses_empty_expiry_for_long_term_balances(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-long-term-user",
-            identify="credits-long-term@example.com",
-            nickname="Credits Long Term",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-long-term@example.com")],
+            "credits-long-term-user",
+            "credits-long-term@example.com",
+            "Credits Long Term",
         )
         _seed_credit_wallet(
-            creator_bid="credits-long-term-user",
-            wallet_bid="wallet-credits-long-term-user",
-            available_credits="12.0000000000",
+            creator_bid="credits-long-term-user", available_credits="12.0000000000"
         )
         _seed_credit_wallet_bucket(
             creator_bid="credits-long-term-user",
-            wallet_bid="wallet-credits-long-term-user",
             bucket_bid="bucket-credits-long-term",
             available_credits="12.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -1795,12 +1756,7 @@ def test_get_operator_user_credits_uses_empty_expiry_for_long_term_balances(
             effective_to=None,
         )
 
-        result = get_operator_user_credits(
-            app,
-            user_bid="credits-long-term-user",
-            page_index=1,
-            page_size=20,
-        )
+        result = _user_credits(app, "credits-long-term-user")
 
     assert result.summary.available_credits == "12"
     assert result.summary.credits_expire_at is None
@@ -1812,25 +1768,14 @@ def test_get_operator_user_credits_maps_usage_rows_to_operator_display_codes(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
-            app,
-            user_bid="credits-usage-user",
-            identify="credits-usage@example.com",
-            nickname="Credits Usage",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-usage@example.com")],
+        _seed_paid_creator(
+            app, "credits-usage-user", "credits-usage@example.com", "Credits Usage"
         )
         _seed_credit_wallet(
-            creator_bid="credits-usage-user",
-            wallet_bid="wallet-credits-usage-user",
-            available_credits="9.0000000000",
+            creator_bid="credits-usage-user", available_credits="9.0000000000"
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-usage-user",
-            wallet_bid="wallet-credits-usage-user",
             wallet_bucket_bid="bucket-credits-usage",
             ledger_bid="ledger-preview-consume",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -1842,12 +1787,7 @@ def test_get_operator_user_credits_maps_usage_rows_to_operator_display_codes(
             metadata_json={"usage_scene": BILL_USAGE_SCENE_PREVIEW},
         )
 
-        result = get_operator_user_credits(
-            app,
-            user_bid="credits-usage-user",
-            page_index=1,
-            page_size=20,
-        )
+        result = _user_credits(app, "credits-usage-user")
 
     assert len(result.items) == 1
     assert result.items[0].display_entry_type == "preview_consume"
@@ -1860,21 +1800,14 @@ def test_get_operator_user_credits_enriches_consume_rows_with_course_context(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-context-user",
-            identify="credits-context@example.com",
-            nickname="Credits Context",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-context@example.com")],
+            "credits-context-user",
+            "credits-context@example.com",
+            "Credits Context",
         )
         _seed_credit_wallet(
-            creator_bid="credits-context-user",
-            wallet_bid="wallet-credits-context-user",
-            available_credits="9.0000000000",
+            creator_bid="credits-context-user", available_credits="9.0000000000"
         )
         _seed_course(
             model=PublishedShifu,
@@ -1910,7 +1843,6 @@ def test_get_operator_user_credits_enriches_consume_rows_with_course_context(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-context-user",
-            wallet_bid="wallet-credits-context-user",
             wallet_bucket_bid="bucket-credits-context",
             ledger_bid="ledger-context-consume",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -1922,7 +1854,6 @@ def test_get_operator_user_credits_enriches_consume_rows_with_course_context(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-context-user",
-            wallet_bid="wallet-credits-context-user",
             wallet_bucket_bid="bucket-credits-context",
             ledger_bid="ledger-context-grant",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -1933,12 +1864,7 @@ def test_get_operator_user_credits_enriches_consume_rows_with_course_context(
             created_at=datetime(2026, 4, 18, 10, 0, 0),
         )
 
-        result = get_operator_user_credits(
-            app,
-            user_bid="credits-context-user",
-            page_index=1,
-            page_size=20,
-        )
+        result = _user_credits(app, "credits-context-user")
 
     rows_by_bid = {item.ledger_bid: item for item in result.items}
     consume_item = rows_by_bid["ledger-context-consume"]
@@ -1961,8 +1887,7 @@ def test_get_operator_user_credits_enriches_consume_rows_with_course_context(
 
 
 def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
-    app: object,
-    monkeypatch: object,
+    app: object, monkeypatch: object
 ) -> None:
     captured_source_bids: list[str] = []
     original_load_billing_order_map = user_credits_module._load_billing_order_map
@@ -1978,21 +1903,14 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
     )
 
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-order-source-user",
-            identify="credits-order-source@example.com",
-            nickname="Credits Order Source",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-order-source@example.com")],
+            "credits-order-source-user",
+            "credits-order-source@example.com",
+            "Credits Order Source",
         )
         _seed_credit_wallet(
-            creator_bid="credits-order-source-user",
-            wallet_bid="wallet-credits-order-source-user",
-            available_credits="9.0000000000",
+            creator_bid="credits-order-source-user", available_credits="9.0000000000"
         )
         _seed_billing_order(
             creator_bid="credits-order-source-user",
@@ -2001,7 +1919,6 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-order-source-user",
-            wallet_bid="wallet-credits-order-source-user",
             wallet_bucket_bid="bucket-order-source",
             ledger_bid="ledger-order-source-grant",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -2013,7 +1930,6 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-order-source-user",
-            wallet_bid="wallet-credits-order-source-user",
             wallet_bucket_bid="bucket-order-source",
             ledger_bid="ledger-order-source-consume",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2024,12 +1940,7 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
             created_at=datetime(2026, 4, 18, 11, 0, 0),
         )
 
-        result = get_operator_user_credits(
-            app,
-            user_bid="credits-order-source-user",
-            page_index=1,
-            page_size=20,
-        )
+        result = _user_credits(app, "credits-order-source-user")
 
     assert result.total == 2
     assert captured_source_bids == ["order-source-1"]
@@ -2039,21 +1950,11 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
-            app,
-            user_bid="credits-filter-user",
-            identify="credits-filter@example.com",
-            nickname="Credits Filter",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-filter@example.com")],
+        _seed_paid_creator(
+            app, "credits-filter-user", "credits-filter@example.com", "Credits Filter"
         )
         _seed_credit_wallet(
-            creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
-            available_credits="20.0000000000",
+            creator_bid="credits-filter-user", available_credits="20.0000000000"
         )
         _seed_course(
             model=DraftShifu,
@@ -2104,7 +2005,6 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
             wallet_bucket_bid="bucket-consume-filter",
             ledger_bid="ledger-consume-ask-filter",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2116,7 +2016,6 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
             wallet_bucket_bid="bucket-consume-filter",
             ledger_bid="ledger-consume-listen-filter",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2128,7 +2027,6 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
             wallet_bucket_bid="bucket-grant-filter",
             ledger_bid="ledger-grant-subscription-filter",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -2140,7 +2038,6 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
             wallet_bucket_bid="bucket-grant-filter",
             ledger_bid="ledger-grant-trial-filter",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -2152,7 +2049,6 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
             wallet_bucket_bid="bucket-other-filter",
             ledger_bid="ledger-expire-filter",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
@@ -2164,7 +2060,6 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
             wallet_bucket_bid="bucket-other-filter",
             ledger_bid="ledger-refund-filter",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_REFUND,
@@ -2176,7 +2071,6 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-filter-user",
-            wallet_bid="wallet-credits-filter-user",
             wallet_bucket_bid="bucket-other-filter",
             ledger_bid="ledger-manual-debit-filter",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
@@ -2187,44 +2081,34 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
             created_at=datetime(2026, 4, 18, 15, 0, 0),
         )
 
-        consume_id_result = get_operator_user_credits(
+        consume_id_result = _user_credits(
             app,
-            user_bid="credits-filter-user",
-            page_index=1,
-            page_size=20,
-            filters={
+            "credits-filter-user",
+            {
                 "credit_type": "consume",
                 "course_query": "course-ask",
                 "usage_mode": "ask",
             },
         )
-        consume_name_result = get_operator_user_credits(
+        consume_name_result = _user_credits(
             app,
-            user_bid="credits-filter-user",
-            page_index=1,
-            page_size=20,
-            filters={
+            "credits-filter-user",
+            {
                 "credit_type": "consume",
                 "course_query": "Ask",
                 "usage_mode": "ask",
             },
         )
-        grant_result = get_operator_user_credits(
+        grant_result = _user_credits(
             app,
-            user_bid="credits-filter-user",
-            page_index=1,
-            page_size=20,
-            filters={
+            "credits-filter-user",
+            {
                 "credit_type": "grant",
                 "grant_source": "trial_subscription",
             },
         )
-        other_result = get_operator_user_credits(
-            app,
-            user_bid="credits-filter-user",
-            page_index=1,
-            page_size=20,
-            filters={"credit_type": "other"},
+        other_result = _user_credits(
+            app, "credits-filter-user", {"credit_type": "other"}
         )
 
     assert [item.ledger_bid for item in consume_id_result.items] == [
@@ -2254,25 +2138,17 @@ def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfilte
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-missing-usage-user",
-            identify="credits-missing-usage@example.com",
-            nickname="Credits Missing Usage",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-missing-usage@example.com")],
+            "credits-missing-usage-user",
+            "credits-missing-usage@example.com",
+            "Credits Missing Usage",
         )
         _seed_credit_wallet(
-            creator_bid="credits-missing-usage-user",
-            wallet_bid="wallet-credits-missing-usage-user",
-            available_credits="8.0000000000",
+            creator_bid="credits-missing-usage-user", available_credits="8.0000000000"
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-missing-usage-user",
-            wallet_bid="wallet-credits-missing-usage-user",
             wallet_bucket_bid="bucket-consume-missing-usage",
             ledger_bid="ledger-consume-missing-usage",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2283,19 +2159,13 @@ def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfilte
             created_at=datetime(2026, 4, 18, 9, 0, 0),
         )
 
-        unfiltered_result = get_operator_user_credits(
-            app,
-            user_bid="credits-missing-usage-user",
-            page_index=1,
-            page_size=20,
-            filters={"credit_type": "consume"},
+        unfiltered_result = _user_credits(
+            app, "credits-missing-usage-user", {"credit_type": "consume"}
         )
-        filtered_result = get_operator_user_credits(
+        filtered_result = _user_credits(
             app,
-            user_bid="credits-missing-usage-user",
-            page_index=1,
-            page_size=20,
-            filters={
+            "credits-missing-usage-user",
+            {
                 "credit_type": "consume",
                 "usage_mode": "ask",
             },
@@ -2312,21 +2182,14 @@ def test_get_operator_user_credits_empty_consume_filter_does_not_scan_usage_rows
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-empty-consume-user",
-            identify="credits-empty-consume@example.com",
-            nickname="Credits Empty Consume",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-empty-consume@example.com")],
+            "credits-empty-consume-user",
+            "credits-empty-consume@example.com",
+            "Credits Empty Consume",
         )
         _seed_credit_wallet(
-            creator_bid="credits-empty-consume-user",
-            wallet_bid="wallet-credits-empty-consume-user",
-            available_credits="8.0000000000",
+            creator_bid="credits-empty-consume-user", available_credits="8.0000000000"
         )
         _seed_bill_usage_record(
             usage_bid="usage-other-user",
@@ -2340,12 +2203,10 @@ def test_get_operator_user_credits_empty_consume_filter_does_not_scan_usage_rows
             extra={"generation_name": "lesson_ask/filter"},
         )
 
-        result = get_operator_user_credits(
+        result = _user_credits(
             app,
-            user_bid="credits-empty-consume-user",
-            page_index=1,
-            page_size=20,
-            filters={
+            "credits-empty-consume-user",
+            {
                 "credit_type": "consume",
                 "usage_mode": "ask",
             },
@@ -2359,21 +2220,14 @@ def test_get_operator_user_credit_usage_detail_returns_generated_content(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="usage-detail-owner",
-            identify="usage-detail-owner@example.com",
-            nickname="Usage Detail Owner",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "usage-detail-owner@example.com")],
+            "usage-detail-owner",
+            "usage-detail-owner@example.com",
+            "Usage Detail Owner",
         )
         _seed_credit_wallet(
-            creator_bid="usage-detail-owner",
-            wallet_bid="wallet-usage-detail-owner",
-            available_credits="9.0000000000",
+            creator_bid="usage-detail-owner", available_credits="9.0000000000"
         )
         _seed_course(
             model=PublishedShifu,
@@ -2422,7 +2276,6 @@ def test_get_operator_user_credit_usage_detail_returns_generated_content(
         )
         _seed_credit_ledger_entry(
             creator_bid="usage-detail-owner",
-            wallet_bid="wallet-usage-detail-owner",
             wallet_bucket_bid="bucket-usage-detail",
             ledger_bid="ledger-usage-detail",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2455,32 +2308,20 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="usage-detail-wallet-owner",
-            identify="usage-detail-wallet-owner@example.com",
-            nickname="Usage Detail Wallet Owner",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "usage-detail-wallet-owner@example.com")],
+            "usage-detail-wallet-owner",
+            "usage-detail-wallet-owner@example.com",
+            "Usage Detail Wallet Owner",
         )
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="usage-detail-other-owner",
-            identify="usage-detail-other-owner@example.com",
-            nickname="Usage Detail Other Owner",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "usage-detail-other-owner@example.com")],
+            "usage-detail-other-owner",
+            "usage-detail-other-owner@example.com",
+            "Usage Detail Other Owner",
         )
         _seed_credit_wallet(
-            creator_bid="usage-detail-wallet-owner",
-            wallet_bid="wallet-usage-detail-wallet-owner",
-            available_credits="9.0000000000",
+            creator_bid="usage-detail-wallet-owner", available_credits="9.0000000000"
         )
         _seed_generated_block(
             generated_block_bid="block-usage-detail-owner",
@@ -2506,7 +2347,6 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
         )
         _seed_credit_ledger_entry(
             creator_bid="usage-detail-wallet-owner",
-            wallet_bid="wallet-usage-detail-wallet-owner",
             wallet_bucket_bid="bucket-usage-detail-owner",
             ledger_bid="ledger-usage-detail-owner",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2536,21 +2376,14 @@ def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="usage-detail-tts-owner",
-            identify="usage-detail-tts-owner@example.com",
-            nickname="Usage Detail TTS Owner",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "usage-detail-tts-owner@example.com")],
+            "usage-detail-tts-owner",
+            "usage-detail-tts-owner@example.com",
+            "Usage Detail TTS Owner",
         )
         _seed_credit_wallet(
-            creator_bid="usage-detail-tts-owner",
-            wallet_bid="wallet-usage-detail-tts-owner",
-            available_credits="9.0000000000",
+            creator_bid="usage-detail-tts-owner", available_credits="9.0000000000"
         )
         _seed_generated_element(
             element_bid="element-tts-1",
@@ -2626,7 +2459,6 @@ def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(
         )
         _seed_credit_ledger_entry(
             creator_bid="usage-detail-tts-owner",
-            wallet_bid="wallet-usage-detail-tts-owner",
             wallet_bucket_bid="bucket-usage-detail-tts",
             ledger_bid="ledger-usage-detail-tts",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2659,25 +2491,17 @@ def test_get_operator_user_credits_excludes_topup_from_available_without_subscri
     with app.app_context():
         manual_grant_expires_at = now_utc().replace(microsecond=0) + timedelta(days=3)
         active_start_at = manual_grant_expires_at - timedelta(days=10)
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-manual-only-user",
-            identify="credits-manual-only@example.com",
-            nickname="Credits Manual Only",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-manual-only@example.com")],
+            "credits-manual-only-user",
+            "credits-manual-only@example.com",
+            "Credits Manual Only",
         )
         _seed_credit_wallet(
-            creator_bid="credits-manual-only-user",
-            wallet_bid="wallet-credits-manual-only-user",
-            available_credits="11.0000000000",
+            creator_bid="credits-manual-only-user", available_credits="11.0000000000"
         )
         _seed_credit_wallet_bucket(
             creator_bid="credits-manual-only-user",
-            wallet_bid="wallet-credits-manual-only-user",
             bucket_bid="bucket-manual-only-grant",
             available_credits="3.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -2687,7 +2511,6 @@ def test_get_operator_user_credits_excludes_topup_from_available_without_subscri
         )
         _seed_credit_wallet_bucket(
             creator_bid="credits-manual-only-user",
-            wallet_bid="wallet-credits-manual-only-user",
             bucket_bid="bucket-manual-only-topup",
             available_credits="8.0000000000",
             bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -2696,12 +2519,7 @@ def test_get_operator_user_credits_excludes_topup_from_available_without_subscri
             effective_to=manual_grant_expires_at + timedelta(days=30),
         )
 
-        result = get_operator_user_credits(
-            app,
-            user_bid="credits-manual-only-user",
-            page_index=1,
-            page_size=20,
-        )
+        result = _user_credits(app, "credits-manual-only-user")
 
     assert result.summary.available_credits == "3"
     assert result.summary.subscription_credits == "3"
@@ -2712,25 +2530,17 @@ def test_get_operator_user_credits_excludes_topup_from_available_without_subscri
 
 def test_get_operator_user_credits_maps_manual_grant_display_codes(app: object) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-manual-grant-user",
-            identify="credits-manual-grant@example.com",
-            nickname="Credits Manual Grant",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "credits-manual-grant@example.com")],
+            "credits-manual-grant-user",
+            "credits-manual-grant@example.com",
+            "Credits Manual Grant",
         )
         _seed_credit_wallet(
-            creator_bid="credits-manual-grant-user",
-            wallet_bid="wallet-credits-manual-grant-user",
-            available_credits="5.0000000000",
+            creator_bid="credits-manual-grant-user", available_credits="5.0000000000"
         )
         _seed_credit_ledger_entry(
             creator_bid="credits-manual-grant-user",
-            wallet_bid="wallet-credits-manual-grant-user",
             wallet_bucket_bid="bucket-credits-manual-grant-user",
             ledger_bid="ledger-manual-grant",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -2747,12 +2557,7 @@ def test_get_operator_user_credits_maps_manual_grant_display_codes(app: object) 
             },
         )
 
-        result = get_operator_user_credits(
-            app,
-            user_bid="credits-manual-grant-user",
-            page_index=1,
-            page_size=20,
-        )
+        result = _user_credits(app, "credits-manual-grant-user")
 
     assert len(result.items) == 1
     assert result.items[0].display_entry_type == "manual_grant"
@@ -2763,31 +2568,25 @@ def test_get_operator_user_credits_maps_manual_grant_display_codes(app: object) 
 def test_get_operator_user_detail_serializes_last_learning_at_using_app_timezone(
     app: object,
 ) -> None:
-    with app.app_context():
-        original_tz = app.config.get("TZ")
-        app.config["TZ"] = "Asia/Shanghai"
-        try:
-            _seed_user(
-                app,
-                user_bid="tz-detail-user",
-                identify="tz-detail-user@example.com",
-                nickname="TZ Detail User",
-                state=USER_STATE_PAID,
-                created_at=datetime(2026, 4, 20, 9, 0, 0),
-                updated_at=datetime(2026, 4, 20, 10, 0, 0),
-                providers=[("email", "tz-detail-user@example.com")],
-            )
-            _seed_learn_progress(
-                shifu_bid="course-tz-detail",
-                outline_item_bid="lesson-tz-detail",
-                user_bid="tz-detail-user",
-                status=LEARN_STATUS_IN_PROGRESS,
-                created_at=datetime(2026, 4, 22, 11, 56, 11),
-            )
+    with app.app_context(), _app_timezone(app, "Asia/Shanghai"):
+        _seed_user(
+            app,
+            "tz-detail-user",
+            "tz-detail-user@example.com",
+            "TZ Detail User",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            login="email",
+        )
+        _seed_learn_progress(
+            shifu_bid="course-tz-detail",
+            outline_item_bid="lesson-tz-detail",
+            user_bid="tz-detail-user",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 4, 22, 11, 56, 11),
+        )
 
-            result = get_operator_user_detail(app, "tz-detail-user")
-        finally:
-            app.config["TZ"] = original_tz
+        result = get_operator_user_detail(app, "tz-detail-user")
 
     assert result.last_learning_at == datetime(2026, 4, 22, 11, 56, 11)
 
@@ -2795,51 +2594,35 @@ def test_get_operator_user_detail_serializes_last_learning_at_using_app_timezone
 def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(
     app: object,
 ) -> None:
-    with app.app_context():
-        original_tz = app.config.get("TZ")
-        app.config["TZ"] = "Asia/Shanghai"
-        try:
-            _seed_user(
-                app,
-                user_bid="tz-credits-user",
-                identify="tz-credits-user@example.com",
-                nickname="TZ Credits User",
-                state=USER_STATE_PAID,
-                created_at=datetime(2026, 4, 20, 9, 0, 0),
-                updated_at=datetime(2026, 4, 20, 10, 0, 0),
-                providers=[("email", "tz-credits-user@example.com")],
-            )
-            _seed_credit_wallet(
-                creator_bid="tz-credits-user",
-                wallet_bid="wallet-tz-credits-user",
-                available_credits="5",
-            )
-            _seed_credit_ledger_entry(
-                creator_bid="tz-credits-user",
-                wallet_bid="wallet-tz-credits-user",
-                wallet_bucket_bid="bucket-tz-credits-user",
-                ledger_bid="ledger-tz-credits-user",
-                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-                source_type=CREDIT_SOURCE_TYPE_MANUAL,
-                source_bid="order-tz-credits-user",
-                amount="5",
-                balance_after="5",
-                created_at=datetime(2026, 4, 22, 16, 29, 9),
-                expires_at=datetime(2026, 4, 29, 16, 29, 9),
-                metadata_json={
-                    "grant_type": "manual_grant",
-                    "grant_source": "reward",
-                },
-            )
+    with app.app_context(), _app_timezone(app, "Asia/Shanghai"):
+        _seed_user(
+            app,
+            "tz-credits-user",
+            "tz-credits-user@example.com",
+            "TZ Credits User",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            login="email",
+        )
+        _seed_credit_wallet(creator_bid="tz-credits-user", available_credits="5")
+        _seed_credit_ledger_entry(
+            creator_bid="tz-credits-user",
+            wallet_bucket_bid="bucket-tz-credits-user",
+            ledger_bid="ledger-tz-credits-user",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid="order-tz-credits-user",
+            amount="5",
+            balance_after="5",
+            created_at=datetime(2026, 4, 22, 16, 29, 9),
+            expires_at=datetime(2026, 4, 29, 16, 29, 9),
+            metadata_json={
+                "grant_type": "manual_grant",
+                "grant_source": "reward",
+            },
+        )
 
-            result = get_operator_user_credits(
-                app,
-                user_bid="tz-credits-user",
-                page_index=1,
-                page_size=20,
-            )
-        finally:
-            app.config["TZ"] = original_tz
+        result = _user_credits(app, "tz-credits-user")
 
     assert len(result.items) == 1
     assert result.items[0].created_at == datetime(2026, 4, 22, 16, 29, 9)
@@ -2850,22 +2633,17 @@ def test_deduct_operator_user_credits_accepts_two_decimal_places_and_refreshes_s
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-deduction-target",
-            identify="credits-deduction-target@example.com",
-            nickname="Credits Deduction Target",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "credits-deduction-target",
+            "credits-deduction-target@example.com",
+            "Credits Deduction Target",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-deduction-target@example.com")],
         )
-        grant_operator_user_credits(
+        _grant_credits(
             app,
-            user_bid="credits-deduction-target",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserCreditGrantRequestDTO(
+            "credits-deduction-target",
+            AdminOperationUserCreditGrantRequestDTO(
                 request_id="deduction-seed-grant",
                 amount="2.50",
                 grant_source="compensation",
@@ -2874,11 +2652,10 @@ def test_deduct_operator_user_credits_accepts_two_decimal_places_and_refreshes_s
             ),
         )
 
-        result = deduct_operator_user_credits(
+        result = _deduct_credits(
             app,
-            user_bid="credits-deduction-target",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserCreditDeductionRequestDTO(
+            "credits-deduction-target",
+            AdminOperationUserCreditDeductionRequestDTO(
                 request_id="deduction-request-1",
                 amount="1.25",
                 reason="account_correction",
@@ -2896,20 +2673,15 @@ def test_deduct_operator_user_credits_accepts_two_decimal_places_and_refreshes_s
 
 
 def test_deduct_operator_user_credits_rejects_amount_beyond_billing_precision(
-    app: object,
-    monkeypatch: pytest.MonkeyPatch,
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-deduction-precision-target",
-            identify="credits-deduction-precision-target@example.com",
-            nickname="Credits Deduction Precision Target",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "credits-deduction-precision-target",
+            "credits-deduction-precision-target@example.com",
+            "Credits Deduction Precision Target",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-deduction-precision-target@example.com")],
         )
 
         original_quantize = user_credits_module._quantize_credit_amount
@@ -2929,11 +2701,10 @@ def test_deduct_operator_user_credits_rejects_amount_beyond_billing_precision(
             quantize_with_one_digit,
         )
         with pytest.raises(AppError):
-            deduct_operator_user_credits(
+            _deduct_credits(
                 app,
-                user_bid="credits-deduction-precision-target",
-                operator_user_bid="operator-1",
-                payload=AdminOperationUserCreditDeductionRequestDTO(
+                "credits-deduction-precision-target",
+                AdminOperationUserCreditDeductionRequestDTO(
                     request_id="deduction-precision-request",
                     amount="1.25",
                     reason="account_correction",
@@ -2945,23 +2716,18 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-grant-target",
-            identify="credits-grant-target@example.com",
-            nickname="Credits Grant Target",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "credits-grant-target",
+            "credits-grant-target@example.com",
+            "Credits Grant Target",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-grant-target@example.com")],
         )
 
-        result = grant_operator_user_credits(
+        result = _grant_credits(
             app,
-            user_bid="credits-grant-target",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserCreditGrantRequestDTO(
+            "credits-grant-target",
+            AdminOperationUserCreditGrantRequestDTO(
                 request_id="grant-request-1",
                 amount="5",
                 grant_source="compensation",
@@ -3018,54 +2784,6 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
     assert ledger.metadata_json["note"] == "ops support"
 
 
-def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(
-    app: object,
-) -> None:
-    with app.app_context():
-        _seed_user(
-            app,
-            user_bid="credits-grant-idempotent",
-            identify="credits-grant-idempotent@example.com",
-            nickname="Credits Grant Idempotent",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-grant-idempotent@example.com")],
-        )
-
-        payload = AdminOperationUserCreditGrantRequestDTO(
-            request_id="grant-request-idempotent",
-            amount="5",
-            grant_source="reward",
-            validity_value=1,
-            validity_unit="day",
-            note="retry-safe",
-        )
-        first_result = grant_operator_user_credits(
-            app,
-            user_bid="credits-grant-idempotent",
-            operator_user_bid="operator-1",
-            payload=payload,
-        )
-        second_result = grant_operator_user_credits(
-            app,
-            user_bid="credits-grant-idempotent",
-            operator_user_bid="operator-1",
-            payload=payload,
-        )
-
-        ledger_entries = CreditLedgerEntry.query.filter_by(
-            creator_bid="credits-grant-idempotent",
-            deleted=0,
-        ).all()
-
-    assert first_result.ledger_bid
-    assert second_result.ledger_bid == first_result.ledger_bid
-    assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
-    assert len(ledger_entries) == 1
-
-
 def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
     app: object, monkeypatch: object
 ) -> None:
@@ -3093,23 +2811,18 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
     )
 
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="referral-reward-target",
-            identify="referral-reward-target@example.com",
-            nickname="Referral Reward Target",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "referral-reward-target",
+            "referral-reward-target@example.com",
+            "Referral Reward Target",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "referral-reward-target@example.com")],
         )
 
-        first_result = grant_operator_user_credits(
+        first_result = _grant_credits(
             app,
-            user_bid="referral-reward-target",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserCreditGrantRequestDTO(
+            "referral-reward-target",
+            AdminOperationUserCreditGrantRequestDTO(
                 request_id="referral-reward-request-1",
                 amount="1000",
                 grant_type="referral_reward",
@@ -3117,11 +2830,10 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
                 note="first referral",
             ),
         )
-        second_result = grant_operator_user_credits(
+        second_result = _grant_credits(
             app,
-            user_bid="referral-reward-target",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserCreditGrantRequestDTO(
+            "referral-reward-target",
+            AdminOperationUserCreditGrantRequestDTO(
                 request_id="referral-reward-request-2",
                 amount="800",
                 grant_type="referral_reward",
@@ -3178,21 +2890,15 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
     )
 
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="referral-reward-empty-active",
-            identify="referral-reward-empty-active@example.com",
-            nickname="Referral Reward Empty Active",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "referral-reward-empty-active",
+            "referral-reward-empty-active@example.com",
+            "Referral Reward Empty Active",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "referral-reward-empty-active@example.com")],
         )
         _seed_credit_wallet(
-            creator_bid="referral-reward-empty-active",
-            wallet_bid="wallet-referral-reward-empty-active",
-            available_credits="0",
+            creator_bid="referral-reward-empty-active", available_credits="0"
         )
         db.session.add(
             CreditWalletBucket(
@@ -3221,11 +2927,10 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
         )
         db.session.commit()
 
-        result = grant_operator_user_credits(
+        result = _grant_credits(
             app,
-            user_bid="referral-reward-empty-active",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserCreditGrantRequestDTO(
+            "referral-reward-empty-active",
+            AdminOperationUserCreditGrantRequestDTO(
                 request_id="referral-reward-empty-active-request",
                 amount="1000",
                 grant_type="referral_reward",
@@ -3251,16 +2956,12 @@ def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="referral-reward-idempotent",
-            identify="referral-reward-idempotent@example.com",
-            nickname="Referral Reward Idempotent",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "referral-reward-idempotent",
+            "referral-reward-idempotent@example.com",
+            "Referral Reward Idempotent",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "referral-reward-idempotent@example.com")],
         )
 
         payload = AdminOperationUserCreditGrantRequestDTO(
@@ -3270,18 +2971,8 @@ def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_
             grant_source="reward",
             note="retry-safe referral",
         )
-        first_result = grant_operator_user_credits(
-            app,
-            user_bid="referral-reward-idempotent",
-            operator_user_bid="operator-1",
-            payload=payload,
-        )
-        second_result = grant_operator_user_credits(
-            app,
-            user_bid="referral-reward-idempotent",
-            operator_user_bid="operator-1",
-            payload=payload,
-        )
+        first_result = _grant_credits(app, "referral-reward-idempotent", payload)
+        second_result = _grant_credits(app, "referral-reward-idempotent", payload)
 
         buckets = CreditWalletBucket.query.filter_by(
             creator_bid="referral-reward-idempotent",
@@ -3305,24 +2996,19 @@ def test_grant_operator_user_referral_reward_rejects_non_integer_amount(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="referral-reward-invalid-amount",
-            identify="referral-reward-invalid-amount@example.com",
-            nickname="Referral Reward Invalid Amount",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "referral-reward-invalid-amount",
+            "referral-reward-invalid-amount@example.com",
+            "Referral Reward Invalid Amount",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "referral-reward-invalid-amount@example.com")],
         )
 
         with pytest.raises(AppError):
-            grant_operator_user_credits(
+            _grant_credits(
                 app,
-                user_bid="referral-reward-invalid-amount",
-                operator_user_bid="operator-1",
-                payload=AdminOperationUserCreditGrantRequestDTO(
+                "referral-reward-invalid-amount",
+                AdminOperationUserCreditGrantRequestDTO(
                     request_id="referral-reward-invalid-amount-request",
                     amount="1000.5",
                     grant_type="referral_reward",
@@ -3335,23 +3021,18 @@ def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(
     app: object,
 ) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-grant-legacy-manual-type",
-            identify="credits-grant-legacy-manual-type@example.com",
-            nickname="Credits Grant Legacy Manual Type",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "credits-grant-legacy-manual-type",
+            "credits-grant-legacy-manual-type@example.com",
+            "Credits Grant Legacy Manual Type",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-grant-legacy-manual-type@example.com")],
         )
 
-        result = grant_operator_user_credits(
+        result = _grant_credits(
             app,
-            user_bid="credits-grant-legacy-manual-type",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserCreditGrantRequestDTO(
+            "credits-grant-legacy-manual-type",
+            AdminOperationUserCreditGrantRequestDTO(
                 request_id="grant-request-legacy-manual-type",
                 amount="5",
                 grant_type="manual_grant",
@@ -3368,24 +3049,19 @@ def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(
 
 def test_grant_operator_user_credits_rejects_unknown_grant_type(app: object) -> None:
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-grant-unknown-type",
-            identify="credits-grant-unknown-type@example.com",
-            nickname="Credits Grant Unknown Type",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "credits-grant-unknown-type",
+            "credits-grant-unknown-type@example.com",
+            "Credits Grant Unknown Type",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-grant-unknown-type@example.com")],
         )
 
         with pytest.raises(AppError) as exc_info:
-            grant_operator_user_credits(
+            _grant_credits(
                 app,
-                user_bid="credits-grant-unknown-type",
-                operator_user_bid="operator-1",
-                payload=AdminOperationUserCreditGrantRequestDTO(
+                "credits-grant-unknown-type",
+                AdminOperationUserCreditGrantRequestDTO(
                     request_id="grant-request-unknown-type",
                     amount="5",
                     grant_type="unknown_type",
@@ -3408,17 +3084,14 @@ def test_grant_operator_user_credits_rejects_unknown_grant_type(app: object) -> 
 def test_grant_operator_user_credits_returns_persisted_payload_for_reused_request_id(
     app: object,
 ) -> None:
+    """A reused request id replays the first grant, even with a changed payload."""
     with app.app_context():
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="credits-grant-idempotent-persisted",
-            identify="credits-grant-idempotent-persisted@example.com",
-            nickname="Credits Grant Idempotent Persisted",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "credits-grant-idempotent-persisted",
+            "credits-grant-idempotent-persisted@example.com",
+            "Credits Grant Idempotent Persisted",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-grant-idempotent-persisted@example.com")],
         )
 
         first_payload = AdminOperationUserCreditGrantRequestDTO(
@@ -3439,19 +3112,19 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             display_name="second display",
             note="second grant",
         )
-        first_result = grant_operator_user_credits(
-            app,
-            user_bid="credits-grant-idempotent-persisted",
-            operator_user_bid="operator-1",
-            payload=first_payload,
+        first_result = _grant_credits(
+            app, "credits-grant-idempotent-persisted", first_payload
         )
-        second_result = grant_operator_user_credits(
-            app,
-            user_bid="credits-grant-idempotent-persisted",
-            operator_user_bid="operator-1",
-            payload=second_payload,
+        second_result = _grant_credits(
+            app, "credits-grant-idempotent-persisted", second_payload
         )
+        ledger_entries = CreditLedgerEntry.query.filter_by(
+            creator_bid="credits-grant-idempotent-persisted",
+            deleted=0,
+        ).all()
 
+    assert first_result.ledger_bid
+    assert len(ledger_entries) == 1
     assert second_result.ledger_bid == first_result.ledger_bid
     assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
     assert second_result.amount == "5"
@@ -3467,21 +3140,19 @@ def test_grant_operator_user_credits_rejects_regular_user_targets(app: object) -
     with app.app_context():
         _seed_user(
             app,
-            user_bid="credits-grant-regular",
-            identify="credits-grant-regular@example.com",
-            nickname="Credits Grant Regular",
+            "credits-grant-regular",
+            "credits-grant-regular@example.com",
+            "Credits Grant Regular",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "credits-grant-regular@example.com")],
+            login="email",
         )
 
         with pytest.raises(AppError) as exc_info:
-            grant_operator_user_credits(
+            _grant_credits(
                 app,
-                user_bid="credits-grant-regular",
-                operator_user_bid="operator-1",
-                payload=AdminOperationUserCreditGrantRequestDTO(
+                "credits-grant-regular",
+                AdminOperationUserCreditGrantRequestDTO(
                     request_id="grant-request-regular",
                     amount="5",
                     grant_source="reward",
@@ -3502,16 +3173,12 @@ def test_get_operator_user_grant_bootstrap_returns_active_plans(app: object) -> 
         db.session.add_all(
             build_bill_products(product_bids=["bill-product-plan-monthly"])
         )
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="package-bootstrap-target",
-            identify="package-bootstrap-target@example.com",
-            nickname="Package Bootstrap Target",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "package-bootstrap-target",
+            "package-bootstrap-target@example.com",
+            "Package Bootstrap Target",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "package-bootstrap-target@example.com")],
         )
         _seed_billing_subscription(
             creator_bid="package-bootstrap-target",
@@ -3544,21 +3211,19 @@ def test_grant_operator_user_package_creates_manual_paid_order_and_summary(
         )
         _seed_user(
             app,
-            user_bid="package-grant-target",
-            identify="package-grant-target@example.com",
-            nickname="Package Grant Target",
+            "package-grant-target",
+            "package-grant-target@example.com",
+            "Package Grant Target",
             state=USER_STATE_PAID,
             is_operator=True,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "package-grant-target@example.com")],
+            login="email",
         )
 
-        result = grant_operator_user_package(
+        result = _grant_package(
             app,
-            user_bid="package-grant-target",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserPackageGrantRequestDTO(
+            "package-grant-target",
+            AdminOperationUserPackageGrantRequestDTO(
                 request_id="package-grant-request-1",
                 product_bid="bill-product-plan-monthly",
                 note="ops package",
@@ -3632,16 +3297,12 @@ def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(
         db.session.add_all(
             build_bill_products(product_bids=["bill-product-plan-monthly"])
         )
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="package-grant-idempotent",
-            identify="package-grant-idempotent@example.com",
-            nickname="Package Grant Idempotent",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "package-grant-idempotent",
+            "package-grant-idempotent@example.com",
+            "Package Grant Idempotent",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "package-grant-idempotent@example.com")],
         )
 
         payload = AdminOperationUserPackageGrantRequestDTO(
@@ -3649,18 +3310,8 @@ def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(
             product_bid="bill-product-plan-monthly",
             note="retry-safe package",
         )
-        first_result = grant_operator_user_package(
-            app,
-            user_bid="package-grant-idempotent",
-            operator_user_bid="operator-1",
-            payload=payload,
-        )
-        second_result = grant_operator_user_package(
-            app,
-            user_bid="package-grant-idempotent",
-            operator_user_bid="operator-1",
-            payload=payload,
-        )
+        first_result = _grant_package(app, "package-grant-idempotent", payload)
+        second_result = _grant_package(app, "package-grant-idempotent", payload)
         orders = BillingOrder.query.filter_by(
             creator_bid="package-grant-idempotent",
             deleted=0,
@@ -3683,16 +3334,12 @@ def test_grant_operator_user_package_upgrades_active_pingxx_subscription(
                 ]
             )
         )
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="package-grant-pingxx-upgrade",
-            identify="package-grant-pingxx-upgrade@example.com",
-            nickname="Package Grant Pingxx Upgrade",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "package-grant-pingxx-upgrade",
+            "package-grant-pingxx-upgrade@example.com",
+            "Package Grant Pingxx Upgrade",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "package-grant-pingxx-upgrade@example.com")],
         )
         _seed_billing_subscription(
             creator_bid="package-grant-pingxx-upgrade",
@@ -3703,11 +3350,10 @@ def test_grant_operator_user_package_upgrades_active_pingxx_subscription(
             current_period_end_at=now_utc() + timedelta(days=29),
         )
 
-        result = grant_operator_user_package(
+        result = _grant_package(
             app,
-            user_bid="package-grant-pingxx-upgrade",
-            operator_user_bid="operator-1",
-            payload=AdminOperationUserPackageGrantRequestDTO(
+            "package-grant-pingxx-upgrade",
+            AdminOperationUserPackageGrantRequestDTO(
                 request_id="package-grant-pingxx-upgrade-request",
                 product_bid="bill-product-plan-yearly",
                 note="ops package upgrade",
@@ -3752,16 +3398,12 @@ def test_grant_operator_user_package_rejects_active_stripe_subscription(
                 ]
             )
         )
-        _seed_user(
+        _seed_paid_creator(
             app,
-            user_bid="package-grant-stripe-conflict",
-            identify="package-grant-stripe-conflict@example.com",
-            nickname="Package Grant Stripe Conflict",
-            state=USER_STATE_PAID,
-            is_creator=True,
+            "package-grant-stripe-conflict",
+            "package-grant-stripe-conflict@example.com",
+            "Package Grant Stripe Conflict",
             created_at=datetime(2026, 4, 20, 9, 0, 0),
-            updated_at=datetime(2026, 4, 20, 10, 0, 0),
-            providers=[("email", "package-grant-stripe-conflict@example.com")],
         )
         _seed_billing_subscription(
             creator_bid="package-grant-stripe-conflict",
@@ -3775,11 +3417,10 @@ def test_grant_operator_user_package_rejects_active_stripe_subscription(
         )
 
         with pytest.raises(AppError) as exc_info:
-            grant_operator_user_package(
+            _grant_package(
                 app,
-                user_bid="package-grant-stripe-conflict",
-                operator_user_bid="operator-1",
-                payload=AdminOperationUserPackageGrantRequestDTO(
+                "package-grant-stripe-conflict",
+                AdminOperationUserPackageGrantRequestDTO(
                     request_id="package-grant-stripe-conflict-request",
                     product_bid="bill-product-plan-yearly",
                     note="ops package conflict",
@@ -3798,13 +3439,12 @@ def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-redeem",
-            identify="redeem@example.com",
-            nickname="Redeem User",
+            "user-redeem",
+            "redeem@example.com",
+            "Redeem User",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "redeem@example.com")],
+            login="email",
         )
         _seed_success_order(
             order_bid="order-redeem-1",
@@ -3828,13 +3468,12 @@ def test_get_operator_user_detail_counts_redeem_orders_in_total_paid_amount(
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-profile-redeem",
-            identify="profile-redeem@example.com",
-            nickname="Profile Redeem User",
+            "user-profile-redeem",
+            "profile-redeem@example.com",
+            "Profile Redeem User",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("email", "profile-redeem@example.com")],
+            login="email",
         )
         _seed_success_order(
             order_bid="order-profile-redeem-1",
@@ -3856,13 +3495,12 @@ def test_get_operator_user_detail_returns_learning_progress_for_learning_courses
     with app.app_context():
         _seed_user(
             app,
-            user_bid="learner-progress-user",
-            identify="13800003333",
-            nickname="Learner Progress",
+            "learner-progress-user",
+            "13800003333",
+            "Learner Progress",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("phone", "13800003333")],
+            login="phone",
         )
         _seed_course(
             model=PublishedShifu,
@@ -3928,13 +3566,12 @@ def test_get_operator_user_detail_uses_latest_progress_state_for_completion(
     with app.app_context():
         _seed_user(
             app,
-            user_bid="learner-latest-status-user",
-            identify="13800004444",
-            nickname="Learner Latest Status",
+            "learner-latest-status-user",
+            "13800004444",
+            "Learner Latest Status",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("phone", "13800004444")],
+            login="phone",
         )
         _seed_course(
             model=PublishedShifu,
@@ -3991,13 +3628,12 @@ def test_get_operator_user_detail_uses_latest_outline_snapshot_for_total_lessons
     with app.app_context():
         _seed_user(
             app,
-            user_bid="learner-latest-outline-user",
-            identify="13800005555",
-            nickname="Learner Latest Outline",
+            "learner-latest-outline-user",
+            "13800005555",
+            "Learner Latest Outline",
             state=USER_STATE_PAID,
             created_at=datetime(2026, 4, 9, 9, 0, 0),
-            updated_at=datetime(2026, 4, 9, 10, 0, 0),
-            providers=[("phone", "13800005555")],
+            login="phone",
         )
         _seed_course(
             model=PublishedShifu,
@@ -4056,24 +3692,22 @@ def test_list_operator_users_includes_shared_course_learners_in_learning_courses
     with app.app_context():
         _seed_user(
             app,
-            user_bid="shared-learner-user",
-            identify="shared@example.com",
-            nickname="Shared Learner",
+            "shared-learner-user",
+            "shared@example.com",
+            "Shared Learner",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 12, 9, 0, 0),
-            updated_at=datetime(2026, 4, 12, 10, 0, 0),
-            providers=[("email", "shared@example.com")],
+            login="email",
         )
         _seed_user(
             app,
-            user_bid="shared-creator-user",
-            identify="creator@example.com",
-            nickname="Shared Creator",
+            "shared-creator-user",
+            "creator@example.com",
+            "Shared Creator",
             state=USER_STATE_REGISTERED,
             is_creator=True,
             created_at=datetime(2026, 4, 11, 9, 0, 0),
-            updated_at=datetime(2026, 4, 11, 10, 0, 0),
-            providers=[("email", "creator@example.com")],
+            login="email",
         )
         _seed_course(
             model=PublishedShifu,
@@ -4101,110 +3735,65 @@ def test_list_operator_users_includes_shared_course_learners_in_learning_courses
     ]
 
 
-def test_admin_operation_users_route_requires_operator(
-    test_client: object, monkeypatch: object
-) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/users",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 401
-
-
-def test_admin_operation_users_overview_route_requires_operator(
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/users/overview",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 401
-
-
 def test_admin_operation_users_overview_route_returns_payload(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
-
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-overview-route-1",
-            identify="overview-route-1@example.com",
-            nickname="Overview Route User 1",
+            "user-overview-route-1",
+            "overview-route-1@example.com",
+            "Overview Route User 1",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 5, 1, 8, 0, 0),
             updated_at=datetime(2026, 5, 1, 8, 0, 0),
-            providers=[("email", "overview-route-1@example.com")],
+            login="email",
             credential_created_at=datetime(2026, 5, 1, 8, 0, 0),
         )
         _seed_user(
             app,
-            user_bid="user-overview-route-2",
-            identify="13812340001",
-            nickname="Overview Route User 2",
+            "user-overview-route-2",
+            "13812340001",
+            "Overview Route User 2",
             state=USER_STATE_UNREGISTERED,
             created_at=datetime(2026, 5, 2, 8, 0, 0),
             updated_at=datetime(2026, 5, 2, 8, 0, 0),
         )
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/users/overview",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
+    payload = get_ok(test_client, "/api/shifu/admin/operations/users/overview")
     assert payload["data"]["total_user_count"] == 2
     assert payload["data"]["registered_user_count"] == 1
     assert payload["data"]["guest_user_count"] == 1
 
 
 def test_admin_operation_users_route_returns_filtered_payload(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
-
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-route-1",
-            identify="13812345678",
-            nickname="Route Target",
+            "user-route-1",
+            "13812345678",
+            "Route Target",
             state=USER_STATE_UNREGISTERED,
             created_at=datetime(2026, 4, 6, 8, 0, 0),
             updated_at=datetime(2026, 4, 6, 12, 0, 0),
-            providers=[("phone", "13812345678")],
+            login="phone",
         )
         _seed_user(
             app,
-            user_bid="user-route-2",
-            identify="paid@example.com",
-            nickname="Other User",
+            "user-route-2",
+            "paid@example.com",
+            "Other User",
             state=USER_STATE_PAID,
             is_operator=True,
             created_at=datetime(2026, 4, 7, 8, 0, 0),
             updated_at=datetime(2026, 4, 7, 12, 0, 0),
-            providers=[("email", "paid@example.com")],
+            login="email",
         )
 
-    response = test_client.get(
+    payload = get_ok(
+        test_client,
         "/api/shifu/admin/operations/users",
         query_string={
             "page_index": 1,
@@ -4212,12 +3801,7 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "user_query": "Route",
             "user_status": "unregistered",
         },
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["total"] == 1
     assert "summary" not in payload["data"]
     assert payload["data"]["items"] == [
@@ -4254,64 +3838,118 @@ def test_admin_operation_users_route_returns_filtered_payload(
     ]
 
 
+_USERS_URL = "/api/shifu/admin/operations/users"
+_PAGE = "page_index=1&page_size=20"
+
+
 @pytest.mark.parametrize(
-    ("query_string", "expected_param"),
+    ("path", "expected_param"),
     [
-        ("page_index=1&page_size=20&user_status=invalid", "user_status"),
-        ("page_index=1&page_size=20&user_role=invalid", "user_role"),
-        ("page_index=1&page_size=20&start_time=not-a-date", "start_time"),
-        (
-            "page_index=1&page_size=20&start_time=2026-05-02&end_time=2026-05-01",
+        pytest.param(
+            f"{_USERS_URL}?{_PAGE}&user_status=invalid", "user_status", id="user-status"
+        ),
+        pytest.param(
+            f"{_USERS_URL}?{_PAGE}&user_role=invalid", "user_role", id="user-role"
+        ),
+        pytest.param(
+            f"{_USERS_URL}?{_PAGE}&start_time=not-a-date",
             "start_time",
+            id="start-time-not-a-date",
+        ),
+        pytest.param(
+            f"{_USERS_URL}?{_PAGE}&start_time=2026-05-02&end_time=2026-05-01",
+            "start_time",
+            id="users-inverted-time-range",
+        ),
+        pytest.param(
+            f"{_USERS_URL}/user-credits-route/credits"
+            f"?{_PAGE}&start_time=2026-05-02&end_time=2026-05-01",
+            "start_time",
+            id="credits-inverted-time-range",
         ),
     ],
 )
-def test_admin_operation_users_route_rejects_invalid_filter_params(
-    test_client: object,
-    monkeypatch: object,
-    query_string: object,
-    expected_param: object,
+def test_admin_operation_user_routes_reject_invalid_filter_params(
+    test_client: object, path: str, expected_param: str
 ) -> None:
-    _mock_operator(monkeypatch)
-
-    response = test_client.get(
-        f"/api/shifu/admin/operations/users?{query_string}",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
+    payload = get_json(test_client, path)
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
     assert payload["message"] == f"Params Error {expected_param}"
 
 
-def test_admin_operation_user_detail_route_returns_payload(
-    app: object,
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        pytest.param("get", _USERS_URL, None, id="list"),
+        pytest.param("get", f"{_USERS_URL}/overview", None, id="overview"),
+        pytest.param("get", f"{_USERS_URL}/user-1/detail", None, id="detail"),
+        pytest.param("get", f"{_USERS_URL}/user-1/credits", None, id="credits"),
+        pytest.param(
+            "get",
+            f"{_USERS_URL}/user-1/credit-grant/bootstrap",
+            None,
+            id="grant-bootstrap",
+        ),
+        pytest.param(
+            "post",
+            f"{_USERS_URL}/user-1/credits/grant",
+            {
+                "request_id": "route-grant-request-denied",
+                "amount": "3",
+                "grant_source": "reward",
+                "validity_value": 1,
+                "validity_unit": "day",
+                "note": "route check",
+            },
+            id="credit-grant",
+        ),
+        pytest.param(
+            "post",
+            f"{_USERS_URL}/user-1/packages/grant",
+            {
+                "request_id": "route-package-grant-request-denied",
+                "product_bid": "bill-product-plan-monthly",
+                "note": "route denied",
+            },
+            id="package-grant",
+        ),
+    ],
+)
+def test_admin_operation_user_routes_require_operator(
     test_client: object,
-    monkeypatch: object,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    path: str,
+    body: dict | None,
 ) -> None:
-    _mock_operator(monkeypatch)
+    """The operator guard rejects non-operators before any handler runs."""
+    mock_operator(monkeypatch, is_operator=False)
 
+    if method == "get":
+        payload = get_json(test_client, path)
+    else:
+        payload = post_json(test_client, path, json=body)
+    assert payload["code"] == 401
+
+
+def test_admin_operation_user_detail_route_returns_payload(
+    app: object, test_client: object
+) -> None:
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-detail-route",
-            identify="13812340000",
-            nickname="Detail Route User",
+            "user-detail-route",
+            "13812340000",
+            "Detail Route User",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 10, 8, 0, 0),
             updated_at=datetime(2026, 4, 10, 12, 0, 0),
-            providers=[("phone", "13812340000")],
+            login="phone",
         )
 
-    response = test_client.get(
-        "/api/shifu/admin/operations/users/user-detail-route/detail",
-        headers={"Token": "test-token"},
+    payload = get_ok(
+        test_client, "/api/shifu/admin/operations/users/user-detail-route/detail"
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"] == {
         "user_bid": "user-detail-route",
         "mobile": "13812340000",
@@ -4346,24 +3984,20 @@ def test_admin_operation_user_detail_route_returns_payload(
 
 
 def test_admin_operation_user_credits_route_returns_payload(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
-
     with app.app_context():
         active_start_at, active_end_at = _build_active_window()
         _seed_user(
             app,
-            user_bid="user-credits-route",
-            identify="credits-route@example.com",
-            nickname="Credits Route User",
+            "user-credits-route",
+            "credits-route@example.com",
+            "Credits Route User",
             state=USER_STATE_PAID,
             is_creator=True,
             created_at=datetime(2026, 4, 10, 8, 0, 0),
             updated_at=datetime(2026, 4, 10, 12, 0, 0),
-            providers=[("email", "credits-route@example.com")],
+            login="email",
         )
         _seed_credit_wallet(
             creator_bid="user-credits-route",
@@ -4441,15 +4075,11 @@ def test_admin_operation_user_credits_route_returns_payload(
             metadata_json={"usage_bid": "usage-preview-route"},
         )
 
-    response = test_client.get(
+    payload = get_ok(
+        test_client,
         "/api/shifu/admin/operations/users/user-credits-route/credits",
         query_string={"page_index": 1, "page_size": 20},
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"] == {
         "summary": {
             "available_credits": "7",
@@ -4508,7 +4138,8 @@ def test_admin_operation_user_credits_route_returns_payload(
         "page_count": 1,
     }
 
-    scene_response = test_client.get(
+    scene_payload = get_ok(
+        test_client,
         "/api/shifu/admin/operations/users/user-credits-route/credits",
         query_string={
             "page_index": 1,
@@ -4516,32 +4147,9 @@ def test_admin_operation_user_credits_route_returns_payload(
             "credit_type": "consume",
             "usage_scene": "preview",
         },
-        headers={"Token": "test-token"},
     )
-    scene_payload = scene_response.get_json(force=True)
-
-    assert scene_response.status_code == 200
-    assert scene_payload["code"] == 0
     assert scene_payload["data"]["total"] == 1
     assert scene_payload["data"]["items"][0]["usage_scene"] == "preview"
-
-
-def test_admin_operation_user_credits_route_rejects_inverted_time_range(
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch)
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/users/user-credits-route/credits"
-        "?page_index=1&page_size=20&start_time=2026-05-02&end_time=2026-05-01",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == "Params Error start_time"
 
 
 @pytest.mark.parametrize(
@@ -4553,27 +4161,23 @@ def test_admin_operation_user_credits_route_rejects_inverted_time_range(
     ],
 )
 def test_admin_operation_user_credit_grant_route_returns_payload(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-    validity: dict[str, object],
+    app: object, test_client: object, validity: dict[str, object]
 ) -> None:
-    _mock_operator(monkeypatch)
-
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-credit-grant-route",
-            identify="credit-grant-route@example.com",
-            nickname="Credit Grant Route User",
+            "user-credit-grant-route",
+            "credit-grant-route@example.com",
+            "Credit Grant Route User",
             state=USER_STATE_PAID,
             is_creator=True,
             created_at=datetime(2026, 4, 20, 8, 0, 0),
             updated_at=datetime(2026, 4, 20, 12, 0, 0),
-            providers=[("email", "credit-grant-route@example.com")],
+            login="email",
         )
 
-    response = test_client.post(
+    payload = post_ok(
+        test_client,
         "/api/shifu/admin/operations/users/user-credit-grant-route/credits/grant",
         json={
             "request_id": "route-grant-request-1",
@@ -4582,12 +4186,7 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
             **validity,
             "note": "route check",
         },
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["user_bid"] == "user-credit-grant-route"
     assert payload["data"]["amount"] == "3"
     assert payload["data"]["grant_source"] == "reward"
@@ -4603,26 +4202,22 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
 
 
 def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
-
     with app.app_context():
         db.session.add_all(
             build_bill_products(product_bids=["bill-product-plan-monthly"])
         )
         _seed_user(
             app,
-            user_bid="user-grant-bootstrap-route",
-            identify="user-grant-bootstrap-route@example.com",
-            nickname="Grant Bootstrap Route User",
+            "user-grant-bootstrap-route",
+            "user-grant-bootstrap-route@example.com",
+            "Grant Bootstrap Route User",
             state=USER_STATE_PAID,
             is_creator=True,
             created_at=datetime(2026, 4, 20, 8, 0, 0),
             updated_at=datetime(2026, 4, 20, 12, 0, 0),
-            providers=[("email", "user-grant-bootstrap-route@example.com")],
+            login="email",
         )
         _seed_billing_subscription(
             creator_bid="user-grant-bootstrap-route",
@@ -4632,14 +4227,10 @@ def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
             current_period_end_at=datetime(2099, 5, 20, 23, 59, 59),
         )
 
-    response = test_client.get(
+    payload = get_ok(
+        test_client,
         "/api/shifu/admin/operations/users/user-grant-bootstrap-route/credit-grant/bootstrap",
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["notification_status"] == "template_pending"
     assert (
         payload["data"]["current_subscription_product_display_name_i18n_key"]
@@ -4648,72 +4239,34 @@ def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
     assert payload["data"]["plans"][0]["product_bid"] == "bill-product-plan-monthly"
 
 
-def test_admin_operation_user_grant_bootstrap_route_requires_operator(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
-
-    with app.app_context():
-        _seed_user(
-            app,
-            user_bid="user-grant-bootstrap-route-denied",
-            identify="user-grant-bootstrap-route-denied@example.com",
-            nickname="Grant Bootstrap Route Denied",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 20, 8, 0, 0),
-            updated_at=datetime(2026, 4, 20, 12, 0, 0),
-            providers=[("email", "user-grant-bootstrap-route-denied@example.com")],
-        )
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/users/user-grant-bootstrap-route-denied/credit-grant/bootstrap",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 401
-
-
 def test_admin_operation_user_package_grant_route_returns_payload(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
+    app: object, test_client: object
 ) -> None:
-    _mock_operator(monkeypatch)
-
     with app.app_context():
         db.session.add_all(
             build_bill_products(product_bids=["bill-product-plan-monthly"])
         )
         _seed_user(
             app,
-            user_bid="user-package-grant-route",
-            identify="user-package-grant-route@example.com",
-            nickname="Package Grant Route User",
+            "user-package-grant-route",
+            "user-package-grant-route@example.com",
+            "Package Grant Route User",
             state=USER_STATE_PAID,
             is_operator=True,
             created_at=datetime(2026, 4, 20, 8, 0, 0),
             updated_at=datetime(2026, 4, 20, 12, 0, 0),
-            providers=[("email", "user-package-grant-route@example.com")],
+            login="email",
         )
 
-    response = test_client.post(
+    payload = post_ok(
+        test_client,
         "/api/shifu/admin/operations/users/user-package-grant-route/packages/grant",
         json={
             "request_id": "route-package-grant-request-1",
             "product_bid": "bill-product-plan-monthly",
             "note": "route package check",
         },
-        headers={"Token": "test-token"},
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 0
     assert payload["data"]["user_bid"] == "user-package-grant-route"
     assert payload["data"]["product_bid"] == "bill-product-plan-monthly"
     assert payload["data"]["bill_order_bid"]
@@ -4723,188 +4276,27 @@ def test_admin_operation_user_package_grant_route_returns_payload(
     assert payload["data"]["current_period_end_at"].endswith("Z")
 
 
-def test_admin_operation_user_package_grant_route_requires_operator(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
-
-    with app.app_context():
-        db.session.add_all(
-            build_bill_products(product_bids=["bill-product-plan-monthly"])
-        )
-        _seed_user(
-            app,
-            user_bid="user-package-grant-route-denied",
-            identify="user-package-grant-route-denied@example.com",
-            nickname="Package Grant Route Denied",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 20, 8, 0, 0),
-            updated_at=datetime(2026, 4, 20, 12, 0, 0),
-            providers=[("email", "user-package-grant-route-denied@example.com")],
-        )
-
-    response = test_client.post(
-        "/api/shifu/admin/operations/users/user-package-grant-route-denied/packages/grant",
-        json={
-            "request_id": "route-package-grant-request-denied",
-            "product_bid": "bill-product-plan-monthly",
-            "note": "route denied",
-        },
-        headers={"Token": "test-token"},
+def _auth_credential(
+    credential_bid: str,
+    provider_name: str,
+    identifier: str,
+    state: int,
+    created_at: datetime,
+) -> AuthCredential:
+    """Build a ``user-latest-contact`` credential for ``identifier``."""
+    return AuthCredential(
+        credential_bid=credential_bid,
+        user_bid="user-latest-contact",
+        provider_name=provider_name,
+        subject_id=identifier,
+        subject_format=provider_name,
+        identifier=identifier,
+        raw_profile="{}",
+        state=state,
+        deleted=0,
+        created_at=created_at,
+        updated_at=created_at,
     )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 401
-
-
-def test_admin_operation_user_credit_grant_route_requires_operator(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
-
-    with app.app_context():
-        _seed_user(
-            app,
-            user_bid="user-credit-grant-route-denied",
-            identify="credit-grant-route-denied@example.com",
-            nickname="Credit Grant Route Denied",
-            state=USER_STATE_PAID,
-            created_at=datetime(2026, 4, 20, 8, 0, 0),
-            updated_at=datetime(2026, 4, 20, 12, 0, 0),
-            providers=[("email", "credit-grant-route-denied@example.com")],
-        )
-
-    response = test_client.post(
-        "/api/shifu/admin/operations/users/user-credit-grant-route-denied/credits/grant",
-        json={
-            "request_id": "route-grant-request-denied",
-            "amount": "3",
-            "grant_source": "reward",
-            "validity_value": 1,
-            "validity_unit": "day",
-            "note": "route check",
-        },
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 401
-
-
-def test_admin_operation_user_detail_route_requires_operator(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
-
-    with app.app_context():
-        _seed_user(
-            app,
-            user_bid="user-detail-route",
-            identify="13812340000",
-            nickname="Detail Route User",
-            state=USER_STATE_REGISTERED,
-            created_at=datetime(2026, 4, 10, 8, 0, 0),
-            updated_at=datetime(2026, 4, 10, 12, 0, 0),
-            providers=[("phone", "13812340000")],
-        )
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/users/user-detail-route/detail",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 401
-
-
-def test_admin_operation_user_credits_route_requires_operator(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-) -> None:
-    _mock_operator(monkeypatch, is_operator=False)
-
-    with app.app_context():
-        _seed_user(
-            app,
-            user_bid="user-credits-route",
-            identify="credits-route@example.com",
-            nickname="Credits Route User",
-            state=USER_STATE_PAID,
-            is_creator=True,
-            created_at=datetime(2026, 4, 10, 8, 0, 0),
-            updated_at=datetime(2026, 4, 10, 12, 0, 0),
-            providers=[("email", "credits-route@example.com")],
-        )
-
-    response = test_client.get(
-        "/api/shifu/admin/operations/users/user-credits-route/credits",
-        headers={"Token": "test-token"},
-    )
-    payload = response.get_json(force=True)
-
-    assert response.status_code == 200
-    assert payload["code"] == 401
-
-
-def test_get_operator_user_detail_prefers_latest_auth_credential(app: object) -> None:
-    with app.app_context():
-        _seed_user(
-            app,
-            user_bid="user-latest-contact",
-            identify="13800000000",
-            nickname="Latest Contact",
-            state=USER_STATE_REGISTERED,
-            created_at=datetime(2026, 4, 10, 8, 0, 0),
-            updated_at=datetime(2026, 4, 10, 12, 0, 0),
-            providers=[("phone", "13800000000"), ("email", "old@example.com")],
-        )
-
-        newer_phone = AuthCredential(
-            credential_bid="credential-new-phone",
-            user_bid="user-latest-contact",
-            provider_name="phone",
-            subject_id="13900000000",
-            subject_format="phone",
-            identifier="13900000000",
-            raw_profile="{}",
-            state=CREDENTIAL_STATE_VERIFIED,
-            deleted=0,
-            created_at=datetime(2026, 4, 10, 13, 0, 0),
-            updated_at=datetime(2026, 4, 10, 13, 0, 0),
-        )
-        newer_email = AuthCredential(
-            credential_bid="credential-new-email",
-            user_bid="user-latest-contact",
-            provider_name="email",
-            subject_id="new@example.com",
-            subject_format="email",
-            identifier="new@example.com",
-            raw_profile="{}",
-            state=CREDENTIAL_STATE_VERIFIED,
-            deleted=0,
-            created_at=datetime(2026, 4, 10, 14, 0, 0),
-            updated_at=datetime(2026, 4, 10, 14, 0, 0),
-        )
-        db.session.add_all([newer_phone, newer_email])
-        db.session.commit()
-        db.session.remove()
-
-        result = get_operator_user_detail(app, "user-latest-contact")
-
-    assert isinstance(result, AdminOperationUserSummaryDTO)
-    assert result.mobile == "13900000000"
-    assert result.email == "new@example.com"
 
 
 def test_get_operator_user_detail_ignores_newer_unverified_auth_credential(
@@ -4913,66 +4305,42 @@ def test_get_operator_user_detail_ignores_newer_unverified_auth_credential(
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-latest-contact",
-            identify="13800000000",
-            nickname="Latest Contact",
+            "user-latest-contact",
+            "13800000000",
+            "Latest Contact",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 10, 8, 0, 0),
             updated_at=datetime(2026, 4, 10, 12, 0, 0),
             providers=[("phone", "13800000000"), ("email", "old@example.com")],
         )
 
-        newer_verified_phone = AuthCredential(
-            credential_bid="credential-new-phone",
-            user_bid="user-latest-contact",
-            provider_name="phone",
-            subject_id="13900000000",
-            subject_format="phone",
-            identifier="13900000000",
-            raw_profile="{}",
-            state=CREDENTIAL_STATE_VERIFIED,
-            deleted=0,
-            created_at=datetime(2026, 4, 10, 13, 0, 0),
-            updated_at=datetime(2026, 4, 10, 13, 0, 0),
+        newer_verified_phone = _auth_credential(
+            "credential-new-phone",
+            "phone",
+            "13900000000",
+            CREDENTIAL_STATE_VERIFIED,
+            datetime(2026, 4, 10, 13, 0, 0),
         )
-        newer_verified_email = AuthCredential(
-            credential_bid="credential-new-email",
-            user_bid="user-latest-contact",
-            provider_name="email",
-            subject_id="new@example.com",
-            subject_format="email",
-            identifier="new@example.com",
-            raw_profile="{}",
-            state=CREDENTIAL_STATE_VERIFIED,
-            deleted=0,
-            created_at=datetime(2026, 4, 10, 14, 0, 0),
-            updated_at=datetime(2026, 4, 10, 14, 0, 0),
+        newer_verified_email = _auth_credential(
+            "credential-new-email",
+            "email",
+            "new@example.com",
+            CREDENTIAL_STATE_VERIFIED,
+            datetime(2026, 4, 10, 14, 0, 0),
         )
-        newest_unverified_phone = AuthCredential(
-            credential_bid="credential-unverified-phone",
-            user_bid="user-latest-contact",
-            provider_name="phone",
-            subject_id="13700000000",
-            subject_format="phone",
-            identifier="13700000000",
-            raw_profile="{}",
-            state=CREDENTIAL_STATE_UNVERIFIED,
-            deleted=0,
-            created_at=datetime(2026, 4, 10, 15, 0, 0),
-            updated_at=datetime(2026, 4, 10, 15, 0, 0),
+        newest_unverified_phone = _auth_credential(
+            "credential-unverified-phone",
+            "phone",
+            "13700000000",
+            CREDENTIAL_STATE_UNVERIFIED,
+            datetime(2026, 4, 10, 15, 0, 0),
         )
-        newest_unverified_email = AuthCredential(
-            credential_bid="credential-unverified-email",
-            user_bid="user-latest-contact",
-            provider_name="email",
-            subject_id="pending@example.com",
-            subject_format="email",
-            identifier="pending@example.com",
-            raw_profile="{}",
-            state=CREDENTIAL_STATE_UNVERIFIED,
-            deleted=0,
-            created_at=datetime(2026, 4, 10, 16, 0, 0),
-            updated_at=datetime(2026, 4, 10, 16, 0, 0),
+        newest_unverified_email = _auth_credential(
+            "credential-unverified-email",
+            "email",
+            "pending@example.com",
+            CREDENTIAL_STATE_UNVERIFIED,
+            datetime(2026, 4, 10, 16, 0, 0),
         )
         db.session.add_all(
             [
@@ -4996,13 +4364,13 @@ def test_get_operator_user_detail_normalizes_unknown_login_methods(app: object) 
     with app.app_context():
         _seed_user(
             app,
-            user_bid="user-unknown-login-method",
-            identify="unknown@example.com",
-            nickname="Unknown Login Method",
+            "user-unknown-login-method",
+            "unknown@example.com",
+            "Unknown Login Method",
             state=USER_STATE_REGISTERED,
             created_at=datetime(2026, 4, 10, 8, 0, 0),
             updated_at=datetime(2026, 4, 10, 12, 0, 0),
-            providers=[("password", "unknown@example.com")],
+            login="password",
         )
 
         result = get_operator_user_detail(app, "user-unknown-login-method")
@@ -5014,19 +4382,8 @@ def test_get_operator_user_detail_normalizes_unknown_login_methods(app: object) 
 def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
     app: object, monkeypatch: object
 ) -> None:
-    class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs: object) -> None:
-            message = "expected no user query when users=[] is provided"
-            raise AssertionError(message)
-
     with app.app_context():
-        monkeypatch.setattr(
-            user_profiles_module.UserEntity,
-            "query",
-            ForbiddenUserQuery(),
-            raising=False,
-        )
-
+        _forbid_user_queries(monkeypatch)
         result = user_profiles_module._load_operator_user_registration_source_map(
             ["user-1", "user-2"],
             users=[],
@@ -5072,19 +4429,8 @@ def test_registration_source_map_skips_unknown_provider_when_supported_one_exist
 def test_contact_map_skips_user_query_when_users_argument_is_empty(
     app: object, monkeypatch: object
 ) -> None:
-    class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs: object) -> None:
-            message = "expected no user query when users=[] is provided"
-            raise AssertionError(message)
-
     with app.app_context():
-        monkeypatch.setattr(
-            user_profiles_module.UserEntity,
-            "query",
-            ForbiddenUserQuery(),
-            raising=False,
-        )
-
+        _forbid_user_queries(monkeypatch)
         result = user_profiles_module._load_operator_user_contact_map(
             ["user-1", "user-2"],
             users=[],
@@ -5135,23 +4481,19 @@ def test_contact_map_skips_user_query_when_users_argument_is_empty(
     ],
 )
 def test_credit_grant_route_rejects_invalid_or_obsolete_payload_without_writes(
-    app: object,
-    test_client: object,
-    monkeypatch: object,
-    validity: dict[str, object],
+    app: object, test_client: object, validity: dict[str, object]
 ) -> None:
-    _mock_operator(monkeypatch)
     with app.app_context():
         _seed_user(
             app,
-            user_bid="custom-invalid",
-            identify="custom-invalid@example.com",
-            nickname="Test",
+            "custom-invalid",
+            "custom-invalid@example.com",
+            "Test",
             state=USER_STATE_PAID,
             is_creator=True,
             created_at=datetime(2026, 1, 1),
             updated_at=datetime(2026, 1, 1),
-            providers=[("email", "custom-invalid@example.com")],
+            login="email",
         )
     response = test_client.post(
         "/api/shifu/admin/operations/users/custom-invalid/credits/grant",
