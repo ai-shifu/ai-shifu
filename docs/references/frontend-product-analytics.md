@@ -425,11 +425,15 @@ solely because historical Umami rows or queries exist.
 
 This event family is retired from the current frontend. The editor Debug panel
 no longer offers content regeneration or its Retry action, and the Debug hook
-sends reload anchors only when editing an interaction answer. `teacher_debug_regenerate_start` and
+sends reload anchors only when editing an interaction answer.
+`teacher_debug_regenerate_start` and
 `teacher_debug_regenerate_result` have no new frontend producer or replacement
 family. Historical event names, payloads and meanings remain unchanged for
 downstream reports; the following contract describes those historical events.
-New runs, interaction answers and existing TTS behavior retain their own paths.
+Debug content-only reload and retry handling is removed as well. Old content
+reload requests are rejected rather than producing regeneration events. Exact
+interaction answer edits retain their separate active family below. New runs
+and existing TTS behavior retain their own paths.
 
 Historically, accepted retries after a failed or stopped regeneration used the
 same attempt and terminal-result family. Retry was available only for the

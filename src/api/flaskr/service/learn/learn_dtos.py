@@ -6,7 +6,14 @@ from enum import Enum
 from typing import Any, Literal
 
 from flaskr.common.swagger import register_schema_to_swagger
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    model_validator,
+)
 
 
 @register_schema_to_swagger
@@ -1015,6 +1022,8 @@ class RunMarkdownFlowDTO(BaseModel):
 class PlaygroundPreviewRequest(BaseModel):
     """Represent the playground preview request API payload."""
 
+    model_config = ConfigDict(extra="forbid")
+
     content: str | None = Field(
         default=None, description="Markdown-Flow document content"
     )
@@ -1030,7 +1039,7 @@ class PlaygroundPreviewRequest(BaseModel):
         default=None,
         min_length=1,
         max_length=128,
-        description="Debug turn to regenerate together with its following steps",
+        description="Optional owning Debug turn for the exact revised interaction",
     )
 
     reload_element_bid: str | None = Field(
@@ -1047,6 +1056,21 @@ class PlaygroundPreviewRequest(BaseModel):
         le=9007199254740991,
         description="Increasing client request generation within this Debug session",
     )
+
+    @model_validator(mode="after")
+    def validate_answer_edit(self) -> PlaygroundPreviewRequest:
+        """Reject content-only reloads before admission while allowing answer edits."""
+        if (self.reload_generated_block_bid or self.reload_element_bid) and (
+            not self.reload_element_bid
+            or not any(
+                value.strip()
+                for values in (self.user_input or {}).values()
+                for value in values
+            )
+        ):
+            msg = "Debug reload requires an exact interaction and a nonempty revised answer"
+            raise ValueError(msg)
+        return self
 
     def get_document(self) -> str:
         """Return the requested playground document."""

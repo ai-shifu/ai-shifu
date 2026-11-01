@@ -522,7 +522,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                 description: editor debug session identifier
                             reload_generated_block_bid:
                                 type: string
-                                description: debug turn to regenerate from
+                                description: optional owning turn for the revised interaction
                             reload_element_bid:
                                 type: string
                                 description: exact interaction to revise using user_input

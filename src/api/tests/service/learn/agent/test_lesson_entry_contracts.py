@@ -829,10 +829,15 @@ def test_debug_rewind_does_not_reapply_future_variables_on_automatic_continuatio
         debug_store=store,
         script_override="Unsaved draft",
         preview_variables=browser_variables,
+        reload_element_bid="interaction-1",
+        user_input={"answer": ["revised"]},
     )
 
     store.plan_rewind.assert_called_once_with(
-        script="Unsaved draft", block_bid="block-1", answering=False, element_bid=None
+        script="Unsaved draft",
+        block_bid="block-1",
+        answering=True,
+        element_bid="interaction-1",
     )
     assert [call["rewind"] for call in calls] == [plan, None, None]
     assert [call["preview_variables"] for call in calls] == [
@@ -867,3 +872,45 @@ def test_a_turn_that_waits_ends_or_says_nothing_is_not_followed(
 
     assert len(events) == 1
     assert len(calls) == 1
+
+
+def test_debug_automatic_continuation_keeps_normal_preview_variables(
+    app: object, monkeypatch: object
+) -> None:
+    """Debug continuation retains its ordinary variable input without a rewind branch."""
+    runner = _entry_with_runner(monkeypatch)
+    calls: list[dict] = []
+    runner.side_effect = _turn(
+        [
+            TurnOutcome(reason="end", taught=True),
+            TurnOutcome(reason="end", taught=True),
+            TurnOutcome(reason="interaction", taught=True),
+        ],
+        calls,
+    )
+    browser_variables = {"goal": "learn", "answer": "selected"}
+
+    list(
+        entry.agent_lesson_events(
+            app,
+            user_bid="teacher",
+            shifu_bid="course",
+            outline_bid="lesson",
+            preview_mode=True,
+            debug_store=object(),
+            script_override="Unsaved draft",
+            preview_variables=browser_variables,
+            user_input={"answer": ["selected"]},
+        )
+    )
+    assert [call["rewind"] for call in calls] == [None, None, None]
+    assert [call["user_input"] for call in calls] == [
+        {"answer": ["selected"]},
+        None,
+        None,
+    ]
+    assert [call["preview_variables"] for call in calls] == [
+        browser_variables,
+        browser_variables,
+        browser_variables,
+    ]

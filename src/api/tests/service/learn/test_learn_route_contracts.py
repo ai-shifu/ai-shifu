@@ -607,7 +607,7 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     preview.assert_not_called()
 
 
-@pytest.mark.parametrize("phase", ["initial", "answer", "regenerate", "answer_edit"])
+@pytest.mark.parametrize("phase", ["initial", "answer", "answer_edit"])
 @pytest.mark.parametrize("language", ["en-US", "zh-CN", "fr-FR"])
 def test_debug_cache_failure_keeps_its_business_code_and_request_language(
     monkeypatch: object,
@@ -886,3 +886,52 @@ def test_reset_status_reads_recorded_usage_over_http(
     assert blocked["code"] == ERROR_CODE["server.learn.resetLimitReached"]
     with app.app_context(), unit_of_work():
         LearnLessonResetRecord.query.filter_by(shifu_bid=feedback_course.bid).delete()
+
+
+@pytest.mark.parametrize(
+    "reload_fields",
+    [
+        {"reload_generated_block_bid": "turn"},
+        {"reload_generated_block_bid": "turn", "user_input": {"input": ["revised"]}},
+        {"reload_element_bid": "control"},
+        {"reload_element_bid": "control", "user_input": {"input": []}},
+        {"reload_element_bid": "control", "user_input": {"input": ["   "]}},
+        {"reload_generated_block_bid": "turn", "reload_element_bid": "control"},
+    ],
+)
+def test_debug_preview_rejects_content_reload_before_admission(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    reload_fields: dict,
+) -> None:
+    """Content reloads cannot regenerate or silently restart Debug."""
+    from flaskr.service.learn.agent import debug_session
+    from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
+    from pydantic import ValidationError
+
+    preview = Mock()
+    permission = Mock()
+    admission = Mock()
+    monkeypatch.setattr(debug_session, "stream_debug_preview", preview)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", permission)
+    monkeypatch.setattr(routes, "admit_creator_preview_usage", admission)
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
+        json={
+            "content": "Current draft",
+            "block_index": 0,
+            "debug_session_id": "editor-run-1",
+            **reload_fields,
+        },
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+
+    assert response["code"] == ERROR_CODE["server.common.paramsError"]
+    preview.assert_not_called()
+    permission.assert_not_called()
+    admission.assert_not_called()
+    with pytest.raises(ValidationError):
+        PlaygroundPreviewRequest(
+            content="Current draft", block_index=0, **reload_fields
+        )

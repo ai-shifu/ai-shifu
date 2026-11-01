@@ -433,6 +433,13 @@ def run_agent_lesson(
     """
     from flaskr.api.markdownflow import iter_turn as bridge_iter_turn
 
+    if (
+        debug_store is not None
+        and rewind is not None
+        and not learner_values(user_input)
+    ):
+        raise RewindUnavailableError
+
     run_turn_on_thread = iter_turn or bridge_iter_turn
     session_observer = (
         tracing.prepare_turn(

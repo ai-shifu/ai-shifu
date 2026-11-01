@@ -6,7 +6,6 @@ import hashlib
 import json
 import uuid
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import Session
@@ -45,13 +44,6 @@ def _debug_cache_access() -> Iterator[None]:
         yield
     except (RedisError, CacheUnavailableError):
         raise_error("server.learn.debugServiceUnavailable")
-
-
-@dataclass
-class DebugRewindPlan(RewindPlan):
-    """Keep the requested anchor retryable after its first replacement is saved."""
-
-    retry_anchor: str = ""
 
 
 class DebugSessionStore:
@@ -217,7 +209,7 @@ class DebugSessionStore:
         question_ids: list[str] | None,
     ) -> None:
         # Following a draft edit migrates the conversation, so its earlier turns keep
-        # their checkpoints and can still be regenerated under the edited draft.
+        # their checkpoints for later answer edits under the edited draft.
         previous = (
             self._payload(
                 script=session.script.script, any_script=self._follow_script_edits
@@ -247,19 +239,6 @@ class DebugSessionStore:
                     "question_ids": list(question_ids or []),
                 }
             )
-        retry = previous.get("regeneration_retry")
-        if rewind is not None:
-            retry = None
-            if (
-                isinstance(rewind, DebugRewindPlan)
-                and rewind.retry_anchor
-                and generated_block_bid
-                and turn_record
-            ):
-                retry = {
-                    "requested_block_bid": rewind.retry_anchor,
-                    "replacement_block_bid": generated_block_bid,
-                }
         payload = {
             "script_hash": hashlib.sha256(session.script.script.encode()).hexdigest(),
             "session": session.dumps(),
@@ -270,16 +249,6 @@ class DebugSessionStore:
             # Retain ordering for as long as the session lives, even if the
             # shorter-lived admission token expires before the saved session.
             payload["request_generation"] = generation
-        if (
-            isinstance(retry, dict)
-            and isinstance(retry.get("requested_block_bid"), str)
-            and retry["requested_block_bid"]
-            and any(
-                turn["block_bid"] == retry.get("replacement_block_bid")
-                for turn in turns
-            )
-        ):
-            payload["regeneration_retry"] = retry
         encoded = json.dumps(payload)
         with _debug_cache_access():
             self._cache.setex(self._key, self.TTL_SECONDS, encoded)
@@ -307,8 +276,10 @@ class DebugSessionStore:
         block_bid: str,
         answering: bool = False,
         element_bid: str | None = None,
-    ) -> DebugRewindPlan:
-        """Resolve storage ownership, then use the learner's shared rewind rules."""
+    ) -> RewindPlan:
+        """Restore an exact interaction answer without exposing content regeneration."""
+        if not answering or not element_bid:
+            raise RewindUnavailableError
         payload = self._payload(script=script) or {}
         # Read session and checkpoints from one cache snapshot: the old stream
         # may still be saving while the replacement request is being admitted.
@@ -324,39 +295,27 @@ class DebugSessionStore:
             for turn in turns
         ):
             raise RewindUnavailableError
-        question_id = None
-        resolved_block = block_bid
-        if answering:
-            if not element_bid:
-                raise RewindUnavailableError
-            # Exact element ownership matters when several controls share a block.
-            owner = next(
-                (
-                    turn
-                    for turn in turns
-                    if element_bid in turn.get("interaction_elements", [])
-                ),
-                None,
-            )
-            if owner is None or block_bid not in {owner["block_bid"], element_bid}:
-                raise RewindUnavailableError
-            resolved_block = owner["block_bid"]
-            offset = owner["interaction_elements"].index(element_bid)
-            ids = owner.get("question_ids", [])
-            if (
-                not isinstance(ids, list)
-                or offset >= len(ids)
-                or any(not isinstance(q, str) or not q for q in ids)
-            ):
-                raise RewindUnavailableError
-            question_id = ids[offset]
-        elif not any(turn["block_bid"] == block_bid for turn in turns):
-            retry = payload.get("regeneration_retry")
-            if (
-                isinstance(retry, dict)
-                and retry.get("requested_block_bid") == block_bid
-            ):
-                resolved_block = retry.get("replacement_block_bid", "")
+        # Exact element ownership matters when several controls share a block.
+        owner = next(
+            (
+                turn
+                for turn in turns
+                if element_bid in turn.get("interaction_elements", [])
+            ),
+            None,
+        )
+        if owner is None or block_bid not in {owner["block_bid"], element_bid}:
+            raise RewindUnavailableError
+        resolved_block = owner["block_bid"]
+        offset = owner["interaction_elements"].index(element_bid)
+        ids = owner.get("question_ids", [])
+        if (
+            not isinstance(ids, list)
+            or offset >= len(ids)
+            or any(not isinstance(q, str) or not q for q in ids)
+        ):
+            raise RewindUnavailableError
+        question_id = ids[offset]
         plan = plan_turn_rewind(
             turns,
             block_bid=resolved_block,
@@ -379,12 +338,7 @@ class DebugSessionStore:
             restore(session, plan.checkpoint)
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             raise RewindUnavailableError from exc
-        return DebugRewindPlan(
-            checkpoint=plan.checkpoint,
-            replay_values=plan.replay_values,
-            retired_block_bids=plan.retired_block_bids,
-            retry_anchor="" if answering else block_bid,
-        )
+        return plan
 
 
 def stream_debug_preview(
@@ -407,6 +361,11 @@ def stream_debug_preview(
     anchor = (
         preview_request.reload_element_bid or preview_request.reload_generated_block_bid
     )
+    if anchor and (
+        not preview_request.reload_element_bid
+        or not learner_values(preview_request.user_input)
+    ):
+        raise_error("server.learn.agentRewindUnavailable")
     store = DebugSessionStore(
         app,
         user_bid=user_bid,
