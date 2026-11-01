@@ -115,6 +115,9 @@ def create_app(*, serving_http: bool = True) -> Flask:
         raise RuntimeError(message)
 
     load_plugins_from_dir(flask_app, str(Path("flaskr") / "service"))
+    from flaskr.route import register_service_routes
+
+    register_service_routes(flask_app)
     try:
         load_plugins_from_dir(
             flask_app, str(Path("flaskr") / "plugins"), plugin_manager
