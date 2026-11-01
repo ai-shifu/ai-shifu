@@ -268,7 +268,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
-    def get_shifu_api(shifu_bid: str) -> str:
+    def get_shifu_api(shifu_bid: str) -> Response:
         """Get shifu.
 
         ---
@@ -320,7 +320,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     @with_shifu_context()
-    def get_outline_item_tree_api(shifu_bid: str) -> str:
+    def get_outline_item_tree_api(shifu_bid: str) -> Response:
         """Get outline item tree.
 
         ---
@@ -622,7 +622,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def get_run_status_api(shifu_bid: str, outline_bid: str) -> str:
+    def get_run_status_api(shifu_bid: str, outline_bid: str) -> Response:
         """Get run status.
 
         ---
@@ -661,7 +661,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["GET"]
     )
     @with_shifu_context()
-    def get_record_api(shifu_bid: str, outline_bid: str) -> str:
+    def get_record_api(shifu_bid: str, outline_bid: str) -> Response:
         """Get learn records of the outline.
 
         ---
@@ -725,7 +725,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["DELETE"]
     )
     @with_shifu_context()
-    def delete_record_api(shifu_bid: str, outline_bid: str) -> str:
+    def delete_record_api(shifu_bid: str, outline_bid: str) -> Response:
         """Reset the record of the outline.
 
         ---
@@ -772,7 +772,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def lesson_reset_status_api(shifu_bid: str, outline_bid: str) -> str:
+    def lesson_reset_status_api(shifu_bid: str, outline_bid: str) -> Response:
         """Return whether the learner may still reset the outline.
 
         ---
@@ -826,7 +826,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str) -> str:
+    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str) -> Response:
         """Submit lesson feedback.
 
         ---
@@ -888,7 +888,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/lesson-feedbacks", methods=["GET"])
     @with_shifu_context()
-    def list_lesson_feedbacks_api(shifu_bid: str) -> str:
+    def list_lesson_feedbacks_api(shifu_bid: str) -> Response:
         """List lesson feedbacks for a course (teacher/authoring side).
 
         ---
@@ -944,7 +944,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def generate_content_api(
         shifu_bid: str, generated_block_bid: str, action: str
-    ) -> str:
+    ) -> Response:
         """Generate the content of the generated block.
 
         ---
@@ -989,7 +989,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def get_generated_content_api(shifu_bid: str, generated_block_bid: str) -> str:
+    def get_generated_content_api(shifu_bid: str, generated_block_bid: str) -> Response:
         """Get the content of the generated block.
 
         ---

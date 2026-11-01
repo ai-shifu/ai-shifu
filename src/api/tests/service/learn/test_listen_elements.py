@@ -1154,7 +1154,7 @@ def test_get_record_api_returns_element_payload_by_default(app: object) -> None:
         request.user = types.SimpleNamespace(mobile="", user_id=user_bid)
         response = app.view_functions["get_record_api"](shifu_bid, outline_bid)
 
-    payload = json.loads(response)
+    payload = response.get_json()
 
     assert payload["code"] == 0
     assert "records" not in payload["data"]

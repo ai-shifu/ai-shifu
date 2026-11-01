@@ -68,7 +68,7 @@ def register_operator_profile_onboarding_routes(
         path_prefix + "/admin/operations/profile-onboarding",
         methods=["GET"],
     )
-    def admin_operation_profile_onboarding_config() -> str:
+    def admin_operation_profile_onboarding_config() -> Response:
         """Get operator profile onboarding config."""
         _require_operator()
         return make_common_response(get_operator_profile_onboarding_config(app))
@@ -77,7 +77,7 @@ def register_operator_profile_onboarding_routes(
         path_prefix + "/admin/operations/profile-onboarding",
         methods=["POST"],
     )
-    def admin_operation_update_profile_onboarding_config() -> str:
+    def admin_operation_update_profile_onboarding_config() -> Response:
         """Update operator profile onboarding config."""
         _require_operator()
         payload = _profile_onboarding_json_object("profile_onboarding_config")
@@ -103,7 +103,7 @@ def register_operator_profile_onboarding_routes(
         path_prefix + "/admin/operations/profile-onboarding/assistant-prompt/generate",
         methods=["POST"],
     )
-    def admin_operation_generate_profile_onboarding_assistant_prompt() -> str:
+    def admin_operation_generate_profile_onboarding_assistant_prompt() -> Response:
         """Generate an editable prompt draft without publishing configuration."""
         _require_operator()
         payload = _profile_onboarding_json_object("profile_onboarding_assistant_prompt")
@@ -125,7 +125,7 @@ def register_operator_profile_onboarding_routes(
         path_prefix + "/admin/operations/profile-onboarding/preview",
         methods=["POST"],
     )
-    def admin_operation_create_profile_onboarding_preview() -> str:
+    def admin_operation_create_profile_onboarding_preview() -> Response:
         """Create an isolated preview from the operator's unsaved editor draft."""
         _require_operator()
         payload = _profile_onboarding_json_object("profile_onboarding_preview")

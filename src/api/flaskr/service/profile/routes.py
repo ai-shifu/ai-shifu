@@ -1,6 +1,6 @@
 """Expose HTTP routes for learner profiles."""
 
-from flask import Flask, request
+from flask import Flask, Response, request
 from flaskr.route.common import make_common_response
 from flaskr.service.common import raise_error
 from flaskr.service.profile.profile_manage import (
@@ -17,7 +17,7 @@ def register_learner_profile_routes(
     """Register learner-profile routes on the Flask application."""
 
     @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])
-    def get_profile_item_defination_api() -> str:
+    def get_profile_item_defination_api() -> Response:
         """Get profile item defination.
 
         ---
@@ -55,7 +55,7 @@ def register_learner_profile_routes(
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
-    def hide_unused_profile_items_api() -> str:
+    def hide_unused_profile_items_api() -> Response:
         """Hide all unused custom profile items under a shifu.
 
         ---
@@ -85,7 +85,7 @@ def register_learner_profile_routes(
         )
 
     @app.route(f"{path_prefix}/profile-variable-usage", methods=["GET"])
-    def get_profile_variable_usage_api() -> str:
+    def get_profile_variable_usage_api() -> Response:
         """Get variable usage across all outlines for a shifu.
 
         ---
@@ -109,7 +109,7 @@ def register_learner_profile_routes(
         )
 
     @app.route(f"{path_prefix}/update-profile-hidden-state", methods=["POST"])
-    def update_profile_hidden_state_api() -> str:
+    def update_profile_hidden_state_api() -> Response:
         """Hide or restore specific custom profile items.
 
         ---
