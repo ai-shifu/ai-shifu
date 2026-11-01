@@ -49,6 +49,8 @@ and authorized submission and merge into main.
 - The user verified the local Debug flow. Hosted deployment verification is outside this change.
 - Review regression: error rows do not advance the current interaction; racing saves
   between preflight and request admission are retired by the post-claim replan.
+- Review regression: changing an active answer before the first content arrives
+  uses the same shared decision in learner and Debug; duplicate submissions stay blocked.
 
 ## Context and Orientation
 
@@ -83,7 +85,7 @@ teaching, and payloads exclude prompts, answers, variables and checkpoint identi
 ## Idempotence and Recovery
 
 No database migration or dependency update is required. Changes are isolated
-on `codex/shared-interaction-rewind`. Debug cache entries remain short lived; old
+on `codex/shared-interaction-rewind`. Debug cache entries expire after 30 minutes; old
 sessions without exact interaction metadata fail safely for unsupported rewinds.
 
 ## Interfaces and Dependencies

@@ -46,6 +46,47 @@ def add_risk_control_result(
         return risk_control_result.id
 
 
+def record_check_result(
+    app: Flask,
+    chat_id: object,
+    user_id: object,
+    text: object,
+    result: CheckResultDTO,
+    check_strategy: str,
+) -> int:
+    """Persist one moderation verdict as a risk-control audit row."""
+    return add_risk_control_result(
+        app,
+        chat_id,
+        user_id,
+        text,
+        result.provider,
+        result.check_result,
+        str(result.raw_data),
+        1 if result.check_result == CHECK_RESULT_PASS else 0,
+        check_strategy,
+    )
+
+
+def check_and_record_text(
+    app: Flask,
+    check_id: str,
+    user_id: str,
+    text: str,
+    check_strategy: str,
+    *,
+    log_id: str | None = None,
+) -> CheckResultDTO:
+    """Moderate text and record the verdict under ``check_id``.
+
+    ``log_id`` overrides the data id sent to the provider; the audit row
+    always links to ``check_id``.
+    """
+    result = check_text(app, check_id if log_id is None else log_id, text, user_id)
+    record_check_result(app, check_id, user_id, text, result, check_strategy)
+    return result
+
+
 def check_text_with_risk_control(
     app: Flask, check_id: str, user_id: str, text: str | None
 ) -> CheckResultDTO:
@@ -61,17 +102,8 @@ def check_text_with_risk_control(
 
     log_id = check_id + now_utc().strftime("%Y%m%d%H%M%S")
 
-    res = check_text(app, log_id, text, user_id)
-    add_risk_control_result(
-        app,
-        check_id,
-        user_id,
-        text,
-        res.provider,
-        res.check_result,
-        str(res.raw_data),
-        1 if res.check_result == CHECK_RESULT_PASS else 0,
-        "check_text",
+    res = check_and_record_text(
+        app, check_id, user_id, text, "check_text", log_id=log_id
     )
     if res.check_result == CHECK_RESULT_REJECT:
         raise_error("server.check.checkRiskControlReject")

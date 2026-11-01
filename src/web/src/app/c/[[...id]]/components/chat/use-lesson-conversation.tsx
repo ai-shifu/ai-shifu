@@ -2837,6 +2837,7 @@ function useLessonConversation({
       const isReGenerate = requiresInteractionRewind(
         contentListRef.current,
         blockBid,
+        { isStreaming: isStreamingRef.current, content },
       );
 
       const { variableName, buttonText, inputText } = content;

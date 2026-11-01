@@ -1678,6 +1678,7 @@ export function useDebugSession({
       const requiresRegeneration = requiresInteractionRewind(
         sessionItemsRef.current,
         elementBid,
+        { isStreaming: isStreamingRef.current, content: listUpdateContent },
       );
       if (requiresRegeneration) {
         if (!options?.skipConfirm) {

@@ -107,3 +107,36 @@ it('ignores error rows when retrying the current question after a failed stream'
   expect(requiresInteractionRewind(list, 'q1')).toBe(false);
   expect(requiresInteractionRewind([...list, items[3]], 'q1')).toBe(true);
 });
+
+it('recognizes an edited active answer before output and ignores duplicate submissions', () => {
+  const list: ChatContentItem[] = [
+    items[0],
+    items[1],
+    { element_bid: 'loading', type: T.CONTENT, content: '' },
+  ];
+  expect(
+    requiresInteractionRewind(list, 'q1', {
+      isStreaming: true,
+      content: { selectedValues: ['B'] },
+    }),
+  ).toBe(true);
+  expect(
+    requiresInteractionRewind(list, 'q1', {
+      isStreaming: true,
+      content: { selectedValues: ['A'] },
+    }),
+  ).toBe(false);
+  expect(
+    requiresInteractionRewind(list, 'q1', {
+      isStreaming: false,
+      content: { selectedValues: ['B'] },
+    }),
+  ).toBe(false);
+  const unanswered = [{ ...items[1], user_input: '' }];
+  expect(
+    requiresInteractionRewind(unanswered, 'q1', {
+      isStreaming: true,
+      content: { selectedValues: ['B'] },
+    }),
+  ).toBe(false);
+});

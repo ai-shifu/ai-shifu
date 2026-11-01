@@ -175,14 +175,14 @@ def golden_sse_settings(app: object, monkeypatch: object) -> None:
 def golden_disable_risk_audit_commit(monkeypatch: object) -> None:
     """Skip the risk-control audit side-write on SQLite.
 
-    ``add_risk_control_result`` commits through a nested ``app.app_context()``
+    ``record_check_result`` commits through a nested ``app.app_context()``
     (a second DB connection) while the /run producer transaction still holds
     the SQLite write lock, which deadlocks the single-writer test database
     (fine on MySQL). The audit row never appears in the SSE/JSON contract, so
     golden tests replace it with a no-op.
     """
     monkeypatch.setattr(
-        "flaskr.service.learn.check_text.add_risk_control_result",
+        "flaskr.service.learn.check_text.record_check_result",
         lambda *_args, **_kwargs: 0,
         raising=False,
     )

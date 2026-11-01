@@ -487,7 +487,8 @@ checkpoint, discarded content and errors are never included in analytics.
   content regeneration, full restarts, learner and full-course preview are
   excluded; shared account-level analytics exclusions still apply.
 - Deduplication: One start and at most one result per accepted request. Re-entry
-  while the replacement is running is blocked. Each accepted retry or later
+  with the same answer while awaiting the first output is blocked. A different
+  answer can replace that run after confirmation. Each accepted retry or later
   deliberate edit is a new attempt. Automatic continuation does not double count.
 - Payload: Only stable pseudonymous `shifu_bid` and `outline_bid`; result adds
   `result=success|failed|cancelled`. No interaction anchor, Debug session ID,

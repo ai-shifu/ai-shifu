@@ -611,6 +611,83 @@ describe('useDebugSession helpers and business error rendering', () => {
       return prepared;
     };
 
+    test('allows a different answer during loading before any replacement output arrives', async () => {
+      const { result, sources } = await prepare();
+      await act(async () =>
+        result.current.startRun({
+          shifuBid: 'course',
+          outlineBid: 'lesson',
+          mdflow: 'Private draft',
+        }),
+      );
+      act(() => {
+        emit(sources.at(-1)!, {
+          type: 'element',
+          content: {
+            element_bid: 'question',
+            generated_block_bid: 'question-turn',
+            element_type: 'interaction',
+            content: '?[%{{answer}} A | B]',
+            is_final: true,
+          },
+        });
+        emit(sources.at(-1)!, { type: 'done', is_terminal: true });
+      });
+      await act(async () =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['A'] },
+          'question',
+        ),
+      );
+      const oldSource = sources.at(-1)!;
+      mockTrackEvent.mockClear();
+      const count = sources.length;
+      expect(result.current.isStreaming).toBe(true);
+      await act(async () =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['A'] },
+          'question',
+        ),
+      );
+      expect(sources).toHaveLength(count);
+      expect(result.current.regenerationConfirmation.open).toBe(false);
+      act(() =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['B'] },
+          'question',
+        ),
+      );
+      expect(result.current.regenerationConfirmation.open).toBe(true);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      await act(async () =>
+        result.current.regenerationConfirmation.onConfirm(),
+      );
+      expect(
+        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload),
+      ).toMatchObject({
+        reload_generated_block_bid: 'question-turn',
+        reload_element_bid: 'question',
+        user_input: { answer: ['B'] },
+      });
+      expect(sources).toHaveLength(count + 1);
+      expect(oldSource.close).toHaveBeenCalledTimes(1);
+      act(() => emitText(oldSource, 'late-output', 'old-turn', 'Discarded'));
+      expect(
+        result.current.items.some(item => item.element_bid === 'late-output'),
+      ).toBe(false);
+      act(() => emit(sources.at(-1)!, { type: 'done', is_terminal: true }));
+      expect(mockTrackEvent.mock.calls).toEqual([
+        [
+          'teacher_debug_answer_edit_start',
+          { shifu_bid: 'course', outline_bid: 'lesson' },
+        ],
+        [
+          'teacher_debug_answer_edit_result',
+          { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
+        ],
+      ]);
+    });
+
     test.each([false, true])(
       'edits an earlier answer in the same session while streaming=%s',
       async streaming => {

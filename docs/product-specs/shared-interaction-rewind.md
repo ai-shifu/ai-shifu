@@ -20,8 +20,9 @@ pauses normally at the next interaction. Multiple questions in one turn use
 exact interaction ownership, rather than matching variable names or guessing
 from the generated block alone.
 
-A confirmation can be opened while output is streaming. Cancelling changes
-nothing. Confirming replaces the active output, and late events or saves from
+A confirmation can be opened while output is streaming, including the wait
+before its first content arrives. Repeating the same answer during that wait
+does not start another request. Cancelling changes nothing. Confirming replaces the active output, and late events or saves from
 the old Debug request cannot overwrite its replacement. A stopped or failed
 answer edit retries the same owned question and the newly submitted answer.
 

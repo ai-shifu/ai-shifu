@@ -17,9 +17,20 @@ const resolveLastActionableElementBid = (items: ChatContentItem[]) =>
 export const requiresInteractionRewind = (
   items: ChatContentItem[],
   elementBid: string,
+  activeRun?: { isStreaming: boolean; content: OnSendContentParams },
 ) => {
   const last = resolveLastActionableElementBid(items);
-  return Boolean(last) && last !== elementBid;
+  if (last && last !== elementBid) return true;
+  if (!activeRun?.isStreaming) return false;
+  const previousAnswer = items.find(
+    item => item.element_bid === elementBid,
+  )?.user_input;
+  // Before the first output, the answered control is still the last item.
+  // A changed answer replaces that run; an identical click remains blocked.
+  return (
+    Boolean(previousAnswer) &&
+    previousAnswer !== resolveInteractionSubmission(activeRun.content).userInput
+  );
 };
 
 /** Both learner and Debug preserve the chosen control and replace its suffix. */
