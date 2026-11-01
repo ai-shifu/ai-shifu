@@ -16,21 +16,22 @@ from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.shifu import admin as admin_module
-from flaskr.service.shifu.admin import (
+from flaskr.service.shifu import admin_course_summaries as course_summaries_module
+from flaskr.service.shifu.admin_course_summaries import (
     OperatorCourseListSeed,
-    _build_operator_course_overview,
     _load_latest_shifus,
-    list_operator_courses,
 )
-from flaskr.service.shifu.admin_dtos import (
+from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseListDTO,
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.admin_operations import courses as admin_courses_module
 from flaskr.service.shifu.admin_operations import (
     courses_listing as courses_listing_module,
+)
+from flaskr.service.shifu.admin_operations.courses_listing import (
+    _build_operator_course_overview,
+    list_operator_courses,
 )
 from flaskr.service.shifu.course_activity import load_course_activity_map
 from flaskr.service.shifu.models import (
@@ -112,12 +113,20 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts(
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -194,12 +203,20 @@ def test_list_operator_courses_paginates_merged_results() -> None:
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -261,16 +278,24 @@ def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items(
             row.has_course_prompt = model is PublishedShifu
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
         patch(
-            "flaskr.service.shifu.admin._attach_course_prompt_flags",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._attach_course_prompt_flags",
             side_effect=attach_prompt_flags,
         ),
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -322,12 +347,20 @@ def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at()
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -382,12 +415,20 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range() -> Non
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -562,12 +603,20 @@ def test_list_operator_courses_filters_out_builtin_demo_courses_only() -> None:
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -622,12 +671,20 @@ def test_list_operator_courses_skips_system_user_lookup() -> None:
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -675,12 +732,20 @@ def test_list_operator_courses_filters_by_course_status() -> None:
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -725,8 +790,8 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch: object) -> Non
         def now(cls, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
-    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_courses_module, "now_utc", FixedDateTime.now)
+    monkeypatch.setattr(courses_listing_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(courses_listing_module, "now_utc", FixedDateTime.now)
 
     app = Flask(__name__)
     recent_course = DummyCourse(
@@ -767,18 +832,26 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch: object) -> Non
     )
 
     with (
-        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
-        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
-        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
         patch(
-            "flaskr.service.shifu.admin._load_recent_learning_active_course_bids"
+            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
+        ) as creator_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
+        ) as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_recent_learning_active_course_bids"
         ) as learning_mock,
         patch(
-            "flaskr.service.shifu.admin._load_recent_paid_order_course_bids"
+            "flaskr.service.shifu.admin_operations.courses_listing._load_recent_paid_order_course_bids"
         ) as paid_mock,
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview",
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
             return_value=EMPTY_COURSE_OVERVIEW,
         ),
     ):
@@ -841,9 +914,11 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
 
     with (
         patch(
-            "flaskr.service.shifu.admin._build_operator_course_overview"
+            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview"
         ) as overview_mock,
-        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
+        ) as latest_mock,
     ):
         with pytest.raises(AppError) as excinfo:
             list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
@@ -861,8 +936,8 @@ def test_build_operator_course_overview_returns_expected_counts(
         def now(cls, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
-    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_courses_module, "now_utc", FixedDateTime.now)
+    monkeypatch.setattr(courses_listing_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(courses_listing_module, "now_utc", FixedDateTime.now)
 
     draft_only_bid = uuid.uuid4().hex[:32]
     published_only_bid = uuid.uuid4().hex[:32]
@@ -1159,7 +1234,9 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
         )
         db.session.commit()
 
-        with patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock:
+        with patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
+        ) as user_map_mock:
             user_map_mock.return_value = {
                 creator_bid: {
                     "mobile": "15811112222",
@@ -1278,7 +1355,10 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
         )
         db.session.commit()
 
-        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+        with patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map",
+            return_value={},
+        ):
             result = list_operator_courses(app, 1, 20, {})
 
     by_bid = {item.shifu_bid: item for item in result.items}
@@ -1325,7 +1405,10 @@ def test_list_operator_courses_sql_path_falls_back_to_model_one(
         )
         db.session.commit()
 
-        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+        with patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map",
+            return_value={},
+        ):
             result = list_operator_courses(app, 1, 20, {})
 
     assert result.items[0].shifu_bid == empty_model_bid
@@ -1566,10 +1649,10 @@ def test_merge_courses_checks_published_visibility_once() -> None:
     )
 
     with patch(
-        "flaskr.service.shifu.admin._is_operator_visible_course",
+        "flaskr.service.shifu.admin_course_summaries._is_operator_visible_course",
         side_effect=[True, True],
     ) as visible_mock:
-        merged_courses, published_bids, _ = admin_module._merge_courses(
+        merged_courses, published_bids, _ = course_summaries_module._merge_courses(
             [draft_course], [published_course]
         )
 
@@ -1761,7 +1844,7 @@ def test_load_latest_shifus_filters_on_latest_rows(monkeypatch: object) -> None:
     expected_rows = ["latest-course-row"]
     outer_query = FakeOuterQuery(expected_rows)
     fake_db = FakeDB(latest_query, outer_query)
-    monkeypatch.setattr(admin_module, "db", fake_db)
+    monkeypatch.setattr(course_summaries_module, "db", fake_db)
 
     creator_bids = {"creator-1"}
     start_time = datetime(2025, 4, 1, 0, 0, 0)
@@ -1821,7 +1904,7 @@ def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(
         ]
     )
     fake_db = FakeDB(latest_query, outer_query)
-    monkeypatch.setattr(admin_module, "db", fake_db)
+    monkeypatch.setattr(course_summaries_module, "db", fake_db)
 
     result = _load_latest_shifus(
         FakeMappedModel,
@@ -1877,7 +1960,10 @@ def test_operator_course_lists_display_current_number_mapping(
         db.session.flush()
         db.session.add(model(shifu_bid=bid, title="Current", llm="3"))
         db.session.commit()
-        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+        with patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map",
+            return_value={},
+        ):
             result = list_operator_courses(app, 1, 20, {"shifu_bid": bid})
         assert len(result.items) == 1
         assert result.items[0].course_name == "Current"
@@ -1982,7 +2068,10 @@ def test_operator_listing_does_not_inherit_or_write_historical_number(
         db.session.add(current)
         db.session.commit()
         original_updated = current.updated_at
-        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+        with patch(
+            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map",
+            return_value={},
+        ):
             result = list_operator_courses(app, 1, 20, {"shifu_bid": bid})
         assert result.items[0].llm_model == "1"
         assert current.llm == ""

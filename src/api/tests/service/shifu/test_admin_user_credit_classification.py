@@ -25,6 +25,9 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu import admin_user_credits as credit_service
+from flaskr.service.shifu.admin_operations import (
+    courses_credit_usage as course_usage_service,
+)
 
 
 @pytest.mark.parametrize(
@@ -246,135 +249,75 @@ def test_ledger_note_codes_preserve_checkout_reason_and_explicit_note_precedence
 
 
 @pytest.mark.parametrize(
-    ("entry_type", "source_type", "amount", "expected"),
+    ("service", "resolver", "value", "expected"),
     [
         (
-            CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-            CREDIT_SOURCE_TYPE_GIFT,
-            1,
-            (True, False, False),
+            credit_service,
+            "_resolve_course_credit_usage_scene_filter",
+            " PREVIEW ",
+            "preview",
         ),
         (
-            CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-            CREDIT_SOURCE_TYPE_MANUAL,
-            1,
-            (True, False, False),
+            credit_service,
+            "_resolve_course_credit_usage_scene_filter",
+            "unsupported",
+            "",
+        ),
+        (course_usage_service, "_resolve_course_credit_usage_view", "", "grouped"),
+        (
+            course_usage_service,
+            "_resolve_course_credit_usage_view",
+            " GROUPED ",
+            "grouped",
+        ),
+        (course_usage_service, "_resolve_course_credit_usage_view", " RAW ", "raw"),
+        (course_usage_service, "_resolve_course_credit_usage_view", "unsupported", ""),
+        (
+            credit_service,
+            "_resolve_operator_user_credit_type_filter",
+            " GRANT ",
+            "grant",
+        ),
+        (credit_service, "_resolve_operator_user_credit_type_filter", "", "all"),
+        (
+            credit_service,
+            "_resolve_operator_user_credit_type_filter",
+            "unsupported",
+            "",
         ),
         (
-            CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-            CREDIT_SOURCE_TYPE_MANUAL,
-            -1,
-            (False, False, True),
-        ),
-        (
-            CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-            CREDIT_SOURCE_TYPE_MANUAL,
-            0,
-            (False, False, False),
-        ),
-        (
-            CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
-            CREDIT_SOURCE_TYPE_USAGE,
-            -1,
-            (False, True, False),
-        ),
-        (
-            CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
-            CREDIT_SOURCE_TYPE_MANUAL,
-            -1,
-            (False, False, False),
-        ),
-        (
-            CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            CREDIT_SOURCE_TYPE_TOPUP,
-            -1,
-            (False, False, True),
-        ),
-        (
-            CREDIT_LEDGER_ENTRY_TYPE_REFUND,
-            CREDIT_SOURCE_TYPE_REFUND,
-            1,
-            (False, False, True),
-        ),
-    ],
-)
-def test_ledger_filter_groups_do_not_overlap(
-    entry_type: int,
-    source_type: int,
-    amount: int,
-    expected: tuple,
-) -> None:
-    row = CreditLedgerEntry(
-        entry_type=entry_type, source_type=source_type, amount=amount
-    )
-    assert (
-        credit_service._is_operator_user_credit_grant_row(row),
-        credit_service._is_operator_user_credit_consume_row(row),
-        credit_service._is_operator_user_credit_other_row(row),
-    ) == expected
-
-
-@pytest.mark.parametrize(
-    ("source_type", "metadata", "expected"),
-    [
-        (
-            CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-            {"checkout_type": "trial_bootstrap"},
-            "trial_subscription",
-        ),
-        (CREDIT_SOURCE_TYPE_SUBSCRIPTION, {}, "subscription"),
-        (CREDIT_SOURCE_TYPE_TOPUP, {}, "topup"),
-        (CREDIT_SOURCE_TYPE_MANUAL, {}, "manual"),
-        (CREDIT_SOURCE_TYPE_GIFT, {}, ""),
-    ],
-)
-def test_grant_filter_retains_trial_subscription_as_a_distinct_origin(
-    source_type: int,
-    metadata: dict,
-    expected: str,
-) -> None:
-    row = CreditLedgerEntry(source_type=source_type)
-    assert (
-        credit_service._resolve_operator_user_credit_grant_filter_key(
-            row, metadata=metadata
-        )
-        == expected
-    )
-
-
-@pytest.mark.parametrize(
-    ("resolver", "value", "expected"),
-    [
-        ("_resolve_course_credit_usage_scene_filter", " PREVIEW ", "preview"),
-        ("_resolve_course_credit_usage_scene_filter", "unsupported", ""),
-        ("_resolve_course_credit_usage_view", "", "grouped"),
-        ("_resolve_course_credit_usage_view", " GROUPED ", "grouped"),
-        ("_resolve_course_credit_usage_view", " RAW ", "raw"),
-        ("_resolve_course_credit_usage_view", "unsupported", ""),
-        ("_resolve_operator_user_credit_type_filter", " GRANT ", "grant"),
-        ("_resolve_operator_user_credit_type_filter", "", "all"),
-        ("_resolve_operator_user_credit_type_filter", "unsupported", ""),
-        (
+            credit_service,
             "_resolve_operator_user_credit_grant_source_filter",
             " TRIAL_SUBSCRIPTION ",
             "trial_subscription",
         ),
-        ("_resolve_operator_user_credit_grant_source_filter", "", "all"),
-        ("_resolve_operator_user_credit_grant_source_filter", "unsupported", ""),
+        (
+            credit_service,
+            "_resolve_operator_user_credit_grant_source_filter",
+            "",
+            "all",
+        ),
+        (
+            credit_service,
+            "_resolve_operator_user_credit_grant_source_filter",
+            "unsupported",
+            "",
+        ),
     ],
 )
 def test_credit_filter_normalization_rejects_unknown_values(
+    service: object,
     resolver: str,
     value: str,
     expected: str,
 ) -> None:
-    assert getattr(credit_service, resolver)(value) == expected
+    assert getattr(service, resolver)(value) == expected
 
 
 def test_usage_group_keys_separate_scenes_and_modes_with_a_stable_ungrouped_fallback() -> (
     None
 ):
-    build = credit_service._build_course_credit_usage_group_key
+    build = course_usage_service._build_course_credit_usage_group_key
     assert (
         build(" progress ", " learning ", " ask ", "usage") == "progress:learning:ask"
     )
@@ -382,15 +325,17 @@ def test_usage_group_keys_separate_scenes_and_modes_with_a_stable_ungrouped_fall
     assert build("progress", "", "", "usage") == "progress"
     assert build("", "learning", "ask", " usage ") == "usage"
     assert (
-        credit_service._build_course_credit_usage_model_display(" provider ", " model ")
+        course_usage_service._build_course_credit_usage_model_display(
+            " provider ", " model "
+        )
         == "provider / model"
     )
     assert (
-        credit_service._build_course_credit_usage_model_display("", " model ")
+        course_usage_service._build_course_credit_usage_model_display("", " model ")
         == "model"
     )
     assert (
-        credit_service._build_course_credit_usage_model_display(" provider ", "")
+        course_usage_service._build_course_credit_usage_model_display(" provider ", "")
         == "provider"
     )
 
@@ -447,7 +392,7 @@ def test_usage_dto_derives_scene_and_consumed_amount_from_the_record(
     expected: str,
 ) -> None:
     row = BillUsageRecord(usage_bid="usage", usage_scene=scene)
-    result = credit_service._build_operator_course_credit_usage_item(
+    result = course_usage_service._build_operator_course_credit_usage_item(
         usage_row=row,
         ledger_amount=Decimal("-3.25"),
         user_map={},

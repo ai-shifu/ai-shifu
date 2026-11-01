@@ -27,7 +27,6 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     OPERATOR_TARGET_CONTACT_MAX_LENGTH,
     OPERATOR_TARGET_EMAIL_PATTERN,
     OPERATOR_TARGET_PHONE_PATTERN,
-    _get_legacy_admin_symbol,
     _is_operator_visible_course,
     _normalize_identifier,
 )
@@ -220,9 +219,9 @@ def _run_course_copy_draft_risk_check(
     draft_to_check.title = new_course_name
     check_content = str(draft_to_check.get_str_to_check() or "").strip()
     if check_content:
-        _get_legacy_admin_symbol(
-            "check_text_with_risk_control", check_text_with_risk_control
-        )(app, target_shifu_bid, operator_user_bid, check_content)
+        check_text_with_risk_control(
+            app, target_shifu_bid, operator_user_bid, check_content
+        )
 
 
 def _run_course_copy_outline_risk_check(
@@ -236,15 +235,15 @@ def _run_course_copy_outline_risk_check(
     outline_to_check.outline_item_bid = target_outline_bid
     outline_check_content = str(outline_to_check.get_str_to_check() or "").strip()
     if outline_check_content:
-        _get_legacy_admin_symbol(
-            "check_text_with_risk_control", check_text_with_risk_control
-        )(app, target_outline_bid, operator_user_bid, outline_check_content)
+        check_text_with_risk_control(
+            app, target_outline_bid, operator_user_bid, outline_check_content
+        )
 
     markdown_content = str(outline_to_check.content or "").strip()
     if markdown_content:
-        _get_legacy_admin_symbol(
-            "check_text_with_risk_control", check_text_with_risk_control
-        )(app, target_outline_bid, operator_user_bid, markdown_content)
+        check_text_with_risk_control(
+            app, target_outline_bid, operator_user_bid, markdown_content
+        )
 
 
 def _validate_operator_target_contact(contact_type: str, identifier: str) -> str:
@@ -462,9 +461,7 @@ def transfer_operator_course_creator(
             _clear_shifu_permission_cache(app, target_user_bid, normalized_shifu_bid)
             _clear_shifu_creator_cache(app, normalized_shifu_bid)
             if creator_granted_now:
-                _get_legacy_admin_symbol(
-                    "run_creator_granted_post_auth", run_creator_granted_post_auth
-                )(
+                run_creator_granted_post_auth(
                     app,
                     user_id=target_user_bid,
                     source="operator_transfer_creator",
@@ -594,9 +591,7 @@ def transfer_operator_published_courses(
                     _clear_shifu_permission_cache(app, target_user_bid, transferred_bid)
                     _clear_shifu_creator_cache(app, transferred_bid)
                 if creator_granted_now:
-                    _get_legacy_admin_symbol(
-                        "run_creator_granted_post_auth", run_creator_granted_post_auth
-                    )(
+                    run_creator_granted_post_auth(
                         app,
                         user_id=target_user_bid,
                         source="operator_transfer_creator",
@@ -773,9 +768,7 @@ def copy_operator_course(
         if creator_granted_now:
 
             def finish_copy() -> None:
-                _get_legacy_admin_symbol(
-                    "run_creator_granted_post_auth", run_creator_granted_post_auth
-                )(
+                run_creator_granted_post_auth(
                     app,
                     user_id=target_user_bid,
                     source="operator_copy_course",

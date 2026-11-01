@@ -258,9 +258,6 @@ def test_transfer_creator_runs_post_auth_only_after_commit(
         assert user_id == target_user
 
     monkeypatch.setattr(
-        "flaskr.service.shifu.admin.run_creator_granted_post_auth", fake_post_auth
-    )
-    monkeypatch.setattr(
         courses_transfer_copy, "run_creator_granted_post_auth", fake_post_auth
     )
 
