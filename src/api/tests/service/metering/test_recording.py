@@ -400,14 +400,19 @@ def test_a_database_error_on_the_caller_session_still_propagates(
         _record_course_usage(metering_app)
 
 
-def test_a_database_error_on_a_fresh_session_records_billable_usage(
-    metering_app: Flask, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "error",
+    [_CONNECTION_LOST, RuntimeError("course table unavailable")],
+    ids=["database", "ordinary"],
+)
+def test_a_lookup_error_on_a_fresh_session_records_billable_usage(
+    metering_app: Flask, monkeypatch: pytest.MonkeyPatch, error: Exception
 ) -> None:
     """A native caller owns no session, so the lookup's failure stays local."""
     from concurrent.futures import ThreadPoolExecutor
 
     def _lookup_fails(_app: object, _shifu_bid: str) -> bool:
-        raise _CONNECTION_LOST
+        raise error
 
     monkeypatch.setattr(
         "flaskr.service.metering.recorder.is_builtin_demo_shifu", _lookup_fails
