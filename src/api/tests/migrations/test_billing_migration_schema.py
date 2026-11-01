@@ -3,7 +3,8 @@
 The test replays the ``op.*`` calls in every migration's ``upgrade()`` in
 revision order, without a database, and compares the resulting columns (type,
 length or precision and scale, nullability, computed) and the explicitly
-declared indexes and unique constraints with the SQLAlchemy models. It runs in every CI job, unlike
+declared indexes and unique constraints (ordered columns and uniqueness) and
+the primary key with the SQLAlchemy models. It runs in every CI job, unlike
 the opt-in fresh-MySQL smoke test.
 """
 
@@ -52,6 +53,12 @@ def _call_name(call: ast.Call) -> str:
 def _is_unique(call: ast.Call) -> bool:
     flag = _keyword(call, "unique")
     return isinstance(flag, ast.Constant) and flag.value is True
+
+
+def _names(node: ast.AST | None) -> tuple[str | None, ...]:
+    if isinstance(node, ast.List | ast.Tuple):
+        return tuple(_str(item) for item in node.elts)
+    return ()
 
 
 def _int(node: ast.AST | None) -> int | None:
@@ -118,7 +125,9 @@ class _SchemaReplay:
 
     def __init__(self) -> None:
         self.columns: dict[str, dict[str, dict[str, object]]] = {}
-        self.indexes: dict[str, set[str]] = {}
+        # name -> (ordered columns, unique)
+        self.indexes: dict[str, dict[str, tuple[tuple[str | None, ...], bool]]] = {}
+        self.primary_keys: dict[str, set[str]] = {}
 
     def run(self, tree: ast.Module) -> None:
         upgrade = next(
@@ -201,26 +210,40 @@ class _SchemaReplay:
         if operation == "create_table":
             table = _str(args[0])
             self.columns[table] = {}
-            self.indexes[table] = set()
+            self.indexes[table] = {}
+            self.primary_keys[table] = set()
             for item in self._expand(args[1:]):
                 if not isinstance(item, ast.Call):
                     continue
-                if _call_name(item) == "Column" and item.args:
+                kind = _call_name(item)
+                if kind == "Column" and item.args:
                     self._add_column(table, item)
-                elif _call_name(item) in ("UniqueConstraint", "Index"):
-                    name = _str(_keyword(item, "name")) or (
-                        _str(item.args[0]) if _call_name(item) == "Index" else None
-                    )
+                    primary = _keyword(item, "primary_key")
+                    if isinstance(primary, ast.Constant) and primary.value is True:
+                        self.primary_keys[table].add(_str(item.args[0]))
+                elif kind == "PrimaryKeyConstraint":
+                    self.primary_keys[table].update(_str(arg) for arg in item.args)
+                elif kind == "UniqueConstraint":
+                    name = _str(_keyword(item, "name"))
                     if name:
-                        self.indexes[table].add(name)
+                        columns = tuple(_str(arg) for arg in item.args)
+                        self.indexes[table][name] = (columns, True)
+                elif kind == "Index" and item.args:
+                    columns = tuple(_str(arg) for arg in item.args[1:])
+                    self.indexes[table][_str(item.args[0])] = (
+                        columns,
+                        _is_unique(item),
+                    )
         elif operation == "drop_table":
             table = _str(args[0]) if args else _str(_keyword(call, "table_name"))
             self.columns.pop(table, None)
             self.indexes.pop(table, None)
+            self.primary_keys.pop(table, None)
         elif operation == "rename_table":
             old, new = _str(args[0]), _str(args[1])
             self.columns[new] = self.columns.pop(old, {})
-            self.indexes[new] = self.indexes.pop(old, set())
+            self.indexes[new] = self.indexes.pop(old, {})
+            self.primary_keys[new] = self.primary_keys.pop(old, set())
         elif operation == "add_column":
             self._add_column(_str(args[0]), args[1])
         elif operation == "drop_column":
@@ -228,11 +251,17 @@ class _SchemaReplay:
         elif operation == "alter_column":
             self._alter_column(_str(args[0]), _str(args[1]), call)
         elif operation in ("create_unique_constraint", "create_index"):
-            self.indexes.setdefault(_str(args[1]), set()).add(_str(args[0]))
+            unique = operation == "create_unique_constraint" or _is_unique(call)
+            self.indexes.setdefault(_str(args[1]), {})[_str(args[0])] = (
+                _names(args[2]),
+                unique,
+            )
         elif operation in ("drop_constraint", "drop_index"):
             table = _str(args[1]) if len(args) > 1 else None
             table = table or _str(_keyword(call, "table_name"))
-            self.indexes.get(table, set()).discard(_str(args[0]))
+            self.indexes.get(table, {}).pop(_str(args[0]), None)
+        elif operation == "create_primary_key":
+            self.primary_keys[_str(args[1])] = set(_names(args[2]))
 
     def _apply_batch(self, operation: str, call: ast.Call, table: str) -> None:
         args = call.args
@@ -243,9 +272,15 @@ class _SchemaReplay:
         elif operation == "alter_column":
             self._alter_column(table, _str(args[0]), call)
         elif operation in ("create_unique_constraint", "create_index"):
-            self.indexes.setdefault(table, set()).add(_str(args[0]))
+            unique = operation == "create_unique_constraint" or _is_unique(call)
+            self.indexes.setdefault(table, {})[_str(args[0])] = (
+                _names(args[1]),
+                unique,
+            )
         elif operation in ("drop_constraint", "drop_index"):
-            self.indexes.get(table, set()).discard(_str(args[0]))
+            self.indexes.get(table, {}).pop(_str(args[0]), None)
+        elif operation == "create_primary_key":
+            self.primary_keys[table] = set(_names(args[1]))
 
 
 def _replayed_schema() -> _SchemaReplay:
@@ -291,15 +326,21 @@ def test_migrations_build_the_billing_model_schema(table: Table) -> None:
     for column in table.columns:
         assert migrated[column.name] == _model_definition(column), column.name
 
+    assert _REPLAY.primary_keys.get(table.name) == {
+        column.name for column in table.primary_key.columns
+    }
+
     # Explicit Index(...) / UniqueConstraint(...) declarations. Single-column
     # ``index=True`` flags are not compared: several were never migrated.
     model_indexes = {
-        constraint.name
+        constraint.name: (tuple(column.name for column in constraint.columns), True)
         for constraint in table.constraints
         if isinstance(constraint, UniqueConstraint) and constraint.name
     } | {
-        index.name
+        index.name: (tuple(column.name for column in index.columns), bool(index.unique))
         for index in table.indexes
         if index.unique or not getattr(index, "_column_flag", False)
     }
-    assert model_indexes <= _REPLAY.indexes.get(table.name, set())
+    migrated_indexes = _REPLAY.indexes.get(table.name, {})
+    for name, definition in model_indexes.items():
+        assert migrated_indexes.get(name) == definition, name
