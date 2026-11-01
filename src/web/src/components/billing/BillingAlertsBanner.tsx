@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { BillingAlert } from '@/types/billing';
 import { registerBillingTranslationUsage } from '@/lib/billing';
-import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import { BILLING_PACKAGES_HREF } from '@/lib/billing-navigation';
 
 type BillingAlertsBannerProps = {
   alerts: BillingAlert[];

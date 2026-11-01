@@ -94,6 +94,7 @@
   "server.learn.agentInputBudgetExceeded": 4020,
   "server.learn.resetLimitReached": 4021,
   "server.profile.keyReserved": 4022,
+  "server.learn.debugServiceUnavailable": 4023,
   "server.pay.payChannelNotSupport": 5001,
   "server.pay.wechatOpenIdRequired": 5002,
   "server.billing.creditInsufficient": 7101,

@@ -114,6 +114,7 @@
 | `docs/exec-plans/completed/creator-dashboard-learners-sql-optimization.md` | Creator Dashboard Learners SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-ratings-sql-optimization.md` | Creator Dashboard Ratings SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-request-splitting.md` | Creator Dashboard Request Splitting | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/debug-regenerate-from-step.md` | Regenerate editor Debug from a selected step | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/device-auth-skill-analytics.md` | Device Authorization Skill Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/docker-web-dependency-reuse.md` | Reuse production Web Docker dependencies | `exec-plan-completed` | `completed` | `web` | `2026-10-06` | `false` |
 | `docs/exec-plans/completed/editor-preview-language.md` | Keep editor previews in the selected language | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -122,6 +123,7 @@
 | `docs/exec-plans/completed/follow-up-classroom-history.md` | Preserve the classroom context of anchored follow-ups | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/follow-up-course-memory.md` | Explicit course memory in follow-up prompts | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/follow-up-dispatch-regressions.md` | Verify follow-up dispatch through the lesson caller | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/frontend-structure-naming.md` | Frontend structure and file naming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/frontend-unused-function-stack.md` | Frontend Unused Function Cleanup Stack | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/gemini-3-8-tts.md` | Gemini 3.8 TTS migration | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/gemini-tts.md` | Gemini TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -322,7 +324,7 @@
 | `docs/references/lesson-content-update-performance.md` | Lesson Content Revision Comparison Performance | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-authored-inputs.md` | MarkdownFlow Authored Input Hints | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
 | `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-10-08` | `true` |
-| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
+| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-10-31` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |
 | `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompts | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |

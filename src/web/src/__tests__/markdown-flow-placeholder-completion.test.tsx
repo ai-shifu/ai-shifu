@@ -4,11 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { deserialize, serialize } from 'node:v8';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
 import { Slide } from 'markdown-flow-ui/slide';
-import { usePlaceholderAcceptedTracking } from '@/hooks/usePlaceholderAcceptedTracking';
+import { usePlaceholderAcceptedTracking } from '@/hooks/use-placeholder-accepted-tracking';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 
 const mockTrackEvent = jest.fn();
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

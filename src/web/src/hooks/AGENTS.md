@@ -3,8 +3,8 @@
 This module owns shared React hooks for auth, audio coordination, and other
 reusable frontend behavior.
 
-Entry files in this directory: `useAuth.ts`, `useExclusiveAudio.ts`,
-`useGoogleAuth.ts`, `useToast.tsx`.
+Entry files in this directory: `use-auth.ts`, `use-exclusive-audio.ts`,
+`use-google-auth.ts`, `use-toast.tsx`.
 
 Shared compatibility, i18n, privacy and verification rules are inherited from
 the root and `src/web/AGENTS.md`; the constraints below are local.

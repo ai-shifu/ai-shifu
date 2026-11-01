@@ -1,0 +1,284 @@
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Loader2, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
+import { useTracking } from '@/hooks/use-tracking';
+import { getTrackingIdentityGeneration } from '@/lib/tracking';
+import {
+  deleteCourseMemory,
+  listCourseMemory,
+  type CourseMemoryEntry,
+} from '@/api/course-memory';
+
+type Props = { courseId: string; onClose: () => void };
+
+/** Mounted only for an eligible learner open; unmounting invalidates pending results. */
+export default function CourseMemoryDialog({ courseId, onClose }: Props) {
+  const { t } = useTranslation();
+  const { trackEvent } = useTracking();
+  const [items, setItems] = useState<CourseMemoryEntry[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selected, setSelected] = useState<CourseMemoryEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const pending = useRef(false);
+  const loadingRef = useRef(false);
+  const alive = useRef(false);
+  const identity = useRef(getTrackingIdentityGeneration());
+  const opened = useRef(false);
+  const current = () =>
+    alive.current && identity.current === getTrackingIdentityGeneration();
+  const track = (name: string, outcome?: 'success' | 'failed') => {
+    try {
+      void Promise.resolve(
+        trackEvent(name, {
+          course_id: courseId,
+          ...(outcome ? { outcome } : {}),
+        }),
+      ).catch(() => {});
+    } catch {}
+  };
+
+  const load = async (before?: string) => {
+    if (loadingRef.current || !current()) return;
+    loadingRef.current = true;
+    setLoading(true);
+    setError('');
+    try {
+      const page = await listCourseMemory(courseId, before);
+      if (!current()) return;
+      setItems(previous =>
+        before ? [...previous, ...page.items] : page.items,
+      );
+      setCursor(page.next_before);
+    } catch {
+      if (current()) setError('memoryLoadFailed');
+    } finally {
+      loadingRef.current = false;
+      if (current()) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    alive.current = true;
+    if (!opened.current) {
+      opened.current = true;
+      track('learner_course_memory_opened');
+    }
+    void load();
+    return () => {
+      alive.current = false;
+    };
+    // The parent keys this mounted dialog by course and learner identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const remove = async () => {
+    if (pending.current || !selected || !current()) return;
+    pending.current = true;
+    setDeleting(true);
+    setError('');
+    track('learner_course_memory_delete_attempt');
+    try {
+      const result = await deleteCourseMemory(courseId, selected.value_id);
+      if (!current()) return;
+      if (result.conflict) {
+        track('learner_course_memory_delete_result', 'failed');
+        setSelected(null);
+        await load();
+        if (current()) setError('memoryChanged');
+      } else {
+        setItems(previous =>
+          previous.filter(item => item.value_id !== selected.value_id),
+        );
+        setSelected(null);
+        track('learner_course_memory_delete_result', 'success');
+      }
+    } catch {
+      if (current()) {
+        setError('memoryDeleteFailed');
+        track('learner_course_memory_delete_result', 'failed');
+      }
+    } finally {
+      pending.current = false;
+      if (current()) setDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={open => {
+        if (!open && !pending.current) onClose();
+      }}
+    >
+      <DialogContent
+        className='flex max-h-[calc(100dvh-2rem)] max-w-xl flex-col'
+        showClose={!deleting}
+        onEscapeKeyDown={event => {
+          if (pending.current) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{t('module.settings.memoryTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('module.settings.memoryDescription', {
+              entry: t('component.menus.navigationMenus.personalInfo'),
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        {error ? (
+          <p
+            role='alert'
+            className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground'
+          >
+            {t(`module.settings.${error}`)}
+          </p>
+        ) : null}
+        <div
+          role='status'
+          className='sr-only'
+        >
+          {loading ? t('module.settings.memoryLoading') : ''}
+        </div>
+        <div
+          className='-mx-1 min-h-0 flex-1 overflow-y-auto px-1'
+          aria-busy={loading}
+        >
+          {!loading && !items.length && !error ? (
+            <p className='py-10 text-center text-sm text-muted-foreground'>
+              {t('module.settings.memoryEmpty')}
+            </p>
+          ) : null}
+          {items.length ? (
+            <ul className='divide-y rounded-lg border'>
+              {items.map(item => (
+                <li
+                  key={item.value_id}
+                  className='flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40'
+                >
+                  <dl className='min-w-0 flex-1 space-y-2.5 text-left'>
+                    <dt className='whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-foreground'>
+                      {item.key}
+                    </dt>
+                    <dd className='rounded-md bg-muted/50 px-3 py-2.5'>
+                      <p className='whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground'>
+                        {item.value}
+                      </p>
+                    </dd>
+                  </dl>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
+                    aria-label={t('module.settings.memoryDelete')}
+                    title={t('module.settings.memoryDelete')}
+                    disabled={deleting || loading || !!selected}
+                    onClick={() => {
+                      if (!selected) {
+                        setError('');
+                        setSelected(item);
+                      }
+                    }}
+                  >
+                    <Trash2 className='h-4 w-4' />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {loading ? (
+            <div className='flex justify-center py-6'>
+              <Loader2
+                aria-hidden='true'
+                className='h-5 w-5 animate-spin text-muted-foreground'
+              />
+            </div>
+          ) : null}
+        </div>
+        {!loading && error === 'memoryLoadFailed' ? (
+          <Button
+            variant='outline'
+            className='w-full'
+            onClick={() => void load(cursor ?? undefined)}
+          >
+            {t('module.settings.memoryRetry')}
+          </Button>
+        ) : null}
+        {!loading && cursor !== null ? (
+          <Button
+            variant='outline'
+            className='w-full'
+            disabled={deleting || !!selected}
+            onClick={() => void load(cursor)}
+          >
+            {t('module.settings.memoryMore')}
+          </Button>
+        ) : null}
+        <AlertDialog
+          open={!!selected}
+          onOpenChange={open => {
+            if (!open && !pending.current) setSelected(null);
+          }}
+        >
+          <AlertDialogContent
+            onEscapeKeyDown={event => {
+              if (pending.current) event.preventDefault();
+            }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t('module.settings.memoryConfirmTitle')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('module.settings.memoryConfirmDescription')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {error === 'memoryDeleteFailed' ? (
+              <p
+                role='alert'
+                className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground'
+              >
+                {t('module.settings.memoryDeleteFailed')}
+              </p>
+            ) : null}
+            <AlertDialogFooter>
+              <Button
+                variant='outline'
+                disabled={deleting}
+                onClick={() => setSelected(null)}
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                disabled={deleting}
+                onClick={() => void remove()}
+              >
+                {deleting ? (
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                ) : null}
+                {t('module.settings.memoryConfirm')}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DialogContent>
+    </Dialog>
+  );
+}

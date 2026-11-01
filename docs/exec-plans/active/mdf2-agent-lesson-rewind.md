@@ -89,7 +89,7 @@ that turn originally had). A lesson whose turns predate this change cannot be re
 - `src/api/flaskr/service/learn/agent/lesson_record.py` — turn blocks (`stage_turn_block`,
   `record_turn_content`), progress records.
 - `src/api/markdownflow/engine/session.py` — `Session.to_dict` / `from_dict`.
-- Frontend (unchanged): `src/web/src/app/c/[[...id]]/Components/ChatUi/useChatLogicHook.tsx`
+- Frontend (unchanged): `src/web/src/app/c/[[...id]]/components/chat/use-lesson-conversation.tsx`
   sends `input` + `reload_*` for a re-answer and `input: ''` + `reload_*` for `onRefresh`.
 
 ## Plan of Work

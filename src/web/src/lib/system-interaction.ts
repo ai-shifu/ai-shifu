@@ -1,4 +1,4 @@
-import { SYS_INTERACTION_TYPE } from '@/api/studyV2';
+import { SYS_INTERACTION_TYPE } from '@/api/learning';
 
 const SYSTEM_INTERACTION_TYPES = Object.values(SYS_INTERACTION_TYPE);
 type SystemInteractionType =

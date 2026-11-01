@@ -14,8 +14,8 @@ import AdminTitle, {
   ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME,
   ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE,
 } from '@/app/admin/components/AdminTitle';
-import { resolveBillingTab, type BillingTab } from './billingTabs';
-import { isGlobalBillingExperience } from './billingExperience';
+import { resolveBillingTab, type BillingTab } from './billing-tabs';
+import { isGlobalBillingExperience } from './billing-experience';
 
 type AdminBillingPageClientProps = {
   initialTab?: BillingTab;

@@ -4,11 +4,11 @@ import { Loader2, Mic, MicOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { liveVoiceErrorPresentation } from './liveVoiceErrorPresentation';
+import { liveVoiceErrorPresentation } from './live-voice-error-presentation';
 import type {
   LiveVoiceFollowUpController,
   LiveVoiceFollowUpTarget,
-} from './useLiveVoiceFollowUp';
+} from './use-live-voice-follow-up';
 
 type LiveVoiceControlsProps = {
   controller: LiveVoiceFollowUpController;

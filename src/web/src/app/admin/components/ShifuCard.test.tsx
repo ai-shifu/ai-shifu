@@ -11,7 +11,7 @@ import ShifuCard from './ShifuCard';
 
 const mockTrackEvent = jest.fn();
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

@@ -19,8 +19,8 @@ import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
 import { Textarea } from '@/components/ui/Textarea';
-import useOperatorGuard from '../useOperatorGuard';
-import { useProfileOnboardingAdminController } from './useProfileOnboardingAdminController';
+import useOperatorGuard from '../use-operator-guard';
+import { useProfileOnboardingAdminController } from './use-profile-onboarding-admin-controller';
 
 export default function ProfileOnboardingAdminPage() {
   const { t } = useTranslation();

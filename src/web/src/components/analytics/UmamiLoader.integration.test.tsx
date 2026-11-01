@@ -1,7 +1,7 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { UmamiLoader } from './UmamiLoader';
 import { identifyUmamiUser, tracking } from '@/lib/tracking';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore } from '@/store/use-user-store';
 
 const mockGetUserInfo = jest.fn();
 const mockRegisterTmp = jest.fn();
@@ -19,7 +19,7 @@ jest.mock('@/store', () => ({
       umamiScriptSrc: 'https://analytics.example.test/script.js',
       umamiWebsiteId: mockWebsiteId,
     }),
-  useUserStore: jest.requireActual('@/store/useUserStore').useUserStore,
+  useUserStore: jest.requireActual('@/store/use-user-store').useUserStore,
 }));
 
 jest.mock('@/api/user', () => ({
@@ -27,7 +27,7 @@ jest.mock('@/api/user', () => ({
   registerTmp: (...args: unknown[]) => mockRegisterTmp(...args),
 }));
 
-jest.mock('@/lib/shifu/storeUtil', () => ({
+jest.mock('@/lib/shifu/token-storage', () => ({
   tokenTool: {
     get: () => ({ ...mockTokenState }),
     set: (value: typeof mockTokenState) => {
@@ -40,12 +40,12 @@ jest.mock('@/lib/shifu/storeUtil', () => ({
 }));
 
 jest.mock('@/lib/common', () => ({ genUuid: () => 'guest-temp-id' }));
-jest.mock('@/lib/debugConsole', () => ({
+jest.mock('@/lib/debug-console', () => ({
   debugError: jest.fn(),
   debugInfo: jest.fn(),
   debugWarn: jest.fn(),
 }));
-jest.mock('@/lib/urlUtils', () => ({
+jest.mock('@/lib/url-utils', () => ({
   removeParamFromUrl: (url: string) => url,
 }));
 jest.mock('@/lib/google-oauth-session', () => ({

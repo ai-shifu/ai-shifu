@@ -82,7 +82,7 @@ The project uses a factory pattern to manage authentication methods:
 - Login page: `src/web/src/app/login/page.tsx`
 - Auth components: `src/web/src/components/auth/`
 - Environment config: `src/web/src/config/environment.ts` → `loginMethodsEnabled`
-- API layer: `src/web/src/api/api.ts`
+- API layer: `src/web/src/api/endpoint-definitions.ts`
 
 ## 3. Technical Design
 
@@ -182,7 +182,7 @@ Added in `src/api/flaskr/route/user.py`:
 
 - `loginMethodsEnabled` supports `'password'` option
 
-#### Modified: `src/web/src/api/api.ts`
+#### Modified: `src/web/src/api/endpoint-definitions.ts`
 
 New API functions:
 - `loginPassword(identifier, password)`

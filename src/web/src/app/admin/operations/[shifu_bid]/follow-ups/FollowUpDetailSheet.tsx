@@ -19,7 +19,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/Sheet';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import { cn } from '@/lib/utils';
 import type { AdminOperationCourseFollowUpDetailResponse } from '../../operation-course-types';
 

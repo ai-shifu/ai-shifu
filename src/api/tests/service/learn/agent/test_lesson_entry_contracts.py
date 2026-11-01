@@ -770,6 +770,44 @@ def test_a_turn_that_ran_out_of_content_is_followed_by_the_next_in_the_same_requ
     assert [c["user_input"] for c in calls] == [{"choice": ["a"]}, None, None]
 
 
+def test_debug_rewind_does_not_reapply_future_variables_on_automatic_continuation(
+    app: object, monkeypatch: object
+) -> None:
+    """Every replacement turn resumes restored memory without the discarded UI snapshot."""
+    runner = _entry_with_runner(monkeypatch)
+    calls: list[dict] = []
+    runner.side_effect = _turn(
+        [
+            TurnOutcome(reason="end", taught=True),
+            TurnOutcome(reason="end", taught=True),
+            TurnOutcome(reason="interaction", taught=True),
+        ],
+        calls,
+    )
+    plan = object()
+    store = Mock()
+    store.plan_rewind.return_value = plan
+    browser_variables = {"prefix": "kept", "future_answer": "discard"}
+
+    _reload(
+        app,
+        preview_mode=True,
+        debug_store=store,
+        script_override="Unsaved draft",
+        preview_variables=browser_variables,
+    )
+
+    store.plan_rewind.assert_called_once_with(
+        script="Unsaved draft", block_bid="block-1"
+    )
+    assert [call["rewind"] for call in calls] == [plan, None, None]
+    assert [call["preview_variables"] for call in calls] == [
+        browser_variables,
+        None,
+        None,
+    ]
+
+
 @pytest.mark.parametrize(
     "outcome",
     [

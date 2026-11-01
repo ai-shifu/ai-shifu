@@ -15,7 +15,7 @@ import {
   CreditNotificationFormField as FormField,
 } from './CreditNotificationFormPrimitives';
 import type { CreditNotificationManagedListType } from './CreditNotificationManagedListDialog';
-import { normalizeListInputCharacters } from './creditNotificationUtils';
+import { normalizeListInputCharacters } from './credit-notification-utils';
 
 const summarizeIdentifiers = (identifiers: string[], emptyText: string) => {
   if (identifiers.length === 0) {

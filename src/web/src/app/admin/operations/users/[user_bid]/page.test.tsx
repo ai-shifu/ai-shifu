@@ -73,7 +73,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: jest.fn() }),
 }));
 
@@ -110,7 +110,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/components/ui/tooltip', () => ({
+jest.mock('@/components/ui/Tooltip', () => ({
   __esModule: true,
   TooltipProvider: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>

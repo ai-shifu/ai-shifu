@@ -31,7 +31,7 @@ def test_live_does_not_require_feature_specific_nginx_host_handling() -> None:
 
 def test_direct_transport_uses_only_google_constrained_websocket() -> None:
     backend = _read("src/api/flaskr/service/learn/gemini_live_token.py")
-    frontend = _read("src/web/src/lib/liveVoiceFollowUp.ts")
+    frontend = _read("src/web/src/lib/live-voice-follow-up.ts")
 
     assert "BidiGenerateContentConstrained" in backend
     assert "BidiGenerateContentConstrained" in frontend

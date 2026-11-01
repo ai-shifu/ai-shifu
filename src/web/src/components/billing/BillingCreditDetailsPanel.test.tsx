@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import {
   useBillingOverview,
   useBillingWalletBuckets,
-} from '@/hooks/useBillingData';
+} from '@/hooks/use-billing-data';
 import { BillingCreditDetailsPanel } from './BillingCreditDetailsPanel';
 
 const mockCancelBillingSubscription = jest.fn();
@@ -22,11 +22,11 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
 }));
 
@@ -78,7 +78,7 @@ jest.mock('@/lib/browser-timezone', () => ({
   getBrowserTimeZone: () => 'Asia/Shanghai',
 }));
 
-jest.mock('@/hooks/useBillingData', () => ({
+jest.mock('@/hooks/use-billing-data', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
   useBillingWalletBuckets: jest.fn(),
