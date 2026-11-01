@@ -1687,7 +1687,7 @@ describe('useDebugSession helpers and business error rendering', () => {
     const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
     const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
     expect(second.content).toBe('Edited draft');
-    expect(second.user_input).toBeDefined();
+    expect(second.user_input).toEqual({ input: ['Continue'] });
     expect(second.debug_session_id).toBe(first.debug_session_id);
   });
 
