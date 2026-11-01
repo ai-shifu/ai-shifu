@@ -2579,6 +2579,38 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     assert [resp.result for resp in responses] == ["你好"]
 
 
+def test_invoke_llm_raises_on_repeated_stream_chunk_after_text(
+    monkeypatch: object, app: object
+) -> None:
+    # A prompt answer cut off by the error must not reach publishing or profiles.
+    class RepeatedChunkError(Exception):
+        __module__ = "litellm.exceptions"
+
+    def fake_completion(*_args: object, **_kwargs: object) -> object:
+        yield FakeResponse("chunk-1", content="Chapter 1: Par")
+        message = "The model is repeating the same chunk."
+        raise RepeatedChunkError(message)
+
+    _single_test_provider(monkeypatch)
+    recorded: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: recorded.append(kwargs)
+    )
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    with pytest.raises(RepeatedChunkError):
+        list(
+            llm.invoke_llm(
+                app=app,
+                user_id="u1",
+                span=DummySpan(),
+                model="test-model",
+                message="hi",
+            )
+        )
+    assert [r["status"] for r in recorded] == [1]
+
+
 @pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
 def test_llm_content_and_credentials_stay_out_of_application_logs(
     monkeypatch: object, app: object, llm_method: str

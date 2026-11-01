@@ -1345,7 +1345,8 @@ def chat_llm(
     kwargs.pop("stream", None)
     # Off by default: the 1.0 runtime only reads text, and a tool-call-only chunk carries none.
     emit_tool_calls = bool(kwargs.pop("emit_tool_calls", False))
-    # invoke_llm callers also need the finish-reason chunk and a real truncation flag.
+    # invoke_llm callers also need the finish-reason chunk and a real truncation flag,
+    # and must not receive a partial answer as if it were complete.
     emit_finish = bool(kwargs.pop("emit_finish", False))
     retry_cancelled = kwargs.pop("retry_cancelled", None)
     usage_scene = (
@@ -1491,7 +1492,10 @@ def chat_llm(
                 # A tool-calling turn can be entirely tool calls, so text alone is the wrong test for
                 # "something already reached the caller".
                 partial = response_text or (tool_call_text if emit_tool_calls else "")
-                if not (_is_litellm_repeated_stream_chunk_error(exc) and partial):
+                # Prompt callers (emit_finish) need a complete answer, so they get the error.
+                if emit_finish or not (
+                    _is_litellm_repeated_stream_chunk_error(exc) and partial
+                ):
                     raise
                 app.logger.warning(
                     "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | tool_call_chars=%s | error=%s",
