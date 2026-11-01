@@ -60,8 +60,10 @@ _FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})", re.MULTILINE)
 # A block closes only on a line of its own fence character, at least as long, with nothing after
 # it but whitespace. `` ```not-a-close `` opens nothing and closes nothing; it is code.
 _FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
-# A line still arriving that may yet become one.
-_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]", re.MULTILINE)
+# A line still arriving that may yet become one. Only a run still too short to be a fence, at the very end of what is held, can grow
+# into one; a longer run is a fence candidate already, and anything after a short
+# run (`` `?``) rules a fence out.
+_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}(?:`{1,2}|~{1,2})\Z", re.MULTILINE)
 _LINE_BREAK = re.compile(r"\r\n|\r(?=.)|\n")
 _CLOSE = "]"
 # A blank line followed by a line that starts a top-level block other than a
@@ -69,6 +71,16 @@ _CLOSE = "]"
 _SAFE_POINT = re.compile(r"(?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n)(?=[^\s>0-9*+\-])")
 # The raw text kept for literal decisions, before falling back to the witness.
 _RAW_LIMIT = 4096
+# Characters that can decide a held opener: a closing code or math run, an HTML
+# or container `>`, or a line ending that may end the paragraph.
+_DEFER_TRIGGER = re.compile(r"[`$<>\r\n]")
+# An opener is held at most this many characters past it. CommonMark has no such
+# bound, but narration must keep flowing; a literal still open this far on is
+# taken as never closing, which only differs for a span longer than this.
+_DEFER_LIMIT = 256
+# Letters, digits and spaces in the middle of a narration line carry no Markdown
+# or MarkdownFlow syntax.
+_PLAIN = re.compile(r"(?:[^\W_]| )+")
 
 
 class InteractionSyntaxFilter:
@@ -113,6 +125,13 @@ class InteractionSyntaxFilter:
         self._raw: str | None = ""
         self._raw_tail = ""
         self._pending_witness = ""
+        # Held because an earlier unfinished literal may still enclose the opener.
+        self._defer_hold = False
+        # Past `_DEFER_LIMIT`: undecided runs before the opener are settled as unmatched.
+        self._settle_runs = False
+        # The context prefix last checked to absorb plain narration unchanged.
+        self._plain_prefix: str | None = None
+        self._plain_ok = False
         self._raw_scan: (
             tuple[tuple[str, bool], MarkerContext, tuple[int, str] | None] | None
         ) = None
@@ -134,6 +153,11 @@ class InteractionSyntaxFilter:
             self._raw_marker_boundary = None
             self._held += text[cut:]
             return "".join(out) + self._drain()
+        if self._absorbs_plain(text):
+            # Plain words inside a narration line change no syntax state: no scan.
+            self._track_raw(self._context_prefix, text)
+            self._previous = ""
+            return text
         if self._pending_literal is not None:
             self._pending_literal_chunks.append(text)
             pending = pending_literal_context(self._pending_literal + text)
@@ -145,11 +169,66 @@ class InteractionSyntaxFilter:
             text = "".join(self._pending_literal_chunks)
             self._pending_literal_chunks.clear()
         self._held += text
-        return self._drain()
+        if self._defer_hold:
+            if len(self._held) > _DEFER_LIMIT:
+                self._settle_runs = True
+            elif not _DEFER_TRIGGER.search(text):
+                # Nothing in this delta can close the literal or end the paragraph,
+                # so the held opener's classification cannot have changed.
+                return ""
+        released = self._drain()
+        if not self._defer_hold:
+            self._settle_runs = False
+        return released
+
+    def _absorbs_plain(self, text: str) -> bool:
+        """Whether `text` passes straight through: plain words after narration."""
+        if (
+            self._held
+            or self._fence is not None
+            or self._inside
+            or self._pending_literal is not None
+            or self._line_so_far != "x"
+            or _PLAIN.fullmatch(text) is None
+        ):
+            return False
+        if self._plain_prefix != self._context_prefix:
+            # Only a settled witness qualifies: nothing unfinished that words could
+            # still extend or invalidate, and a narration line they leave as it is.
+            # Unmatched code or math runs and open link labels are fine: words can
+            # neither close nor break them.
+            context = analyze_marker_context(
+                self._context_prefix,
+                final=False,
+                label_counts=self._context_label_counts,
+            )
+            settled = not (
+                any(not marker.complete for marker in context.markers)
+                or context.pending_resource_opener
+                or context.pending_html_start is not None
+                or context.pending_autolink_start is not None
+                or context.pending_resource_start is not None
+                or context.pending_reference_start is not None
+                or context.pending_block_start is not None
+            )
+            counts: dict[int, int] = {}
+            self._plain_ok = (
+                settled
+                and compact_marker_context(
+                    self._context_prefix + "a",
+                    label_counts=self._context_label_counts,
+                    counts_out=counts,
+                )
+                == self._context_prefix
+                and counts == self._context_label_counts
+            )
+            self._plain_prefix = self._context_prefix
+        return self._plain_ok
 
     def _drain(self, *, final: bool = False) -> str:
         """Classify held source, replaying an unresolved literal candidate at EOF."""
         out: list[str] = []
+        self._defer_hold = False
         while self._held:
             if self._inside:
                 # Read the control's paragraph with the emitted context before it, so
@@ -234,6 +313,7 @@ class InteractionSyntaxFilter:
                 # opener. Hold it, and what follows, until the literal is decided.
                 self._emit(out, self._held[:start])
                 self._held = self._held[start:]
+                self._defer_hold = True
                 return "".join(out)
             if start < 0 and self._fence is not None:
                 # Inside a code block with no fence in sight: all text, but a line that may yet
@@ -328,29 +408,33 @@ class InteractionSyntaxFilter:
         self._line_so_far = "x"
 
     def _track_raw(self, prefix_before: str, text: str) -> None:
-        """Extend the raw literal context, restarting it at the last safe point."""
+        """Extend the raw literal context, restarting it at the last safe point.
+
+        Only the new text and a short tail are searched, so the work per emitted
+        chunk does not grow with the paragraph.
+        """
+        tail = self._raw_tail
+        safe = [
+            match.end()
+            for match in _SAFE_POINT.finditer(tail + text)
+            if match.end() > len(tail)
+        ]
+        cut = safe[-1] - len(tail) if safe else None
         if self._raw is not None:
-            raw = self._raw + text
-            safe = [match.end() for match in _SAFE_POINT.finditer(raw)]
-            if safe:
+            if cut is not None:
                 self._raw_base = compact_marker_context(
-                    self._raw_base + raw[: safe[-1]]
+                    self._raw_base + self._raw + text[:cut]
                 )
-                raw = raw[safe[-1] :]
+                raw: str | None = text[cut:]
+            else:
+                raw = self._raw + text
+        elif cut is not None:
+            self._raw_base = compact_marker_context(prefix_before + text[:cut])
+            raw = text[cut:]
         else:
-            tail = self._raw_tail
-            safe = [
-                match.end()
-                for match in _SAFE_POINT.finditer(tail + text)
-                if match.end() > len(tail)
-            ]
             raw = None
-            if safe:
-                cut = safe[-1] - len(tail)
-                self._raw_base = compact_marker_context(prefix_before + text[:cut])
-                raw = text[cut:]
         self._raw = raw if raw is not None and len(raw) <= _RAW_LIMIT else None
-        self._raw_tail = (self._raw_tail + text)[-8:]
+        self._raw_tail = (tail + text)[-8:]
 
     def _reset_raw(self) -> None:
         self._raw_base = ""
@@ -405,6 +489,8 @@ class InteractionSyntaxFilter:
         if self._inside and find_interaction_end(self._held, 2) == len(self._held) - 1:
             self.spans.append(self._held)
             self._held = ""
+        self._defer_hold = False
+        self._settle_runs = False
         tail, self._held = self._held, ""
         self._inside = False
         self._fence = None
@@ -760,6 +846,13 @@ class InteractionSyntaxFilter:
             if pending is not None and pending[0] < source_at:
                 self._pending_witness = pending[1]
                 return "witness"
+            if self._settle_runs:
+                # Held long enough: decide on what is literal now.
+                return (
+                    "literal"
+                    if any(start <= source_at < end for start, end in context.literals)
+                    else None
+                )
             if any(
                 start < source_at
                 for start, _ in (*context.unmatched_backticks, *context.unmatched_math)
