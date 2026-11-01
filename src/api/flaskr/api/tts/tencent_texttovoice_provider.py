@@ -19,12 +19,8 @@ TRTC provider; no AppId is required for TextToVoice).
 """
 
 import base64
-import datetime as dt
-import hashlib
-import hmac
 import json
 import logging
-import time
 import uuid
 
 import requests
@@ -38,6 +34,7 @@ from flaskr.api.tts.base import (
     TTSResult,
     VoiceSettings,
 )
+from flaskr.api.tts.tencent_tc3 import build_tc3_headers
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts import resolve_tts_billable_chars
@@ -54,7 +51,6 @@ TENCENT_TEXTTOVOICE_SERVICE = "tts"
 TENCENT_TEXTTOVOICE_ACTION = "TextToVoice"
 TENCENT_TEXTTOVOICE_VERSION = "2019-08-23"
 TENCENT_TEXTTOVOICE_REGION = "ap-guangzhou"
-TENCENT_TEXTTOVOICE_ALGORITHM = "TC3-HMAC-SHA256"
 
 TENCENT_TEXTTOVOICE_PREMIUM_MODEL = "premium"
 TENCENT_TEXTTOVOICE_LARGE_MODEL = "large-model"
@@ -146,14 +142,6 @@ _VOICE_MODEL_BY_ID = {
 }
 
 
-def _sha256_hex(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def _tc3_sign(key: bytes, message: str) -> bytes:
-    return hmac.new(key, message.encode("utf-8"), hashlib.sha256).digest()
-
-
 def build_texttovoice_tc3_headers(
     *,
     payload_json: str,
@@ -162,59 +150,17 @@ def build_texttovoice_tc3_headers(
     timestamp: int | None = None,
 ) -> dict[str, str]:
     """Build texttovoice TC3 headers."""
-    request_timestamp = int(timestamp if timestamp is not None else time.time())
-    request_date = dt.datetime.fromtimestamp(
-        request_timestamp,
-        tz=dt.UTC,
-    ).strftime("%Y-%m-%d")
-    canonical_headers = (
-        "content-type:application/json\n"
-        f"host:{TENCENT_TEXTTOVOICE_HOST}\n"
-        f"x-tc-action:{TENCENT_TEXTTOVOICE_ACTION.lower()}\n"
+    return build_tc3_headers(
+        host=TENCENT_TEXTTOVOICE_HOST,
+        service=TENCENT_TEXTTOVOICE_SERVICE,
+        action=TENCENT_TEXTTOVOICE_ACTION,
+        version=TENCENT_TEXTTOVOICE_VERSION,
+        region=TENCENT_TEXTTOVOICE_REGION,
+        payload_json=payload_json,
+        secret_id=secret_id,
+        secret_key=secret_key,
+        timestamp=timestamp,
     )
-    signed_headers = "content-type;host;x-tc-action"
-    canonical_request = "\n".join(
-        [
-            "POST",
-            "/",
-            "",
-            canonical_headers,
-            signed_headers,
-            _sha256_hex(payload_json),
-        ]
-    )
-    credential_scope = f"{request_date}/{TENCENT_TEXTTOVOICE_SERVICE}/tc3_request"
-    string_to_sign = "\n".join(
-        [
-            TENCENT_TEXTTOVOICE_ALGORITHM,
-            str(request_timestamp),
-            credential_scope,
-            _sha256_hex(canonical_request),
-        ]
-    )
-    secret_date = _tc3_sign(
-        ("TC3" + str(secret_key or "")).encode("utf-8"), request_date
-    )
-    secret_service = _tc3_sign(secret_date, TENCENT_TEXTTOVOICE_SERVICE)
-    secret_signing = _tc3_sign(secret_service, "tc3_request")
-    signature = hmac.new(
-        secret_signing,
-        string_to_sign.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    authorization = (
-        f"{TENCENT_TEXTTOVOICE_ALGORITHM} Credential={secret_id}/{credential_scope}, "
-        f"SignedHeaders={signed_headers}, Signature={signature}"
-    )
-    return {
-        "Authorization": authorization,
-        "Content-Type": "application/json",
-        "Host": TENCENT_TEXTTOVOICE_HOST,
-        "X-TC-Action": TENCENT_TEXTTOVOICE_ACTION,
-        "X-TC-Version": TENCENT_TEXTTOVOICE_VERSION,
-        "X-TC-Region": TENCENT_TEXTTOVOICE_REGION,
-        "X-TC-Timestamp": str(request_timestamp),
-    }
 
 
 def _resolve_sample_rate(voice_id: str, model: str | None) -> int:

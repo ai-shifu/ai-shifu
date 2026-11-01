@@ -49,6 +49,11 @@ from flaskr.service.shifu.models import (
 from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 
 def _clear_dashboard_tables() -> None:
     db.session.query(CreditLedgerEntry).delete()
@@ -282,36 +287,30 @@ class TestDashboardRoutes:
 
             db.session.add_all(
                 [
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="entry-progress-a-1",
                         shifu_bid="course-a",
                         outline_item_bid="outline-1",
                         user_bid="learner-1",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=now,
                         updated_at=now,
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="entry-progress-a-2",
                         shifu_bid="course-a",
                         outline_item_bid="outline-1",
                         user_bid="learner-2",
                         status=LEARN_STATUS_NOT_STARTED,
-                        block_position=0,
-                        deleted=0,
                         created_at=now,
                         updated_at=now,
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="entry-progress-b-1",
                         shifu_bid="course-b",
                         outline_item_bid="outline-2",
                         user_bid="learner-3",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=now,
                         updated_at=now,
                     ),
@@ -390,36 +389,30 @@ class TestDashboardRoutes:
 
             db.session.add_all(
                 [
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="entry-filter-progress-alg",
                         shifu_bid="course-alg",
                         outline_item_bid="outline-1",
                         user_bid="learner-a",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=in_range,
                         updated_at=in_range,
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="entry-filter-progress-bio",
                         shifu_bid="course-bio",
                         outline_item_bid="outline-2",
                         user_bid="learner-b",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=in_range,
                         updated_at=in_range,
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="entry-filter-progress-created-out",
                         shifu_bid="course-alg",
                         outline_item_bid="outline-3",
                         user_bid="learner-c",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=out_of_range,
                         updated_at=in_range,
                     ),
@@ -484,14 +477,12 @@ class TestDashboardRoutes:
             self._seed_dashboard_course(shifu_bid="course-timezone", title="Course TZ")
             last_active = datetime(2026, 3, 6, 8, 0, 0)
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="entry-timezone-progress-1",
                     shifu_bid="course-timezone",
                     outline_item_bid="outline-1",
                     user_bid="learner-1",
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=0,
-                    deleted=0,
                     created_at=last_active - timedelta(hours=1),
                     updated_at=last_active,
                 )
@@ -715,14 +706,12 @@ class TestDashboardRoutes:
                 shifu_bid="course-pending-order", title="Pending Order Course"
             )
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="pending-order-progress-1",
                     shifu_bid="course-pending-order",
                     outline_item_bid="outline-pending-order-1",
                     user_bid="learner-pending",
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=0,
-                    deleted=0,
                     created_at=now,
                     updated_at=now,
                 )
@@ -1020,58 +1009,48 @@ class TestDashboardRoutes:
 
             db.session.add_all(
                 [
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="detail-progress-u1-l1",
                         shifu_bid="course-detail",
                         outline_item_bid="lesson-1",
                         user_bid="learner-1",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=recent_now - timedelta(hours=2),
                         updated_at=recent_now - timedelta(hours=1, minutes=30),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="detail-progress-u1-l2",
                         shifu_bid="course-detail",
                         outline_item_bid="lesson-2",
                         user_bid="learner-1",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=recent_now - timedelta(hours=1, minutes=50),
                         updated_at=recent_now - timedelta(hours=1),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="detail-progress-u1-l3",
                         shifu_bid="course-detail",
                         outline_item_bid="lesson-3",
                         user_bid="learner-1",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=recent_now - timedelta(hours=1, minutes=40),
                         updated_at=recent_now - timedelta(minutes=30),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="detail-progress-u2-l1",
                         shifu_bid="course-detail",
                         outline_item_bid="lesson-1",
                         user_bid="learner-2",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=old_activity - timedelta(minutes=25),
                         updated_at=old_activity - timedelta(minutes=5),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="detail-progress-u2-l2",
                         shifu_bid="course-detail",
                         outline_item_bid="lesson-2",
                         user_bid="learner-2",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=old_activity - timedelta(minutes=20),
                         updated_at=old_activity,
                     ),
@@ -1114,88 +1093,73 @@ class TestDashboardRoutes:
             )
             db.session.add_all(
                 [
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="detail-ask-1",
                         progress_record_bid="detail-progress-u1-l1",
                         user_bid="learner-1",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-detail",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="Question 1",
                         position=1,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=recent_now,
                         updated_at=recent_now,
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="detail-ask-2",
                         progress_record_bid="detail-progress-u1-l2",
                         user_bid="learner-1",
-                        block_bid="",
                         outline_item_bid="lesson-2",
                         shifu_bid="course-detail",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="Question 2",
                         position=2,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=recent_now,
                         updated_at=recent_now,
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="detail-ask-3",
                         progress_record_bid="detail-progress-u2-l1",
                         user_bid="learner-2",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-detail",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="Question 3",
                         position=3,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=recent_now,
                         updated_at=recent_now,
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="detail-ignore-teacher",
                         progress_record_bid="detail-progress-u2-l1",
                         user_bid="learner-2",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-detail",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_TEACHER,
                         generated_content="Ignore",
                         position=4,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=recent_now,
                         updated_at=recent_now,
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="detail-ignore-type",
                         progress_record_bid="detail-progress-u2-l2",
                         user_bid="learner-2",
-                        block_bid="",
                         outline_item_bid="lesson-2",
                         shifu_bid="course-detail",
                         type=BLOCK_TYPE_CONTENT_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="Ignore",
                         position=5,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=recent_now,
                         updated_at=recent_now,
                     ),
@@ -1515,25 +1479,21 @@ class TestDashboardRoutes:
             )
             db.session.add_all(
                 [
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="alpha-progress",
                         shifu_bid="course-learner-list",
                         outline_item_bid="lesson-1",
                         user_bid="learner-alpha",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(days=2),
                         updated_at=now - timedelta(days=1),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="beta-progress",
                         shifu_bid="course-learner-list",
                         outline_item_bid="lesson-1",
                         user_bid="learner-beta",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(days=3),
                         updated_at=now - timedelta(days=2),
                     ),
@@ -1935,102 +1895,85 @@ class TestDashboardRoutes:
                 position="1.1",
             )
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="followup-progress-1",
                     shifu_bid="course-followups",
                     outline_item_bid="lesson-1",
                     user_bid="learner-followup-1",
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=0,
-                    deleted=0,
                     created_at=now - timedelta(days=1),
                     updated_at=now,
                 )
             )
             db.session.add_all(
                 [
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="followup-source-1",
                         progress_record_bid="followup-progress-1",
                         user_bid="learner-followup-1",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-followups",
                         type=BLOCK_TYPE_MDCONTENT_VALUE,
                         role=ROLE_TEACHER,
                         generated_content="Start by reviewing the lesson objective.",
                         position=1,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=now - timedelta(hours=2, minutes=5),
                         updated_at=now - timedelta(hours=2, minutes=5),
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="followup-ask-1",
                         progress_record_bid="followup-progress-1",
                         user_bid="learner-followup-1",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-followups",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="How should I start lesson 1?",
                         position=1,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=now - timedelta(hours=2),
                         updated_at=now - timedelta(hours=2),
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="followup-answer-1",
                         progress_record_bid="followup-progress-1",
                         user_bid="learner-followup-1",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-followups",
                         type=BLOCK_TYPE_MDCONTENT_VALUE,
                         role=ROLE_TEACHER,
                         generated_content="Start with the first exercise.",
                         position=1,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=now - timedelta(hours=1, minutes=55),
                         updated_at=now - timedelta(hours=1, minutes=55),
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="followup-ask-2",
                         progress_record_bid="followup-progress-1",
                         user_bid="learner-followup-1",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-followups",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="What if I still do not understand?",
                         position=2,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=now - timedelta(hours=1),
                         updated_at=now - timedelta(hours=1),
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="followup-answer-2",
                         progress_record_bid="followup-progress-1",
                         user_bid="learner-followup-1",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-followups",
                         type=BLOCK_TYPE_MDCONTENT_VALUE,
                         role=ROLE_TEACHER,
                         generated_content="Review the worked example once more.",
                         position=2,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=now - timedelta(minutes=55),
                         updated_at=now - timedelta(minutes=55),
                     ),
@@ -2176,51 +2119,43 @@ class TestDashboardRoutes:
                 position="1.1",
             )
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="followup-page-progress-1",
                     shifu_bid="course-followups-pages",
                     outline_item_bid="lesson-1",
                     user_bid="learner-followup-page",
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=0,
-                    deleted=0,
                     created_at=now - timedelta(days=1),
                     updated_at=now,
                 )
             )
             db.session.add_all(
                 [
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="followup-page-ask-1",
                         progress_record_bid="followup-page-progress-1",
                         user_bid="learner-followup-page",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-followups-pages",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="First question",
                         position=1,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=now - timedelta(hours=2),
                         updated_at=now - timedelta(hours=2),
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid="followup-page-ask-2",
                         progress_record_bid="followup-page-progress-1",
                         user_bid="learner-followup-page",
-                        block_bid="",
                         outline_item_bid="lesson-1",
                         shifu_bid="course-followups-pages",
                         type=BLOCK_TYPE_MDASK_VALUE,
                         role=ROLE_STUDENT,
                         generated_content="Second question",
                         position=2,
-                        block_content_conf="",
                         status=1,
-                        deleted=0,
                         created_at=now - timedelta(hours=1),
                         updated_at=now - timedelta(hours=1),
                     ),
@@ -2373,14 +2308,12 @@ class TestDashboardRoutes:
                 )
             )
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="course-detail-tz-progress-1",
                     shifu_bid="course-detail-tz-learners",
                     outline_item_bid="tz-lesson-1",
                     user_bid="course-detail-tz-learner",
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=0,
-                    deleted=0,
                     created_at=joined_at,
                     updated_at=last_learning_at,
                 )
@@ -2436,91 +2369,75 @@ class TestDashboardRoutes:
             now = now_utc()
             db.session.add_all(
                 [
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u1-l1-completed",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-1",
                         user_bid="learner-1",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(hours=4),
                         updated_at=now - timedelta(hours=4),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u1-l2-completed",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-2",
                         user_bid="learner-1",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(hours=3),
                         updated_at=now - timedelta(hours=3),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u2-l1-completed",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-1",
                         user_bid="learner-2",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(hours=4),
                         updated_at=now - timedelta(hours=4),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u2-l2-reset",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-2",
                         user_bid="learner-2",
                         status=LEARN_STATUS_RESET,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(hours=2),
                         updated_at=now - timedelta(hours=2),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u2-l2-restudy",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-2",
                         user_bid="learner-2",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(hours=1),
                         updated_at=now - timedelta(hours=1),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u3-l1-completed",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-1",
                         user_bid="learner-3",
                         status=LEARN_STATUS_COMPLETED,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(minutes=50),
                         updated_at=now - timedelta(minutes=50),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u4-l1-in-progress",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-1",
                         user_bid="learner-4",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(minutes=40),
                         updated_at=now - timedelta(minutes=40),
                     ),
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid="restudy-u4-l2-in-progress",
                         shifu_bid="course-restudy",
                         outline_item_bid="lesson-2",
                         user_bid="learner-4",
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
-                        deleted=0,
                         created_at=now - timedelta(minutes=30),
                         updated_at=now - timedelta(minutes=30),
                     ),

@@ -23,6 +23,8 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
 )
 
+from tests.common.fixtures.model_factories import make_progress_record
+
 
 @pytest.fixture
 def feedback_course(app: object, monkeypatch: object) -> object:
@@ -36,13 +38,12 @@ def feedback_course(app: object, monkeypatch: object) -> object:
     )
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=identity,
                 shifu_bid=identity,
                 outline_item_bid=identity,
                 user_bid=identity,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
         db.session.add(
@@ -846,13 +847,12 @@ def test_reset_status_reads_recorded_usage_over_http(
     assert before["data"] == {"can_reset": True}
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=learner,
                 shifu_bid=feedback_course.bid,
                 outline_item_bid=feedback_course.bid,
                 user_bid=learner,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
     first = test_client.delete(url, headers={"Token": "test-token"}).get_json(
@@ -861,13 +861,12 @@ def test_reset_status_reads_recorded_usage_over_http(
     assert first["data"] is True
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=learner + "-again",
                 shifu_bid=feedback_course.bid,
                 outline_item_bid=feedback_course.bid,
                 user_bid=learner,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
     after = test_client.get(

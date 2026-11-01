@@ -11,11 +11,13 @@ from flaskr.service.dashboard import funcs as dashboard
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
-    LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
 from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
+from flaskr.service.user.contact_lookup import load_user_contact_map
 from flaskr.service.user.models import AuthCredential, UserInfo
+
+from tests.common.fixtures.model_factories import make_progress_record
 
 from . import test_dashboard_query_contracts as queries
 
@@ -147,9 +149,7 @@ def test_legacy_phone_identity_is_used_only_until_a_phone_credential_exists(
         )
     with app.app_context():
         assert (
-            dashboard._load_dashboard_course_user_contact_map([follow_up.bid])[
-                follow_up.bid
-            ]["mobile"]
+            load_user_contact_map([follow_up.bid])[follow_up.bid]["mobile"]
             == "13800138000"
         )
         with unit_of_work():
@@ -163,9 +163,7 @@ def test_legacy_phone_identity_is_used_only_until_a_phone_credential_exists(
                 )
             )
         assert (
-            dashboard._load_dashboard_course_user_contact_map([follow_up.bid])[
-                follow_up.bid
-            ]["mobile"]
+            load_user_contact_map([follow_up.bid])[follow_up.bid]["mobile"]
             == "13900139000"
         )
 
@@ -203,13 +201,12 @@ def test_hidden_only_course_has_no_completed_learners_or_exposed_lesson_details(
 ) -> None:
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=follow_up.bid,
                 user_bid=follow_up.bid,
                 shifu_bid=follow_up.bid,
                 outline_item_bid=follow_up.bid,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
     before = dashboard.build_dashboard_course_learners(

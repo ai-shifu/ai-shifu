@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from flask import Flask, request
-from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.dashboard.funcs import (
@@ -37,7 +36,6 @@ def _get_pagination_args() -> tuple[int, int]:
     return page_index, page_size
 
 
-@inject
 def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -> None:
     """Register dashboard routes."""
     app.logger.info("register dashboard routes %s", path_prefix)

@@ -361,12 +361,15 @@ def render_first_prompt(
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
     # stale fact and a fresh tool result tends to trust the fact.
-    parts = [
-        render_memory_section(
-            bundle, memory, limit=memory_limit, priority=memory_priority
-        )[0],
-        f"<script>\n{bundle.script}\n</script>",
-    ]
+    memory_section = render_memory_section(
+        bundle, memory, limit=memory_limit, priority=memory_priority
+    )[0]
+    return memory_section + "\n\n" + render_script_documents(bundle)
+
+
+def render_script_documents(bundle: ScriptBundle) -> str:
+    """Render the script, constraints and extras part of the first user message."""
+    parts = [f"<script>\n{bundle.script}\n</script>"]
     if bundle.constraints:
         parts.append(f"<constraints>\n{bundle.constraints}\n</constraints>")
     for name, body in bundle.extras.items():

@@ -21,6 +21,8 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_IN_PROGRESS
 
+from tests.common.fixtures.model_factories import make_progress_record
+
 
 def _element(
     content: str, *, interaction: bool = False, block_bid: str = ""
@@ -84,13 +86,12 @@ def test_completed_element_history_has_one_next_lesson_control(
     )
     with app.app_context():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=progress_bid,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
                 user_bid=user_bid,
                 status=LEARN_STATUS_COMPLETED,
-                block_position=0,
             )
         )
         db.session.commit()
@@ -136,15 +137,14 @@ def test_incomplete_latest_attempt_does_not_inherit_previous_navigation(
     with app.app_context():
         db.session.add_all(
             [
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=old_bid,
                     shifu_bid=shifu_bid,
                     outline_item_bid=outline_bid,
                     user_bid=user_bid,
                     status=LEARN_STATUS_COMPLETED,
-                    block_position=0,
                 ),
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=latest_bid,
                     shifu_bid=shifu_bid,
                     outline_item_bid=outline_bid,

@@ -14,7 +14,6 @@ from flaskr.dao import (
     is_abnormal_stream_termination,
     is_protocol_interrupt_error,
 )
-from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import _, get_current_language
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.billing.admission import admit_creator_usage
@@ -206,7 +205,6 @@ def _normalize_learning_mode(value: object, *, listen: bool = False) -> str:
     return "listen" if listen else "read"
 
 
-@inject
 def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """Register learn routes."""
     app.logger.info("register learn routes %s", path_prefix)

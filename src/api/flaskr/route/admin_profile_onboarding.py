@@ -6,6 +6,10 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, Response, request
 
+from flaskr.common.i18n_utils import (
+    canonicalize_language_tag,
+    match_supported_language,
+)
 from flaskr.i18n import get_current_language, get_i18n_list
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
@@ -42,29 +46,13 @@ def _reject_profile_onboarding_unknown_fields(
 
 
 def _normalize_profile_onboarding_language(_app: Flask, raw_language: str) -> str:
-    normalized = raw_language.strip().replace("_", "-")
-    parts = [part for part in normalized.split("-") if part]
-    if not parts:
+    normalized = canonicalize_language_tag(raw_language.strip())
+    if not normalized:
         raise_param_error("language")
-    normalized_parts = [parts[0].lower()]
-    for part in parts[1:]:
-        if len(part) == 2 and part.isalpha():
-            normalized_parts.append(part.upper())
-        elif len(part) == 4 and part.isalpha():
-            normalized_parts.append(part.title())
-        else:
-            normalized_parts.append(part)
-    normalized = "-".join(normalized_parts)
-    supported_languages = get_i18n_list()
-    for supported_language in supported_languages:
-        if supported_language.lower() == normalized.lower():
-            return supported_language
-    primary_language = normalized.split("-", 1)[0].lower()
-    for supported_language in supported_languages:
-        if supported_language.split("-", 1)[0].lower() == primary_language:
-            return supported_language
-    raise_param_error("language")
-    return ""  # pragma: no cover
+    supported_language = match_supported_language(normalized, get_i18n_list())
+    if supported_language is None:
+        raise_param_error("language")
+    return supported_language
 
 
 def register_operator_profile_onboarding_routes(

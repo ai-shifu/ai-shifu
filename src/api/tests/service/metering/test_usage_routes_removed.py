@@ -10,8 +10,8 @@ USAGE_SUMMARY_PATH = "/api/metering/usage-summary"
 
 
 def test_full_app_registers_no_metering_routes(app: Flask) -> None:
-    # create_app loads every @inject route registrar, so a reintroduced
-    # metering route would show up here even without an explicit import.
+    # create_app registers every route group, so a reintroduced metering
+    # route would show up here.
     metering_rules = sorted(
         rule.rule
         for rule in app.url_map.iter_rules()

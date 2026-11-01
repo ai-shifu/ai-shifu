@@ -56,6 +56,7 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -191,15 +192,13 @@ def _create_renewal_order(
     cycle_start_at: datetime,
     cycle_end_at: datetime,
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid="bill-product-plan-monthly",
         subscription_bid=subscription_bid,
-        currency="CNY",
         payable_amount=990,
-        paid_amount=0,
         payment_provider="stripe",
         channel="subscription",
         provider_reference_id=f"sub_{subscription_bid}",
@@ -220,13 +219,12 @@ def _create_paid_start_order(
     paid_at: datetime,
     metadata_json: dict | None = None,
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         product_bid="bill-product-plan-monthly",
         subscription_bid=subscription_bid,
-        currency="CNY",
         payable_amount=990,
         paid_amount=990,
         payment_provider="stripe",
@@ -244,15 +242,12 @@ def _create_pending_topup_order(
     creator_bid: str = "creator-1",
     charge_id: str = "ch_billing_feishu_topup_1",
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_TOPUP,
         product_bid="bill-product-topup-small",
-        subscription_bid="",
-        currency="CNY",
         payable_amount=5000,
-        paid_amount=0,
         payment_provider="pingxx",
         channel="alipay_qr",
         provider_reference_id=charge_id,
@@ -456,15 +451,13 @@ def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription
             next_product_bid="",
             metadata_json={},
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="billing-webhook-amount-guard",
             creator_bid="creator-amount-guard",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid="bill-product-plan-monthly",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=990,
-            paid_amount=0,
             payment_provider="stripe",
             channel="checkout_session",
             provider_reference_id="cs_amount_guard",
@@ -939,15 +932,13 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
             )
         )
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="billing-trial-upgrade-sync-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-trial-upgrade-sync-1",
-                currency="CNY",
                 payable_amount=9900,
-                paid_amount=0,
                 payment_provider="pingxx",
                 channel="wx_pub_qr",
                 provider_reference_id="ch_trial_upgrade_sync_pingxx_1",
@@ -1074,15 +1065,13 @@ def test_sync_native_order_completes_only_on_the_payable_amount(
             )
         )
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="billing-native-sync-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-native-sync-1",
-                currency="CNY",
                 payable_amount=9900,
-                paid_amount=0,
                 payment_provider=provider,
                 channel=provider,
                 provider_reference_id=attempt_id,

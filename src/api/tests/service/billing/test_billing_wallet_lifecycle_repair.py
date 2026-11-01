@@ -28,7 +28,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
@@ -45,6 +44,7 @@ from flaskr.service.billing.wallets import (
 )
 from flaskr.util.datetime import to_utc_iso
 
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.wallet_lifecycle_test_helpers import (
     create_monthly_plan_product,
 )
@@ -303,15 +303,12 @@ def test_repair_renewal_state_drift_dry_run_reports_overdue_reserved_paid_grant(
             current_period_end_at=boundary_at,
         )
         product = create_monthly_plan_product(subscription.product_bid)
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=wallet.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-renewal-drift-protected",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-protected-dry-run",
@@ -485,15 +482,12 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             allocation_interval=2,
             auto_renew_enabled=1,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=wallet.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-protected-apply",
@@ -690,15 +684,12 @@ def test_repair_renewal_state_drift_all_scope_includes_reserved_only_creator(
             current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
         )
         product = create_monthly_plan_product(subscription.product_bid)
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-reserved-only",
@@ -793,15 +784,12 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             current_period_end_at=boundary_at,
         )
         product = create_monthly_plan_product(subscription.product_bid)
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-activation-fails",
@@ -916,15 +904,12 @@ def test_repair_renewal_state_drift_blocks_cycle_when_subscription_grant_missing
             current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
             current_period_end_at=boundary_at,
         )
-        first_order = BillingOrder(
+        first_order = make_billing_order(
             bill_order_bid=first_order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=first_order_bid,
@@ -935,15 +920,12 @@ def test_repair_renewal_state_drift_blocks_cycle_when_subscription_grant_missing
                 "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
             },
         )
-        missing_order = BillingOrder(
+        missing_order = make_billing_order(
             bill_order_bid=missing_order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=missing_order_bid,
@@ -1044,15 +1026,12 @@ def test_repair_renewal_state_drift_blocks_unknown_subscription_grant_state(
             current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
             current_period_end_at=boundary_at,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=order_bid,
@@ -1169,15 +1148,12 @@ def test_repair_renewal_state_drift_blocks_short_subscription_grant_amount(
             current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
             current_period_end_at=boundary_at,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=order_bid,
@@ -1294,15 +1270,12 @@ def test_repair_renewal_state_drift_ignores_legacy_missing_state_without_reserve
             current_period_start_at=repaired_at,
             current_period_end_at=period_end,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=order_bid,
@@ -1403,15 +1376,12 @@ def test_repair_renewal_state_drift_keeps_missing_state_with_matching_reserved_b
             current_period_start_at=boundary_at,
             current_period_end_at=next_cycle_end,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=order_bid,
@@ -1512,15 +1482,12 @@ def test_repair_renewal_state_drift_keeps_missing_state_from_seeded_creator_scan
             current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
             current_period_end_at=boundary_at,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=order_bid,
@@ -1624,15 +1591,12 @@ def test_repair_renewal_state_drift_ignores_shared_bucket_legacy_missing_state(
             current_period_start_at=current_boundary_at,
             current_period_end_at=next_cycle_end,
         )
-        old_order = BillingOrder(
+        old_order = make_billing_order(
             bill_order_bid=old_order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=old_order_bid,
@@ -1643,15 +1607,12 @@ def test_repair_renewal_state_drift_ignores_shared_bucket_legacy_missing_state(
                 "renewal_cycle_end_at": to_utc_iso(current_boundary_at),
             },
         )
-        current_order = BillingOrder(
+        current_order = make_billing_order(
             bill_order_bid=current_order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=current_order_bid,
@@ -1773,15 +1734,12 @@ def test_repair_renewal_state_drift_all_scope_falls_back_to_source_bid(
             current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
             current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=order_bid,
@@ -1880,15 +1838,12 @@ def test_repair_renewal_state_drift_blocks_when_campaign_bonus_grant_missing(
             current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
             current_period_end_at=boundary_at,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id=order_bid,
@@ -2007,15 +1962,12 @@ def test_repair_renewal_state_drift_blocks_same_order_when_bonus_only_would_succ
             allocation_interval=2,
             auto_renew_enabled=1,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-bonus-only-success",
@@ -2188,15 +2140,12 @@ def test_repair_renewal_state_drift_blocks_same_order_when_subscription_only_wou
             allocation_interval=2,
             auto_renew_enabled=1,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-subscription-only-success",
@@ -2381,15 +2330,12 @@ def test_repair_renewal_state_drift_blocks_multi_order_cycle_atomically(
             allocation_interval=2,
             auto_renew_enabled=1,
         )
-        order_a = BillingOrder(
+        order_a = make_billing_order(
             bill_order_bid="order-renewal-drift-multi-order-blocked-a",
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_a.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-multi-order-blocked-a",
@@ -2400,15 +2346,12 @@ def test_repair_renewal_state_drift_blocks_multi_order_cycle_atomically(
                 "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
             },
         )
-        order_b = BillingOrder(
+        order_b = make_billing_order(
             bill_order_bid="order-renewal-drift-multi-order-blocked-b",
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_b.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-multi-order-blocked-b",
@@ -2589,15 +2532,12 @@ def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
             allocation_interval=2,
             auto_renew_enabled=1,
         )
-        order_a = BillingOrder(
+        order_a = make_billing_order(
             bill_order_bid="order-renewal-drift-multi-order-success-a",
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_a.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-multi-order-success-a",
@@ -2608,15 +2548,12 @@ def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
                 "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
             },
         )
-        order_b = BillingOrder(
+        order_b = make_billing_order(
             bill_order_bid="order-renewal-drift-multi-order-success-b",
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product_b.product_bid,
             subscription_bid=subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="repair-multi-order-success-b",
@@ -3507,7 +3444,7 @@ def _seed_wrongly_expired_credit_pack_bucket(
         last_settled_usage_id=0,
         version=0,
     )
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_TOPUP,

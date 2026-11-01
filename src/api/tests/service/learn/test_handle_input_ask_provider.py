@@ -6,6 +6,11 @@ import types
 
 import pytest
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+)
+
 
 def _install_litellm_stub() -> None:
     if "litellm" in sys.modules:
@@ -1221,6 +1226,7 @@ def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
     from unittest.mock import Mock
 
     from flaskr.api import llm
+    from flaskr.api.check import CHECK_RESULT_PASS
     from flaskr.api.llm import model_selection
     from flaskr.service.common.models import ERROR_CODE, AppError
     from flaskr.service.learn import check_text
@@ -1234,14 +1240,14 @@ def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
         module, "check_text_with_llm_response", check_text.check_text_with_llm_response
     )
     monkeypatch.setattr(check_text, "invoke_llm", llm.invoke_llm)
-    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    monkeypatch.setattr(check_text, "record_check_result", lambda *_args: None)
     monkeypatch.setattr(
         check_text,
         "check_text",
         lambda *_args: types.SimpleNamespace(
             check_result=check_text.CHECK_RESULT_REJECT
             if reject
-            else check_text.CHECK_RESULT_PASS,
+            else CHECK_RESULT_PASS,
             provider="test",
             raw_data={},
             risk_labels=[],
@@ -1434,7 +1440,7 @@ def test_guardrail_reply_usage_belongs_to_the_current_answer(
     monkeypatch.setattr(
         module, "check_text_with_llm_response", check_text.check_text_with_llm_response
     )
-    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    monkeypatch.setattr(check_text, "record_check_result", lambda *_args: None)
     checked = []
 
     def reject(_app: object, block_bid: str, *_args: object) -> object:
@@ -1561,7 +1567,7 @@ def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
     from flaskr.service.learn.ask import handler as module
     from flaskr.service.learn.ask.quotations import LearnerQuotationSource
     from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
-    from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+    from flaskr.service.learn.models import LearnGeneratedBlock
     from flaskr.service.shifu.consts import (
         BLOCK_TYPE_MDASK_VALUE,
         BLOCK_TYPE_MDCONTENT_VALUE,
@@ -1604,7 +1610,7 @@ def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
         ("user_bid", "shifu_bid", "outline_item_bid", "progress_record_bid"), identity
     )
     with app.app_context(), unit_of_work():
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             **fields,
             generated_block_bid=uuid.uuid4().hex,
             type=BLOCK_TYPE_MDCONTENT_VALUE,
@@ -1612,14 +1618,12 @@ def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
             status=1,
         )
         db.session.add(block)
-        anchor = LearnGeneratedElement(
+        anchor = make_generated_element(
             **fields,
             element_bid=uuid.uuid4().hex,
             generated_block_bid=block.generated_block_bid,
-            event_type="element",
             element_type="text",
             content_text="Anchor",
-            status=1,
         )
         db.session.add(anchor)
         db.session.flush()

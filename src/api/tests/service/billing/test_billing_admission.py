@@ -25,7 +25,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingEntitlement,
-    BillingOrder,
     BillingSubscription,
     CreditWallet,
     CreditWalletBucket,
@@ -40,6 +39,7 @@ from flaskr.service.shifu.models import PublishedShifu
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -599,13 +599,12 @@ def test_repair_subscription_cycle_mismatches_restores_admission_for_current_buc
             )
         )
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="bill-order-repair-cycle-1",
                 creator_bid="creator-repair-cycle-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="subscription-repair-cycle-1",
-                currency="CNY",
                 payable_amount=990,
                 paid_amount=990,
                 payment_provider="pingxx",

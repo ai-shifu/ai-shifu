@@ -1,7 +1,8 @@
-"""Exercise host and follow-up modules imported as children of the learn package."""
+"""Exercise host and follow-up modules imported as children of their packages."""
 
-from flaskr.service.learn import follow_up_context, runscript_v2
+from flaskr.service.learn.ask import context
+from flaskr.service.learn.host import run
 
 
 def load_host_modules() -> tuple[object, object]:
-    return follow_up_context, runscript_v2
+    return context, run

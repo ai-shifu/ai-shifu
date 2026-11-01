@@ -58,8 +58,10 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
-from flaskr.service.shifu import admin as admin_module
-from flaskr.service.shifu.admin_dtos import (
+from flaskr.service.shifu import admin_user_courses as user_courses_module
+from flaskr.service.shifu import admin_user_credits as user_credit_queries_module
+from flaskr.service.shifu import admin_user_profiles as user_profiles_module
+from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserListDTO,
@@ -106,6 +108,12 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.billing_products import build_bill_products
+from tests.common.fixtures.model_factories import (
+    make_billing_order,
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -343,18 +351,14 @@ def _seed_billing_order(
     bill_order_bid: str,
     metadata_json: dict | None = None,
 ) -> object:
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         product_bid="product-1",
         subscription_bid="subscription-1",
-        currency="CNY",
-        payable_amount=0,
-        paid_amount=0,
         payment_provider="manual",
         channel="manual",
-        provider_reference_id="",
         status=BILLING_ORDER_STATUS_PAID,
         metadata_json=metadata_json or {},
     )
@@ -536,7 +540,7 @@ def _seed_generated_block(
     generated_content: str,
     created_at: datetime,
 ) -> object:
-    block = LearnGeneratedBlock(
+    block = make_generated_block(
         generated_block_bid=generated_block_bid,
         progress_record_bid=progress_record_bid,
         user_bid=user_bid,
@@ -566,20 +570,18 @@ def _seed_generated_element(
     sequence_number: int,
     created_at: datetime,
 ) -> object:
-    element = LearnGeneratedElement(
+    element = make_generated_element(
         element_bid=element_bid,
         generated_block_bid=generated_block_bid,
         progress_record_bid=progress_record_bid,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_item_bid=outline_item_bid,
-        event_type="element",
         element_type="text",
         is_speakable=1,
         content_text=content_text,
         audio_segments=audio_segments,
         sequence_number=sequence_number,
-        status=1,
     )
     element.created_at = created_at
     element.updated_at = created_at
@@ -597,7 +599,7 @@ def _seed_learn_progress(
     status: int,
     created_at: datetime,
 ) -> object:
-    progress_record = LearnProgressRecord(
+    progress_record = make_progress_record(
         progress_record_bid=f"progress-{user_bid}-{outline_item_bid}-{status}",
         shifu_bid=shifu_bid,
         outline_item_bid=outline_item_bid,
@@ -882,10 +884,11 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
         def now(cls, tz: object = None) -> datetime:
             return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
 
-    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(user_profiles_module, "datetime", FixedDateTime)
     # The recent-window helper now defaults to now_utc(); pin it to the same
-    # fixed clock (the facade setattr forwards into the split submodules).
-    monkeypatch.setattr(admin_module, "now_utc", FixedDateTime.now)
+    # fixed clock in the modules that read it.
+    monkeypatch.setattr(user_profiles_module, "now_utc", FixedDateTime.now)
+    monkeypatch.setattr(user_credit_queries_module, "now_utc", FixedDateTime.now)
 
     with app.app_context():
         _seed_user(
@@ -996,9 +999,10 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
         def now(cls, tz: object = None) -> datetime:
             return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
 
-    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(user_profiles_module, "datetime", FixedDateTime)
     # Keep the now_utc()-based window helper on the same fixed clock.
-    monkeypatch.setattr(admin_module, "now_utc", FixedDateTime.now)
+    monkeypatch.setattr(user_profiles_module, "now_utc", FixedDateTime.now)
+    monkeypatch.setattr(user_credit_queries_module, "now_utc", FixedDateTime.now)
 
     with app.app_context():
         _seed_user(
@@ -1269,19 +1273,21 @@ def test_user_course_count_maps_use_lightweight_course_rows(
         return []
 
     monkeypatch.setattr(
-        admin_module,
+        user_courses_module,
         "_load_latest_shifus",
         fake_load_latest_shifus,
     )
     monkeypatch.setattr(
-        admin_module,
+        user_courses_module,
         "_load_latest_courses_by_shifu_bids",
         fake_load_latest_courses_by_shifu_bids,
     )
 
     with app.app_context():
         created_count_map, learning_count_map = (
-            admin_module._load_operator_user_course_count_maps(["user-no-activity"])
+            user_courses_module._load_operator_user_course_count_maps(
+                ["user-no-activity"]
+            )
         )
 
     assert created_count_map == {"user-no-activity": 0}
@@ -3073,8 +3079,15 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
         "now_utc",
         lambda: datetime(2026, 4, 21, 0, 0, 0),
     )
-    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_module, "now_utc", lambda: datetime(2026, 4, 21, 0, 0, 0))
+    monkeypatch.setattr(user_profiles_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(
+        user_profiles_module, "now_utc", lambda: datetime(2026, 4, 21, 0, 0, 0)
+    )
+    monkeypatch.setattr(
+        user_credit_queries_module,
+        "now_utc",
+        lambda: datetime(2026, 4, 21, 0, 0, 0),
+    )
     monkeypatch.setattr(
         user_credits_module, "now_utc", lambda: datetime(2026, 4, 21, 0, 0, 0)
     )
@@ -5008,13 +5021,13 @@ def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
 
     with app.app_context():
         monkeypatch.setattr(
-            admin_module.UserEntity,
+            user_profiles_module.UserEntity,
             "query",
             ForbiddenUserQuery(),
             raising=False,
         )
 
-        result = admin_module._load_operator_user_registration_source_map(
+        result = user_profiles_module._load_operator_user_registration_source_map(
             ["user-1", "user-2"],
             users=[],
             credential_rows=[
@@ -5034,7 +5047,7 @@ def test_registration_source_map_skips_unknown_provider_when_supported_one_exist
     app: object,
 ) -> None:
     with app.app_context():
-        result = admin_module._load_operator_user_registration_source_map(
+        result = user_profiles_module._load_operator_user_registration_source_map(
             ["user-1"],
             users=[],
             credential_rows=[
@@ -5066,13 +5079,13 @@ def test_contact_map_skips_user_query_when_users_argument_is_empty(
 
     with app.app_context():
         monkeypatch.setattr(
-            admin_module.UserEntity,
+            user_profiles_module.UserEntity,
             "query",
             ForbiddenUserQuery(),
             raising=False,
         )
 
-        result = admin_module._load_operator_user_contact_map(
+        result = user_profiles_module._load_operator_user_contact_map(
             ["user-1", "user-2"],
             users=[],
             credential_rows=[

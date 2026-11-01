@@ -54,7 +54,6 @@ from flaskr.service.billing.credit_notifications import (
 )
 from flaskr.service.billing.models import (
     BillingDailyLedgerSummary,
-    BillingOrder,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
@@ -75,6 +74,8 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.util.datetime import now_utc
+
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -599,7 +600,7 @@ def test_order_backed_credit_grant_includes_product_template_param(
     )
     with app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="order-product-1",
                 creator_bid="creator-1",
                 product_bid="product-growth-1",

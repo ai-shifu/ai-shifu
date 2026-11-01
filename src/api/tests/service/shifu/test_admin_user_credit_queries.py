@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Iterator
 from datetime import timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
@@ -18,7 +19,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWalletBucket,
@@ -27,7 +27,6 @@ from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
-    LearnProgressRecord,
 )
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -38,12 +37,22 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu import admin_user_credits as credit_service
+from flaskr.service.shifu.admin_operations import (
+    courses_credit_usage as course_usage_service,
+)
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
+
+from tests.common.fixtures.model_factories import (
+    make_billing_order,
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
 
 
 @pytest.fixture
@@ -76,7 +85,7 @@ def _usage(scope: dict, **overrides: object) -> BillUsageRecord:
 
 
 def _block(scope: dict, **overrides: object) -> LearnGeneratedBlock:
-    row = LearnGeneratedBlock(
+    row = make_generated_block(
         **{
             **scope,
             "generated_block_bid": uuid.uuid4().hex,
@@ -91,7 +100,7 @@ def _block(scope: dict, **overrides: object) -> LearnGeneratedBlock:
 
 
 def _element(scope: dict, **overrides: object) -> LearnGeneratedElement:
-    row = LearnGeneratedElement(
+    row = make_generated_element(
         **{
             **scope,
             "element_bid": uuid.uuid4().hex,
@@ -130,7 +139,7 @@ def test_wallet_summary_resolves_refund_order_category_and_keeps_locked_topups_v
     creator_bid = usage_scope["user_bid"]
     order_bid = uuid.uuid4().hex
     db.session.add(
-        BillingOrder(
+        make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_TOPUP,
@@ -230,7 +239,7 @@ def test_credit_usage_keyword_limits_results_to_matching_account(
     _usage({**usage_scope, "user_bid": uuid.uuid4().hex})
     db.session.add(UserEntity(user_bid=matching.user_bid, nickname="Specific learner"))
     db.session.flush()
-    result = credit_service._apply_course_credit_usage_filters(
+    result = course_usage_service._apply_course_credit_usage_filters(
         BillUsageRecord.query.filter(
             BillUsageRecord.shifu_bid == usage_scope["shifu_bid"]
         ),
@@ -296,8 +305,11 @@ def test_output_summaries_preserve_element_order_cap_and_full_learner_context(
         content_text="Another learner output",
     )
     expected = "\n".join(f"Segment {index}" for index in range(20))
-    assert credit_service._resolve_course_credit_usage_output_summary(row) == expected
-    assert credit_service._load_course_credit_usage_output_summary_map([row]) == {
+    assert (
+        course_usage_service._resolve_course_credit_usage_output_summary(row)
+        == expected
+    )
+    assert course_usage_service._load_course_credit_usage_output_summary_map([row]) == {
         row.usage_bid: expected
     }
 
@@ -322,19 +334,24 @@ def test_output_summary_falls_back_to_latest_legacy_block_or_interaction(
     )
     missing = _usage(usage_scope, generated_block_bid="missing-block")
     assert (
-        credit_service._resolve_course_credit_usage_output_summary(row) == "New content"
+        course_usage_service._resolve_course_credit_usage_output_summary(row)
+        == "New content"
     )
     assert (
-        credit_service._resolve_course_credit_usage_output_summary(interaction_usage)
+        course_usage_service._resolve_course_credit_usage_output_summary(
+            interaction_usage
+        )
         == "Choose an option"
     )
-    assert credit_service._resolve_course_credit_usage_output_summary(missing) == ""
-    assert credit_service._load_course_credit_usage_output_summary_map(
+    assert (
+        course_usage_service._resolve_course_credit_usage_output_summary(missing) == ""
+    )
+    assert course_usage_service._load_course_credit_usage_output_summary_map(
         [row, interaction_usage, missing]
     ) == {row.usage_bid: "New content", interaction_usage.usage_bid: "Choose an option"}
-    assert credit_service._load_course_credit_usage_output_summary_map([]) == {}
+    assert course_usage_service._load_course_credit_usage_output_summary_map([]) == {}
     assert (
-        credit_service._load_course_credit_usage_output_summary_map(
+        course_usage_service._load_course_credit_usage_output_summary_map(
             [_usage(usage_scope)]
         )
         == {}
@@ -363,7 +380,7 @@ def test_batch_summary_rejects_cross_product_context_matches(usage_scope: dict) 
         outline_item_bid="second-outline",
         generated_content="Correct second output",
     )
-    assert credit_service._load_course_credit_usage_output_summary_map(
+    assert course_usage_service._load_course_credit_usage_output_summary_map(
         [first, second]
     ) == {second.usage_bid: "Correct second output"}
 
@@ -394,7 +411,9 @@ def test_usage_mode_filters_classify_provider_requests_in_database(
     for name, usage_type, extra in definitions:
         _usage(usage_scope, usage_bid=name, usage_type=usage_type, extra=extra)
     query = BillUsageRecord.query.filter_by(shifu_bid=usage_scope["shifu_bid"])
-    result = credit_service._apply_course_credit_usage_filters(query, {"mode": mode})
+    result = course_usage_service._apply_course_credit_usage_filters(
+        query, {"mode": mode}
+    )
     assert {row.usage_bid for row in result.all()} == expected
 
 
@@ -414,7 +433,7 @@ def test_usage_scene_and_time_filters_bound_the_selected_window(
     _usage(usage_scope, usage_scene=scene_id, created_at=now - timedelta(days=3))
     _usage(usage_scope, usage_scene=0, created_at=now)
     query = BillUsageRecord.query.filter_by(shifu_bid=usage_scope["shifu_bid"])
-    result = credit_service._apply_course_credit_usage_filters(
+    result = course_usage_service._apply_course_credit_usage_filters(
         query,
         {
             "usage_scene": scene,
@@ -442,7 +461,7 @@ def test_course_credit_metrics_count_only_charged_leaf_usages_and_current_comple
     for user_bid in ["completed-user", "incomplete-user"]:
         for outline in ["leaf-one", "leaf-two"]:
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid.uuid4().hex,
                     shifu_bid=usage_scope["shifu_bid"],
                     user_bid=user_bid,
@@ -452,7 +471,7 @@ def test_course_credit_metrics_count_only_charged_leaf_usages_and_current_comple
                 )
             )
     db.session.add(
-        LearnProgressRecord(
+        make_progress_record(
             progress_record_bid=uuid.uuid4().hex,
             shifu_bid=usage_scope["shifu_bid"],
             user_bid="incomplete-user",
@@ -462,7 +481,7 @@ def test_course_credit_metrics_count_only_charged_leaf_usages_and_current_comple
         )
     )
     db.session.flush()
-    assert credit_service._build_operator_course_credit_metrics(
+    assert course_usage_service._build_operator_course_credit_metrics(
         usage_scope["shifu_bid"], ["leaf-one", "leaf-two"]
     ) == {
         "credit_consumed_total": 12,
@@ -471,7 +490,7 @@ def test_course_credit_metrics_count_only_charged_leaf_usages_and_current_comple
         "completed_credit_user_count": 1,
         "completed_user_avg_credits": 8,
     }
-    empty = credit_service._build_operator_course_credit_metrics(
+    empty = course_usage_service._build_operator_course_credit_metrics(
         usage_scope["shifu_bid"], []
     )
     assert empty == {
@@ -497,7 +516,7 @@ def test_usage_dtos_preserve_caller_overrides_and_nonnegative_counts(
         duration_ms=1000,
         segment_count=2,
     )
-    item = credit_service._build_operator_course_credit_usage_item(
+    item = course_usage_service._build_operator_course_credit_usage_item(
         usage_row=row,
         ledger_amount=-3,
         user_map={row.user_bid: {"nickname": "Teacher"}},
@@ -514,8 +533,11 @@ def test_usage_dtos_preserve_caller_overrides_and_nonnegative_counts(
     assert item.model_variant_count == 0
     assert item.consumed_credits == 2.5
     assert item.usage_scene == "debug"
-    detail = credit_service._build_operator_course_credit_usage_detail_item(
-        row, -3, output_summary="Explicit output"
+    detail = course_usage_service._build_operator_course_credit_usage_detail_item(
+        row,
+        -3,
+        SimpleNamespace(resolve=lambda **_kwargs: ""),
+        output_summary="Explicit output",
     )
     assert detail.consumed_credits == 3
     assert detail.input_tokens == 7

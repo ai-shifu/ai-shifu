@@ -10,6 +10,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.dashboard import funcs as dashboard
+from flaskr.service.learn import course_reporting
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -25,6 +26,11 @@ from flaskr.service.shifu.consts import (
 from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.util.datetime import now_utc
+
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+)
 
 
 @pytest.fixture
@@ -66,7 +72,7 @@ def follow_up(app: object) -> object:
             ),
         ):
             db.session.add(
-                LearnGeneratedBlock(
+                make_generated_block(
                     generated_block_bid=block_bid,
                     progress_record_bid=bid,
                     shifu_bid=bid,
@@ -75,47 +81,40 @@ def follow_up(app: object) -> object:
                     type=kind,
                     role=role,
                     generated_content=text,
-                    block_content_conf="",
                     position=3,
                     created_at=stamp,
                     status=1,
-                    deleted=0,
                 )
             )
         db.session.add(
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid=anchor_bid,
                 generated_block_bid="source-block",
                 progress_record_bid=bid,
                 shifu_bid=bid,
                 outline_item_bid=bid,
                 user_bid=bid,
-                event_type="element",
                 element_type="text",
                 content_text="Explanation seen before the question",
                 created_at=stamp - timedelta(seconds=1),
                 run_event_seq=1,
                 sequence_number=1,
                 status=0,
-                deleted=0,
             )
         )
         db.session.add(
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid=uuid.uuid4().hex,
                 generated_block_bid=answer_bid,
                 progress_record_bid=bid,
                 shifu_bid=bid,
                 outline_item_bid=bid,
                 user_bid=bid,
-                event_type="element",
                 element_type="ask",
                 payload=json.dumps({"anchor_element_bid": anchor_bid}),
                 created_at=stamp,
                 run_event_seq=2,
                 sequence_number=2,
-                status=1,
-                deleted=0,
             )
         )
     yield SimpleNamespace(
@@ -148,7 +147,9 @@ def _source(follow_up: object, **overrides: object) -> dict:
         "fallback_position": 3,
         "ask_created_at": follow_up.stamp,
     }
-    return dashboard._resolve_follow_up_source_from_element(**(arguments | overrides))
+    return course_reporting.resolve_follow_up_source_from_element(
+        **(arguments | overrides)
+    )
 
 
 def test_dashboard_follow_up_uses_anchor_snapshot_from_the_time_of_the_question(
@@ -156,7 +157,7 @@ def test_dashboard_follow_up_uses_anchor_snapshot_from_the_time_of_the_question(
 ) -> None:
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid=uuid.uuid4().hex,
                 target_element_bid=follow_up.anchor_bid,
                 generated_block_bid="source-block",
@@ -164,14 +165,11 @@ def test_dashboard_follow_up_uses_anchor_snapshot_from_the_time_of_the_question(
                 shifu_bid=follow_up.bid,
                 outline_item_bid=follow_up.bid,
                 user_bid=follow_up.bid,
-                event_type="element",
                 element_type="text",
                 content_text="New content after the question",
                 created_at=follow_up.stamp + timedelta(seconds=1),
                 sequence_number=10,
                 run_event_seq=10,
-                status=1,
-                deleted=0,
             )
         )
     with app.app_context():
@@ -255,7 +253,7 @@ def test_legacy_follow_up_source_uses_pre_question_content_with_prompt_fallback(
 ) -> None:
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnGeneratedBlock(
+            make_generated_block(
                 generated_block_bid=uuid.uuid4().hex,
                 progress_record_bid=follow_up.bid,
                 shifu_bid=follow_up.bid,
@@ -269,15 +267,13 @@ def test_legacy_follow_up_source_uses_pre_question_content_with_prompt_fallback(
                 generated_content="Generated source" if interaction == fallback else "",
                 block_content_conf="Prompt source" if interaction != fallback else "",
                 created_at=follow_up.stamp - timedelta(seconds=2),
-                status=0,
-                deleted=0,
             )
         )
     with app.app_context():
         ask = LearnGeneratedBlock.query.filter_by(
             generated_block_bid=follow_up.ask_bid
         ).one()
-        source = dashboard._resolve_follow_up_source_from_blocks(ask)
+        source = course_reporting.resolve_follow_up_source_from_blocks(ask)
         assert source["source_output_content"] == (
             "Generated source" if interaction == fallback else "Prompt source"
         )

@@ -19,7 +19,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
@@ -32,6 +31,8 @@ from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end_after_boundary,
 )
 from flaskr.util.datetime import now_utc
+
+from tests.common.fixtures.model_factories import make_billing_order
 
 __all__ = [
     "add_paid_renewal_with_reserved_grant",
@@ -231,13 +232,12 @@ def add_paid_renewal_with_reserved_grant(
         created_at=current_cycle_start,
         updated_at=current_cycle_start,
     )
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid=subscription.product_bid,
         subscription_bid=subscription.subscription_bid,
-        currency="CNY",
         payable_amount=9900,
         paid_amount=9900,
         payment_provider="pingxx",

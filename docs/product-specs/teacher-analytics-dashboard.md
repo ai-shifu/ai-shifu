@@ -119,7 +119,7 @@ The implemented dashboard service lives in:
 - `src/api/flaskr/service/dashboard/`
   - `dtos.py` (Pydantic DTOs with `__json__`)
   - `funcs.py` (query/aggregation helpers)
-  - `routes.py` (HTTP routes, `@inject`)
+  - `routes.py` (HTTP routes, registered from `flaskr/route/__init__.py`)
 
 ### Permission model
 

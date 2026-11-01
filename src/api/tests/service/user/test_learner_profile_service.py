@@ -641,7 +641,7 @@ def test_profile_moderation_allows_every_non_reject_result(
     )
 
     monkeypatch.setattr(
-        "flaskr.service.profile.learner_profile.check_text",
+        "flaskr.service.check_risk.funcs.check_text",
         lambda *_args, **_kwargs: CheckResultDTO(
             check_result=check_result,
             risk_labels=[],
@@ -679,7 +679,7 @@ def test_profile_moderation_rejects_only_explicit_reject(
     )
 
     monkeypatch.setattr(
-        "flaskr.service.profile.learner_profile.check_text",
+        "flaskr.service.check_risk.funcs.check_text",
         lambda *_args, **_kwargs: CheckResultDTO(
             check_result=CHECK_RESULT_REJECT,
             risk_labels=[],
@@ -805,9 +805,7 @@ def test_profile_safety_audit_records_text_and_provider_response(
             raw_data={"echo": text, "provider_request_id": "private-provider-id"},
         )
 
-    monkeypatch.setattr(
-        "flaskr.service.profile.learner_profile.check_text", fake_check_text
-    )
+    monkeypatch.setattr("flaskr.service.check_risk.funcs.check_text", fake_check_text)
 
     with app.app_context():
         _create_user("profile-audit")

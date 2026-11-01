@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 
-from .script import render_memory_section
+from .script import render_memory_section, render_script_documents
 
 if TYPE_CHECKING:
     from .script import ScriptBundle
@@ -84,3 +84,35 @@ def project_memory_history(
             result[index] = replace(request, parts=parts)
             return result
     return messages
+
+
+def rebase_initial_script(
+    messages: list[ModelMessage], bundle: ScriptBundle
+) -> list[ModelMessage] | None:
+    """Copy ``messages`` with the first engine prompt carrying ``bundle``'s documents.
+
+    The memory block stays as it was sent; only the script, constraints and extras that
+    follow it are re-rendered. Returns ``None`` when the history does not start with an
+    engine prompt this module can parse, so callers never splice an unknown message.
+    """
+    for index, request in enumerate(messages):
+        if not isinstance(request, ModelRequest):
+            continue
+        for part_index, part in enumerate(request.parts):
+            if not isinstance(part, UserPromptPart):
+                continue
+            if not isinstance(part.content, str):
+                return None
+            parsed = parse_initial_memory_prompt(part.content)
+            if parsed is None:
+                return None
+            parts = list(request.parts)
+            parts[part_index] = replace(
+                part,
+                content=part.content[: parsed.script_start]
+                + render_script_documents(bundle),
+            )
+            result = list(messages)
+            result[index] = replace(request, parts=parts)
+            return result
+    return None

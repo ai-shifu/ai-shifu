@@ -49,10 +49,12 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
 )
 from flaskr.service.promo.models import CouponUsage, PromoRedemption
-from flaskr.service.shifu.admin import (
-    _coerce_operator_datetime,
+from flaskr.service.shifu.admin_operations.courses_detail import (
     get_operator_course_chapter_detail,
     get_operator_course_detail,
+)
+from flaskr.service.shifu.admin_operations.courses_shared import (
+    _coerce_operator_datetime,
 )
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CONTENT_VALUE,
@@ -79,6 +81,12 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
 
 
 def _clear_tables() -> None:
@@ -245,7 +253,7 @@ def _seed_progress(
     updated_at: datetime,
 ) -> None:
     db.session.add(
-        LearnProgressRecord(
+        make_progress_record(
             progress_record_bid=f"progress-{user_bid}-{outline_item_bid}-{status}",
             shifu_bid=shifu_bid,
             outline_item_bid=outline_item_bid,
@@ -273,39 +281,33 @@ def _seed_follow_up_pair(
     answer_type: int = BLOCK_TYPE_MDANSWER_VALUE,
 ) -> None:
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             generated_block_bid=ask_bid,
             progress_record_bid=progress_record_bid,
             user_bid=user_bid,
-            block_bid="",
             outline_item_bid=outline_item_bid,
             shifu_bid=shifu_bid,
             type=BLOCK_TYPE_MDASK_VALUE,
             role=ROLE_STUDENT,
             generated_content=ask_content,
             position=ask_position,
-            block_content_conf="",
             status=1,
-            deleted=0,
             created_at=ask_created_at,
             updated_at=ask_created_at,
         )
     )
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             generated_block_bid=answer_bid,
             progress_record_bid=progress_record_bid,
             user_bid=user_bid,
-            block_bid="",
             outline_item_bid=outline_item_bid,
             shifu_bid=shifu_bid,
             type=answer_type,
             role=ROLE_TEACHER,
             generated_content=answer_content,
             position=ask_position,
-            block_content_conf="",
             status=1,
-            deleted=0,
             created_at=answer_created_at,
             updated_at=answer_created_at,
         )
@@ -400,11 +402,10 @@ def _seed_teacher_output_block(
     status: int = 1,
 ) -> None:
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_record_bid,
             user_bid=user_bid,
-            block_bid="",
             outline_item_bid=outline_item_bid,
             shifu_bid=shifu_bid,
             type=block_type,
@@ -413,7 +414,6 @@ def _seed_teacher_output_block(
             position=position,
             block_content_conf=block_content_conf,
             status=status,
-            deleted=0,
             created_at=created_at,
             updated_at=created_at,
         )
@@ -450,7 +450,7 @@ def _seed_generated_element(
     status: int = 1,
 ) -> None:
     db.session.add(
-        LearnGeneratedElement(
+        make_generated_element(
             element_bid=element_bid,
             progress_record_bid=progress_record_bid,
             user_bid=user_bid,
@@ -471,13 +471,10 @@ def _seed_generated_element(
             is_marker=is_marker,
             sequence_number=sequence_number,
             is_speakable=is_speakable,
-            audio_url="",
-            audio_segments="[]",
             is_navigable=is_navigable,
             is_final=is_final,
             content_text=content_text,
             payload=payload,
-            deleted=0,
             status=status,
             created_at=created_at,
             updated_at=created_at,
@@ -854,36 +851,30 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         )
         db.session.add_all(
             [
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="progress-1",
                     shifu_bid="course-detail",
                     outline_item_bid="lesson-1",
                     user_bid="learner-1",
                     status=LEARN_STATUS_COMPLETED,
-                    block_position=0,
-                    deleted=0,
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="progress-2",
                     shifu_bid="course-detail",
                     outline_item_bid="lesson-1",
                     user_bid="learner-2",
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=0,
-                    deleted=0,
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid="progress-3",
                     shifu_bid="course-detail",
                     outline_item_bid="lesson-1",
                     user_bid="learner-reset",
                     status=LEARN_STATUS_RESET,
-                    block_position=0,
-                    deleted=0,
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
@@ -907,54 +898,45 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
-                LearnGeneratedBlock(
+                make_generated_block(
                     generated_block_bid="follow-1",
                     progress_record_bid="progress-1",
                     user_bid="learner-1",
-                    block_bid="",
                     outline_item_bid="lesson-1",
                     shifu_bid="course-detail",
                     type=BLOCK_TYPE_MDASK_VALUE,
                     role=ROLE_STUDENT,
                     generated_content="Question 1",
                     position=1,
-                    block_content_conf="",
                     status=1,
-                    deleted=0,
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
-                LearnGeneratedBlock(
+                make_generated_block(
                     generated_block_bid="follow-ignore-role",
                     progress_record_bid="progress-1",
                     user_bid="learner-1",
-                    block_bid="",
                     outline_item_bid="lesson-1",
                     shifu_bid="course-detail",
                     type=BLOCK_TYPE_MDASK_VALUE,
                     role=ROLE_TEACHER,
                     generated_content="Ignore",
                     position=2,
-                    block_content_conf="",
                     status=1,
-                    deleted=0,
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
-                LearnGeneratedBlock(
+                make_generated_block(
                     generated_block_bid="follow-ignore-type",
                     progress_record_bid="progress-2",
                     user_bid="learner-2",
-                    block_bid="",
                     outline_item_bid="lesson-1",
                     shifu_bid="course-detail",
                     type=BLOCK_TYPE_CONTENT_VALUE,
                     role=ROLE_STUDENT,
                     generated_content="Ignore",
                     position=3,
-                    block_content_conf="",
                     status=1,
-                    deleted=0,
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
@@ -3981,20 +3963,17 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
             updated_at=datetime(2026, 4, 4, 10, 0, 0),
         )
         db.session.add(
-            LearnGeneratedBlock(
+            make_generated_block(
                 generated_block_bid="ask-gap-1",
                 progress_record_bid="progress-student-1-lesson-1-602",
                 user_bid="student-1",
-                block_bid="",
                 outline_item_bid="lesson-1",
                 shifu_bid="course-detail",
                 type=BLOCK_TYPE_MDASK_VALUE,
                 role=ROLE_STUDENT,
                 generated_content="Question with an intermediate block",
                 position=7,
-                block_content_conf="",
                 status=1,
-                deleted=0,
                 created_at=datetime(2026, 4, 4, 10, 2, 0),
                 updated_at=datetime(2026, 4, 4, 10, 2, 0),
             )
@@ -4011,20 +3990,17 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
             block_content_conf="Intermediate prompt block",
         )
         db.session.add(
-            LearnGeneratedBlock(
+            make_generated_block(
                 generated_block_bid="answer-gap-1",
                 progress_record_bid="progress-student-1-lesson-1-602",
                 user_bid="student-1",
-                block_bid="",
                 outline_item_bid="lesson-1",
                 shifu_bid="course-detail",
                 type=BLOCK_TYPE_MDANSWER_VALUE,
                 role=ROLE_TEACHER,
                 generated_content="Answer after an intermediate block",
                 position=7,
-                block_content_conf="",
                 status=1,
-                deleted=0,
                 created_at=datetime(2026, 4, 4, 10, 2, 3),
                 updated_at=datetime(2026, 4, 4, 10, 2, 3),
             )
@@ -4190,20 +4166,17 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
             updated_at=datetime(2026, 4, 4, 10, 0, 0),
         )
         db.session.add(
-            LearnGeneratedBlock(
+            make_generated_block(
                 generated_block_bid="ask-mdcontent-1",
                 progress_record_bid="progress-student-1-lesson-1-602",
                 user_bid="student-1",
-                block_bid="",
                 outline_item_bid="lesson-1",
                 shifu_bid="course-detail",
                 type=BLOCK_TYPE_MDASK_VALUE,
                 role=ROLE_STUDENT,
                 generated_content="Can you restate that content answer?",
                 position=5,
-                block_content_conf="",
                 status=1,
-                deleted=0,
                 created_at=datetime(2026, 4, 4, 10, 2, 0),
                 updated_at=datetime(2026, 4, 4, 10, 2, 0),
             )
@@ -4484,7 +4457,7 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
             updated_at=datetime(2026, 4, 4, 10, 0, 0),
         )
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid="progress-student-1-lesson-1-603",
                 shifu_bid="course-detail",
                 outline_item_bid="lesson-1",

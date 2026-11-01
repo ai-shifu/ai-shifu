@@ -22,9 +22,7 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.models import (
-    LearnGeneratedBlock,
     LearnGeneratedElement,
-    LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from markdownflow import StreamFormatter
@@ -35,6 +33,10 @@ from markdownflow.engine.events import (
 )
 from markdownflow.engine.interaction import InteractionSpec, Option
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
 from tests.service.learn.agent import test_run_agent as host_fixture
 
 if TYPE_CHECKING:
@@ -128,30 +130,26 @@ def _adapt_and_reload(
         with unit_of_work():
             db.session.add_all(
                 [
-                    LearnProgressRecord(
+                    make_progress_record(
                         progress_record_bid=host_fixture.PROGRESS,
                         shifu_bid=host_fixture.SHIFU,
                         outline_item_bid=host_fixture.OUTLINE,
                         user_bid=host_fixture.USER,
                         status=LEARN_STATUS_IN_PROGRESS,
-                        block_position=0,
                     ),
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid=generated_block_bid,
                         progress_record_bid=host_fixture.PROGRESS,
                         user_bid=host_fixture.USER,
                         block_bid="script-block",
                         outline_item_bid=host_fixture.OUTLINE,
                         shifu_bid=host_fixture.SHIFU,
-                        type=0,
                         role=ROLE_TEACHER,
                         generated_content="".join(
                             str(event.content)
                             for event in events
                             if event.type == GeneratedType.CONTENT
                         ),
-                        position=0,
-                        block_content_conf="",
                         status=1,
                     ),
                 ]

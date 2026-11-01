@@ -2,7 +2,7 @@
 
 This module contains route functions for shifu.
 use restful api to manage shifu.
-will be auto registered by flaskr.framework.plugin.inject.inject
+registered by flaskr.route.register_route
 includes:
     - get shifu list
     - create shifu
@@ -61,7 +61,6 @@ from flaskr.api.llm.model_selection import (
 from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.route.common import (
     bypass_token_validation,
@@ -333,7 +332,6 @@ def _resolve_publish_base_url(app: Flask) -> str:
     return _get_request_base_url()
 
 
-@inject
 def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     """Register shifu routes."""
     app.logger.info("register shifu routes %s", path_prefix)

@@ -5,8 +5,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from flaskr.api.check import CHECK_RESULT_PASS, CHECK_RESULT_REJECT
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.check_risk import funcs as risk_funcs
 from flaskr.service.common.models import AppError
 from flaskr.service.profile import funcs
 from flaskr.service.profile.models import Variable, VariableValue
@@ -148,16 +150,14 @@ def test_missing_birthday_does_not_read_retired_legacy_value(
     assert load_user_aggregate(user.bid).birthday is None
 
 
-@pytest.mark.parametrize(
-    "verdict", [funcs.CHECK_RESULT_PASS, funcs.CHECK_RESULT_REJECT, "unknown"]
-)
+@pytest.mark.parametrize("verdict", [CHECK_RESULT_PASS, CHECK_RESULT_REJECT, "unknown"])
 def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_failure(
     user: object,
     monkeypatch: pytest.MonkeyPatch,
     verdict: object,
 ) -> None:
     monkeypatch.setattr(
-        funcs,
+        risk_funcs,
         "check_text",
         Mock(
             return_value=SimpleNamespace(
@@ -168,9 +168,9 @@ def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_
         ),
     )
     audit = Mock()
-    monkeypatch.setattr(funcs, "add_risk_control_result", audit)
+    monkeypatch.setattr(risk_funcs, "add_risk_control_result", audit)
     payload = [_label("sys_user_nickname", "Requested name")]
-    if verdict == funcs.CHECK_RESULT_REJECT:
+    if verdict == CHECK_RESULT_REJECT:
         with pytest.raises(AppError), unit_of_work():
             funcs.update_user_profile_with_lable(user.app, user.bid, payload)
     else:
@@ -181,11 +181,11 @@ def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_
             )
     db.session.expire_all()
     assert load_user_aggregate(user.bid).nickname == (
-        "Original" if verdict == funcs.CHECK_RESULT_REJECT else "Requested name"
+        "Original" if verdict == CHECK_RESULT_REJECT else "Requested name"
     )
     assert VariableValue.query.filter_by(
         user_bid=user.bid, key="sys_user_nickname"
-    ).count() == int(verdict != funcs.CHECK_RESULT_REJECT)
+    ).count() == int(verdict != CHECK_RESULT_REJECT)
     audit.assert_called_once()
     assert audit.call_args.args[2:6] == (
         user.bid,
@@ -194,7 +194,7 @@ def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_
         verdict,
     )
     assert audit.call_args.args[-2:] == (
-        int(verdict == funcs.CHECK_RESULT_PASS),
+        int(verdict == CHECK_RESULT_PASS),
         "check_text",
     )
 

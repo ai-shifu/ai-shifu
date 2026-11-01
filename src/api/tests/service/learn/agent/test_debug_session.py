@@ -470,6 +470,182 @@ def test_expired_debug_answer_does_not_start_a_new_lesson(
     assert exc_info.value.code == 4019
 
 
+def test_an_answer_follows_the_edited_draft_only_when_asked(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    session = Session(script=ScriptBundle(script="Current draft"))
+    session.memory["answer"] = "yes"
+    _store(app).save(session)
+
+    assert _store(app).load(script="Edited draft") is None
+    following = debug_session.DebugSessionStore(
+        app,
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        run_bid="one",
+        follow_script_edits=True,
+    )
+    resumed = following.load(script="Edited draft")
+    assert resumed is not None
+    assert resumed.memory["answer"] == "yes"
+
+
+@pytest.mark.parametrize(
+    ("user_input", "anchor", "follows"),
+    [
+        ({"answer": ["continue"]}, None, True),
+        (None, None, False),
+        (None, "turn-1", False),
+    ],
+    ids=["answer", "start", "regenerate"],
+)
+def test_only_an_answer_resumes_across_a_draft_edit(
+    app: object,
+    monkeypatch: object,
+    user_input: dict | None,
+    anchor: str | None,
+    follows: bool,
+) -> None:
+    # An author who edits the draft and answers continues the same conversation;
+    # starting or regenerating keeps the same-script rule.
+    from flaskr.service.learn.agent import lesson_entry
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    _store(app, "edited-run").save(Session(script=ScriptBundle(script="Old draft")))
+    stores: list[debug_session.DebugSessionStore] = []
+    monkeypatch.setattr(
+        debug_session.DebugSessionStore,
+        "plan_rewind",
+        lambda _self, **_kwargs: (_ for _ in ()).throw(RewindUnavailableError()),
+    )
+
+    def lesson_events(_app: object, **kwargs: object) -> object:
+        stores.append(kwargs["debug_store"])
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid="turn",
+            type=GeneratedType.DONE,
+            content="",
+        )
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
+    stream = debug_session.stream_debug_preview(
+        app,
+        preview_request=PlaygroundPreviewRequest(
+            content="Edited draft",
+            block_index=0,
+            user_input=user_input,
+            reload_generated_block_bid=anchor,
+        ),
+        shifu_bid="course",
+        outline_bid="lesson",
+        user_bid="teacher",
+        run_bid="edited-run",
+    )
+
+    if anchor:
+        # Regeneration still requires the unchanged draft.
+        with pytest.raises(AppError):
+            list(stream)
+        return
+    list(stream)
+    assert stores[0]._follow_script_edits is follows
+
+
+def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.learn.agent import run_agent
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    from markdownflow import render_first_prompt
+
+    session = Session(script=ScriptBundle(script="Old draft"))
+    session.messages = [
+        ModelRequest(
+            parts=[
+                UserPromptPart(render_first_prompt(session.script, {"goal": "learn"}))
+            ]
+        )
+    ]
+    session.pending = [
+        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?"))
+    ]
+    session.memory["kept"] = "earlier answer"
+    _store(app).save(session)
+    following = debug_session.DebugSessionStore(
+        app,
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        run_bid="one",
+        follow_script_edits=True,
+    )
+
+    factory, finished = run_agent._load_or_start(
+        app,
+        SimpleNamespace(),
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        script="Edited draft",
+        preview_mode=True,
+        debug_store=following,
+    )
+    resumed = asyncio.run(factory())
+
+    assert not finished
+    assert resumed.id == session.id
+    assert resumed.pending[0].tool_call_id == "pause"
+    assert resumed.memory["kept"] == "earlier answer"
+    assert resumed.script.script == "Edited draft"
+    # The model reads the script from the first prompt, so it carries the edit too.
+    first_prompt = resumed.messages[0].parts[0].content
+    assert "<script>\nEdited draft\n</script>" in first_prompt
+    assert "Old draft" not in first_prompt
+    assert first_prompt.startswith(
+        render_first_prompt(session.script, {"goal": "learn"}).split("\n\n<script>")[0]
+    )
+    following.save(resumed)
+    # Saved under the edited draft, so the next answer resumes without the flag.
+    assert _store(app).load(script="Edited draft").id == session.id
+
+
+def test_turns_before_a_draft_edit_stay_regenerable(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    session = Session(script=ScriptBundle(script="Old draft"))
+    session.pending = [
+        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?"))
+    ]
+    _store(app).save(
+        session, generated_block_bid="before-edit", turn_record=_record(session)
+    )
+
+    following = debug_session.DebugSessionStore(
+        app,
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        run_bid="one",
+        follow_script_edits=True,
+    )
+    resumed = following.load(script="Edited draft")
+    resumed.script = ScriptBundle(script="Edited draft")
+    resumed.pending = []
+    following.save(
+        resumed, generated_block_bid="after-edit", turn_record=_record(resumed)
+    )
+
+    turns = _store(app)._payload(script="Edited draft")["turns"]
+    assert [turn["block_bid"] for turn in turns] == ["before-edit", "after-edit"]
+    plan = _store(app).plan_rewind(script="Edited draft", block_bid="before-edit")
+    assert plan.retired_block_bids == ["before-edit", "after-edit"]
+
+
 def test_question_closes_editor_response_without_ending_the_lesson(
     app: object, monkeypatch: object
 ) -> None:

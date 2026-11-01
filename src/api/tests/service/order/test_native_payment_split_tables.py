@@ -18,7 +18,6 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_TOPUP,
 )
-from flaskr.service.billing.models import BillingOrder
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.order import funs as order_funs
 from flaskr.service.order.admin import _load_payment_detail
@@ -35,6 +34,8 @@ from flaskr.service.order.raw_snapshots import (
 )
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -808,21 +809,16 @@ def test_billing_native_snapshot_and_transaction_lookup_use_wechat_table(
     native_payment_split_app: object,
 ) -> None:
     with native_payment_split_app.app_context():
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-native-wechat-1",
             creator_bid="creator-1",
             order_type=BILLING_ORDER_TYPE_TOPUP,
             product_bid="bill-product-topup-small",
-            subscription_bid="",
-            currency="CNY",
             payable_amount=29900,
-            paid_amount=0,
             payment_provider="wechatpay",
             channel="wx_pub_qr",
             provider_reference_id="wx-bill-attempt-1",
             status=BILLING_ORDER_STATUS_PENDING,
-            failure_code="",
-            failure_message="",
             metadata_json={},
         )
         dao.db.session.add(order)
