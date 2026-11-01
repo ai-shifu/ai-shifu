@@ -12,15 +12,31 @@ import { AdminPagination } from '@/components/admin/AdminPagination';
 import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import CourseFeedbackSummaryCards from '@/app/admin/components/course-feedback/CourseFeedbackSummaryCards';
+import FollowUpDetailSheet, {
+  type FollowUpDetailSheetLabels,
+} from '@/app/admin/components/course-feedback/FollowUpDetailSheet';
+import FollowUpSourceStatusBadge from '@/app/admin/components/course-feedback/FollowUpSourceStatusBadge';
+import StackedTooltipText from '@/app/admin/components/course-feedback/StackedTooltipText';
+import {
+  resolveRequestErrorState,
+  useDisplayIdentifierType,
+} from '@/app/admin/components/course-feedback/course-feedback-data';
+import {
+  formatDisplayValue,
+  hasChapterHierarchy as resolveHasChapterHierarchy,
+  resolvePrimaryAccount,
+  resolvePrimaryLessonDisplay,
+  resolveSecondaryChapterDisplay,
+  type CourseFeedbackErrorState,
+} from '@/app/admin/components/course-feedback/course-feedback-display';
 import {
   createDateRangeFilterItem,
   createSelectFilterItem,
   createTextFilterItem,
 } from '@/app/admin/components/admin-filter-field-builders';
-import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import {
@@ -31,13 +47,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  resolveLoginIdentifierTypes,
-  selectSingleLoginIdentifierType,
-  type LoginIdentifierType,
-} from '@/lib/login-identifiers';
-import { ErrorWithCode } from '@/lib/request';
-import { cn } from '@/lib/utils';
 import { useUserStore } from '@/store';
 import type {
   DashboardCourseFollowUpDetailResponse,
@@ -59,9 +68,8 @@ import {
   DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
   DASHBOARD_FILTER_TEXT_CONTENT_LEAD_CLASS,
 } from '../../dashboard-filter-ui-shared';
-import FollowUpDetailSheet from './FollowUpDetailSheet';
 
-type ErrorState = { message: string; code?: number };
+type ErrorState = CourseFeedbackErrorState;
 type FollowUpFilters = {
   userBid: string;
   keyword: string;
@@ -121,86 +129,12 @@ const createFollowUpFilters = (
   endTime: values?.endTime?.trim() || '',
 });
 
-const formatValue = (value: string | undefined | null, emptyValue: string) => {
-  const normalizedValue = value?.trim() || '';
-  return normalizedValue || emptyValue;
-};
-
-const resolvePrimaryLessonDisplay = ({
-  lessonTitle,
-  chapterTitle,
-  emptyValue,
-}: {
-  lessonTitle?: string;
-  chapterTitle?: string;
-  emptyValue: string;
-}) => formatValue(lessonTitle || chapterTitle, emptyValue);
-
-const resolveSecondaryChapterDisplay = ({
-  chapterTitle,
-  lessonTitle,
-}: {
-  chapterTitle?: string;
-  lessonTitle?: string;
-}) => {
-  const normalizedChapterTitle = chapterTitle?.trim() || '';
-  const normalizedLessonTitle = lessonTitle?.trim() || '';
-  if (
-    !normalizedChapterTitle ||
-    normalizedChapterTitle === normalizedLessonTitle
-  ) {
-    return '';
-  }
-  return normalizedChapterTitle;
-};
-
-const resolvePrimaryAccount = ({
-  mobile,
-  email,
-  userBid,
-  displayIdentifierType,
-  emptyValue,
-}: {
-  mobile?: string;
-  email?: string;
-  userBid?: string;
-  displayIdentifierType: LoginIdentifierType;
-  emptyValue: string;
-}) => {
-  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
-  const alternateIdentifier =
-    displayIdentifierType === 'email' ? mobile : email;
-  return formatValue(
-    primaryIdentifier || alternateIdentifier || userBid,
-    emptyValue,
-  );
-};
-
-const splitTimestampValue = (value: string) => {
-  const normalizedValue = value
-    .replace(/[,.\u202F]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!normalizedValue) {
-    return [];
-  }
-
-  const [datePart, timePart, ...rest] = normalizedValue.split(' ');
-  if (!timePart || rest.length > 0) {
-    return [normalizedValue];
-  }
-
-  return [datePart, timePart];
-};
-
 export default function AdminDashboardCourseFollowUpsPage() {
   const { t } = useTranslation();
   const params = useParams<{ shifu_bid?: string }>();
   const searchParams = useSearchParams();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
-  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
-  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -214,14 +148,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
     'module.dashboard.messages.loadFollowUpDetailFailed',
   );
   const defaultUserName = t('module.user.defaultUserName');
-  const displayIdentifierType = useMemo<LoginIdentifierType>(
-    () =>
-      selectSingleLoginIdentifierType(
-        resolveLoginIdentifierTypes(loginMethodsEnabled),
-        defaultLoginMethod,
-      ),
-    [defaultLoginMethod, loginMethodsEnabled],
-  );
+  const displayIdentifierType = useDisplayIdentifierType();
   const initialFilters = useMemo(
     () =>
       createFollowUpFilters({
@@ -311,13 +238,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
           return;
         }
         setFollowUps(EMPTY_FOLLOW_UPS_RESPONSE);
-        if (err instanceof ErrorWithCode) {
-          setError({ message: err.message, code: err.code });
-        } else if (err instanceof Error) {
-          setError({ message: err.message });
-        } else {
-          setError({ message: followUpsLoadErrorMessage });
-        }
+        setError(resolveRequestErrorState(err, followUpsLoadErrorMessage));
       } finally {
         if (requestId === listRequestIdRef.current) {
           setLoading(false);
@@ -375,13 +296,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
           return;
         }
         setDetail(EMPTY_FOLLOW_UP_DETAIL);
-        if (err instanceof ErrorWithCode) {
-          setDetailError({ message: err.message, code: err.code });
-        } else if (err instanceof Error) {
-          setDetailError({ message: err.message });
-        } else {
-          setDetailError({ message: followUpDetailLoadErrorMessage });
-        }
+        setDetailError(
+          resolveRequestErrorState(err, followUpDetailLoadErrorMessage),
+        );
       } finally {
         if (requestId === detailRequestIdRef.current) {
           setDetailLoading(false);
@@ -435,12 +352,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const currentPage = followUps.page || 1;
   const pageCount = Math.max(followUps.page_count || 0, 1);
   const hasChapterHierarchy = useMemo(
-    () =>
-      rows.some(item => {
-        const chapterTitle = item.chapter_title?.trim() || '';
-        const lessonTitle = item.lesson_title?.trim() || '';
-        return !!chapterTitle && !!lessonTitle && chapterTitle !== lessonTitle;
-      }),
+    () => resolveHasChapterHierarchy(rows),
     [rows],
   );
   const outlineFilterLabel = hasChapterHierarchy
@@ -455,23 +367,27 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const summaryCards = useMemo(
     () => [
       {
+        key: 'followUpCount',
         label: t('module.dashboard.detail.followUps.summary.followUpCount'),
         value: String(followUps.summary.follow_up_count || 0),
-        tone: 'default' as const,
+        tone: 'value' as const,
       },
       {
+        key: 'userCount',
         label: t('module.dashboard.detail.followUps.summary.userCount'),
         value: String(followUps.summary.user_count || 0),
-        tone: 'default' as const,
+        tone: 'value' as const,
       },
       {
+        key: 'lessonCount',
         label: t('module.dashboard.detail.followUps.summary.lessonCount'),
         value: String(followUps.summary.lesson_count || 0),
-        tone: 'default' as const,
+        tone: 'value' as const,
       },
       {
+        key: 'latestFollowUpAt',
         label: t('module.dashboard.detail.followUps.summary.latestFollowUpAt'),
-        value: formatValue(
+        value: formatDisplayValue(
           formatAdminUtcDateTime(followUps.summary.latest_follow_up_at),
           emptyValue,
         ),
@@ -575,6 +491,60 @@ export default function AdminDashboardCourseFollowUpsPage() {
     ],
     [t],
   );
+  const detailSheetLabels = useMemo<FollowUpDetailSheetLabels>(
+    () => ({
+      title: t('module.dashboard.detail.followUps.drawer.title'),
+      basicInfoSection: t(
+        'module.dashboard.detail.followUps.drawer.sections.basicInfo',
+      ),
+      currentRecordSection: t(
+        'module.dashboard.detail.followUps.drawer.sections.currentRecord',
+      ),
+      currentRecordHint: t(
+        'module.dashboard.detail.followUps.drawer.currentRecordHint',
+      ),
+      timelineSection: t(
+        'module.dashboard.detail.followUps.drawer.sections.timeline',
+      ),
+      user: t('module.dashboard.detail.followUps.drawer.fields.user'),
+      nickname: t('module.dashboard.detail.followUps.drawer.fields.nickname'),
+      followUpTime: t(
+        'module.dashboard.detail.followUps.drawer.fields.followUpTime',
+      ),
+      turnIndex: t('module.dashboard.detail.followUps.drawer.fields.turnIndex'),
+      turnIndexHelp: t('module.dashboard.detail.followUps.turnIndexHelp'),
+      currentFollowUp: t(
+        'module.dashboard.detail.followUps.drawer.fields.currentFollowUp',
+      ),
+      currentAnswer: t(
+        'module.dashboard.detail.followUps.drawer.fields.currentAnswer',
+      ),
+      timelineCurrent: t(
+        'module.dashboard.detail.followUps.drawer.timeline.current',
+      ),
+    }),
+    [t],
+  );
+  const resolveDetailOutlineFieldLabel = useCallback(
+    () => t('module.dashboard.detail.followUps.drawer.fields.lesson'),
+    [t],
+  );
+  const formatDetailTurnIndex = useCallback(
+    (turnIndex: number | null | undefined) =>
+      turnIndex == null
+        ? emptyValue
+        : t('module.dashboard.detail.followUps.turnIndex', {
+            count: turnIndex,
+          }),
+    [emptyValue, t],
+  );
+  const resolveDetailRoleLabel = useCallback(
+    (role: string) =>
+      role === 'teacher'
+        ? t('module.dashboard.detail.followUps.drawer.timeline.teacher')
+        : t('module.dashboard.detail.followUps.drawer.timeline.student'),
+    [t],
+  );
   const userFilterDisplayValue = filtersDraft.userBid || filtersDraft.keyword;
   const filterItems: AdminFilterItem[] = [
     createTextFilterItem({
@@ -667,39 +637,11 @@ export default function AdminDashboardCourseFollowUpsPage() {
       <div className='pb-6'>
         <AdminTitle title={t('module.dashboard.detail.followUps.title')} />
         <div className='space-y-5'>
-          <div className={DASHBOARD_DETAIL_SUMMARY_GRID_CLASS}>
-            {summaryCards.map(card => (
-              <Card
-                key={card.label}
-                className='border-border/80 shadow-sm'
-              >
-                <CardContent className='flex h-full flex-col p-4'>
-                  <div className='text-sm font-medium text-muted-foreground'>
-                    {card.label}
-                  </div>
-                  {card.tone === 'timestamp' ? (
-                    <div className='mt-3 space-y-0.5 text-foreground'>
-                      {splitTimestampValue(card.value).map((part, index) => (
-                        <div
-                          key={`${card.label}-${part}-${index}`}
-                          className={cn(
-                            'break-all tracking-tight',
-                            index === 0 ? 'text-base font-medium' : 'text-sm',
-                          )}
-                        >
-                          {part}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className='mt-3 text-xl font-semibold text-foreground'>
-                      {card.value}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <CourseFeedbackSummaryCards
+            cards={summaryCards}
+            gridClassName={DASHBOARD_DETAIL_SUMMARY_GRID_CLASS}
+            size='compact'
+          />
 
           <Card className='overflow-hidden border-border/80 shadow-sm'>
             <CardHeader className='pb-3'>
@@ -868,42 +810,25 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                     />
                                   </TableCell>
                                   <TableCell className='py-3 align-middle'>
-                                    <div className='flex flex-col gap-0.5 leading-tight'>
-                                      <div className='font-medium text-foreground'>
-                                        <AdminTooltipText
-                                          text={primaryAccount}
-                                          emptyValue={emptyValue}
-                                          className='block max-w-[180px] text-sm text-foreground'
-                                        />
-                                      </div>
-                                      {secondaryAccount ? (
-                                        <div className='text-xs text-muted-foreground'>
-                                          <AdminTooltipText
-                                            text={secondaryAccount}
-                                            emptyValue={emptyValue}
-                                            className='block max-w-[180px] text-xs text-muted-foreground'
-                                          />
-                                        </div>
-                                      ) : null}
-                                    </div>
+                                    <StackedTooltipText
+                                      primary={primaryAccount}
+                                      primaryEmptyValue={emptyValue}
+                                      primaryClassName='block max-w-[180px] text-sm text-foreground'
+                                      secondary={secondaryAccount}
+                                      secondaryEmptyValue={emptyValue}
+                                      secondaryClassName='block max-w-[180px] text-xs text-muted-foreground'
+                                      wrapSecondary
+                                    />
                                   </TableCell>
                                   <TableCell className='py-3 align-top'>
-                                    <div className='flex flex-col gap-0.5 leading-tight'>
-                                      <div className='font-medium text-foreground'>
-                                        <AdminTooltipText
-                                          text={primaryLessonDisplay}
-                                          emptyValue={emptyValue}
-                                          className='block max-w-[220px] text-sm text-foreground'
-                                        />
-                                      </div>
-                                      {secondaryChapterDisplay ? (
-                                        <AdminTooltipText
-                                          text={secondaryChapterDisplay}
-                                          emptyValue={emptyValue}
-                                          className='block max-w-[220px] text-xs text-muted-foreground'
-                                        />
-                                      ) : null}
-                                    </div>
+                                    <StackedTooltipText
+                                      primary={primaryLessonDisplay}
+                                      primaryEmptyValue={emptyValue}
+                                      primaryClassName='block max-w-[220px] text-sm text-foreground'
+                                      secondary={secondaryChapterDisplay}
+                                      secondaryEmptyValue={emptyValue}
+                                      secondaryClassName='block max-w-[220px] text-xs text-muted-foreground'
+                                    />
                                   </TableCell>
                                   <TableCell className='py-3 align-top'>
                                     <div className='py-1.5'>
@@ -913,23 +838,17 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                         className='block max-w-[320px] text-sm font-medium text-foreground'
                                       />
                                       <div className='mt-2'>
-                                        <Badge
-                                          variant='outline'
-                                          className={cn(
-                                            'border px-2 py-0.5 text-[11px] font-medium',
+                                        <FollowUpSourceStatusBadge
+                                          hasSourceOutput={
                                             item.has_source_output
-                                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                              : 'border-amber-200 bg-amber-50 text-amber-700',
+                                          }
+                                          resolvedLabel={t(
+                                            'module.dashboard.detail.followUps.table.sourceResolved',
                                           )}
-                                        >
-                                          {item.has_source_output
-                                            ? t(
-                                                'module.dashboard.detail.followUps.table.sourceResolved',
-                                              )
-                                            : t(
-                                                'module.dashboard.detail.followUps.table.sourceMissing',
-                                              )}
-                                        </Badge>
+                                          missingLabel={t(
+                                            'module.dashboard.detail.followUps.table.sourceMissing',
+                                          )}
+                                        />
                                       </div>
                                     </div>
                                   </TableCell>
@@ -986,7 +905,11 @@ export default function AdminDashboardCourseFollowUpsPage() {
         emptyValue={emptyValue}
         displayIdentifierType={displayIdentifierType}
         defaultUserName={defaultUserName}
+        labels={detailSheetLabels}
         resolveLessonDisplay={resolvePrimaryLessonDisplay}
+        resolveOutlineFieldLabel={resolveDetailOutlineFieldLabel}
+        formatTurnIndex={formatDetailTurnIndex}
+        resolveRoleLabel={resolveDetailRoleLabel}
         onRetry={() => fetchFollowUpDetail({ forceRefresh: true })}
         onOpenChange={handleDetailOpenChange}
       />
