@@ -570,14 +570,6 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
-      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses_follow_ups.py|flaskr.service.learn.learn_dtos",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/admin_operations/courses_follow_ups.py",
-      "target": "flaskr.service.learn.learn_dtos",
-      "message": "flaskr/service/shifu/admin_operations/courses_follow_ups.py imports cross-service module flaskr.service.learn.learn_dtos outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
       "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses_listing.py|flaskr.service.learn.const",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/shifu/admin_operations/courses_listing.py",

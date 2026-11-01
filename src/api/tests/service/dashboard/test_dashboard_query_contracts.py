@@ -10,6 +10,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.dashboard import funcs as dashboard
+from flaskr.service.learn import course_reporting
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -146,7 +147,9 @@ def _source(follow_up: object, **overrides: object) -> dict:
         "fallback_position": 3,
         "ask_created_at": follow_up.stamp,
     }
-    return dashboard._resolve_follow_up_source_from_element(**(arguments | overrides))
+    return course_reporting.resolve_follow_up_source_from_element(
+        **(arguments | overrides)
+    )
 
 
 def test_dashboard_follow_up_uses_anchor_snapshot_from_the_time_of_the_question(
@@ -270,7 +273,7 @@ def test_legacy_follow_up_source_uses_pre_question_content_with_prompt_fallback(
         ask = LearnGeneratedBlock.query.filter_by(
             generated_block_bid=follow_up.ask_bid
         ).one()
-        source = dashboard._resolve_follow_up_source_from_blocks(ask)
+        source = course_reporting.resolve_follow_up_source_from_blocks(ask)
         assert source["source_output_content"] == (
             "Generated source" if interaction == fallback else "Prompt source"
         )
