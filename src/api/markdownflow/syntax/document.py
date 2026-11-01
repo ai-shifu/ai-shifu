@@ -1,8 +1,7 @@
 """Split a MarkdownFlow document into blocks and collect its variables."""
 
-import re
+from collections.abc import Iterator
 
-from .constants import BLOCK_SEPARATOR
 from .enums import BlockType
 from .models import Block
 from .parser.document_context import (
@@ -12,6 +11,33 @@ from .parser.document_context import (
 from .parser.output import is_preserved_content_block
 from .parser.preprocessor import CodeBlockPreprocessor
 from .parser.variable import extract_variables_from_text
+
+
+def _find_block_separator_spans(source: str) -> Iterator[tuple[int, int]]:
+    """Match newline/whitespace separators without retrying every blank line."""
+    position = 0
+    while (start := source.find("\n", position)) != -1:
+        marker = start + 1
+        while marker < len(source) and source[marker].isspace():
+            marker += 1
+        if not source.startswith("---", marker):
+            position = marker + 1
+            continue
+
+        end = marker + 3
+        last_newline = -1
+        while end < len(source) and source[end].isspace():
+            if source[end] == "\n":
+                last_newline = end
+            end += 1
+        if last_newline == -1:
+            position = end
+            continue
+
+        # The former greedy whitespace expression ends at the last newline,
+        # leaving any following indentation for the next content block.
+        position = last_newline + 1
+        yield start, position
 
 
 class MarkdownFlowDocument:
@@ -44,19 +70,13 @@ class MarkdownFlowDocument:
         segments = []
         at = 0
         protected_at = 0
-        for separator in re.finditer(BLOCK_SEPARATOR, source):
-            while (
-                protected_at < len(protected)
-                and protected[protected_at][1] <= separator.start()
-            ):
+        for start, end in _find_block_separator_spans(source):
+            while protected_at < len(protected) and protected[protected_at][1] <= start:
                 protected_at += 1
-            if (
-                protected_at < len(protected)
-                and protected[protected_at][0] < separator.end()
-            ):
+            if protected_at < len(protected) and protected[protected_at][0] < end:
                 continue
-            segments.append(source[at : separator.start()])
-            at = separator.end()
+            segments.append(source[at:start])
+            at = end
         segments.append(source[at:])
         final_blocks: list[Block] = []
 

@@ -1,6 +1,6 @@
 """Expose HTTP routes for LLM routing."""
 
-from flask import Flask
+from flask import Flask, Response
 from flaskr.api.llm import (
     get_course_model_options,
     get_follow_up_models,
@@ -15,7 +15,7 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
     app.logger.info("register llm routes %s", path_prefix)
 
     @app.route(path_prefix + "/model-list", methods=["GET"])
-    def model_list_api() -> str:
+    def model_list_api() -> Response:
         """Get model list.
 
         ---
@@ -41,7 +41,7 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
         return make_common_response(get_legacy_course_model_options(app))
 
     @app.route(path_prefix + "/follow-up-model-list", methods=["GET"])
-    def follow_up_model_list_api() -> str:
+    def follow_up_model_list_api() -> Response:
         """Get follow-up model options with interaction capabilities.
 
         ---
@@ -63,7 +63,7 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
         )
 
     @app.route(path_prefix + "/course-model-options", methods=["GET"])
-    def course_model_options_api() -> str:
+    def course_model_options_api() -> Response:
         """Return configured course model choices with current availability and credit multipliers."""
         return make_common_response(get_course_model_options(app))
 

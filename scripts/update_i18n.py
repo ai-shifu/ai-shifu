@@ -117,13 +117,28 @@ def load_metadata_namespaces() -> set[str]:
         return set()
 
 
-# Regex patterns similar to scripts/check_translation_usage.py
-FRONTEND_PATTERNS = [
-    re.compile(r"\bt\s*\(\s*['\"]([a-zA-Z0-9_.-]+(?:\.[a-zA-Z0-9_.-]+)+)['\"][^)]*\)")
-]
+# Require an interior dot without repeatedly repartitioning dotted keys.
+_FRONTEND_KEY_START = re.compile(
+    r"\bt\s*\(\s*['\"]"
+    r"(?=[a-zA-Z0-9_.-][a-zA-Z0-9_-]*\.[a-zA-Z0-9_.-])"
+    r"([a-zA-Z0-9_.-]+)['\"]"
+)
 BACKEND_PATTERNS = [
     re.compile(r"_\(\s*['\"]([a-zA-Z0-9_.-]+)['\"]\s*\)"),
 ]
+
+
+def _find_frontend_keys(text: str) -> set[str]:
+    """Consume calls through their next closing parenthesis without retries."""
+    used: set[str] = set()
+    position = 0
+    while match := _FRONTEND_KEY_START.search(text, position):
+        closing = text.find(")", match.end())
+        if closing == -1:
+            break
+        used.add(match.group(1))
+        position = closing + 1
+    return used
 
 
 def collect_frontend_keys() -> set[str]:
@@ -141,9 +156,7 @@ def collect_frontend_keys() -> set[str]:
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-        for pat in FRONTEND_PATTERNS:
-            for m in pat.findall(text):
-                used.add(m)
+        used.update(_find_frontend_keys(text))
     return used
 
 

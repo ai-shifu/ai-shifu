@@ -10,7 +10,6 @@ import unicodedata
 
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.patterns import (
-    ANY_HTML_TAG,
     BOLD_ITALIC,
     CODE_BLOCK,
     DATA_URI,
@@ -194,6 +193,20 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
     return text, had_incomplete
 
 
+def _strip_complete_angle_bracket_tags(text: str) -> str:
+    """Remove each first opening bracket through its next closing bracket."""
+    parts: list[str] = []
+    position = 0
+    while (start := text.find("<", position)) != -1:
+        end = text.find(">", start + 1)
+        if end == -1:
+            break
+        parts.append(text[position:start])
+        position = end + 1
+    parts.append(text[position:])
+    return "".join(parts)
+
+
 def preprocess_for_tts(text: str) -> str:
     """Remove code blocks and markdown formatting not suitable for TTS.
 
@@ -245,7 +258,7 @@ def preprocess_for_tts(text: str) -> str:
 
     # Remove any remaining angle bracket content that looks like tags
     # This catches malformed or partial SVG/HTML
-    text = ANY_HTML_TAG.sub("", text)
+    text = _strip_complete_angle_bracket_tags(text)
 
     # Remove MarkdownFlow authoring syntax. Interaction blocks carry the
     # learner's answer options, not narration, so speaking them reads out
