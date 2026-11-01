@@ -6,6 +6,11 @@ from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT_VALUE
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 
 def test_get_learn_record_returns_blocks(app: object) -> None:
     with app.app_context():
@@ -17,15 +22,14 @@ def test_get_learn_record_returns_blocks(app: object) -> None:
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-1",
             shifu_bid="shifu-1",
             outline_item_bid="outline-1",
             user_bid="user-1",
             status=LEARN_STATUS_IN_PROGRESS,
-            deleted=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid="block-1",
             progress_record_bid="progress-1",
             user_bid="user-1",
@@ -33,11 +37,9 @@ def test_get_learn_record_returns_blocks(app: object) -> None:
             outline_item_bid="outline-1",
             shifu_bid="shifu-1",
             type=BLOCK_TYPE_CONTENT_VALUE,
-            role=0,
             generated_content="hello",
             position=1,
             status=1,
-            deleted=0,
         )
         db.session.add(progress)
         db.session.add(block)

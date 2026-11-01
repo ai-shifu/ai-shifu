@@ -46,6 +46,7 @@ from flaskr.service.billing.renewal import run_billing_renewal_event
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 
 @pytest.fixture
@@ -185,18 +186,14 @@ def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
             last_failed_at=None,
             metadata_json={"trial_bootstrap": True},
         )
-        trial_order = BillingOrder(
+        trial_order = make_billing_order(
             bill_order_bid="bill-referral-trial-start",
             creator_bid="creator-ref-billing-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid=BILLING_TRIAL_PRODUCT_BID,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
-            provider_reference_id="",
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=trial_started_at,
             metadata_json={
@@ -371,18 +368,14 @@ def test_referral_plan_reward_queues_multiple_trial_rewards_in_order(
             last_failed_at=None,
             metadata_json={"trial_bootstrap": True},
         )
-        trial_order = BillingOrder(
+        trial_order = make_billing_order(
             bill_order_bid="bill-referral-trial-queue-start",
             creator_bid="creator-ref-billing-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid=BILLING_TRIAL_PRODUCT_BID,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
-            provider_reference_id="",
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=trial_started_at,
             metadata_json={
@@ -614,15 +607,12 @@ def test_referral_plan_reward_releases_reserved_manual_renewal_at_boundary(
             last_failed_at=None,
             metadata_json={"referral_invitation_reward": True},
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-referral-boundary-renewal",
             creator_bid="creator-ref-billing-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly-pro",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="referral-reward:ref-reward-boundary",
@@ -762,13 +752,12 @@ def test_referral_plan_reward_boundary_releases_all_due_reserved_cycle_grants(
             last_failed_at=None,
             metadata_json={"referral_invitation_reward": True},
         )
-        primary_order = BillingOrder(
+        primary_order = make_billing_order(
             bill_order_bid="bill-referral-boundary-primary",
             creator_bid="creator-ref-billing-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly-pro",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=990,
             paid_amount=990,
             payment_provider="manual",
@@ -781,15 +770,12 @@ def test_referral_plan_reward_boundary_releases_all_due_reserved_cycle_grants(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        reward_order = BillingOrder(
+        reward_order = make_billing_order(
             bill_order_bid="bill-referral-boundary-reward",
             creator_bid="creator-ref-billing-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly-pro",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="referral-reward:ref-reward-boundary-all",
@@ -1000,15 +986,12 @@ def test_pingxx_renewal_event_preserves_paid_referral_reward_order(
             last_failed_at=None,
             metadata_json={"checkout_started": True},
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-referral-pingxx-paid-renewal",
             creator_bid="creator-ref-billing-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly-pro",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="referral-reward:ref-reward-pingxx-renewal",
@@ -1104,15 +1087,12 @@ def test_referral_plan_reward_releases_reserved_trial_reward_at_boundary(
             last_failed_at=None,
             metadata_json={"trial_bootstrap": True},
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-referral-trial-boundary-renewal",
             creator_bid="creator-ref-billing-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly-pro",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             provider_reference_id="referral-reward:ref-reward-trial-boundary",

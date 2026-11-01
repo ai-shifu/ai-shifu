@@ -100,6 +100,7 @@ from flaskr.service.user.repository import create_user_entity
 from flaskr.util.datetime import now_utc, to_utc_iso
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -342,18 +343,14 @@ def add_trial_subscription_state(
             )
         )
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid=bill_order_bid,
                 creator_bid=creator_bid,
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid=BILLING_TRIAL_PRODUCT_BID,
                 subscription_bid=subscription_bid,
-                currency="CNY",
-                payable_amount=0,
-                paid_amount=0,
                 payment_provider="manual",
                 channel="manual",
-                provider_reference_id="",
                 status=BILLING_ORDER_STATUS_PAID,
                 paid_at=trial_start,
                 metadata_json={"checkout_type": "trial_bootstrap"},

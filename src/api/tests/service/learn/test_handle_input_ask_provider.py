@@ -6,6 +6,11 @@ import types
 
 import pytest
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+)
+
 
 def _install_litellm_stub() -> None:
     if "litellm" in sys.modules:
@@ -1561,7 +1566,7 @@ def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
     from flaskr.service.learn.ask import handler as module
     from flaskr.service.learn.ask.quotations import LearnerQuotationSource
     from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
-    from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+    from flaskr.service.learn.models import LearnGeneratedBlock
     from flaskr.service.shifu.consts import (
         BLOCK_TYPE_MDASK_VALUE,
         BLOCK_TYPE_MDCONTENT_VALUE,
@@ -1604,7 +1609,7 @@ def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
         ("user_bid", "shifu_bid", "outline_item_bid", "progress_record_bid"), identity
     )
     with app.app_context(), unit_of_work():
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             **fields,
             generated_block_bid=uuid.uuid4().hex,
             type=BLOCK_TYPE_MDCONTENT_VALUE,
@@ -1612,14 +1617,12 @@ def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
             status=1,
         )
         db.session.add(block)
-        anchor = LearnGeneratedElement(
+        anchor = make_generated_element(
             **fields,
             element_bid=uuid.uuid4().hex,
             generated_block_bid=block.generated_block_bid,
-            event_type="element",
             element_type="text",
             content_text="Anchor",
-            status=1,
         )
         db.session.add(anchor)
         db.session.flush()

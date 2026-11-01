@@ -10,13 +10,14 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import AppError
 from flaskr.service.learn.const import LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_RESET
-from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu import admin_course_summaries as summaries
 from flaskr.service.shifu.admin_operations import courses_listing as listing
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, PublishedShifu
 from flaskr.util.datetime import now_utc
+
+from tests.common.fixtures.model_factories import make_progress_record
 
 
 @pytest.fixture
@@ -236,10 +237,10 @@ def test_sql_course_quick_filters_select_only_matching_activity_and_status(
     _course(course_scope, bids["old"], created_at=now - timedelta(days=40))
     db.session.add_all(
         [
-            LearnProgressRecord(
+            make_progress_record(
                 shifu_bid=bids["draft"], status=LEARN_STATUS_IN_PROGRESS, created_at=now
             ),
-            LearnProgressRecord(
+            make_progress_record(
                 shifu_bid=bids["old"], status=LEARN_STATUS_RESET, created_at=now
             ),
             Order(
@@ -284,7 +285,7 @@ def test_recent_course_activity_queries_are_scoped_and_ignore_reset_deleted_or_f
         (other, LEARN_STATUS_IN_PROGRESS, 0, now),
     ]:
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 shifu_bid=bid, status=status, deleted=is_deleted, created_at=created
             )
         )
@@ -471,7 +472,7 @@ def test_course_overview_legacy_fallback_counts_scoped_drafts_publications_and_a
     _course(course_scope, published_bid, model=PublishedShifu)
     db.session.add_all(
         [
-            LearnProgressRecord(
+            make_progress_record(
                 shifu_bid=draft_bid, status=LEARN_STATUS_IN_PROGRESS, created_at=now
             ),
             Order(shifu_bid=published_bid, status=ORDER_STATUS_SUCCESS, created_at=now),

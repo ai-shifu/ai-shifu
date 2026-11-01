@@ -32,6 +32,7 @@ from flaskr.service.order.payment_providers.base import (
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
 
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.renewal_execution_test_helpers import (
     create_renewal_subscription,
 )
@@ -146,7 +147,7 @@ def test_manual_paid_renewal_preserves_credit_timing_and_is_idempotent(
         subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
         db.session.add(subscription)
         db.session.flush()
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="paid-order",
             creator_bid=subscription.creator_bid,
             subscription_bid=subscription.subscription_bid,
@@ -157,7 +158,6 @@ def test_manual_paid_renewal_preserves_credit_timing_and_is_idempotent(
             paid_at=now,
             payable_amount=9900,
             paid_amount=9900,
-            currency="CNY",
             metadata_json={
                 "renewal_cycle_start_at": to_utc_iso(boundary),
                 "renewal_cycle_end_at": to_utc_iso(boundary + timedelta(days=30)),
@@ -200,14 +200,12 @@ def test_manual_paid_renewal_preserves_credit_timing_and_is_idempotent(
 )
 def test_checkout_reuse_requires_same_payment_and_offset_snapshot(changed: str) -> None:
     metadata = {"checkout_type": "subscription", "preorder_order_bid": "preorder"}
-    order = BillingOrder(
+    order = make_billing_order(
         product_bid="product",
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         payment_provider="alipay",
         channel="alipay_qr",
-        currency="CNY",
         payable_amount=100,
-        campaign_bid="",
         metadata_json=metadata,
     )
     expected = {
@@ -338,14 +336,13 @@ def test_paid_preorder_can_fund_native_upgrade_once(
         with unit_of_work():
             db.session.add(subscription)
             db.session.flush()
-            preorder = BillingOrder(
+            preorder = make_billing_order(
                 bill_order_bid="offset",
                 creator_bid=subscription.creator_bid,
                 subscription_bid=subscription.subscription_bid,
                 product_bid="bill-product-plan-monthly",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
                 payment_provider=preorder_provider,
-                currency="CNY",
                 payable_amount=990,
                 paid_amount=990,
                 paid_at=now,
@@ -435,14 +432,13 @@ def test_expired_preorder_offset_is_recorded_for_settlement_review(
         )
         db.session.add(subscription)
         db.session.flush()
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="conflicting-upgrade",
             creator_bid=subscription.creator_bid,
             subscription_bid=subscription.subscription_bid,
             product_bid="bill-product-plan-yearly-lite",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
             payment_provider=provider,
-            currency="CNY",
             payable_amount=799010,
             paid_amount=799010,
             paid_at=now_utc(),
@@ -478,14 +474,13 @@ def test_old_paid_notification_cannot_replace_new_cycle(
         )
         subscription.current_period_start_at = now_utc()
         db.session.add(subscription)
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="old-paid",
             creator_bid=subscription.creator_bid,
             subscription_bid=subscription.subscription_bid,
             product_bid=subscription.product_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             payment_provider="pingxx",
-            currency="CNY",
             payable_amount=990,
             paid_amount=990,
             paid_at=now_utc() - timedelta(days=5),
@@ -573,13 +568,12 @@ def test_replacement_requires_confirmed_closure_and_preserves_paid_orders(
 
     with billing_renewal_app.app_context():
         with unit_of_work():
-            order = BillingOrder(
+            order = make_billing_order(
                 bill_order_bid="old-order",
                 creator_bid="owner",
                 product_bid="bill-product-plan-monthly",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 payment_provider=provider,
-                currency="CNY",
                 status=BILLING_ORDER_STATUS_PENDING,
                 payable_amount=990,
                 provider_reference_id="old-attempt",
@@ -704,13 +698,12 @@ def test_reopening_attempt_without_stored_credential_creates_new_order_after_clo
     with billing_renewal_app.app_context():
         channel = "wx_pub_qr" if provider == "wechatpay" else "alipay_qr"
         with unit_of_work():
-            old = BillingOrder(
+            old = make_billing_order(
                 bill_order_bid="old-order",
                 creator_bid="owner",
                 product_bid="bill-product-plan-monthly",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 payment_provider=provider,
-                currency="CNY",
                 status=BILLING_ORDER_STATUS_PENDING,
                 payable_amount=990,
                 provider_reference_id="old-attempt",

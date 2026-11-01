@@ -40,7 +40,6 @@ from flaskr.service.learn.learn_funcs import get_outline_item_tree, reset_learn_
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
-    LearnGeneratedElement,
     LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
@@ -52,6 +51,11 @@ from markdownflow import bridge
 from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
+
+from tests.common.fixtures.model_factories import (
+    make_generated_element,
+    make_progress_record,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
@@ -277,7 +281,7 @@ def test_preview_catalog_and_reset_are_independent_of_published_learning(
     identity, run, history, _calls = classroom
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=uuid.uuid4().hex,
                 user_bid=identity,
                 shifu_bid=identity,
@@ -393,16 +397,14 @@ def test_legacy_preview_recovers_once_and_never_uses_published_or_unowned_rows(
     )
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid=uuid.uuid4().hex,
                 user_bid=identity,
                 shifu_bid=identity,
                 outline_item_bid=identity,
                 run_session_bid="unowned",
-                event_type="element",
                 element_type="text",
                 content_text="Do not display this published or unowned content",
-                status=1,
             )
         )
     assert history().elements == []

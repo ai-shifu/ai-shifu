@@ -22,7 +22,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -37,6 +36,8 @@ from flaskr.service.common.models import AppError
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy.exc import IntegrityError
+
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -692,7 +693,7 @@ def test_grant_refund_return_credits_maps_topup_orders_back_to_topup_bucket(
 ) -> None:
     with billing_wallet_lifecycle_app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="order-topup-refund-1",
                 creator_bid="creator-topup-refund-1",
                 order_type=BILLING_ORDER_TYPE_TOPUP,
