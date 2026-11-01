@@ -597,6 +597,39 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
     assert _store(app).load(script="Edited draft").id == session.id
 
 
+def test_turns_before_a_draft_edit_stay_regenerable(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    session = Session(script=ScriptBundle(script="Old draft"))
+    session.pending = [
+        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?"))
+    ]
+    _store(app).save(
+        session, generated_block_bid="before-edit", turn_record=_record(session)
+    )
+
+    following = debug_session.DebugSessionStore(
+        app,
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        run_bid="one",
+        follow_script_edits=True,
+    )
+    resumed = following.load(script="Edited draft")
+    resumed.script = ScriptBundle(script="Edited draft")
+    resumed.pending = []
+    following.save(
+        resumed, generated_block_bid="after-edit", turn_record=_record(resumed)
+    )
+
+    turns = _store(app)._payload(script="Edited draft")["turns"]
+    assert [turn["block_bid"] for turn in turns] == ["before-edit", "after-edit"]
+    plan = _store(app).plan_rewind(script="Edited draft", block_bid="before-edit")
+    assert plan.retired_block_bids == ["before-edit", "after-edit"]
+
+
 def test_question_closes_editor_response_without_ending_the_lesson(
     app: object, monkeypatch: object
 ) -> None:

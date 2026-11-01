@@ -181,7 +181,14 @@ class DebugSessionStore:
         turn_record: str,
         rewind: RewindPlan | None,
     ) -> None:
-        previous = self._payload(script=session.script.script) or {}
+        # Following a draft edit migrates the conversation, so its earlier turns keep
+        # their checkpoints and can still be regenerated under the edited draft.
+        previous = (
+            self._payload(
+                script=session.script.script, any_script=self._follow_script_edits
+            )
+            or {}
+        )
         turns = previous.get("turns", [])
         if not isinstance(turns, list) or any(
             not isinstance(turn, dict) or not isinstance(turn.get("block_bid"), str)

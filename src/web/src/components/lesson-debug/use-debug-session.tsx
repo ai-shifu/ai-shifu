@@ -1675,10 +1675,7 @@ export function useDebugSession({
         showOutputInProgressToast();
         return false;
       }
-      if (resolveLatestMdflow() !== runParamsRef.current.mdflow) {
-        restartSession();
-        return true;
-      }
+      const draftEdited = resolveLatestMdflow() !== runParamsRef.current.mdflow;
 
       const { variableName } = content;
       const normalizedVariableName =
@@ -1697,6 +1694,13 @@ export function useDebugSession({
         requiresRegeneration =
           Boolean(lastActionableElementBid) &&
           elementBid !== lastActionableElementBid;
+      }
+      const { values } = resolveInteractionSubmission(content);
+      if (draftEdited && (requiresRegeneration || !values.length)) {
+        // Only an answer to the current question can continue under an edited
+        // draft; anything else starts the edited draft from its beginning.
+        restartSession();
+        return true;
       }
       if (requiresRegeneration) {
         if (!options?.skipConfirm) {
@@ -1720,8 +1724,6 @@ export function useDebugSession({
       if (interactionIndex === -1) {
         updateSessionItems(nextItems);
       }
-
-      const { values } = resolveInteractionSubmission(content);
 
       if (!values.length) {
         return false;

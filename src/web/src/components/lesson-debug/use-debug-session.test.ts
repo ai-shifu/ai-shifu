@@ -1645,6 +1645,52 @@ describe('useDebugSession helpers and business error rendering', () => {
     expect(second.debug_session_id).not.toBe(first.debug_session_id);
   });
 
+  test('answers the current question under an edited draft with one click', async () => {
+    const firstSource = buildMockSseSource();
+    const secondSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(secondSource);
+    const { result } = renderHook(() =>
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () =>
+      result.current.startRun({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Original draft',
+        variableValues: { learnerName: 'Ada' },
+      }),
+    );
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'pause',
+          content: 'Ready to continue?',
+        }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    mockGetCurrentMdflow.mockReturnValue('Edited draft');
+    await act(async () =>
+      result.current.submitInteraction({ inputText: 'Continue' }, 'pause'),
+    );
+
+    expect(SSE).toHaveBeenCalledTimes(2);
+    const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+    const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    expect(second.content).toBe('Edited draft');
+    expect(second.user_input).toBeDefined();
+    expect(second.debug_session_id).toBe(first.debug_session_id);
+  });
+
   test('discards the pending answer before restarting an edited 2.0 draft and on refresh', async () => {
     jest.useFakeTimers();
     mockParseToRemarkFormat.mockReturnValue({ variableName: 'answer' });
