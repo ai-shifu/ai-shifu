@@ -20,14 +20,14 @@ from markdownflow.engine import (
     MemoryUpdated,
     Session,
     collected_names,
-    marker_context,
     substitute_variables,
 )
 from markdownflow.engine.events import InteractionRequest
 from markdownflow.engine.interaction import InteractionSpec, Option
-from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.script import final_preserved_line
 from markdownflow.engine.tools import _script_questions
+from markdownflow.syntax.parser import marker_context
+from markdownflow.syntax.parser.marker_context import analyze_marker_context
 from markdownflow.syntax.variable_names import (
     find_variable_markers,
     format_variable_assignment,
@@ -517,7 +517,9 @@ def test_unclosed_html_candidates_do_not_repeatedly_scan_the_document_tail(
 ) -> None:
     source = opening * 4096 + suffix
     with patch.object(
-        marker_context, "_INLINE_HTML", wraps=marker_context._INLINE_HTML
+        marker_context,
+        "COMPILED_INLINE_HTML_REGEX",
+        wraps=marker_context.COMPILED_INLINE_HTML_REGEX,
     ) as native_html:
         context = analyze_marker_context(source)
     assert [marker.name for marker in context.markers] == ["q"]

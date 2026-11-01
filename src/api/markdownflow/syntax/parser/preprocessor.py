@@ -15,7 +15,7 @@ from markdownflow.syntax.variable_names import (
 
 from .code_fence_utils import is_code_fence_end, parse_code_fence_start
 from .document_blocks import physical_lines
-from .document_context import DocumentLiteralReader, literal_variable_markers
+from .document_context import DocumentLiteralReader
 from .html_comment_utils import (
     is_html_comment_end,
     is_html_comment_start,
@@ -126,9 +126,7 @@ class CodeBlockPreprocessor:
             if scan > interaction_until:
                 literal_end = literal_reader.read(scan)
                 if literal_end is not None:
-                    for example in literal_variable_markers(
-                        document, scan, literal_end, literal_reader.splits.get(scan)
-                    ):
+                    for example in literal_reader.literal_markers(scan, literal_end):
                         protect_marker(example.start, example.end)
                     scan = literal_end
                     continue

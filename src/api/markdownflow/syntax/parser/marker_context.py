@@ -1,4 +1,10 @@
-"""Document-stage marker boundaries without changing the raw name grammar."""
+"""The single document-stage marker scanner, shared by every MarkdownFlow consumer.
+
+One pass classifies each variable marker and interaction control as live or as
+an example inside native Markdown literal text (code, HTML, link resources,
+reference definitions, math and autolinks). The document helpers used by the
+editor and publish paths, the engine and the learner stream all read it.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +12,16 @@ import re
 from dataclasses import dataclass, field
 from string import punctuation
 
-from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
+from markdownflow.syntax.constants import (
+    COMPILED_ATX_START_REGEX,
+    COMPILED_BLANK_LINE_REGEX,
+    COMPILED_DOLLAR_RUN_REGEX,
+    COMPILED_INLINE_HTML_REGEX,
+    COMPILED_RAW_HTML_END_REGEX,
+    COMPILED_RAW_HTML_START_REGEX,
+    HTML_EMPTY_COMMENTS,
+    HTML_TERMINATORS,
+)
 from markdownflow.syntax.parser.document_blocks import (
     DocumentBlocks,
     container_content_info,
@@ -15,39 +30,36 @@ from markdownflow.syntax.parser.document_blocks import (
     indentation,
     read_angle_autolink,
 )
-from markdownflow.syntax.parser.document_context import (
-    document_html_ends,
-    html_can_close,
-)
 from markdownflow.syntax.variable_names import (
+    is_escaped,
     normalize_variable_name,
     read_variable_marker,
 )
 
 _BACKTICK_RUN = re.compile(r"`+")
-_DOLLAR_RUN = re.compile(r"\$+")
-_BLANK_LINE = re.compile(
-    r"(?:\r\n|\r(?!\n)|(?<!\r)\n)[ \t]*(?:\r\n|\r(?!\n)|(?<!\r)\n)"
-)
-_ATX_START = re.compile(r"^ {0,3}#{1,6}(?=[ \t\r\n]|$)", re.MULTILINE)
-# Inline code belongs to one paragraph and cannot absorb a later fenced block.
-_INLINE_CODE_BREAK = re.compile(
-    r"^[ \t]*\r?$|^[ ]{0,3}(?:`{3,}[^`\r\n]*|~{3,}[^\r\n]*)\r?$", re.MULTILINE
-)
-# The shared CommonMark 0.31.2 raw-HTML grammar, also used by the syntax layer.
-_INLINE_HTML = COMPILED_INLINE_HTML_REGEX
 _HTML_PREFIX = re.compile(r"<(?:/?[A-Za-z]|[!?])")
 _LINE_END = re.compile(r"\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
 _LINE_END_CHARS = "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"
-_INDENTED_CODE = re.compile(r"(?: {4}| {0,3}\t)")
-_RAW_HTML_START = re.compile(
-    r"[ ]{0,3}<(script|style|pre|textarea)(?=[ \t\r\n\f>])",
-    re.IGNORECASE | re.MULTILINE,
-)
-_RAW_HTML_END = {
-    name: re.compile(r"</" + name + r"[ \t\r\n]*>", re.IGNORECASE)
-    for name in ("script", "style", "pre", "textarea")
-}
+
+
+def document_html_ends(text: str) -> dict[str, int]:
+    """Index possible native HTML closers once for a document scan."""
+    return {
+        ending: text.rfind(ending)
+        for ending in (">", *(closing for _, closing in HTML_TERMINATORS))
+    }
+
+
+def html_can_close(text: str, start: int, last_ends: dict[str, int]) -> bool:
+    """Reject impossible tails before the native regex rescans them at each opener."""
+    if last_ends[">"] < start:
+        return False
+    if text.startswith(HTML_EMPTY_COMMENTS, start):
+        return True
+    for opening, closing in HTML_TERMINATORS:
+        if text.startswith(opening, start):
+            return last_ends[closing] >= start + len(opening)
+    return True
 
 
 @dataclass(frozen=True)
@@ -97,13 +109,11 @@ class MarkerContext:
     pending_reference_body_start: int | None = None
     pending_reference_steps: tuple[int, ...] = ()
     indent_restart_after: list[int] = field(default_factory=list)
-
-
-def _escaped(text: str, at: int) -> bool:
-    before = at
-    while before and text[before - 1] == "\\":
-        before -= 1
-    return (at - before) % 2 == 1
+    # Document-stage outputs: backslash escape pairs, unmatched backtick runs
+    # (literal text of their own) and live, closed interaction controls.
+    escapes: list[tuple[int, int]] = field(default_factory=list)
+    code_runs: list[tuple[int, int]] = field(default_factory=list)
+    controls: list[tuple[int, int]] = field(default_factory=list)
 
 
 def _literal_markers(text: str, start: int, end: int) -> list[ContextMarker]:
@@ -180,7 +190,7 @@ def _raw_html_opening(
     content = blocks.block_content_start(blocks.by_start[start])
     if content is None:
         return None
-    opening = _RAW_HTML_START.match(text, content)
+    opening = COMPILED_RAW_HTML_START_REGEX.match(text, content)
     if opening is None:
         return None
     tag_start = text.find("<", start, opening.end())
@@ -204,7 +214,7 @@ def _raw_html_bounds(
         return None
     name, opening_end = opening
     limit = blocks.container_end(blocks.by_start[start], final=final)
-    closing = _RAW_HTML_END[name].search(text, opening_end, limit)
+    closing = COMPILED_RAW_HTML_END_REGEX[name].search(text, opening_end, limit)
     if closing is not None:
         blocks.closed_html_lines.add(blocks.line_at(closing.end()).start)
     if closing is None:
@@ -220,7 +230,11 @@ def _link_resource_end(text: str, start: int) -> int | None:
         beginning = cursor
         while cursor < len(text) and text[cursor] in " \t\r\n":
             cursor += 1
-        return None if _BLANK_LINE.search(text, beginning, cursor) else cursor
+        return (
+            None
+            if COMPILED_BLANK_LINE_REGEX.search(text, beginning, cursor)
+            else cursor
+        )
 
     at = skip_space(at)
     if at is None or at >= len(text):
@@ -274,7 +288,7 @@ def _link_resource_end(text: str, start: int) -> int | None:
         if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
             at += 2
         elif text[at] == closing:
-            if _BLANK_LINE.search(text, title_start, at):
+            if COMPILED_BLANK_LINE_REGEX.search(text, title_start, at):
                 return None
             at = skip_space(at + 1)
             return (
@@ -406,7 +420,7 @@ def _inline_closers(
             boundary_index -= 1
             continue
         # An odd slash escapes only the first tick; its suffix can open a span.
-        start = run.start() + int(_escaped(text, run.start()))
+        start = run.start() + int(is_escaped(text, run.start()))
         width = run.end() - start
         if width and width in next_run:
             closing[start] = next_run[width]
@@ -429,9 +443,22 @@ def analyze_marker_context(
     that literal's closing delimiter. Fences are optional because the streaming
     filter already owns their state, while document callers need whole blocks.
     """
+    return scan_marker_document(
+        text, final=final, fence_indent=fence_indent, label_counts=label_counts
+    )[0]
+
+
+def scan_marker_document(
+    text: str,
+    *,
+    final: bool = True,
+    fence_indent: int | None = None,
+    label_counts: dict[int, int] | None = None,
+) -> tuple[MarkerContext, DocumentBlocks]:
+    """Scan like ``analyze_marker_context``, also returning the block index used."""
     context = MarkerContext()
     last_html_ends = document_html_ends(text)
-    blocks = DocumentBlocks(text, _INLINE_HTML)
+    blocks = DocumentBlocks(text, COMPILED_INLINE_HTML_REGEX)
     breaks: list[tuple[int, int]] = []
     for index, line in enumerate(blocks.lines):
         value = blocks.projected_line(index)
@@ -447,14 +474,14 @@ def analyze_marker_context(
             )
         if blocks.paragraph_interrupts(index):
             breaks.append((line.start, line.start))
-        if _ATX_START.match(value) is not None:
+        if COMPILED_ATX_START_REGEX.match(value) is not None:
             breaks.extend(
                 ((line.start, line.start), (line.content_end, line.content_end))
             )
     breaks.sort()
     break_starts = {start for start, _ in breaks}
     closing = _inline_closers(text, _BACKTICK_RUN, breaks, final=final)
-    math_closing = _inline_closers(text, _DOLLAR_RUN, breaks, final=final)
+    math_closing = _inline_closers(text, COMPILED_DOLLAR_RUN_REGEX, breaks, final=final)
     legacy_fence = (
         re.compile(r"^[ ]{0," + str(fence_indent) + r"}(`{3,}|~{3,}).*$")
         if fence_indent is not None
@@ -473,7 +500,7 @@ def analyze_marker_context(
             if (
                 interaction_inactive
                 and text.startswith("?[", at)
-                and not _escaped(text, at)
+                and not is_escaped(text, at)
             ):
                 # An opener inside an unclosed control's body is just as inactive.
                 # Otherwise its own search for "]" would cross the paragraph end.
@@ -623,7 +650,7 @@ def analyze_marker_context(
                 ]
             at = ordinary.end
             continue
-        if text[at] == "$" and not _escaped(text, at) and at in math_closing:
+        if text[at] == "$" and not is_escaped(text, at) and at in math_closing:
             _, end = math_closing[at]
             context.literals.append((at, end))
             context.markers.extend(_literal_markers(text, at, end))
@@ -645,16 +672,16 @@ def analyze_marker_context(
                 context.pending_resource_start = at
         if (
             text[at] == "$"
-            and not _escaped(text, at)
-            and (math_run := _DOLLAR_RUN.match(text, at))
+            and not is_escaped(text, at)
+            and (math_run := COMPILED_DOLLAR_RUN_REGEX.match(text, at))
         ):
             context.unmatched_math.append((at, math_run.group()))
             at = math_run.end()
             continue
-        if text[at] == "[" and not _escaped(text, at):
+        if text[at] == "[" and not is_escaped(text, at):
             labels.append(
                 (
-                    at > 0 and text[at - 1] == "!" and not _escaped(text, at - 1),
+                    at > 0 and text[at - 1] == "!" and not is_escaped(text, at - 1),
                     True,
                     at,
                     max(1, label_counts.get(at, 1)) if label_counts is not None else 1,
@@ -662,7 +689,7 @@ def analyze_marker_context(
             )
             if not labels[-1][0]:
                 active_links.add(len(labels) - 1)
-        elif text[at] == "]" and not _escaped(text, at) and labels:
+        elif text[at] == "]" and not is_escaped(text, at) and labels:
             resource_image, active, resource_label_start, count = labels[-1]
             if count == 1:
                 active_links.discard(len(labels) - 1)
@@ -670,7 +697,7 @@ def analyze_marker_context(
             else:
                 labels[-1] = (resource_image, active, resource_label_start, count - 1)
             resource_start = at + 1 if active else -1
-        if text.startswith("?[", at) and not _escaped(text, at):
+        if text.startswith("?[", at) and not is_escaped(text, at):
             limit, closed = blocks.interaction_limit(
                 at + 2,
                 lambda position: (
@@ -685,8 +712,10 @@ def analyze_marker_context(
             if not (closed and text[limit + 1 : limit + 2] == "("):
                 interaction_until = limit if closed else limit - 1
                 interaction_inactive = not closed and limit < len(text)
+                if closed:
+                    context.controls.append((at, limit + 1))
         if text.startswith("{{", at):
-            if _escaped(text, at):
+            if is_escaped(text, at):
                 context.escaped_openers.append(at)
                 at += 1
                 continue
@@ -702,7 +731,7 @@ def analyze_marker_context(
             )
             at = close + 2
         elif run := _BACKTICK_RUN.match(text, at):
-            if _escaped(text, at):
+            if is_escaped(text, at):
                 at += 1
                 continue
             if at in closing:
@@ -712,8 +741,9 @@ def analyze_marker_context(
                 at = end
                 continue
             context.unmatched_backticks.append((at, run.group()))
+            context.code_runs.append((at, run.end()))
             at = run.end()
-        elif text[at] == "<" and not _escaped(text, at):
+        elif text[at] == "<" and not is_escaped(text, at):
             autolink_end = read_angle_autolink(text, at)
             if autolink_end is not None:
                 context.literals.append((at, autolink_end))
@@ -752,6 +782,13 @@ def analyze_marker_context(
                     context.pending_block_steps = blocks.container_steps[index]
                 at += 1
         else:
+            if (
+                text[at] == "\\"
+                and at + 1 < len(text)
+                and text[at + 1] in punctuation
+                and not is_escaped(text, at)
+            ):
+                context.escapes.append((at, at + 2))
             at += 1
     context.indent_restart_after = [
         line.content_end
@@ -766,7 +803,7 @@ def analyze_marker_context(
         resource_label_start if resource_label_start >= 0 else None
     )
     context.pending_resource_opener = resource_start == len(text)
-    return context
+    return context, blocks
 
 
 def marker_syntax_source(text: str, context: MarkerContext) -> str:

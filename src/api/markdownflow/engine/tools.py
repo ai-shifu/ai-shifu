@@ -18,6 +18,10 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from markdownflow.syntax.parser.marker_context import (
+    analyze_marker_context,
+    marker_syntax_source,
+)
 from markdownflow.syntax.variable_names import (
     find_interaction_spans,
     normalize_variable_name,
@@ -33,7 +37,6 @@ from .direction import (
 )
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
-from .marker_context import analyze_marker_context, marker_syntax_source
 from .session import answer_fingerprint
 
 if TYPE_CHECKING:

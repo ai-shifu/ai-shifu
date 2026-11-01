@@ -37,10 +37,6 @@ from __future__ import annotations
 
 import re
 
-from markdownflow.engine.marker_context import (
-    analyze_marker_context,
-    marker_syntax_source,
-)
 from markdownflow.engine.stream_marker_context import (
     compact_marker_context,
     pending_autolink_is_primary,
@@ -48,6 +44,10 @@ from markdownflow.engine.stream_marker_context import (
 )
 from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
 from markdownflow.syntax.parser.document_blocks import DocumentBlocks
+from markdownflow.syntax.parser.marker_context import (
+    analyze_marker_context,
+    marker_syntax_source,
+)
 from markdownflow.syntax.variable_names import (
     find_interaction_end,
     read_variable_marker,

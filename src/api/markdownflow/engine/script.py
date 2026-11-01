@@ -9,12 +9,15 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
+from markdownflow.syntax.parser.marker_context import (
+    MarkerContext,
+    analyze_marker_context,
+    marker_syntax_source,
+)
 from markdownflow.syntax.variable_names import (
     find_interaction_spans,
     read_interaction_variable,
 )
-
-from .marker_context import MarkerContext, analyze_marker_context, marker_syntax_source
 
 # Anything that only makes sense with the MarkdownFlow syntax note.
 SYNTAX_RE = re.compile(
