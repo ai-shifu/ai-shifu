@@ -416,6 +416,12 @@ solely because historical Umami rows or queries exist.
 
 ## Editor Debug step regeneration
 
+Each rendered Debug content or interaction element displays regeneration and
+TTS controls independently of helper rows. Regeneration is disabled for
+non-text elements, invalid targets, read-only courses and running output.
+Disabled controls do not initiate requests or emit events; accepted text
+regeneration continues to use the family below.
+
 Accepted retries after a failed or stopped regeneration use the same attempt
 and terminal-result family below. The retry control is available only for the
 current Debug session's retained logical target and is hidden during a running
@@ -470,6 +476,34 @@ checkpoint, discarded content and errors are never included in analytics.
   terminal lifecycle transitions; shared transport tests cover the final
   delivered payload and global account exclusions. Local tests do not establish
   deployed Umami coverage.
+
+## Editor Debug TTS requests
+
+- Business question and metric: Do teachers use text-to-speech synthesis while
+  debugging a course? Count accepted synthesis requests by course in weekly
+  teacher authoring-quality reports. This measures adoption, not synthesis
+  success, playback completion or exposure-to-use conversion.
+- Event and trigger: `teacher_debug_tts_requested` fires immediately before an
+  eligible Debug text element invokes its synthesis callback. Rendering,
+  rerendering, cached-audio playback and disabled clicks emit nothing.
+- Population and exclusions: Teachers using the editor Debug panel with course
+  TTS enabled, a valid element identity, nonempty completed text and
+  `is_speakable !== false`. Non-text elements, unfinished output, missing
+  synthesis callbacks, loading placeholders, helper rows, errors, learner and
+  classroom-preview controls are excluded. Shared account exclusions apply.
+- Count and deduplication: One event per accepted synthesis callback invocation.
+  The existing audio player's request guard prevents concurrent requests;
+  deliberate retries count as separate requests. No persistent deduplication,
+  attempt identifier or terminal-result event is used for this adoption metric.
+- Complete payload and compatibility: Only `shifu_bid`, the stable pseudonymous
+  course machine ID needed for grouping. No element or block identity, text,
+  prompt, variable, audio URL, error or other content is collected. This is an
+  additive family; existing regeneration queries retain their meaning.
+- Delivery and verification: Use `useTracking` and preserve synthesis when
+  tracking throws, rejects or is unavailable. Rendered-panel tests verify the
+  exact event and payload, eligibility, disabled controls, callback timing,
+  absence on render/rerender and best-effort delivery. These tests do not
+  establish deployed coverage or synthesis outcomes.
 
 ## About dialog exposure
 
