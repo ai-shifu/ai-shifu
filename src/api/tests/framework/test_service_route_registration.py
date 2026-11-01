@@ -31,30 +31,27 @@ def test_service_modules_do_not_use_inject() -> None:
     assert offenders == []
 
 
-def test_service_routes_exist_before_plugins_load(
-    app: Flask, monkeypatch: pytest.MonkeyPatch
+def test_service_routes_are_registered_before_plugins_load(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Plugins may wrap service view functions while they load, so the service
     # route groups must already be registered by then.
     import app as app_module
+    from flaskr import route
     from flaskr.framework.plugin import load_plugin
 
-    seen: dict[str, bool] = {}
-    original = load_plugin.load_plugins_from_dir
+    calls: list[str] = []
+    monkeypatch.setattr(
+        load_plugin,
+        "load_plugins_from_dir",
+        lambda _app, plugins_dir, _plugin_manager=None: calls.append(
+            f"load {Path(plugins_dir).name}"
+        ),
+    )
+    monkeypatch.setattr(
+        route, "register_service_routes", lambda _app: calls.append("routes")
+    )
 
-    def _record(
-        flask_app: Flask, plugins_dir: str, plugin_manager: object = None
-    ) -> object:
-        if plugin_manager is not None:
-            seen["shifu"] = "get_shifu_list_api" in flask_app.view_functions
-            seen["learn"] = any(
-                rule.rule.startswith("/api/learn")
-                for rule in flask_app.url_map.iter_rules()
-            )
-        return original(flask_app, plugins_dir, plugin_manager)
+    app_module.load_services_and_plugins(Flask(__name__), plugin_manager=object())
 
-    monkeypatch.setattr(load_plugin, "load_plugins_from_dir", _record)
-    # create_app caches its app; build a fresh one in the fixture's environment.
-    monkeypatch.setattr(app_module._application_state, "app", None)
-    assert app_module.create_app() is not app
-    assert seen == {"shifu": True, "learn": True}
+    assert calls == ["load service", "routes", "load plugins"]

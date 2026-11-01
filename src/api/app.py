@@ -44,6 +44,25 @@ _application_state = _ApplicationState()
 app: Flask | None = None
 
 
+def load_services_and_plugins(flask_app: Flask, plugin_manager: object) -> None:
+    """Load service modules, register their routes, then load flaskr/plugins.
+
+    Service routes are registered before the plugin directory loads so plugin
+    callbacks can find their view functions.
+    """
+    from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
+    from flaskr.route import register_service_routes
+
+    load_plugins_from_dir(flask_app, str(Path("flaskr") / "service"))
+    register_service_routes(flask_app)
+    try:
+        load_plugins_from_dir(
+            flask_app, str(Path("flaskr") / "plugins"), plugin_manager
+        )
+    except Exception as e:
+        flask_app.logger.warning("load plugins error: %s", e)
+
+
 def create_app(*, serving_http: bool = True) -> Flask:
     """Create and configure the Flask application."""
     if _application_state.app is not None:
@@ -106,24 +125,11 @@ def create_app(*, serving_http: bool = True) -> Flask:
     from flaskr import api
 
     api.init_langfuse(flask_app)
-    # load plugins
-    from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
-
     plugin_manager = get_plugin_manager()
     if plugin_manager is None:
         message = "Plugin manager is not enabled"
         raise RuntimeError(message)
-
-    load_plugins_from_dir(flask_app, str(Path("flaskr") / "service"))
-    from flaskr.route import register_service_routes
-
-    register_service_routes(flask_app)
-    try:
-        load_plugins_from_dir(
-            flask_app, str(Path("flaskr") / "plugins"), plugin_manager
-        )
-    except Exception as e:
-        flask_app.logger.warning("load plugins error: %s", e)
+    load_services_and_plugins(flask_app, plugin_manager)
 
     Migrate(flask_app, dao.db)
     # register route
