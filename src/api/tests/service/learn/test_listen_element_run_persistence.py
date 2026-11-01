@@ -31,6 +31,16 @@ def _make_row(
     )
 
 
+def _adapter(app: object) -> ListenElementRunAdapter:
+    return ListenElementRunAdapter(
+        app,
+        shifu_bid="shifu-a",
+        outline_bid="outline-a",
+        user_bid="user-a",
+        run_session_bid="run-a",
+    )
+
+
 def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(
     app: object,
 ) -> None:
@@ -51,13 +61,7 @@ def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(
         )
         db.session.commit()
 
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         row_ids = adapter._find_active_element_row_ids(
             generated_block_bid="block-a",
@@ -85,13 +89,7 @@ def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(
         db.session.add(_make_row(element_bid="element-a", run_event_seq=1))
         db.session.flush()
 
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         row_ids = adapter._find_active_element_row_ids(
             generated_block_bid="block-a",
@@ -142,13 +140,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
     monkeypatch.setattr(run_persistence, "db", _FakeDb)
 
     with app.app_context():
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         invalidations = []
         monkeypatch.setattr(
@@ -190,13 +182,7 @@ def test_deactivate_active_element_rows_retires_rows_without_touching_others(
         )
         db.session.commit()
 
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         adapter._deactivate_active_element_rows(
             generated_block_bid="block-a",
