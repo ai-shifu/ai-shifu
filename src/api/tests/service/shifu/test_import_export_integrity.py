@@ -178,6 +178,7 @@ def test_reimport_creates_a_course_revision_and_replaces_active_outlines(
         keywords="keyword",
         description="Updated",
         avatar_res_bid="avatar",
+        # Files exported before the runtime setting was retired still carry this key.
         flow_engine=2,
         ask_llm_temperature=0.4,
     )
@@ -188,7 +189,6 @@ def test_reimport_creates_a_course_revision_and_replaces_active_outlines(
         )
         assert [row.title for row in revisions] == ["Imported course", "Updated course"]
         assert revisions[0].id == initial_id
-        assert revisions[-1].flow_engine == 2
         assert revisions[-1].updated_user_bid == import_owner
         old_rows = DraftOutlineItem.query.filter(
             DraftOutlineItem.id.in_(initial_outline_ids)
