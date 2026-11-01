@@ -471,6 +471,36 @@ checkpoint, discarded content and errors are never included in analytics.
   delivered payload and global account exclusions. Local tests do not establish
   deployed Umami coverage.
 
+## Editor Debug answer editing
+
+- Business question and metric: Can teachers revise an earlier Debug answer
+  successfully while preserving preceding teaching? Weekly starts and terminal
+  success, failure and cancellation shares are grouped by course and lesson;
+  aggregate counts are not per-attempt joins.
+- Events: `teacher_debug_answer_edit_start` when a confirmed, locally validated
+  anchored answer-edit request is initiated; `teacher_debug_answer_edit_result`
+  at its first successful pause/completion, business/transport failure or
+  cancellation by stop, replacement, reset, navigation or unmount. Opening or
+  cancelling confirmation, blocked clicks and intermediate chunks emit nothing.
+- Population: Authorized teachers and collaborators admitted to editor Debug
+  answer editing, including accepted retries. Guests, ordinary answers,
+  content regeneration, full restarts, learner and full-course preview are
+  excluded; shared account-level analytics exclusions still apply.
+- Deduplication: One start and at most one result per accepted request. Re-entry
+  with the same answer while awaiting the first output is blocked. A different
+  answer can replace that run after confirmation. Each accepted retry or later
+  deliberate edit is a new attempt. Automatic continuation does not double count.
+- Payload: Only stable pseudonymous `shifu_bid` and `outline_bid`; result adds
+  `result=success|failed|cancelled`. No interaction anchor, Debug session ID,
+  input, variable, prompt, output, title, URL or raw error is collected.
+- Consumers and compatibility: Teacher authoring-quality weekly Umami reports
+  consume this new additive family. Existing `teacher_debug_regenerate_*` and
+  `teacher_preview_rewind_*` names, meanings and payloads remain unchanged.
+- Verification: Helper tests assert exact allowlisted payloads, eligibility,
+  per-attempt deduplication, every terminal result and sync/async delivery
+  failures. Hook tests assert confirmation timing, prefix preservation, retry
+  and late-stream rejection. Tracking is best-effort and cannot affect teaching.
+
 ## About dialog exposure
 
 - Business question and metric: How often do users open About to inspect the

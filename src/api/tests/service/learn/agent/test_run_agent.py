@@ -1062,12 +1062,14 @@ def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
     class DebugStore:
         def __init__(self) -> None:
             self.saved: list[_Session] = []
+            self.saved_after_engine_started: list[bool] = []
 
         def load(self, *, script: str) -> None:
             assert script == SCRIPT
 
         def save(self, session: _Session, **_kwargs: object) -> None:
             self.saved.append(session)
+            self.saved_after_engine_started.append(bool(engine.turns))
 
     store = DebugStore()
     session = _Session()
@@ -1090,7 +1092,8 @@ def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
         )
     )
 
-    assert store.saved == [session]
+    assert store.saved == [session, session]
+    assert store.saved_after_engine_started == [False, True]
     assert session.user_memory == {"purpose": "test"}
     assert calls == []
     assert any(event.type == GeneratedType.CONTENT for event in events)
@@ -1135,7 +1138,7 @@ def test_editor_debug_answer_resumes_its_pending_agent_interaction(
     assert engine.new_session_calls == []
     assert engine.turns[0].type == "interaction.response"
     assert engine.turns[0].values == ["yes"]
-    assert store.saved == [pending]
+    assert store.saved == [pending, pending]
     assert pending.user_memory == {"learned": "persisted", "goal": "new"}
     assert calls == []
 

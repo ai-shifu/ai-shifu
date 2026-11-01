@@ -4220,6 +4220,7 @@ describe('useLessonConversation stream cleanup', () => {
 
     const renderWithStreamingRun = async (options?: {
       isListenMode?: boolean;
+      emitContent?: boolean;
       previewMode?: boolean;
       trackEvent?: jest.Mock;
       history?: typeof HISTORY_WITH_TWO_INTERACTIONS;
@@ -4249,24 +4250,56 @@ describe('useLessonConversation stream cleanup', () => {
       });
       await waitFor(() => expect(activeRun).toBeDefined());
 
-      await act(async () => {
-        await activeRun?.onMessage({
-          generated_block_bid: 'content-new',
-          type: SSE_OUTPUT_TYPE.ELEMENT,
-          content: {
-            element_bid: 'content-new',
+      if (options?.emitContent !== false)
+        await act(async () => {
+          await activeRun?.onMessage({
             generated_block_bid: 'content-new',
-            element_type: 'content',
-            content: 'streaming...',
-            like_status: 'none',
-          },
+            type: SSE_OUTPUT_TYPE.ELEMENT,
+            content: {
+              element_bid: 'content-new',
+              generated_block_bid: 'content-new',
+              element_type: 'content',
+              content: 'streaming...',
+              like_status: 'none',
+            },
+          });
         });
-      });
       await waitFor(() =>
         expect(renderResult.result.current.isOutputInProgress).toBe(true),
       );
       return renderResult;
     };
+
+    it.each([false, true])(
+      'keeps the current run before a learner checkpoint is durable (preview=%s)',
+      async previewMode => {
+        const { result } = await renderWithStreamingRun({
+          emitContent: false,
+          previewMode,
+        });
+        const originalRun = activeRun;
+        const requestCount = mockGetRunMessage.mock.calls.length;
+        mockCheckIsRunning.mockResolvedValue({
+          is_running: true,
+          running_time: 0,
+        });
+        await act(async () =>
+          result.current.onSend(
+            { variableName: 'var_new', selectedValues: ['Y'] },
+            'interaction-new',
+          ),
+        );
+        expect(result.current.reGenerateConfirm.open).toBe(false);
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(requestCount);
+        expect(activeRun).toBe(originalRun);
+        expect(originalRun?.source.close).not.toHaveBeenCalled();
+        expect(
+          result.current.items.find(
+            item => item.element_bid === 'interaction-new',
+          )?.user_input,
+        ).toBe('X');
+      },
+    );
 
     it('keeps the selected question when only teaching mentions its variable name', async () => {
       const history = {

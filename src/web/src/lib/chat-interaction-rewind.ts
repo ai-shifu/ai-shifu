@@ -1,0 +1,86 @@
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
+import { resolveInteractionSubmission } from './interaction-user-input';
+
+/** Rendering helpers do not advance the lesson's interaction position. */
+const resolveLastActionableElementBid = (
+  items: ChatContentItem[],
+  debug = false,
+) =>
+  [...items]
+    .reverse()
+    .find(
+      item =>
+        item?.element_bid &&
+        item.element_bid !== 'loading' &&
+        (debug
+          ? item.type === ChatContentItemType.CONTENT ||
+            item.type === ChatContentItemType.INTERACTION
+          : item.type !== ChatContentItemType.LIKE_STATUS &&
+            item.type !== ChatContentItemType.ASK),
+    )?.element_bid || '';
+
+export const requiresInteractionRewind = (
+  items: ChatContentItem[],
+  elementBid: string,
+  debugRun?: { isStreaming: boolean; content: OnSendContentParams },
+) => {
+  // Keep the learner scan unchanged; Debug ignores non-lesson status rows.
+  const last = resolveLastActionableElementBid(items, Boolean(debugRun));
+  if (last && last !== elementBid) return true;
+  if (!debugRun?.isStreaming) return false;
+  const previousAnswer = items.find(
+    item => item.element_bid === elementBid,
+  )?.user_input;
+  // Before the first output, the answered control is still the last item.
+  // A changed answer replaces that run; an identical click remains blocked.
+  return (
+    Boolean(previousAnswer) &&
+    previousAnswer !== resolveInteractionSubmission(debugRun.content).userInput
+  );
+};
+
+/** Both learner and Debug preserve the chosen control and replace its suffix. */
+export const updateInteractionItems = (
+  items: ChatContentItem[],
+  content: OnSendContentParams,
+  elementBid: string,
+  {
+    truncateFollowingItems,
+    preserveHelpers = false,
+  }: {
+    truncateFollowingItems: boolean;
+    preserveHelpers?: boolean;
+  },
+): { items: ChatContentItem[]; index: number } => {
+  const next = [...items];
+  let index = next.findIndex(item => item.element_bid === elementBid);
+  const variableName = content.variableName;
+  if (index < 0 && variableName) {
+    const matches = next.flatMap((item, i) =>
+      item.content?.includes(variableName) ? [i] : [],
+    );
+    if (matches.length === 1) index = matches[0];
+  }
+  if (index < 0) return { items: next, index };
+  next[index] = {
+    ...next[index],
+    readonly: false,
+    user_input: resolveInteractionSubmission(content).userInput,
+  };
+  if (truncateFollowingItems) {
+    const helpers = preserveHelpers
+      ? next
+          .slice(index + 1)
+          .filter(
+            item =>
+              item.parent_element_bid === elementBid &&
+              (item.type === ChatContentItemType.LIKE_STATUS ||
+                item.type === ChatContentItemType.ASK),
+          )
+      : [];
+    next.length = index + 1;
+    next.push(...helpers);
+  }
+  return { items: next, index };
+};

@@ -212,6 +212,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Safe Outbound URL Validation](./completed/safe-outbound-url-validation.md)
 - [Session Langfuse Traces](./completed/session-langfuse-traces.md)
 - [Write explicit named answers back to same-owner course variables](./completed/shared-answer-writeback.md)
+- [Shared Interaction Rewind](./completed/shared-interaction-rewind.md)
 - [Share lesson request completion](./completed/shared-lesson-request-lifecycle.md)
 - [Simplify typed MarkdownFlow marker cleanup](./completed/simplify-typed-marker-cleanup.md)
 - [Spanish (Spain) Product Localization](./completed/spanish-es-es-localization.md)

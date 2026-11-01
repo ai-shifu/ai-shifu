@@ -64,6 +64,8 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-31` | Canonical: `true`
 - [Profile onboarding startup](../product-specs/profile-onboarding-startup.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-23` | Canonical: `true`
+- [Shared Interaction Rewind](../product-specs/shared-interaction-rewind.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-01` | Canonical: `true`
 - [Skill Usage Analytics](../product-specs/skill-usage-analytics.md)
   - Status: `implemented` | Owner: `frontend-backend` | Last reviewed: `2026-10-23` | Canonical: `true`
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)
