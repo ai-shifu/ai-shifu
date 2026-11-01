@@ -117,11 +117,10 @@ def test_unclosed_fence_keeps_everything_after_it_as_code(newline: str) -> None:
     _assert_filter(source, [])
 
 
-@pytest.mark.parametrize("opening", ["Use the ` key ", "`", "Cost $5 and "])
-def test_held_question_keeps_streaming_work_linear(
-    opening: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A question held behind an undecided run must not rescan per delta."""
+def _feed_counted(
+    monkeypatch: pytest.MonkeyPatch, head: str, tail: str
+) -> tuple[InteractionSyntaxFilter, str, bool, int, float]:
+    """Feed `head`, then `tail` one character at a time, counting scanned text."""
     from flaskr.service.learn.agent import interaction_syntax
     from markdownflow.engine import stream_marker_context
 
@@ -135,10 +134,8 @@ def test_held_question_keeps_streaming_work_linear(
 
     monkeypatch.setattr(interaction_syntax, "analyze_marker_context", counted)
     monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
-    question = "?[OK|Cancel]"
-    tail = "and then the lesson goes on " * 720  # About 20,000 characters.
     syntax = InteractionSyntaxFilter()
-    shown = syntax.feed(opening + question + " ")
+    shown = syntax.feed(head)
     started = time.perf_counter()
     narrated_before_end = False
     for character in tail:
@@ -146,10 +143,55 @@ def test_held_question_keeps_streaming_work_linear(
         shown += released
         narrated_before_end = narrated_before_end or bool(released)
     shown += syntax.flush()
-    assert time.perf_counter() - started < 1.0
-    assert narrated_before_end
-    assert syntax.spans == [question]
-    assert shown == opening + " " + tail
+    return syntax, shown, narrated_before_end, inspected, time.perf_counter() - started
+
+
+NARRATION = "and then the lesson goes on " * 720  # About 20,000 characters.
+HELD = "?[OK|Cancel]"
+
+
+@pytest.mark.parametrize("opening", ["Use the ` key ", "`", "Cost $5 and "])
+def test_question_decided_at_the_paragraph_end_keeps_work_linear(
+    opening: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After the paragraph ends, the held question is a question and narration flows."""
+    tail = " then.\n\n" + NARRATION
+    syntax, shown, narrated, inspected, elapsed = _feed_counted(
+        monkeypatch, opening + HELD, tail
+    )
+    assert elapsed < 1.0
+    assert narrated
+    assert syntax.spans == [HELD]
+    assert shown == opening + tail
+    assert inspected <= 40 * len(tail)
+
+
+@pytest.mark.parametrize(("opening", "closing"), [("Use the ` key ", "`"), ("$", "$")])
+def test_question_in_a_late_closing_span_stays_literal(
+    opening: str, closing: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A span closing far after the opener still makes the example literal text."""
+    tail = " " + "word " * 300 + closing + " " + NARRATION
+    syntax, shown, narrated, inspected, elapsed = _feed_counted(
+        monkeypatch, opening + HELD, tail
+    )
+    assert elapsed < 1.0
+    assert narrated
+    assert syntax.spans == []
+    assert shown == opening + HELD + tail
+    assert inspected <= 40 * len(tail)
+
+
+def test_long_held_paragraph_stays_fast(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A question held through a long paragraph costs work linear in its length."""
+    paragraph = ("and the lesson goes on\n" * 870)[:-1]  # About 20,000 characters.
+    tail = " " + paragraph + "\n\nNext."
+    syntax, shown, _, inspected, elapsed = _feed_counted(
+        monkeypatch, "Use the ` key " + HELD, tail
+    )
+    assert elapsed < 1.0
+    assert syntax.spans == [HELD]
+    assert shown == "Use the ` key " + tail
     assert inspected <= 40 * len(tail)
 
 
@@ -171,3 +213,27 @@ def test_narration_after_a_closed_code_span_flows_before_flush() -> None:
     shown += syntax.feed(" exactly` and continue")
     assert syntax.spans == []
     assert shown == "Type `" + EXAMPLE + " exactly` and continue"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "x" * 4100 + "\n\n- item\n\n    " + PLAIN,
+        "- " + "word " * 900 + "\n\n  " + PLAIN,
+        "> - " + "word " * 900 + "\n>\n>   " + PLAIN,
+        "<!--\n" + "word " * 900 + "\n\n" + PLAIN + "\n-->\n\n" + QUESTION,
+        "x" * 4100 + "\n\n- ```\n  " + PLAIN + "\n\n- " + QUESTION,
+    ],
+    ids=["after-paragraph", "list-item", "nested", "comment-block", "list-fence"],
+)
+def test_long_narration_keeps_its_exact_block_structure(source: str) -> None:
+    """Past thousands of characters, containers and open blocks still decide."""
+    spans = [
+        source[start:end] for start, end in find_document_interaction_spans(source)
+    ]
+    for size in (len(source), 1, 7):
+        syntax = InteractionSyntaxFilter()
+        for at in range(0, len(source), size):
+            syntax.feed(source[at : at + size])
+        syntax.flush()
+        assert syntax.spans == spans, size
