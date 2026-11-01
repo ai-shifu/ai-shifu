@@ -730,7 +730,8 @@ from ordinary application changes may first be detected by the main build.
 6. Recover failures from the original run or explicitly provide its original
    merged SHA and version through **Publish Merged Release** on main. Matching
    completed releases are verified without changes; mismatches and prereleases
-   stop. Image failures retain an unpublished draft for safe retry. After
+   stop. Sources predating the release coordination protocol keep the legacy
+   manual workflow rather than entering automatic recovery. Image failures retain an unpublished draft for safe retry. After
    publication, verify consumer Compose startup and the primary frontend path;
    this automation adds no production deployment operation or historical rewrite.
 

@@ -8,6 +8,7 @@ import os
 import sys
 import unittest
 from contextlib import chdir
+from functools import partial
 from unittest import mock
 
 import release_workflow as release
@@ -22,6 +23,9 @@ class ReleasePublicationTests(unittest.TestCase):
         self.fixture = fixtures.ReleaseFixture()
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
+        self.fixture.write(
+            "scripts/release_workflow.py", "AUTOMATIC_RELEASE_PROTOCOL = 1\n"
+        )
 
     def remote(self, source: str, *, record: dict | None = None) -> tuple[dict, object]:
         """Extend the existing explicit GitHub mock with release publication only."""
@@ -42,6 +46,133 @@ class ReleasePublicationTests(unittest.TestCase):
             return api(method, path, payload, missing_ok=missing_ok)
 
         return state, github
+
+    def test_automatic_operations_reject_missing_or_unsupported_source_protocol(
+        self,
+    ) -> None:
+        """Old or malformed source cannot publish into a legacy duplicate-build handler."""
+        fixture = self.fixture
+        cases = (
+            None,
+            "AUTOMATIC_RELEASE_PROTOCOL = 2\n",
+            "AUTOMATIC_RELEASE_PROTOCOL = True\n",
+            'AUTOMATIC_RELEASE_PROTOCOL = "1"\n',
+            "AUTOMATIC_RELEASE_PROTOCOL = 0 + 1\n",
+            "AUTOMATIC_RELEASE_PROTOCOL = 1\nAUTOMATIC_RELEASE_PROTOCOL = 1\n",
+            "AUTOMATIC_RELEASE_PROTOCOL: int = 1\n",
+            "AUTOMATIC_RELEASE_PROTOCOL = OTHER = 1\n",
+            "if True:\n    AUTOMATIC_RELEASE_PROTOCOL = 1\n",
+            "AUTOMATIC_RELEASE_PROTOCOL = (\n",
+        )
+        for declaration in cases:
+            with self.subTest(declaration=declaration):
+                fixture.git("reset", "--hard", fixture.base)
+                script = fixture.repo / "scripts/release_workflow.py"
+                if declaration is None:
+                    script.unlink(missing_ok=True)
+                else:
+                    fixture.write("scripts/release_workflow.py", declaration)
+                source = fixture.candidate()
+                event = json.loads(fixture.event(source).read_text())
+                state, api = self.remote(source)
+                with (
+                    chdir(fixture.repo),
+                    mock.patch.object(release, "github", side_effect=api),
+                ):
+                    operations = (
+                        partial(
+                            release.create_draft,
+                            source,
+                            event,
+                            "fixture/product",
+                            "Notes",
+                            resume_published=True,
+                        ),
+                        partial(
+                            release.validate_candidate,
+                            source,
+                            "v3.0.1",
+                            "fixture/product",
+                        ),
+                        partial(
+                            release.publish_release, source, "v3.0.1", "fixture/product"
+                        ),
+                    )
+                    for operation in operations:
+                        with self.assertRaisesRegex(
+                            ValueError, "automatic release coordination protocol"
+                        ):
+                            operation()
+                    with (
+                        mock.patch.dict(
+                            os.environ,
+                            {
+                                "GITHUB_EVENT_NAME": "workflow_dispatch",
+                                "GITHUB_REF": "refs/heads/main",
+                            },
+                        ),
+                        self.assertRaisesRegex(
+                            ValueError, "automatic release coordination protocol"
+                        ),
+                    ):
+                        release.detect(
+                            source,
+                            {
+                                "inputs": {
+                                    "source_commit": source,
+                                    "expected_version": "3.0.1",
+                                }
+                            },
+                        )
+                assert not state["calls"]
+
+    def test_source_protocol_is_parsed_without_execution_or_checkout_drift(
+        self,
+    ) -> None:
+        """Only the frozen declaration matters; source module statements never run."""
+        fixture = self.fixture
+        fixture.write(
+            "scripts/release_workflow.py",
+            "AUTOMATIC_RELEASE_PROTOCOL = 1\n"
+            "from pathlib import Path\n"
+            "Path('executed-source').write_text('must not execute')\n",
+        )
+        source = fixture.candidate()
+        fixture.write("scripts/release_workflow.py", "AUTOMATIC_RELEASE_PROTOCOL = 9\n")
+        newer = fixture.commit("ci: a later unsupported release protocol")
+        with chdir(fixture.repo):
+            release.validate_automatic_protocol(source)
+            with self.assertRaisesRegex(
+                ValueError, "automatic release coordination protocol"
+            ):
+                release.validate_automatic_protocol(newer)
+        assert not (fixture.repo / "executed-source").exists()
+
+    def test_pre_protocol_sources_keep_legacy_draft_and_manual_event_behavior(
+        self,
+    ) -> None:
+        """Historical sources can still use their existing manual publication path."""
+        fixture = self.fixture
+        (fixture.repo / "scripts/release_workflow.py").unlink()
+        source = fixture.candidate()
+        state, api = self.remote(source)
+        with chdir(fixture.repo), mock.patch.object(release, "github", side_effect=api):
+            release.create_draft(
+                source,
+                json.loads(fixture.event(source).read_text()),
+                "fixture/product",
+                "Legacy notes",
+            )
+            assert state["release"]["draft"] is True
+            state["release"]["draft"] = False
+            state["calls"].clear()
+            result = release.validate_published(
+                source,
+                {"action": "published", "release": state["release"]},
+                "fixture/product",
+            )
+        assert result["should_build"] == "true"
+        assert all(method == "GET" for method, _, _ in state["calls"])
 
     def test_manual_recovery_keeps_original_source_after_main_advances(self) -> None:
         """An explicit SHA, not dispatch HEAD, selects the candidate version."""

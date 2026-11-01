@@ -189,6 +189,14 @@ guards. The workflow runtime comes from its trusted workflow revision, while
 release notes and image inputs remain pinned to the original source. Moving
 main or choosing its current version is not a substitute for the failed source.
 
+Automatic staging/recovery also requires the frozen source to declare the
+supported release coordination protocol in `scripts/release_workflow.py`.
+GitHub's published-release event runs the workflow at the released tag, so a
+source predating this protocol would run an old handler that cannot recognize
+completed image work. Such sources fail before automatic writes or image builds;
+recover them through their original legacy workflow and manual publication.
+The capability check reads the declaration as data without executing frozen code.
+
 A same-source tag with no Release, or a matching incomplete draft, is
 recoverable. A matching published Release with the owned completion marker is
 verified without edits or rebuilding its images. An unmarked public Release,

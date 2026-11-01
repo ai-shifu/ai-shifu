@@ -27,10 +27,14 @@ is outside this execution task. The canonical operational contract lives in
   commands, reusable image integration and bump-title handoff; focused helper
   and workflow tests passed. Independent review found and verified the fix for
   draft metadata visibility permissions.
-- [x] 2026-11-01 03:25 UTC: Regenerated knowledge indexes; passed 52 release
-  regressions, 391 script tests and 229 subtests (8 Docker Compose cases skipped),
+- [x] 2026-11-01 03:25 UTC: Regenerated knowledge indexes; passed 55 release
+  regressions, 394 script tests and 239 subtests (8 Docker Compose cases skipped),
   Ruff, actionlint, architecture fixtures, tool doctor and repository-wide
   lefthook checks in a clean staged snapshot.
+- [x] 2026-11-01 03:34 UTC: Added frozen-source coordination protocol checks
+  after verifying GitHub's tag-revision event behavior; old sources remain on
+  their compatible manual workflow. All 55 release tests and the full script
+  suite (394 tests, 239 subtests; 8 Compose skips) pass after this correction.
 - [x] 2026-11-01 03:27 UTC: Opened ready [PR #3276](https://github.com/ai-shifu/ai-shifu/pull/3276)
   with local verification evidence; leave it unmerged. Remote CI is pending.
 - [ ] 2026-11-01 01:49 UTC: External acceptance: after authorized review/merge and a genuine version
@@ -48,6 +52,10 @@ is outside this execution task. The canonical operational contract lives in
 - A reusable release image call from main would enable the old default-branch
   `latest` tag expression. Formal release calls must emit only their version
   tag, including historical-source recovery.
+- Published-release events run the workflow at the released tag. An older
+  source without marker-aware coordination would otherwise rebuild images after
+  automatic publication; the new path checks an explicit source protocol before
+  automatic staging, image validation or publication.
 - The repository now owns one Web npm package. Version preparation still covers
   its manifest/lock root, the vendored engine version and pinned first-party
   Compose images; it must not restore removed frontend package surfaces.
@@ -78,7 +86,7 @@ commit recovery, publication readback, prereleases, image failures, completion
 metadata, source identity and credential boundaries. Independent review found
 that draft metadata needs push-capable credentials; the validation job and its
 caller now grant that visibility while native image jobs retain Contents read.
-Local verification passed: 52 release regressions; 391 script tests and 229
+Local verification passed: 55 release regressions; 394 script tests and 229
 subtests passed, with 8 Docker Compose cases skipped because the local CLI is
 unavailable. Ruff/actionlint, architecture fixtures and required lefthook checks
 passed. The working checkout has unrelated untracked runtime logs that trigger

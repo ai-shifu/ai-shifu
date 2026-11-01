@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -22,6 +23,7 @@ IMAGE_PATTERN = re.compile(
 )
 ENGINE_PATTERN = re.compile(r"(?m)^(__version__\s*=\s*)(['\"])([^'\"]+)\2")
 IMAGES_MARKER = "<!-- ai-shifu-release-images-verified:"
+AUTOMATIC_RELEASE_PROTOCOL = 1
 
 
 def git(*arguments: str) -> str:
@@ -51,6 +53,43 @@ def source_commit(source: str) -> str:
         message = "Source must identify a commit directly"
         raise ValueError(message)
     return source
+
+
+def validate_automatic_protocol(source: str) -> None:
+    """Require frozen source to coordinate its own published-event image builds."""
+    source_commit(source)
+    message = (
+        "Frozen source must declare automatic release coordination protocol "
+        f"{AUTOMATIC_RELEASE_PROTOCOL}; use the legacy release workflow for older sources"
+    )
+    try:
+        module = ast.parse(git("show", f"{source}:scripts/release_workflow.py"))
+    except (SyntaxError, subprocess.CalledProcessError) as error:
+        raise ValueError(message) from error
+    declarations = []
+    for node in module.body:
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        else:
+            continue
+        if any(
+            isinstance(target, ast.Name) and target.id == "AUTOMATIC_RELEASE_PROTOCOL"
+            for target in targets
+        ):
+            declarations.append(node)
+    if len(declarations) != 1:
+        raise ValueError(message)
+    declaration = declarations[0]
+    if (
+        not isinstance(declaration, ast.Assign)
+        or len(declaration.targets) != 1
+        or not isinstance(declaration.value, ast.Constant)
+        or type(declaration.value.value) is not int
+        or declaration.value.value != AUTOMATIC_RELEASE_PROTOCOL
+    ):
+        raise ValueError(message)
 
 
 def compose_paths() -> list[str]:
@@ -184,6 +223,7 @@ def detect(source: str, event: dict) -> dict[str, str]:
         ):
             message = "Recovery requires main, the original full source SHA and matching expected version"
             raise ValueError(message)
+        validate_automatic_protocol(source)
     elif (
         os.environ.get("GITHUB_EVENT_NAME") != "push"
         or event.get("ref") != "refs/heads/main"
@@ -387,6 +427,8 @@ def create_draft(
     resume_published: bool = False,
 ) -> str:
     """Pin an exact-source draft; optionally resume an owned public release read-only."""
+    if resume_published:
+        validate_automatic_protocol(source)
     values = detect(source, event)
     if values["create_draft"] != "true":
         message = "Draft creation requires a main version increase"
@@ -457,7 +499,7 @@ def create_draft(
 
 def validate_candidate(source: str, tag: str, repository: str) -> dict[str, str]:
     """Validate a trusted draft before images, or an owned completed retry."""
-    source_commit(source)
+    validate_automatic_protocol(source)
     version = tag.removeprefix("v")
     if tag != f"v{version}":
         message = "Formal release tags must start with v"

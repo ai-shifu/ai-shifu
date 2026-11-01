@@ -359,6 +359,7 @@ class AutomaticReleaseWorkflowTests(unittest.TestCase):
         fixture = fixtures.ReleaseFixture()
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
+        fixture.write("scripts/release_workflow.py", "AUTOMATIC_RELEASE_PROTOCOL = 1\n")
         source = fixture.candidate()
         fixture.write("README.md", "# A later main commit\n")
         newer = fixture.commit("docs: advance main after the version merge")
