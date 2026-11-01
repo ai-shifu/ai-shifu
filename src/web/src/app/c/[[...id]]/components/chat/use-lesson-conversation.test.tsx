@@ -4271,31 +4271,33 @@ describe('useLessonConversation stream cleanup', () => {
     };
 
     it.each([false, true])(
-      'can revise the current answer before output (preview=%s)',
+      'keeps the current run before a learner checkpoint is durable (preview=%s)',
       async previewMode => {
         const { result } = await renderWithStreamingRun({
           emitContent: false,
           previewMode,
         });
-        act(() =>
+        const originalRun = activeRun;
+        const requestCount = mockGetRunMessage.mock.calls.length;
+        mockCheckIsRunning.mockResolvedValue({
+          is_running: true,
+          running_time: 0,
+        });
+        await act(async () =>
           result.current.onSend(
             { variableName: 'var_new', selectedValues: ['Y'] },
             'interaction-new',
           ),
         );
-        expect(result.current.reGenerateConfirm.open).toBe(true);
-        await act(async () => result.current.reGenerateConfirm.onConfirm());
-        await waitFor(() =>
-          expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
-            reload_element_bid: 'interaction-new',
-            reload_generated_block_bid: 'interaction-new',
-          }),
-        );
+        expect(result.current.reGenerateConfirm.open).toBe(false);
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(requestCount);
+        expect(activeRun).toBe(originalRun);
+        expect(originalRun?.source.close).not.toHaveBeenCalled();
         expect(
           result.current.items.find(
             item => item.element_bid === 'interaction-new',
           )?.user_input,
-        ).toBe('Y');
+        ).toBe('X');
       },
     );
 

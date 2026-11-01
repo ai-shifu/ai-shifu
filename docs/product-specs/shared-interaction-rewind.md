@@ -16,15 +16,20 @@ an interaction, replacing its displayed answer and truncating later items.
 Changing an earlier answer keeps that question and its preceding teaching,
 restores the checkpoint before its old answer was received, and supplies the
 new answer. Later teaching and session answers are discarded, and teaching
-pauses normally at the next interaction. Multiple questions in one turn use
-exact interaction ownership, rather than matching variable names or guessing
-from the generated block alone.
+pauses normally at the next interaction. Debug distinguishes multiple questions
+in one turn using exact interaction ownership. Published learning retains its existing block-based replay boundary.
 
-A confirmation can be opened while output is streaming, including the wait
-before its first content arrives. Repeating the same answer during that wait
-does not start another request. Cancelling changes nothing. Confirming replaces the active output, and late events or saves from
-the old Debug request cannot overwrite its replacement. A stopped or failed
-answer edit retries the same owned question and the newly submitted answer.
+Editor Debug can confirm an answer change while output is streaming, including
+before its first content arrives: it saves the accepting checkpoint before output.
+Repeating the same answer during that wait does not start another request.
+Published learning and full-course draft preview retain their existing guard for
+resubmitting the current question before output, when their accepting checkpoint
+is not yet durable. They still call the shared interaction and rewind rules,
+with their existing selection, status-row handling and replay behavior preserved.
+Cancelling confirmation changes nothing. Confirming replaces the active Debug
+output, and late events or saves from the old request cannot overwrite its
+replacement. A stopped or failed answer edit retries the same owned question
+and the newly submitted answer.
 
 ## Storage and compatibility
 

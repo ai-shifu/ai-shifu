@@ -2834,10 +2834,10 @@ function useLessonConversation({
       // guard and pop the regenerate-confirm dialog. Compute the flag
       // up front so the streaming / running-check branches below can
       // short-circuit only for non-regenerate submissions.
+      // Unlike Debug, learner checkpoints are not durable before first output.
       const isReGenerate = requiresInteractionRewind(
         contentListRef.current,
         blockBid,
-        { isStreaming: isStreamingRef.current, content },
       );
 
       const { variableName, buttonText, inputText } = content;

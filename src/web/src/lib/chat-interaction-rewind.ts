@@ -3,25 +3,32 @@ import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 import { resolveInteractionSubmission } from './interaction-user-input';
 
 /** Rendering helpers do not advance the lesson's interaction position. */
-const resolveLastActionableElementBid = (items: ChatContentItem[]) =>
+const resolveLastActionableElementBid = (
+  items: ChatContentItem[],
+  debug = false,
+) =>
   [...items]
     .reverse()
     .find(
       item =>
-        item.element_bid &&
+        item?.element_bid &&
         item.element_bid !== 'loading' &&
-        (item.type === ChatContentItemType.CONTENT ||
-          item.type === ChatContentItemType.INTERACTION),
+        (debug
+          ? item.type === ChatContentItemType.CONTENT ||
+            item.type === ChatContentItemType.INTERACTION
+          : item.type !== ChatContentItemType.LIKE_STATUS &&
+            item.type !== ChatContentItemType.ASK),
     )?.element_bid || '';
 
 export const requiresInteractionRewind = (
   items: ChatContentItem[],
   elementBid: string,
-  activeRun?: { isStreaming: boolean; content: OnSendContentParams },
+  debugRun?: { isStreaming: boolean; content: OnSendContentParams },
 ) => {
-  const last = resolveLastActionableElementBid(items);
+  // Keep the learner scan unchanged; Debug ignores non-lesson status rows.
+  const last = resolveLastActionableElementBid(items, Boolean(debugRun));
   if (last && last !== elementBid) return true;
-  if (!activeRun?.isStreaming) return false;
+  if (!debugRun?.isStreaming) return false;
   const previousAnswer = items.find(
     item => item.element_bid === elementBid,
   )?.user_input;
@@ -29,7 +36,7 @@ export const requiresInteractionRewind = (
   // A changed answer replaces that run; an identical click remains blocked.
   return (
     Boolean(previousAnswer) &&
-    previousAnswer !== resolveInteractionSubmission(activeRun.content).userInput
+    previousAnswer !== resolveInteractionSubmission(debugRun.content).userInput
   );
 };
 
@@ -67,8 +74,7 @@ export const updateInteractionItems = (
           .slice(index + 1)
           .filter(
             item =>
-              (item.parent_element_bid === elementBid ||
-                item.parent_block_bid === elementBid) &&
+              item.parent_element_bid === elementBid &&
               (item.type === ChatContentItemType.LIKE_STATUS ||
                 item.type === ChatContentItemType.ASK),
           )

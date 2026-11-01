@@ -85,13 +85,22 @@ def plan_turn_rewind(
     if answering:
         target = None
         for i in range(anchor + 1, len(turns)):
+            # Published learning keeps its existing next-turn boundary. Draft
+            # presentation metadata names the turn that actually accepted input.
+            if question_id is None:
+                target = i
+                break
+            if "answered_question_id" in turns[i]:
+                if turns[i]["answered_question_id"] == question_id:
+                    target = i
+                    break
+                continue
             record = turns[i].get("record")
-            if not isinstance(record, dict) or not isinstance(
-                record.get("checkpoint"), dict
-            ):
-                raise RewindUnavailableError
-            pending = record["checkpoint"].get("pending")
-            if question_id is None or (
+            checkpoint = record.get("checkpoint") if isinstance(record, dict) else None
+            pending = (
+                checkpoint.get("pending") if isinstance(checkpoint, dict) else None
+            )
+            if (
                 isinstance(pending, list)
                 and pending
                 and isinstance(pending[0], dict)
@@ -117,6 +126,11 @@ def plan_turn_rewind(
         or not isinstance(values, list)
         or any(not isinstance(value, str) for value in values)
         or (answering and not checkpoint["pending"])
+        or (
+            answering
+            and question_id is not None
+            and checkpoint["pending"][0].get("tool_call_id") != question_id
+        )
     ):
         raise RewindUnavailableError
     return RewindPlan(
@@ -301,48 +315,6 @@ def plan_rewind(
     if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
         raise RewindUnavailableError
     blocks = _turn_blocks_from(block, include_it=True)
-    question_id = None
-    if answering:
-        controls = (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.generated_block_bid == block.generated_block_bid,
-                LearnGeneratedElement.user_bid == user_bid,
-                LearnGeneratedElement.outline_item_bid == outline_bid,
-                LearnGeneratedElement.event_type == "element",
-                LearnGeneratedElement.element_type == "interaction",
-                LearnGeneratedElement.status == 1,
-                LearnGeneratedElement.deleted == 0,
-            )
-            .order_by(
-                LearnGeneratedElement.sequence_number.asc(),
-                LearnGeneratedElement.run_event_seq.asc(),
-                LearnGeneratedElement.id.asc(),
-            )
-            .all()
-        )
-        identities = list(
-            dict.fromkeys(
-                row.target_element_bid
-                if not row.is_new and row.target_element_bid
-                else row.element_bid
-                for row in controls
-            )
-        )
-        if anchor in identities and len(blocks) > 1:
-            record = read_turn_record(blocks[1])
-            pending = record["checkpoint"].get("pending", []) if record else []
-            offset = identities.index(anchor)
-            if (
-                not isinstance(pending, list)
-                or offset >= len(pending)
-                or not isinstance(pending[offset], dict)
-            ):
-                raise RewindUnavailableError
-            question_id = pending[offset].get("tool_call_id")
-            if not isinstance(question_id, str) or not question_id:
-                raise RewindUnavailableError
-        elif anchor == block.generated_block_bid and len(identities) > 1:
-            raise RewindUnavailableError
     return plan_turn_rewind(
         [
             {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
@@ -350,7 +322,6 @@ def plan_rewind(
         ],
         block_bid=block.generated_block_bid,
         answering=answering,
-        question_id=question_id,
     )
 
 

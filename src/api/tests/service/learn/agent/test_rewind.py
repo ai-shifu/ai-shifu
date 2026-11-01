@@ -369,7 +369,7 @@ def test_old_checkpoint_does_not_inherit_a_future_interruption() -> None:
 
 
 @pytest.mark.parametrize("selected", [0, 1])
-def test_learner_answer_edit_resolves_the_exact_question_within_one_turn(
+def test_learner_answer_edit_preserves_the_existing_block_based_replay_boundary(
     app: object, selected: int
 ) -> None:
     with app.app_context():
@@ -396,6 +396,6 @@ def test_learner_answer_edit_resolves_the_exact_question_within_one_turn(
         db.session.commit()
         plan = _plan(f"control-{selected}", answering=True)
     assert plan is not None
-    assert plan.checkpoint["pending"][0]["tool_call_id"] == f"q{selected + 1}"
+    assert plan.checkpoint["pending"][0]["tool_call_id"] == "q1"
     assert plan.replay_values is None
-    assert plan.retired_block_bids == [f"answer-{i}" for i in range(selected, 2)]
+    assert plan.retired_block_bids == ["answer-0", "answer-1"]

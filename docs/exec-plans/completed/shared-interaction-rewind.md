@@ -28,8 +28,10 @@ cache snapshot to avoid racing an old stream's save.
 
 ## Decision Log
 
-- Share behavior and checkpoint planning; keep storage ownership and transport separate.
+- Share checkpoint planning and interaction updates; keep storage and transport separate.
+- Preserve all existing learner decisions and replay boundaries; new answer-edit behavior is Debug-only.
 - Permit confirmed answer edits during streaming; reject late old-stream writes and UI events.
+- Only Debug enables current-answer edits before first output, after durably saving its checkpoint.
 - Editing the script still starts a fresh Debug session. Missing checkpoints report an error.
 - Keep existing content-regeneration analytics compatible; use a separate answer-edit family.
 - Preserve the original dirty checkout. Submission and merge are authorized for this isolated branch.
@@ -49,8 +51,9 @@ and authorized submission and merge into main.
 - The user verified the local Debug flow. Hosted deployment verification is outside this change.
 - Review regression: error rows do not advance the current interaction; racing saves
   between preflight and request admission are retired by the post-claim replan.
-- Review regression: changing an active answer before the first content arrives
-  uses the same shared decision in learner and Debug; duplicate submissions stay blocked.
+- Review regression: Debug can change an active answer before first content;
+  published learning and draft preview keep their existing pre-output run guard.
+  Both use the shared decision; duplicate Debug submissions stay blocked.
 
 ## Context and Orientation
 

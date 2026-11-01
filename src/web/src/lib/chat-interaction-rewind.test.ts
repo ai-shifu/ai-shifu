@@ -98,13 +98,19 @@ it('ignores helper rows when detecting an earlier answer and preserves helpers o
   ).toHaveLength(2);
 });
 
-it('ignores error rows when retrying the current question after a failed stream', () => {
+it('preserves the learner scan while Debug ignores business-error rows', () => {
   const list: ChatContentItem[] = [
     items[0],
     items[1],
     { element_bid: 'business-error', type: T.ERROR, content: 'Request failed' },
   ];
-  expect(requiresInteractionRewind(list, 'q1')).toBe(false);
+  expect(requiresInteractionRewind(list, 'q1')).toBe(true);
+  expect(
+    requiresInteractionRewind(list, 'q1', {
+      isStreaming: false,
+      content: { selectedValues: ['A'] },
+    }),
+  ).toBe(false);
   expect(requiresInteractionRewind([...list, items[3]], 'q1')).toBe(true);
 });
 
