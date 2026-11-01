@@ -23,6 +23,9 @@ compatible with existing browser and external API consumers.
   boundaries and the unit-of-work ratchet passed.
 - [x] 2026-11-01 10:28 UTC: Independent candidate review found no concrete HTTP
   bypass or regression. Ready PR #3292 contains this focused contract change.
+- [x] 2026-11-01 10:51 UTC: Updated the feature branch onto main after PRs #3294
+  and #3295 were externally merged. Both exception sources behind the relocated
+  CodeQL #183 finding are now fixed in this branch; the PR diff stays HTTP-only.
 - [ ] 2026-11-01 10:28 UTC: Obtain current PR CI results. Main alert closure
   requires a human merge and new scan.
 
@@ -43,6 +46,9 @@ compatible with existing browser and external API consumers.
 - 2026-11-01: Add `nosniff`, following the existing live follow-up response
   precedent. Keep file and SSE response creation unchanged.
 - 2026-11-01: Keep export-path, regex, and diagnostic findings in independent PRs.
+- 2026-11-01: Do not resolve CodeQL #183 merely because its source fix exists in
+  another PR. Refresh this feature branch after that PR is merged, revalidate
+  the actual current source, and close the thread only after verification.
 
 ## Outcomes & Retrospective
 
