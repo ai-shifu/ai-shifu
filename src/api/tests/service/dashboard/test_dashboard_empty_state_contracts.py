@@ -14,6 +14,7 @@ from flaskr.service.learn.models import (
 )
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
 from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
+from flaskr.service.user.contact_lookup import load_user_contact_map
 from flaskr.service.user.models import AuthCredential, UserInfo
 
 from tests.common.fixtures.model_factories import make_progress_record
@@ -148,9 +149,7 @@ def test_legacy_phone_identity_is_used_only_until_a_phone_credential_exists(
         )
     with app.app_context():
         assert (
-            dashboard._load_dashboard_course_user_contact_map([follow_up.bid])[
-                follow_up.bid
-            ]["mobile"]
+            load_user_contact_map([follow_up.bid])[follow_up.bid]["mobile"]
             == "13800138000"
         )
         with unit_of_work():
@@ -164,9 +163,7 @@ def test_legacy_phone_identity_is_used_only_until_a_phone_credential_exists(
                 )
             )
         assert (
-            dashboard._load_dashboard_course_user_contact_map([follow_up.bid])[
-                follow_up.bid
-            ]["mobile"]
+            load_user_contact_map([follow_up.bid])[follow_up.bid]["mobile"]
             == "13900139000"
         )
 
