@@ -21,6 +21,7 @@ from flaskr.api.sms.aliyun import (
 from flaskr.common.observability import record_credit_notification_event
 from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.i18n import _
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.smtp import (
     SmtpConfigurationError,
@@ -4275,7 +4276,7 @@ def enqueue_credit_notification(
         return {
             "status": "enqueue_failed",
             "notification_bid": normalized_notification_bid,
-            "message": "enqueue_failed",
+            "message": _("server.common.unexpectedError"),
             "enqueued": False,
         }
     else:

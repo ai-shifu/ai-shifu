@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 from flaskr.dao import db
+from flaskr.i18n import get_current_language, set_language
 from flaskr.service.billing import credit_notifications as notifications
 from flaskr.service.billing.models import NotificationRecord, NotificationTemplate
 from flaskr.util.datetime import now_utc
@@ -353,8 +354,22 @@ def test_missing_notification_cannot_be_delivered_or_requeued(
 @pytest.mark.parametrize(
     "outcome", ["missing-task", "broker-error", "success", "invalid-bid"]
 )
+@pytest.mark.parametrize(
+    ("language", "failure_message"),
+    [
+        ("en-US", "The service is temporarily unavailable. Please try again later."),
+        (
+            "fr-FR",
+            "Le service est temporairement indisponible. Veuillez réessayer plus tard.",
+        ),
+    ],
+)
 def test_enqueue_reports_dispatch_acceptance_and_broker_failures(
-    outcome: str, app: Flask, monkeypatch: pytest.MonkeyPatch
+    outcome: str,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    language: str,
+    failure_message: str,
 ) -> None:
     from flaskr.common import celery_app
 
@@ -367,9 +382,15 @@ def test_enqueue_reports_dispatch_acceptance_and_broker_failures(
         )
     )
     monkeypatch.setattr(celery_app, "get_celery_app", factory)
-    result = notifications.enqueue_credit_notification(
-        app, notification_bid=" " if outcome == "invalid-bid" else " notification-test "
-    )
+    previous_language = get_current_language()
+    set_language(language)
+    try:
+        result = notifications.enqueue_credit_notification(
+            app,
+            notification_bid=" " if outcome == "invalid-bid" else " notification-test ",
+        )
+    finally:
+        set_language(previous_language)
     assert (
         result["status"]
         == {
@@ -381,7 +402,7 @@ def test_enqueue_reports_dispatch_acceptance_and_broker_failures(
     )
     assert result["enqueued"] is (outcome == "success")
     if outcome == "broker-error":
-        assert result["message"] == "enqueue_failed"
+        assert result["message"] == failure_message
     if outcome in {"success", "broker-error"}:
         task.apply_async.assert_called_once_with(
             kwargs={"notification_bid": "notification-test"}
