@@ -7,7 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import api from '@/api';
-import { AlertProvider } from '@/components/ui/UseAlert';
+import { AlertProvider } from '@/components/ui/AlertProvider';
 import Header from './Header';
 
 const mockSaveMdflow = jest.fn();
@@ -42,14 +42,14 @@ jest.mock('@/store', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   showDefaultToast: (description: string) => mockToast({ description }),
   useToast: () => ({
     toast: mockToast,
   }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

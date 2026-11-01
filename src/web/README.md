@@ -43,6 +43,33 @@ disabled for production builds. The repository's Docker Compose setup supplies
 the production ingress; see the [installation manual](../../INSTALL_MANUAL.md)
 for deployment.
 
+## Source Layout
+
+Shared learner, teacher, and operator code is grouped by responsibility. Route
+folders keep their local composition beside the corresponding entry points.
+
+| Directory                                      | Responsibility                                                                                                                |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`                                     | Next.js pages, layouts, and route handlers; `admin/` serves teachers and operators, and `c/[[...id]]/` serves learners.       |
+| `src/app/c/[[...id]]/components/`              | Learner route composition, grouped into `chat/`, `course-catalog/`, `navigation/`, and `payment/`.                            |
+| `src/api/`                                     | Endpoint definitions and thin domain API wrappers.                                                                            |
+| `src/assets/`                                  | Imported images, icons, and learner artwork.                                                                                  |
+| `src/components/`                              | Shared business components and UI primitives; `chat/`, `navigation/`, `settings/`, and `mobile/` name their responsibilities. |
+| `src/config/` and `src/constants/`             | Environment configuration and shared constants.                                                                               |
+| `src/hooks/`                                   | Shared React hooks.                                                                                                           |
+| `src/lib/`                                     | Request transport, analytics, storage, and other testable helpers; `shifu/` owns course orchestration.                        |
+| `src/store/`                                   | Shared Zustand stores and state providers.                                                                                    |
+| `src/types/`                                   | Shared TypeScript contracts and module declarations.                                                                          |
+| `src/__tests__/` and adjacent `*.test.*` files | Integration tests and colocated module tests.                                                                                 |
+
+Follow the canonical [file and directory naming conventions](../../docs/engineering-baseline.md#file-and-directory-naming-conventions).
+For example, `hooks/use-auth.ts` exports `useAuth`, helpers use names such as
+`lib/payment-analytics.ts`, and components use names such as
+`components/mobile/MobileActionButton.tsx` with
+`MobileActionButton.module.scss`. Tests follow the corresponding file name.
+Next.js route names such as `page.tsx`, `layout.tsx`, and `[[...id]]/` retain
+the framework's conventions.
+
 ## Runtime And Authentication Configuration
 
 The frontend's `/api/config` route returns only `apiBaseUrl`. The backend

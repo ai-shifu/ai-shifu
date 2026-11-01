@@ -11,6 +11,7 @@
     "askProviderTimeout": "Die externe Wissensquelle hat nicht rechtzeitig geantwortet. Bitte versuchen Sie es später erneut.",
     "askProviderUnavailable": "Der externe Wissensdienst ist vorübergehend nicht verfügbar.",
     "continueButton": "Weiter",
+    "debugServiceUnavailable": "Der Debugging-Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
     "debugSessionExpired": "Diese Debug-Sitzung ist abgelaufen oder das Skript wurde geändert. Starten Sie das Debugging erneut.",
     "defaultLearnerName": "Lernende Person",
     "freeTextPlaceholder": "Deine Antwort",

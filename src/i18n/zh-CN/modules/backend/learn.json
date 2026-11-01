@@ -11,6 +11,7 @@
     "askProviderTimeout": "外部知识库响应超时，请稍后再试",
     "askProviderUnavailable": "外部知识库暂时不可用",
     "continueButton": "继续",
+    "debugServiceUnavailable": "调试服务暂时不可用，请稍后重试。",
     "debugSessionExpired": "调试会话已过期或剧本已更改，请重新开始调试。",
     "defaultLearnerName": "同学",
     "freeTextPlaceholder": "请输入你的回答",

@@ -11,10 +11,10 @@ import zh from '../../../../i18n/zh-CN/common/core.json';
 
 const mockTrack = jest.fn();
 const mockToast = jest.fn();
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrack }),
 }));
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   showDefaultToast: (description: string) => mockToast({ description }),
   useToast: () => ({ toast: mockToast }),
 }));

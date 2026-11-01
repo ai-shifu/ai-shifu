@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/Table';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import { copyText } from '@/lib/textutils';
+import { copyText } from '@/lib/text-utils';
 import { formatBillingCredits } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
 import {

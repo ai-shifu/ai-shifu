@@ -67,7 +67,7 @@ mode continues to hide all sharing entry points.
     with consistent copy, feedback, and dismissal behavior.
 - Decision: retain the shared toast's neutral default style and 2000ms
   duration for successful copying, including the next-step message.
-  - Why: this follows `components/ui/Toast.tsx` and `hooks/useToast.tsx` rather
+  - Why: this follows `components/ui/Toast.tsx` and `hooks/use-toast.tsx` rather
     than introducing a feature-specific feedback style or timer.
 - Decision: use the same menu for every rendered sharing entry.
   - Why: `surface` identifies the analytics source, not a different interaction.
@@ -118,17 +118,17 @@ share-sheet QA remains outstanding because it requires real devices.
 
 The frontend lives under `src/web`. Teacher authoring actions are rendered
 by `src/web/src/components/header/Header.tsx`. Learner desktop actions are
-in `Components/ChatUi/ChatUi.tsx`, learner mobile actions are in
-`Components/ChatMobileHeader.tsx`, and the mobile fullscreen listen/classroom
-header is constructed in `Components/ChatUi/ListenModeSlideRenderer.tsx`.
+in `components/chat/ChatUi.tsx`, learner mobile actions are in
+`components/ChatMobileHeader.tsx`, and the mobile fullscreen listen/classroom
+header is constructed in `components/chat/ListenModeSlideRenderer.tsx`.
 
 `src/web/src/app/c/[[...id]]/layout.tsx` loads course information. The
-Zustand course store is `src/web/src/store/useCourseStore.ts`, with its
+Zustand course store is `src/web/src/store/use-course-store.ts`, with its
 public state contract in `src/web/src/types/store.ts`.
 
 Shared share behavior belongs in a small frontend library module and a shared
 button under `src/web/src/components/course-share`. Existing URL cleanup
-in `src/web/src/lib/urlUtils.ts` remains the canonical low-level
+in `src/web/src/lib/url-utils.ts` remains the canonical low-level
 course-page sanitizer. User-facing strings live in each locale's
 `common/core.json` and generated key types live in
 `src/web/src/types/i18n-keys.d.ts`.
@@ -152,7 +152,7 @@ course-page sanitizer. User-facing strings live in each locale's
 
 ## Concrete Steps
 
-1. Add `src/web/src/lib/courseShare.ts` and unit tests for description
+1. Add `src/web/src/lib/course-share.ts` and unit tests for description
    variants, payloads, cancellation/fallback outcomes, and URL safety.
 2. Add `CourseShareButton` with icon/label display variants, toast handling,
    re-entry protection, and `course_share_click` / `course_share_result` events.

@@ -11,23 +11,23 @@ import { Plus, Minus, Settings, Volume2, Loader2, Square } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { uploadFile } from '@/lib/file';
+import { uploadFile } from '@/lib/file-upload';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import {
   type ErrorWithCode,
   attachSseBusinessResponseFallback,
 } from '@/lib/request';
-import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
+import { showAiServiceErrorToast } from '@/lib/ai-service-toast';
 import {
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
   resolveCourseCreditInsufficientAudience,
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
-} from '@/lib/creditInsufficientToast';
-import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
-import { getResolvedBaseURL } from '@/lib/envUtils';
+} from '@/lib/credit-insufficient-toast';
+import { BILLING_PACKAGES_HREF } from '@/lib/billing-navigation';
+import { getResolvedBaseURL } from '@/lib/env-utils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
-import { isAllowedCoursePrice } from '@/lib/coursePricePolicy';
+import { isAllowedCoursePrice } from '@/lib/course-price-policy';
 import {
   type AudioSegment,
   mergeAudioSegmentByUniqueKey,
@@ -65,29 +65,29 @@ import {
 } from '@/components/ui/Form';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import useExclusiveAudio from '@/hooks/useExclusiveAudio';
+import useExclusiveAudio from '@/hooks/use-exclusive-audio';
 import {
   createAudioContext,
   decodeAudioBufferFromBase64,
   playAudioBuffer,
   resumeAudioContext,
 } from '@/lib/audio-playback';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 
 import ModelList from '@/components/model-list';
 import CourseModelSelect from '@/components/model-list/CourseModelSelect';
 import type { ModelIndex } from '@/types/shifu';
 import { useEnvStore } from '@/store';
-import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/ui-constants';
 import { useShifu, useUserStore } from '@/store';
-import { useTracking } from '@/hooks/useTracking';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { useTracking } from '@/hooks/use-tracking';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import {
   AskProviderSchemaValidationError,
   buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
 } from '@/components/shifu-setting/ask-provider-schema';
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
-import { buildShifuSettingSaveAnalytics } from '@/components/shifu-setting/shifuSettingAnalytics';
+import { buildShifuSettingSaveAnalytics } from '@/components/shifu-setting/shifu-setting-analytics';
 import {
   buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
@@ -116,11 +116,11 @@ import {
 import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
+} from '@/lib/onboarding-targets';
 import {
   getFollowUpModelCatalog,
   type FollowUpModelCatalogItem,
-} from '@/lib/liveVoiceFollowUp';
+} from '@/lib/live-voice-follow-up';
 
 const asModelIndex = (model: string | null | undefined): ModelIndex | null =>
   model && /^[1-9]$/.test(model) ? (model as ModelIndex) : null;

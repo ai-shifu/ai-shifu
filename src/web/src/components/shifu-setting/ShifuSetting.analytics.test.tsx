@@ -8,7 +8,7 @@ import {
 } from '@testing-library/react';
 import ShifuSettingDialog from './ShifuSetting';
 import { SSE } from 'sse.js';
-import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/ui-constants';
 
 const mockTtsConfig = jest.fn();
 const mockListMinimaxTtsVoices = jest.fn();
@@ -48,8 +48,8 @@ jest.mock('@/lib/request', () => ({
   ...jest.requireActual('@/lib/request'),
   attachSseBusinessResponseFallback: jest.fn(),
 }));
-jest.mock('@/lib/creditInsufficientToast', () => ({
-  ...jest.requireActual('@/lib/creditInsufficientToast'),
+jest.mock('@/lib/credit-insufficient-toast', () => ({
+  ...jest.requireActual('@/lib/credit-insufficient-toast'),
   showCreditInsufficientToast: (...args: unknown[]) => mockCreditToast(...args),
 }));
 
@@ -84,19 +84,19 @@ jest.mock('@/store', () => ({
     selector(mockEnvState),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
-jest.mock('@/hooks/useBillingData', () => ({
+jest.mock('@/hooks/use-billing-data', () => ({
   useBillingOverview: () => ({ data: mockBillingOverview }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-jest.mock('@/hooks/useExclusiveAudio', () => ({
+jest.mock('@/hooks/use-exclusive-audio', () => ({
   __esModule: true,
   default: () => ({
     requestExclusive: jest.fn(),
@@ -104,7 +104,7 @@ jest.mock('@/hooks/useExclusiveAudio', () => ({
   }),
 }));
 
-jest.mock('@/lib/liveVoiceFollowUp', () => ({
+jest.mock('@/lib/live-voice-follow-up', () => ({
   getFollowUpModelCatalog: (...args: unknown[]) =>
     mockGetFollowUpModelCatalog(...args),
 }));

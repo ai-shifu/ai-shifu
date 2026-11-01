@@ -24,7 +24,7 @@ import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { PasswordLogin } from '@/components/auth/PasswordLogin';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useGoogleAuth } from '@/hooks/use-google-auth';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/store';
 import { EnvStoreState } from '@/types/store';

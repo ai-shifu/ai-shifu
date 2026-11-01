@@ -10,7 +10,7 @@ import {
   clearPendingRequestLanguage,
   setPendingRequestLanguage,
 } from '@/lib/request-language';
-import { setI18nLoading } from '@/store/useI18nLoadingStore';
+import { setI18nLoading } from '@/store/use-i18n-loading-store';
 
 const fileNamespaces = namespaces.length ? namespaces : ['common'];
 const namespaceList = [

@@ -31,12 +31,12 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   showDefaultToast: (description: string) => mockToast({ description }),
   useToast: () => ({ toast: mockToast }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

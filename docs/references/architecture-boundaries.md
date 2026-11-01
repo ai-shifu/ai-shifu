@@ -36,8 +36,8 @@ by `python scripts/check_architecture_boundaries.py`.
   transport and bootstrap files:
   - `src/web/src/lib/request.ts`
   - `src/web/src/lib/api.ts`
-  - `src/web/src/lib/file.ts`
-  - `src/web/src/lib/initializeEnvData.ts`
+  - `src/web/src/lib/file-upload.ts`
+  - `src/web/src/lib/initialize-runtime-config.ts`
   - `src/web/src/lib/mock-fixture.ts`
   - `src/web/src/lib/unified-i18n-backend.ts`
   - `src/web/src/config/environment.ts`

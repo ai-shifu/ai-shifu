@@ -108,6 +108,7 @@ def test_debug_user_scope_note_survives_next_request_without_ui_variable_echo(
         get=values.get,
         setex=lambda key, _ttl, value: values.__setitem__(key, value),
     )
+    monkeypatch.setattr(debug_session, "get_redis_client", lambda: None)
     monkeypatch.setattr(debug_session, "cache", cache)
     user, course, lesson, run = (uuid4().hex for _ in range(4))
     script = "Teach {{language}} and ask for confirmation."
