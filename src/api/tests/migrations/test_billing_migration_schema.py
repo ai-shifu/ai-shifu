@@ -20,6 +20,52 @@ from sqlalchemy import Column, Table, UniqueConstraint
 
 API_ROOT = Path(__file__).resolve().parents[2]
 RAW_PROVIDER_TABLES = {"order_pingxx_orders", "order_stripe_orders"}
+# Single-column index=True indexes that no migration has ever created (pre-existing
+# drift, tracked separately). Remove an entry once a migration adds the index.
+KNOWN_UNMIGRATED_INDEXES = frozenset(
+    {
+        "ix_bill_campaign_provider_discounts_campaign_bid",
+        "ix_bill_campaign_provider_discounts_created_user_bid",
+        "ix_bill_campaign_provider_discounts_deleted",
+        "ix_bill_campaign_provider_discounts_product_bid",
+        "ix_bill_campaign_provider_discounts_product_provider_price_bid",
+        "ix_bill_campaign_provider_discounts_provider",
+        "ix_bill_campaign_provider_discounts_provider_coupon_id",
+        "ix_bill_campaign_provider_discounts_provider_price_id",
+        "ix_bill_campaign_provider_discounts_status",
+        "ix_bill_campaign_provider_discounts_updated_user_bid",
+        "ix_bill_daily_ledger_summary_creator_bid",
+        "ix_bill_daily_ledger_summary_daily_ledger_summary_bid",
+        "ix_bill_daily_ledger_summary_deleted",
+        "ix_bill_daily_ledger_summary_entry_type",
+        "ix_bill_daily_ledger_summary_stat_date",
+        "ix_bill_daily_usage_metrics_creator_bid",
+        "ix_bill_daily_usage_metrics_daily_usage_metric_bid",
+        "ix_bill_daily_usage_metrics_deleted",
+        "ix_bill_daily_usage_metrics_model",
+        "ix_bill_daily_usage_metrics_provider",
+        "ix_bill_daily_usage_metrics_shifu_bid",
+        "ix_bill_daily_usage_metrics_stat_date",
+        "ix_bill_daily_usage_metrics_usage_scene",
+        "ix_bill_daily_usage_metrics_usage_type",
+        "ix_bill_provider_catalog_snapshots_health_status",
+        "ix_bill_renewal_events_creator_bid",
+        "ix_bill_renewal_events_deleted",
+        "ix_bill_renewal_events_event_type",
+        "ix_bill_renewal_events_renewal_event_bid",
+        "ix_bill_renewal_events_scheduled_at",
+        "ix_bill_renewal_events_status",
+        "ix_bill_renewal_events_subscription_bid",
+        "ix_credit_usage_rates_deleted",
+        "ix_credit_usage_rates_effective_from",
+        "ix_credit_usage_rates_effective_to",
+        "ix_credit_usage_rates_model",
+        "ix_credit_usage_rates_provider",
+        "ix_credit_usage_rates_status",
+        "ix_credit_usage_rates_usage_scene",
+        "ix_credit_usage_rates_usage_type",
+    }
+)
 _TYPE_ALIASES = {
     "varchar": "string",
     "decimal": "numeric",
@@ -345,8 +391,8 @@ def test_migrations_build_the_billing_model_schema(table: Table) -> None:
         column.name for column in table.primary_key.columns
     }
 
-    # Explicit Index(...) / UniqueConstraint(...) declarations. Single-column
-    # ``index=True`` flags are not compared: several were never migrated.
+    # Every declared index and named unique constraint, except the known
+    # never-migrated single-column indexes.
     model_indexes = {
         constraint.name: (tuple(column.name for column in constraint.columns), True)
         for constraint in table.constraints
@@ -354,7 +400,7 @@ def test_migrations_build_the_billing_model_schema(table: Table) -> None:
     } | {
         index.name: (tuple(column.name for column in index.columns), bool(index.unique))
         for index in table.indexes
-        if index.unique or not getattr(index, "_column_flag", False)
+        if index.name not in KNOWN_UNMIGRATED_INDEXES
     }
     migrated_indexes = _REPLAY.indexes.get(table.name, {})
     for name, definition in model_indexes.items():
@@ -375,3 +421,11 @@ def test_billing_migrations_do_not_seed_rows() -> None:
     # Products and system config are seeded by the billing CLI, not by Alembic.
     billing = {table.name for table in _billing_tables()}
     assert not (_REPLAY.seeded & billing)
+
+
+def test_known_unmigrated_indexes_are_still_missing() -> None:
+    # Keeps the allowlist from hiding an index once a migration creates it.
+    migrated = {name for indexes in _REPLAY.indexes.values() for name in indexes}
+    declared = {index.name for table in _billing_tables() for index in table.indexes}
+    assert declared >= KNOWN_UNMIGRATED_INDEXES
+    assert not (KNOWN_UNMIGRATED_INDEXES & migrated)
