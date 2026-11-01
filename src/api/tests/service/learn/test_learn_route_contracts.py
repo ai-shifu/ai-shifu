@@ -11,6 +11,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn import routes
+from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnLessonResetRecord,
@@ -22,6 +23,7 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedOutlineItem,
 )
+from pydantic import ValidationError
 
 from tests.common.fixtures.model_factories import make_progress_record
 
@@ -562,7 +564,6 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
             "document_prompt": "old",
             "visual_mode": True,
             "debug_session_id": "editor-run-1",
-            "reload_generated_block_bid": "selected-step",
         },
         headers={"Token": "test-token"},
     )
@@ -571,7 +572,7 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     assert args["run_bid"] == "editor-run-1"
     assert args["preview_request"].get_document() == "Lesson text"
     assert args["preview_request"].user_input == {"choice": ["answer"]}
-    assert args["preview_request"].reload_generated_block_bid == "selected-step"
+    assert not hasattr(args["preview_request"], "reload_generated_block_bid")
     for retired in ("context", "document_prompt", "visual_mode"):
         assert not hasattr(args["preview_request"], retired)
     preview.reset_mock()
@@ -603,7 +604,47 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     preview.assert_not_called()
 
 
-@pytest.mark.parametrize("phase", ["initial", "answer", "regenerate"])
+@pytest.mark.parametrize("field", ["reload_generated_block_bid", "reload_element_bid"])
+@pytest.mark.parametrize("value", [None, "", "selected-step"])
+def test_debug_preview_rejects_removed_reload_fields_before_admission(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    field: str,
+    value: str | None,
+) -> None:
+    """Old reload requests cannot regenerate or silently restart Debug."""
+    from flaskr.service.learn.agent import debug_session
+
+    preview = Mock()
+    permission = Mock()
+    admission = Mock()
+    monkeypatch.setattr(debug_session, "stream_debug_preview", preview)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", permission)
+    monkeypatch.setattr(routes, "admit_creator_preview_usage", admission)
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
+        json={
+            "content": "Current draft",
+            "block_index": 0,
+            "debug_session_id": "editor-run-1",
+            field: value,
+        },
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+
+    assert response["code"] == ERROR_CODE["server.common.paramsError"]
+    preview.assert_not_called()
+    permission.assert_not_called()
+    admission.assert_not_called()
+    with pytest.raises(ValidationError):
+        PlaygroundPreviewRequest(
+            content="Current draft", block_index=0, **{field: value}
+        )
+    assert field not in PlaygroundPreviewRequest.model_json_schema()["properties"]
+
+
+@pytest.mark.parametrize("phase", ["initial", "answer"])
 @pytest.mark.parametrize("language", ["en-US", "zh-CN", "fr-FR"])
 def test_debug_cache_failure_keeps_its_business_code_and_request_language(
     monkeypatch: object,
@@ -636,8 +677,6 @@ def test_debug_cache_failure_keeps_its_business_code_and_request_language(
     }
     if phase == "answer":
         payload["user_input"] = {"answer": ["Selected answer"]}
-    elif phase == "regenerate":
-        payload["reload_generated_block_bid"] = "selected-turn"
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
         json=payload,

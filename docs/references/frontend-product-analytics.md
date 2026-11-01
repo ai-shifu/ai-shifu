@@ -416,13 +416,23 @@ solely because historical Umami rows or queries exist.
 
 ## Editor Debug step regeneration
 
-Accepted retries after a failed or stopped regeneration use the same attempt
-and terminal-result family below. The retry control is available only for the
-current Debug session's retained logical target and is hidden during a running
-request; repeated or blocked callbacks do not create additional attempts.
-Retrying is a distinct accepted request, so it gets one new start and at most
-one result. The payload schema and consumer stay unchanged. The retry target,
-checkpoint, discarded content and errors are never included in analytics.
+This event family is retired from the current frontend. The editor Debug panel
+no longer offers content regeneration or its Retry action, and the Debug hook
+no longer sends reload anchors. `teacher_debug_regenerate_start` and
+`teacher_debug_regenerate_result` have no new frontend producer or replacement
+family. Historical event names, payloads and meanings remain unchanged for
+downstream reports; the following contract describes those historical events.
+Debug backend reload and retry handling is removed as well. Old reload requests
+are rejected rather than producing regeneration events. New runs, interaction
+answers and existing TTS behavior retain their own paths.
+
+Historically, accepted retries after a failed or stopped regeneration used the
+same attempt and terminal-result family. Retry was available only for the
+current Debug session's retained logical target and was hidden during a running
+request; repeated or blocked callbacks did not create additional attempts.
+Retrying was a distinct accepted request with one new start and at most one
+result. The retry target, checkpoint, discarded content and errors were never
+included in analytics.
 
 - Business question: Can teachers rerun a selected Debug step and its following
   steps successfully while keeping earlier output?
@@ -452,9 +462,10 @@ checkpoint, discarded content and errors are never included in analytics.
   deliberate regeneration is a new attempt. No persistent deduplication or
   correlation token is added.
 - Consumers and compatibility: Teacher authoring-quality weekly Umami reports
-  compare aggregate attempts and outcomes by course and lesson. This is an
-  additive event family. The separate `teacher_preview_rewind_*` classroom
-  family continues to exclude editor Debug; historical queries stay unchanged.
+  can still compare historical attempts and outcomes by course and lesson.
+  The separate `teacher_preview_rewind_*` classroom family continues to exclude
+  editor Debug; historical queries stay unchanged. Missing events after
+  retirement do not represent failed regeneration requests.
 - Complete delivered application-event payload: `shifu_bid` and `outline_bid`
   are stable pseudonymous course/lesson machine IDs required for grouping.
   Result events add only the low-cardinality, non-personal
@@ -462,14 +473,14 @@ checkpoint, discarded content and errors are never included in analytics.
   ID, input, variable name/value, prompt, output, title, URL or error. Shared
   transport establishes pseudonymous identity and normalized routing context
   separately, without enriching event data.
-- Delivery and verification: Use `useTracking`; synchronous throws, rejected
-  promises, missing configuration and blocked scripts cannot affect the
-  regeneration. Helper tests cover exact names and allowlisted payloads,
-  eligibility, every terminal outcome, per-attempt deduplication and tracking
-  failures. Hook tests cover initiation timing, continuation chains and
-  terminal lifecycle transitions; shared transport tests cover the final
-  delivered payload and global account exclusions. Local tests do not establish
-  deployed Umami coverage.
+- Historical delivery: The retired producer used `useTracking`; synchronous
+  throws, rejected promises, missing configuration and blocked scripts could
+  not affect regeneration. Its helper and hook regressions covered the
+  allowlisted payload, eligibility, terminal outcomes, deduplication,
+  continuation chains and best-effort delivery. Those producer-specific tests
+  retire with the feature. Removal regressions must verify that Debug no longer
+  exposes content regeneration or emits this family; local tests do not
+  establish deployed Umami coverage.
 
 ## About dialog exposure
 

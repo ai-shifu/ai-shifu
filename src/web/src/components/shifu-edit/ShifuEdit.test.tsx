@@ -16,8 +16,6 @@ const mockMarkdownFlowEditor = jest.fn();
 const mockDebugPanel = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockUseDebugSession = jest.fn();
-const mockRetryRegeneration = jest.fn();
-let mockCanRetryRegeneration = false;
 const mockRefreshUserInfo = jest.fn();
 let mockUserToken = 'token';
 
@@ -255,9 +253,6 @@ jest.mock('@/components/lesson-debug/use-debug-session', () => ({
       startRun: jest.fn(),
       stopRun: jest.fn(),
       resetSession: jest.fn(),
-      regenerateContent: jest.fn(),
-      retryRegeneration: mockRetryRegeneration,
-      canRetryRegeneration: mockCanRetryRegeneration,
       submitInteraction: jest.fn(),
       persistVariableValues: jest.fn(),
       setVariableValue: jest.fn(),
@@ -393,8 +388,6 @@ describe('ShifuEdit draft conflict checks', () => {
     mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
     mockUseDebugSession.mockReset();
-    mockRetryRegeneration.mockReset();
-    mockCanRetryRegeneration = false;
     mockRefreshUserInfo.mockReset();
     mockUserToken = 'token';
     mockUserStoreState.isInitialized = true;
@@ -1235,62 +1228,15 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(baseActions.prepareDebugSession).not.toHaveBeenCalled();
   });
 
-  test('enables regenerate actions for editable lesson preview', async () => {
+  test('does not provide content regeneration or retry actions to Debug', async () => {
     setLessonNode();
-
     render(<ScriptEditor id='shifu-1' />);
     fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
-
-    await waitFor(() => {
-      expect(mockDebugPanel).toHaveBeenCalled();
-    });
-
-    expect(mockDebugPanel.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({
-        showRegenerateAction: true,
-      }),
-    );
-  });
-
-  test.each([true, false])(
-    'forwards regeneration retry only when available: %s',
-    async canRetry => {
-      setLessonNode();
-      mockCanRetryRegeneration = canRetry;
-
-      render(<ScriptEditor id='shifu-1' />);
-      fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
-      await waitFor(() => expect(mockDebugPanel).toHaveBeenCalled());
-
-      const panelProps = mockDebugPanel.mock.lastCall?.[0];
-      if (canRetry) {
-        expect(panelProps.onRetryRegeneration).toBe(mockRetryRegeneration);
-        panelProps.onRetryRegeneration();
-        expect(mockRetryRegeneration).toHaveBeenCalledTimes(1);
-      } else {
-        expect(panelProps.onRetryRegeneration).toBeUndefined();
-        expect(mockRetryRegeneration).not.toHaveBeenCalled();
-      }
-    },
-  );
-
-  test('does not enable regenerate actions before shifu data is ready', async () => {
-    setLessonNode();
-    mockShifuState.currentShifu =
-      null as unknown as typeof mockShifuState.currentShifu;
-
-    render(<ScriptEditor id='shifu-1' />);
-    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
-
-    await waitFor(() => {
-      expect(mockDebugPanel).toHaveBeenCalled();
-    });
-
-    expect(mockDebugPanel.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({
-        showRegenerateAction: false,
-      }),
-    );
+    await waitFor(() => expect(mockDebugPanel).toHaveBeenCalled());
+    const panelProps = mockDebugPanel.mock.lastCall?.[0];
+    expect(panelProps).not.toHaveProperty('onRegenerate');
+    expect(panelProps).not.toHaveProperty('onRetryRegeneration');
+    expect(panelProps).not.toHaveProperty('showRegenerateAction');
   });
 
   test('renders the dedicated history layout in history mode', async () => {

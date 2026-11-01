@@ -14,11 +14,7 @@ from flaskr.common.cache_provider import CacheUnavailableError, InMemoryCachePro
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import routes
 from flaskr.service.learn.agent import debug_session
-from flaskr.service.learn.agent.rewind import (
-    RewindUnavailableError,
-    checkpoint_of,
-    turn_record,
-)
+from flaskr.service.learn.agent.rewind import RewindUnavailableError
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     PlaygroundPreviewRequest,
@@ -79,12 +75,6 @@ def _store(app: object, run: str = "one") -> debug_session.DebugSessionStore:
     )
 
 
-def _record(session: Session, values: list[str] | None = None) -> str:
-    checkpoint = checkpoint_of(session)
-    checkpoint["user_memory"] = dict(session.user_memory)
-    return turn_record(checkpoint, values or [])
-
-
 def _request_messages(
     app: object, factory: Callable[[], Iterator[RunElementSSEMessageDTO]]
 ) -> list[SimpleNamespace]:
@@ -139,6 +129,25 @@ def test_debug_session_resumes_only_the_same_run_and_script(
     assert other.load(script="Current draft").memory["answer"] == "fresh answer"
 
 
+@pytest.mark.parametrize("serialized", [None, "{}", "invalid history"])
+def test_incompatible_debug_history_is_treated_as_expired(
+    app: object, monkeypatch: object, serialized: str | None
+) -> None:
+    cache = _Cache()
+    monkeypatch.setattr(debug_session, "cache", cache)
+    store = _store(app)
+    store.save(Session(script=ScriptBundle(script="Current draft")))
+    payload = json.loads(cache.values[store._key])
+    payload["session"] = serialized
+    cache.values[store._key] = json.dumps(payload)
+
+    assert store.load(script="Current draft") is None
+    store.save(
+        Session(script=ScriptBundle(script="Current draft"), memory={"new": "run"})
+    )
+    assert store.load(script="Current draft").memory == {"new": "run"}
+
+
 def test_configured_debug_redis_reports_a_deferred_lock_connection_failure(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -167,7 +176,7 @@ def test_configured_debug_redis_reports_a_deferred_lock_connection_failure(
     "error_type", [RedisConnectionError, RedisTimeoutError, CacheUnavailableError]
 )
 @pytest.mark.parametrize(
-    "operation", ["read", "token_write", "token_read", "session_read", "session_write"]
+    "operation", ["read", "token_write", "token_read", "session_write"]
 )
 def test_debug_cache_failure_preserves_saved_state_until_redis_recovers(
     app: object,
@@ -181,10 +190,8 @@ def test_debug_cache_failure_preserves_saved_state_until_redis_recovers(
     session = Session(
         script=ScriptBundle(script="Current draft"), memory={"prefix": "kept"}
     )
-    record = _record(session, ["original answer"])
-    store.save(session, generated_block_bid="selected", turn_record=record)
+    store.save(session)
     store.begin_request()
-    plan = store.plan_rewind(script="Current draft", block_bid="selected")
     session_before = backend.get(store._key)
     token_before = backend.get(f"{store._key}:request")
     method = "setex" if operation in {"token_write", "session_write"} else "get"
@@ -207,12 +214,7 @@ def test_debug_cache_failure_preserves_saved_state_until_redis_recovers(
         elif operation == "token_write":
             store.begin_request()
         else:
-            store.save(
-                session,
-                generated_block_bid="replacement",
-                turn_record=record,
-                rewind=plan,
-            )
+            store.save(session)
 
     with pytest.raises(AppError) as exc_info:
         perform()
@@ -224,18 +226,10 @@ def test_debug_cache_failure_preserves_saved_state_until_redis_recovers(
 
     getattr(strict, method).side_effect = None
     recovered = _store(app)
-    retry = recovered.plan_rewind(script="Current draft", block_bid="selected")
-    assert retry.checkpoint == plan.checkpoint
+    resumed = recovered.load(script="Current draft")
+    assert resumed.memory == {"prefix": "kept"}
     recovered.begin_request()
-    recovered.save(
-        recovered.load(script="Current draft"),
-        generated_block_bid="replacement",
-        turn_record=record,
-        rewind=retry,
-    )
-    assert recovered.plan_rewind(
-        script="Current draft", block_bid="selected"
-    ).retired_block_bids == ["replacement"]
+    recovered.save(resumed)
     assert recovered.load(script="Current draft").memory == {"prefix": "kept"}
     assert configured_debug_cache.local.mock_calls == []
 
@@ -261,15 +255,14 @@ def test_unavailable_debug_lock_does_not_claim_a_request(
 
 
 @pytest.mark.parametrize("failure", ["release", "save_acknowledgement"])
-def test_saved_debug_replacement_remains_retryable_after_a_cache_error(
+def test_saved_debug_session_survives_a_cache_acknowledgement_error(
     app: object, configured_debug_cache: SimpleNamespace, failure: str
 ) -> None:
     store = _store(app)
     session = Session(script=ScriptBundle(script="Current draft"))
-    record = _record(session, ["original answer"])
-    store.save(session, generated_block_bid="selected", turn_record=record)
+    store.save(session)
     store.begin_request()
-    plan = store.plan_rewind(script="Current draft", block_bid="selected")
+    session.memory["saved"] = "answer"
     lock = Mock()
     lock.acquire.return_value = True
     configured_debug_cache.strict.lock.return_value = lock
@@ -285,30 +278,21 @@ def test_saved_debug_replacement_remains_retryable_after_a_cache_error(
         configured_debug_cache.strict.setex.side_effect = lose_acknowledgement
 
     with pytest.raises(AppError) as exc_info:
-        store.save(
-            session,
-            generated_block_bid="replacement",
-            turn_record=record,
-            rewind=plan,
-        )
+        store.save(session)
 
     assert exc_info.value.code == 4023
     recovered = _store(app)
-    retry = recovered.plan_rewind(script="Current draft", block_bid="selected")
-    assert retry.checkpoint == plan.checkpoint
-    assert retry.retired_block_bids == ["replacement"]
+    assert recovered.load(script="Current draft").memory == {"saved": "answer"}
+    assert set(recovered._payload(script="Current draft")) == {"script_hash", "session"}
     lock.release.side_effect = None
     configured_debug_cache.strict.setex.side_effect = None
     recovered.begin_request()
-    recovered.save(
-        session,
-        generated_block_bid="retried-replacement",
-        turn_record=record,
-        rewind=retry,
-    )
-    assert recovered.plan_rewind(
-        script="Current draft", block_bid="selected"
-    ).retired_block_bids == ["retried-replacement"]
+    session.memory["continued"] = "next answer"
+    recovered.save(session)
+    assert recovered.load(script="Current draft").memory == {
+        "saved": "answer",
+        "continued": "next answer",
+    }
     assert configured_debug_cache.local.mock_calls == []
 
 
@@ -352,17 +336,18 @@ def test_debug_lock_release_failure_preserves_the_original_error(
     assert exc_info.value is original
 
 
-def test_debug_cache_errors_do_not_hide_invalid_turn_metadata(
-    app: object, configured_debug_cache: SimpleNamespace
+def test_debug_cache_errors_do_not_hide_unexpected_failures(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    configured_debug_cache: SimpleNamespace,
 ) -> None:
     store = _store(app)
     store.begin_request()
-    with pytest.raises(json.JSONDecodeError):
-        store.save(
-            Session(script=ScriptBundle(script="Current draft")),
-            generated_block_bid="invalid",
-            turn_record="invalid JSON",
-        )
+    monkeypatch.setattr(
+        Session, "dumps", Mock(side_effect=ValueError("Unexpected serialization bug"))
+    )
+    with pytest.raises(ValueError, match="Unexpected serialization bug"):
+        store.save(Session(script=ScriptBundle(script="Current draft")))
     configured_debug_cache.strict.get.side_effect = ValueError("Unexpected cache bug")
     with pytest.raises(ValueError, match="Unexpected cache bug"):
         store.load(script="Current draft")
@@ -493,36 +478,25 @@ def test_an_answer_follows_the_edited_draft_only_when_asked(
 
 
 @pytest.mark.parametrize(
-    ("user_input", "anchor", "follows"),
-    [
-        ({"answer": ["continue"]}, None, True),
-        (None, None, False),
-        (None, "turn-1", False),
-    ],
-    ids=["answer", "start", "regenerate"],
+    ("user_input", "follows"),
+    [({"answer": ["continue"]}, True), (None, False)],
+    ids=["answer", "start"],
 )
 def test_only_an_answer_resumes_across_a_draft_edit(
     app: object,
     monkeypatch: object,
     user_input: dict | None,
-    anchor: str | None,
     follows: bool,
 ) -> None:
-    # An author who edits the draft and answers continues the same conversation;
-    # starting or regenerating keeps the same-script rule.
     from flaskr.service.learn.agent import lesson_entry
 
     monkeypatch.setattr(debug_session, "cache", _Cache())
     _store(app, "edited-run").save(Session(script=ScriptBundle(script="Old draft")))
     stores: list[debug_session.DebugSessionStore] = []
-    monkeypatch.setattr(
-        debug_session.DebugSessionStore,
-        "plan_rewind",
-        lambda _self, **_kwargs: (_ for _ in ()).throw(RewindUnavailableError()),
-    )
 
     def lesson_events(_app: object, **kwargs: object) -> object:
         stores.append(kwargs["debug_store"])
+        assert "reload_generated_block_bid" not in kwargs
         yield RunMarkdownFlowDTO(
             outline_bid="lesson",
             generated_block_bid="turn",
@@ -531,26 +505,18 @@ def test_only_an_answer_resumes_across_a_draft_edit(
         )
 
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
-    stream = debug_session.stream_debug_preview(
-        app,
-        preview_request=PlaygroundPreviewRequest(
-            content="Edited draft",
-            block_index=0,
-            user_input=user_input,
-            reload_generated_block_bid=anchor,
-        ),
-        shifu_bid="course",
-        outline_bid="lesson",
-        user_bid="teacher",
-        run_bid="edited-run",
+    list(
+        debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Edited draft", block_index=0, user_input=user_input
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="edited-run",
+        )
     )
-
-    if anchor:
-        # Regeneration still requires the unchanged draft.
-        with pytest.raises(AppError):
-            list(stream)
-        return
-    list(stream)
     assert stores[0]._follow_script_edits is follows
 
 
@@ -571,9 +537,11 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
         )
     ]
     session.pending = [
-        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?"))
+        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?")),
+        PendingInteraction("next", InteractionSpec(type="text", prompt="Next answer?")),
     ]
-    session.memory["kept"] = "earlier answer"
+    session.record_answer("kept", "earlier answer")
+    session.answers = {"completed": "Learner wrote: earlier answer"}
     _store(app).save(session)
     following = debug_session.DebugSessionStore(
         app,
@@ -598,7 +566,9 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
 
     assert not finished
     assert resumed.id == session.id
-    assert resumed.pending[0].tool_call_id == "pause"
+    assert [pending.tool_call_id for pending in resumed.pending] == ["pause", "next"]
+    assert resumed.answers == session.answers
+    assert resumed.answer_hashes == session.answer_hashes
     assert resumed.memory["kept"] == "earlier answer"
     assert resumed.script.script == "Edited draft"
     # The model reads the script from the first prompt, so it carries the edit too.
@@ -613,18 +583,40 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
     assert _store(app).load(script="Edited draft").id == session.id
 
 
-def test_turns_before_a_draft_edit_stay_regenerable(
-    app: object, monkeypatch: object
+@pytest.mark.parametrize(
+    "historical_turns",
+    [
+        [
+            {
+                "block_bid": "old-turn",
+                "record": {"checkpoint": {}, "values": ["Old input"]},
+            }
+        ],
+        "invalid old sidecar",
+    ],
+)
+def test_saving_an_edited_debug_session_drops_historical_regeneration_sidecars(
+    app: object, monkeypatch: object, historical_turns: object
 ) -> None:
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    session = Session(script=ScriptBundle(script="Old draft"))
-    session.pending = [
-        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?"))
-    ]
-    _store(app).save(
-        session, generated_block_bid="before-edit", turn_record=_record(session)
+    cache = _Cache()
+    monkeypatch.setattr(debug_session, "cache", cache)
+    session = Session(
+        script=ScriptBundle(script="Old draft"), memory={"answer": "kept"}
     )
-
+    session.pending = [
+        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?")),
+        PendingInteraction("next", InteractionSpec(type="text", prompt="Next answer?")),
+    ]
+    session.answers = {"completed": "Learner wrote: saved answer"}
+    store = _store(app)
+    store.save(session)
+    historical = json.loads(cache.values[store._key])
+    historical["turns"] = historical_turns
+    historical["regeneration_retry"] = {
+        "requested_block_bid": "old-turn",
+        "replacement_block_bid": "replacement",
+    }
+    cache.values[store._key] = json.dumps(historical)
     following = debug_session.DebugSessionStore(
         app,
         user_bid="teacher",
@@ -634,16 +626,22 @@ def test_turns_before_a_draft_edit_stay_regenerable(
         follow_script_edits=True,
     )
     resumed = following.load(script="Edited draft")
+    assert resumed.id == session.id
+    assert resumed.memory == {"answer": "kept"}
+    assert [pending.tool_call_id for pending in resumed.pending] == ["pause", "next"]
+    assert resumed.answers == session.answers
     resumed.script = ScriptBundle(script="Edited draft")
-    resumed.pending = []
-    following.save(
-        resumed, generated_block_bid="after-edit", turn_record=_record(resumed)
-    )
+    following.begin_request()
+    following.save(resumed)
 
-    turns = _store(app)._payload(script="Edited draft")["turns"]
-    assert [turn["block_bid"] for turn in turns] == ["before-edit", "after-edit"]
-    plan = _store(app).plan_rewind(script="Edited draft", block_bid="before-edit")
-    assert plan.retired_block_bids == ["before-edit", "after-edit"]
+    migrated = store._payload(script="Edited draft")
+    assert set(migrated) == {"script_hash", "session"}
+    assert store.load(script="Old draft") is None
+    saved = store.load(script="Edited draft")
+    assert saved.id == session.id
+    assert [pending.tool_call_id for pending in saved.pending] == ["pause", "next"]
+    assert saved.answers == session.answers
+    assert cache.ttls[store._key] == 30 * 60
 
 
 def test_question_closes_editor_response_without_ending_the_lesson(
@@ -710,411 +708,46 @@ def test_finished_debug_reopening_closes_the_empty_response(
     assert not getattr(messages[-1], "generated_block_bid", None)
 
 
-def test_debug_regeneration_keeps_prefix_and_replays_only_the_selected_turn(
-    app: object, monkeypatch: object
-) -> None:
-    """Drop future answers and user notes without echoing them back from the UI."""
-    from flaskr.service.learn.agent import run_agent
-
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    store = _store(app)
-    session = Session(
-        script=ScriptBundle(script="Current draft"),
-        user_memory={"goal": "original"},
-    )
-    first = _record(session)
-    session.messages.append(ModelRequest(parts=[UserPromptPart("First teaching")]))
-    session.memory["prefix"] = "retained"
-    session.turn = 1
-    session.pending = [
-        PendingInteraction(
-            "first-question", InteractionSpec(type="text", prompt="First?")
-        )
-    ]
-    store.save(session, generated_block_bid="prefix", turn_record=first)
-
-    second = _record(session, ["original answer"])
-    session.messages.append(ModelRequest(parts=[UserPromptPart("Second teaching")]))
-    session.memory["first_answer"] = "original answer"
-    session.user_memory["note"] = "from second step"
-    session.turn = 2
-    session.pending = [
-        PendingInteraction(
-            "second-question", InteractionSpec(type="text", prompt="Second?")
-        )
-    ]
-    store.save(session, generated_block_bid="selected", turn_record=second)
-
-    third = _record(session, ["future answer"])
-    session.messages.append(ModelRequest(parts=[UserPromptPart("Future teaching")]))
-    session.memory["future"] = "future answer"
-    session.user_memory["future_note"] = "discard"
-    session.pending = []
-    session.turn = 3
-    session.finished = True
-    session.teaching_summaries["future"] = "obsolete summary"
-    store.save(session, generated_block_bid="future", turn_record=third)
-
-    plan = store.plan_rewind(script="Current draft", block_bid="selected")
-    assert plan.replay_values == ["original answer"]
-    assert plan.retired_block_bids == ["selected", "future"]
-    factory, finished = run_agent._load_or_start(
-        app,
-        SimpleNamespace(),
-        user_bid="teacher",
-        shifu_bid="course",
-        outline_bid="lesson",
-        script="Current draft",
-        preview_mode=True,
-        debug_store=store,
-        rewind=plan,
-        preview_variables={
-            "goal": "echoed",
-            "future": "future answer",
-            "future_note": "discard",
-        },
-    )
-    resumed = asyncio.run(factory())
-    assert not finished
-    assert resumed.id == session.id
-    assert resumed.turn == 1
-    assert not resumed.finished
-    assert len(resumed.messages) == 1
-    assert resumed.all_memory() == {"goal": "original", "prefix": "retained"}
-    assert resumed.pending[0].tool_call_id == "first-question"
-    assert resumed.answers == {}
-    assert resumed.teaching_summaries == {}
-
-    store.save(
-        resumed, generated_block_bid="replacement", turn_record=second, rewind=plan
-    )
-    turns = store._payload(script="Current draft")["turns"]
-    assert [turn["block_bid"] for turn in turns] == ["prefix", "replacement"]
-    assert store.plan_rewind(
-        script="Current draft", block_bid="replacement"
-    ).replay_values == ["original answer"]
-    with pytest.raises(RewindUnavailableError):
-        store.plan_rewind(script="Current draft", block_bid="future")
-
-
-def test_debug_regeneration_retry_follows_only_the_first_replacement(
-    app: object, monkeypatch: object
-) -> None:
-    """A lost response can retry the original request without reviving its retired suffix."""
-    from flaskr.service.learn.agent.rewind import restore
-
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    store = _store(app)
-    store.begin_request()
-    session = Session(script=ScriptBundle(script="Current draft"))
-    store.save(session, generated_block_bid="A", turn_record=_record(session))
-    session.memory["prefix"] = "kept"
-    selected = _record(session, ["original answer"])
-    store.save(session, generated_block_bid="B", turn_record=selected)
-    session.memory["future"] = "discard"
-    store.save(session, generated_block_bid="C", turn_record=_record(session))
-
-    plan = store.plan_rewind(script="Current draft", block_bid="B")
-    # Failing before the replacement saves leaves the original checkpoint available.
-    assert store.plan_rewind(script="Current draft", block_bid="B") == plan
-    restore(session, plan.checkpoint)
-    store.save(
-        session, generated_block_bid="B-prime", turn_record=selected, rewind=plan
-    )
-    # Automatic continuation must keep the retry at the first replacement, not its tail.
-    session.memory["replacement"] = "discard on retry"
-    store.save(session, generated_block_bid="D", turn_record=_record(session))
-    retry = _store(app).plan_rewind(script="Current draft", block_bid="B")
-    assert retry.checkpoint == plan.checkpoint
-    assert retry.replay_values == ["original answer"]
-    assert retry.retired_block_bids == ["B-prime", "D"]
-    assert retry.retry_anchor == "B"
-    restore(session, retry.checkpoint)
-    store.save(
-        session,
-        generated_block_bid="B-double-prime",
-        turn_record=selected,
-        rewind=retry,
-    )
-    repeated = store.plan_rewind(script="Current draft", block_bid="B")
-    assert repeated.checkpoint == plan.checkpoint
-    assert repeated.retired_block_bids == ["B-double-prime"]
-    assert repeated.retry_anchor == "B"
-    for retired in ("C", "B-prime", "D"):
-        with pytest.raises(RewindUnavailableError):
-            store.plan_rewind(script="Current draft", block_bid=retired)
-
-
-@pytest.mark.parametrize("new_anchor", ["A", "replacement", "continuation"])
-def test_a_different_debug_regeneration_replaces_the_retry_anchor(
-    app: object, monkeypatch: object, new_anchor: str
-) -> None:
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    store = _store(app)
-    session = Session(script=ScriptBundle(script="Current draft"))
-    for block_bid in ("A", "B", "C"):
-        store.save(session, generated_block_bid=block_bid, turn_record=_record(session))
-    first = store.plan_rewind(script="Current draft", block_bid="B")
-    store.save(
-        session,
-        generated_block_bid="replacement",
-        turn_record=_record(session),
-        rewind=first,
-    )
-    store.save(
-        session, generated_block_bid="continuation", turn_record=_record(session)
-    )
-    different = store.plan_rewind(script="Current draft", block_bid=new_anchor)
-    store.save(
-        session,
-        generated_block_bid="new-replacement",
-        turn_record=_record(session),
-        rewind=different,
-    )
-    assert store.plan_rewind(
-        script="Current draft", block_bid=new_anchor
-    ).retired_block_bids == ["new-replacement"]
-    for retired in ("B", "C"):
-        with pytest.raises(RewindUnavailableError):
-            store.plan_rewind(script="Current draft", block_bid=retired)
-
-
-@pytest.mark.parametrize(
-    "context", ["user", "course", "outline", "run", "script", "expired", "inactive"]
-)
-def test_debug_regeneration_retry_requires_its_unchanged_active_run(
-    app: object, monkeypatch: object, context: str
-) -> None:
-    cache = _Cache()
-    monkeypatch.setattr(debug_session, "cache", cache)
-    store = _store(app)
-    session = Session(script=ScriptBundle(script="Current draft"))
-    store.save(session, generated_block_bid="B", turn_record=_record(session))
-    plan = store.plan_rewind(script="Current draft", block_bid="B")
-    store.save(
-        session,
-        generated_block_bid="replacement",
-        turn_record=_record(session),
-        rewind=plan,
-    )
-    if context == "expired":
-        del cache.values[store._key]
-    elif context == "inactive":
-        payload = store._payload(script="Current draft")
-        payload["turns"] = []
-        cache.values[store._key] = json.dumps(payload)
-    elif context != "script":
-        store = debug_session.DebugSessionStore(
-            app,
-            user_bid="other" if context == "user" else "teacher",
-            shifu_bid="other" if context == "course" else "course",
-            outline_bid="other" if context == "outline" else "lesson",
-            run_bid="other" if context == "run" else "one",
-        )
-    with pytest.raises(RewindUnavailableError):
-        store.plan_rewind(
-            script="Edited draft" if context == "script" else "Current draft",
-            block_bid="B",
-        )
-
-
-@pytest.mark.parametrize(
-    "invalid", ["unknown", "element-in-selected", "prefix-from-other-run"]
-)
-def test_debug_rewind_requires_a_current_run_checkpoint(
-    app: object, monkeypatch: object, invalid: str
-) -> None:
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    session = Session(script=ScriptBundle(script="Current draft"))
-    store = _store(app)
-    store.save(session, generated_block_bid="selected", turn_record=_record(session))
-    _store(app, "other").save(
-        session,
-        generated_block_bid="prefix-from-other-run",
-        turn_record=_record(session),
-    )
-    with pytest.raises(RewindUnavailableError):
-        store.plan_rewind(script="Current draft", block_bid=invalid)
-    with pytest.raises(RewindUnavailableError):
-        store.plan_rewind(script="Edited draft", block_bid="selected")
-
-
-def test_debug_regeneration_stream_restores_variables_and_forwards_the_anchor(
-    app: object, monkeypatch: object
-) -> None:
-    from flaskr.service.learn.agent import lesson_entry
-
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    session = Session(
-        script=ScriptBundle(script="Current draft"), memory={"prefix": "kept"}
-    )
-    record = _record(session)
-    session.memory["future"] = "discard"
-    _store(app).save(session, generated_block_bid="selected", turn_record=record)
-    seen: list[dict] = []
-
-    def lesson_events(_app: object, **kwargs: object) -> object:
-        seen.append(kwargs)
-        saved = kwargs["debug_store"].load(script="Current draft")
-        saved.memory = {"prefix": "kept", "replayed_answer": "original"}
-        kwargs["debug_store"].save(saved)
-        yield RunMarkdownFlowDTO(
-            outline_bid="lesson",
-            generated_block_bid="replacement",
-            type=GeneratedType.DONE,
-            content="",
-        )
-
-    monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
-    messages = _request_messages(
-        app,
-        lambda: debug_session.stream_debug_preview(
-            app,
-            preview_request=PlaygroundPreviewRequest(
-                content="Current draft",
-                block_index=0,
-                reload_generated_block_bid="selected",
-            ),
-            shifu_bid="course",
-            outline_bid="lesson",
-            user_bid="teacher",
-            run_bid="one",
-        ),
-    )
-    assert seen[0]["reload_generated_block_bid"] == "selected"
-    snapshots = [
-        json.loads(message.content)
-        for message in messages
-        if message.type == "debug_variables"
-    ]
-    assert snapshots == [
-        {"prefix": "kept"},
-        {"prefix": "kept", "replayed_answer": "original"},
-    ]
-    assert messages[0].type == "debug_variables"
-    assert messages[-2].type == "debug_variables"
-    assert messages[-1].type == "done"
-
-
-def test_expired_debug_regeneration_does_not_restart_the_lesson(
-    app: object, monkeypatch: object
-) -> None:
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    stream = debug_session.stream_debug_preview(
-        app,
-        preview_request=PlaygroundPreviewRequest(
-            content="Current draft",
-            block_index=0,
-            reload_generated_block_bid="selected",
-        ),
-        shifu_bid="course",
-        outline_bid="lesson",
-        user_bid="teacher",
-        run_bid="expired-run",
-    )
-    with pytest.raises(AppError) as exc_info:
-        next(stream)
-    assert exc_info.value.code == 4019
-
-
 @pytest.mark.parametrize("provider_error", [False, True])
-def test_real_debug_turns_record_replayable_checkpoints_and_discard_future_history(
+def test_real_debug_turns_save_only_the_session_and_preserve_answers(
     app: object, monkeypatch: object, provider_error: bool
 ) -> None:
-    """Exercise the real engine, cache saves and rewind rather than constructing turn metadata."""
+    """Normal and failed continuations persist without per-turn replay metadata."""
     from flaskr.service.learn.agent import run_agent
     from markdownflow.engine import Engine
-    from markdownflow.engine.events import ErrorEvent, TurnDone
+    from markdownflow.engine.events import ErrorEvent
 
     from tests.service.learn.agent.test_memory_integration import _drive
 
     monkeypatch.setattr(debug_session, "cache", _Cache())
     calls = 0
-    replay_history: list[str] = []
-    failed_events: list[object] = []
-
-    async def model(messages: list, _info: object) -> object:
-        nonlocal calls
-        calls += 1
-        if calls >= 4:
-            replay_history.extend(
-                part.content
-                for message in messages
-                for part in message.parts
-                if isinstance(part, UserPromptPart) and isinstance(part.content, str)
-            )
-        if calls == 4 and provider_error:
-            msg = "Provider failed before producing content"
-            raise RuntimeError(msg)
-        yield f"Teaching step {calls}."
+    engine_events: list[object] = []
 
     def drive(make_events: Callable, **kwargs: object) -> Iterator:
         events = list(_drive(make_events, **kwargs))
-        if calls == 4 and provider_error:
-            failed_events.extend(events)
+        engine_events.extend(events)
         return iter(events)
+
+    async def model(_messages: list, _info: object) -> object:
+        nonlocal calls
+        calls += 1
+        yield f"Teaching step {calls}."
+        if calls == 3 and provider_error:
+            msg = "Provider failed after partial content"
+            raise RuntimeError(msg)
 
     engine = Engine(FunctionModel(stream_function=model))
     with app.app_context():
+        saved_id = None
+        events = []
         for user_input in (
             None,
-            {"input": ["Original selected request"]},
-            {"input": ["Discarded future request"]},
+            {"input": ["First answer"]},
+            {"input": ["Next answer"]},
         ):
-            list(
-                run_agent.run_agent_lesson(
-                    app,
-                    engine=engine,
-                    script="Current draft",
-                    user_bid="teacher",
-                    shifu_bid="course",
-                    outline_bid="lesson",
-                    preview_mode=True,
-                    debug_store=_store(app),
-                    preview_variables={"goal": "original"},
-                    user_input=user_input,
-                    iter_turn=_drive,
-                )
-            )
-        store = _store(app)
-        before = store.load(script="Current draft")
-        turns = store._payload(script="Current draft")["turns"]
-        assert len(turns) == 3
-        assert turns[1]["record"]["values"] == ["Original selected request"]
-        assert turns[1]["record"]["checkpoint"]["user_memory"] == {"goal": "original"}
-        plan = store.plan_rewind(
-            script="Current draft", block_bid=turns[1]["block_bid"]
-        )
-        list(
-            run_agent.run_agent_lesson(
-                app,
-                engine=engine,
-                script="Current draft",
-                user_bid="teacher",
-                shifu_bid="course",
-                outline_bid="lesson",
-                preview_mode=True,
-                debug_store=store,
-                preview_variables={"goal": "echoed", "future_answer": "discard"},
-                rewind=plan,
-                iter_turn=drive,
-            )
-        )
-        if provider_error:
-            assert any(isinstance(event, ErrorEvent) for event in failed_events)
-            assert not any(isinstance(event, TurnDone) for event in failed_events)
-            # Even a bare provider error commits the failed replacement checkpoint.
-            failed_turns = store._payload(script="Current draft")["turns"]
-            assert turns[1]["block_bid"] not in {
-                turn["block_bid"] for turn in failed_turns
-            }
             store = _store(app)
-            retry = store.plan_rewind(
-                script="Current draft", block_bid=turns[1]["block_bid"]
-            )
-            assert retry.checkpoint == plan.checkpoint
-            assert retry.replay_values == ["Original selected request"]
-            list(
+            store.begin_request()
+            events = list(
                 run_agent.run_agent_lesson(
                     app,
                     engine=engine,
@@ -1124,155 +757,61 @@ def test_real_debug_turns_record_replayable_checkpoints_and_discard_future_histo
                     outline_bid="lesson",
                     preview_mode=True,
                     debug_store=store,
-                    preview_variables={"goal": "echoed", "future_answer": "discard"},
-                    rewind=retry,
+                    preview_variables={"goal": "original"},
+                    user_input=user_input,
                     iter_turn=drive,
                 )
             )
-        after = store.load(script="Current draft")
-    assert calls == (5 if provider_error else 4)
-    assert after.id == before.id
-    assert after.turn == 2
-    assert after.user_memory == {"goal": "original"}
-    saved_turns = store._payload(script="Current draft")["turns"]
-    assert saved_turns[0]["block_bid"] == turns[0]["block_bid"]
-    assert len(saved_turns) == 2
-    assert any("Original selected request" in text for text in replay_history)
-    assert all("Discarded future request" not in text for text in replay_history)
+            saved = store.load(script="Current draft")
+            assert saved is not None
+            assert saved.user_memory == {"goal": "original"}
+            assert set(store._payload(script="Current draft")) == {
+                "script_hash",
+                "session",
+            }
+            if saved_id is None:
+                saved_id = saved.id
+            assert saved.id == saved_id
+    assert calls == 3
+    assert (
+        any(isinstance(event, ErrorEvent) for event in engine_events) is provider_error
+    )
+    assert any("Teaching step 3." in message.content for message in events)
+    history = saved.dumps()
+    assert "First answer" in history
+    assert "Next answer" in history
 
 
 def test_new_debug_request_prevents_a_stopped_stream_from_overwriting_its_save(
     app: object, monkeypatch: object
 ) -> None:
-    """A late terminal event from the previous host cannot restore discarded future state."""
+    """A late terminal event from a stopped stream cannot overwrite the newer session."""
     monkeypatch.setattr(debug_session, "cache", _Cache())
     older = _store(app)
     older.begin_request()
     old_session = Session(script=ScriptBundle(script="Current draft"))
-    older.save(
-        old_session, generated_block_bid="selected", turn_record=_record(old_session)
-    )
+    older.save(old_session)
 
     replacement = _store(app)
-    plan = replacement.plan_rewind(script="Current draft", block_bid="selected")
     replacement.begin_request()
     current = replacement.load(script="Current draft")
-    current.memory["new"] = "replacement"
-    replacement.save(
-        current,
-        generated_block_bid="replacement",
-        turn_record=_record(current),
-        rewind=plan,
-    )
+    current.memory["new"] = "current answer"
+    replacement.save(current)
     old_session.memory["future"] = "stale terminal save"
     with pytest.raises(RewindUnavailableError):
         older.save(old_session)
 
-    assert replacement.load(script="Current draft").memory == {"new": "replacement"}
-    assert [
-        turn["block_bid"]
-        for turn in replacement._payload(script="Current draft")["turns"]
-    ] == ["replacement"]
+    assert replacement.load(script="Current draft").memory == {"new": "current answer"}
+    assert set(replacement._payload(script="Current draft")) == {
+        "script_hash",
+        "session",
+    }
 
 
-def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
+def test_debug_automatic_continuation_preserves_saved_output_language(
     app: object, monkeypatch: object
 ) -> None:
-    """The runtime re-plans after claiming the request, including a racing old save."""
-    from flaskr.service.learn.agent.rewind import restore
-    from flaskr.service.learn.agent.run_agent import TurnOutcome
-
-    from tests.service.learn.agent.test_lesson_entry_contracts import _entry_with_runner
-
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    older = _store(app)
-    older.begin_request()
-    session = Session(script=ScriptBundle(script="Current draft"))
-    first = _record(session)
-    session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching A")]))
-    session.memory["prefix"] = "kept"
-    older.save(session, generated_block_bid="A", turn_record=first)
-    selected = _record(session)
-    session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching B")]))
-    session.memory["selected"] = "old B"
-    older.save(session, generated_block_bid="B", turn_record=selected)
-
-    begin_request = debug_session.DebugSessionStore.begin_request
-
-    def racing_claim(store: debug_session.DebugSessionStore) -> None:
-        # The stopped host completes between the preview's early plan and token claim.
-        racing = _record(session)
-        session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching C")]))
-        session.memory["future"] = "discard"
-        older.save(session, generated_block_bid="C", turn_record=racing)
-        begin_request(store)
-
-    monkeypatch.setattr(debug_session.DebugSessionStore, "begin_request", racing_claim)
-    runner = _entry_with_runner(monkeypatch)
-    retired: list[str] = []
-
-    def replacement_turn(_app: object, **kwargs: object) -> object:
-        store = kwargs["debug_store"]
-        plan = kwargs["rewind"]
-        retired.extend(plan.retired_block_bids)
-        restored = store.load(script="Current draft")
-        restore(restored, plan.checkpoint)
-        restored.user_memory = dict(plan.checkpoint["user_memory"])
-        assert restored.all_memory() == {"prefix": "kept"}
-        # Once the replacement claims its token, the stopped host cannot save again.
-        with pytest.raises(RewindUnavailableError):
-            older.save(session)
-        restored.memory["replacement"] = "new B"
-        store.save(
-            restored,
-            generated_block_bid="replacement",
-            turn_record=selected,
-            rewind=plan,
-        )
-        yield RunMarkdownFlowDTO(
-            outline_bid="lesson",
-            generated_block_bid="replacement",
-            type=GeneratedType.DONE,
-            content="",
-        )
-        return TurnOutcome(reason="interaction", taught=True)
-
-    runner.side_effect = replacement_turn
-    messages = _request_messages(
-        app,
-        lambda: debug_session.stream_debug_preview(
-            app,
-            preview_request=PlaygroundPreviewRequest(
-                content="Current draft", block_index=0, reload_generated_block_bid="B"
-            ),
-            shifu_bid="course",
-            outline_bid="lesson",
-            user_bid="teacher",
-            run_bid="one",
-        ),
-    )
-    assert retired == ["B", "C"]
-    snapshots = [
-        json.loads(message.content)
-        for message in messages
-        if message.type == "debug_variables"
-    ]
-    assert snapshots == [
-        {"prefix": "kept"},
-        {"prefix": "kept", "replacement": "new B"},
-    ]
-    latest = _store(app)
-    assert [
-        turn["block_bid"] for turn in latest._payload(script="Current draft")["turns"]
-    ] == ["A", "replacement"]
-    with pytest.raises(RewindUnavailableError):
-        latest.plan_rewind(script="Current draft", block_bid="C")
-
-
-def test_debug_automatic_continuation_preserves_restored_output_language(
-    app: object, monkeypatch: object
-) -> None:
-    """Dropping the browser's future snapshot must keep the checkpoint's teaching language."""
+    """A resumed Debug session keeps its saved teaching language without a browser snapshot."""
     from flaskr.i18n import clear_language, set_language
     from flaskr.service.learn.agent import run_agent
 

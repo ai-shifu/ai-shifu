@@ -2,7 +2,7 @@
 title: MarkdownFlow Draft Classroom History
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-31
+last_reviewed: 2026-11-01
 canonical: true
 ---
 
@@ -84,63 +84,40 @@ profile/memory admission rules. Preview rewind analytics uses its own start and
 terminal-result family, as defined in the frontend analytics reference.
 1.0 runtime behavior, engine fallback and code remain available.
 
-## Editor Debug regeneration
+## Editor Debug sessions
 
-Each Debug store binds its lock, request token and session/checkpoint state to
-one backend. When Redis is configured, all of those operations use strict Redis;
-an outage never switches reads or writes to process-local state. Without Redis,
-Debug retains an explicitly process-local development cache. These choices do
-not change the shared cache provider's fallback behavior for other consumers.
+Editor Debug supports new Debug runs, interaction answers and its existing TTS
+controls. It does not offer content regeneration or a regeneration Retry action.
+The Debug request DTO and endpoint reject removed `reload_generated_block_bid`
+and `reload_element_bid` fields with a parameter error before usage admission
+or generation. Direct Debug runtime calls with reload identifiers are rejected
+before planning or model execution. Learner and full-course draft classroom
+rewind remain separate supported flows.
 
-Temporary cache or lock failures use `server.learn.debugServiceUnavailable`
-(business code `4023`) rather than an expired-session or classroom-reset error.
-The preview SSE error preserves that code and the request-language message,
-including after nested streaming contexts clear translation state. The frontend
-stops the failed request, records the existing failed regeneration outcome, and
-retains its retry target. If a save succeeded before lock release failed, its
-checkpoint and retry mapping remain committed; no rollback is claimed.
+Starting Debug again creates a fresh session. Answering the current interaction
+continues the session; resubmitting an earlier answer retains its confirmation
+and whole-session restart behavior. An answer after a draft edit resumes the
+conversation under the edited script.
 
-A failed or stopped regeneration retains a retry target independently of the
-visible rows. The panel offers Retry even when the selected step is no longer
-visible. It does not restore discarded answers or old output after an uncertain
-failure: the backend may already have saved replacement state. The cache keeps
-one mapping from the requested logical target to its first replacement block.
-Only that mapping, while its replacement is still active in the same Debug
-session and script, can resolve a retired target for retry. Ordinary subsequent
-turns preserve it; another regeneration replaces it. Other retired suffix
-anchors remain unavailable. Success, reset and a new script clear the frontend
-retry target, and stale callbacks cannot bring it back.
+Editor Debug uses a separate 30-minute cache, scoped to the authenticated teacher,
+course, lesson and browser-generated Debug run ID. Its payload contains only
+the script hash and serialized engine session. Debug does not capture or store
+per-turn checkpoints, original-input sidecars or regeneration retry mappings.
+An older cached payload can still load its engine session; its next save drops
+the unused sidecar fields. No database migration or published learner state
+change is needed.
 
-Editor Debug uses its separate 30-minute cache, scoped to the authenticated
-teacher, course, lesson and browser-generated Debug run ID. Its cached sidecar
-records each turn's checkpoint and original inputs alongside the engine session;
-it does not reuse classroom presentation ownership or published learner state.
+Each Debug store binds its lock, request token and session state to one backend.
+When Redis is configured, every operation uses strict Redis; an outage never
+switches to process-local state. Without Redis, the explicitly process-local
+development cache remains available. Temporary cache or lock failures retain
+`server.learn.debugServiceUnavailable` (business code `4023`) and the request
+language even after nested streaming contexts clear translation state.
 
-A regenerate action on a text element sends its `reload_generated_block_bid`
-to the existing editor preview endpoint with the same `debug_session_id` and
-unchanged script. The frontend retains all earlier generated blocks and removes
-the selected block and its successors, including their helper rows. Several
-rendered elements can share one engine turn, so regeneration begins at the first
-element of that generated block. The engine restores its checkpoint and original
-input, then follows the usual teaching flow until the next interaction or lesson
-completion. Checkpoints for the replaced suffix retire when replacement state
-is saved. Earlier checkpoints remain usable for subsequent regeneration.
-
-The restored Debug memory includes the checkpoint's user-memory snapshot. The
-request's echoed current variables cannot reintroduce discarded future answers.
-`debug_variables` SSE messages carry a JSON-encoded variable map before replacement
-output and before its DONE boundary, replacing the frontend variable snapshot.
-The reload anchor belongs only to this request; later answers and continuations
-do not resend it. Old SSE and audio callbacks cannot update the replacement run.
-Each Debug request claims a fresh cache token; a short write lock guards the
-token check and session save together. A stopped request that finishes after
-its replacement cannot overwrite the new session or restore retired anchors.
-
-An unknown, expired or incompatible checkpoint reports the existing rewind or
-Debug-session error instead of silently restarting. Historical cached sessions
-without turn checkpoints can continue normally but require an explicit restart
-before selective regeneration is available. Whole-lesson restart creates a new
-Debug run, and editing the script also restarts from the beginning rather than
-reusing checkpoints from a different draft. Regeneration does not refund previous
-model calls or modify published learning progress. Its distinct analytics family
-is documented in the [frontend analytics reference](frontend-product-analytics.md).
+Each request claims a fresh cache token, and a short write lock guards the token
+check and session save together. A superseded request cannot overwrite the newer
+session. If a save succeeds before lock release fails, the saved engine session
+remains committed; no rollback is claimed. Existing frontend business-error
+display and normal Debug restart remain available. The retired frontend event
+family retains its historical definitions in the
+[frontend analytics reference](frontend-product-analytics.md).

@@ -126,10 +126,12 @@ jest.mock('@/components/chat/InteractionBlock', () => ({
     element_bid,
     showGenerateBtn,
     onRefresh,
+    extraActions,
   }: {
     element_bid?: string;
     showGenerateBtn?: boolean;
     onRefresh?: (elementBid: string) => void;
+    extraActions?: React.ReactNode;
   }) => (
     <div data-testid='interaction-block'>
       <span>{element_bid}</span>
@@ -140,13 +142,24 @@ jest.mock('@/components/chat/InteractionBlock', () => ({
           onClick={() => onRefresh?.(element_bid || '')}
         />
       ) : null}
+      {extraActions}
     </div>
   ),
 }));
 
 jest.mock('@/components/audio/AudioPlayer', () => ({
   __esModule: true,
-  AudioPlayer: () => null,
+  AudioPlayer: ({
+    onRequestAudio,
+  }: {
+    onRequestAudio?: () => Promise<unknown>;
+  }) => (
+    <button
+      type='button'
+      aria-label='audio'
+      onClick={() => void onRequestAudio?.()}
+    />
+  ),
 }));
 
 jest.mock('./DebugVariablesPanel', () => ({
@@ -164,73 +177,6 @@ describe('DebugPanel billing action', () => {
     mockDebugVariablesPanel.mockReset();
   });
 
-  test('offers regeneration retry when no generated output remains', () => {
-    const onRetryRegeneration = jest.fn();
-
-    render(
-      <DebugPanel
-        isLoading={false}
-        items={[]}
-        shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
-        onRetryRegeneration={onRetryRegeneration}
-        onSubmitInteraction={jest.fn()}
-      />,
-    );
-
-    expect(
-      screen.queryByText('module.shifu.previewArea.empty'),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
-    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
-  });
-
-  test('only offers regeneration retry when available and idle', () => {
-    const onRetryRegeneration = jest.fn();
-    const props = {
-      items: [
-        {
-          element_bid: 'debug-error',
-          content: 'Regeneration failed',
-          type: ChatContentItemType.ERROR,
-        },
-      ],
-      shifuBid: 'shifu-1',
-      onRegenerate: jest.fn(),
-      onSubmitInteraction: jest.fn(),
-    };
-    const { rerender } = render(
-      <DebugPanel
-        {...props}
-        isLoading={false}
-      />,
-    );
-    expect(
-      screen.queryByRole('button', { name: 'common.core.retry' }),
-    ).not.toBeInTheDocument();
-
-    rerender(
-      <DebugPanel
-        {...props}
-        isLoading={false}
-        onRetryRegeneration={onRetryRegeneration}
-      />,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
-    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
-
-    rerender(
-      <DebugPanel
-        {...props}
-        isLoading
-        onRetryRegeneration={onRetryRegeneration}
-      />,
-    );
-    expect(
-      screen.queryByRole('button', { name: 'common.core.retry' }),
-    ).not.toBeInTheDocument();
-  });
-
   test('filters hidden variables and forwards visible system variable keys', () => {
     render(
       <DebugPanel
@@ -245,7 +191,6 @@ describe('DebugPanel billing action', () => {
         systemVariableKeys={['sys_user_nickname']}
         courseVariableKeys={['custom_topic']}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -279,7 +224,6 @@ describe('DebugPanel billing action', () => {
         items={items}
         creditInsufficientAudience='teacher'
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -310,7 +254,6 @@ describe('DebugPanel billing action', () => {
         items={items}
         creditInsufficientAudience='teacher-collaborator'
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -361,7 +304,6 @@ describe('DebugPanel billing action', () => {
         isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
         onRequestElementAudio={jest.fn().mockResolvedValue(null)}
       />,
@@ -383,7 +325,6 @@ describe('DebugPanel billing action', () => {
         errorMessage='Preview parameters are incomplete.'
         items={[]}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -414,7 +355,6 @@ describe('DebugPanel billing action', () => {
         isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -517,7 +457,6 @@ describe('DebugPanel billing action', () => {
         isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -538,7 +477,6 @@ describe('DebugPanel billing action', () => {
           },
         ]}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -549,216 +487,125 @@ describe('DebugPanel billing action', () => {
     );
   });
 
-  test('routes preview regenerate from helper row to the parent content item', () => {
-    const onRegenerate = jest.fn();
-    const items: ChatContentItem[] = [
-      {
-        element_bid: 'text-1',
-        generated_block_bid: '0',
-        content: '第一段内容',
-        type: ChatContentItemType.CONTENT,
-        element_type: 'text',
-        is_final: true,
-        is_speakable: true,
-      },
-      {
-        element_bid: 'text-1-feedback',
-        generated_block_bid: 'text-1-feedback',
-        parent_element_bid: 'text-1',
-        parent_block_bid: '0',
-        type: ChatContentItemType.LIKE_STATUS,
-      },
-    ];
-
+  test('removes content regeneration and retry controls while preserving text audio', async () => {
+    const onRequestElementAudio = jest.fn().mockResolvedValue(null);
     render(
       <DebugPanel
         isLoading={false}
-        items={items}
+        items={[
+          {
+            element_bid: 'text-1',
+            generated_block_bid: 'turn-1',
+            content: 'Ready text',
+            type: ChatContentItemType.CONTENT,
+            element_type: 'text',
+            is_final: true,
+          },
+          {
+            element_bid: 'html-1',
+            generated_block_bid: 'turn-1',
+            content: '<div>Rich content</div>',
+            type: ChatContentItemType.CONTENT,
+            element_type: 'html',
+            is_final: true,
+          },
+          {
+            element_bid: 'feedback-1',
+            parent_block_bid: 'turn-1',
+            type: ChatContentItemType.LIKE_STATUS,
+          },
+          {
+            element_bid: 'interaction-1',
+            generated_block_bid: 'turn-2',
+            type: ChatContentItemType.INTERACTION,
+            content: 'Choose an answer',
+          },
+        ]}
         shifuBid='shifu-1'
-        onRegenerate={onRegenerate}
         onSubmitInteraction={jest.fn()}
-        showRegenerateAction
+        onRequestElementAudio={onRequestElementAudio}
       />,
     );
-
-    fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
-
-    expect(onRegenerate).toHaveBeenCalledWith('text-1');
-  });
-
-  test('prefers a text parent when generated block items include mixed element types', () => {
-    const onRegenerate = jest.fn();
-    const items: ChatContentItem[] = [
-      {
-        element_bid: 'text-1',
-        generated_block_bid: '0',
-        content: '第一段内容',
-        type: ChatContentItemType.CONTENT,
-        element_type: 'text',
-        is_final: true,
-      },
-      {
-        element_bid: 'html-1',
-        generated_block_bid: '0',
-        content: '<div>rich block</div>',
-        type: ChatContentItemType.CONTENT,
-        element_type: 'html',
-        is_final: true,
-      },
-      {
-        element_bid: 'feedback-1',
-        generated_block_bid: 'feedback-1',
-        parent_element_bid: '',
-        parent_block_bid: '0',
-        type: ChatContentItemType.LIKE_STATUS,
-      },
-    ];
-
-    render(
-      <DebugPanel
-        isLoading={false}
-        items={items}
-        shifuBid='shifu-1'
-        onRegenerate={onRegenerate}
-        onSubmitInteraction={jest.fn()}
-        showRegenerateAction
-      />,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
-
-    expect(onRegenerate).toHaveBeenCalledWith('text-1');
     expect(
-      screen.queryByRole('button', { name: 'regenerate-html-1' }),
+      screen.queryByRole('button', { name: /^regenerate-/ }),
     ).not.toBeInTheDocument();
-  });
-
-  test('does not expose regenerate when the preview generate action is disabled', () => {
-    const items: ChatContentItem[] = [
-      {
-        element_bid: 'text-1',
-        generated_block_bid: '0',
-        content: '第一段内容',
-        type: ChatContentItemType.CONTENT,
-        element_type: 'text',
-        is_final: true,
-        is_speakable: true,
-      },
-      {
-        element_bid: 'text-1-feedback',
-        generated_block_bid: 'text-1-feedback',
-        parent_element_bid: 'text-1',
-        parent_block_bid: '0',
-        type: ChatContentItemType.LIKE_STATUS,
-      },
-    ];
-
-    render(
-      <DebugPanel
-        isLoading={false}
-        items={items}
-        shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
-        onSubmitInteraction={jest.fn()}
-      />,
-    );
-
     expect(
-      screen.queryByRole('button', { name: 'regenerate-text-1' }),
+      screen.queryByRole('button', { name: 'common.core.retry' }),
     ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'audio' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'audio' }));
+    await waitFor(() =>
+      expect(onRequestElementAudio).toHaveBeenCalledWith({
+        shifuBid: 'shifu-1',
+        elementBid: 'text-1',
+        text: 'Ready text',
+      }),
+    );
+    expect(
+      screen.getAllByRole('button', { name: 'module.shifu.previewArea.copy' }),
+    ).toHaveLength(2);
   });
 
-  test('does not expose regenerate for helper rows without a valid parent item', () => {
-    const items: ChatContentItem[] = [
-      {
-        element_bid: 'missing-parent-feedback',
-        generated_block_bid: 'missing-parent-feedback',
-        parent_element_bid: 'missing-parent',
-        parent_block_bid: '9',
-        type: ChatContentItemType.LIKE_STATUS,
-      },
-    ];
+  test.each(['empty', 'error'] as const)(
+    'does not offer regeneration retry in the %s state',
+    state => {
+      render(
+        <DebugPanel
+          isLoading={false}
+          items={
+            state === 'error'
+              ? [
+                  {
+                    element_bid: 'debug-error',
+                    content: 'Debug failed',
+                    type: ChatContentItemType.ERROR,
+                  },
+                ]
+              : []
+          }
+          shifuBid='shifu-1'
+          onSubmitInteraction={jest.fn()}
+        />,
+      );
+      expect(
+        screen.queryByRole('button', { name: 'common.core.retry' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^regenerate-/ }),
+      ).not.toBeInTheDocument();
+      if (state === 'empty')
+        expect(
+          screen.getByText('module.shifu.previewArea.empty'),
+        ).toBeInTheDocument();
+      else expect(screen.getByText('Debug failed')).toBeInTheDocument();
+    },
+  );
 
+  test('retains TTS course and text eligibility without exposing regeneration', () => {
     render(
       <DebugPanel
         isLoading={false}
-        items={items}
+        items={[
+          {
+            element_bid: 'text-1',
+            generated_block_bid: 'turn-1',
+            content: 'Text',
+            type: ChatContentItemType.CONTENT,
+            element_type: 'text',
+          },
+          {
+            element_bid: 'feedback-1',
+            parent_element_bid: 'text-1',
+            type: ChatContentItemType.LIKE_STATUS,
+          },
+        ]}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
-        showRegenerateAction
       />,
     );
-
+    expect(
+      screen.queryByRole('button', { name: 'audio' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByTestId('interaction-block')).not.toBeInTheDocument();
-  });
-
-  test('does not expose regenerate for interaction parent blocks', () => {
-    const items: ChatContentItem[] = [
-      {
-        element_bid: 'interaction-1',
-        generated_block_bid: '2',
-        content: '["完全不了解","略知一二"]',
-        type: ChatContentItemType.INTERACTION,
-        is_final: true,
-      },
-      {
-        element_bid: 'interaction-1-feedback',
-        generated_block_bid: 'interaction-1-feedback',
-        parent_element_bid: 'interaction-1',
-        parent_block_bid: '2',
-        type: ChatContentItemType.LIKE_STATUS,
-      },
-    ];
-
-    render(
-      <DebugPanel
-        isLoading={false}
-        items={items}
-        shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
-        onSubmitInteraction={jest.fn()}
-        showRegenerateAction
-      />,
-    );
-
-    expect(
-      screen.queryByRole('button', { name: 'regenerate-interaction-1' }),
-    ).not.toBeInTheDocument();
-  });
-
-  test('does not expose regenerate for non-text content blocks', () => {
-    const items: ChatContentItem[] = [
-      {
-        element_bid: 'rich-1',
-        generated_block_bid: '3',
-        content: '<div>rich block</div>',
-        type: ChatContentItemType.CONTENT,
-        element_type: 'html',
-        is_final: true,
-      },
-      {
-        element_bid: 'rich-1-feedback',
-        generated_block_bid: 'rich-1-feedback',
-        parent_element_bid: 'rich-1',
-        parent_block_bid: '3',
-        type: ChatContentItemType.LIKE_STATUS,
-      },
-    ];
-
-    render(
-      <DebugPanel
-        isLoading={false}
-        items={items}
-        shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
-        onSubmitInteraction={jest.fn()}
-        showRegenerateAction
-      />,
-    );
-
-    expect(
-      screen.queryByRole('button', { name: 'regenerate-rich-1' }),
-    ).not.toBeInTheDocument();
   });
 });

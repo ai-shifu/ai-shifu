@@ -770,10 +770,49 @@ def test_a_turn_that_ran_out_of_content_is_followed_by_the_next_in_the_same_requ
     assert [c["user_input"] for c in calls] == [{"choice": ["a"]}, None, None]
 
 
-def test_debug_rewind_does_not_reapply_future_variables_on_automatic_continuation(
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize(
+    "anchor_field", ["reload_generated_block_bid", "reload_element_bid"]
+)
+def test_editor_debug_refuses_reload_before_planning_or_running(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    anchor_field: str,
+) -> None:
+    from flaskr.i18n import _
+    from flaskr.service.learn.agent import preview_rewind
+
+    runner = _entry_with_runner(monkeypatch)
+    learner_planner = Mock()
+    classroom_planner = Mock()
+    monkeypatch.setattr(entry, "plan_rewind", learner_planner)
+    monkeypatch.setattr(preview_rewind, "plan_preview_rewind", classroom_planner)
+    with pytest.raises(AppError) as exc:
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid="teacher",
+                shifu_bid="course",
+                outline_bid="lesson",
+                preview_mode=preview_mode,
+                preview_generation="classroom-generation",
+                debug_store=object(),
+                script_override="Unsaved draft",
+                **{anchor_field: "old-target"},
+            )
+        )
+
+    assert exc.value.message == _("server.learn.agentRewindUnavailable")
+    learner_planner.assert_not_called()
+    classroom_planner.assert_not_called()
+    runner.assert_not_called()
+
+
+def test_debug_automatic_continuation_keeps_normal_preview_variables(
     app: object, monkeypatch: object
 ) -> None:
-    """Every replacement turn resumes restored memory without the discarded UI snapshot."""
+    """Debug continuation retains its ordinary variable input without a rewind branch."""
     runner = _entry_with_runner(monkeypatch)
     calls: list[dict] = []
     runner.side_effect = _turn(
@@ -784,27 +823,31 @@ def test_debug_rewind_does_not_reapply_future_variables_on_automatic_continuatio
         ],
         calls,
     )
-    plan = object()
-    store = Mock()
-    store.plan_rewind.return_value = plan
-    browser_variables = {"prefix": "kept", "future_answer": "discard"}
+    browser_variables = {"goal": "learn", "answer": "selected"}
 
-    _reload(
-        app,
-        preview_mode=True,
-        debug_store=store,
-        script_override="Unsaved draft",
-        preview_variables=browser_variables,
+    list(
+        entry.agent_lesson_events(
+            app,
+            user_bid="teacher",
+            shifu_bid="course",
+            outline_bid="lesson",
+            preview_mode=True,
+            debug_store=object(),
+            script_override="Unsaved draft",
+            preview_variables=browser_variables,
+            user_input={"answer": ["selected"]},
+        )
     )
-
-    store.plan_rewind.assert_called_once_with(
-        script="Unsaved draft", block_bid="block-1"
-    )
-    assert [call["rewind"] for call in calls] == [plan, None, None]
+    assert [call["rewind"] for call in calls] == [None, None, None]
+    assert [call["user_input"] for call in calls] == [
+        {"answer": ["selected"]},
+        None,
+        None,
+    ]
     assert [call["preview_variables"] for call in calls] == [
         browser_variables,
-        None,
-        None,
+        browser_variables,
+        browser_variables,
     ]
 
 

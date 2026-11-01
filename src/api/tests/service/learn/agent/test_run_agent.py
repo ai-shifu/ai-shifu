@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -1056,8 +1057,11 @@ def test_previewing_still_stores_its_own_session(calls: list) -> None:
     assert kwargs["preview_mode"] is True
 
 
-def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
+@pytest.mark.parametrize("save_path", ["prepared", "done", "stream_end"])
+def test_editor_debug_saves_only_its_session_without_capturing_checkpoints(
     calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    save_path: str,
 ) -> None:
     class DebugStore:
         def __init__(self) -> None:
@@ -1066,15 +1070,22 @@ def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
         def load(self, *, script: str) -> None:
             assert script == SCRIPT
 
-        def save(self, session: _Session, **_kwargs: object) -> None:
+        def save(self, session: _Session) -> None:
             self.saved.append(session)
 
+    checkpoint = Mock(side_effect=AssertionError("Debug must not capture a checkpoint"))
+    record = Mock(side_effect=AssertionError("Debug must not capture a turn record"))
+    monkeypatch.setattr(run_agent, "checkpoint_of", checkpoint)
+    monkeypatch.setattr(run_agent, "turn_record", record)
     store = DebugStore()
     session = _Session()
     session.finished = True
-    engine = _Engine(
-        [ContentDelta(text="debug text"), TurnDone(reason="finished")], session
-    )
+    source_events = [ContentDelta(text="debug text")]
+    if save_path == "prepared":
+        source_events.insert(0, ContentDelta(text="", prepared_content="debug text"))
+    if save_path != "stream_end":
+        source_events.append(TurnDone(reason="finished"))
+    engine = _Engine(source_events, session)
     events = list(
         run_agent.run_agent_lesson(
             None,
@@ -1094,6 +1105,38 @@ def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
     assert session.user_memory == {"purpose": "test"}
     assert calls == []
     assert any(event.type == GeneratedType.CONTENT for event in events)
+    checkpoint.assert_not_called()
+    record.assert_not_called()
+
+
+def test_editor_debug_refuses_a_direct_rewind_before_loading_or_restoring(
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindUnavailableError
+
+    load = Mock()
+    restore = Mock()
+    monkeypatch.setattr(run_agent, "_load_or_start", load)
+    monkeypatch.setattr(run_agent, "restore", restore)
+    with pytest.raises(RewindUnavailableError):
+        list(
+            run_agent.run_agent_lesson(
+                None,
+                engine=object(),
+                script=SCRIPT,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_bid=OUTLINE,
+                preview_mode=True,
+                debug_store=object(),
+                rewind=object(),
+            )
+        )
+
+    load.assert_not_called()
+    restore.assert_not_called()
+    assert calls == []
 
 
 def test_editor_debug_answer_resumes_its_pending_agent_interaction(
@@ -1108,7 +1151,7 @@ def test_editor_debug_answer_resumes_its_pending_agent_interaction(
             assert script == SCRIPT
             return self.stored
 
-        def save(self, session: _Session, **_kwargs: object) -> None:
+        def save(self, session: _Session) -> None:
             self.saved.append(session)
 
     pending = _Session(started=True, pending=[object()])

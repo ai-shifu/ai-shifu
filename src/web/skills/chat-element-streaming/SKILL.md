@@ -104,6 +104,10 @@ wait for that parent's gate. Skip helpers for missing or non-text parents,
 including HTML and interaction items. Do not reveal these helpers ahead of
 unfinished text or derive their visibility solely from the learner gate.
 
+The editor Debug panel does not expose content regeneration or its Retry
+action. Preserve the existing text speaker/helper behavior when changing the
+panel; full-course classroom rewind is a separate flow.
+
 Run `debug-typewriter-gate.test.ts` for ordering, HTML-helper suppression and
 appended-text behavior. These are helper-level checks, not full rendered-panel
 coverage; verify `DebugPanel` integration when changing cache ownership or
