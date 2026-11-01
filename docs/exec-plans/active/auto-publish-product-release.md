@@ -27,8 +27,8 @@ is outside this execution task. The canonical operational contract lives in
   commands, reusable image integration and bump-title handoff; focused helper
   and workflow tests passed. Independent review found and verified the fix for
   draft metadata visibility permissions.
-- [x] 2026-11-01 03:25 UTC: Regenerated knowledge indexes; passed 55 release
-  regressions, 394 script tests and 239 subtests (8 Docker Compose cases skipped),
+- [x] 2026-11-01 03:25 UTC: Regenerated knowledge indexes; passed 52 release
+  regressions, 391 script tests and 229 subtests (8 Docker Compose cases skipped),
   Ruff, actionlint, architecture fixtures, tool doctor and repository-wide
   lefthook checks in a clean staged snapshot.
 - [x] 2026-11-01 03:34 UTC: Added frozen-source coordination protocol checks
@@ -86,7 +86,7 @@ commit recovery, publication readback, prereleases, image failures, completion
 metadata, source identity and credential boundaries. Independent review found
 that draft metadata needs push-capable credentials; the validation job and its
 caller now grant that visibility while native image jobs retain Contents read.
-Local verification passed: 55 release regressions; 394 script tests and 229
+Local verification passed: 55 release regressions; 394 script tests and 239
 subtests passed, with 8 Docker Compose cases skipped because the local CLI is
 unavailable. Ruff/actionlint, architecture fixtures and required lefthook checks
 passed. The working checkout has unrelated untracked runtime logs that trigger
