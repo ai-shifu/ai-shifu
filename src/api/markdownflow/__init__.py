@@ -39,6 +39,7 @@ from .engine.interaction import (
     normalize_answer,
 )
 from .engine.memory import InMemoryMemoryStore, MemoryStore
+from .engine.memory_context import rebase_initial_script
 from .engine.script import (
     ScriptBundle,
     collected_names,
@@ -134,6 +135,7 @@ __all__ = [
     "normalize_variable_name",
     "parse_event",
     "plain_narration",
+    "rebase_initial_script",
     "render_first_prompt",
     "replace_variables_in_text",
     "substitute_variables",

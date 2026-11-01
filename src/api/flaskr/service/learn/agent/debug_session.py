@@ -65,14 +65,20 @@ class DebugSessionStore:
         shifu_bid: str,
         outline_bid: str,
         run_bid: str,
+        follow_script_edits: bool = False,
     ) -> None:
-        """Bind an opaque run ID to its teacher, course, and lesson."""
+        """Bind an opaque run ID to its teacher, course, and lesson.
+
+        ``follow_script_edits`` lets an answer resume the conversation after the
+        author edited the draft; the run then continues under the edited script.
+        """
         identity = f"{user_bid}\0{shifu_bid}\0{outline_bid}\0{run_bid}"
         digest = hashlib.sha256(identity.encode()).hexdigest()
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
         self._key = f"{prefix}:agent_debug:{digest}"
         self._request_bid: str | None = None
         self._cache = redis_cache if get_redis_client() is not None else cache
+        self._follow_script_edits = follow_script_edits
 
     @contextmanager
     def _write_lock(self) -> Iterator[None]:
@@ -102,16 +108,16 @@ class DebugSessionStore:
                 self._cache.setex(f"{self._key}:request", self.TTL_SECONDS, request_bid)
             self._request_bid = request_bid
 
-    def _payload(self, *, script: str) -> dict | None:
+    def _payload(self, *, script: str, any_script: bool = False) -> dict | None:
         with _debug_cache_access():
             raw = self._cache.get(self._key)
         if raw is None:
             return None
         try:
             payload = json.loads(raw)
-            if (
-                not isinstance(payload, dict)
-                or payload.get("script_hash")
+            if not isinstance(payload, dict) or (
+                not any_script
+                and payload.get("script_hash")
                 != hashlib.sha256(script.encode()).hexdigest()
             ):
                 return None
@@ -120,8 +126,12 @@ class DebugSessionStore:
         return payload
 
     def load(self, *, script: str) -> Session | None:
-        """Resume only when the editor is still debugging the same script."""
-        payload = self._payload(script=script)
+        """Resume when the editor is still debugging the same script.
+
+        With ``follow_script_edits`` the stored conversation is returned even
+        after the draft changed; the caller swaps in the edited script.
+        """
+        payload = self._payload(script=script, any_script=self._follow_script_edits)
         if payload is None:
             return None
         try:
@@ -171,7 +181,14 @@ class DebugSessionStore:
         turn_record: str,
         rewind: RewindPlan | None,
     ) -> None:
-        previous = self._payload(script=session.script.script) or {}
+        # Following a draft edit migrates the conversation, so its earlier turns keep
+        # their checkpoints and can still be regenerated under the edited draft.
+        previous = (
+            self._payload(
+                script=session.script.script, any_script=self._follow_script_edits
+            )
+            or {}
+        )
         turns = previous.get("turns", [])
         if not isinstance(turns, list) or any(
             not isinstance(turn, dict) or not isinstance(turn.get("block_bid"), str)
@@ -303,14 +320,17 @@ def stream_debug_preview(
     if not script.strip():
         msg = "Markdown-Flow content is empty"
         raise ValueError(msg)
+    anchor = preview_request.reload_generated_block_bid
     store = DebugSessionStore(
         app,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         run_bid=run_bid,
+        # Authors edit the draft while debugging; their next answer continues the
+        # conversation under the edited script instead of discarding it.
+        follow_script_edits=bool(preview_request.user_input) and not anchor,
     )
-    anchor = preview_request.reload_generated_block_bid
     session = store.load(script=script)
     if (preview_request.user_input or anchor) and session is None:
         raise_error("server.learn.debugSessionExpired")

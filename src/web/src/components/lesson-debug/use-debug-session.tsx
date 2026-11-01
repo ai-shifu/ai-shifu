@@ -1335,10 +1335,12 @@ export function useDebugSession({
           : undefined;
       if (
         hasSessionStartedRef.current &&
-        mdflow !== runParamsRef.current.mdflow
+        mdflow !== runParamsRef.current.mdflow &&
+        !normalizedUserInput
       ) {
-        // An answer to an edited question belongs to the old script. Start the
-        // new draft from its beginning with a new debug session instead.
+        // Without an answer there is nothing to continue: start the edited draft
+        // from its beginning with a new debug session. An answer keeps the
+        // session, and the server continues it under the edited draft.
         variableValues = { ...(initialVariableValuesRef.current || {}) };
         resetSession();
         normalizedUserInput = undefined;
@@ -1673,10 +1675,7 @@ export function useDebugSession({
         showOutputInProgressToast();
         return false;
       }
-      if (resolveLatestMdflow() !== runParamsRef.current.mdflow) {
-        restartSession();
-        return true;
-      }
+      const draftEdited = resolveLatestMdflow() !== runParamsRef.current.mdflow;
 
       const { variableName } = content;
       const normalizedVariableName =
@@ -1695,6 +1694,13 @@ export function useDebugSession({
         requiresRegeneration =
           Boolean(lastActionableElementBid) &&
           elementBid !== lastActionableElementBid;
+      }
+      const { values } = resolveInteractionSubmission(content);
+      if (draftEdited && (requiresRegeneration || !values.length)) {
+        // Only an answer to the current question can continue under an edited
+        // draft; anything else starts the edited draft from its beginning.
+        restartSession();
+        return true;
       }
       if (requiresRegeneration) {
         if (!options?.skipConfirm) {
@@ -1718,8 +1724,6 @@ export function useDebugSession({
       if (interactionIndex === -1) {
         updateSessionItems(nextItems);
       }
-
-      const { values } = resolveInteractionSubmission(content);
 
       if (!values.length) {
         return false;
