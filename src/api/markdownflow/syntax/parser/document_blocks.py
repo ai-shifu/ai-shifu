@@ -28,6 +28,10 @@ COMPILED_DOCUMENT_BREAK_REGEX = re.compile(
 )
 COMPILED_SETEXT_REGEX = re.compile(r" {0,3}(?:=+|-+)[ \t]*$")
 
+# HTML block types 2-5 (comment, processing instruction, declaration, CDATA)
+# can interrupt a paragraph, like types 1 and 6.
+_TERMINATED_HTML_BLOCK_START = re.compile(r" {0,3}<(?:!--|\?|![A-Za-z]|!\[CDATA\[)")
+
 HTML_BLOCK_TAGS = frozenset(
     [
         "address",
@@ -457,9 +461,10 @@ class DocumentBlocks:
         """Return where the inline content holding ``at`` ends.
 
         Inline syntax such as raw HTML never crosses a paragraph boundary: a
-        blank line (also inside a container), a fence, a raw-HTML or block-tag
-        start, a thematic break or setext underline, a new container paragraph,
-        or the end of an ATX heading line.
+        blank line (also inside a container), a fence, the start of an HTML
+        block of types 1-6 (raw HTML, comment, processing instruction,
+        declaration, CDATA or block tag), a thematic break or setext underline,
+        a new container paragraph, or the end of an ATX heading line.
         """
         if self._inline_breaks is None:
             breaks: set[int] = set()
@@ -474,6 +479,7 @@ class DocumentBlocks:
                         and COMPILED_RAW_HTML_START_REGEX.match(self.text, content)
                         is not None
                     )
+                    or _TERMINATED_HTML_BLOCK_START.match(value) is not None
                     or self.inline_block_interrupts(index)
                     or self.paragraph_interrupts(index)
                 ):

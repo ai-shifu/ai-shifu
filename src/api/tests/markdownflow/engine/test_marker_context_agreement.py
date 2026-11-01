@@ -224,6 +224,23 @@ CASES = [
         [],
         0,
     ),
+    # HTML blocks of types 2-5 interrupt the paragraph holding an unfinished tag.
+    *(
+        (
+            f"unfinished-tag-stops-at-{form}-block",
+            f'Text <a title="{{{{ a }}}}\n{block}\nend"> {{{{ b }}}}',
+            {"a", "b"},
+            set(),
+            [],
+            0,
+        )
+        for form, block in {
+            "comment": "<!-- block -->",
+            "instruction": "<?x y ?>",
+            "declaration": "<!X decl>",
+            "cdata": "<![CDATA[ x ]]>",
+        }.items()
+    ),
     (
         "block-tag-attribute-stops-at-blank-line",
         '<div a="{{ a }}\n\n{{ b }}">',
