@@ -31,7 +31,8 @@ is outside this execution task. The canonical operational contract lives in
   regressions, 391 script tests and 229 subtests (8 Docker Compose cases skipped),
   Ruff, actionlint, architecture fixtures, tool doctor and repository-wide
   lefthook checks in a clean staged snapshot.
-- [ ] 2026-11-01 01:49 UTC: Open a ready PR with current verification evidence and leave it unmerged.
+- [x] 2026-11-01 03:27 UTC: Opened ready [PR #3276](https://github.com/ai-shifu/ai-shifu/pull/3276)
+  with local verification evidence; leave it unmerged. Remote CI is pending.
 - [ ] 2026-11-01 01:49 UTC: External acceptance: after authorized review/merge and a genuine version
   PR, verify the actual images, public Release and consumer startup separately.
 
@@ -82,8 +83,8 @@ subtests passed, with 8 Docker Compose cases skipped because the local CLI is
 unavailable. Ruff/actionlint, architecture fixtures and required lefthook checks
 passed. The working checkout has unrelated untracked runtime logs that trigger
 the example identifier scanner, so harness and hooks ran in an exact clean
-staged snapshot without altering those logs. PR CI and live release acceptance
-remain separate checks.
+staged snapshot without altering those logs. [PR #3276](https://github.com/ai-shifu/ai-shifu/pull/3276) is open and unmerged;
+remote CI is pending. Live release acceptance remains a separate check.
 No live Release, registry push or production deployment was used as a test.
 External release acceptance remains separate from local and PR CI results.
 
