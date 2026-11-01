@@ -38,6 +38,7 @@ from flaskr.service.billing.subscriptions import (
 )
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.renewal_execution_test_helpers import (
     create_credit_wallet,
     create_renewal_event,
@@ -125,13 +126,12 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
             created_at=current_cycle_start,
             updated_at=current_cycle_start,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-preorder-downgrade-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=990,
             paid_amount=990,
             payment_provider="pingxx",
@@ -148,15 +148,12 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
                 "renewal_cycle_end_at": preorder_snapshot_next_cycle_end.isoformat(),
             },
         )
-        referral_order = BillingOrder(
+        referral_order = make_billing_order(
             bill_order_bid="bill-referral-downgrade-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly-pro",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="referral_invitation_reward",
             provider_reference_id="referral_reward_downgrade_1",
@@ -396,13 +393,12 @@ def test_run_billing_same_plan_preorder_starts_new_cycle_at_boundary(
             created_at=current_cycle_start,
             updated_at=current_cycle_start,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-preorder-same-plan-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=990,
             paid_amount=990,
             payment_provider="pingxx",
@@ -553,13 +549,12 @@ def test_ensure_subscription_renewal_order_preserves_preorder_metadata(
             created_at=current_cycle_start,
             updated_at=current_cycle_start,
         )
-        preorder_order = BillingOrder(
+        preorder_order = make_billing_order(
             bill_order_bid="bill-preorder-preserve",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid="bill-product-plan-monthly",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=990,
             paid_amount=990,
             payment_provider="alipay",

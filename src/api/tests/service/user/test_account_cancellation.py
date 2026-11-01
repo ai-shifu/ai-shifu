@@ -46,6 +46,8 @@ from flaskr.service.user.models import (
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 
 @pytest.fixture(autouse=True)
 def _isolate_account_cancellation_tables(app: object) -> object:
@@ -511,13 +513,12 @@ def test_preview_warns_about_paid_preorder_for_manual_refund(app: object) -> Non
     with app.app_context():
         _seed_user(app, user_bid=user_bid, identifier="preorder@example.com")
         db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid=uuid.uuid4().hex,
                 creator_bid=user_bid,
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
                 product_bid="future-product",
                 subscription_bid=subscription_bid,
-                currency="CNY",
                 payable_amount=9900,
                 paid_amount=9900,
                 payment_provider="pingxx",

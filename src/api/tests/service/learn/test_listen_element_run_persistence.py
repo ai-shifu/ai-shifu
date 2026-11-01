@@ -7,6 +7,8 @@ from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.models import LearnGeneratedElement
 from sqlalchemy.exc import ResourceClosedError
 
+from tests.common.fixtures.model_factories import make_generated_element
+
 
 def _make_row(
     *,
@@ -15,7 +17,7 @@ def _make_row(
     run_event_seq: int,
     status: int = 1,
 ) -> object:
-    return LearnGeneratedElement(
+    return make_generated_element(
         element_bid=element_bid,
         target_element_bid=target_element_bid,
         progress_record_bid="progress-a",
@@ -25,10 +27,6 @@ def _make_row(
         shifu_bid="shifu-a",
         run_session_bid="run-a",
         run_event_seq=run_event_seq,
-        event_type="element",
-        role="teacher",
-        element_index=0,
-        deleted=0,
         status=status,
     )
 

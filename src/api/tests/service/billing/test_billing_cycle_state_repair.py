@@ -18,12 +18,12 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWalletBucket,
 )
 
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.cycle_state_test_helpers import build_cycle_state_app
 
 
@@ -160,15 +160,12 @@ def test_repair_paid_reserved_grant_handles_cycle_window_boundaries(
             current_period_start_at=current_period_start_at,
             current_period_end_at=current_period_end_at,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=0,
-            paid_amount=0,
             payment_provider="manual",
             channel="manual",
             status=BILLING_ORDER_STATUS_PAID,

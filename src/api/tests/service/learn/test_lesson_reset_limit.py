@@ -27,6 +27,8 @@ from flaskr.service.shifu.models import (
 )
 from sqlalchemy.exc import OperationalError
 
+from tests.common.fixtures.model_factories import make_progress_record
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -82,13 +84,12 @@ def start(
     with app.app_context(), unit_of_work():
         for identity in identities:
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=identity,
                     shifu_bid=course.bid,
                     outline_item_bid=lesson or course.lesson,
                     user_bid=learner or course.learner,
                     status=status,
-                    deleted=0,
                 )
             )
     return identities

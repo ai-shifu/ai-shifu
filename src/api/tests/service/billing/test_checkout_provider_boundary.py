@@ -25,6 +25,8 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingOrder, BillingProduct
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 _CREATOR = "checkout-boundary-creator"
 
 
@@ -66,15 +68,12 @@ def _seed_pending_topup_order(
                     auto_renew_enabled=0,
                     status=BILLING_PRODUCT_STATUS_ACTIVE,
                 ),
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid=bill_order_bid,
                     creator_bid=_CREATOR,
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid=product_bid,
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=100,
-                    paid_amount=0,
                     payment_provider=payment_provider,
                     channel=channel,
                     provider_reference_id=provider_reference_id,

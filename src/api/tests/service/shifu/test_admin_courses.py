@@ -41,6 +41,8 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import make_progress_record
+
 EMPTY_COURSE_OVERVIEW = AdminOperationCourseOverviewDTO()
 
 
@@ -959,7 +961,7 @@ def test_build_operator_course_overview_returns_expected_counts(
 
         db.session.add_all(
             [
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid.uuid4().hex[:32],
                     shifu_bid=published_only_bid,
                     outline_item_bid=uuid.uuid4().hex[:32],
@@ -968,7 +970,7 @@ def test_build_operator_course_overview_returns_expected_counts(
                     created_at=datetime(2025, 4, 20, 10, 0, 0),
                     updated_at=datetime(2025, 4, 20, 10, 0, 0),
                 ),
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid.uuid4().hex[:32],
                     shifu_bid=published_with_draft_bid,
                     outline_item_bid=uuid.uuid4().hex[:32],
@@ -977,7 +979,7 @@ def test_build_operator_course_overview_returns_expected_counts(
                     created_at=datetime(2025, 4, 29, 10, 0, 0),
                     updated_at=datetime(2025, 4, 29, 10, 0, 0),
                 ),
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid.uuid4().hex[:32],
                     shifu_bid=draft_only_bid,
                     outline_item_bid=uuid.uuid4().hex[:32],
@@ -986,7 +988,7 @@ def test_build_operator_course_overview_returns_expected_counts(
                     created_at=datetime(2025, 3, 15, 10, 0, 0),
                     updated_at=datetime(2025, 3, 15, 10, 0, 0),
                 ),
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid.uuid4().hex[:32],
                     shifu_bid=builtin_demo_bid,
                     outline_item_bid=uuid.uuid4().hex[:32],

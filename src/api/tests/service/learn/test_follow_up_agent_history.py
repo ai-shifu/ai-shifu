@@ -23,6 +23,8 @@ from flaskr.service.user.repository import create_user_entity
 from markdownflow import bridge
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
+from tests.common.fixtures.model_factories import make_generated_element
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
 
@@ -109,17 +111,15 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
             assert contexts[-1].generated_block_bid == block.generated_block_bid
             assert "agent_turn" in block.block_content_conf
             with unit_of_work():
-                anchor = LearnGeneratedElement(
+                anchor = make_generated_element(
                     element_bid=uuid.uuid4().hex,
                     generated_block_bid=block.generated_block_bid,
                     progress_record_bid=block.progress_record_bid,
                     user_bid=identity,
                     shifu_bid=identity,
                     outline_item_bid=identity,
-                    event_type="element",
                     element_type="text",
                     content_text=str(contents[-1].content),
-                    status=1,
                 )
                 db.session.add(anchor)
             db.session.refresh(anchor)

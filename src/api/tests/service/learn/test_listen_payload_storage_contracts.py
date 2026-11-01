@@ -19,7 +19,8 @@ from flaskr.service.learn.learn_dtos import (
     SubtitleCueDTO,
     VariableUpdateDTO,
 )
-from flaskr.service.learn.models import LearnGeneratedElement
+
+from tests.common.fixtures.model_factories import make_generated_element
 
 
 def _cue() -> dict:
@@ -237,14 +238,13 @@ def test_audio_dto_conversions_preserve_subtitle_alignment() -> None:
 def test_legacy_rows_normalize_types_and_corrupt_audio_trails(
     stored_type: str, expected_type: ElementType, audio_json: str
 ) -> None:
-    row = LearnGeneratedElement(
+    row = make_generated_element(
         element_type=stored_type,
         change_type="future",
         audio_segments=audio_json,
         payload="{}",
         is_final=1,
         content_text="content",
-        is_renderable=1,
     )
     restored = rows._element_from_row(row)
     assert restored.element_type == expected_type
@@ -254,8 +254,8 @@ def test_legacy_rows_normalize_types_and_corrupt_audio_trails(
 
 
 def test_interaction_replay_copies_latest_answer_into_payload() -> None:
-    row = LearnGeneratedElement(
-        element_type="interaction", payload='{"user_input":"old"}', event_type="element"
+    row = make_generated_element(
+        element_type="interaction", payload='{"user_input":"old"}'
     )
     event = rows._event_from_row(row, interaction_user_input="latest answer")
     assert event.content.payload.user_input == "latest answer"
@@ -280,7 +280,7 @@ def test_interaction_replay_copies_latest_answer_into_payload() -> None:
 def test_non_structured_or_incomplete_event_payloads_remain_replayable(
     kind: str, content: str
 ) -> None:
-    row = LearnGeneratedElement(event_type=kind, content_text=content)
+    row = make_generated_element(event_type=kind, content_text=content)
     assert rows._deserialize_event_content(row) == content
 
 
@@ -332,7 +332,7 @@ def test_non_structured_or_incomplete_event_payloads_remain_replayable(
 def test_structured_events_rehydrate_their_typed_payload(
     kind: GeneratedType, content: dict, dto: type
 ) -> None:
-    row = LearnGeneratedElement(
+    row = make_generated_element(
         event_type=kind.value,
         content_text=json.dumps(content),
         generated_block_bid="block",

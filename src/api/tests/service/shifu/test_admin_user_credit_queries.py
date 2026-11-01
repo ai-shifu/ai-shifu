@@ -18,7 +18,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWalletBucket,
@@ -27,7 +26,6 @@ from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
-    LearnProgressRecord,
 )
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -44,6 +42,13 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
+
+from tests.common.fixtures.model_factories import (
+    make_billing_order,
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
 
 
 @pytest.fixture
@@ -76,7 +81,7 @@ def _usage(scope: dict, **overrides: object) -> BillUsageRecord:
 
 
 def _block(scope: dict, **overrides: object) -> LearnGeneratedBlock:
-    row = LearnGeneratedBlock(
+    row = make_generated_block(
         **{
             **scope,
             "generated_block_bid": uuid.uuid4().hex,
@@ -91,7 +96,7 @@ def _block(scope: dict, **overrides: object) -> LearnGeneratedBlock:
 
 
 def _element(scope: dict, **overrides: object) -> LearnGeneratedElement:
-    row = LearnGeneratedElement(
+    row = make_generated_element(
         **{
             **scope,
             "element_bid": uuid.uuid4().hex,
@@ -130,7 +135,7 @@ def test_wallet_summary_resolves_refund_order_category_and_keeps_locked_topups_v
     creator_bid = usage_scope["user_bid"]
     order_bid = uuid.uuid4().hex
     db.session.add(
-        BillingOrder(
+        make_billing_order(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_TOPUP,
@@ -442,7 +447,7 @@ def test_course_credit_metrics_count_only_charged_leaf_usages_and_current_comple
     for user_bid in ["completed-user", "incomplete-user"]:
         for outline in ["leaf-one", "leaf-two"]:
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid.uuid4().hex,
                     shifu_bid=usage_scope["shifu_bid"],
                     user_bid=user_bid,
@@ -452,7 +457,7 @@ def test_course_credit_metrics_count_only_charged_leaf_usages_and_current_comple
                 )
             )
     db.session.add(
-        LearnProgressRecord(
+        make_progress_record(
             progress_record_bid=uuid.uuid4().hex,
             shifu_bid=usage_scope["shifu_bid"],
             user_bid="incomplete-user",

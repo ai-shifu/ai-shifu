@@ -28,6 +28,10 @@ from flaskr.service.order.consts import (
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
 from flaskr.service.shifu.models import DraftShifu, PublishedOutlineItem, PublishedShifu
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
 from tests.service.learn import published_course as revision
 from tests.service.learn.test_run_published_follow_up import (
     follow_up_dependencies,  # noqa: F401 - pytest fixture
@@ -77,7 +81,7 @@ def _progress(course: SimpleNamespace, *, position: int) -> str:
     progress_bid = uuid4().hex
     with unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=progress_bid,
                 shifu_bid=course.course_bid,
                 outline_item_bid=course.outline_bid,
@@ -159,13 +163,12 @@ def test_an_anchored_question_is_asked_at_the_anchor_block(
         anchor_bid = uuid4().hex
         with unit_of_work():
             db.session.add(
-                LearnGeneratedBlock(
+                make_generated_block(
                     generated_block_bid=anchor_bid,
                     progress_record_bid=progress_bid,
                     user_bid=course.user_bid,
                     shifu_bid=course.course_bid,
                     outline_item_bid=course.outline_bid,
-                    position=0,
                     status=1,
                 )
             )
@@ -188,13 +191,12 @@ def test_an_anchor_from_another_lesson_is_ignored(
         foreign_bid = uuid4().hex
         with unit_of_work():
             db.session.add(
-                LearnGeneratedBlock(
+                make_generated_block(
                     generated_block_bid=foreign_bid,
                     progress_record_bid=progress_bid,
                     user_bid=course.user_bid,
                     shifu_bid=course.course_bid,
                     outline_item_bid=uuid4().hex,
-                    position=0,
                     status=1,
                 )
             )

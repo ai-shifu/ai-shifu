@@ -5,6 +5,12 @@ import types
 
 import pytest
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
+
 
 def _require_app(app: object) -> None:
     if app is None:
@@ -62,15 +68,14 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        partial = LearnGeneratedElement(
+        partial = make_generated_element(
             element_bid=element_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -79,20 +84,14 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-1",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
             element_index=7,
             element_type="sandbox",
             element_type_code=102,
             change_type="render",
-            target_element_bid="",
-            is_navigable=1,
-            is_final=0,
             content_text="partial",
             payload=partial_payload,
-            status=1,
         )
-        final = LearnGeneratedElement(
+        final = make_generated_element(
             element_bid=element_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -101,21 +100,15 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-1",
             run_event_seq=2,
-            event_type="element",
-            role="teacher",
             element_index=7,
             element_type="sandbox",
             element_type_code=102,
             change_type="render",
-            target_element_bid="",
-            is_navigable=1,
             is_final=1,
             content_text="final",
             payload=final_payload,
-            status=1,
         )
-        audio_complete_event = LearnGeneratedElement(
-            element_bid="",
+        audio_complete_event = make_generated_element(
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             generated_block_bid=generated_block_bid,
@@ -124,12 +117,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
             run_session_bid="run-listen-1",
             run_event_seq=3,
             event_type="audio_complete",
-            role="teacher",
             element_index=7,
-            element_type="",
-            element_type_code=0,
-            change_type="",
-            target_element_bid="",
             is_navigable=0,
             is_final=1,
             content_text=json.dumps(
@@ -140,11 +128,8 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
                     "duration_ms": 900,
                 }
             ),
-            payload="",
-            status=1,
         )
-        variable_update_event = LearnGeneratedElement(
-            element_bid="",
+        variable_update_event = make_generated_element(
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             generated_block_bid=generated_block_bid,
@@ -153,12 +138,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
             run_session_bid="run-listen-1",
             run_event_seq=4,
             event_type="variable_update",
-            role="teacher",
             element_index=7,
-            element_type="",
-            element_type_code=0,
-            change_type="",
-            target_element_bid="",
             is_navigable=0,
             is_final=1,
             content_text=json.dumps(
@@ -167,11 +147,8 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
                     "variable_value": "Alice",
                 }
             ),
-            payload="",
-            status=1,
         )
-        break_event = LearnGeneratedElement(
-            element_bid="",
+        break_event = make_generated_element(
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             generated_block_bid=generated_block_bid,
@@ -180,17 +157,9 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
             run_session_bid="run-listen-1",
             run_event_seq=5,
             event_type="break",
-            role="teacher",
             element_index=7,
-            element_type="",
-            element_type_code=0,
-            change_type="",
-            target_element_bid="",
             is_navigable=0,
             is_final=1,
-            content_text="",
-            payload="",
-            status=1,
         )
         db.session.add_all(
             [
@@ -270,16 +239,15 @@ def test_get_listen_element_record_serializes_progress_time_as_utc(app: object) 
             LearnProgressRecord.query.delete()
             db.session.commit()
 
-            progress = LearnProgressRecord(
+            progress = make_progress_record(
                 progress_record_bid=progress_bid,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
                 user_bid=user_bid,
                 status=LEARN_STATUS_IN_PROGRESS,
-                block_position=0,
                 updated_at=datetime(2026, 6, 30, 11, 57, 3),
             )
-            element = LearnGeneratedElement(
+            element = make_generated_element(
                 element_bid="element-listen-progress-timezone",
                 progress_record_bid=progress_bid,
                 user_bid=user_bid,
@@ -288,18 +256,12 @@ def test_get_listen_element_record_serializes_progress_time_as_utc(app: object) 
                 shifu_bid=shifu_bid,
                 run_session_bid="run-listen-progress-timezone",
                 run_event_seq=1,
-                event_type="element",
-                role="teacher",
-                element_index=0,
                 element_type="text",
                 element_type_code=213,
                 change_type="render",
-                target_element_bid="",
-                is_navigable=1,
                 is_final=1,
                 content_text="timezone check",
                 payload=json.dumps({"audio": None, "previous_visuals": []}),
-                status=1,
             )
             db.session.add_all([progress, element])
             db.session.commit()
@@ -347,16 +309,15 @@ def test_get_listen_element_record_treats_naive_progress_time_as_utc(
             LearnProgressRecord.query.delete()
             db.session.commit()
 
-            progress = LearnProgressRecord(
+            progress = make_progress_record(
                 progress_record_bid=progress_bid,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
                 user_bid=user_bid,
                 status=LEARN_STATUS_IN_PROGRESS,
-                block_position=0,
                 updated_at=datetime(2026, 6, 30, 11, 57, 3),
             )
-            element = LearnGeneratedElement(
+            element = make_generated_element(
                 element_bid="element-listen-progress-utc",
                 progress_record_bid=progress_bid,
                 user_bid=user_bid,
@@ -365,18 +326,12 @@ def test_get_listen_element_record_treats_naive_progress_time_as_utc(
                 shifu_bid=shifu_bid,
                 run_session_bid="run-listen-progress-utc",
                 run_event_seq=1,
-                event_type="element",
-                role="teacher",
-                element_index=0,
                 element_type="text",
                 element_type_code=213,
                 change_type="render",
-                target_element_bid="",
-                is_navigable=1,
                 is_final=1,
                 content_text="timezone utc check",
                 payload=json.dumps({"audio": None, "previous_visuals": []}),
-                status=1,
             )
             db.session.add_all([progress, element])
             db.session.commit()
@@ -419,15 +374,14 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        original = LearnGeneratedElement(
+        original = make_generated_element(
             element_bid=element_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -436,27 +390,14 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-patch-audio",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=112,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
-            is_final=0,
             content_text="Narration",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        patch = LearnGeneratedElement(
+        patch = make_generated_element(
             element_bid="element-listen-patch-audio-patch-1",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -465,19 +406,13 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-patch-audio",
             run_event_seq=2,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=112,
             change_type="render",
             target_element_bid=element_bid,
-            is_renderable=1,
             is_new=0,
-            is_marker=0,
             sequence_number=2,
             is_speakable=1,
-            audio_url="",
             audio_segments=json.dumps(
                 [
                     {
@@ -489,11 +424,8 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
                     }
                 ]
             ),
-            is_navigable=1,
-            is_final=0,
             content_text="Narration",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
         db.session.add_all([progress, original, patch])
         db.session.commit()
@@ -551,15 +483,14 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
             ),
         )
 
-        content_progress = LearnProgressRecord(
+        content_progress = make_progress_record(
             progress_record_bid=content_progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        interaction_progress = LearnProgressRecord(
+        interaction_progress = make_progress_record(
             progress_record_bid=interaction_progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
@@ -567,7 +498,7 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
             status=LEARN_STATUS_IN_PROGRESS,
             block_position=1,
         )
-        content_element = LearnGeneratedElement(
+        content_element = make_generated_element(
             element_bid="el_persisted_content",
             progress_record_bid=content_progress_bid,
             user_bid=user_bid,
@@ -576,27 +507,15 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-content",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=112,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Lesson content",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        interaction_element = LearnGeneratedElement(
+        interaction_element = make_generated_element(
             element_bid="el_only_interaction",
             progress_record_bid=interaction_progress_bid,
             user_bid=user_bid,
@@ -605,25 +524,16 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-interaction",
             run_event_seq=1,
-            event_type="element",
             role="ui",
-            element_index=0,
             element_type="interaction",
             element_type_code=105,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
             is_marker=1,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
             is_navigable=0,
             is_final=1,
             content_text="Choose one",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
         db.session.add_all(
             [
@@ -707,15 +617,14 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
             ),
         )
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        first_element = LearnGeneratedElement(
+        first_element = make_generated_element(
             element_bid="element-block-first",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -724,27 +633,16 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
             shifu_bid=shifu_bid,
             run_session_bid="run-session-old",
             run_event_seq=5,
-            event_type="element",
-            role="teacher",
             element_index=5,
             element_type="text",
             element_type_code=213,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=5,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="First block content",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        second_element = LearnGeneratedElement(
+        second_element = make_generated_element(
             element_bid="element-block-second",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -753,25 +651,13 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
             shifu_bid=shifu_bid,
             run_session_bid="run-session-new",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=213,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Second block content",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
         db.session.add_all([progress, first_element, second_element])
         db.session.commit()
@@ -820,7 +706,7 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
@@ -828,7 +714,7 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
             status=LEARN_STATUS_IN_PROGRESS,
             block_position=1,
         )
-        active_interaction_block = LearnGeneratedBlock(
+        active_interaction_block = make_generated_block(
             generated_block_bid="generated-interaction-active",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -837,12 +723,10 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
             shifu_bid=shifu_bid,
             type=1,
             role=2,
-            generated_content="",
-            position=0,
             block_content_conf="?[Pick one//pick]",
             status=1,
         )
-        stale_interaction_block = LearnGeneratedBlock(
+        stale_interaction_block = make_generated_block(
             generated_block_bid="generated-interaction-stale",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -851,40 +735,34 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
             shifu_bid=shifu_bid,
             type=1,
             role=2,
-            generated_content="",
-            position=0,
             block_content_conf="?[Pick one//pick]",
-            status=0,
         )
-        active_content_block = LearnGeneratedBlock(
+        active_content_block = make_generated_block(
             generated_block_bid="generated-content-active",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-content-active",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=2,
             generated_content="Fresh narration",
             position=1,
             block_content_conf="Fresh narration",
             status=1,
         )
-        stale_content_block = LearnGeneratedBlock(
+        stale_content_block = make_generated_block(
             generated_block_bid="generated-content-stale",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-content-stale",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=2,
             generated_content="Stale narration",
             position=1,
             block_content_conf="Stale narration",
-            status=0,
         )
-        active_interaction_row = LearnGeneratedElement(
+        active_interaction_row = make_generated_element(
             element_bid="el-interaction-active",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -893,27 +771,19 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
             shifu_bid=shifu_bid,
             run_session_bid="run-active",
             run_event_seq=1,
-            event_type="element",
             role="ui",
-            element_index=0,
             element_type=ElementType.INTERACTION.value,
             element_type_code=205,
             change_type="render",
-            target_element_bid="",
             is_renderable=0,
-            is_new=1,
             is_marker=1,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
             is_navigable=0,
             is_final=1,
             content_text="?[Pick one//pick]",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        stale_interaction_row = LearnGeneratedElement(
+        stale_interaction_row = make_generated_element(
             element_bid="el-interaction-stale",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -922,27 +792,19 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
             shifu_bid=shifu_bid,
             run_session_bid="run-stale",
             run_event_seq=2,
-            event_type="element",
             role="ui",
-            element_index=0,
             element_type=ElementType.INTERACTION.value,
             element_type_code=205,
             change_type="render",
-            target_element_bid="",
             is_renderable=0,
-            is_new=1,
             is_marker=1,
             sequence_number=2,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
             is_navigable=0,
             is_final=1,
             content_text="?[Pick one//pick]",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        active_content_row = LearnGeneratedElement(
+        active_content_row = make_generated_element(
             element_bid="el-content-active",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -951,27 +813,18 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
             shifu_bid=shifu_bid,
             run_session_bid="run-active",
             run_event_seq=3,
-            event_type="element",
-            role="teacher",
             element_index=1,
             element_type=ElementType.TEXT.value,
             element_type_code=213,
             change_type="render",
-            target_element_bid="",
             is_renderable=0,
-            is_new=1,
-            is_marker=0,
             sequence_number=3,
             is_speakable=1,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Fresh narration",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        stale_content_row = LearnGeneratedElement(
+        stale_content_row = make_generated_element(
             element_bid="el-content-stale",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -980,25 +833,16 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
             shifu_bid=shifu_bid,
             run_session_bid="run-stale",
             run_event_seq=4,
-            event_type="element",
-            role="teacher",
             element_index=1,
             element_type=ElementType.TEXT.value,
             element_type_code=213,
             change_type="render",
-            target_element_bid="",
             is_renderable=0,
-            is_new=1,
-            is_marker=0,
             sequence_number=4,
             is_speakable=1,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Stale narration",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
         db.session.add_all(
             [
@@ -1061,26 +905,24 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
             ),
         )
 
-        older_progress = LearnProgressRecord(
+        older_progress = make_progress_record(
             progress_record_bid=older_progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        latest_progress = LearnProgressRecord(
+        latest_progress = make_progress_record(
             progress_record_bid=latest_progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
         db.session.add_all([older_progress, latest_progress])
         db.session.flush()
 
-        older_element = LearnGeneratedElement(
+        older_element = make_generated_element(
             element_bid="el_progress_older",
             progress_record_bid=older_progress_bid,
             user_bid=user_bid,
@@ -1089,27 +931,15 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
             shifu_bid=shifu_bid,
             run_session_bid="run-progress-older",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=112,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Older content should be hidden",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        latest_element = LearnGeneratedElement(
+        latest_element = make_generated_element(
             element_bid="el_progress_latest",
             progress_record_bid=latest_progress_bid,
             user_bid=user_bid,
@@ -1118,25 +948,13 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
             shifu_bid=shifu_bid,
             run_session_bid="run-progress-latest",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=112,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Latest content should remain",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
         db.session.add_all([older_element, latest_element])
         db.session.commit()
@@ -1165,7 +983,6 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
     from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
-        LearnGeneratedElement,
         LearnProgressRecord,
     )
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
@@ -1182,72 +999,53 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        orphan_block = LearnGeneratedBlock(
+        orphan_block = make_generated_block(
             generated_block_bid=orphan_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-orphan-persisted",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
             generated_content="legacy should not be needed here",
-            position=0,
-            block_content_conf="",
             status=1,
         )
-        attached_block = LearnGeneratedBlock(
+        attached_block = make_generated_block(
             generated_block_bid=attached_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-attached-persisted",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
             generated_content="legacy should not be needed here either",
             position=1,
-            block_content_conf="",
             status=1,
         )
-        orphan_element = LearnGeneratedElement(
+        orphan_element = make_generated_element(
             element_bid="element-orphan-persisted",
-            progress_record_bid="",
             user_bid=user_bid,
             generated_block_bid=orphan_block_bid,
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-missing-progress-bid",
             run_event_seq=10,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=112,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Persisted row with blank progress_record_bid",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
-        attached_element = LearnGeneratedElement(
+        attached_element = make_generated_element(
             element_bid="element-attached-persisted",
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -1256,25 +1054,14 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
             shifu_bid=shifu_bid,
             run_session_bid="run-listen-missing-progress-bid",
             run_event_seq=11,
-            event_type="element",
-            role="teacher",
             element_index=1,
             element_type="text",
             element_type_code=112,
             change_type="render",
-            target_element_bid="",
-            is_renderable=1,
-            is_new=1,
-            is_marker=0,
             sequence_number=2,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Persisted row with linked progress_record_bid",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
         db.session.add_all(
             [
@@ -1334,15 +1121,14 @@ def test_get_record_api_returns_element_payload_by_default(app: object) -> None:
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        final = LearnGeneratedElement(
+        final = make_generated_element(
             element_bid=element_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -1351,18 +1137,13 @@ def test_get_record_api_returns_element_payload_by_default(app: object) -> None:
             shifu_bid=shifu_bid,
             run_session_bid="run-record-api-1",
             run_event_seq=2,
-            event_type="element",
-            role="teacher",
             element_index=3,
             element_type="sandbox",
             element_type_code=102,
             change_type="render",
-            target_element_bid="",
-            is_navigable=1,
             is_final=1,
             content_text="final",
             payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
         )
         db.session.add_all([progress, final])
         db.session.commit()
@@ -1412,18 +1193,15 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(
         LearnGeneratedBlock.query.delete()
         db.session.commit()
 
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-listen-adapter",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
             generated_content=raw_content,
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add(block)
@@ -1536,71 +1314,46 @@ def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(
         )
 
         rows = [
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid=base_element_bid,
-                progress_record_bid="",
                 user_bid=user_bid,
                 generated_block_bid=generated_block_bid,
                 outline_item_bid=outline_bid,
                 shifu_bid=shifu_bid,
                 run_session_bid=adapter.run_session_bid,
                 run_event_seq=1,
-                event_type="element",
-                role="teacher",
-                element_index=0,
                 element_type=ElementType.TEXT.value,
-                element_type_code=0,
                 change_type=ElementChangeType.RENDER.value,
-                target_element_bid="",
-                is_navigable=1,
-                is_final=0,
                 content_text="base",
                 payload=json.dumps({"audio": None, "previous_visuals": []}),
-                status=1,
             ),
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid="legacy-patch",
-                progress_record_bid="",
                 user_bid=user_bid,
                 generated_block_bid=generated_block_bid,
                 outline_item_bid=outline_bid,
                 shifu_bid=shifu_bid,
                 run_session_bid=adapter.run_session_bid,
                 run_event_seq=2,
-                event_type="element",
-                role="teacher",
-                element_index=0,
                 element_type=ElementType.TEXT.value,
-                element_type_code=0,
                 change_type=ElementChangeType.RENDER.value,
                 target_element_bid=base_element_bid,
-                is_navigable=1,
-                is_final=0,
                 content_text="legacy patch",
                 payload=json.dumps({"audio": None, "previous_visuals": []}),
-                status=1,
             ),
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid="other-element",
-                progress_record_bid="",
                 user_bid=user_bid,
                 generated_block_bid=generated_block_bid,
                 outline_item_bid=outline_bid,
                 shifu_bid=shifu_bid,
                 run_session_bid=adapter.run_session_bid,
                 run_event_seq=3,
-                event_type="element",
-                role="teacher",
                 element_index=1,
                 element_type=ElementType.TEXT.value,
-                element_type_code=0,
                 change_type=ElementChangeType.RENDER.value,
-                target_element_bid="",
-                is_navigable=1,
-                is_final=0,
                 content_text="other",
                 payload=json.dumps({"audio": None, "previous_visuals": []}),
-                status=1,
             ),
         ]
         db.session.add_all(rows)
@@ -1688,18 +1441,15 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(
         LearnGeneratedBlock.query.delete()
         db.session.commit()
 
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-listen-final-text",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
             generated_content=raw_content,
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add(block)
@@ -2037,26 +1787,22 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-listen-mdflow-stream",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
             generated_content="![img](https://example.com/visual.png)\ncaption line\n",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -2251,26 +1997,22 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app: object) 
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-listen-is-new-rule",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
             generated_content="Intro<div>Card</div>Tail",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -2383,26 +2125,21 @@ def test_listen_adapter_keeps_html_stream_as_single_element_on_break(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-listen-html-single-on-break",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -2497,26 +2234,21 @@ def test_listen_adapter_preserves_structural_fragment_without_html_target(
 
         db.session.add_all(
             [
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=progress_bid,
                     shifu_bid=shifu_bid,
                     outline_item_bid=outline_bid,
                     user_bid=user_bid,
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=0,
                 ),
-                LearnGeneratedBlock(
+                make_generated_block(
                     generated_block_bid=generated_block_bid,
                     progress_record_bid=progress_bid,
                     user_bid=user_bid,
                     block_bid="block-listen-structural-fallback",
                     outline_item_bid=outline_bid,
                     shifu_bid=shifu_bid,
-                    type=0,
                     role=ROLE_TEACHER,
-                    generated_content="",
-                    position=0,
-                    block_content_conf="",
                     status=1,
                 ),
             ]
@@ -2582,26 +2314,21 @@ def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-listen-stream-switch",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -2686,26 +2413,21 @@ def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-listen-reenter-image-slot",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -2791,26 +2513,21 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-audio-target-binding",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -3049,26 +2766,21 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-latest-audio-target-binding",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -3378,26 +3090,21 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app: object) -> 
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-audio-after-html",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -3583,26 +3290,21 @@ def test_audio_stream_number_binding_overrides_position_guessing(app: object) ->
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-audio-stream-number-binding",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -3775,26 +3477,21 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-html-only-audio",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -3918,26 +3615,21 @@ def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-dup-audio-segment",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -4079,26 +3771,21 @@ def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
             block_bid="block-stream-segment-subtitles",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
-            type=0,
             role=ROLE_TEACHER,
-            generated_content="",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         db.session.add_all([progress, block])
@@ -4319,7 +4006,7 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
 
         db.session.add_all(
             [
-                LearnGeneratedElement(
+                make_generated_element(
                     element_bid="el-legacy-visual-text-1",
                     progress_record_bid="progress-legacy-visual",
                     user_bid="user-legacy-visual",
@@ -4328,28 +4015,17 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
                     shifu_bid="shifu-legacy-visual",
                     run_session_bid="run-legacy-visual",
                     run_event_seq=1,
-                    event_type="element",
-                    role="teacher",
-                    element_index=0,
                     element_type="text",
                     element_type_code=213,
                     change_type="render",
-                    target_element_bid="",
                     is_renderable=0,
-                    is_new=1,
-                    is_marker=0,
                     sequence_number=1,
                     is_speakable=1,
-                    audio_url="",
-                    audio_segments="[]",
-                    is_navigable=1,
                     is_final=1,
                     content_text="Before image.",
                     payload='{"audio": null, "previous_visuals": []}',
-                    deleted=0,
-                    status=1,
                 ),
-                LearnGeneratedElement(
+                make_generated_element(
                     element_bid="el-legacy-visual-marker",
                     progress_record_bid="progress-legacy-visual",
                     user_bid="user-legacy-visual",
@@ -4358,28 +4034,17 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
                     shifu_bid="shifu-legacy-visual",
                     run_session_bid="run-legacy-visual",
                     run_event_seq=2,
-                    event_type="element",
-                    role="teacher",
                     element_index=1,
                     element_type="img",
                     element_type_code=204,
                     change_type="render",
-                    target_element_bid="",
-                    is_renderable=1,
-                    is_new=1,
                     is_marker=1,
                     sequence_number=2,
-                    is_speakable=0,
-                    audio_url="",
-                    audio_segments="[]",
-                    is_navigable=1,
                     is_final=1,
-                    content_text="",
                     payload=visual_payload,
-                    deleted=0,
                     status=0,
                 ),
-                LearnGeneratedElement(
+                make_generated_element(
                     element_bid="el-legacy-visual-marker",
                     progress_record_bid="progress-legacy-visual",
                     user_bid="user-legacy-visual",
@@ -4388,28 +4053,18 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
                     shifu_bid="shifu-legacy-visual",
                     run_session_bid="run-legacy-visual",
                     run_event_seq=3,
-                    event_type="element",
-                    role="teacher",
                     element_index=1,
                     element_type="img",
                     element_type_code=204,
                     change_type="render",
                     target_element_bid="el-legacy-visual-marker",
-                    is_renderable=1,
                     is_new=0,
                     is_marker=1,
                     sequence_number=3,
-                    is_speakable=0,
-                    audio_url="",
-                    audio_segments="[]",
-                    is_navigable=1,
                     is_final=1,
-                    content_text="",
                     payload=visual_payload,
-                    deleted=0,
-                    status=1,
                 ),
-                LearnGeneratedElement(
+                make_generated_element(
                     element_bid="el-legacy-visual-text-2",
                     progress_record_bid="progress-legacy-visual",
                     user_bid="user-legacy-visual",
@@ -4418,26 +4073,16 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
                     shifu_bid="shifu-legacy-visual",
                     run_session_bid="run-legacy-visual",
                     run_event_seq=4,
-                    event_type="element",
-                    role="teacher",
                     element_index=2,
                     element_type="text",
                     element_type_code=213,
                     change_type="render",
-                    target_element_bid="",
                     is_renderable=0,
-                    is_new=1,
-                    is_marker=0,
                     sequence_number=4,
                     is_speakable=1,
-                    audio_url="",
-                    audio_segments="[]",
-                    is_navigable=1,
                     is_final=1,
                     content_text="After image.",
                     payload='{"audio": null, "previous_visuals": []}',
-                    deleted=0,
-                    status=1,
                 ),
             ]
         )

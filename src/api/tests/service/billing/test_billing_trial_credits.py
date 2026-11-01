@@ -38,6 +38,7 @@ from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -420,18 +421,13 @@ def test_trial_welcome_ack_route_falls_back_to_order_metadata(
         _seed_creator(user_bid="creator-trial")
         paid_at = datetime(2026, 4, 9, 12, 0, 0)
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="bill-trial-order-only",
                 creator_bid="creator-trial",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid=BILLING_TRIAL_PRODUCT_BID,
-                subscription_bid="",
-                currency="CNY",
-                payable_amount=0,
-                paid_amount=0,
                 payment_provider="manual",
                 channel="manual",
-                provider_reference_id="",
                 status=BILLING_ORDER_STATUS_PAID,
                 paid_at=paid_at,
                 metadata_json={},

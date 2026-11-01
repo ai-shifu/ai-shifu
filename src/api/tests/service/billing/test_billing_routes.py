@@ -60,7 +60,6 @@ from flaskr.service.billing.models import (
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
     BillingEntitlement,
-    BillingOrder,
     BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
@@ -86,6 +85,7 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from sqlalchemy import event
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -456,15 +456,13 @@ def billing_test_client(monkeypatch: object) -> Iterator[FlaskClient]:
 
         dao.db.session.add_all(
             [
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="order-1",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                     product_bid="bill-product-plan-monthly",
                     subscription_bid="sub-1",
-                    currency="CNY",
                     payable_amount=9900,
-                    paid_amount=0,
                     payment_provider="stripe",
                     channel="card",
                     provider_reference_id="cs_test_1",
@@ -478,13 +476,11 @@ def billing_test_client(monkeypatch: object) -> Iterator[FlaskClient]:
                     created_at=datetime(2026, 4, 5, 12, 0, 0),
                     updated_at=datetime(2026, 4, 5, 12, 5, 0),
                 ),
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="order-2",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid="bill-product-topup-small",
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=19900,
                     paid_amount=19900,
                     payment_provider="pingxx",
@@ -494,19 +490,15 @@ def billing_test_client(monkeypatch: object) -> Iterator[FlaskClient]:
                     paid_at=datetime(2026, 4, 6, 11, 5, 0),
                     failed_at=None,
                     refunded_at=None,
-                    failure_code="",
-                    failure_message="",
                     metadata_json={"event_type": "charge.succeeded"},
                     created_at=datetime(2026, 4, 6, 11, 0, 0),
                     updated_at=datetime(2026, 4, 6, 11, 5, 0),
                 ),
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="order-other",
                     creator_bid="creator-2",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid="bill-product-topup-large",
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=69900,
                     paid_amount=69900,
                     payment_provider="stripe",
@@ -516,8 +508,6 @@ def billing_test_client(monkeypatch: object) -> Iterator[FlaskClient]:
                     paid_at=datetime(2026, 4, 6, 11, 5, 0),
                     failed_at=None,
                     refunded_at=None,
-                    failure_code="",
-                    failure_message="",
                     metadata_json={},
                     created_at=datetime(2026, 4, 6, 11, 0, 0),
                     updated_at=datetime(2026, 4, 6, 11, 5, 0),
@@ -1278,7 +1268,7 @@ class TestBillingRoutes:
             assert len(bucket_list.items) == 3
 
             dao.db.session.add(
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="order-shared-topup",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
@@ -1549,7 +1539,7 @@ class TestBillingRoutes:
         with app.app_context():
             dao.db.session.add_all(
                 [
-                    BillingOrder(
+                    make_billing_order(
                         bill_order_bid="order-campaign-topup",
                         creator_bid="creator-1",
                         order_type=BILLING_ORDER_TYPE_TOPUP,
@@ -1557,7 +1547,7 @@ class TestBillingRoutes:
                         status=BILLING_ORDER_STATUS_PAID,
                         paid_at=datetime(2026, 4, 7, 9, 0, 0),
                     ),
-                    BillingOrder(
+                    make_billing_order(
                         bill_order_bid="order-bucket-plan",
                         creator_bid="creator-1",
                         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -1565,7 +1555,7 @@ class TestBillingRoutes:
                         status=BILLING_ORDER_STATUS_PAID,
                         paid_at=datetime(2026, 4, 7, 9, 30, 0),
                     ),
-                    BillingOrder(
+                    make_billing_order(
                         bill_order_bid="order-other-creator-topup",
                         creator_bid="creator-2",
                         order_type=BILLING_ORDER_TYPE_TOPUP,
