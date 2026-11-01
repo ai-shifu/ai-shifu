@@ -229,7 +229,7 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     debug_store = (
         SimpleNamespace(
             load=lambda **_kw: stored[0] if stored else None,
-            save=lambda value: persist(None, value),
+            save=lambda value, **_kw: persist(None, value),
         )
         if scene == "debug"
         else None

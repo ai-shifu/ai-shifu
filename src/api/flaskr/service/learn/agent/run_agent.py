@@ -275,6 +275,8 @@ def _load_or_start(
         # Taken back before the turn is built, so the turn is whatever this state calls for: the
         # question the learner is now answering differently, or the turn being regenerated.
         restore(stored, rewind.checkpoint)
+        if debug_store is not None:
+            stored.user_memory = dict(rewind.checkpoint["user_memory"])
     if stored is not None and on_session_loaded is not None:
         on_session_loaded(stored)
     generations, deleted = (
@@ -287,7 +289,11 @@ def _load_or_start(
     if memory_deleted_keys is not None:
         memory_deleted_keys.update(deleted)
     user_memory = (
-        dict(preview_variables or {})
+        dict(stored.user_memory)
+        if debug_store is not None
+        and stored is not None
+        and (rewind is not None or preview_variables is None)
+        else dict(preview_variables or {})
         if debug_store is not None
         else load_memory(
             app,
@@ -506,7 +512,10 @@ def run_agent_lesson(
             session_holder["session"] = session
             # The state this turn starts from, kept on its block so the lesson can be taken back
             # to it later.
-            session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
+            checkpoint = checkpoint_of(session)
+            if debug_store is not None:
+                checkpoint["user_memory"] = dict(session.user_memory)
+            session_holder["turn_record"] = turn_record(checkpoint, values)
             deleted_policy = (
                 {"memory_deleted_keys": frozenset(memory_deleted_keys)}
                 if memory_deleted_keys
@@ -1076,7 +1085,12 @@ def _stream_turn(
                 # a disconnect cannot restore the original answered question.
                 prepared = _prepared_lesson_text(prepared)
                 if debug_store is not None:
-                    debug_store.save(session)
+                    debug_store.save(
+                        session,
+                        generated_block_bid=generated_block_bid,
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                    )
                     kept = True
                 else:
                     kept = _persist(
@@ -1187,7 +1201,12 @@ def _stream_turn(
             if session is not None:
                 persisted = True
                 if debug_store is not None:
-                    debug_store.save(session)
+                    debug_store.save(
+                        session,
+                        generated_block_bid=generated_block_bid,
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                    )
                     kept = True
                 else:
                     kept = _persist(
@@ -1320,7 +1339,12 @@ def _stream_turn(
     discarded = False
     if not persisted and session is not None:
         if debug_store is not None:
-            debug_store.save(session)
+            debug_store.save(
+                session,
+                generated_block_bid=generated_block_bid,
+                turn_record=session_holder.get("turn_record", ""),
+                rewind=session_holder.get("rewind"),
+            )
         else:
             discarded = not _persist(
                 app,

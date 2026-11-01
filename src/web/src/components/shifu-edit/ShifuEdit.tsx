@@ -203,6 +203,8 @@ const ScriptEditor = ({
     stopRun: stopDebugRun,
     resetSession: resetDebugSession,
     regenerateContent: regenerateDebugContent,
+    retryRegeneration: retryDebugRegeneration,
+    canRetryRegeneration,
     submitInteraction: submitDebugInteraction,
     persistVariableValues: persistDebugVariableValues,
     setVariableValue: setDebugVariableValue,
@@ -1941,6 +1943,9 @@ const ScriptEditor = ({
                   hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRegenerate={regenerateDebugContent}
+                  onRetryRegeneration={
+                    canRetryRegeneration ? retryDebugRegeneration : undefined
+                  }
                   onSubmitInteraction={submitDebugInteraction}
                   onVariableChange={setDebugVariableValue}
                   variableOrder={variableOrder}

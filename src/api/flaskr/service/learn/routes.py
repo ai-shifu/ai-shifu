@@ -15,12 +15,12 @@ from flaskr.dao import (
     is_protocol_interrupt_error,
 )
 from flaskr.framework.plugin.inject import inject
-from flaskr.i18n import get_current_language
+from flaskr.i18n import _, get_current_language
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common import raise_error
-from flaskr.service.common.models import AppError, raise_param_error
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_param_error
 from flaskr.service.learn.elements.run_adapter import get_listen_element_record
 from flaskr.service.learn.host.run import get_run_status, run_script
 from flaskr.service.learn.learn_dtos import (
@@ -522,6 +522,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             debug_session_id:
                                 type: string
                                 description: editor debug session identifier
+                            reload_generated_block_bid:
+                                type: string
+                                description: debug turn to regenerate from
         responses:
             200:
                 description: stream preview block success
@@ -537,6 +540,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             "block_index": payload.get("block_index"),
             "variables": payload.get("variables"),
             "user_input": payload.get("user_input"),
+            "reload_generated_block_bid": payload.get("reload_generated_block_bid"),
         }
         try:
             preview_request = PlaygroundPreviewRequest(**preview_payload)
@@ -574,6 +578,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             **variables,
             "sys_user_language": preview_language,
         }
+        # Nested streaming contexts may clear the request's translation language.
+        debug_unavailable_message = _("server.learn.debugServiceUnavailable")
+        debug_unavailable_code = ERROR_CODE["server.learn.debugServiceUnavailable"]
         from flaskr.service.learn.agent.debug_session import stream_debug_preview
 
         def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
@@ -594,9 +601,14 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             error_event_factory=lambda exc: RunElementSSEMessageDTO(
                 type="error",
                 event_type="error",
+                code=exc.code if isinstance(exc, AppError) else None,
                 generated_block_bid=generate_id(app),
                 is_terminal=False,
-                content=str(exc),
+                content=(
+                    debug_unavailable_message
+                    if isinstance(exc, AppError) and exc.code == debug_unavailable_code
+                    else str(exc)
+                ),
             ),
             terminal_event_factory=lambda: RunElementSSEMessageDTO(
                 type="done",
