@@ -10,6 +10,19 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import CourseFeedbackSummaryCards from '@/app/admin/components/course-feedback/CourseFeedbackSummaryCards';
+import StackedTooltipText from '@/app/admin/components/course-feedback/StackedTooltipText';
+import {
+  resolveRequestErrorState,
+  useDisplayIdentifierType,
+} from '@/app/admin/components/course-feedback/course-feedback-data';
+import {
+  formatDisplayValue,
+  hasChapterHierarchy as resolveHasChapterHierarchy,
+  resolvePrimaryLessonDisplay,
+  resolveSecondaryChapterDisplay,
+  type CourseFeedbackErrorState,
+} from '@/app/admin/components/course-feedback/course-feedback-display';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -17,7 +30,6 @@ import {
 import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import { formatAdminCount } from '@/app/admin/lib/number-format';
-import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -37,12 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  resolveLoginIdentifierTypes,
-  selectSingleLoginIdentifierType,
-  type LoginIdentifierType,
-} from '@/lib/login-identifiers';
-import { ErrorWithCode } from '@/lib/request';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { cn } from '@/lib/utils';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import {
@@ -55,7 +62,7 @@ import type {
 } from '../../operation-course-types';
 import useOperatorGuard from '../../use-operator-guard';
 
-type ErrorState = { message: string; code?: number };
+type ErrorState = CourseFeedbackErrorState;
 type RatingCommentFilter = 'all' | 'commented';
 type RatingModeFilter = 'all' | 'read' | 'listen';
 type RatingSortBy = 'latest_desc' | 'score_asc';
@@ -140,58 +147,10 @@ const isDefaultRatingFilters = (filters: RatingFilters) =>
 const formatCount = (value: number, locale: string): string =>
   formatAdminCount(value, locale);
 
-const formatValue = (value: string | undefined | null, emptyValue: string) => {
-  const normalizedValue = value?.trim() || '';
-  return normalizedValue || emptyValue;
-};
-
-const splitTimestampValue = (value: string) => {
-  const normalizedValue = value
-    .replace(/[,.\u202F]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!normalizedValue) {
-    return [];
-  }
-
-  const [datePart, timePart, ...rest] = normalizedValue.split(' ');
-  if (!timePart || rest.length > 0) {
-    return [normalizedValue];
-  }
-
-  return [datePart, timePart];
-};
-
-const resolveSecondaryChapterDisplay = ({
-  chapterTitle,
-  lessonTitle,
-  emptyValue,
-}: {
-  chapterTitle?: string;
-  lessonTitle?: string;
-  emptyValue: string;
-}) => {
-  const normalizedChapterTitle = chapterTitle?.trim() || '';
-  const normalizedLessonTitle = lessonTitle?.trim() || '';
-  if (
-    !normalizedChapterTitle ||
-    normalizedChapterTitle === normalizedLessonTitle
-  ) {
-    return '';
-  }
-  return formatValue(normalizedChapterTitle, emptyValue);
-};
-
-const resolvePrimaryLessonDisplay = ({
-  lessonTitle,
-  chapterTitle,
-  emptyValue,
-}: {
-  lessonTitle?: string;
-  chapterTitle?: string;
-  emptyValue: string;
-}) => formatValue(lessonTitle || chapterTitle, emptyValue);
-
+/**
+ * Unlike the follow-up pages, ratings show only the configured login
+ * identifier, without falling back to the other identifier or the user id.
+ */
 const resolvePrimaryAccount = ({
   mobile,
   email,
@@ -204,7 +163,7 @@ const resolvePrimaryAccount = ({
   emptyValue: string;
 }) => {
   const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
-  return formatValue(primaryIdentifier, emptyValue);
+  return formatDisplayValue(primaryIdentifier, emptyValue);
 };
 
 /*
@@ -271,16 +230,7 @@ export default function AdminOperationCourseRatingsPage() {
   const emptyValue = tOperations('detail.ratings.emptyValue');
   const clearLabel = t('common.core.close');
   const defaultUserName = t('module.user.defaultUserName');
-  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
-  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const displayIdentifierType = useMemo<LoginIdentifierType>(
-    () =>
-      selectSingleLoginIdentifierType(
-        resolveLoginIdentifierTypes(loginMethodsEnabled),
-        defaultLoginMethod,
-      ),
-    [defaultLoginMethod, loginMethodsEnabled],
-  );
+  const displayIdentifierType = useDisplayIdentifierType();
 
   const [ratings, setRatings] =
     useState<AdminOperationCourseRatingListResponse>(EMPTY_RATINGS_RESPONSE);
@@ -372,13 +322,7 @@ export default function AdminOperationCourseRatingsPage() {
           return;
         }
         setRatings(EMPTY_RATINGS_RESPONSE);
-        if (err instanceof ErrorWithCode) {
-          setError({ message: err.message, code: err.code });
-        } else if (err instanceof Error) {
-          setError({ message: err.message });
-        } else {
-          setError({ message: ratingsLoadErrorMessage });
-        }
+        setError(resolveRequestErrorState(err, ratingsLoadErrorMessage));
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
@@ -399,12 +343,7 @@ export default function AdminOperationCourseRatingsPage() {
   const pageCount = Math.max(ratings.page_count || 0, 1);
   const rows = useMemo(() => ratings.items || [], [ratings.items]);
   const hasChapterHierarchy = useMemo(
-    () =>
-      rows.some(item => {
-        const chapterTitle = item.chapter_title?.trim() || '';
-        const lessonTitle = item.lesson_title?.trim() || '';
-        return !!chapterTitle && !!lessonTitle && chapterTitle !== lessonTitle;
-      }),
+    () => resolveHasChapterHierarchy(rows),
     [rows],
   );
   const outlineFilterLabel = hasChapterHierarchy
@@ -431,19 +370,19 @@ export default function AdminOperationCourseRatingsPage() {
         key: 'averageScore',
         label: tOperations('detail.ratings.summary.averageScore'),
         value: fullSummary.average_score || emptyValue,
-        tone: 'number' as const,
+        tone: 'value' as const,
       },
       {
         key: 'ratingCount',
         label: tOperations('detail.ratings.summary.ratingCount'),
         value: formatCount(fullSummary.rating_count, i18n.language),
-        tone: 'number' as const,
+        tone: 'value' as const,
       },
       {
         key: 'userCount',
         label: tOperations('detail.ratings.summary.userCount'),
         value: formatCount(fullSummary.user_count, i18n.language),
-        tone: 'number' as const,
+        tone: 'value' as const,
       },
       {
         key: 'latestRatedAt',
@@ -750,39 +689,11 @@ export default function AdminOperationCourseRatingsPage() {
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
           <div className='space-y-5 pb-6'>
-            <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-              {summaryCards.map(card => (
-                <Card
-                  key={card.key}
-                  className='border-border/80 shadow-sm'
-                >
-                  <CardContent className='flex h-full flex-col p-4'>
-                    <div className='text-sm font-medium text-muted-foreground'>
-                      {card.label}
-                    </div>
-                    {card.tone === 'timestamp' ? (
-                      <div className='mt-3 space-y-0.5 text-foreground'>
-                        {splitTimestampValue(card.value).map((part, index) => (
-                          <div
-                            key={`${card.key}-${part}-${index}`}
-                            className={cn(
-                              'break-all tracking-tight',
-                              index === 0 ? 'text-lg font-medium' : 'text-base',
-                            )}
-                          >
-                            {part}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className='mt-3 text-2xl font-semibold text-foreground'>
-                        {card.value}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <CourseFeedbackSummaryCards
+              cards={summaryCards}
+              gridClassName='grid gap-4 md:grid-cols-2 xl:grid-cols-4'
+              size='comfortable'
+            />
 
             <Card className='overflow-hidden border-border/80 shadow-sm'>
               <CardHeader className='pb-3'>
@@ -990,7 +901,6 @@ export default function AdminOperationCourseRatingsPage() {
                                   resolveSecondaryChapterDisplay({
                                     chapterTitle: item.chapter_title,
                                     lessonTitle: item.lesson_title,
-                                    emptyValue,
                                   });
                                 return (
                                   <TableRow key={item.lesson_feedback_bid}>
@@ -1010,54 +920,37 @@ export default function AdminOperationCourseRatingsPage() {
                                       className='border-r border-border py-3 text-left align-top last:border-r-0'
                                       style={getColumnStyle('user')}
                                     >
-                                      <div className='flex flex-col gap-0.5 leading-tight'>
-                                        <div className='font-medium text-foreground'>
-                                          <AdminTooltipText
-                                            text={
-                                              isGuestAccount
-                                                ? guestUserLabel
-                                                : primaryAccount
-                                            }
-                                            emptyValue={emptyValue}
-                                            className={cn(
-                                              'block max-w-full text-sm',
-                                              isGuestAccount
-                                                ? 'text-muted-foreground'
-                                                : 'text-foreground',
-                                            )}
-                                          />
-                                        </div>
-                                        {secondaryAccount ? (
-                                          <div className='text-xs text-muted-foreground'>
-                                            <AdminTooltipText
-                                              text={secondaryAccount}
-                                              emptyValue={emptyValue}
-                                              className='block max-w-full text-xs text-muted-foreground'
-                                            />
-                                          </div>
-                                        ) : null}
-                                      </div>
+                                      <StackedTooltipText
+                                        primary={
+                                          isGuestAccount
+                                            ? guestUserLabel
+                                            : primaryAccount
+                                        }
+                                        primaryEmptyValue={emptyValue}
+                                        primaryClassName={cn(
+                                          'block max-w-full text-sm',
+                                          isGuestAccount
+                                            ? 'text-muted-foreground'
+                                            : 'text-foreground',
+                                        )}
+                                        secondary={secondaryAccount}
+                                        secondaryEmptyValue={emptyValue}
+                                        secondaryClassName='block max-w-full text-xs text-muted-foreground'
+                                        wrapSecondary
+                                      />
                                     </TableCell>
                                     <TableCell
                                       className='border-r border-border py-3 align-middle last:border-r-0'
                                       style={getColumnStyle('lesson')}
                                     >
-                                      <div className='flex flex-col gap-0.5 leading-tight'>
-                                        <div className='font-medium text-foreground'>
-                                          <AdminTooltipText
-                                            text={primaryLessonDisplay}
-                                            emptyValue={emptyValue}
-                                            className='block max-w-full text-sm text-foreground'
-                                          />
-                                        </div>
-                                        {secondaryChapterDisplay ? (
-                                          <AdminTooltipText
-                                            text={secondaryChapterDisplay}
-                                            emptyValue={emptyValue}
-                                            className='block max-w-full text-xs text-muted-foreground'
-                                          />
-                                        ) : null}
-                                      </div>
+                                      <StackedTooltipText
+                                        primary={primaryLessonDisplay}
+                                        primaryEmptyValue={emptyValue}
+                                        primaryClassName='block max-w-full text-sm text-foreground'
+                                        secondary={secondaryChapterDisplay}
+                                        secondaryEmptyValue={emptyValue}
+                                        secondaryClassName='block max-w-full text-xs text-muted-foreground'
+                                      />
                                     </TableCell>
                                     <TableCell
                                       className='whitespace-nowrap border-r border-border py-3 text-center align-top text-sm font-medium text-foreground last:border-r-0'
