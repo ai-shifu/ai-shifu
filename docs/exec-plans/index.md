@@ -9,6 +9,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Lesson content revision tracking with one nullable column](./active/accurate-lesson-content-updates.md)
 - [Use the 2.0 lesson runtime in teacher debug preview](./active/admin-mdf2-preview.md)
 - [Bound Lesson Memory Context](./active/bounded-lesson-memory-context.md)
+- [Bound malformed-text processing cost](./active/code-scanning-regex-complexity.md)
 - [Review the course action PR stack](./active/course-action-copy.md)
 - [Course Memory Management](./active/course-memory-management.md)
 - [Course Sharing](./active/course-sharing.md)
