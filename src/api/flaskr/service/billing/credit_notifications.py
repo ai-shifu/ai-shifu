@@ -1614,7 +1614,10 @@ def _serialize_notification_template(
         "template_status": template.template_status,
         "template_type": template.template_type,
         "variable_attribute": template.variable_attribute_json or {},
-        "provider_response": template.provider_response_json or {},
+        # Historical failed syncs may contain raw provider exception details.
+        "provider_response": {"message": "provider_exception"}
+        if template.error_code == "provider_exception"
+        else template.provider_response_json or {},
         "placeholders": actual,
         "applicable_notification_types": _template_applicable_notification_types(
             template, actual
@@ -1713,14 +1716,14 @@ def sync_credit_notification_template(
         try:
             response = get_sms_template_ali(app, template_code=normalized_template_code)
             body = getattr(response, "body", None)
-        except (AttributeError, TypeError, ValueError, RuntimeError) as exc:
+        except (AttributeError, TypeError, ValueError, RuntimeError):
             _mark_template_sync_failed(
                 template,
                 now=now,
                 sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER,
                 error_code="provider_exception",
                 error_message="provider_exception",
-                provider_response={"message": str(exc)},
+                provider_response={"message": "provider_exception"},
             )
             return _serialize_notification_template(
                 app,
@@ -4263,7 +4266,7 @@ def enqueue_credit_notification(
                 "enqueued": False,
             }
         task.apply_async(kwargs={"notification_bid": normalized_notification_bid})
-    except Exception as exc:
+    except Exception:
         app.logger.exception(
             "Failed to enqueue %s for notification_bid=%s",
             TASK_NAME,
@@ -4272,7 +4275,7 @@ def enqueue_credit_notification(
         return {
             "status": "enqueue_failed",
             "notification_bid": normalized_notification_bid,
-            "message": str(exc),
+            "message": "enqueue_failed",
             "enqueued": False,
         }
     else:

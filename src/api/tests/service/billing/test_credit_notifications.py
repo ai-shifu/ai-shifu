@@ -1856,7 +1856,7 @@ def test_sync_credit_notification_template_records_provider_exception(
 
     def raise_provider_error(app: Flask, *, template_code: str) -> None:
         _ = (app, template_code)
-        message = "provider down"
+        message = "provider down: credential=private-provider-detail"
         raise RuntimeError(message)
 
     monkeypatch.setattr(
@@ -1874,6 +1874,16 @@ def test_sync_credit_notification_template_records_provider_exception(
     assert payload["error_code"] == "provider_exception"
     assert payload["error_message"] == "provider_exception"
     assert payload["compatible"] is False
+    assert payload["provider_response"] == {"message": "provider_exception"}
+    with app.app_context():
+        template = NotificationTemplate.query.filter_by(template_code="TPL-RAISE").one()
+        assert template.provider_response_json == {"message": "provider_exception"}
+        # Old failed syncs may still contain exception text from before the fix.
+        template.provider_response_json = {"message": "private-historical-detail"}
+        historical = credit_notifications._serialize_notification_template(
+            app, template, notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED
+        )
+        assert historical["provider_response"] == {"message": "provider_exception"}
 
 
 def test_credit_notification_policy_allows_synced_template_missing_variables(
