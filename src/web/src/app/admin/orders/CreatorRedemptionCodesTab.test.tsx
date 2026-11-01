@@ -162,7 +162,7 @@ jest.mock(
 
 const mockToast = jest.fn();
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   __esModule: true,
   showDefaultToast: (description: unknown) => mockToast({ description }),
   showErrorToast: (description: unknown) =>

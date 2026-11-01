@@ -105,8 +105,8 @@ service code plus one additive table.
 - Limit helpers: `src/api/flaskr/service/learn/lesson_reset_limit.py`.
 - Model: `LearnLessonResetRecord` in `src/api/flaskr/service/learn/models.py`;
   migration `src/api/migrations/versions/a7c1e3f5b9d2_add_learn_lesson_reset_records.py`.
-- Web: `src/web/src/api/lesson.ts`, `src/web/src/hooks/useLessonResetStatus.ts`,
-  `CourseCatalog/ResetChapterButton.tsx`, `LessonUpdateNotice.tsx`.
+- Web: `src/web/src/api/lesson.ts`, `src/web/src/hooks/use-lesson-reset-status.ts`,
+  `course-catalog/ResetChapterButton.tsx`, `LessonUpdateNotice.tsx`.
 - Translations: `server.learn.resetLimitReached` in
   `src/i18n/<lang>/modules/backend/learn.json`;
   `module.chat.lessonUpdateReviewAvailable` in `src/i18n/<lang>/modules/chat.json`.
@@ -149,9 +149,9 @@ service code plus one additive table.
 - `tests/service/learn/test_learn_route_contracts.py` covers the status route's
   preview permission and identity, trace-id pass-through, and an HTTP round
   trip that ends in code 4021.
-- Web: `lesson.test.ts`, `useLessonResetStatus.test.tsx`,
+- Web: `lesson.test.ts`, `use-lesson-reset-status.test.tsx`,
   `ResetChapterButton.test.tsx`, `LessonUpdateNotice.test.tsx`,
-  `NewChatComp.lessonUpdateNotice.test.tsx`.
+  `LessonConversation.lesson-update-notice.test.tsx`.
 - Release acceptance: with `LESSON_RESET_LIMIT=10`, an ordinary learner resets
   one lesson ten times, the eleventh attempt shows the exhausted dialog and
   content remains; `SELECT COUNT(*) FROM learn_lesson_reset_records WHERE

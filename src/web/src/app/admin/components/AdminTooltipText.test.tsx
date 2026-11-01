@@ -23,7 +23,7 @@ class MockMutationObserver {
   }
 }
 
-jest.mock('@/components/ui/tooltip', () => ({
+jest.mock('@/components/ui/Tooltip', () => ({
   __esModule: true,
   Tooltip: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,

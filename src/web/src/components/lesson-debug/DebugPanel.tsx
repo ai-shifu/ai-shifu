@@ -8,10 +8,10 @@ import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import ScrollText from './scroll-text.svg';
 import Image from 'next/image';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
-import type { AudioCompleteData } from '@/api/studyV2';
-import ContentBlock from '@/components/ChatUi/ContentBlock';
-import InteractionBlock from '@/components/ChatUi/InteractionBlock';
-import { ChatContentItem, ChatContentItemType } from '@/types/chatUi';
+import type { AudioCompleteData } from '@/api/learning';
+import ContentBlock from '@/components/chat/ContentBlock';
+import InteractionBlock from '@/components/chat/InteractionBlock';
+import { ChatContentItem, ChatContentItemType } from '@/types/chat-ui';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { getAudioTrackByPosition } from '@/lib/audio-utils';
 import DebugVariablesPanel from './DebugVariablesPanel';
@@ -27,14 +27,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { useAlert } from '@/components/ui/UseAlert';
-import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import { useAlert } from '@/components/ui/AlertProvider';
+import { BILLING_PACKAGES_HREF } from '@/lib/billing-navigation';
 import {
   type CreditInsufficientAudience,
   isCreditInsufficientBusinessCode,
-} from '@/lib/creditInsufficientToast';
+} from '@/lib/credit-insufficient-toast';
 import { Button } from '@/components/ui/Button';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 import {
   buildVisibleDebugItems,
   normalizeDebugTypewriterContent,
@@ -51,6 +51,7 @@ interface DebugPanelProps {
   variableValues?: DebugVariableValues;
   shifuBid: string;
   onRegenerate: (elementBid: string) => void;
+  onRetryRegeneration?: () => void;
   onSubmitInteraction: (
     content: OnSendContentParams,
     elementBid: string,
@@ -176,6 +177,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
   variableValues,
   shifuBid,
   onRegenerate,
+  onRetryRegeneration,
   onSubmitInteraction,
   onRequestElementAudio,
   onVariableChange,
@@ -412,7 +414,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                     <ExclamationTriangleIcon className='h-8 w-8 text-amber-500' />
                     <span>{errorMessage}</span>
                   </div>
-                ) : (
+                ) : !onRetryRegeneration ? (
                   <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
                     <Image
                       src={ScrollText.src}
@@ -422,7 +424,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                     />
                     <span>{t('module.shifu.previewArea.empty')}</span>
                   </div>
-                )}
+                ) : null}
               </>
             )}
 
@@ -582,6 +584,18 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                   </div>
                 );
               })}
+            {onRetryRegeneration && !isLoading ? (
+              <div className='mt-4 flex justify-center'>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant='outline'
+                  onClick={onRetryRegeneration}
+                >
+                  {t('common.core.retry')}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </TooltipProvider>
       </div>

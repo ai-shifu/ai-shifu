@@ -3,12 +3,12 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
+} from '@/components/admin/admin-table-styles';
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ import {
   type ColumnKey,
   renderTooltipText,
   TABLE_INLINE_ACTION_BUTTON_CLASS,
-} from './operationCoursePageShared';
+} from './operation-course-page-shared';
 
 type ActorDisplay = {
   primary: string;

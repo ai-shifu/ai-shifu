@@ -5,15 +5,15 @@ import { useEnvStore } from '@/store';
 import { useShifu, useUserStore } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
-import { useTracking } from '@/hooks/useTracking';
-import { useBillingOverview } from '@/hooks/useBillingData';
-import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
-import { buildAbsoluteUrlWithLessonId } from '@/lib/urlUtils';
+import { useTracking } from '@/hooks/use-tracking';
+import { useBillingOverview } from '@/hooks/use-billing-data';
+import { buildOnboardingTargetProps } from '@/lib/onboarding-targets';
+import { buildAbsoluteUrlWithLessonId } from '@/lib/url-utils';
 import {
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
   resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
-} from '@/lib/creditInsufficientToast';
+} from '@/lib/credit-insufficient-toast';
 
 type PreviewSettingsModalProps = {
   targetId?: string;

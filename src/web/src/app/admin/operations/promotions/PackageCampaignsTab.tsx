@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import AdminTableShell from '@/components/admin/AdminTableShell';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import type { AdminBillingCampaignItem } from '@/app/admin/operations/operation-promotion-types';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
@@ -38,7 +38,7 @@ import {
   TABLE_ACTION_HEAD_CLASS,
   TABLE_CELL_CLASS,
   TABLE_HEAD_CLASS,
-} from './promotionPageShared';
+} from './promotion-page-shared';
 
 type Translation = (key: string) => string;
 

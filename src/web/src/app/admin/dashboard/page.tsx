@@ -36,15 +36,15 @@ import {
   DASHBOARD_ENTRY_FILTER_ACTIONS_CLASS,
   DASHBOARD_ENTRY_FILTER_DATE_RANGE_CLASS,
   DASHBOARD_ENTRY_FILTER_KEYWORD_CLASS,
-} from './dashboardFilterUiShared';
+} from './dashboard-filter-ui-shared';
 import {
   DashboardCourseTableRow,
   formatOrderAmount,
-} from './dashboardCourseTableRow';
+} from './dashboard-course-table-row';
 import {
   ADMIN_TABLE_HEADER_CELL_CLASS,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
+} from '@/components/admin/admin-table-styles';
 
 const PAGE_SIZE = 20;
 

@@ -18,7 +18,7 @@ description: Use for learning-mode initialization, URL and stored preferences, l
 3. 用户手动切 marker 时立即清除当前 buffering 状态。
 4. `run` 请求体 `listen` 必须跟随当前真实听课状态：只有 `learningMode === 'listen'` 且课程 `tts_enabled` 可用时才发送 `listen=true`；阅读模式即使课程支持听课也必须发送 `listen=false`。
 5. `LIKE_STATUS` 仅表示流结束信号，TTS 还需校验 `is_speakable` 或已有可播音频。
-6. `requestAudioForBlock` supports on-demand `generated-blocks/:id/tts` calls, including programmatic `listen=false` requests. This hook capability does not imply a reading-mode playback button: `NewChatComp` hides audio actions in both normal and preview reading mode. Its mode-level gate is `!isClassroomMode && (previewMode || isListenModeActive) && !isPreviewReadMode`; eligible content must also satisfy the speakability rules. Listen mode uses the existing automatic backfill queue described below; do not add an independent request from `onStepChange`.
+6. `requestAudioForBlock` supports on-demand `generated-blocks/:id/tts` calls, including programmatic `listen=false` requests. This hook capability does not imply a reading-mode playback button: `LessonConversation` hides audio actions in both normal and preview reading mode. Its mode-level gate is `!isClassroomMode && (previewMode || isListenModeActive) && !isPreviewReadMode`; eligible content must also satisfy the speakability rules. Listen mode uses the existing automatic backfill queue described below; do not add an independent request from `onStepChange`.
 7. `listen-mode` 映射 `elementList` 时显式透传 `isAudioStreaming`。
 8. 统一分发层处理 `type/error` 或 `event_type/error`，立即弹出 destructive toast。
 9. 音频播放 icon 的可见性需受 `is_speakable` 控制：当 `is_speakable === false` 时不展示播放按钮。
@@ -41,11 +41,11 @@ description: Use for learning-mode initialization, URL and stored preferences, l
 
 ## Verification
 
-The listen-mode queue in `NewChatComp` waits for persisted
+The listen-mode queue in `LessonConversation` waits for persisted
 `audio_backfill_ready` for newly streamed content, deduplicates in-flight blocks,
 and stops applying results after the lesson scope ends. History and committed
-new content have different eligibility. `listenModeUtils` determines candidates,
-while `useChatLogicHook` records persisted readiness and supplies
+new content have different eligibility. `listen-mode-utils.ts` determines candidates,
+while `useLessonConversation` records persisted readiness and supplies
 `requestAudioForBlock`. Neither mode switching nor a slide change should create
 a competing queue implementation. The lesson-change effect resets queue
 bookkeeping and the lesson ref; it does not immediately close a silent old TTS
@@ -53,26 +53,26 @@ stream. `requestAudioForBlock` settles a stale stream when a guarded audio event
 arrives, or through normal stream termination/error or the 120-second listen
 backfill idle timeout. Do not describe this as eager lesson-switch cancellation.
 
-Run `listenModeUtils.test.ts` for candidate selection and block deduplication,
-and `src/lib/runWithConcurrency.test.ts` for bounded worker concurrency.
-`NewChatComp.test.tsx` tests imported projection/loading helpers; it does not
+Run `listen-mode-utils.test.ts` for candidate selection and block deduplication,
+and `src/lib/run-with-concurrency.test.ts` for bounded worker concurrency.
+`LessonConversation.test.tsx` tests imported projection/loading helpers; it does not
 render the component or verify its backfill effect orchestration. For changes
 to that effect, add focused orchestration coverage for in-flight deduplication
 and lesson-scope result guards instead of treating these helper suites as proof.
 Run the adjacent
-`useChatLogicHook.test.tsx` cases for programmatic on-demand audio requests,
+`use-lesson-conversation.test.tsx` cases for programmatic on-demand audio requests,
 forced `listen=true` backfill, persisted-ready gating, streaming failures, and
 backfill idle timeout. The on-demand request test calls the hook directly and
 does not establish a reading-mode UI action; changes to visible audio controls
 need rendered component coverage. Also run `ListenModeSlideRenderer.test.tsx` when the mapping or
 playback restore contract changes. Except for the shared concurrency suite, these files live in
-`src/app/c/[[...id]]/Components/ChatUi/`.
+`src/app/c/[[...id]]/components/chat/`.
 
 ## Learning-mode initialization and restored preferences
 
 For `/c/...` initialization, inspect `src/app/c/[[...id]]/layout.tsx` and the
-adjacent `Components/learningModePreference.ts`, `learningModeUrl.ts`,
-`learningModeStorage.ts`, and `learningModeAnalytics.ts` before changing effects.
+adjacent `components/learning-mode-preference.ts`, `learning-mode-url.ts`,
+`learning-mode-storage.ts`, and `learning-mode-analytics.ts` before changing effects.
 
 - Resolve a valid modern `mode` URL value first, then the legacy `listen`
   override, then the course-scoped stored preference, then the course default.
@@ -100,9 +100,9 @@ adjacent `Components/learningModePreference.ts`, `learningModeUrl.ts`,
   fallback from listen to read; use the [Ask placement skill](../chat-actionbar-ask-placement/SKILL.md)
   for shared state and action-row placement.
 
-Run `learningModePreference.test.ts`, `learningModeUrl.test.ts`,
-`learningModeStorage.test.ts`, and `learningModeAnalytics.test.ts` from that
-Components directory, plus `src/__tests__/c-preview-layout.test.tsx`, with
+Run `learning-mode-preference.test.ts`, `learning-mode-url.test.ts`,
+`learning-mode-storage.test.ts`, and `learning-mode-analytics.test.ts` from that
+components directory, plus `src/__tests__/c-preview-layout.test.tsx`, with
 `npm test -- --runInBand --runTestsByPath` from `src/web`. The layout suite covers
 restoration/selection separation, URL exclusions, unavailable or delayed TTS,
 and selection while capability is pending. It does not specifically assert the
@@ -111,7 +111,7 @@ this coverage from the helper tests.
 
 ## Subtitle punctuation cleanup order
 
-Use `stripDisallowedSubtitleTrailingPunctuation` in `src/lib/subtitleUtils.ts`,
+Use `stripDisallowedSubtitleTrailingPunctuation` in `src/lib/subtitle-utils.ts`,
 as called by `resolveListenSlideSubtitleCues` in the learner ChatUi utilities.
 Walk the suffix from right to left: preserve paired closers in their original
 order while removing disallowed punctuation on either side of those closers.
@@ -120,7 +120,7 @@ closers or replace this with a single trailing-punctuation regular expression.
 For example, suffixes `。”`, `），`, and `？”。` retain `”`, `）`, and `？”`.
 
 Run the `strips disallowed trailing punctuation from subtitle cues` case in
-`src/app/c/[[...id]]/Components/ChatUi/listenModeUtils.test.ts`. It covers closing
+`src/app/c/[[...id]]/components/chat/listen-mode-utils.test.ts`. It covers closing
 quotes, a closing parenthesis followed by a period, punctuation after a quote,
 and question/ellipsis preservation. Retain these cases when changing cleanup,
 and add the parenthesis-plus-comma variant if changing that boundary.

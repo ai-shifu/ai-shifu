@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { installReactDomNodeGuard } from '@/lib/domReconcilerGuard';
+import { installReactDomNodeGuard } from '@/lib/dom-reconciler-guard';
 
 // Install as early as the client bundle is evaluated — before React commits the
 // lesson preview tree that browser translation can crash. The installer is a

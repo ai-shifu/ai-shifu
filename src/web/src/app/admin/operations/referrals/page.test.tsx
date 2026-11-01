@@ -16,7 +16,7 @@ jest.mock('@/lib/browser-timezone', () => ({
   getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
-jest.mock('@/app/admin/operations/useOperatorGuard', () => ({
+jest.mock('@/app/admin/operations/use-operator-guard', () => ({
   __esModule: true,
   default: () => ({ isReady: true }),
 }));

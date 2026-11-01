@@ -1,11 +1,11 @@
 import { Toaster } from '@/components/ui/Toaster';
-import { AlertProvider } from '@/components/ui/UseAlert';
+import { AlertProvider } from '@/components/ui/AlertProvider';
 import './globals.css';
 import { ConfigProvider } from '@/components/config-provider';
 import UmamiLoader from '@/components/analytics/UmamiLoader';
 import RuntimeConfigInitializer from '@/components/RuntimeConfigInitializer';
 import DomReconcilerGuard from '@/components/DomReconcilerGuard';
-import { UserProvider } from '@/store/userProvider';
+import { UserProvider } from '@/store/UserProvider';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import I18nDocumentAttributes from '@/components/I18nDocumentAttributes';

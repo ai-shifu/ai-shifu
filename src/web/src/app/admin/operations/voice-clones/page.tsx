@@ -13,12 +13,12 @@ import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
   formatAdminUtcDateTime,
-} from '@/app/admin/lib/dateTime';
+} from '@/app/admin/lib/date-time';
 import AdminTableShell from '@/components/admin/AdminTableShell';
 import {
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
+} from '@/components/admin/admin-table-styles';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Button } from '@/components/ui/Button';
 import Loading from '@/components/loading';
@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { toast } from '@/hooks/useToast';
+import { toast } from '@/hooks/use-toast';
 import { ErrorWithCode } from '@/lib/request';
 import {
   resolveLoginIdentifierTypes,
@@ -53,7 +53,7 @@ import {
 } from '@/lib/login-identifiers';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
-import useOperatorGuard from '../useOperatorGuard';
+import useOperatorGuard from '../use-operator-guard';
 import {
   VOICE_CLONE_PROVIDERS,
   type AdminOperationVoiceCloneFilters,

@@ -1,5 +1,5 @@
 import type { ModelOption } from '@/types/shifu';
-import { normalizeModelOptionMetadata } from '@/lib/modelOptions';
+import { normalizeModelOptionMetadata } from '@/lib/model-options';
 
 export const TTS_DEFAULT_MODEL_TOKEN = 'default';
 
