@@ -77,6 +77,8 @@ def test_delete_invalidates_only_the_selected_exact_keys_history_and_generation(
     None
 ):
     with unit_of_work():
+        retired = _store("Name", "retired upper")
+        retired.deleted = 1
         old = _store("Name", "old upper")
         upper = _store("Name", "current upper")
         lower = _store("name", "current lower")
@@ -94,6 +96,14 @@ def test_delete_invalidates_only_the_selected_exact_keys_history_and_generation(
     assert not other_user.deleted
     assert not other_course.deleted
     assert not global_row.deleted
+    # Deletion removes the stored text of every version of that exact key only.
+    assert [retired.value, old.value, upper.value] == ["", "", ""]
+    assert [
+        lower.value,
+        other_user.value,
+        other_course.value,
+        global_row.value,
+    ] == ["current lower", "another learner", "another course", "global value"]
     assert [
         item["key"] for item in list_course_memory("learner", "course")["items"]
     ] == ["name"]
