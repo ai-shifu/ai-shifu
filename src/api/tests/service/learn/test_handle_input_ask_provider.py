@@ -1226,6 +1226,7 @@ def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
     from unittest.mock import Mock
 
     from flaskr.api import llm
+    from flaskr.api.check import CHECK_RESULT_PASS
     from flaskr.api.llm import model_selection
     from flaskr.service.common.models import ERROR_CODE, AppError
     from flaskr.service.learn import check_text
@@ -1239,14 +1240,14 @@ def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
         module, "check_text_with_llm_response", check_text.check_text_with_llm_response
     )
     monkeypatch.setattr(check_text, "invoke_llm", llm.invoke_llm)
-    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    monkeypatch.setattr(check_text, "record_check_result", lambda *_args: None)
     monkeypatch.setattr(
         check_text,
         "check_text",
         lambda *_args: types.SimpleNamespace(
             check_result=check_text.CHECK_RESULT_REJECT
             if reject
-            else check_text.CHECK_RESULT_PASS,
+            else CHECK_RESULT_PASS,
             provider="test",
             raw_data={},
             risk_labels=[],
@@ -1439,7 +1440,7 @@ def test_guardrail_reply_usage_belongs_to_the_current_answer(
     monkeypatch.setattr(
         module, "check_text_with_llm_response", check_text.check_text_with_llm_response
     )
-    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    monkeypatch.setattr(check_text, "record_check_result", lambda *_args: None)
     checked = []
 
     def reject(_app: object, block_bid: str, *_args: object) -> object:

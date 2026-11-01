@@ -11,6 +11,7 @@ from flaskr.common.http import (
     fmt,
     make_common_response,
 )
+from flaskr.common.i18n_utils import first_accept_language
 from flaskr.common.shifu_context import clear_shifu_context
 from flaskr.i18n import _, _translations, clear_language, set_language
 from flaskr.service.common import AppError
@@ -56,11 +57,7 @@ def _extract_request_language() -> str | None:
                 raw_language = str(language).strip()
 
     if not raw_language:
-        accept_language = request.headers.get("Accept-Language", "")
-        if accept_language:
-            first_part = accept_language.split(",")[0].strip()
-            if first_part:
-                raw_language = first_part.split(";")[0].strip()
+        raw_language = first_accept_language(request.headers.get("Accept-Language"))
 
     return _resolve_supported_language(raw_language)
 
