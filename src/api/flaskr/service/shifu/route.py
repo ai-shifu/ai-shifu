@@ -2060,7 +2060,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                             format: binary
         """
         temp_dir = tempfile.mkdtemp(prefix="shifu_export_")
-        file_path = Path(temp_dir) / f"{shifu_bid}.json"
+        file_path = Path(temp_dir) / "course.json"
         export_shifu(app, shifu_bid, str(file_path))
 
         @after_this_request
