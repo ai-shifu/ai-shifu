@@ -81,11 +81,16 @@ def _type_signature(node: ast.AST | None) -> tuple[object, ...] | None:
         return (
             kind,
             None,
-            first or _int(_keyword(node, "precision")),
-            second or _int(_keyword(node, "scale")),
+            first if first is not None else _int(_keyword(node, "precision")),
+            second if second is not None else _int(_keyword(node, "scale")),
         )
     if kind == "string":
-        return (kind, first or _int(_keyword(node, "length")), None, None)
+        return (
+            kind,
+            first if first is not None else _int(_keyword(node, "length")),
+            None,
+            None,
+        )
     return (kind, None, None, None)
 
 
