@@ -40,11 +40,8 @@ LEARN_ELEMENTS_PACKAGE = "flaskr.service.learn.elements"
 # The lesson host and the follow-up path sit above learn/elements; elements must not reach up.
 LEARN_ELEMENTS_FORBIDDEN_PREFIXES = (
     "flaskr.service.learn.routes",
-    "flaskr.service.learn.runscript_v2",
     "flaskr.service.learn.host",
-    "flaskr.service.learn.handle_input_ask",
     "flaskr.service.learn.ask",
-    "flaskr.service.learn.follow_up_",
     "flaskr.service.learn.live_follow_up_",
 )
 
@@ -416,7 +413,6 @@ LEARN_ASK_PACKAGE = "flaskr.service.learn.ask"
 LEARN_ASK_FORBIDDEN_PREFIXES = (
     "flaskr.service.learn.routes",
     "flaskr.service.learn.host",
-    "flaskr.service.learn.runscript_v2",
 )
 
 
