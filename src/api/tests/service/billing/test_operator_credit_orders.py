@@ -28,7 +28,6 @@ from flaskr.service.billing.dtos import (
     OperatorCreditOrdersPageDTO,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingProduct,
     CreditLedgerEntry,
     CreditWallet,
@@ -43,6 +42,7 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 
 def _build_app() -> Flask:
@@ -98,13 +98,11 @@ def _build_app() -> Flask:
         )
         dao.db.session.add_all(
             [
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="bill-order-topup-1",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid="bill-product-topup-small",
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=19900,
                     paid_amount=19900,
                     payment_provider="pingxx",
@@ -115,15 +113,13 @@ def _build_app() -> Flask:
                     created_at=datetime(2026, 4, 27, 9, 0, 0),
                     metadata_json={"checkout_type": "topup"},
                 ),
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="bill-order-plan-1",
                     creator_bid="creator-2",
                     order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
                     product_bid="bill-product-plan-yearly",
                     subscription_bid="sub-1",
-                    currency="CNY",
                     payable_amount=99900,
-                    paid_amount=0,
                     payment_provider="stripe",
                     channel="checkout_session",
                     provider_reference_id="cs_plan_1",
@@ -344,30 +340,24 @@ def test_build_operator_credit_orders_page_sorts_all_status_by_latest_created_at
     with app.app_context():
         dao.db.session.add_all(
             [
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="bill-order-pending-newer-than-paid",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid="bill-product-topup-small",
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=29900,
-                    paid_amount=0,
                     payment_provider="pingxx",
                     channel="alipay_qr",
                     provider_reference_id="charge_pending_newer",
                     status=BILLING_ORDER_STATUS_PENDING,
                     created_at=datetime(2026, 4, 28, 9, 0, 0),
                 ),
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="bill-order-canceled-latest",
                     creator_bid="creator-2",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid="bill-product-topup-small",
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=39900,
-                    paid_amount=0,
                     payment_provider="stripe",
                     channel="checkout_session",
                     provider_reference_id="charge_canceled_latest",
@@ -429,12 +419,11 @@ def test_build_operator_credit_orders_overview_uses_available_credits_and_curren
         product_ref.credit_amount = Decimal("999.0000000000")
         product_ref.deleted = 1
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="bill-order-topup-usd-1",
                 creator_bid="creator-2",
                 order_type=BILLING_ORDER_TYPE_TOPUP,
                 product_bid="bill-product-topup-small",
-                subscription_bid="",
                 currency="USD",
                 payable_amount=2999,
                 paid_amount=2999,

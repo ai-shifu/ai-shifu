@@ -29,6 +29,8 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.util.datetime import now_utc
 from sqlalchemy import event
 
+from tests.common.fixtures.model_factories import make_progress_record
+
 
 @pytest.fixture
 def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
@@ -92,7 +94,7 @@ def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
                 )
             )
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=uuid4().hex,
                 user_bid=identity,
                 shifu_bid=identity,
@@ -251,7 +253,7 @@ def test_cleared_body_retakes_are_scoped_and_new_sessions_establish_new_baseline
         )
         if not preview:
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid4().hex,
                     user_bid=identity,
                     shifu_bid=identity,

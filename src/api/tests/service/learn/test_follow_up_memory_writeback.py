@@ -15,6 +15,11 @@ from flaskr.service.learn.ask.memory_writer import (
 from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
@@ -577,7 +582,6 @@ def storage_scope(app: object) -> object:
 
     from flaskr.dao import db
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.models import LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
     from flaskr.service.shifu.models import PublishedOutlineItem
     from flaskr.service.user.repository import create_user_entity
@@ -594,7 +598,7 @@ def storage_scope(app: object) -> object:
         )
         db.session.add(row)
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 user_bid=user,
                 shifu_bid=course,
                 outline_item_bid=outline,
@@ -671,7 +675,7 @@ def test_completed_memory_patch_is_course_scoped_and_atomic_with_history(
             """Raise after staging history and memory to prove transaction rollback."""
             with unit_of_work():
                 db.session.add(
-                    LearnGeneratedBlock(
+                    make_generated_block(
                         generated_block_bid=scope.progress,
                         user_bid=scope.user,
                         shifu_bid=scope.course,

@@ -27,6 +27,12 @@ from markdownflow.engine.script import ScriptBundle
 from markdownflow.engine.session import PendingInteraction, Session
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
+
 USER = "learner-rewind"
 SHIFU = "course-rewind"
 OUTLINE = "outline-rewind"
@@ -115,13 +121,12 @@ def _clean() -> None:
 
 def _record(status: int = LEARN_STATUS_IN_PROGRESS) -> None:
     db.session.add(
-        LearnProgressRecord(
+        make_progress_record(
             progress_record_bid=RECORD,
             user_bid=USER,
             shifu_bid=SHIFU,
             outline_item_bid=OUTLINE,
             status=status,
-            block_position=0,
         )
     )
 
@@ -134,15 +139,13 @@ def _block(
     block_type: int = BLOCK_TYPE_MDCONTENT_VALUE,
 ) -> None:
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             generated_block_bid=bid,
             progress_record_bid=RECORD,
             user_bid=USER,
             shifu_bid=SHIFU,
             outline_item_bid=OUTLINE,
-            block_bid="",
             type=block_type,
-            role=0,
             generated_content=f"taught in {bid}",
             block_content_conf=(
                 rewind.turn_record(checkpoint, values or [])
@@ -150,8 +153,6 @@ def _block(
                 else ""
             ),
             status=1,
-            deleted=0,
-            position=0,
         )
     )
     db.session.flush()
@@ -159,7 +160,7 @@ def _block(
 
 def _element(bid: str, block_bid: str) -> None:
     db.session.add(
-        LearnGeneratedElement(
+        make_generated_element(
             element_bid=bid,
             progress_record_bid=RECORD,
             user_bid=USER,
@@ -168,25 +169,15 @@ def _element(bid: str, block_bid: str) -> None:
             shifu_bid=SHIFU,
             run_session_bid="run",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=213,
             change_type="render",
-            target_element_bid="",
             is_renderable=0,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
             is_speakable=1,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="x",
             payload="{}",
-            status=1,
         )
     )
 

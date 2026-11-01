@@ -11,11 +11,12 @@ from flaskr.service.dashboard import funcs as dashboard
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
-    LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
 from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 from flaskr.service.user.models import AuthCredential, UserInfo
+
+from tests.common.fixtures.model_factories import make_progress_record
 
 from . import test_dashboard_query_contracts as queries
 
@@ -203,13 +204,12 @@ def test_hidden_only_course_has_no_completed_learners_or_exposed_lesson_details(
 ) -> None:
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=follow_up.bid,
                 user_bid=follow_up.bid,
                 shifu_bid=follow_up.bid,
                 outline_item_bid=follow_up.bid,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
     before = dashboard.build_dashboard_course_learners(

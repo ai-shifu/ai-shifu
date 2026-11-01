@@ -19,6 +19,11 @@ from flaskr.service.shifu.consts import (
 )
 from markdownflow.engine.interaction import InteractionSpec
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -51,7 +56,7 @@ def classroom(app: object) -> Iterator[str]:
 def _block(
     scope: str, bid: str, position: int, **kwargs: object
 ) -> LearnGeneratedBlock:
-    block = LearnGeneratedBlock(
+    block = make_generated_block(
         user_bid=scope,
         shifu_bid=scope,
         outline_item_bid=scope,
@@ -73,20 +78,18 @@ def _control(
     scope: str, block: LearnGeneratedBlock, content: str, index: int = 0
 ) -> None:
     db.session.add(
-        LearnGeneratedElement(
+        make_generated_element(
             user_bid=scope,
             shifu_bid=scope,
             outline_item_bid=scope,
             progress_record_bid=scope,
             generated_block_bid=block.generated_block_bid,
             element_bid=block.generated_block_bid + f"-control-{index}",
-            event_type="element",
             element_type="interaction",
             sequence_number=index + 1,
             is_final=1,
             content_text=content,
             payload="{}",
-            status=1,
         )
     )
 

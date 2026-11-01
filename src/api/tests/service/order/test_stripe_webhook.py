@@ -33,6 +33,7 @@ from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -123,21 +124,17 @@ def _ensure_billing_order(
         BillingOrder.bill_order_bid == bill_order_bid
     ).first()
     if not order:
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid=bill_order_bid,
             creator_bid="creator-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid="bill-product-plan-monthly",
             subscription_bid=subscription_bid,
-            currency="CNY",
             payable_amount=9900,
-            paid_amount=0,
             payment_provider="stripe",
             channel="card",
             provider_reference_id="cs_billing_test",
             status=status,
-            failure_code="",
-            failure_message="",
             metadata_json={},
         )
         dao.db.session.add(order)

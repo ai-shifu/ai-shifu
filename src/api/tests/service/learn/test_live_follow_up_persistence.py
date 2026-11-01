@@ -37,6 +37,8 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
 )
 
+from tests.common.fixtures.model_factories import make_generated_element
+
 
 def _persistence_context(*, session_bid: str) -> LiveTurnPersistenceContext:
     return LiveTurnPersistenceContext(
@@ -55,7 +57,7 @@ def _persistence_context(*, session_bid: str) -> LiveTurnPersistenceContext:
 
 def _insert_anchor(context: LiveTurnPersistenceContext) -> None:
     db.session.add(
-        LearnGeneratedElement(
+        make_generated_element(
             element_bid=context.anchor_element_bid,
             progress_record_bid=context.progress_record_bid,
             user_bid=context.user_bid,
@@ -64,26 +66,15 @@ def _insert_anchor(context: LiveTurnPersistenceContext) -> None:
             shifu_bid=context.shifu_bid,
             run_session_bid="lesson-run",
             run_event_seq=20,
-            event_type="element",
-            role="teacher",
             element_index=7,
             element_type="text",
             element_type_code=213,
             change_type="render",
-            target_element_bid="",
             is_renderable=0,
-            is_new=1,
-            is_marker=0,
             sequence_number=20,
-            is_speakable=0,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="Anchor lesson text",
             payload=_serialize_payload(ElementPayloadDTO()),
-            deleted=0,
-            status=1,
         )
     )
     db.session.commit()

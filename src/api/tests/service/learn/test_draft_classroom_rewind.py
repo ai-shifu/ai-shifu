@@ -25,13 +25,13 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.learn_funcs import reset_learn_record
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
-    LearnGeneratedElement,
     LearnProgressRecord,
 )
 from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
+from tests.common.fixtures.model_factories import make_generated_element
 from tests.service.learn.test_draft_classroom_history import (
     classroom as classroom,  # noqa: PLC0414 - pytest fixture re-export.
 )
@@ -193,16 +193,14 @@ def test_foreign_anchor_is_rejected_without_changing_the_draft(
         row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
         runs = json.loads(row.session_data)["ai_shifu_preview_presentation"]["runs"]
         db.session.add(
-            LearnGeneratedElement(
+            make_generated_element(
                 **owner,
                 element_bid=anchor,
                 generated_block_bid=uuid.uuid4().hex,
                 run_session_bid=runs[0],
-                event_type="element",
                 element_type="text",
                 content_text="Foreign teaching",
                 is_final=1,
-                status=1,
             )
         )
     before = history().model_dump()

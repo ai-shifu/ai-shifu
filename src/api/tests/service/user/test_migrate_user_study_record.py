@@ -6,20 +6,24 @@ from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT_VALUE
 from flaskr.service.user.phone_flow import migrate_user_study_record
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 
 def _add_progress_with_block(shifu_bid: str, user_bid: str, suffix: str) -> None:
     db.session.add(
-        LearnProgressRecord(
+        make_progress_record(
             progress_record_bid=f"progress-{suffix}",
             shifu_bid=shifu_bid,
             outline_item_bid=f"outline-{suffix}",
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            deleted=0,
         )
     )
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             generated_block_bid=f"block-{suffix}",
             progress_record_bid=f"progress-{suffix}",
             user_bid=user_bid,
@@ -27,11 +31,9 @@ def _add_progress_with_block(shifu_bid: str, user_bid: str, suffix: str) -> None
             outline_item_bid=f"outline-{suffix}",
             shifu_bid=shifu_bid,
             type=BLOCK_TYPE_CONTENT_VALUE,
-            role=0,
             generated_content="hello",
             position=1,
             status=1,
-            deleted=0,
         )
     )
     db.session.commit()
@@ -50,7 +52,7 @@ def test_migrate_user_study_record_moves_records_and_blocks(app: object) -> None
         # progress_record_bid is not unique, so a block owned by someone else
         # may share the identifier and must keep its owner.
         db.session.add(
-            LearnGeneratedBlock(
+            make_generated_block(
                 generated_block_bid="block-other-owner",
                 progress_record_bid="progress-migrate-1",
                 user_bid="other-user",
@@ -58,11 +60,9 @@ def test_migrate_user_study_record_moves_records_and_blocks(app: object) -> None
                 outline_item_bid="outline-migrate-1",
                 shifu_bid=shifu_bid,
                 type=BLOCK_TYPE_CONTENT_VALUE,
-                role=0,
                 generated_content="hello",
                 position=1,
                 status=1,
-                deleted=0,
             )
         )
         db.session.commit()
@@ -103,13 +103,12 @@ def test_migrate_user_study_record_skips_outlines_already_present(app: object) -
 
         _add_progress_with_block(shifu_bid, "tmp-user", "dup")
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid="progress-dup-target",
                 shifu_bid=shifu_bid,
                 outline_item_bid="outline-dup",
                 user_bid="real-user",
                 status=LEARN_STATUS_IN_PROGRESS,
-                deleted=0,
             )
         )
         db.session.commit()

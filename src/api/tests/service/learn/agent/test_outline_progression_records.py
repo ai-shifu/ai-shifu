@@ -23,6 +23,8 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
 )
 
+from tests.common.fixtures.model_factories import make_progress_record
+
 SHIFU = "course-a"
 LESSON = "lesson-1"
 NEXT = "lesson-2"
@@ -47,7 +49,7 @@ def learner(app: object) -> str:
 
 def _record(user_bid: str, outline_bid: str, status: int) -> str:
     """Seed one progress record and return its identifier."""
-    record = LearnProgressRecord()
+    record = make_progress_record()
     record.progress_record_bid = uuid.uuid4().hex
     record.user_bid = user_bid
     record.shifu_bid = SHIFU

@@ -6,7 +6,6 @@ from decimal import Decimal
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, get_shifu_info
-from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
@@ -16,6 +15,8 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+
+from tests.common.fixtures.model_factories import make_progress_record
 
 
 def test_get_shifu_info_returns_dto(app: object) -> None:
@@ -397,7 +398,7 @@ def test_get_outline_item_tree_does_not_infer_legacy_updates_from_timestamps(
         db.session.add_all([chapter, lesson])
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-learn-1",
             shifu_bid="shifu-learn-published-1",
             outline_item_bid="lesson-learn-1",
@@ -474,12 +475,11 @@ def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lesson
         db.session.add(lesson)
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-learn-not-started-1",
             shifu_bid="shifu-learn-not-started-1",
             outline_item_bid="lesson-learn-not-started-1",
             user_bid="user-1",
-            status=605,
         )
         db.session.add(progress)
         db.session.commit()
@@ -544,7 +544,7 @@ def test_get_outline_item_tree_does_not_infer_unknown_baselines_from_timezones(
         db.session.add(lesson)
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-learn-published-timezone-1",
             shifu_bid="shifu-learn-published-timezone-1",
             outline_item_bid="lesson-learn-published-timezone-1",
@@ -608,7 +608,7 @@ def test_get_outline_item_tree_ignores_published_copy_created_at_for_updates(
         db.session.add(lesson)
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-learn-published-copy-created-1",
             shifu_bid="shifu-learn-published-copy-created-1",
             outline_item_bid="lesson-learn-published-copy-created-1",

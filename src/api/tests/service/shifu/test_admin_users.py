@@ -106,6 +106,12 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.billing_products import build_bill_products
+from tests.common.fixtures.model_factories import (
+    make_billing_order,
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -343,18 +349,14 @@ def _seed_billing_order(
     bill_order_bid: str,
     metadata_json: dict | None = None,
 ) -> object:
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         product_bid="product-1",
         subscription_bid="subscription-1",
-        currency="CNY",
-        payable_amount=0,
-        paid_amount=0,
         payment_provider="manual",
         channel="manual",
-        provider_reference_id="",
         status=BILLING_ORDER_STATUS_PAID,
         metadata_json=metadata_json or {},
     )
@@ -536,7 +538,7 @@ def _seed_generated_block(
     generated_content: str,
     created_at: datetime,
 ) -> object:
-    block = LearnGeneratedBlock(
+    block = make_generated_block(
         generated_block_bid=generated_block_bid,
         progress_record_bid=progress_record_bid,
         user_bid=user_bid,
@@ -566,20 +568,18 @@ def _seed_generated_element(
     sequence_number: int,
     created_at: datetime,
 ) -> object:
-    element = LearnGeneratedElement(
+    element = make_generated_element(
         element_bid=element_bid,
         generated_block_bid=generated_block_bid,
         progress_record_bid=progress_record_bid,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_item_bid=outline_item_bid,
-        event_type="element",
         element_type="text",
         is_speakable=1,
         content_text=content_text,
         audio_segments=audio_segments,
         sequence_number=sequence_number,
-        status=1,
     )
     element.created_at = created_at
     element.updated_at = created_at
@@ -597,7 +597,7 @@ def _seed_learn_progress(
     status: int,
     created_at: datetime,
 ) -> object:
-    progress_record = LearnProgressRecord(
+    progress_record = make_progress_record(
         progress_record_bid=f"progress-{user_bid}-{outline_item_bid}-{status}",
         shifu_bid=shifu_bid,
         outline_item_bid=outline_item_bid,

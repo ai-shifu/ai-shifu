@@ -23,6 +23,11 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+)
+
 if TYPE_CHECKING:
     from flask import Flask
 
@@ -39,7 +44,7 @@ def _seed_classroom(*, sidecars: bool = True) -> LearnGeneratedElement:
     def block(
         content: str, block_type: int, **overrides: object
     ) -> LearnGeneratedBlock:
-        row = LearnGeneratedBlock(
+        row = make_generated_block(
             **(fields | overrides),
             generated_block_bid=uuid.uuid4().hex,
             type=block_type,
@@ -65,14 +70,12 @@ def _seed_classroom(*, sidecars: bool = True) -> LearnGeneratedElement:
         )
         anchor_block.generation_prompt = "PRIVATE MODEL PROMPT"
         anchor_block.block_content_conf = "PRIVATE SCRIPT CONFIG"
-        anchor = LearnGeneratedElement(
+        anchor = make_generated_element(
             **fields,
             element_bid=uuid.uuid4().hex,
             generated_block_bid=anchor_block.generated_block_bid,
-            event_type="element",
             element_type="text",
             content_text="Selected anchor",
-            status=1,
             is_final=1,
         )
         db.session.add(anchor)
@@ -81,17 +84,15 @@ def _seed_classroom(*, sidecars: bool = True) -> LearnGeneratedElement:
                 [("ask", "Earlier question"), ("answer", "Earlier reply")], 1
             ):
                 db.session.add(
-                    LearnGeneratedElement(
+                    make_generated_element(
                         **fields,
                         element_bid=uuid.uuid4().hex,
-                        event_type="element",
                         element_type=kind,
                         content_text=text,
                         sequence_number=index,
                         payload=_serialize_payload(
                             ElementPayloadDTO(anchor_element_bid=anchor.element_bid)
                         ),
-                        status=1,
                     )
                 )
         block("Future lesson text", BLOCK_TYPE_MDCONTENT_VALUE)
@@ -322,11 +323,10 @@ def test_recent_follow_up_window_keeps_question_answer_turn_order(
                     ("ask", f"Exact learner request {turn}", 61),
                     ("answer", f"Assistant suggestion {turn}", 62),
                 ]:
-                    row = LearnGeneratedElement(
+                    row = make_generated_element(
                         **fields,
                         element_bid=ask_bid if kind == "ask" else uuid.uuid4().hex,
                         run_session_bid=f"run-{turn}",
-                        event_type="element",
                         element_type=kind,
                         content_text=text,
                         sequence_number=sequence,
@@ -337,7 +337,6 @@ def test_recent_follow_up_window_keeps_question_answer_turn_order(
                                 ask_element_bid=ask_bid if kind == "answer" else None,
                             )
                         ),
-                        status=1,
                     )
                     db.session.add(row)
                     db.session.flush()
@@ -347,11 +346,10 @@ def test_recent_follow_up_window_keeps_question_answer_turn_order(
                 assert first_answer is not None
                 first_answer.status = 0
                 db.session.add(
-                    LearnGeneratedElement(
+                    make_generated_element(
                         **fields,
                         element_bid=first_answer.element_bid,
                         run_session_bid="old-run-late-patch",
-                        event_type="element",
                         element_type="answer",
                         content_text="Updated old assistant suggestion",
                         sequence_number=999,
@@ -362,7 +360,6 @@ def test_recent_follow_up_window_keeps_question_answer_turn_order(
                                 ask_element_bid=first_ask,
                             )
                         ),
-                        status=1,
                     )
                 )
         before = LearnGeneratedElement.query.count()

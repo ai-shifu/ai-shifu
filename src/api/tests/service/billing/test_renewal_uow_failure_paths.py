@@ -61,6 +61,7 @@ from flaskr.util.datetime import now_utc
 from sqlalchemy.orm import sessionmaker
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -359,13 +360,12 @@ def test_expire_notification_fires_after_commit_and_drops_on_rollback(
         "sub-uow-notify",
         event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     )
-    paid_order = BillingOrder(
+    paid_order = make_billing_order(
         bill_order_bid="bill-uow-notify-1",
         creator_bid=CREATOR_BID,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid="bill-product-plan-monthly",
         subscription_bid="sub-uow-notify",
-        currency="CNY",
         payable_amount=990,
         paid_amount=990,
         payment_provider="stripe",
@@ -697,15 +697,13 @@ def test_renewal_event_cancels_existing_obsolete_order_for_canceled_subscription
         event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     )
     event.payload_json = {"bill_order_bid": "bill-uow-obsolete-order"}
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid="bill-uow-obsolete-order",
         creator_bid=CREATOR_BID,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid="bill-product-plan-monthly",
         subscription_bid=subscription.subscription_bid,
-        currency="CNY",
         payable_amount=990,
-        paid_amount=0,
         payment_provider="stripe",
         channel="subscription",
         provider_reference_id="provider-sub-uow-obsolete-order",
@@ -1006,15 +1004,13 @@ def test_retry_or_reconcile_skips_obsolete_subscription_before_provider_sync(
         event_type=event_type,
     )
     event.payload_json = {"bill_order_bid": f"bill-uow-obsolete-retry-{event_type}"}
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=f"bill-uow-obsolete-retry-{event_type}",
         creator_bid=CREATOR_BID,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid="bill-product-plan-monthly",
         subscription_bid=subscription.subscription_bid,
-        currency="CNY",
         payable_amount=990,
-        paid_amount=0,
         payment_provider="stripe",
         channel="subscription",
         provider_reference_id=f"provider-sub-uow-obsolete-retry-{event_type}",
