@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DebugPanel from './DebugPanel';
 import { resolveDebugItemKey } from './DebugPanel';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
@@ -13,11 +7,6 @@ import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 const mockPush = jest.fn();
 const mockCopyText = jest.fn();
 const mockDebugVariablesPanel = jest.fn();
-const mockTrackEvent = jest.fn();
-
-jest.mock('@/hooks/use-tracking', () => ({
-  useTracking: () => ({ trackEvent: mockTrackEvent }),
-}));
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -137,13 +126,11 @@ jest.mock('@/components/chat/InteractionBlock', () => ({
     element_bid,
     showGenerateBtn,
     onRefresh,
-    disabled,
     extraActions,
   }: {
     element_bid?: string;
     showGenerateBtn?: boolean;
     onRefresh?: (elementBid: string) => void;
-    disabled?: boolean;
     extraActions?: React.ReactNode;
   }) => (
     <div data-testid='interaction-block'>
@@ -152,11 +139,10 @@ jest.mock('@/components/chat/InteractionBlock', () => ({
         <button
           type='button'
           aria-label={`regenerate-${element_bid}`}
-          disabled={disabled}
           onClick={() => onRefresh?.(element_bid || '')}
         />
       ) : null}
-      <div data-testid={`actions-${element_bid}`}>{extraActions}</div>
+      {extraActions}
     </div>
   ),
 }));
@@ -164,16 +150,13 @@ jest.mock('@/components/chat/InteractionBlock', () => ({
 jest.mock('@/components/audio/AudioPlayer', () => ({
   __esModule: true,
   AudioPlayer: ({
-    disabled,
     onRequestAudio,
   }: {
-    disabled?: boolean;
     onRequestAudio?: () => Promise<unknown>;
   }) => (
     <button
       type='button'
       aria-label='audio'
-      disabled={disabled}
       onClick={() => void onRequestAudio?.()}
     />
   ),
@@ -192,74 +175,6 @@ describe('DebugPanel billing action', () => {
     mockPush.mockReset();
     mockCopyText.mockReset();
     mockDebugVariablesPanel.mockReset();
-    mockTrackEvent.mockReset();
-  });
-
-  test('offers regeneration retry when no generated output remains', () => {
-    const onRetryRegeneration = jest.fn();
-
-    render(
-      <DebugPanel
-        isLoading={false}
-        items={[]}
-        shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
-        onRetryRegeneration={onRetryRegeneration}
-        onSubmitInteraction={jest.fn()}
-      />,
-    );
-
-    expect(
-      screen.queryByText('module.shifu.previewArea.empty'),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
-    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
-  });
-
-  test('only offers regeneration retry when available and idle', () => {
-    const onRetryRegeneration = jest.fn();
-    const props = {
-      items: [
-        {
-          element_bid: 'debug-error',
-          content: 'Regeneration failed',
-          type: ChatContentItemType.ERROR,
-        },
-      ],
-      shifuBid: 'shifu-1',
-      onRegenerate: jest.fn(),
-      onSubmitInteraction: jest.fn(),
-    };
-    const { rerender } = render(
-      <DebugPanel
-        {...props}
-        isLoading={false}
-      />,
-    );
-    expect(
-      screen.queryByRole('button', { name: 'common.core.retry' }),
-    ).not.toBeInTheDocument();
-
-    rerender(
-      <DebugPanel
-        {...props}
-        isLoading={false}
-        onRetryRegeneration={onRetryRegeneration}
-      />,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
-    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
-
-    rerender(
-      <DebugPanel
-        {...props}
-        isLoading
-        onRetryRegeneration={onRetryRegeneration}
-      />,
-    );
-    expect(
-      screen.queryByRole('button', { name: 'common.core.retry' }),
-    ).not.toBeInTheDocument();
   });
 
   test('filters hidden variables and forwards visible system variable keys', () => {
@@ -276,7 +191,6 @@ describe('DebugPanel billing action', () => {
         systemVariableKeys={['sys_user_nickname']}
         courseVariableKeys={['custom_topic']}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -310,7 +224,6 @@ describe('DebugPanel billing action', () => {
         items={items}
         creditInsufficientAudience='teacher'
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -341,7 +254,6 @@ describe('DebugPanel billing action', () => {
         items={items}
         creditInsufficientAudience='teacher-collaborator'
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -392,7 +304,6 @@ describe('DebugPanel billing action', () => {
         isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
         onRequestElementAudio={jest.fn().mockResolvedValue(null)}
       />,
@@ -414,7 +325,6 @@ describe('DebugPanel billing action', () => {
         errorMessage='Preview parameters are incomplete.'
         items={[]}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -445,7 +355,6 @@ describe('DebugPanel billing action', () => {
         isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -548,7 +457,6 @@ describe('DebugPanel billing action', () => {
         isLoading={false}
         items={items}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -569,7 +477,6 @@ describe('DebugPanel billing action', () => {
           },
         ]}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
       />,
     );
@@ -580,60 +487,7 @@ describe('DebugPanel billing action', () => {
     );
   });
 
-  test('shows both actions for text without a helper and forwards its element anchor', async () => {
-    const onRegenerate = jest.fn();
-    const onRequestElementAudio = jest.fn().mockResolvedValue(null);
-    const items: ChatContentItem[] = [
-      {
-        element_bid: 'text-1',
-        generated_block_bid: '0',
-        content: 'Private lesson text with https://private.example/secret',
-        type: ChatContentItemType.CONTENT,
-        element_type: 'text',
-        is_final: true,
-      },
-    ];
-    const props = {
-      isLoading: false,
-      items,
-      shifuBid: 'shifu-1',
-      onRegenerate,
-      onSubmitInteraction: jest.fn(),
-      onRequestElementAudio,
-      showRegenerateAction: true,
-    };
-    const { rerender } = render(<DebugPanel {...props} />);
-    expect(mockTrackEvent).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
-    expect(onRegenerate).toHaveBeenCalledWith('text-1');
-    const audioButton = within(screen.getByTestId('actions-text-1')).getByRole(
-      'button',
-      { name: 'audio' },
-    );
-    expect(audioButton).toBeEnabled();
-    fireEvent.click(audioButton);
-    await waitFor(() =>
-      expect(onRequestElementAudio).toHaveBeenCalledWith({
-        shifuBid: 'shifu-1',
-        elementBid: 'text-1',
-        text: items[0].content,
-      }),
-    );
-    expect(mockTrackEvent.mock.calls).toEqual([
-      ['teacher_debug_tts_requested', { shifu_bid: 'shifu-1' }],
-    ]);
-    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
-      /Private|private[.]example|text-1|element_bid|generated_block_bid|url|prompt|error/i,
-    );
-    rerender(<DebugPanel {...props} />);
-    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-    fireEvent.click(audioButton);
-    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
-    expect(onRequestElementAudio).toHaveBeenCalledTimes(2);
-  });
-
-  test('renders one action row per element when a helper refers to a shared generated block', () => {
-    const onRegenerate = jest.fn();
+  test('removes content regeneration and retry controls while preserving text audio', async () => {
     const onRequestElementAudio = jest.fn().mockResolvedValue(null);
     render(
       <DebugPanel
@@ -641,322 +495,117 @@ describe('DebugPanel billing action', () => {
         items={[
           {
             element_bid: 'text-1',
-            generated_block_bid: '0',
-            content: 'First paragraph',
+            generated_block_bid: 'turn-1',
+            content: 'Ready text',
             type: ChatContentItemType.CONTENT,
             element_type: 'text',
             is_final: true,
           },
           {
             element_bid: 'html-1',
-            generated_block_bid: '0',
-            content: '<div>rich block</div>',
+            generated_block_bid: 'turn-1',
+            content: '<div>Rich content</div>',
             type: ChatContentItemType.CONTENT,
             element_type: 'html',
             is_final: true,
-            audioTracks: [{ position: 0, audioUrl: '/cached.mp3' }],
           },
           {
             element_bid: 'feedback-1',
-            generated_block_bid: 'feedback-1',
-            parent_element_bid: '',
-            parent_block_bid: '0',
+            parent_block_bid: 'turn-1',
             type: ChatContentItemType.LIKE_STATUS,
+          },
+          {
+            element_bid: 'interaction-1',
+            generated_block_bid: 'turn-2',
+            type: ChatContentItemType.INTERACTION,
+            content: 'Choose an answer',
           },
         ]}
         shifuBid='shifu-1'
-        onRegenerate={onRegenerate}
         onSubmitInteraction={jest.fn()}
         onRequestElementAudio={onRequestElementAudio}
-        showRegenerateAction
       />,
     );
-    expect(screen.getAllByTestId('interaction-block')).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
-    expect(onRegenerate).toHaveBeenCalledWith('text-1');
-    const regenerate = screen.getByRole('button', {
-      name: 'regenerate-html-1',
-    });
-    const audio = within(screen.getByTestId('actions-html-1')).getByRole(
-      'button',
-      { name: 'audio' },
+    expect(
+      screen.queryByRole('button', { name: /^regenerate-/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'common.core.retry' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'audio' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'audio' }));
+    await waitFor(() =>
+      expect(onRequestElementAudio).toHaveBeenCalledWith({
+        shifuBid: 'shifu-1',
+        elementBid: 'text-1',
+        text: 'Ready text',
+      }),
     );
-    expect(regenerate).toBeDisabled();
-    expect(audio).toBeDisabled();
-    fireEvent.click(regenerate);
-    fireEvent.click(audio);
-    expect(onRegenerate).toHaveBeenCalledTimes(1);
-    expect(onRequestElementAudio).not.toHaveBeenCalled();
-    expect(mockTrackEvent).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByRole('button', { name: 'module.shifu.previewArea.copy' }),
+    ).toHaveLength(2);
   });
 
-  test.each([
-    'interaction',
-    'html',
-    'code',
-    'image',
-    'mermaid',
-    'svg',
-  ] as const)(
-    'shows disabled actions for a non-text %s element',
-    elementType => {
-      const onRegenerate = jest.fn();
-      const onRequestElementAudio = jest.fn().mockResolvedValue(null);
+  test.each(['empty', 'error'] as const)(
+    'does not offer regeneration retry in the %s state',
+    state => {
       render(
         <DebugPanel
           isLoading={false}
-          items={[
-            {
-              element_bid: 'non-text-1',
-              generated_block_bid: 'turn-1',
-              content: 'Non-text content',
-              type:
-                elementType === 'interaction'
-                  ? ChatContentItemType.INTERACTION
-                  : ChatContentItemType.CONTENT,
-              element_type: elementType,
-              is_final: true,
-              is_speakable: true,
-            },
-          ]}
+          items={
+            state === 'error'
+              ? [
+                  {
+                    element_bid: 'debug-error',
+                    content: 'Debug failed',
+                    type: ChatContentItemType.ERROR,
+                  },
+                ]
+              : []
+          }
           shifuBid='shifu-1'
-          onRegenerate={onRegenerate}
           onSubmitInteraction={jest.fn()}
-          onRequestElementAudio={onRequestElementAudio}
-          showRegenerateAction
-        />,
-      );
-      const regenerate = screen.getByRole('button', {
-        name: 'regenerate-non-text-1',
-      });
-      const audio = within(screen.getByTestId('actions-non-text-1')).getByRole(
-        'button',
-        { name: 'audio' },
-      );
-      expect(regenerate).toBeDisabled();
-      expect(audio).toBeDisabled();
-      fireEvent.click(regenerate);
-      fireEvent.click(audio);
-      expect(onRegenerate).not.toHaveBeenCalled();
-      expect(onRequestElementAudio).not.toHaveBeenCalled();
-      expect(mockTrackEvent).not.toHaveBeenCalled();
-    },
-  );
-
-  test.each([
-    {
-      name: 'readonly course',
-      showRegenerateAction: false,
-      isLoading: false,
-      generatedBlockBid: 'turn-1',
-    },
-    {
-      name: 'running generation',
-      showRegenerateAction: true,
-      isLoading: true,
-      generatedBlockBid: 'turn-1',
-    },
-    {
-      name: 'missing generated anchor',
-      showRegenerateAction: true,
-      isLoading: false,
-      generatedBlockBid: undefined,
-    },
-  ])(
-    'disables regeneration for $name while retaining text audio',
-    ({ showRegenerateAction, isLoading, generatedBlockBid }) => {
-      const onRegenerate = jest.fn();
-      render(
-        <DebugPanel
-          isLoading={isLoading}
-          items={[
-            {
-              element_bid: 'text-1',
-              generated_block_bid: generatedBlockBid,
-              content: 'Ready text',
-              type: ChatContentItemType.CONTENT,
-              element_type: 'text',
-              is_final: true,
-            },
-          ]}
-          shifuBid='shifu-1'
-          onRegenerate={onRegenerate}
-          onSubmitInteraction={jest.fn()}
-          onRequestElementAudio={jest.fn().mockResolvedValue(null)}
-          showRegenerateAction={showRegenerateAction}
-        />,
-      );
-      const regenerate = screen.getByRole('button', {
-        name: 'regenerate-text-1',
-      });
-      expect(regenerate).toBeDisabled();
-      fireEvent.click(regenerate);
-      expect(onRegenerate).not.toHaveBeenCalled();
-      expect(
-        within(screen.getByTestId('actions-text-1')).getByRole('button', {
-          name: 'audio',
-        }),
-      ).toBeEnabled();
-      expect(mockTrackEvent).not.toHaveBeenCalled();
-    },
-  );
-
-  test.each([
-    {
-      name: 'non-speakable text',
-      isSpeakable: false,
-      isFinal: true,
-      content: 'Ready text',
-      ttsEnabled: true,
-    },
-    {
-      name: 'streaming text',
-      isSpeakable: true,
-      isFinal: false,
-      content: 'Partial text',
-      ttsEnabled: true,
-    },
-    {
-      name: 'empty text',
-      isSpeakable: true,
-      isFinal: true,
-      content: '   ',
-      ttsEnabled: true,
-    },
-    {
-      name: 'course TTS disabled',
-      isSpeakable: true,
-      isFinal: true,
-      content: 'Ready text',
-      ttsEnabled: false,
-    },
-  ])(
-    'disables TTS for $name without blocking regeneration',
-    ({ isSpeakable, isFinal, content, ttsEnabled }) => {
-      const onRequestElementAudio = jest.fn().mockResolvedValue(null);
-      render(
-        <DebugPanel
-          isLoading={false}
-          items={[
-            {
-              element_bid: 'text-1',
-              generated_block_bid: 'turn-1',
-              content,
-              type: ChatContentItemType.CONTENT,
-              element_type: 'text',
-              is_final: isFinal,
-              is_speakable: isSpeakable,
-            },
-          ]}
-          shifuBid='shifu-1'
-          onRegenerate={jest.fn()}
-          onSubmitInteraction={jest.fn()}
-          onRequestElementAudio={ttsEnabled ? onRequestElementAudio : undefined}
-          showRegenerateAction
         />,
       );
       expect(
-        screen.getByRole('button', { name: 'regenerate-text-1' }),
-      ).toBeEnabled();
-      const audio = within(screen.getByTestId('actions-text-1')).getByRole(
-        'button',
-        { name: 'audio' },
-      );
-      expect(audio).toBeDisabled();
-      fireEvent.click(audio);
-      expect(onRequestElementAudio).not.toHaveBeenCalled();
-      expect(mockTrackEvent).not.toHaveBeenCalled();
+        screen.queryByRole('button', { name: 'common.core.retry' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^regenerate-/ }),
+      ).not.toBeInTheDocument();
+      if (state === 'empty')
+        expect(
+          screen.getByText('module.shifu.previewArea.empty'),
+        ).toBeInTheDocument();
+      else expect(screen.getByText('Debug failed')).toBeInTheDocument();
     },
   );
 
-  test('excludes helper rows, errors and loading placeholders from element actions', () => {
+  test('retains TTS course and text eligibility without exposing regeneration', () => {
     render(
       <DebugPanel
         isLoading={false}
         items={[
           {
-            element_bid: 'missing-parent-feedback',
-            parent_element_bid: 'missing-parent',
-            type: ChatContentItemType.LIKE_STATUS,
-          },
-          {
-            element_bid: 'debug-error',
-            content: 'Generation failed',
-            type: ChatContentItemType.ERROR,
-          },
-          {
-            element_bid: 'loading',
-            generated_block_bid: 'loading',
-            content: '',
-            type: ChatContentItemType.CONTENT,
-          },
-          {
-            element_bid: 'loading-text',
-            generated_block_bid: 'loading',
-            content: '',
+            element_bid: 'text-1',
+            generated_block_bid: 'turn-1',
+            content: 'Text',
             type: ChatContentItemType.CONTENT,
             element_type: 'text',
           },
+          {
+            element_bid: 'feedback-1',
+            parent_element_bid: 'text-1',
+            type: ChatContentItemType.LIKE_STATUS,
+          },
         ]}
         shifuBid='shifu-1'
-        onRegenerate={jest.fn()}
         onSubmitInteraction={jest.fn()}
-        onRequestElementAudio={jest.fn().mockResolvedValue(null)}
-        showRegenerateAction
       />,
     );
-    expect(screen.queryByTestId('interaction-block')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'audio' }),
     ).not.toBeInTheDocument();
-    expect(mockTrackEvent).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('interaction-block')).not.toBeInTheDocument();
   });
-
-  test.each(['synchronous', 'asynchronous'])(
-    'keeps TTS available when tracking fails %s',
-    async failureMode => {
-      if (failureMode === 'synchronous') {
-        mockTrackEvent.mockImplementation(() => {
-          throw new Error('Tracking unavailable');
-        });
-      } else {
-        mockTrackEvent.mockRejectedValue(new Error('Tracking unavailable'));
-      }
-      const onRequestElementAudio = jest.fn().mockResolvedValue(null);
-      render(
-        <DebugPanel
-          isLoading={false}
-          items={[
-            {
-              element_bid: 'text-1',
-              generated_block_bid: 'turn-1',
-              content: 'Ready text',
-              type: ChatContentItemType.CONTENT,
-              element_type: 'text',
-              is_final: true,
-            },
-          ]}
-          shifuBid='shifu-1'
-          onRegenerate={jest.fn()}
-          onSubmitInteraction={jest.fn()}
-          onRequestElementAudio={onRequestElementAudio}
-          showRegenerateAction
-        />,
-      );
-      fireEvent.click(
-        within(screen.getByTestId('actions-text-1')).getByRole('button', {
-          name: 'audio',
-        }),
-      );
-      await waitFor(() =>
-        expect(onRequestElementAudio).toHaveBeenCalledTimes(1),
-      );
-      expect(onRequestElementAudio).toHaveBeenCalledWith({
-        shifuBid: 'shifu-1',
-        elementBid: 'text-1',
-        text: 'Ready text',
-      });
-      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-    },
-  );
 });

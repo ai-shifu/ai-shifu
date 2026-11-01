@@ -37,10 +37,11 @@ and translation namespaces retain their compatibility contracts.
 Name editor Debug code by responsibility: `DebugPanel` composes the UI,
 `useDebugSession` owns the transient session, and `startRun` / `stopRun`
 operate on one stream while `resetSession` replaces the session. UI callbacks
-name their action (`onRegenerate`, `onSubmitInteraction`,
-`onRequestElementAudio`). Use `elementBid` for rendered elements and
-`generatedBlockBid` for engine turns. Internal run parameters use camelCase;
-the request boundary maps them to the existing wire fields. Shared variable
+name their action (`onSubmitInteraction`, `onRequestElementAudio`). Editor Debug
+does not expose content regeneration or its Retry action. Use `elementBid` for
+rendered elements and `generatedBlockBid` for engine turns. Internal run
+parameters use camelCase; the request boundary maps them to the existing wire
+fields. Shared variable
 and preparation types live in `src/types/debug-session.d.ts`, storage in
 `debug-variable-storage.ts`, and request preparation in `debug-request-params.ts`.
 

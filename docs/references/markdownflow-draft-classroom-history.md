@@ -2,7 +2,7 @@
 title: MarkdownFlow Draft Classroom History
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-31
+last_reviewed: 2026-11-01
 canonical: true
 ---
 
@@ -84,7 +84,15 @@ profile/memory admission rules. Preview rewind analytics uses its own start and
 terminal-result family, as defined in the frontend analytics reference.
 1.0 runtime behavior, engine fallback and code remain available.
 
-## Editor Debug regeneration
+## Editor Debug sessions and legacy regeneration compatibility
+
+The current editor Debug panel supports new Debug runs, interaction answers and
+the existing TTS controls. It no longer offers per-element content regeneration
+or a regeneration Retry action. Its frontend hook does not accept or send
+reload anchors. Starting Debug again creates a fresh session; answering the
+current interaction continues the session, and resubmitting an earlier answer
+retains its confirmation and whole-session restart behavior. Full-course draft
+classroom rewind remains a separate supported flow.
 
 Each Debug store binds its lock, request token and session/checkpoint state to
 one backend. When Redis is configured, all of those operations use strict Redis;
@@ -96,51 +104,48 @@ Temporary cache or lock failures use `server.learn.debugServiceUnavailable`
 (business code `4023`) rather than an expired-session or classroom-reset error.
 The preview SSE error preserves that code and the request-language message,
 including after nested streaming contexts clear translation state. The frontend
-stops the failed request, records the existing failed regeneration outcome, and
-retains its retry target. If a save succeeded before lock release failed, its
-checkpoint and retry mapping remain committed; no rollback is claimed.
-
-A failed or stopped regeneration retains a retry target independently of the
-visible rows. The panel offers Retry even when the selected step is no longer
-visible. It does not restore discarded answers or old output after an uncertain
-failure: the backend may already have saved replacement state. The cache keeps
-one mapping from the requested logical target to its first replacement block.
-Only that mapping, while its replacement is still active in the same Debug
-session and script, can resolve a retired target for retry. Ordinary subsequent
-turns preserve it; another regeneration replaces it. Other retired suffix
-anchors remain unavailable. Success, reset and a new script clear the frontend
-retry target, and stale callbacks cannot bring it back.
+stops the failed request and retains its existing business-error display. If a
+save succeeded before lock release failed, its checkpoint and compatibility
+retry mapping remain committed; no rollback is claimed.
 
 Editor Debug uses its separate 30-minute cache, scoped to the authenticated
 teacher, course, lesson and browser-generated Debug run ID. Its cached sidecar
 records each turn's checkpoint and original inputs alongside the engine session;
 it does not reuse classroom presentation ownership or published learner state.
 
-A regenerate action on a text element sends its `reload_generated_block_bid`
-to the existing editor preview endpoint with the same `debug_session_id` and
-unchanged script. The frontend retains all earlier generated blocks and removes
-the selected block and its successors, including their helper rows. Several
-rendered elements can share one engine turn, so regeneration begins at the first
-element of that generated block. The engine restores its checkpoint and original
-input, then follows the usual teaching flow until the next interaction or lesson
-completion. Checkpoints for the replaced suffix retire when replacement state
-is saved. Earlier checkpoints remain usable for subsequent regeneration.
+The backend preview endpoint retains `reload_generated_block_bid`, turn
+checkpoints and retry mappings for compatibility with older clients. This
+compatibility path requires the same `debug_session_id` and unchanged script.
+Several rendered elements can share one engine turn, so a legacy reload
+restores the selected generated block's checkpoint and original input, then
+replaces that entire turn and its successors through the normal teaching flow.
+Checkpoints for the replaced suffix retire when replacement state is saved.
+Earlier checkpoints remain available to compatible clients.
+
+The cache keeps one mapping from a requested logical target to its first
+replacement block. Only that mapping, while its replacement remains active in
+the same Debug session and script, can resolve a retired target for a legacy
+retry. Ordinary subsequent turns preserve it; another regeneration replaces
+it. Other retired suffix anchors remain unavailable. The current frontend has
+no retry target or Retry producer.
 
 The restored Debug memory includes the checkpoint's user-memory snapshot. The
 request's echoed current variables cannot reintroduce discarded future answers.
 `debug_variables` SSE messages carry a JSON-encoded variable map before replacement
 output and before its DONE boundary, replacing the frontend variable snapshot.
-The reload anchor belongs only to this request; later answers and continuations
-do not resend it. Old SSE and audio callbacks cannot update the replacement run.
+For a legacy reload, the anchor belongs only to that request; later answers and
+continuations do not resend it. Old SSE and audio callbacks cannot update a
+replacement run.
 Each Debug request claims a fresh cache token; a short write lock guards the
 token check and session save together. A stopped request that finishes after
 its replacement cannot overwrite the new session or restore retired anchors.
 
-An unknown, expired or incompatible checkpoint reports the existing rewind or
-Debug-session error instead of silently restarting. Historical cached sessions
-without turn checkpoints can continue normally but require an explicit restart
-before selective regeneration is available. Whole-lesson restart creates a new
-Debug run, and editing the script also restarts from the beginning rather than
-reusing checkpoints from a different draft. Regeneration does not refund previous
-model calls or modify published learning progress. Its distinct analytics family
-is documented in the [frontend analytics reference](frontend-product-analytics.md).
+For compatible clients, an unknown, expired or incompatible checkpoint reports
+the existing rewind or Debug-session error instead of silently restarting.
+Historical cached sessions without turn checkpoints can continue normally but
+require an explicit restart before a legacy reload can use checkpoints.
+Whole-lesson restart creates a new Debug run, and checkpoints from a different
+draft are never reused for a reload. Legacy regeneration does not refund prior
+model calls or modify published learning progress. The retired frontend event
+family retains its historical definitions in the
+[frontend analytics reference](frontend-product-analytics.md).

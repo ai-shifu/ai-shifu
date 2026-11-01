@@ -416,19 +416,21 @@ solely because historical Umami rows or queries exist.
 
 ## Editor Debug step regeneration
 
-Each rendered Debug content or interaction element displays regeneration and
-TTS controls independently of helper rows. Regeneration is disabled for
-non-text elements, invalid targets, read-only courses and running output.
-Disabled controls do not initiate requests or emit events; accepted text
-regeneration continues to use the family below.
+This event family is retired from the current frontend. The editor Debug panel
+no longer offers content regeneration or its Retry action, and the Debug hook
+no longer sends reload anchors. `teacher_debug_regenerate_start` and
+`teacher_debug_regenerate_result` have no new frontend producer or replacement
+family. Historical event names, payloads and meanings remain unchanged for
+downstream reports; the following contract describes those historical events.
+New runs, interaction answers and existing TTS behavior retain their own paths.
 
-Accepted retries after a failed or stopped regeneration use the same attempt
-and terminal-result family below. The retry control is available only for the
-current Debug session's retained logical target and is hidden during a running
-request; repeated or blocked callbacks do not create additional attempts.
-Retrying is a distinct accepted request, so it gets one new start and at most
-one result. The payload schema and consumer stay unchanged. The retry target,
-checkpoint, discarded content and errors are never included in analytics.
+Historically, accepted retries after a failed or stopped regeneration used the
+same attempt and terminal-result family. Retry was available only for the
+current Debug session's retained logical target and was hidden during a running
+request; repeated or blocked callbacks did not create additional attempts.
+Retrying was a distinct accepted request with one new start and at most one
+result. The retry target, checkpoint, discarded content and errors were never
+included in analytics.
 
 - Business question: Can teachers rerun a selected Debug step and its following
   steps successfully while keeping earlier output?
@@ -458,9 +460,10 @@ checkpoint, discarded content and errors are never included in analytics.
   deliberate regeneration is a new attempt. No persistent deduplication or
   correlation token is added.
 - Consumers and compatibility: Teacher authoring-quality weekly Umami reports
-  compare aggregate attempts and outcomes by course and lesson. This is an
-  additive event family. The separate `teacher_preview_rewind_*` classroom
-  family continues to exclude editor Debug; historical queries stay unchanged.
+  can still compare historical attempts and outcomes by course and lesson.
+  The separate `teacher_preview_rewind_*` classroom family continues to exclude
+  editor Debug; historical queries stay unchanged. Missing events after
+  retirement do not represent failed regeneration requests.
 - Complete delivered application-event payload: `shifu_bid` and `outline_bid`
   are stable pseudonymous course/lesson machine IDs required for grouping.
   Result events add only the low-cardinality, non-personal
@@ -468,42 +471,14 @@ checkpoint, discarded content and errors are never included in analytics.
   ID, input, variable name/value, prompt, output, title, URL or error. Shared
   transport establishes pseudonymous identity and normalized routing context
   separately, without enriching event data.
-- Delivery and verification: Use `useTracking`; synchronous throws, rejected
-  promises, missing configuration and blocked scripts cannot affect the
-  regeneration. Helper tests cover exact names and allowlisted payloads,
-  eligibility, every terminal outcome, per-attempt deduplication and tracking
-  failures. Hook tests cover initiation timing, continuation chains and
-  terminal lifecycle transitions; shared transport tests cover the final
-  delivered payload and global account exclusions. Local tests do not establish
-  deployed Umami coverage.
-
-## Editor Debug TTS requests
-
-- Business question and metric: Do teachers use text-to-speech synthesis while
-  debugging a course? Count accepted synthesis requests by course in weekly
-  teacher authoring-quality reports. This measures adoption, not synthesis
-  success, playback completion or exposure-to-use conversion.
-- Event and trigger: `teacher_debug_tts_requested` fires immediately before an
-  eligible Debug text element invokes its synthesis callback. Rendering,
-  rerendering, cached-audio playback and disabled clicks emit nothing.
-- Population and exclusions: Teachers using the editor Debug panel with course
-  TTS enabled, a valid element identity, nonempty completed text and
-  `is_speakable !== false`. Non-text elements, unfinished output, missing
-  synthesis callbacks, loading placeholders, helper rows, errors, learner and
-  classroom-preview controls are excluded. Shared account exclusions apply.
-- Count and deduplication: One event per accepted synthesis callback invocation.
-  The existing audio player's request guard prevents concurrent requests;
-  deliberate retries count as separate requests. No persistent deduplication,
-  attempt identifier or terminal-result event is used for this adoption metric.
-- Complete payload and compatibility: Only `shifu_bid`, the stable pseudonymous
-  course machine ID needed for grouping. No element or block identity, text,
-  prompt, variable, audio URL, error or other content is collected. This is an
-  additive family; existing regeneration queries retain their meaning.
-- Delivery and verification: Use `useTracking` and preserve synthesis when
-  tracking throws, rejects or is unavailable. Rendered-panel tests verify the
-  exact event and payload, eligibility, disabled controls, callback timing,
-  absence on render/rerender and best-effort delivery. These tests do not
-  establish deployed coverage or synthesis outcomes.
+- Historical delivery: The retired producer used `useTracking`; synchronous
+  throws, rejected promises, missing configuration and blocked scripts could
+  not affect regeneration. Its helper and hook regressions covered the
+  allowlisted payload, eligibility, terminal outcomes, deduplication,
+  continuation chains and best-effort delivery. Those producer-specific tests
+  retire with the feature. Removal regressions must verify that Debug no longer
+  exposes content regeneration or emits this family; local tests do not
+  establish deployed Umami coverage.
 
 ## About dialog exposure
 

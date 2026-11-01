@@ -223,6 +223,7 @@
 | `docs/exec-plans/completed/public-web-image-name.md` | Publish Web images without the Cook name | `exec-plan-completed` | `completed` | `repository` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/recall-history-compaction.md` | Compact completed memory recall history | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/remove-debug-content-regeneration.md` | Remove editor Debug content regeneration | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/remove-manual-memory-definition-apis.md` | Remove manual memory definition write APIs | `exec-plan-completed` | `completed` | `shared` | `2026-10-30` | `false` |
 | `docs/exec-plans/completed/remove-markdownflow-arena.md` | Remove the MarkdownFlow arena | `exec-plan-completed` | `completed` | `repo` | `2026-10-24` | `false` |
 | `docs/exec-plans/completed/remove-minimax-in-product-voice-cloning.md` | Remove In-Product MiniMax Voice Cloning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -324,7 +325,7 @@
 | `docs/references/lesson-content-update-performance.md` | Lesson Content Revision Comparison Performance | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-authored-inputs.md` | MarkdownFlow Authored Input Hints | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
 | `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-10-08` | `true` |
-| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-10-31` | `true` |
+| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-11-01` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |
 | `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompts | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |

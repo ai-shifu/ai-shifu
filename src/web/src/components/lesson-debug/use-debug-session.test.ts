@@ -14,10 +14,7 @@ import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 import { toast, toastOnce } from '@/hooks/use-toast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
-import {
-  getCreditInsufficientMessage,
-  type CreditInsufficientAudience,
-} from '@/lib/credit-insufficient-toast';
+import { getCreditInsufficientMessage } from '@/lib/credit-insufficient-toast';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import arLearnMessages from '../../../../i18n/ar-SA/modules/backend/learn.json';
 import deLearnMessages from '../../../../i18n/de-DE/modules/backend/learn.json';
@@ -396,7 +393,6 @@ describe('useDebugSession helpers and business error rendering', () => {
       expect(result.current.variableValues).toEqual({
         learnerName: 'Private name',
       });
-      expect(result.current.canRetryRegeneration).toBe(false);
       expect(toast).toHaveBeenCalledTimes(1);
       expect(toast).toHaveBeenCalledWith({
         title: message,
@@ -489,7 +485,6 @@ describe('useDebugSession helpers and business error rendering', () => {
       answer: 'Private choice',
     });
     expect(result.current.errorMessage).toBe(message);
-    expect(result.current.canRetryRegeneration).toBe(false);
     expect(result.current.regenerationConfirmation.open).toBe(false);
     expect(toast).toHaveBeenCalledWith({
       title: message,
@@ -499,747 +494,86 @@ describe('useDebugSession helpers and business error rendering', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  describe('selected-step Debug regeneration', () => {
-    const emit = (source: MockSseSource, payload: Record<string, unknown>) => {
-      source.listeners.message?.({ data: JSON.stringify(payload) });
-    };
-    const close = (source: MockSseSource) => {
-      source.listeners.readystatechange?.({ readyState: 2 } as never);
-    };
-    const emitText = (
-      source: MockSseSource,
-      elementBid: string,
-      generatedBlockBid: string,
-      content: string,
-    ) => {
-      emit(source, {
-        type: 'element',
-        content: {
-          element_bid: elementBid,
-          generated_block_bid: generatedBlockBid,
-          element_type: 'text',
-          content,
-          is_final: true,
-        },
-      });
-    };
-    const prepare = async () => {
-      const sources: MockSseSource[] = [];
-      (SSE as jest.Mock).mockImplementation(() => {
-        const source = buildMockSseSource();
-        sources.push(source);
-        return source;
-      });
-      const hook = renderHook(
-        ({ audience }: { audience: CreditInsufficientAudience | null }) =>
-          useDebugSession({ creditInsufficientAudience: audience }),
-        { initialProps: { audience: 'teacher' } },
-      );
-      await act(async () =>
-        hook.result.current.startRun({
-          shifuBid: 'course',
-          outlineBid: 'lesson',
-          mdflow: 'Private draft',
-          variableValues: {
-            earlierAnswer: 'Keep me',
-            laterAnswer: 'Discard me',
-          },
-        }),
-      );
-      act(() => {
-        emit(sources[0], { type: 'preview_engine', content: '2.0' });
-        emitText(sources[0], 'earlier-text', 'earlier-turn', 'Earlier result');
-        emitText(sources[0], 'target-intro', 'selected-turn', 'Selected intro');
-        emitText(sources[0], 'target-text', 'selected-turn', 'Selected result');
-        emitText(sources[0], 'later-text', 'later-turn', 'Later result');
-        emit(sources[0], { type: 'done', is_terminal: true });
-      });
-      mockTrackEvent.mockClear();
-      return { ...hook, sources };
-    };
-    const regenerationEvents = () =>
-      mockTrackEvent.mock.calls.filter(([name]) =>
-        String(name).startsWith('teacher_debug_regenerate_'),
-      );
-
-    test('preserves earlier results and helpers while replacing the selected generated turn and its suffix', async () => {
-      const { result, sources } = await prepare();
-      const originalRequest = JSON.parse(
-        (SSE as jest.Mock).mock.calls[0][1].payload,
-      );
-      const selectedTurnStart = result.current.items.findIndex(
-        item => item.element_bid === 'target-intro',
-      );
-      const preservedPrefix = result.current.items.slice(0, selectedTurnStart);
-      expect(preservedPrefix).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ element_bid: 'earlier-text' }),
-          expect.objectContaining({
-            type: ChatContentItemType.LIKE_STATUS,
-            parent_element_bid: 'earlier-text',
-          }),
-        ]),
-      );
-
-      await act(async () => result.current.regenerateContent('target-text'));
-
-      expect(SSE).toHaveBeenCalledTimes(2);
-      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
-      expect(request.debug_session_id).toBe(originalRequest.debug_session_id);
-      expect(request.reload_generated_block_bid).toBe('selected-turn');
-      expect(request.user_input).toBeUndefined();
-      expect(
-        result.current.items.filter(item => item.element_bid !== 'loading'),
-      ).toEqual(preservedPrefix);
-
-      act(() => {
-        emitText(sources[0], 'stale-text', 'later-turn', 'Stale old response');
-        emit(sources[0], { type: 'done', is_terminal: true });
-        emit(sources[1], {
-          type: 'debug_variables',
-          content: { earlierAnswer: 'Keep me' },
-        });
-        emitText(sources[1], 'new-target', 'replacement-turn', 'New result');
-        emit(sources[1], { type: 'done', is_terminal: true });
-      });
-
-      expect(result.current.items.slice(0, preservedPrefix.length)).toEqual(
-        preservedPrefix,
-      );
-      expect(result.current.items).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            element_bid: 'new-target',
-            content: 'New result',
-          }),
-        ]),
-      );
-      for (const removedBid of [
-        'target-intro',
-        'target-text',
-        'later-text',
-        'stale-text',
-      ]) {
-        expect(
-          result.current.items.map(item => item.element_bid),
-        ).not.toContain(removedBid);
-      }
-      expect(result.current.variableValues).toEqual({
-        earlierAnswer: 'Keep me',
-      });
-      expect(result.current.canRetryRegeneration).toBe(false);
-      expect(regenerationEvents()).toEqual([
-        [
-          'teacher_debug_regenerate_start',
-          { shifu_bid: 'course', outline_bid: 'lesson' },
-        ],
-        [
-          'teacher_debug_regenerate_result',
-          { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
-        ],
-      ]);
-      expect(JSON.stringify(regenerationEvents())).not.toMatch(
-        /Private draft|selected-turn|target-text|Keep me|Discard me|New result/,
-      );
-    });
-
-    test('keeps repeated regeneration in the same session and omits the anchor from the next answer', async () => {
-      mockParseToRemarkFormat.mockReturnValue({ variableName: 'answer' });
-      const { result, sources } = await prepare();
-      const firstRequest = JSON.parse(
-        (SSE as jest.Mock).mock.calls[0][1].payload,
-      );
-      await act(async () => result.current.regenerateContent('target-text'));
-      act(() => {
-        emitText(
-          sources[1],
-          'replacement-text',
-          'replacement-turn',
-          'Replacement',
-        );
-        emit(sources[1], { type: 'done', is_terminal: true });
-      });
-      await act(async () =>
-        result.current.regenerateContent('replacement-text'),
-      );
-      const secondRegeneration = JSON.parse(
-        (SSE as jest.Mock).mock.lastCall[1].payload,
-      );
-      expect(secondRegeneration.reload_generated_block_bid).toBe(
-        'replacement-turn',
-      );
-      expect(secondRegeneration.debug_session_id).toBe(
-        firstRequest.debug_session_id,
-      );
-      act(() => {
-        emit(sources[2], {
-          type: 'element',
-          content: {
-            element_bid: 'new-question',
-            generated_block_bid: 'new-question-turn',
-            element_type: 'interaction',
-            content: '?[answer]',
-            is_final: true,
-          },
-        });
-        emit(sources[2], { type: 'done', is_terminal: false });
-        sources[2].listeners.readystatechange?.({ readyState: 1 } as never);
-      });
-      expect(result.current.isStreaming).toBe(true);
-      expect(regenerationEvents()).toHaveLength(3);
-      act(() => {
-        close(sources[2]);
-        close(sources[2]);
-        sources[2].listeners.error?.({});
-      });
-      expect(result.current.isStreaming).toBe(false);
-      expect(regenerationEvents()).toEqual([
-        [
-          'teacher_debug_regenerate_start',
-          { shifu_bid: 'course', outline_bid: 'lesson' },
-        ],
-        [
-          'teacher_debug_regenerate_result',
-          { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
-        ],
-        [
-          'teacher_debug_regenerate_start',
-          { shifu_bid: 'course', outline_bid: 'lesson' },
-        ],
-        [
-          'teacher_debug_regenerate_result',
-          { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
-        ],
-      ]);
-      await act(async () =>
-        result.current.submitInteraction(
-          { variableName: 'answer', selectedValues: ['New choice'] },
-          'new-question',
-        ),
-      );
-      expect(SSE).toHaveBeenCalledTimes(4);
-      const answerRequest = JSON.parse(
-        (SSE as jest.Mock).mock.lastCall[1].payload,
-      );
-      expect(answerRequest.debug_session_id).toBe(
-        firstRequest.debug_session_id,
-      );
-      expect(answerRequest.reload_generated_block_bid).toBeUndefined();
-      expect(answerRequest.user_input).toEqual({ answer: ['New choice'] });
-      act(() => {
-        close(sources[0]);
-        close(sources[1]);
-        close(sources[2]);
-        emit(sources[2], { type: 'done', is_terminal: true });
-      });
-      expect(result.current.isStreaming).toBe(true);
-      expect(regenerationEvents()).toHaveLength(4);
-    });
-
-    test('restarts an edited draft with a new session instead of rewinding an old step', async () => {
-      const { result } = await prepare();
-      const firstRequest = JSON.parse(
-        (SSE as jest.Mock).mock.calls[0][1].payload,
-      );
-      mockGetCurrentMdflow.mockReturnValue('Edited draft');
-      await act(async () => result.current.regenerateContent('target-text'));
-      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
-      expect(request.content).toBe('Edited draft');
-      expect(request.debug_session_id).not.toBe(firstRequest.debug_session_id);
-      expect(request.reload_generated_block_bid).toBeUndefined();
-      expect(
-        result.current.items.filter(item => item.element_bid !== 'loading'),
-      ).toEqual([]);
-      expect(regenerationEvents()).toEqual([]);
-    });
-
-    test('ignores unknown anchors and blocks another regeneration while output is streaming', async () => {
-      const { result } = await prepare();
-      const originalItems = result.current.items;
-      await act(async () => result.current.regenerateContent('missing-text'));
-      expect(SSE).toHaveBeenCalledTimes(1);
-      expect(result.current.items).toEqual(originalItems);
-      expect(regenerationEvents()).toEqual([]);
-      await act(async () => result.current.regenerateContent('target-text'));
-      await act(async () => result.current.regenerateContent('earlier-text'));
-      expect(SSE).toHaveBeenCalledTimes(2);
-      expect(regenerationEvents()).toEqual([
-        [
-          'teacher_debug_regenerate_start',
-          { shifu_bid: 'course', outline_bid: 'lesson' },
-        ],
-      ]);
-      expect(toast).toHaveBeenCalledWith({
-        title: 'module.chat.outputInProgress',
-      });
-    });
-
-    test.each([
-      'business',
-      'transport',
-      'close',
-      'stop',
-      'reset',
-      'unmount',
-    ] as const)(
-      'records one terminal outcome when regeneration ends through %s',
-      async ending => {
-        const { result, sources, unmount } = await prepare();
-        await act(async () => result.current.regenerateContent('target-text'));
-        act(() => {
-          if (ending === 'business') {
-            emit(sources[1], {
-              type: 'error',
-              content: 'Private backend error',
-            });
-          } else if (ending === 'transport') {
-            sources[1].listeners.error?.({});
-          } else if (ending === 'close') {
-            close(sources[1]);
-          } else if (ending === 'stop') {
-            result.current.stopRun();
-          } else if (ending === 'reset') {
-            result.current.resetSession();
-          } else {
-            unmount();
-          }
-          close(sources[1]);
-          close(sources[1]);
-          emit(sources[1], { type: 'done', is_terminal: true });
-        });
-        expect(regenerationEvents()).toEqual([
-          [
-            'teacher_debug_regenerate_start',
-            { shifu_bid: 'course', outline_bid: 'lesson' },
-          ],
-          [
-            'teacher_debug_regenerate_result',
-            {
-              shifu_bid: 'course',
-              outline_bid: 'lesson',
-              result:
-                ending === 'business' ||
-                ending === 'transport' ||
-                ending === 'close'
-                  ? 'failed'
-                  : 'cancelled',
-            },
-          ],
-        ]);
-        expect(JSON.stringify(regenerationEvents())).not.toContain(
-          'Private backend error',
-        );
-      },
+  test('does not expose content regeneration or retry actions', () => {
+    const { result } = renderHook(() =>
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
 
-    test('regenerates successfully when analytics throws', async () => {
-      const { result, sources } = await prepare();
-      mockTrackEvent.mockImplementation(() => {
-        throw new Error('Analytics unavailable');
-      });
-      await act(async () => result.current.regenerateContent('target-text'));
-      act(() => {
-        emitText(sources[1], 'new-text', 'new-turn', 'Regenerated content');
-        emit(sources[1], { type: 'done', is_terminal: true });
-      });
-      expect(SSE).toHaveBeenCalledTimes(2);
-      expect(result.current.items).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            element_bid: 'new-text',
-            content: 'Regenerated content',
-          }),
-        ]),
-      );
-      expect(result.current.isStreaming).toBe(false);
-    });
+    expect(result.current).not.toHaveProperty('regenerateContent');
+    expect(result.current).not.toHaveProperty('retryRegeneration');
+    expect(result.current).not.toHaveProperty('canRetryRegeneration');
+  });
 
-    test('does not start a late regeneration after reset during API URL resolution', async () => {
-      const { result } = await prepare();
-      let resolveBaseUrl: (value: string) => void = () => {};
-      (getDynamicApiBaseUrl as jest.Mock).mockReturnValueOnce(
-        new Promise<string>(resolve => {
-          resolveBaseUrl = resolve;
-        }),
-      );
-      act(() => {
-        result.current.regenerateContent('target-text');
-        result.current.resetSession();
-      });
-      await act(async () => resolveBaseUrl('https://example.com'));
-      expect(SSE).toHaveBeenCalledTimes(1);
-      expect(result.current.items).toEqual([]);
-      expect(result.current.isStreaming).toBe(false);
-      expect(regenerationEvents()).toEqual([
-        [
-          'teacher_debug_regenerate_start',
-          { shifu_bid: 'course', outline_bid: 'lesson' },
-        ],
-        [
-          'teacher_debug_regenerate_result',
-          { shifu_bid: 'course', outline_bid: 'lesson', result: 'cancelled' },
-        ],
-      ]);
-    });
-
-    test('ends regeneration with a recoverable error when API URL resolution rejects', async () => {
-      const { result, sources } = await prepare();
-      (getDynamicApiBaseUrl as jest.Mock).mockRejectedValueOnce(
-        new Error('Private API configuration failure'),
-      );
-      await act(async () => result.current.regenerateContent('target-text'));
-      expect(SSE).toHaveBeenCalledTimes(1);
-      expect(result.current.isStreaming).toBe(false);
-      expect(result.current.errorMessage).toBeTruthy();
-      expect(regenerationEvents()).toEqual([
-        [
-          'teacher_debug_regenerate_start',
-          { shifu_bid: 'course', outline_bid: 'lesson' },
-        ],
-        [
-          'teacher_debug_regenerate_result',
-          { shifu_bid: 'course', outline_bid: 'lesson', result: 'failed' },
-        ],
-      ]);
-      expect(JSON.stringify(regenerationEvents())).not.toContain(
-        'Private API configuration failure',
-      );
-      expect(result.current.canRetryRegeneration).toBe(true);
-      await act(async () => result.current.retryRegeneration());
-      expect(SSE).toHaveBeenCalledTimes(2);
-      expect(
-        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload)
-          .reload_generated_block_bid,
-      ).toBe('selected-turn');
-      act(() => {
-        emitText(sources[1], 'retry-text', 'retry-turn', 'Recovered');
-        emit(sources[1], { type: 'done', is_terminal: true });
-      });
-      expect(result.current.errorMessage).toBeNull();
-      expect(result.current.canRetryRegeneration).toBe(false);
-      expect(result.current.items).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ content: 'Recovered' }),
-        ]),
-      );
-    });
-
-    test.each(['business', 'transport', 'close', 'stop'] as const)(
-      'retries the missing selected turn after %s without restoring discarded answers',
-      async ending => {
-        const { result, sources } = await prepare();
-        const firstRequest = JSON.parse(
-          (SSE as jest.Mock).mock.calls[0][1].payload,
-        );
-        const prefix = result.current.items.slice(
-          0,
-          result.current.items.findIndex(
-            item => item.element_bid === 'target-intro',
-          ),
-        );
-        await act(async () => result.current.regenerateContent('target-text'));
-        expect(result.current.canRetryRegeneration).toBe(false);
-        act(() => {
-          emit(sources[1], {
-            type: 'debug_variables',
-            content: { earlierAnswer: 'Keep me' },
-          });
-          if (ending === 'business') {
-            emit(sources[1], { type: 'error', content: 'Private failure' });
-          } else if (ending === 'transport') {
-            sources[1].listeners.error?.({});
-          } else if (ending === 'close') {
-            close(sources[1]);
-          } else {
-            result.current.stopRun();
-          }
-        });
-        expect(result.current.isStreaming).toBe(false);
-        expect(result.current.canRetryRegeneration).toBe(true);
-        expect(
-          result.current.items.map(item => item.element_bid),
-        ).not.toContain('loading');
-        expect(
-          result.current.items.map(item => item.element_bid),
-        ).not.toContain('target-text');
-        expect(result.current.variableValues).toEqual({
-          earlierAnswer: 'Keep me',
-        });
-
-        await act(async () => {
-          result.current.retryRegeneration();
-          result.current.retryRegeneration();
-        });
-        expect(SSE).toHaveBeenCalledTimes(3);
-        const retryRequest = JSON.parse(
-          (SSE as jest.Mock).mock.lastCall[1].payload,
-        );
-        expect(retryRequest.debug_session_id).toBe(
-          firstRequest.debug_session_id,
-        );
-        expect(retryRequest.reload_generated_block_bid).toBe('selected-turn');
-        expect(retryRequest.user_input).toBeUndefined();
-        expect(retryRequest.variables).toEqual({ earlierAnswer: 'Keep me' });
-        expect(
-          result.current.items.filter(item => item.element_bid !== 'loading'),
-        ).toEqual(prefix);
-        expect(result.current.canRetryRegeneration).toBe(false);
-        act(() => {
-          emit(sources[1], { type: 'done', is_terminal: true });
-          emitText(
-            sources[2],
-            'retried-text',
-            'retried-turn',
-            'Retried result',
-          );
-          emit(sources[2], { type: 'done', is_terminal: true });
-        });
-        expect(result.current.canRetryRegeneration).toBe(false);
-        expect(regenerationEvents()).toEqual([
-          [
-            'teacher_debug_regenerate_start',
-            { shifu_bid: 'course', outline_bid: 'lesson' },
-          ],
-          [
-            'teacher_debug_regenerate_result',
-            {
-              shifu_bid: 'course',
-              outline_bid: 'lesson',
-              result: ending === 'stop' ? 'cancelled' : 'failed',
-            },
-          ],
-          [
-            'teacher_debug_regenerate_start',
-            { shifu_bid: 'course', outline_bid: 'lesson' },
-          ],
-          [
-            'teacher_debug_regenerate_result',
-            { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
-          ],
-        ]);
-        expect(JSON.stringify(regenerationEvents())).not.toMatch(
-          /selected-turn|retried-turn|Private|Keep me|Discard me|Retried result/,
-        );
-      },
+  test('does not start a late Debug stream after reset during API URL resolution', async () => {
+    let resolveBaseUrl: (value: string) => void = () => {};
+    (getDynamicApiBaseUrl as jest.Mock).mockReturnValueOnce(
+      new Promise<string>(resolve => {
+        resolveBaseUrl = resolve;
+      }),
     );
-
-    test('retries the same logical turn after replacement output and repeated connection failures', async () => {
-      const { result, sources } = await prepare();
-      await act(async () => result.current.regenerateContent('target-text'));
-      act(() => {
-        emitText(
-          sources[1],
-          'replacement-text',
-          'replacement-turn',
-          'Partial replacement',
-        );
-        sources[1].listeners.error?.({});
-      });
-      expect(result.current.items.map(item => item.element_bid)).toContain(
-        'replacement-text',
-      );
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        await act(async () => result.current.retryRegeneration());
-        expect(
-          JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload)
-            .reload_generated_block_bid,
-        ).toBe('selected-turn');
-        expect(
-          result.current.items.map(item => item.element_bid),
-        ).not.toContain('replacement-text');
-        act(() => sources[attempt + 2].listeners.error?.({}));
-        expect(result.current.canRetryRegeneration).toBe(true);
-      }
-      expect(SSE).toHaveBeenCalledTimes(4);
-      expect(regenerationEvents().map(([name]) => name)).toEqual([
-        'teacher_debug_regenerate_start',
-        'teacher_debug_regenerate_result',
-        'teacher_debug_regenerate_start',
-        'teacher_debug_regenerate_result',
-        'teacher_debug_regenerate_start',
-        'teacher_debug_regenerate_result',
-      ]);
-    });
-
-    test('clears a failed target on reset and ignores stale completion callbacks', async () => {
-      const { result, sources } = await prepare();
-      await act(async () => result.current.regenerateContent('target-text'));
-      act(() => sources[1].listeners.error?.({}));
-      expect(result.current.canRetryRegeneration).toBe(true);
-      act(() => {
-        result.current.resetSession();
-        emitText(sources[1], 'stale-text', 'stale-turn', 'Stale result');
-        emit(sources[1], { type: 'done', is_terminal: true });
-        result.current.retryRegeneration();
-      });
-      expect(result.current.canRetryRegeneration).toBe(false);
-      expect(result.current.items).toEqual([]);
-      expect(SSE).toHaveBeenCalledTimes(2);
-      expect(regenerationEvents()).toHaveLength(2);
-    });
-
-    test('starts a fresh session when the draft changes before retrying', async () => {
-      const { result, sources } = await prepare();
-      const originalRequest = JSON.parse(
-        (SSE as jest.Mock).mock.calls[0][1].payload,
-      );
-      await act(async () => result.current.regenerateContent('target-text'));
-      act(() => sources[1].listeners.error?.({}));
-      mockGetCurrentMdflow.mockReturnValue('Edited draft');
-      await act(async () => result.current.retryRegeneration());
-      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
-      expect(request.content).toBe('Edited draft');
-      expect(request.debug_session_id).not.toBe(
-        originalRequest.debug_session_id,
-      );
-      expect(request.reload_generated_block_bid).toBeUndefined();
-      expect(result.current.canRetryRegeneration).toBe(false);
-      expect(regenerationEvents()).toHaveLength(2);
-    });
-
-    test('blocks retry while ownership is unresolved and clears it on a different run', async () => {
-      const { result, sources, rerender } = await prepare();
-      await act(async () => result.current.regenerateContent('target-text'));
-      act(() => sources[1].listeners.error?.({}));
-      rerender({ audience: null });
-      await act(async () => result.current.retryRegeneration());
-      expect(result.current.canRetryRegeneration).toBe(false);
-      expect(SSE).toHaveBeenCalledTimes(2);
-      rerender({ audience: 'teacher' });
-      await act(async () =>
-        result.current.startRun({
-          shifuBid: 'other-course',
-          outlineBid: 'other-lesson',
-          mdflow: 'Private draft',
-        }),
-      );
-      act(() => emit(sources[2], { type: 'done', is_terminal: true }));
-      await act(async () => result.current.retryRegeneration());
-      expect(result.current.canRetryRegeneration).toBe(false);
-      expect(SSE).toHaveBeenCalledTimes(3);
-      expect(regenerationEvents()).toHaveLength(2);
-    });
-
-    test.each(['stream-event', 'business-response'] as const)(
-      'keeps the original regeneration retry after a Debug service error from %s',
-      async errorSource => {
-        const message = debugServiceUnavailableMessages.find(
-          entry => entry.locale === 'en-US',
-        )!.message;
-        const { result, sources } = await prepare();
-        const originalRequest = JSON.parse(
-          (SSE as jest.Mock).mock.calls[0][1].payload,
-        );
-        const prefix = result.current.items.slice(
-          0,
-          result.current.items.findIndex(
-            item => item.element_bid === 'target-intro',
-          ),
-        );
-        await act(async () => result.current.regenerateContent('target-text'));
-        act(() => {
-          if (errorSource === 'stream-event') {
-            emit(sources[1], { type: 'error', code: 4023, content: message });
-          } else {
-            const fallbackOptions = (
-              attachSseBusinessResponseFallback as jest.Mock
-            ).mock.lastCall[1];
-            fallbackOptions.onHandled({ code: 4023, message });
-          }
-          emit(sources[1], { type: 'done', is_terminal: true });
-          close(sources[1]);
-        });
-
-        expect(result.current.isLoading).toBe(false);
-        expect(result.current.isStreaming).toBe(false);
-        expect(result.current.errorMessage).toBe(message);
-        expect(result.current.items).toEqual([
-          ...prefix,
-          expect.objectContaining(buildDebugBusinessErrorItem(message, 4023)),
-        ]);
-        expect(result.current.canRetryRegeneration).toBe(true);
-        expect(toast).toHaveBeenCalledWith({
-          title: message,
-          variant: 'destructive',
-        });
-        expect(toastOnce).not.toHaveBeenCalled();
-        const failedEvents = [
-          [
-            'teacher_debug_regenerate_start',
-            { shifu_bid: 'course', outline_bid: 'lesson' },
-          ],
-          [
-            'teacher_debug_regenerate_result',
-            { shifu_bid: 'course', outline_bid: 'lesson', result: 'failed' },
-          ],
-        ];
-        expect(regenerationEvents()).toEqual(failedEvents);
-
-        await act(async () => result.current.retryRegeneration());
-        const retryRequest = JSON.parse(
-          (SSE as jest.Mock).mock.lastCall[1].payload,
-        );
-        expect(retryRequest.debug_session_id).toBe(
-          originalRequest.debug_session_id,
-        );
-        expect(retryRequest.reload_generated_block_bid).toBe('selected-turn');
-        expect(retryRequest.user_input).toBeUndefined();
-        expect(result.current.canRetryRegeneration).toBe(false);
-        act(() => {
-          emit(sources[1], { type: 'done', is_terminal: true });
-          emit(sources[2], {
-            type: 'debug_variables',
-            content: { earlierAnswer: 'Keep me' },
-          });
-          emitText(sources[2], 'recovered-text', 'recovered-turn', 'Recovered');
-          emit(sources[2], { type: 'done', is_terminal: true });
-        });
-        expect(result.current.errorMessage).toBeNull();
-        expect(result.current.canRetryRegeneration).toBe(false);
-        expect(result.current.items).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ content: 'Recovered' }),
-          ]),
-        );
-        expect(regenerationEvents()).toEqual([
-          ...failedEvents,
-          [
-            'teacher_debug_regenerate_start',
-            { shifu_bid: 'course', outline_bid: 'lesson' },
-          ],
-          [
-            'teacher_debug_regenerate_result',
-            { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
-          ],
-        ]);
-        expect(JSON.stringify(regenerationEvents())).not.toMatch(
-          /selected-turn|recovered-turn|Private|Keep me|Discard me|4023/,
-        );
-        expect(JSON.stringify(regenerationEvents())).not.toContain(message);
-      },
+    const { result } = renderHook(() =>
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
     );
-
-    test('retry remains available and succeeds when analytics throws', async () => {
-      const { result, sources } = await prepare();
-      mockTrackEvent.mockImplementation(() => {
-        throw new Error('Analytics unavailable');
+    act(() => {
+      void result.current.startRun({
+        shifuBid: 'course',
+        outlineBid: 'lesson',
+        mdflow: 'Draft',
       });
-      await act(async () => result.current.regenerateContent('target-text'));
-      act(() => sources[1].listeners.error?.({}));
-      expect(result.current.canRetryRegeneration).toBe(true);
-      await act(async () => result.current.retryRegeneration());
-      act(() => {
-        emitText(sources[2], 'retried-text', 'retried-turn', 'Recovered');
-        emit(sources[2], { type: 'done', is_terminal: true });
-      });
-      expect(SSE).toHaveBeenCalledTimes(3);
-      expect(result.current.items).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ content: 'Recovered' }),
-        ]),
-      );
-      expect(result.current.canRetryRegeneration).toBe(false);
+      result.current.resetSession();
     });
+
+    await act(async () => resolveBaseUrl('https://example.com'));
+    expect(SSE).not.toHaveBeenCalled();
+    expect(result.current.items).toEqual([]);
+    expect(result.current.isStreaming).toBe(false);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('allows a normal Debug run after API URL resolution rejects', async () => {
+    (getDynamicApiBaseUrl as jest.Mock).mockRejectedValueOnce(
+      new Error('Private API configuration failure'),
+    );
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+    const { result } = renderHook(() =>
+      useDebugSession({ creditInsufficientAudience: 'teacher' }),
+    );
+    const params = {
+      shifuBid: 'course',
+      outlineBid: 'lesson',
+      mdflow: 'Draft',
+    };
+    await act(async () => result.current.startRun(params));
+    expect(SSE).not.toHaveBeenCalled();
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.errorMessage).toBeTruthy();
+
+    await act(async () => result.current.startRun(params));
+    expect(SSE).toHaveBeenCalledTimes(1);
+    expect(
+      JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload),
+    ).not.toHaveProperty('reload_generated_block_bid');
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'recovered',
+          content: 'Recovered',
+        }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Recovered' }),
+      ]),
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   test('sends the current interface language on each preview request', async () => {
@@ -1261,7 +595,7 @@ describe('useDebugSession helpers and business error rendering', () => {
     }
   });
 
-  test('keeps canonical language edits on restart without changing a course language variable', async () => {
+  test('keeps canonical language edits when an edited draft restarts without an answer', async () => {
     const sources: MockSseSource[] = [];
     (SSE as jest.Mock).mockImplementation(() => {
       const source = buildMockSseSource();
@@ -1302,7 +636,13 @@ describe('useDebugSession helpers and business error rendering', () => {
         sys_user_language: language,
         language: 'Python',
       });
-      await act(async () => result.current.regenerateContent());
+      mockGetCurrentMdflow.mockReturnValue(`Edited draft ${language}`);
+      await act(async () =>
+        result.current.submitInteraction(
+          {} as OnSendContentParams,
+          'old-question',
+        ),
+      );
       const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
       expect(request.variables).toEqual({
         sys_user_language: language,
@@ -1342,7 +682,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       sys_user_language: 'fr-FR',
       language: 'TypeScript',
     });
-    await act(async () => result.current.regenerateContent());
+    mockGetCurrentMdflow.mockReturnValue('Edited draft');
+    await act(async () =>
+      result.current.submitInteraction(
+        {} as OnSendContentParams,
+        'old-question',
+      ),
+    );
     const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
     expect(request.variables).toEqual({
       sys_user_language: 'fr-FR',
@@ -1376,7 +722,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     expect(result.current.variableValues).toEqual({
       sys_user_language: 'fr-FR',
     });
-    await act(async () => result.current.regenerateContent());
+    mockGetCurrentMdflow.mockReturnValue('Edited draft');
+    await act(async () =>
+      result.current.submitInteraction(
+        {} as OnSendContentParams,
+        'old-question',
+      ),
+    );
     const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
     expect(request.variables).toEqual({ sys_user_language: 'fr-FR' });
   });
@@ -1695,7 +1047,7 @@ describe('useDebugSession helpers and business error rendering', () => {
     expect(second.debug_session_id).toBe(first.debug_session_id);
   });
 
-  test('discards the pending answer before restarting an edited 2.0 draft and on refresh', async () => {
+  test('discards pending answers on edited-draft restart and confirmed earlier-answer resubmission', async () => {
     jest.useFakeTimers();
     mockParseToRemarkFormat.mockReturnValue({ variableName: 'answer' });
     const sources = [
@@ -1755,7 +1107,16 @@ describe('useDebugSession helpers and business error rendering', () => {
       result.current.setVariableValue('answer', 'new choice');
     });
     expect(SSE).toHaveBeenCalledTimes(2);
-    await act(async () => result.current.regenerateContent());
+    act(() =>
+      result.current.submitInteraction(
+        { variableName: 'answer', selectedValues: ['updated choice'] },
+        'old-question',
+      ),
+    );
+    expect(result.current.regenerationConfirmation.open).toBe(true);
+    expect(SSE).toHaveBeenCalledTimes(2);
+    await act(async () => result.current.regenerationConfirmation.onConfirm());
+    expect(result.current.regenerationConfirmation.open).toBe(false);
     const refreshed = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
     expect(refreshed.variables).toEqual({ learnerName: 'Ada' });
     expect(refreshed.user_input).toBeUndefined();

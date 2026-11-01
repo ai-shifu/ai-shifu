@@ -99,19 +99,14 @@ item with no cache is ready only when `shouldUseTypewriter !== true`, as with
 static/history items. Normalize away `custom-button-after-content` markup;
 appended text beyond a finished cache snapshot may require typing again.
 
-Debug `LIKE_STATUS` helper rows require an existing text parent and wait for
-that parent's gate. Skip helpers for missing or non-text parents, including
-HTML and interaction items. Do not reveal these helpers ahead of unfinished
-text or derive their visibility solely from the learner gate.
+Debug `LIKE_STATUS` speaker/helper rows require an existing text parent and
+wait for that parent's gate. Skip helpers for missing or non-text parents,
+including HTML and interaction items. Do not reveal these helpers ahead of
+unfinished text or derive their visibility solely from the learner gate.
 
-`DebugPanel` renders regeneration and TTS icons directly for each content or
-interaction element, independently of helper rows. Keep unavailable actions
-visible and disabled: regeneration needs an editable text target with valid
-element/generated-block identities and no running output; TTS needs completed,
-nonempty, speakable text, a valid element identity and a synthesis callback.
-Loading placeholders, error items and helper rows do not get action controls.
-Accepted regeneration retains its existing analytics family; accepted TTS
-requests follow the contract in `docs/references/frontend-product-analytics.md`.
+The editor Debug panel does not expose content regeneration or its Retry
+action. Preserve the existing text speaker/helper behavior when changing the
+panel; full-course classroom rewind is a separate flow.
 
 Run `debug-typewriter-gate.test.ts` for ordering, HTML-helper suppression and
 appended-text behavior. These are helper-level checks, not full rendered-panel

@@ -191,6 +191,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Publish Web images without the Cook name](./completed/public-web-image-name.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
 - [Compact completed memory recall history](./completed/recall-history-compaction.md)
+- [Remove editor Debug content regeneration](./completed/remove-debug-content-regeneration.md)
 - [Remove manual memory definition write APIs](./completed/remove-manual-memory-definition-apis.md)
 - [Remove the MarkdownFlow arena](./completed/remove-markdownflow-arena.md)
 - [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
