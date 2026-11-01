@@ -6,7 +6,6 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import re
-import sys
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -289,13 +288,6 @@ USER_STATE_TO_OPERATOR_STATUS = {
     str(USER_STATE_TRAIL): OPERATOR_USER_STATUS_REGISTERED,
     str(USER_STATE_PAID): OPERATOR_USER_STATUS_PAID,
 }
-
-
-def _get_legacy_admin_symbol(name: str, fallback: object) -> object:
-    admin_module = sys.modules.get("flaskr.service.shifu.admin")
-    if admin_module is None:
-        return fallback
-    return getattr(admin_module, name, fallback)
 
 
 def _format_decimal(value: Decimal | None) -> str:

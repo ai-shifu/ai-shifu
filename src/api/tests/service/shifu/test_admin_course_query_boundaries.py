@@ -14,6 +14,9 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu import admin_course_summaries as summaries
 from flaskr.service.shifu.admin_operations import courses_listing as listing
+from flaskr.service.shifu.admin_operations import courses_ratings as ratings
+from flaskr.service.shifu.admin_operations import courses_shared as shared
+from flaskr.service.shifu.admin_operations import courses_transfer_copy as transfer_copy
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, PublishedShifu
 from flaskr.util.datetime import now_utc
 
@@ -95,23 +98,41 @@ def test_latest_course_loaders_filter_current_revision_and_preserve_prompt_flags
     assert result[0].title == "Current title"
     if not lightweight:
         assert result[0].has_course_prompt is True
-    seeds = module._load_latest_shifu_seeds(DraftShifu, **filters)
+    assert module._load_latest_shifus(DraftShifu, **_filters(creator_bids=set())) == []
+
+
+def test_latest_course_seed_loader_filters_current_revision(
+    course_scope: str,
+) -> None:
+    now = now_utc()
+    bid = uuid.uuid4().hex
+    _course(course_scope, bid, title="Old title")
+    _course(course_scope, bid, title="Current title")
+    _course(course_scope, bid, title="Deleted revision", deleted=1)
+    _course("other-owner", uuid.uuid4().hex, title="Current title")
+    filters = _filters(
+        shifu_bid=bid,
+        course_name="Current",
+        creator_bids={course_scope},
+        start_time=now - timedelta(days=3),
+        end_time=now,
+        updated_start_time=now - timedelta(days=2),
+        updated_end_time=now,
+    )
+    seeds = listing._load_latest_shifu_seeds(DraftShifu, **filters)
     assert len(seeds) == 1
     assert seeds[0].shifu_bid == bid
     assert seeds[0].llm == "model"
-    assert module._load_latest_shifus(DraftShifu, **_filters(creator_bids=set())) == []
     assert (
-        module._load_latest_shifu_seeds(DraftShifu, **_filters(creator_bids=set()))
+        listing._load_latest_shifu_seeds(DraftShifu, **_filters(creator_bids=set()))
         == []
     )
 
 
-@pytest.mark.parametrize("module", [listing, summaries], ids=["listing", "summaries"])
 @pytest.mark.parametrize("include_activity", [False, True])
 def test_candidate_query_merges_latest_draft_and_published_rows_and_current_outline_activity(
     course_scope: str,
     monkeypatch: pytest.MonkeyPatch,
-    module: object,
     include_activity: bool,
 ) -> None:
     now = now_utc()
@@ -119,7 +140,7 @@ def test_candidate_query_merges_latest_draft_and_published_rows_and_current_outl
     _course(course_scope, bid, model=PublishedShifu, title="Published")
     latest = _course(course_scope, bid, title="Latest draft")
     _course(course_scope, demo_bid)
-    monkeypatch.setattr(module, "load_demo_shifu_bids", lambda: {demo_bid})
+    monkeypatch.setattr(listing, "load_demo_shifu_bids", lambda: {demo_bid})
     db.session.add_all(
         [
             DraftOutlineItem(
@@ -146,7 +167,7 @@ def test_candidate_query_merges_latest_draft_and_published_rows_and_current_outl
         )
     )
     db.session.flush()
-    result = module._build_operator_course_candidate_query(
+    result = listing._build_operator_course_candidate_query(
         shifu_bid="",
         course_name="",
         creator_bids={course_scope},
@@ -155,7 +176,7 @@ def test_candidate_query_merges_latest_draft_and_published_rows_and_current_outl
         include_activity=include_activity,
     ).all()
     assert len(result) == 1
-    candidate = module._build_operator_course_list_candidate(result[0])
+    candidate = listing._build_operator_course_list_candidate(result[0])
     assert candidate.id == latest.id
     assert candidate.title == "Latest draft"
     assert candidate.selected_source == "draft"
@@ -165,10 +186,8 @@ def test_candidate_query_merges_latest_draft_and_published_rows_and_current_outl
         assert candidate.activity_updated_user_bid == "editor"
 
 
-@pytest.mark.parametrize("module", [listing, summaries], ids=["listing", "summaries"])
 def test_candidate_query_applies_exact_course_name_owner_and_creation_boundaries(
     course_scope: str,
-    module: object,
 ) -> None:
     now = now_utc()
     bid = uuid.uuid4().hex
@@ -182,10 +201,12 @@ def test_candidate_query_applies_exact_course_name_owner_and_creation_boundaries
     }
     assert [
         row.shifu_bid
-        for row in module._build_operator_course_candidate_query(**args).all()
+        for row in listing._build_operator_course_candidate_query(**args).all()
     ] == [bid]
     assert (
-        module._build_operator_course_candidate_query(**{**args, "creator_bids": set()})
+        listing._build_operator_course_candidate_query(
+            **{**args, "creator_bids": set()}
+        )
         is None
     )
 
@@ -313,10 +334,10 @@ def test_course_transfer_and_history_loaders_respect_latest_deletion_tombstones(
 ) -> None:
     bid = uuid.uuid4().hex
     published = _course(course_scope, bid, model=PublishedShifu)
-    assert summaries._load_latest_course_for_transfer(bid) == published
+    assert transfer_copy._load_latest_course_for_transfer(bid) == published
     draft = _course(course_scope, bid)
-    assert summaries._load_latest_course_for_transfer(bid) == draft
-    assert summaries._load_latest_course_versions(bid) == (draft, published)
+    assert transfer_copy._load_latest_course_for_transfer(bid) == draft
+    assert shared._load_latest_course_versions(bid) == (draft, published)
     for outline_bid, position, deleted in [
         ("kept", "2", 0),
         ("removed", "1", 0),
@@ -334,7 +355,7 @@ def test_course_transfer_and_history_loaders_respect_latest_deletion_tombstones(
     db.session.flush()
     assert [
         row.outline_item_bid
-        for row in summaries._load_latest_active_draft_outlines(bid)
+        for row in transfer_copy._load_latest_active_draft_outlines(bid)
     ] == ["first", "kept"]
 
 
@@ -367,7 +388,7 @@ def test_outline_history_tree_sorts_siblings_and_retains_markdown_block_counts(
             content="",
         ),
     ]
-    tree = summaries._build_outline_history_tree(outlines)
+    tree = transfer_copy._build_outline_history_tree(outlines)
     assert [item.bid for item in tree] == ["chapter", "second"]
     assert tree[0].children[0].bid == "lesson"
     assert tree[0].children[0].child_count == 1
@@ -378,20 +399,24 @@ def test_course_copy_titles_keep_custom_names_and_enforce_the_shared_length_limi
     app: object,
 ) -> None:
     with app.app_context():
-        assert summaries._resolve_course_copy_title("Source", " Custom ") == "Custom"
-        assert summaries._resolve_course_copy_title("Source", "").startswith("Source")
+        assert (
+            transfer_copy._resolve_course_copy_title("Source", " Custom ") == "Custom"
+        )
+        assert transfer_copy._resolve_course_copy_title("Source", "").startswith(
+            "Source"
+        )
         assert (
             len(
-                summaries._build_course_copy_title(
-                    "A" * summaries.SHIFU_NAME_MAX_LENGTH
+                transfer_copy._build_course_copy_title(
+                    "A" * transfer_copy.SHIFU_NAME_MAX_LENGTH
                 )
             )
-            == summaries.SHIFU_NAME_MAX_LENGTH
+            == transfer_copy.SHIFU_NAME_MAX_LENGTH
         )
-        assert summaries._build_course_copy_title("")
+        assert transfer_copy._build_course_copy_title("")
         with pytest.raises(AppError):
-            summaries._resolve_course_copy_title(
-                "Source", "A" * (summaries.SHIFU_NAME_MAX_LENGTH + 1)
+            transfer_copy._resolve_course_copy_title(
+                "Source", "A" * (transfer_copy.SHIFU_NAME_MAX_LENGTH + 1)
             )
 
 
@@ -399,7 +424,7 @@ def test_course_copy_titles_keep_custom_names_and_enforce_the_shared_length_limi
 def test_average_rating_format_preserves_missing_scores(
     value: Decimal | None, expected: str
 ) -> None:
-    assert summaries._format_average_score(value) == expected
+    assert shared._format_average_score(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -415,18 +440,18 @@ def test_average_rating_format_preserves_missing_scores(
 def test_rating_filters_normalize_known_modes_and_sort_orders(
     value: str, mode: str, sort: str
 ) -> None:
-    assert summaries._resolve_course_rating_mode(value) == mode
-    assert summaries._resolve_course_rating_sort_by(value) == sort
+    assert ratings._resolve_course_rating_mode(value) == mode
+    assert ratings._resolve_course_rating_sort_by(value) == sort
 
 
 def test_course_quick_filter_and_recent_window_boundaries(app: object) -> None:
     with app.app_context():
-        assert summaries._resolve_course_quick_filter(" PUBLISHED ") == "published"
-        assert summaries._resolve_course_quick_filter("") == ""
+        assert listing._resolve_course_quick_filter(" PUBLISHED ") == "published"
+        assert listing._resolve_course_quick_filter("") == ""
         with pytest.raises(AppError):
-            summaries._resolve_course_quick_filter("unsupported")
+            listing._resolve_course_quick_filter("unsupported")
     now = now_utc()
-    start, end = summaries._resolve_created_last_7d_window(now)
+    start, end = listing._resolve_created_last_7d_window(now)
     assert start == (now - timedelta(days=6)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -502,7 +527,7 @@ def test_summary_mapper_uses_latest_activity_user_and_preserves_price_precision(
 ) -> None:
     course = _course(course_scope, uuid.uuid4().hex)
     now = now_utc()
-    result = summaries._build_course_summary(
+    result = listing._build_course_summary(
         course,
         {"editor": {"nickname": "Latest editor"}},
         "published",
@@ -511,9 +536,8 @@ def test_summary_mapper_uses_latest_activity_user_and_preserves_price_precision(
     assert result.updater_nickname == "Latest editor"
     assert result.updated_at == now
     assert Decimal(result.price) == Decimal("12.34")
-    for module in (summaries, listing):
-        activity = module._load_course_activity_map([course], [])
-        assert activity[course.shifu_bid]["updated_at"] == course.updated_at
+    activity = listing._load_course_activity_map([course], [])
+    assert activity[course.shifu_bid]["updated_at"] == course.updated_at
 
 
 @pytest.mark.parametrize("loader", ["seeds", "lightweight"])

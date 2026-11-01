@@ -5,11 +5,8 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-import re
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from flask import current_app
 from flaskr.service.user.consts import (
     USER_STATE_PAID,
     USER_STATE_REGISTERED,
@@ -24,46 +21,6 @@ COURSE_STATUS_PUBLISHED = "published"
 
 COURSE_STATUS_UNPUBLISHED = "unpublished"
 
-COURSE_QUICK_FILTER_DRAFT = "draft"
-
-COURSE_QUICK_FILTER_PUBLISHED = "published"
-
-COURSE_QUICK_FILTER_CREATED_LAST_7D = "created_last_7d"
-
-COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D = "learning_active_30d"
-
-COURSE_QUICK_FILTER_PAID_ORDER_30D = "paid_order_30d"
-
-COURSE_QUICK_FILTER_VALUES = {
-    COURSE_QUICK_FILTER_DRAFT,
-    COURSE_QUICK_FILTER_PUBLISHED,
-    COURSE_QUICK_FILTER_CREATED_LAST_7D,
-    COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D,
-    COURSE_QUICK_FILTER_PAID_ORDER_30D,
-}
-
-PROMPT_SOURCE_LESSON = "lesson"
-
-PROMPT_SOURCE_CHAPTER = "chapter"
-
-PROMPT_SOURCE_COURSE = "course"
-
-COURSE_USER_LIST_MAX_PAGE_SIZE = 100
-
-COURSE_USER_ROLE_OPERATOR = "operator"
-
-COURSE_USER_ROLE_CREATOR = "creator"
-
-COURSE_USER_ROLE_STUDENT = "student"
-
-COURSE_USER_ROLE_NORMAL = "normal"
-
-COURSE_USER_LEARNING_STATUS_NOT_STARTED = "not_started"
-
-COURSE_USER_LEARNING_STATUS_LEARNING = "learning"
-
-COURSE_USER_LEARNING_STATUS_COMPLETED = "completed"
-
 OPERATOR_USER_STATUS_UNREGISTERED = "unregistered"
 
 OPERATOR_USER_STATUS_REGISTERED = "registered"
@@ -77,8 +34,6 @@ OPERATOR_USER_STATUS_CANCELLED = "cancelled"
 OPERATOR_USER_STATUS_UNKNOWN = "unknown"
 
 OPERATOR_USER_LIST_MAX_PAGE_SIZE = 100
-
-OPERATOR_ORDER_LIST_MAX_PAGE_SIZE = 100
 
 OPERATOR_USER_ROLE_REGULAR = "regular"
 
@@ -129,10 +84,6 @@ OPERATOR_USER_REGISTRATION_SOURCE_PHONE = "phone"
 
 OPERATOR_USER_REGISTRATION_SOURCE_EMAIL = "email"
 
-OPERATOR_USER_REGISTRATION_SOURCE_GOOGLE = "google"
-
-OPERATOR_USER_REGISTRATION_SOURCE_WECHAT = "wechat"
-
 OPERATOR_USER_REGISTRATION_SOURCE_IMPORTED = "imported"
 
 OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN = "unknown"
@@ -158,17 +109,11 @@ COURSE_RATING_LIST_MAX_PAGE_SIZE = 100
 
 COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE = 100
 
-COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
-
-COURSE_CREDIT_USAGE_VIEW_RAW = "raw"
-
 COURSE_CREDIT_USAGE_MODE_LEARN = "learn"
 
 COURSE_CREDIT_USAGE_MODE_LISTEN = "listen"
 
 COURSE_CREDIT_USAGE_MODE_ASK = "ask"
-
-COURSE_CREDIT_USAGE_MODE_MIXED = "mixed"
 
 COURSE_CREDIT_USAGE_SCENE_LEARNING = "learning"
 
@@ -241,14 +186,6 @@ OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES = {
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL,
 }
 
-OPERATOR_TARGET_CONTACT_MAX_LENGTH = 320
-
-OPERATOR_TARGET_PHONE_PATTERN = re.compile(r"^\d{11}$")
-
-OPERATOR_TARGET_EMAIL_PATTERN = re.compile(
-    r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-)
-
 USER_STATE_TO_OPERATOR_STATUS = {
     USER_STATE_UNREGISTERED: OPERATOR_USER_STATUS_UNREGISTERED,
     USER_STATE_REGISTERED: OPERATOR_USER_STATUS_REGISTERED,
@@ -268,37 +205,6 @@ def _format_decimal(value: Decimal | None) -> str:
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized
-
-
-def _coerce_operator_datetime(value: object) -> datetime | None:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        if value.tzinfo is not None:
-            return value.astimezone(UTC).replace(tzinfo=None)
-        return value
-    if isinstance(value, str):
-        normalized = value.strip()
-        if not normalized:
-            return None
-        if normalized.endswith("Z"):
-            normalized = f"{normalized[:-1]}+00:00"
-        try:
-            parsed = datetime.fromisoformat(normalized)
-        except ValueError:
-            current_app.logger.warning(
-                "Failed to parse operator datetime value '%s'",
-                value,
-            )
-            return None
-        if parsed.tzinfo is not None:
-            return parsed.astimezone(UTC).replace(tzinfo=None)
-        return parsed
-    current_app.logger.warning(
-        "Unexpected operator datetime value type '%s'",
-        type(value).__name__,
-    )
-    return None
 
 
 def _normalize_metadata_json(value: object) -> dict[str, object]:

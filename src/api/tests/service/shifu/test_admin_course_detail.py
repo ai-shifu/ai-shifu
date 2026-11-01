@@ -49,10 +49,12 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
 )
 from flaskr.service.promo.models import CouponUsage, PromoRedemption
-from flaskr.service.shifu.admin import (
-    _coerce_operator_datetime,
+from flaskr.service.shifu.admin_operations.courses_detail import (
     get_operator_course_chapter_detail,
     get_operator_course_detail,
+)
+from flaskr.service.shifu.admin_operations.courses_shared import (
+    _coerce_operator_datetime,
 )
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CONTENT_VALUE,

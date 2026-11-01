@@ -50,7 +50,7 @@ from flaskr.service.referral.api import (
     update_operator_referral_campaign_status,
     update_operator_referral_status,
 )
-from flaskr.service.shifu.admin_dtos import (
+from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserContactChangeRequestDTO,
     AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
@@ -60,22 +60,36 @@ from flaskr.service.shifu.admin_operations.config_rates import (
     get_operator_rate_config,
     update_operator_rate_config,
 )
-from flaskr.service.shifu.admin_operations.courses import (
-    OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
-    copy_operator_course,
-    get_operator_course_chapter_detail,
+from flaskr.service.shifu.admin_operations.courses_credit_usage import (
     get_operator_course_credit_usage_details,
     get_operator_course_credit_usages,
+)
+from flaskr.service.shifu.admin_operations.courses_detail import (
+    get_operator_course_chapter_detail,
     get_operator_course_detail,
+    get_operator_course_prompt,
+)
+from flaskr.service.shifu.admin_operations.courses_follow_ups import (
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
+)
+from flaskr.service.shifu.admin_operations.courses_listing import (
     get_operator_course_overview,
-    get_operator_course_prompt,
-    get_operator_course_ratings,
-    get_operator_course_users,
     list_operator_courses,
+)
+from flaskr.service.shifu.admin_operations.courses_ratings import (
+    get_operator_course_ratings,
+)
+from flaskr.service.shifu.admin_operations.courses_shared import (
+    OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
+)
+from flaskr.service.shifu.admin_operations.courses_transfer_copy import (
+    copy_operator_course,
     transfer_operator_course_creator,
     transfer_operator_published_courses,
+)
+from flaskr.service.shifu.admin_operations.courses_users import (
+    get_operator_course_users,
 )
 from flaskr.service.shifu.admin_operations.credit_notifications import (
     dry_run_operator_credit_notifications,
