@@ -675,14 +675,17 @@ flows before promoting them.
 - `prepare-release.yml` (`Prepare Release PR`): manually validates a final
   `vX.Y.Z` increase and opens a version-update PR against main; it creates no
   formal tag or Release.
-- `draft-release.yml` (`Prepare Merged Release Draft`): compares the primary
-  version before/after each main push, validates merged release-PR provenance,
-  and pins a draft to the exact event commit only when the version increased.
+- `draft-release.yml` (`Publish Merged Release`): detects a version increase
+  on main, validates merged release-PR provenance, and stages an exact-source
+  draft. It publishes the Release automatically only after both services pass
+  native image build, smoke, digest and manifest verification; manual recovery
+  retains an explicitly supplied original source SHA.
 - `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
   manual dispatch on main; publishes to GHCR and configured Docker Hub / Aliyun
   mirrors unless the push toggle is disabled.
-- `build-on-release.yml`: builds and pushes release-tagged Docker images when
-  a GitHub release is published.
+- `build-on-release.yml`: builds and verifies formal version-tagged images
+  as a reusable pre-publication step. Its legacy published-release handler
+  retains manual publication support and skips verified automatic builds.
 
 See [Docker image publication](references/docker-image-publication.md) for
 registry permissions, private-to-public GHCR setup, candidate verification and
@@ -702,41 +705,41 @@ from ordinary application changes may first be detected by the main build.
 ### Release Path
 
 1. Run `prepare-release.yml` on main with a canonical final `vX.Y.Z` increase
-   (no prerelease, build suffix or leading zeroes). It updates the two npm
-   manifests and lock roots, the vendored engine version, and first-party pinned
+   (no prerelease, build suffix or leading zeroes). It updates the Web npm
+   manifest and lock root, the vendored engine version, and first-party pinned
    Compose images. Third-party images and rolling `latest` are unchanged. The
-   generated PR includes a notes preview; no formal tag or Release is created.
+   `chore: bump version to vX.Y.Z` PR includes a notes preview; preparation
+   creates no formal tag or Release.
 2. A human reviews the version-only diff and CI, then **manually merges** the
    `release/version-bump-<tag>` PR into main. AI/scripts must never merge or
-   enable auto-merge. Main/latest publication and existing production CICD/Drone
-   auto-deployment remain independent effects of that merge.
-3. `draft-release.yml` freezes the exact main push SHA, not moving main or
-   checkout HEAD. Unchanged versions and an initial missing baseline skip;
-   decreases, malformed versions, forced/deleted pushes and inconsistent source
-   versions fail closed. The source must introduce the version increase and be
-   the exact merge commit of a release PR into this repository's main.
-4. Automation verifies the npm/lock/engine versions and pinned Compose tags,
-   creates a non-forced exact-source formal tag, and creates a **draft only**.
-   Conflicting tags, mismatched drafts and already public releases fail closed.
-   Same-source reruns reuse a verified tag/draft without overwriting human notes.
-5. A human reviews the draft and **manually Publishes** in GitHub Releases.
-   `build-on-release.yml` revalidates the source, version, tag and merged-PR
-   provenance before passing the exact commit to the native image builder.
-   Drafts/prereleases skip; malformed or premature publication does not silently
-   build mislabeled images. Existing image names, registries and architectures
-   are retained. A `:latest` image can still be newer than the release.
-6. After image publication, smoke-check Compose startup, backend boot and the
-   primary frontend path before treating the release as ready. This automation
-   adds no production deployment operation and does not rewrite historical tags
-   or releases.
+   enable auto-merge. This merge is the formal publication gate; main/latest
+   publication and existing production CICD/Drone auto-deployment remain
+   independent effects of that merge.
+3. `draft-release.yml` freezes the exact main push SHA and validates the version
+   increase, consistent version files and exact merged release-PR provenance.
+   Ordinary same-version pushes skip. Invalid candidates fail closed before
+   publication, and formal tags are never moved.
+4. Automation stages a same-source draft, then calls `build-on-release.yml`.
+   Both API and Web must pass native AMD64 and ARM64 production startup smoke,
+   tested-content digest checks, and multi-platform manifest readback. Release
+   calls publish only their formal version tag, never `latest`.
+5. After both image services succeed, automation publishes and reads back the
+   formal Release. No second **Publish release** click is needed. A completion
+   marker prevents the legacy published-release handler from repeating those
+   builds, while unmarked manual publications keep their image-build path.
+6. Recover failures from the original run or explicitly provide its original
+   merged SHA and version through **Publish Merged Release** on main. Matching
+   completed releases are verified without changes; mismatches and prereleases
+   stop. Image failures retain an unpublished draft for safe retry. After
+   publication, verify consumer Compose startup and the primary frontend path;
+   this automation adds no production deployment operation or historical rewrite.
 
 Notes are recomputed at the frozen merged candidate, using the highest reachable
-lower final-version tag and excluding the candidate's own tag. Commitizen is
-preferred, with a Git fallback and omitted-PR coverage. MarkdownFlow notes retain
-locked dependency versions, historical frontend-lock lookup, library tag
-comparisons, registry-time fallback, author enrichment, deduplication, sorting
-and bounded detail. See [Docker image publication](references/docker-image-publication.md#pr-first-release-gates)
-for recovery and human-gate limitations.
+lower final-version tag and excluding the candidate's own tag. Product and
+MarkdownFlow dependency-note behavior remains unchanged. The canonical
+[Docker image publication reference](references/docker-image-publication.md#pr-first-release-gates)
+owns source and human-merge guards, image verification, token requirements,
+legacy-event deduplication, and pinned-source recovery details.
 
 ### Release And Automation Rules
 

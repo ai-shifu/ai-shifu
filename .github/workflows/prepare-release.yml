@@ -61,12 +61,12 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
-          commit-message: "chore: flow version to ${{ steps.version.outputs.tag }}"
+          commit-message: "chore: bump version to ${{ steps.version.outputs.tag }}"
           committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
           author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
           branch: release/version-bump-${{ steps.version.outputs.tag }}
           base: main
-          title: "chore: flow version to ${{ steps.version.outputs.tag }}"
+          title: "chore: bump version to ${{ steps.version.outputs.tag }}"
           body-path: ${{ runner.temp }}/release-pr.md
           labels: |
             release
@@ -82,6 +82,6 @@ jobs:
             printf '## Release PR prepared: %s\n\n' "$RELEASE_TAG"
             printf 'Version PR: %s\n\n' "$PR_URL"
             printf '%s\n' 'A human must review CI and manually merge. AI/scripts must never merge or enable auto-merge.'
-            printf '%s\n' 'No formal release or tag was created. After merge, review the automatic draft and manually Publish in GitHub.'
+            printf '%s\n' 'No formal release or tag was created. Merging this PR authorizes exact-source image build, verification and automatic Release publication.'
             printf '%s\n' 'Main/latest image publication and production CICD/Drone auto-deploy remain independent and unchanged.'
           } >> "$GITHUB_STEP_SUMMARY"

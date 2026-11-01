@@ -1,8 +1,18 @@
-name: Build and Deploy on Release
+name: Build Release Images
 
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      source_commit:
+        description: Verified merged source commit for pre-publication image builds
+        required: true
+        type: string
+      tag:
+        description: Exact formal version tag
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -11,9 +21,18 @@ permissions:
 env:
   DEFAULT_DOCKERHUB_USER: aishifu
 
+# Serialize the legacy published-event path with explicit pre-publication builds.
+concurrency:
+  group: release-images-${{ inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
 jobs:
   validate-release:
     runs-on: ubuntu-latest
+    # GitHub requires push access even for a read-only lookup of a draft Release.
+    permissions:
+      contents: write
+      pull-requests: read
     outputs:
       tag: ${{ steps.extract.outputs.tag }}
       version: ${{ steps.extract.outputs.version }}
@@ -22,10 +41,10 @@ jobs:
       commit: ${{ steps.extract.outputs.commit }}
 
     steps:
-      - name: Check out exact release event source
+      - name: Check out trusted workflow revision
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
@@ -38,13 +57,20 @@ jobs:
       - name: Refresh main ancestry
         run: git fetch --no-tags origin main:refs/remotes/origin/main
 
-      - name: Validate published release source and version
+      - name: Validate release source and version before image builds
         id: extract
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE: ${{ inputs.source_commit || github.sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          python scripts/release_workflow.py validate-published --source "$GITHUB_SHA" \
-            --event "$GITHUB_EVENT_PATH" --repository "$GITHUB_REPOSITORY" --output "$GITHUB_OUTPUT"
+          if test "$GITHUB_EVENT_NAME" = release; then
+            python scripts/release_workflow.py validate-published --source "$RELEASE_SOURCE" \
+              --event "$GITHUB_EVENT_PATH" --repository "$GITHUB_REPOSITORY" --output "$GITHUB_OUTPUT"
+          else
+            python scripts/release_workflow.py validate-candidate --source "$RELEASE_SOURCE" \
+              --tag "$RELEASE_TAG" --repository "$GITHUB_REPOSITORY" --output "$GITHUB_OUTPUT"
+          fi
 
   build-docker:
     name: Build release (${{ matrix.service }})
@@ -78,7 +104,6 @@ jobs:
       build-args: |
         TAG_VERSION=${{ needs.validate-release.outputs.tag }}
       tags: |
-        type=raw,value=latest,enable={{is_default_branch}}
         type=raw,value=${{ needs.validate-release.outputs.tag }}
       labels: |
         org.opencontainers.image.title=AI-Shifu ${{ matrix.service }}
@@ -106,7 +131,7 @@ jobs:
           RELEASE_TAG: ${{ needs.validate-release.outputs.tag }}
         run: |
           ghcr_owner=$(printf '%s' "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')
-          echo "## 🚀 Release Build and Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Release Image Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release**: ${{ needs.validate-release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ${{ needs.build-docker.result == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
@@ -148,4 +173,4 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "🤖 Automated build triggered by release: **${{ needs.validate-release.outputs.tag }}**" >> $GITHUB_STEP_SUMMARY
+          echo "🤖 Release image build for: **${{ needs.validate-release.outputs.tag }}**" >> $GITHUB_STEP_SUMMARY

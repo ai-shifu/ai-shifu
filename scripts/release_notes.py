@@ -700,8 +700,8 @@ def main() -> None:
             "A human must review CI and manually merge this PR into main.\n"
             "AI/scripts must never merge. Never enable auto-merge for a release PR.\n"
             "Merging main retains the existing latest-image and production CICD/Drone triggers.\n\n"
-            "After merge, automation validates the exact merged commit and creates a draft only.\n"
-            "A human must review and manually Publish that draft in GitHub to start release-image publication.\n\n"
+            "After merge, automation validates the exact merged commit and builds and verifies the release images.\n"
+            "The verified Release is published automatically; no second manual Publish action is needed.\n\n"
             "## Changelog preview\n\nThis preview is recomputed at the exact merged main commit.\n\n"
             + content
         )

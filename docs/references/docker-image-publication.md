@@ -2,7 +2,7 @@
 title: Docker image publication
 status: canonical
 owner_surface: repository
-last_reviewed: 2026-10-22
+last_reviewed: 2026-11-01
 ---
 
 # Docker image publication
@@ -72,7 +72,8 @@ before changing it, even when only two packages need to be public. See GitHub's
 | Entry point | Trigger | Tags | Publication |
 | --- | --- | --- | --- |
 | Build Latest Docker Images | Push to main, or manual Run workflow on main | `latest`, full commit SHA | GHCR and configured mirrors |
-| Build and Deploy on Release | Published non-draft, non-prerelease release | Existing release tag rules | GHCR and configured mirrors |
+| Publish Merged Release | Increasing version merged to main, or explicit pinned-source recovery | Formal `vX.Y.Z` only | Verified images, then formal GitHub Release |
+| `build-on-release.yml` | Reusable pre-publication call, or legacy published-release event | Formal `vX.Y.Z` only | GHCR and configured mirrors |
 | Critical Path Runtime Checks | Runtime-affecting pull request or manual dispatch | Local production AMD64 images | No login or push |
 | Docker Packaging Checks | Pull request with packaging changes, affected services on native ARM64 | Local validation name | No login or push |
 | Docker Packaging Checks | Ordinary manual dispatch, both services on AMD64 and ARM64 | Local validation name | No login or push |
@@ -87,24 +88,29 @@ To backfill the current main, open **Actions → Build Latest Docker Images →
 Run workflow**, select **main**, and run it. This rebuilds both services for both
 architectures and publishes the current main's SHA and latest tags. It does not
 rebuild historical releases. For a failed existing release workflow, rerun that
-original run so it retains its release event/tag; expired digest artifacts require
-a full rerun. Do not create another release merely to backfill latest.
+original run so it retains its source commit and tag; expired digest artifacts
+require a full rerun. Use the pinned recovery procedure below if a new run is
+needed. Do not create another release merely to backfill latest.
 
 ## PR-first release gates
 
 `Prepare Release PR` accepts a final `vX.Y.Z` increase on main and creates only
-`release/version-bump-<tag>`. Its version-file scope is the two npm manifests and
-lock roots, the vendored engine version, and first-party pinned Compose images.
-It does not create a formal tag, Release or deployment. AI/scripts must never
-merge or enable auto-merge; a human reviews CI and manually merges into main.
+`release/version-bump-<tag>`. Its title and version commit use
+`chore: bump version to vX.Y.Z`. Its version-file scope is the Web npm manifest
+and lock root, the vendored engine version, and first-party pinned Compose
+images. It does not create a formal tag, Release or deployment. AI/scripts must
+never merge or enable auto-merge. A human reviews CI and manually merges into
+main; that merge authorizes the automatic formal publication sequence, with no
+second **Publish release** click.
 
-`Prepare Merged Release Draft` runs on main pushes without changing latest or
-production CICD/Drone configuration. It freezes the event SHA and compares the
-primary Web version at `before` and `after`. No change or an initial absent
-baseline skips. Invalid/decreasing versions, forced pushes, inconsistent npm /
-engine / Compose versions, or missing exact merged-release-PR provenance fail.
-The source must itself introduce the version increase; a batched push ending in
-a later non-version commit is not silently substituted for the merge source.
+`Publish Merged Release` in `draft-release.yml` runs on main pushes without
+changing latest or production CICD/Drone configuration. It freezes the event
+SHA and compares the primary Web version at `before` and `after`. No change or
+an initial absent baseline skips. Invalid/decreasing versions, forced pushes,
+inconsistent npm / engine / Compose versions, or missing exact merged-release-PR
+provenance fail. The source must itself introduce the version increase; a
+batched push ending in a later non-version commit is not silently substituted
+for the merge source.
 
 The provenance guard requires a merged same-repository release branch targeting
 main, an exact `merge_commit_sha`, no recorded `auto_merge`, and a non-bot merger.
@@ -114,53 +120,102 @@ human**, and GitHub may clear auto-merge metadata after completion. Manual revie
 and repository branch/access policy remain necessary; these workflows do not
 change settings or claim to fully attest a human action.
 
-The draft helper pins the formal tag to that exact source (including peeled
-annotated tags), never force-updates a tag, and creates a draft with explicit
-`draft=true`, `prerelease=false`, and `make_latest=false`. Tag, target SHA, title,
-source marker, source versions and pinned images must agree. It reads the exact
-tag and Release back after writes. Same-source reruns retain human note edits;
-public releases and conflicting targets fail closed without editing them.
+The coordinator first pins the formal tag to the exact source, including peeled
+annotated tags, and creates or resumes a draft with `draft=true`,
+`prerelease=false`, and `make_latest=false`. It never force-updates a tag. Tag,
+target SHA, title, source marker, source versions and pinned images must agree.
+It reads the tag and Release back after writes and retains human note edits on
+same-source retries. A mismatched or prerelease candidate fails closed.
 
-Only the draft-writing step selects the existing `PAT_TOKEN` secret before
-falling back to `GITHUB_TOKEN`; note lookups retain the repository token. The PAT
-must have repository access plus the classic `workflow` scope, or fine-grained
-Contents and Workflows write permissions plus Pull requests read permission for
-this repository. GitHub requires workflow-write authorization when a frozen
-target's workflow files differ from the current default branch, including a
-delayed draft or retry after main changes a workflow. `GITHUB_TOKEN` cannot be
-granted that authorization. The fallback therefore covers targets that do not
-require workflow-write permission; it does not replace a correctly scoped PAT
-for those delayed drafts. See GitHub's
+Before that Release becomes public, the coordinator explicitly invokes
+`build-on-release.yml`. Its candidate guard revalidates the draft, source,
+version, tag and merged-PR provenance, then passes the immutable source SHA to
+the existing native image builder. The candidate-validation job uses a
+push-capable repository token because GitHub hides drafts from read-only
+credentials; its metadata operations remain read-only, and image builders keep
+Contents read permission. Both API and Web must pass native AMD64 and
+ARM64 production-image startup smoke checks, tested-content digest checks, and
+multi-platform manifest publication/readback for all configured destinations.
+The release caller emits only its formal version tag; it never writes `latest`,
+including when recovering an older source from a workflow running on main.
+Existing image names, registries, architectures and `build-latest.yml` behavior
+are retained.
+
+Only after both image services succeed does the coordinator publish the same
+Release. The publication helper preserves notes and adds exactly one
+`<!-- ai-shifu-release-images-verified:<source SHA> -->` marker together with
+the public state, then reads back the source, tag, state and body. The marker is
+workflow coordination metadata, not independent cryptographic image
+attestation. The coordinator owns when it may be written: only after its image
+build dependencies have succeeded.
+
+The legacy `release.published` entry point remains available for manual
+publication. Its guard still revalidates the actual Release, source, tag,
+metadata, versions and PR provenance. A valid image-completion marker for that
+exact source skips duplicate image builds; an unmarked manual publication
+retains the existing image-build path. Invalid, duplicate or wrong-source
+completion markers fail closed. This explicit handoff works with either a PAT
+or `GITHUB_TOKEN`: events caused by the repository token do not start a second
+workflow, while PAT-triggered publication cannot duplicate the completed build.
+Drafts and prereleases never enter formal image publication.
+
+Only the draft/release mutation steps select the existing `PAT_TOKEN` secret
+before falling back to `GITHUB_TOKEN`; note lookups retain the repository token.
+The PAT must have repository access plus the classic `workflow` scope, or
+fine-grained Contents and Workflows write permissions plus Pull requests read
+permission for this repository. GitHub requires workflow-write authorization
+when a frozen target's workflow files differ from the current default branch,
+including a delayed draft or retry after main changes a workflow.
+`GITHUB_TOKEN` cannot be granted that authorization. The fallback therefore
+covers targets that do not require workflow-write permission; it does not
+replace a correctly scoped PAT for delayed targets. See GitHub's
 [release API permission requirements](https://docs.github.com/en/rest/releases/releases#create-a-release).
 Credential selection does not change the event, provenance, version or immutable
 tag guards.
 
-A human separately reviews and Publishes in GitHub. Before release-image builds,
-the published-event guard rechecks the source, tag, metadata, versions and PR
-provenance, then supplies an immutable source SHA to both reusable image jobs.
-An invalid premature publication therefore cannot quietly publish mislabeled
-images through this new workflow. Historical workflow runs/tags are not rewritten
-or retroactively protected; investigate an existing mismatch rather than moving
-its tag or merging an old PR to catch up.
+### Failure recovery
 
-For interrupted new drafts, rerun the original main-push workflow so its event
-commit stays frozen. An exact-source tag with no draft is recoverable; a tag or
-Release mismatch requires manual investigation. Ref and Release writes are not
-an atomic transaction. If a retry returns 403/404 after main changes workflow
-files, verify `PAT_TOKEN` has the workflow-write authorization described above,
-then rerun that original event; do not switch its source to current main.
-Never publish as part of retry/recovery. Preparation
-previews and final product/MarkdownFlow notes are file-based; final notes use the
-highest reachable lower final tag at the frozen candidate, not later main tags.
-Commitizen runs with `--start-rev` in a temporary local clone checked out at the
-candidate, preserving breaking-change bodies and candidate-specific note
-configuration without changing the caller's checkout or local edits. Each
-rendered entry covers only its own change type, scope and complete subject;
-sharing a PR number does not hide another omitted change.
+For an interrupted automatic release, rerun the original failed jobs so the
+source commit stays frozen. Successful architecture digest artifacts remain
+available across attempts; the manifest publisher chooses the newest successful
+digest for each required platform from that run. If artifacts have expired, use
+a full rerun of that original source.
+
+For an explicit new recovery run, open **Actions → Publish Merged Release →
+Run workflow**, select **main**, and provide `source_commit` as the full original
+merged SHA plus its matching `expected_version`. The source must already be an
+ancestor of main and pass the same version-increase and merged-PR provenance
+guards. The workflow runtime comes from its trusted workflow revision, while
+release notes and image inputs remain pinned to the original source. Moving
+main or choosing its current version is not a substitute for the failed source.
+
+A same-source tag with no Release, or a matching incomplete draft, is
+recoverable. A matching published Release with the owned completion marker is
+verified without edits or rebuilding its images. An unmarked public Release,
+conflicting tag, mismatched metadata, or prerelease state requires investigation;
+recovery does not overwrite it. If source or package contents need changing,
+merge a fix through the normal PR process and use a new version and tag.
+
+A failed image stage leaves the Release unpublished. Ref, registry and Release
+writes are not one atomic transaction: a tag, draft or some service images may
+already exist after an interruption. Recovery validates those existing states
+instead of deleting them or moving a tag. If a retry returns 403/404 after main
+changes workflow files, verify `PAT_TOKEN` has the workflow-write authorization
+above, then retry the original source. A successful publication is read back;
+there is no second manual publication gate and no automatic production deploy.
+
+Preparation previews and final product/MarkdownFlow notes are file-based. Final
+notes use the highest reachable lower final tag at the frozen candidate, not
+later main tags. Commitizen runs with `--start-rev` in a temporary local clone
+checked out at the candidate, preserving breaking-change bodies and
+candidate-specific note configuration without changing the caller's checkout or
+local edits. Each rendered entry covers only its own change type, scope and
+complete subject; sharing a PR number does not hide another omitted change.
 Dependency lookups remain best-effort, with their existing registry-time window,
 three-page scan and twenty-line detail limits. CI runs the local release tests
 with mocked HTTP writes and real pinned Commitizen execution; it does not
-perform real release operations as tests.
+perform real release operations as tests. Historical workflows, tags and
+releases are not rewritten by this change.
 
 ## Pull request validation
 

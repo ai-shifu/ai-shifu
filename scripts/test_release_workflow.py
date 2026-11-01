@@ -730,22 +730,30 @@ class ReleaseFixture(unittest.TestCase):
         draft_path = ROOT / ".github/workflows/draft-release.yml"
         assert draft_path.exists(), "Automatic post-merge draft workflow is missing"
         draft = yaml.safe_load(draft_path.read_text())
-        assert draft[True] == {"push": {"branches": ["main"]}}
+        assert draft[True]["push"] == {"branches": ["main"]}
+        assert set(draft[True]["workflow_dispatch"]["inputs"]) == {
+            "source_commit",
+            "expected_version",
+        }
         job = draft["jobs"]["draft"]
         checkout = next(
             step for step in job["steps"] if "actions/checkout" in step.get("uses", "")
         )
-        assert checkout["with"]["ref"] == "${{ github.sha }}"
+        assert checkout["with"]["ref"] == "${{ github.workflow_sha }}"
         assert checkout["with"]["fetch-depth"] == 0
         steps = {step.get("id"): step for step in job["steps"] if step.get("id")}
-        assert '"$GITHUB_SHA"' in steps["source"]["run"]
+        assert '"$RELEASE_SOURCE"' in steps["source"]["run"]
         assert '"$GITHUB_EVENT_PATH"' in steps["source"]["run"]
         assert "create_draft == 'true'" in steps["release"]["if"]
-        assert " draft " in steps["release"]["run"]
+        assert " stage " in steps["release"]["run"]
         published = yaml.safe_load(
             (ROOT / ".github/workflows/build-on-release.yml").read_text()
         )
-        assert published[True] == {"release": {"types": ["published"]}}
+        assert published[True]["release"] == {"types": ["published"]}
+        assert set(published[True]["workflow_call"]["inputs"]) == {
+            "source_commit",
+            "tag",
+        }
         validation = published["jobs"]["validate-release"]
         step = next(step for step in validation["steps"] if step.get("id") == "extract")
         assert "validate-published" in step["run"]
@@ -805,6 +813,8 @@ class ReleaseFixture(unittest.TestCase):
                 **os.environ,
                 "GITHUB_EVENT_NAME": "release",
                 "GITHUB_SHA": self.base,
+                "RELEASE_SOURCE": self.base,
+                "RELEASE_TAG": "",
                 "GITHUB_EVENT_PATH": str(event),
                 "GITHUB_OUTPUT": str(output),
                 "GITHUB_REPOSITORY": "fixture/product",
@@ -1348,7 +1358,7 @@ class ReleaseFixture(unittest.TestCase):
         content = body.read_text()
         assert "manually merge" in content
         assert "Never enable auto-merge" in content
-        assert "manually Publish" in content
+        assert "published automatically" in content
         assert "Changelog preview" in content
         assert "Installation from Source" in content
         assert self.git("tag") == "v3.0.0"
@@ -1456,6 +1466,11 @@ class ReleaseFixture(unittest.TestCase):
             if "create-pull-request" in step.get("uses", "")
         )
         assert pr["with"]["base"] == "main"
+        assert (
+            pr["with"]["title"]
+            == "chore: bump version to ${{ steps.version.outputs.tag }}"
+        )
+        assert pr["with"]["commit-message"] == pr["with"]["title"]
         assert pr["with"]["body-path"] == "${{ runner.temp }}/release-pr.md"
         assert "enable-pull-request-automerge" not in text
         assert "gh pr merge" not in text

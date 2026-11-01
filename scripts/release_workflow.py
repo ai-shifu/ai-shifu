@@ -1,5 +1,5 @@
 # ruff: noqa: INP001 -- Standalone repository release CLI.
-"""Validate and prepare PR-first product releases without merging or publishing."""
+"""Validate, stage and publish exact-source product releases without merging."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ IMAGE_PATTERN = re.compile(
     r"(?m)^(\s*image:\s*)aishifu/(ai-shifu-api|ai-shifu-web|ai-shifu-cook-web):([^\s#]+)"
 )
 ENGINE_PATTERN = re.compile(r"(?m)^(__version__\s*=\s*)(['\"])([^'\"]+)\2")
+IMAGES_MARKER = "<!-- ai-shifu-release-images-verified:"
 
 
 def git(*arguments: str) -> str:
@@ -171,9 +172,19 @@ def validate_versions(source: str, version: str) -> None:
 
 
 def detect(source: str, event: dict) -> dict[str, str]:
-    """Freeze a main-push release candidate, independent of moving checkout HEAD."""
+    """Freeze a main-push candidate or explicitly recover its original commit."""
     source_commit(source)
-    if (
+    recovery = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+    if recovery:
+        inputs = event.get("inputs") or {}
+        if (
+            os.environ.get("GITHUB_REF") != "refs/heads/main"
+            or inputs.get("source_commit") != source
+            or inputs.get("expected_version") != version_at(source)
+        ):
+            message = "Recovery requires main, the original full source SHA and matching expected version"
+            raise ValueError(message)
+    elif (
         os.environ.get("GITHUB_EVENT_NAME") != "push"
         or event.get("ref") != "refs/heads/main"
         or event.get("after") != source
@@ -191,6 +202,10 @@ def detect(source: str, event: dict) -> dict[str, str]:
         "tag": f"v{version}",
         "previous_tag": previous_tag(source, version),
     }
+    if recovery:
+        validate_versions(source, version)
+        values["create_draft"] = "true"
+        return values
     if event.get("before") == "0" * 40:
         return values
     before = source_commit(event["before"])
@@ -351,23 +366,50 @@ def validate_record(record: dict, source: str, version: str, *, draft: bool) -> 
         raise ValueError(message)
 
 
-def create_draft(source: str, event: dict, repository: str, notes: str) -> str:
-    """Pin an immutable exact-source tag and create/read back a draft only."""
+def images_verified(record: dict, source: str) -> bool:
+    """Read the coordinator's source-specific completion marker, not an attestation."""
+    body = record.get("body") or ""
+    count = body.count(IMAGES_MARKER)
+    if not count:
+        return False
+    if count != 1 or f"{IMAGES_MARKER}{source} -->" not in body:
+        message = "Release image completion marker differs from the verified source"
+        raise ValueError(message)
+    return True
+
+
+def create_draft(
+    source: str,
+    event: dict,
+    repository: str,
+    notes: str,
+    *,
+    resume_published: bool = False,
+) -> str:
+    """Pin an exact-source draft; optionally resume an owned public release read-only."""
     values = detect(source, event)
     if values["create_draft"] != "true":
         message = "Draft creation requires a main version increase"
         raise ValueError(message)
     version, tag = values["version"], values["tag"]
-    if "<!-- ai-shifu-release-source:" in notes:
-        message = "Release notes must not contain reserved source markers"
+    if "<!-- ai-shifu-release-source:" in notes or IMAGES_MARKER in notes:
+        message = "Release notes must not contain reserved source or image markers"
         raise ValueError(message)
     validate_provenance(source, version, repository)
     existing = find_release(repository, tag)
     if existing is not None:
-        validate_record(existing, source, version, draft=True)
+        public_retry = resume_published and existing.get("draft") is False
+        validate_record(existing, source, version, draft=not public_retry)
+        completed = images_verified(existing, source)
+        if public_retry and not completed:
+            message = "Published recovery requires the original verified-image marker"
+            raise ValueError(message)
     tagged = remote_tag(repository, tag)
     if tagged is not None and tagged != source:
         message = "Conflicting formal version tag; refusing to move it"
+        raise ValueError(message)
+    if existing is not None and existing.get("draft") is False and tagged is None:
+        message = "Published recovery requires the existing exact-source formal tag"
         raise ValueError(message)
     if tagged is None:
         github(
@@ -399,12 +441,92 @@ def create_draft(source: str, event: dict, repository: str, notes: str) -> str:
             },
         )
     final = github("GET", f"repos/{repository}/releases/{existing['id']}")
-    validate_record(final, source, version, draft=True)
+    validate_record(final, source, version, draft=existing["draft"])
+    completed = images_verified(final, source)
+    if not final["draft"] and not completed:
+        message = "Published recovery lost the verified-image marker"
+        raise ValueError(message)
     if final.get("body") != expected_body:
         message = "Draft release notes readback differs from the expected body"
         raise ValueError(message)
     if remote_tag(repository, tag) != source:
         message = "Final formal tag differs from the verified source"
+        raise ValueError(message)
+    return final["html_url"]
+
+
+def validate_candidate(source: str, tag: str, repository: str) -> dict[str, str]:
+    """Validate a trusted draft before images, or an owned completed retry."""
+    source_commit(source)
+    version = tag.removeprefix("v")
+    if tag != f"v{version}":
+        message = "Formal release tags must start with v"
+        raise ValueError(message)
+    version_tuple(version)
+    if version_at(source) != version:
+        message = "Release tag and source version differ"
+        raise ValueError(message)
+    validate_versions(source, version)
+    validate_provenance(source, version, repository)
+    record = find_release(repository, tag)
+    if record is None:
+        message = "The exact-source Release draft must exist before image publication"
+        raise ValueError(message)
+    draft = record.get("draft")
+    if not isinstance(draft, bool):
+        message = "Release draft state must be explicit"
+        raise TypeError(message)
+    validate_record(record, source, version, draft=draft)
+    final = github("GET", f"repos/{repository}/releases/{record['id']}")
+    validate_record(final, source, version, draft=draft)
+    completed = images_verified(final, source)
+    if not draft and not completed:
+        message = "Published recovery requires the original verified-image marker"
+        raise ValueError(message)
+    if remote_tag(repository, tag) != source:
+        message = "Formal tag differs from the verified release source"
+        raise ValueError(message)
+    return {
+        "should_build": str(draft).lower(),
+        "is_prerelease": "false",
+        "tag": tag,
+        "version": version,
+        "commit": source,
+        "url": final["html_url"],
+    }
+
+
+def publish_release(source: str, tag: str, repository: str) -> str:
+    """Publish after the caller's image gate, preserving notes and completed retries."""
+    values = validate_candidate(source, tag, repository)
+    if values["should_build"] == "false":
+        return values["url"]
+    record = find_release(repository, tag)
+    if record is None:
+        message = "Release disappeared before publication"
+        raise ValueError(message)
+    version = values["version"]
+    validate_record(record, source, version, draft=True)
+    body = record["body"]
+    if not images_verified(record, source):
+        body = body.rstrip() + f"\n\n{IMAGES_MARKER}{source} -->\n"
+    github(
+        "PATCH",
+        f"repos/{repository}/releases/{record['id']}",
+        {
+            "draft": False,
+            "prerelease": False,
+            "body": body,
+            "make_latest": "legacy",
+        },
+    )
+    final = github("GET", f"repos/{repository}/releases/{record['id']}")
+    validate_record(final, source, version, draft=False)
+    if final.get("body") != body or not images_verified(final, source):
+        message = "Published release notes or image marker readback differs"
+        raise ValueError(message)
+    if remote_tag(repository, tag) != source:
+        message = "Published formal tag differs from the verified source"
         raise ValueError(message)
     return final["html_url"]
 
@@ -439,7 +561,7 @@ def validate_published(source: str, event: dict, repository: str) -> dict[str, s
         message = "Published formal tag differs from the verified source"
         raise ValueError(message)
     return {
-        "should_build": "true",
+        "should_build": str(not images_verified(final, source)).lower(),
         "is_prerelease": "false",
         "tag": tag,
         "version": version,
@@ -448,7 +570,7 @@ def validate_published(source: str, event: dict, repository: str) -> dict[str, s
 
 
 def main() -> None:
-    """Expose local preparation; no merge or publication command exists."""
+    """Expose frozen-source release operations; never merge a version PR."""
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     preparation = commands.add_parser("prepare")
@@ -458,33 +580,62 @@ def main() -> None:
     detection.add_argument("--source", required=True)
     detection.add_argument("--event", required=True, type=Path)
     detection.add_argument("--output", required=True, type=Path)
-    for name in ("draft", "validate-published"):
+    for name in (
+        "draft",
+        "stage",
+        "validate-published",
+        "validate-candidate",
+        "publish",
+    ):
         command = commands.add_parser(name)
         command.add_argument("--source", required=True)
-        command.add_argument("--event", required=True, type=Path)
+        if name in {"draft", "stage", "validate-published"}:
+            command.add_argument("--event", required=True, type=Path)
+        else:
+            command.add_argument("--tag", required=True)
         command.add_argument("--repository", required=True)
         command.add_argument("--output", required=True, type=Path)
-        if name == "draft":
+        if name in {"draft", "stage"}:
             command.add_argument("--notes", required=True, type=Path)
     args = parser.parse_args()
     try:
         if args.command == "prepare":
             prepare(args.tag, args.source)
             return
-        event = json.loads(args.event.read_text(encoding="utf-8"))
+        event = (
+            json.loads(args.event.read_text(encoding="utf-8"))
+            if hasattr(args, "event")
+            else None
+        )
         if args.command == "detect":
             values = detect(args.source, event)
         else:
             if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repository):
                 parser.error("Repository must be owner/name")
-            if args.command == "draft":
+            if args.command in {"draft", "stage"}:
                 values = {
                     "url": create_draft(
                         args.source,
                         event,
                         args.repository,
                         args.notes.read_text(encoding="utf-8"),
+                        resume_published=args.command == "stage",
                     )
+                }
+                if args.command == "stage":
+                    values.update(
+                        validate_candidate(
+                            args.source,
+                            f"v{version_at(args.source)}",
+                            args.repository,
+                        )
+                    )
+            elif args.command == "validate-candidate":
+                values = validate_candidate(args.source, args.tag, args.repository)
+            elif args.command == "publish":
+                values = {
+                    "url": publish_release(args.source, args.tag, args.repository),
+                    "published": "true",
                 }
             else:
                 if os.environ.get("GITHUB_EVENT_NAME") != "release":
@@ -495,7 +646,13 @@ def main() -> None:
         with args.output.open("a", encoding="utf-8") as output:
             for key, value in values.items():
                 output.write(f"{key}={value}\n")
-    except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
+    except (
+        ValueError,
+        TypeError,
+        KeyError,
+        OSError,
+        subprocess.CalledProcessError,
+    ) as error:
         parser.exit(1, f"Release guard: {error}\n")
 
 

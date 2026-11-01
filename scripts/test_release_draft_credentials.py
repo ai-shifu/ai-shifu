@@ -1,5 +1,5 @@
 # ruff: noqa: INP001, PT027 -- Standalone workflow regressions use the repository's unittest fixtures.
-"""Keep privileged draft credentials separate from frozen-source release guards."""
+"""Keep privileged release credentials separate from frozen-source release guards."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class ReleaseDraftCredentialTests(unittest.TestCase):
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
 
-    def test_only_draft_writes_can_select_the_workflow_capable_pat(self) -> None:
+    def test_only_release_writes_can_select_the_workflow_capable_pat(self) -> None:
         workflow = yaml.safe_load(
             (ROOT / ".github/workflows/draft-release.yml").read_text()
         )
@@ -36,7 +36,7 @@ class ReleaseDraftCredentialTests(unittest.TestCase):
             "${{ secrets.PAT_TOKEN || github.token }}"  # noqa: S105 -- This is a workflow expression, not a credential.
         )
         assert mutation["if"] == "steps.source.outputs.create_draft == 'true'"
-        assert '--source "$GITHUB_SHA"' in mutation["run"]
+        assert '--source "$RELEASE_SOURCE"' in mutation["run"]
         assert '--event "$GITHUB_EVENT_PATH"' in mutation["run"]
         notes = next(
             step
@@ -52,9 +52,22 @@ class ReleaseDraftCredentialTests(unittest.TestCase):
         checkout = next(
             step for step in job["steps"] if "actions/checkout" in step.get("uses", "")
         )
-        assert checkout["with"]["ref"] == "${{ github.sha }}"
+        assert checkout["with"]["ref"] == "${{ github.workflow_sha }}"
         assert checkout["with"]["persist-credentials"] is False
         assert job["permissions"] == {"contents": "write", "pull-requests": "read"}
+        publication = workflow["jobs"]["publish"]
+        write = next(
+            step for step in publication["steps"] if step.get("id") == "publication"
+        )
+        assert write["env"]["GH_TOKEN"] == mutation["env"]["GH_TOKEN"]
+        assert " publish " in write["run"]
+        assert write["env"]["RELEASE_SOURCE"] == "${{ needs.draft.outputs.commit }}"
+        assert all(
+            "secrets.PAT_TOKEN" not in str(step)
+            for step in publication["steps"]
+            if step is not write
+        )
+        assert publication["permissions"] == job["permissions"]
 
     def test_retry_keeps_the_frozen_source_after_main_workflows_change(self) -> None:
         fixture = self.fixture

@@ -1,28 +1,47 @@
-name: Prepare Merged Release Draft
+name: Publish Merged Release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: 'Original merged release commit SHA to retry (40 lowercase hex characters)'
+        required: true
+        type: string
+      expected_version:
+        description: 'Version at that original commit (X.Y.Z)'
+        required: true
+        type: string
 
 permissions:
   contents: read
   pull-requests: read
 
 concurrency:
-  group: draft-release-${{ github.sha }}
+  group: publish-merged-release-${{ inputs.source_commit || github.sha }}
   cancel-in-progress: false
 
 jobs:
   draft:
+    name: Validate and stage exact-source release
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: read
+    outputs:
+      create_draft: ${{ steps.source.outputs.create_draft }}
+      commit: ${{ steps.source.outputs.commit }}
+      tag: ${{ steps.source.outputs.tag }}
+      version: ${{ steps.source.outputs.version }}
+      should_build: ${{ steps.release.outputs.should_build }}
+      url: ${{ steps.release.outputs.url }}
     steps:
-      - name: Check out exact main event commit
+      - name: Check out trusted workflow revision
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
@@ -35,10 +54,12 @@ jobs:
       - name: Refresh main ancestry without changing the frozen source
         run: git fetch --no-tags origin main:refs/remotes/origin/main
 
-      - name: Detect an increasing version on main
+      - name: Select the merged release source
         id: source
+        env:
+          RELEASE_SOURCE: ${{ inputs.source_commit || github.sha }}
         run: |
-          python scripts/release_workflow.py detect --source "$GITHUB_SHA" \
+          python scripts/release_workflow.py detect --source "$RELEASE_SOURCE" \
             --event "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT"
 
       - name: Install release note tooling
@@ -49,31 +70,100 @@ jobs:
         if: steps.source.outputs.create_draft == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE: ${{ steps.source.outputs.commit }}
           RELEASE_VERSION: ${{ steps.source.outputs.version }}
         run: |
-          python scripts/release_notes.py --source "$GITHUB_SHA" --version "$RELEASE_VERSION" \
+          python scripts/release_notes.py --source "$RELEASE_SOURCE" --version "$RELEASE_VERSION" \
             --repository "$GITHUB_REPOSITORY" --output "$RUNNER_TEMP/release-notes.md"
 
-      - name: Verify merged PR, pin formal tag and create draft only
+      - name: Verify merged PR, pin formal tag and stage release
         id: release
         if: steps.source.outputs.create_draft == 'true'
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
+          RELEASE_SOURCE: ${{ steps.source.outputs.commit }}
         run: |
-          python scripts/release_workflow.py draft --source "$GITHUB_SHA" \
+          python scripts/release_workflow.py stage --source "$RELEASE_SOURCE" \
             --event "$GITHUB_EVENT_PATH" --repository "$GITHUB_REPOSITORY" \
             --notes "$RUNNER_TEMP/release-notes.md" --output "$GITHUB_OUTPUT"
 
-      - name: Human publication handoff
-        if: steps.source.outputs.create_draft == 'true'
+  build-images:
+    name: Build and verify release images
+    needs: draft
+    if: needs.draft.outputs.create_draft == 'true' && needs.draft.outputs.should_build == 'true'
+    permissions:
+      contents: write
+      pull-requests: read
+      packages: write
+    uses: ./.github/workflows/build-on-release.yml
+    secrets: inherit
+    with:
+      source_commit: ${{ needs.draft.outputs.commit }}
+      tag: ${{ needs.draft.outputs.tag }}
+
+  publish:
+    name: Publish verified release
+    needs: [draft, build-images]
+    if: >-
+      !cancelled() && needs.draft.result == 'success' &&
+      needs.draft.outputs.create_draft == 'true' &&
+      (needs.build-images.result == 'success' ||
+       (needs.build-images.result == 'skipped' && needs.draft.outputs.should_build == 'false'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      url: ${{ steps.publication.outputs.url }}
+    steps:
+      - name: Check out trusted workflow revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Refresh main ancestry
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - name: Publish and read back the exact verified release
+        id: publication
         env:
-          RELEASE_TAG: ${{ steps.source.outputs.tag }}
-          RELEASE_URL: ${{ steps.release.outputs.url }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
+          RELEASE_SOURCE: ${{ needs.draft.outputs.commit }}
+          RELEASE_TAG: ${{ needs.draft.outputs.tag }}
+        run: |
+          python scripts/release_workflow.py publish --source "$RELEASE_SOURCE" \
+            --tag "$RELEASE_TAG" --repository "$GITHUB_REPOSITORY" --output "$GITHUB_OUTPUT"
+
+  summary:
+    needs: [draft, build-images, publish]
+    if: >-
+      !cancelled() && needs.draft.outputs.create_draft == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report publication and pinned recovery
+        env:
+          RELEASE_SOURCE: ${{ needs.draft.outputs.commit }}
+          RELEASE_VERSION: ${{ needs.draft.outputs.version }}
+          RELEASE_URL: ${{ needs.publish.outputs.url || needs.draft.outputs.url }}
+          IMAGE_RESULT: ${{ needs.build-images.result }}
+          PUBLICATION_RESULT: ${{ needs.publish.result }}
         run: |
           {
-            printf '## Draft prepared: %s\n\n' "$RELEASE_TAG"
-            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
-            printf 'Draft: %s\n\n' "$RELEASE_URL"
-            printf '%s\n' 'A human must review the draft and manually Publish in GitHub. Automation never publishes.'
-            printf '%s\n' 'Publishing starts release-image builds, not a new production deployment path.'
+            printf '## Release v%s: %s\n\n' "$RELEASE_VERSION" "$PUBLICATION_RESULT"
+            printf 'Source commit: `%s`\n\n' "$RELEASE_SOURCE"
+            printf 'Release: %s\n\n' "$RELEASE_URL"
+            printf 'Image build and verification: %s\n\n' "$IMAGE_RESULT"
+            printf '%s\n' 'Normal publication requires no second manual Publish action.'
+            printf '%s\n' 'On failure, rerun the original failed jobs to retain the source and successful architecture digests.'
+            printf 'For a fresh recovery run, select main and enter source_commit=%s and expected_version=%s.\n' "$RELEASE_SOURCE" "$RELEASE_VERSION"
+            printf '%s\n' 'Published matching releases are verified without rewriting them or rebuilding images.'
+            printf '%s\n' 'Main/latest publication and production CICD/Drone remain independent.'
           } >> "$GITHUB_STEP_SUMMARY"

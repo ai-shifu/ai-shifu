@@ -1,5 +1,10 @@
 # PR-first product release workflow
 
+The automatic-publication follow-up is tracked in
+[Automatic product Release publication](auto-publish-product-release.md).
+That plan supersedes this plan's separate manual Publish gate; the implementation
+history and original verification evidence below are retained unchanged.
+
 ## Purpose / Big Picture
 
 Replace the draft-before-merge release path with a version-update PR, a manual
