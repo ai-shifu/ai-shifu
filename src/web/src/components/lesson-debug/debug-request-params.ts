@@ -2,7 +2,6 @@ import type {
   DebugRunParams,
   DebugVariableValues,
 } from '@/types/debug-session';
-import type { ChatContentItem } from '@/types/chat-ui';
 import { normalizeVariableName } from 'remark-flow';
 
 export const resolveDebugRequestBlockIndex = (
@@ -14,51 +13,6 @@ export const resolveDebugRequestBlockIndex = (
   return /^\d+$/.test(generatedBlockBid)
     ? Number(generatedBlockBid)
     : fallbackBlockIndex;
-};
-
-export const resolveDebugRegenerationStartIndex = (
-  items: Pick<ChatContentItem, 'generated_block_bid' | 'element_bid'>[],
-  targetIndex: number,
-): number => {
-  if (targetIndex < 0 || targetIndex >= items.length) {
-    return -1;
-  }
-
-  const targetItem = items[targetIndex];
-  const targetGeneratedBlockBid =
-    targetItem.generated_block_bid || targetItem.element_bid || '';
-  if (!targetGeneratedBlockBid) {
-    return targetIndex;
-  }
-
-  const firstBlockIndex = items.findIndex(
-    item =>
-      (item.generated_block_bid || item.element_bid || '') ===
-      targetGeneratedBlockBid,
-  );
-  return firstBlockIndex === -1 ? targetIndex : firstBlockIndex;
-};
-
-export const resolveDebugRegenerationBlockIndex = (
-  items: Pick<ChatContentItem, 'type' | 'element_index'>[],
-  blockStartIndex: number,
-): number => {
-  if (!items.length) {
-    return 0;
-  }
-
-  const resolvedIndex = Math.min(
-    Math.max(blockStartIndex, 0),
-    items.length - 1,
-  );
-  const targetItem = items[resolvedIndex];
-  if (typeof targetItem?.element_index === 'number') {
-    return targetItem.element_index;
-  }
-
-  return items.slice(0, resolvedIndex).filter(item => {
-    return item.type === 'content' || item.type === 'interaction';
-  }).length;
 };
 
 export const buildDebugInteractionInput = (

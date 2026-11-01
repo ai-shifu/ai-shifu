@@ -61,9 +61,8 @@ import {
   buildDebugContinuationParams,
   buildDebugInteractionInput,
   resolveDebugGeneratedBlockBid,
-  resolveDebugRegenerationStartIndex,
 } from './debug-request-params';
-import { startDebugRegenerateTracking } from './debug-regenerate-tracking';
+import { startDebugAnswerEditTracking } from './debug-answer-edit-tracking';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -74,8 +73,8 @@ interface InteractionParseResult {
 }
 
 type DebugStreamSource = InstanceType<typeof SSE>;
-type DebugRegenerateResult = Parameters<
-  NonNullable<ReturnType<typeof startDebugRegenerateTracking>>
+type DebugAnswerEditResult = Parameters<
+  NonNullable<ReturnType<typeof startDebugAnswerEditTracking>>
 >[0];
 
 // The editor Debug API requires a session ID, so every browser context gets one.
@@ -491,33 +490,33 @@ export function useDebugSession({
   const isStreamingRef = useRef(false);
   const debugFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
-  const debugRegenerateResultRef = useRef<
-    ((result: DebugRegenerateResult) => void) | undefined
+  const debugAnswerEditResultRef = useRef<
+    ((result: DebugAnswerEditResult) => void) | undefined
   >(undefined);
-  const regenerationRetryTargetRef = useRef<{
+  const answerEditRetryTargetRef = useRef<{
     generatedBlockBid: string;
-    elementBid?: string;
-    userInput?: Record<string, unknown>;
+    elementBid: string;
+    userInput: Record<string, unknown>;
     prefixItems: ChatContentItem[];
     debugSessionId: string;
     params: Pick<DebugRunParams, 'shifuBid' | 'outlineBid' | 'mdflow'>;
   } | null>(null);
-  const [hasRegenerationRetryTarget, setHasRegenerationRetryTarget] =
+  const [hasAnswerEditRetryTarget, setHasAnswerEditRetryTarget] =
     useState(false);
-  const clearRegenerationRetryTarget = useCallback(() => {
-    regenerationRetryTargetRef.current = null;
-    setHasRegenerationRetryTarget(false);
+  const clearAnswerEditRetryTarget = useCallback(() => {
+    answerEditRetryTargetRef.current = null;
+    setHasAnswerEditRetryTarget(false);
   }, []);
-  const finishDebugRegenerate = useCallback(
-    (result: DebugRegenerateResult) => {
-      const finish = debugRegenerateResultRef.current;
-      debugRegenerateResultRef.current = undefined;
+  const finishDebugAnswerEdit = useCallback(
+    (result: DebugAnswerEditResult) => {
+      const finish = debugAnswerEditResultRef.current;
+      debugAnswerEditResultRef.current = undefined;
       if (finish && result === 'success') {
-        clearRegenerationRetryTarget();
+        clearAnswerEditRetryTarget();
       }
       finish?.(result);
     },
-    [clearRegenerationRetryTarget],
+    [clearAnswerEditRetryTarget],
   );
   const [variableValuesSnapshot, setVariableValuesSnapshot] =
     useState<DebugVariableValues>({});
@@ -677,8 +676,8 @@ export function useDebugSession({
   );
 
   const stopRun = useCallback(() => {
-    const wasRegenerating = Boolean(debugRegenerateResultRef.current);
-    finishDebugRegenerate('cancelled');
+    const wasEditingAnswer = Boolean(debugAnswerEditResultRef.current);
+    finishDebugAnswerEdit('cancelled');
     invalidateStreamGeneration();
     if (runStreamRef.current) {
       runStreamRef.current.close();
@@ -689,7 +688,7 @@ export function useDebugSession({
     setIsStreaming(false);
     currentStreamingElementBidRef.current = null;
     setIsLoading(false);
-    if (wasRegenerating) {
+    if (wasEditingAnswer) {
       updateSessionItems(prev =>
         prev.filter(
           item => item.generated_block_bid !== DEBUG_LOADING_ITEM_BID,
@@ -698,14 +697,14 @@ export function useDebugSession({
     }
   }, [
     closeAllTtsStreams,
-    finishDebugRegenerate,
+    finishDebugAnswerEdit,
     invalidateStreamGeneration,
     updateSessionItems,
   ]);
 
   const handleDebugBusinessError = useCallback(
     (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
-      finishDebugRegenerate('failed');
+      finishDebugAnswerEdit('failed');
       debugFailedRef.current = true;
       const resolvedToast = resolveLearnerErrorToast({
         error: typeof errorOrMessage === 'string' ? undefined : errorOrMessage,
@@ -750,7 +749,7 @@ export function useDebugSession({
     },
     [
       creditInsufficientAudience,
-      finishDebugRegenerate,
+      finishDebugAnswerEdit,
       updateSessionItems,
       showDebugErrorToast,
       stopRun,
@@ -761,7 +760,7 @@ export function useDebugSession({
   const resetSession = useCallback(() => {
     debugFailedRef.current = false;
     stopRun();
-    clearRegenerationRetryTarget();
+    clearAnswerEditRetryTarget();
     updateSessionItems([]);
     setErrorMessage(null);
     currentContentRef.current = '';
@@ -773,7 +772,7 @@ export function useDebugSession({
     debugSessionIdRef.current = createDebugSessionId();
     hasSessionStartedRef.current = false;
     trackedEngineSessionIdRef.current = null;
-  }, [clearRegenerationRetryTarget, stopRun, updateSessionItems]);
+  }, [clearAnswerEditRetryTarget, stopRun, updateSessionItems]);
 
   const clearFreshAgentInteractionAnswer = useCallback(
     (itemBid: string, variableName?: string) => {
@@ -1233,11 +1232,11 @@ export function useDebugSession({
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
           if (doneIsTerminal === true) {
-            finishDebugRegenerate('success');
+            finishDebugAnswerEdit('success');
             stopRun();
           }
         } else if (responseType === DebugStreamEventType.TEXT_END) {
-          finishDebugRegenerate('success');
+          finishDebugAnswerEdit('success');
           finalizeDebugItems();
           currentContentElementBidRef.current = null;
           currentContentRef.current = '';
@@ -1294,7 +1293,7 @@ export function useDebugSession({
       ensureContentItem,
       finalizeDebugElementOutputInList,
       finalizeDebugItems,
-      finishDebugRegenerate,
+      finishDebugAnswerEdit,
       handleDebugBusinessError,
       parseInteractionBlock,
       stopRun,
@@ -1336,6 +1335,13 @@ export function useDebugSession({
         )
           ? userInput
           : undefined;
+      // Anchored requests only revise an exact interaction with a new answer.
+      if (
+        (reloadGeneratedBlockBid || reloadElementBid) &&
+        (!reloadElementBid || !normalizedUserInput)
+      ) {
+        return;
+      }
       if (
         hasSessionStartedRef.current &&
         mdflow !== runParamsRef.current.mdflow &&
@@ -1357,7 +1363,7 @@ export function useDebugSession({
       if (!debugSessionIdRef.current) {
         debugSessionIdRef.current = createDebugSessionId();
       }
-      const retryTarget = regenerationRetryTargetRef.current;
+      const retryTarget = answerEditRetryTargetRef.current;
       if (
         !reloadGeneratedBlockBid ||
         retryTarget?.generatedBlockBid !== reloadGeneratedBlockBid ||
@@ -1367,7 +1373,7 @@ export function useDebugSession({
         retryTarget.params.outlineBid !== outlineBid ||
         retryTarget.params.mdflow !== mdflow
       ) {
-        clearRegenerationRetryTarget();
+        clearAnswerEditRetryTarget();
       }
       const mergedParams: DebugRunParams = {
         ...runParamsRef.current,
@@ -1411,9 +1417,8 @@ export function useDebugSession({
       const streamGeneration = invalidateStreamGeneration();
       isStreamingRef.current = true;
       setIsStreaming(true);
-      debugRegenerateResultRef.current = startDebugRegenerateTracking({
-        anchor: reloadGeneratedBlockBid,
-        answerEdit: Boolean(reloadElementBid && normalizedUserInput),
+      debugAnswerEditResultRef.current = startDebugAnswerEditTracking({
+        anchor: reloadElementBid,
         shifuBid: finalShifuBid,
         outlineBid: finalOutlineBid,
         trackEvent,
@@ -1432,7 +1437,7 @@ export function useDebugSession({
         return;
       }
       if (!resolvedBaseUrl) {
-        finishDebugRegenerate('failed');
+        finishDebugAnswerEdit('failed');
         stopRun();
         setErrorMessage(t('module.preview.missingApiBaseUrl'));
         return;
@@ -1508,7 +1513,7 @@ export function useDebugSession({
           const hasReceivedNonTerminalDone =
             doneTerminalStateRef.current === false;
           if (hasReceivedNonTerminalDone) {
-            finishDebugRegenerate('success');
+            finishDebugAnswerEdit('success');
             stopRun();
             return;
           }
@@ -1526,7 +1531,7 @@ export function useDebugSession({
           }
           finalizeDebugItems();
           if (doneTerminalStateRef.current === false) {
-            finishDebugRegenerate('success');
+            finishDebugAnswerEdit('success');
             stopRun();
           } else {
             handleDebugBusinessError(t('module.preview.streamError'));
@@ -1547,9 +1552,9 @@ export function useDebugSession({
       }
     },
     [
-      clearRegenerationRetryTarget,
+      clearAnswerEditRetryTarget,
       finalizeDebugItems,
-      finishDebugRegenerate,
+      finishDebugAnswerEdit,
       creditInsufficientAudience,
       handleDebugBusinessError,
       handlePayload,
@@ -1595,11 +1600,11 @@ export function useDebugSession({
     [updateSessionItems],
   );
 
-  const startRegeneration = useCallback(
+  const startAnswerEdit = useCallback(
     (
       generatedBlockBid: string,
       prefixItems: ChatContentItem[],
-      answer?: {
+      answer: {
         elementBid: string;
         userInput: Record<string, unknown>;
       },
@@ -1616,8 +1621,8 @@ export function useDebugSession({
       void startRun({
         ...runParamsRef.current,
         blockIndex: 0,
-        userInput: answer?.userInput,
-        reloadElementBid: answer?.elementBid,
+        userInput: answer.userInput,
+        reloadElementBid: answer.elementBid,
         reloadGeneratedBlockBid: generatedBlockBid,
       });
     },
@@ -1681,7 +1686,7 @@ export function useDebugSession({
           { truncateFollowingItems: true },
         );
         if (index < 0) return false;
-        regenerationRetryTargetRef.current = {
+        answerEditRetryTargetRef.current = {
           generatedBlockBid: target.generated_block_bid,
           elementBid,
           userInput,
@@ -1693,8 +1698,8 @@ export function useDebugSession({
             mdflow: runParamsRef.current.mdflow,
           },
         };
-        setHasRegenerationRetryTarget(true);
-        startRegeneration(target.generated_block_bid, prefix, {
+        setHasAnswerEditRetryTarget(true);
+        startAnswerEdit(target.generated_block_bid, prefix, {
           elementBid,
           userInput,
         });
@@ -1759,72 +1764,13 @@ export function useDebugSession({
       startRun,
       applyInteractionAnswer,
       stopRun,
-      startRegeneration,
+      startAnswerEdit,
       resolveLatestMdflow,
       restartSession,
     ],
   );
 
-  const regenerateContent = useCallback(
-    (elementBid?: string) => {
-      if (creditInsufficientAudience === null) {
-        return;
-      }
-      if (isStreamingRef.current) {
-        showOutputInProgressToast();
-        return;
-      }
-      if (
-        !elementBid ||
-        resolveLatestMdflow() !== runParamsRef.current.mdflow
-      ) {
-        restartSession();
-        return;
-      }
-      const currentList = sessionItemsRef.current;
-      const targetIndex = currentList.findIndex(
-        item =>
-          item.element_bid === elementBid &&
-          item.type === ChatContentItemType.CONTENT &&
-          item.element_type === ELEMENT_TYPE.TEXT &&
-          Boolean(item.generated_block_bid),
-      );
-      if (targetIndex < 0) {
-        return;
-      }
-      const target = currentList[targetIndex];
-      const generatedBlockBid = target.generated_block_bid;
-      if (!generatedBlockBid) {
-        return;
-      }
-      const blockStartIndex = resolveDebugRegenerationStartIndex(
-        currentList,
-        targetIndex,
-      );
-      const prefix = currentList.slice(0, blockStartIndex);
-      regenerationRetryTargetRef.current = {
-        generatedBlockBid,
-        prefixItems: prefix,
-        debugSessionId: debugSessionIdRef.current,
-        params: {
-          shifuBid: runParamsRef.current.shifuBid,
-          outlineBid: runParamsRef.current.outlineBid,
-          mdflow: runParamsRef.current.mdflow,
-        },
-      };
-      setHasRegenerationRetryTarget(true);
-      startRegeneration(generatedBlockBid, prefix);
-    },
-    [
-      creditInsufficientAudience,
-      resolveLatestMdflow,
-      restartSession,
-      showOutputInProgressToast,
-      startRegeneration,
-    ],
-  );
-
-  const retryRegeneration = useCallback(() => {
+  const retryAnswerEdit = useCallback(() => {
     if (creditInsufficientAudience === null) {
       return;
     }
@@ -1832,7 +1778,7 @@ export function useDebugSession({
       showOutputInProgressToast();
       return;
     }
-    const target = regenerationRetryTargetRef.current;
+    const target = answerEditRetryTargetRef.current;
     if (!target) {
       return;
     }
@@ -1841,7 +1787,7 @@ export function useDebugSession({
       target.params.shifuBid !== runParamsRef.current.shifuBid ||
       target.params.outlineBid !== runParamsRef.current.outlineBid
     ) {
-      clearRegenerationRetryTarget();
+      clearAnswerEditRetryTarget();
       return;
     }
     if (resolveLatestMdflow() !== target.params.mdflow) {
@@ -1850,20 +1796,17 @@ export function useDebugSession({
     }
     // A failed connection may already have replaced the server checkpoint.
     // Retry the logical target without restoring its discarded rows or answers.
-    startRegeneration(
-      target.generatedBlockBid,
-      target.prefixItems,
-      target.elementBid && target.userInput
-        ? { elementBid: target.elementBid, userInput: target.userInput }
-        : undefined,
-    );
+    startAnswerEdit(target.generatedBlockBid, target.prefixItems, {
+      elementBid: target.elementBid,
+      userInput: target.userInput,
+    });
   }, [
-    clearRegenerationRetryTarget,
+    clearAnswerEditRetryTarget,
     creditInsufficientAudience,
     resolveLatestMdflow,
     restartSession,
     showOutputInProgressToast,
-    startRegeneration,
+    startAnswerEdit,
   ]);
 
   const submitInteraction = useCallback(
@@ -2108,10 +2051,9 @@ export function useDebugSession({
     stopRun,
     resetSession,
     submitInteraction,
-    regenerateContent,
-    retryRegeneration,
-    canRetryRegeneration:
-      hasRegenerationRetryTarget &&
+    retryAnswerEdit,
+    canRetryAnswerEdit:
+      hasAnswerEditRetryTarget &&
       !isStreaming &&
       creditInsufficientAudience !== null,
     persistVariableValues,
