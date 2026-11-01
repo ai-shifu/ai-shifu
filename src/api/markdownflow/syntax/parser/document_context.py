@@ -475,7 +475,9 @@ def _read_inline_literal_end(
         if not html_can_close(text, start, last_html_ends):
             return None
         return blocks.html_token_end(
-            blocks.by_start[blocks.line_at(start).start], start
+            blocks.by_start[blocks.line_at(start).start],
+            start,
+            limit=blocks.inline_limit(start),
         )
     if text[start] != "`":
         return None

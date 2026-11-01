@@ -727,8 +727,10 @@ def analyze_marker_context(
             ):
                 context.pending_autolink_start = at
             index = blocks.by_start[blocks.line_at(at).start]
+            # Inline HTML ends with its paragraph; it cannot cross a boundary.
+            inline_limit = blocks.inline_limit(at)
             html_end = (
-                blocks.html_token_end(index, at, final=final)
+                blocks.html_token_end(index, at, final=final, limit=inline_limit)
                 if html_can_close(text, at, last_html_ends)
                 else None
             )
@@ -737,8 +739,14 @@ def analyze_marker_context(
                 context.markers.extend(_literal_markers(text, at, html_end))
                 at = html_end
             else:
-                if context.pending_html_start is None and (
-                    at + 1 == len(text) or _HTML_PREFIX.match(text, at)
+                if (
+                    context.pending_html_start is None
+                    # An inline token cannot resume after its paragraph ended.
+                    and (
+                        inline_limit == len(text)
+                        or blocks.block_content_start(index) == at
+                    )
+                    and (at + 1 == len(text) or _HTML_PREFIX.match(text, at))
                 ):
                     context.pending_html_start = at
                     context.pending_block_steps = blocks.container_steps[index]

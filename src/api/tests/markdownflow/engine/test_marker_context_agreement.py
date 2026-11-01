@@ -160,6 +160,78 @@ CASES = [
     # Cause 4: a definition's label and title are separate inline texts.
     ("reference-label-title", '[{{ a]: /url "t }}"\n\n{{ b }}', {"b"}, set(), [], 0),
     ("reference-title", '[x]: /url "{{ a }}"\n\n{{ b }}', {"b"}, {"a"}, [], 0),
+    # Inline HTML ends with its paragraph, as in micromark. Every token form
+    # that may span lines is checked across a blank line and within one.
+    *(
+        case
+        for form, (opening, closing) in {
+            "declaration": ("<!doctype", ">"),
+            "comment": ("<!--", "-->"),
+            "instruction": ("<?x", "?>"),
+            "cdata": ("<![CDATA[", "]]>"),
+            "double-quoted": ('<a b="', '">'),
+            "single-quoted": ("<a b='", "'>"),
+        }.items()
+        for case in (
+            (
+                f"{form}-stops-at-blank-line",
+                f"Text {opening}{{{{ a }}}}\n\ny{closing} {{{{ b }}}}",
+                {"a", "b"},
+                set(),
+                [],
+                0,
+            ),
+            (
+                f"{form}-stops-at-spaced-blank-line",
+                f"Text {opening}{{{{ a }}}}\n \t\ny{closing} {{{{ b }}}}",
+                {"a", "b"},
+                set(),
+                [],
+                0,
+            ),
+            (
+                f"{form}-continues-in-its-paragraph",
+                f"Text {opening}{{{{ a }}}}\ny{closing} {{{{ b }}}}",
+                {"b"},
+                {"a"},
+                [],
+                0,
+            ),
+        )
+    ),
+    (
+        "declaration-stops-at-heading",
+        "Text <!doctype {{ a }}\n# H > {{ b }}",
+        {"a", "b"},
+        set(),
+        [],
+        0,
+    ),
+    (
+        "comment-stops-at-thematic-break",
+        "Text <!-- {{ a }}\n***\n--> {{ b }}",
+        {"a", "b"},
+        set(),
+        [],
+        0,
+    ),
+    (
+        # Not HTML, so the example's first "}}" pair is the question's.
+        "declaration-cannot-own-the-next-paragraph",
+        "Text <!doctype{{ x\n\n" + QUESTION + ">",
+        set(),
+        set(),
+        [],
+        0,
+    ),
+    (
+        "block-tag-attribute-stops-at-blank-line",
+        '<div a="{{ a }}\n\n{{ b }}">',
+        {"b"},
+        {"a"},
+        [],
+        0,
+    ),
 ]
 CONTAINERS = [("", ""), ("> ", "> "), ("- ", "  ")]
 
@@ -206,6 +278,25 @@ def test_container_inline_html_keeps_one_global_token_boundary() -> None:
     syntax = _syntax(text)
     assert _engine(text) == syntax
     assert syntax.markers == ((19, 30, " a\n> b ", True),)
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+@pytest.mark.parametrize(
+    "opening", ["<!doctype ", '<span title="long', "<!-- ", "<?x ", "<![CDATA["]
+)
+def test_learner_filter_does_not_keep_html_open_across_a_blank_line(
+    opening: str, newline: str
+) -> None:
+    # Not HTML, so the unfinished example's first "}}" pair is the question's.
+    source = "Show " + opening + "{{ x" + newline * 2 + QUESTION + ">"
+    streams = [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]
+    for stream in streams:
+        syntax = InteractionSyntaxFilter()
+        output = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert syntax.spans == [], stream
+        assert output == source
 
 
 @pytest.mark.parametrize(

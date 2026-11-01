@@ -6,7 +6,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from re import Pattern
 
-from markdownflow.syntax.constants import HTML_EMPTY_COMMENTS
+from markdownflow.syntax.constants import (
+    COMPILED_RAW_HTML_START_REGEX,
+    HTML_EMPTY_COMMENTS,
+)
 
 COMPILED_PHYSICAL_LINE_END_REGEX = re.compile(r"\r\n|\r|\n")
 COMPILED_CONTAINER_LIST_REGEX = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t])")
@@ -397,9 +400,11 @@ class DocumentBlocks:
         """Index once using the caller's existing native HTML grammar."""
         self.text = text
         self.html_pattern = html
-        self._html_token_ends: dict[tuple[int, bool], int | None] = {}
+        self._html_token_ends: dict[tuple[int, bool, int | None], int | None] = {}
         self._container_ends: dict[tuple[int, bool], int] = {}
         self._html_last_ends: dict[str, int] | None = None
+        self._inline_breaks: list[int] | None = None
+        self._next_blanks: list[int | None] | None = None
         self.lines = physical_lines(text)
         self.closed_fence_lines: set[int] = set()
         self.closed_html_lines: set[int] = set()
@@ -437,14 +442,70 @@ class DocumentBlocks:
         )
         return line.start + at if width < 4 else None
 
+    def next_blank_start(self, index: int) -> int | None:
+        """Return the start of the first blank line after line ``index``."""
+        if self._next_blanks is None:
+            following: int | None = None
+            self._next_blanks = [None] * len(self.lines)
+            for at in range(len(self.lines) - 1, -1, -1):
+                self._next_blanks[at] = following
+                if self.blank(at):
+                    following = self.lines[at].start
+        return self._next_blanks[index]
+
+    def inline_limit(self, at: int) -> int:
+        """Return where the inline content holding ``at`` ends.
+
+        Inline syntax such as raw HTML never crosses a paragraph boundary: a
+        blank line (also inside a container), a fence, a raw-HTML or block-tag
+        start, a thematic break or setext underline, a new container paragraph,
+        or the end of an ATX heading line.
+        """
+        if self._inline_breaks is None:
+            breaks: set[int] = set()
+            for index, line in enumerate(self.lines):
+                value = self.projected_line(index)
+                content = self.block_content_start(index)
+                if (
+                    not value.strip(" \t")
+                    or fence_opening(value) is not None
+                    or (
+                        content is not None
+                        and COMPILED_RAW_HTML_START_REGEX.match(self.text, content)
+                        is not None
+                    )
+                    or self.inline_block_interrupts(index)
+                    or self.paragraph_interrupts(index)
+                ):
+                    breaks.add(line.start)
+                if COMPILED_ATX_START_REGEX.match(value) is not None:
+                    breaks.update((line.start, line.content_end))
+            self._inline_breaks = sorted(breaks)
+        position = bisect_right(self._inline_breaks, at)
+        return (
+            self._inline_breaks[position]
+            if position < len(self._inline_breaks)
+            else len(self.text)
+        )
+
     def html_token_end(
-        self, index: int, start: int, *, final: bool = True
+        self,
+        index: int,
+        start: int,
+        *,
+        final: bool = True,
+        limit: int | None = None,
     ) -> int | None:
-        """Read a native HTML token without changing original variable text."""
-        key = (start, final)
+        """Read a native HTML token without changing original variable text.
+
+        ``limit`` bounds an inline token at its paragraph end; block callers
+        omit it, because HTML blocks of types 1-5 may span blank lines.
+        """
+        key = (start, final, limit)
         if key in self._html_token_ends:
             return self._html_token_ends[key]
-        limit = self.container_end(index, final=final)
+        container_limit = self.container_end(index, final=final)
+        limit = container_limit if limit is None else min(limit, container_limit)
         token = self.html_pattern.match(self.text, start, limit)
         steps = self.container_steps[index]
         project = token is None and bool(steps)
@@ -645,7 +706,10 @@ class DocumentBlocks:
         block_tag = opening.group(1).lower() in HTML_BLOCK_TAGS
         if not block_tag and index and not self.blank(index - 1):
             return None
-        token = self.html_token_end(index, tag_start, final=final)
+        # The block, and so its opening tag, ends at the first blank line.
+        token = self.html_token_end(
+            index, tag_start, final=final, limit=self.next_blank_start(index)
+        )
         token_end = token if token is not None else start
         if not block_tag and (
             token is None
