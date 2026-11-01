@@ -1066,7 +1066,7 @@ def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
         def load(self, *, script: str) -> None:
             assert script == SCRIPT
 
-        def save(self, session: _Session) -> None:
+        def save(self, session: _Session, **_kwargs: object) -> None:
             self.saved.append(session)
 
     store = DebugStore()
@@ -1108,7 +1108,7 @@ def test_editor_debug_answer_resumes_its_pending_agent_interaction(
             assert script == SCRIPT
             return self.stored
 
-        def save(self, session: _Session) -> None:
+        def save(self, session: _Session, **_kwargs: object) -> None:
             self.saved.append(session)
 
     pending = _Session(started=True, pending=[object()])

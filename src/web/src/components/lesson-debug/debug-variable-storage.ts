@@ -3,8 +3,8 @@
 import {
   readLocalStorageItem,
   writeLocalStorageItem,
-} from '@/lib/runtimeStorage';
-import { debugWarn } from '@/lib/debugConsole';
+} from '@/lib/runtime-storage';
+import { debugWarn } from '@/lib/debug-console';
 import type {
   DebugVariableValues,
   StoredDebugVariableValues,

@@ -17,18 +17,18 @@ import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import {
   formatAdminCount,
   formatAdminCredits,
-} from '@/app/admin/lib/numberFormat';
+} from '@/app/admin/lib/number-format';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+} from '@/components/admin/admin-table-styles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
-} from '@/app/admin/lib/dateTime';
+} from '@/app/admin/lib/date-time';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -54,10 +54,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
-import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
+import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/use-billing-data';
 import { buildBillingSwrKey } from '@/lib/billing';
 import {
   resolveLoginIdentifierTypes,
@@ -66,13 +66,13 @@ import {
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
-import { formatOperatorUtcDateTime } from './dateTime';
-import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
+import { formatOperatorUtcDateTime } from './date-time';
+import { normalizeLoginMethodLabelKey } from './login-method-utils';
 import UserCreditDeductionDialog from './UserCreditDeductionDialog';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
 import UserCancellationDialog from './UserCancellationDialog';
 import UserContactChangeDialog from './[user_bid]/UserContactChangeDialog';
-import useOperatorGuard from '../useOperatorGuard';
+import useOperatorGuard from '../use-operator-guard';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserDetailResponse,

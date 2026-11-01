@@ -1,4 +1,4 @@
-import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 import {
   buildVisibleDebugItems,
   shouldEnableDebugTypewriter,

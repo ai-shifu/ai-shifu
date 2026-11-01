@@ -8,7 +8,7 @@ import {
 } from '@testing-library/react';
 
 import CourseCreationChoiceDialog from './CourseCreationChoiceDialog';
-import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/ui-constants';
 
 let mockValidationGate: Promise<void> | undefined;
 
@@ -33,7 +33,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/lib/onboardingTargets', () => ({
+jest.mock('@/lib/onboarding-targets', () => ({
   buildOnboardingTargetProps: () => ({}),
   ONBOARDING_TARGET_IDS: {
     lobsterCreateEntry: 'lobsterCreateEntry',

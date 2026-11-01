@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { useShifu } from '@/store';
 import Loading from '../loading';
-import { useAlert } from '@/components/ui/UseAlert';
+import { useAlert } from '@/components/ui/AlertProvider';
 import api from '@/api';
 import { ErrorWithCode } from '@/lib/request';
 import {
@@ -23,8 +23,8 @@ import type { LucideIcon } from 'lucide-react';
 import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
-import s from './header.module.scss';
-import { useTracking } from '@/hooks/useTracking';
+import s from './Header.module.scss';
+import { useTracking } from '@/hooks/use-tracking';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,8 +36,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/useToast';
+} from '@/components/ui/Tooltip';
+import { useToast } from '@/hooks/use-toast';
 import type { LearningMode } from '@/types/store';
 import { cn } from '@/lib/utils';
 import {
@@ -46,14 +46,14 @@ import {
   buildParameterlessCourseUrl,
   isPublishLearningModeAvailable,
   PUBLISH_LEARNING_MODES,
-} from './publishLearningMode';
-import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
+} from './publish-learning-mode';
+import { buildOnboardingTargetProps } from '@/lib/onboarding-targets';
 import {
   formatLessonRelativeTime,
   parseLessonHistoryDate,
 } from '@/lib/lesson-history-time';
 import { CourseShareMenu } from '@/components/course-share';
-import { normalizeCourseShareUrl } from '@/lib/courseShare';
+import { normalizeCourseShareUrl } from '@/lib/course-share';
 
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
   read: BookOpen,

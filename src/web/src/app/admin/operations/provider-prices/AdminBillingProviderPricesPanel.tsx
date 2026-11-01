@@ -57,7 +57,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { toast } from '@/hooks/useToast';
+import { toast } from '@/hooks/use-toast';
 import {
   formatBillingCreditAmount,
   formatBillingDateTime,

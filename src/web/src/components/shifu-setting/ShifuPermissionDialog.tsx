@@ -5,7 +5,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useEnvStore } from '@/store';
 import { useUserStore } from '@/store';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import {
   resolveLoginIdentifierTypes,
   selectSingleLoginIdentifierType,

@@ -3,13 +3,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Copy } from 'lucide-react';
-import { copyText } from '@/lib/textutils';
+import { copyText } from '@/lib/text-utils';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 
 interface DebugContentCopyButtonProps {
   /** Raw LLM-generated content of the element (markdown for text, HTML for view). */

@@ -414,6 +414,63 @@ solely because historical Umami rows or queries exist.
 - Consumers: Teacher draft-quality weekly Umami reports. New additive family; existing learner run/reset contracts and historical queries remain unchanged.
 - Verification: Hook tests cover exact anchors, initiation/confirmation timing, terminal outcomes, internal continuation chains and lifecycle cancellation. Helper tests cover payload allowlisting, exclusions, deduplication and synchronous/asynchronous tracking failures.
 
+## Editor Debug step regeneration
+
+Accepted retries after a failed or stopped regeneration use the same attempt
+and terminal-result family below. The retry control is available only for the
+current Debug session's retained logical target and is hidden during a running
+request; repeated or blocked callbacks do not create additional attempts.
+Retrying is a distinct accepted request, so it gets one new start and at most
+one result. The payload schema and consumer stay unchanged. The retry target,
+checkpoint, discarded content and errors are never included in analytics.
+
+- Business question: Can teachers rerun a selected Debug step and its following
+  steps successfully while keeping earlier output?
+- Metric: Weekly initiated regeneration attempts and their terminal success,
+  failure and cancellation shares, grouped by course and lesson. Starts and
+  results are aggregate counts, with no per-attempt join; navigation loss and
+  best-effort delivery can leave gaps. This does not measure all Debug usage
+  or an exposure-to-use conversion rate.
+- Events: `teacher_debug_regenerate_start` when a locally validated,
+  anchored regeneration request is initiated;
+  `teacher_debug_regenerate_result` at its first completed generation request,
+  business or transport failure, or cancellation by stop, replacement, reset,
+  navigation or unmount. Success includes both a completed lesson and a
+  successful pause at the next interaction: terminal `DONE`, `TEXT_END`, or a
+  clean stream close after nonterminal `DONE` confirms that request's success.
+  Opening or cancelling a confirmation dialog is not an attempt. Individual
+  text chunks and intermediate element events do not imply success.
+- Population and surface: Authorized teachers using step regeneration in the
+  course editor's Debug panel. Initial runs, full restarts, answers, ordinary
+  continuations, blocked or stale targets, full-course draft classroom preview,
+  published learning and guests are excluded. The shared account-level
+  analytics exclusion policy applies.
+- Count and deduplication: One start and at most one terminal result per
+  admitted regeneration. The producer retains the completion closure across
+  automatic continuation requests, so they neither start a second attempt nor
+  cancel the first one. Re-entry guards reject duplicate clicks; a later
+  deliberate regeneration is a new attempt. No persistent deduplication or
+  correlation token is added.
+- Consumers and compatibility: Teacher authoring-quality weekly Umami reports
+  compare aggregate attempts and outcomes by course and lesson. This is an
+  additive event family. The separate `teacher_preview_rewind_*` classroom
+  family continues to exclude editor Debug; historical queries stay unchanged.
+- Complete delivered application-event payload: `shifu_bid` and `outline_bid`
+  are stable pseudonymous course/lesson machine IDs required for grouping.
+  Result events add only the low-cardinality, non-personal
+  `result=success|failed|cancelled` enum. There is no step anchor, debug session
+  ID, input, variable name/value, prompt, output, title, URL or error. Shared
+  transport establishes pseudonymous identity and normalized routing context
+  separately, without enriching event data.
+- Delivery and verification: Use `useTracking`; synchronous throws, rejected
+  promises, missing configuration and blocked scripts cannot affect the
+  regeneration. Helper tests cover exact names and allowlisted payloads,
+  eligibility, every terminal outcome, per-attempt deduplication and tracking
+  failures. Hook tests cover initiation timing, continuation chains and
+  terminal lifecycle transitions; shared transport tests cover the final
+  delivered payload and global account exclusions. Local tests do not establish
+  deployed Umami coverage.
+
 ## About dialog exposure
 
 - Business question and metric: How often do users open About to inspect the

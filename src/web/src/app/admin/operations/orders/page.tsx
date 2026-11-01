@@ -7,17 +7,17 @@ import Loading from '@/components/loading';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import useOperatorGuard from '../useOperatorGuard';
+import useOperatorGuard from '../use-operator-guard';
 import {
   ORDER_TABS_LIST_CLASSNAME,
   ORDER_TABS_TRIGGER_CLASSNAME,
-} from './orderUiShared';
+} from './order-ui-shared';
 import LearnOrdersTab from './LearnOrdersTab';
 import CreditOrdersTab from './CreditOrdersTab';
 import {
   resolveOperationOrdersTab,
   type OperationOrdersTab,
-} from './orderTabs';
+} from './order-tabs';
 
 /**
  * t('module.operationsOrder.title')

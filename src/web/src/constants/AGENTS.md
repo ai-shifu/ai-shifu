@@ -3,7 +3,7 @@
 This module owns shared course and UI constants used across learner and
 teacher flows.
 
-Entry files in this directory: `uiConstants.ts`, `courseConstants.ts`.
+Entry files in this directory: `ui-constants.ts`, `course-constants.ts`.
 
 Shared compatibility, i18n, privacy and verification rules are inherited from
 the root and `src/web/AGENTS.md`; the constraints below are local.

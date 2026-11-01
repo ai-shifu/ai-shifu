@@ -9,7 +9,7 @@ import {
   DEFAULT_START_TIME,
   FormField,
   type CouponFormState,
-} from '@/app/admin/operations/promotions/promotionPageShared';
+} from '@/app/admin/operations/promotions/promotion-page-shared';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import {
@@ -28,14 +28,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
+import { showDefaultToast, showErrorToast } from '@/hooks/use-toast';
 import type { AdminPromotionCouponItem } from '@/app/admin/operations/operation-promotion-types';
 import {
   createCreatorCouponFormState,
   validateCreatorCouponForm,
-} from './creatorRedemptionCodeDialogShared';
-import { useCreatorPublishedCourseOptions } from './useCreatorPublishedCourseOptions';
-import { useEnvStore } from '@/store/envStore';
+} from './creator-redemption-code-dialog-shared';
+import { useCreatorPublishedCourseOptions } from './use-creator-published-course-options';
+import { useEnvStore } from '@/store/env-store';
 
 const SELECT_ITEM_CLASS =
   'pl-3 pr-8 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';

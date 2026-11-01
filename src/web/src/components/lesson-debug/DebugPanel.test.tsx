@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DebugPanel from './DebugPanel';
 import { resolveDebugItemKey } from './DebugPanel';
-import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 
 const mockPush = jest.fn();
 const mockCopyText = jest.fn();
@@ -26,13 +26,13 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/components/ui/UseAlert', () => ({
+jest.mock('@/components/ui/AlertProvider', () => ({
   useAlert: () => ({
     showAlert: jest.fn(),
   }),
 }));
 
-jest.mock('@/components/ui/tooltip', () => {
+jest.mock('@/components/ui/Tooltip', () => {
   const React = jest.requireActual('react');
   const TooltipProviderContext = React.createContext(false);
 
@@ -58,8 +58,8 @@ jest.mock('@/components/ui/tooltip', () => {
   };
 });
 
-jest.mock('@/lib/textutils', () => {
-  const actual = jest.requireActual('@/lib/textutils');
+jest.mock('@/lib/text-utils', () => {
+  const actual = jest.requireActual('@/lib/text-utils');
   return {
     ...actual,
     copyText: (...args: unknown[]) => mockCopyText(...args),
@@ -87,7 +87,7 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
-jest.mock('@/components/ChatUi/ContentBlock', () => ({
+jest.mock('@/components/chat/ContentBlock', () => ({
   __esModule: true,
   default: ({
     item,
@@ -120,7 +120,7 @@ jest.mock('@/components/ChatUi/ContentBlock', () => ({
   ),
 }));
 
-jest.mock('@/components/ChatUi/InteractionBlock', () => ({
+jest.mock('@/components/chat/InteractionBlock', () => ({
   __esModule: true,
   default: ({
     element_bid,
@@ -162,6 +162,73 @@ describe('DebugPanel billing action', () => {
     mockPush.mockReset();
     mockCopyText.mockReset();
     mockDebugVariablesPanel.mockReset();
+  });
+
+  test('offers regeneration retry when no generated output remains', () => {
+    const onRetryRegeneration = jest.fn();
+
+    render(
+      <DebugPanel
+        isLoading={false}
+        items={[]}
+        shifuBid='shifu-1'
+        onRegenerate={jest.fn()}
+        onRetryRegeneration={onRetryRegeneration}
+        onSubmitInteraction={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText('module.shifu.previewArea.empty'),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
+    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
+  });
+
+  test('only offers regeneration retry when available and idle', () => {
+    const onRetryRegeneration = jest.fn();
+    const props = {
+      items: [
+        {
+          element_bid: 'debug-error',
+          content: 'Regeneration failed',
+          type: ChatContentItemType.ERROR,
+        },
+      ],
+      shifuBid: 'shifu-1',
+      onRegenerate: jest.fn(),
+      onSubmitInteraction: jest.fn(),
+    };
+    const { rerender } = render(
+      <DebugPanel
+        {...props}
+        isLoading={false}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'common.core.retry' }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <DebugPanel
+        {...props}
+        isLoading={false}
+        onRetryRegeneration={onRetryRegeneration}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
+    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <DebugPanel
+        {...props}
+        isLoading
+        onRetryRegeneration={onRetryRegeneration}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'common.core.retry' }),
+    ).not.toBeInTheDocument();
   });
 
   test('filters hidden variables and forwards visible system variable keys', () => {

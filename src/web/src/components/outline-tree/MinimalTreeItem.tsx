@@ -5,13 +5,13 @@ import {
 } from '../dnd-kit-sortable-tree';
 import React, { useEffect, useState } from 'react';
 import { LessonCreationSettings, Outline } from '@/types/shifu';
-import { LearningPermission } from '@/api/studyV2';
+import { LearningPermission } from '@/api/learning';
 import guestIcon from '../chapter-setting/icons/svg-guest.svg';
 import trialIcon from '../chapter-setting/icons/svg-trial.svg';
 import normalIcon from '../chapter-setting/icons/svg-normal.svg';
 import hiddenIcon from '../chapter-setting/icons/svg-hidden.svg';
 import { cn } from '@/lib/utils';
-import { useShifu } from '@/store/useShifu';
+import { useShifu } from '@/store/use-shifu';
 import { Loader2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -25,14 +25,14 @@ import {
 } from '../ui/AlertDialog';
 import { useTranslation } from 'react-i18next';
 import ChapterSettingsDialog from '../chapter-setting';
-import './OutlineTree.css';
-import { LEARNING_PERMISSION } from '@/api/studyV2';
+import './outline-tree.css';
+import { LEARNING_PERMISSION } from '@/api/learning';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 import { Input } from '../ui/Input';
 
 export type TreeItemProps = {

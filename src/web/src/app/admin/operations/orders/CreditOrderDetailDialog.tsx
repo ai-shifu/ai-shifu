@@ -3,11 +3,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import {
   formatAdminCredits,
   formatAdminPrice,
-} from '@/app/admin/lib/numberFormat';
+} from '@/app/admin/lib/number-format';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {

@@ -1,5 +1,5 @@
 import request from '@/lib/request';
-import { useSystemStore } from '@/store/useSystemStore';
+import { useSystemStore } from '@/store/use-system-store';
 import { resetChapter, getLessonResetStatus } from './lesson';
 
 let mockRequestNumber = 0;
@@ -13,10 +13,10 @@ jest.mock('@/lib/request-trace', () => ({
   TRACE_REQUEST_ID_HEADER: 'X-Request-ID',
   createRequestId: () => `request-${++mockRequestNumber}`,
 }));
-jest.mock('@/store/useSystemStore', () => ({
+jest.mock('@/store/use-system-store', () => ({
   useSystemStore: { getState: jest.fn() },
 }));
-jest.mock('@/store/useUserStore', () => ({
+jest.mock('@/store/use-user-store', () => ({
   useUserStore: {
     getState: () => ({
       userInfo: mockUserId ? { user_id: mockUserId } : null,
@@ -24,7 +24,7 @@ jest.mock('@/store/useUserStore', () => ({
     }),
   },
 }));
-jest.mock('@/store/envStore', () => ({
+jest.mock('@/store/env-store', () => ({
   useEnvStore: { getState: jest.fn(() => ({ courseId: 'course' })) },
 }));
 

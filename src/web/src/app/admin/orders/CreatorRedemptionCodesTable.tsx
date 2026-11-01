@@ -2,7 +2,7 @@
 
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import AdminTableShell from '@/components/admin/AdminTableShell';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import type { AdminPromotionCouponItem } from '@/app/admin/operations/operation-promotion-types';
 import {
   EMPTY_VALUE,
@@ -16,7 +16,7 @@ import {
   TABLE_ACTION_HEAD_CLASS,
   TABLE_CELL_CLASS,
   TABLE_HEAD_CLASS,
-} from '@/app/admin/operations/promotions/promotionPageShared';
+} from '@/app/admin/operations/promotions/promotion-page-shared';
 import {
   Table,
   TableBody,
@@ -30,7 +30,7 @@ import {
   getCreatorRedemptionCodeDisplayCode,
   getCreatorRedemptionUsageProgress,
   shouldShowCreatorRedemptionCodesEntry,
-} from './creatorRedemptionCodeViewModel';
+} from './creator-redemption-code-view-model';
 
 type TranslationFn = (key: string, options?: Record<string, unknown>) => string;
 

@@ -13,7 +13,7 @@ import ProfileOnboardingConversation, {
   resolveProfileNicknameFromRunEvent,
   type ProfileOnboardingRunSession,
 } from './ProfileOnboardingConversation';
-import type { ProfileOnboardingAssistantAnswers } from './profileOnboardingConversationModel';
+import type { ProfileOnboardingAssistantAnswers } from './profile-onboarding-conversation-model';
 
 const ANSWER_GUIDED_QUESTION_LABEL = 'answer guided question';
 const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
