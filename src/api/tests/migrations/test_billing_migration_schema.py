@@ -196,6 +196,17 @@ class _SchemaReplay:
         self._helpers = {
             node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
         }
+        # rows_table = sa.table("bill_products", ...) names a bulk_insert target.
+        self._table_names = {
+            target.id: _str(node.value.args[0])
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and _call_name(node.value) == "table"
+            and node.value.args
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
         self._visit(upgrade.body, batch_table=None)
 
     def _expand(self, args: list[ast.expr]) -> list[ast.AST]:
@@ -269,6 +280,8 @@ class _SchemaReplay:
             target = args[0] if args else None
             if isinstance(target, ast.Call) and target.args:
                 self.seeded.add(_str(target.args[0]))
+            elif isinstance(target, ast.Name):
+                self.seeded.add(self._table_names.get(target.id))
         elif operation == "create_table":
             table = _str(args[0])
             self.columns[table] = {}
