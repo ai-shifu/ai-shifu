@@ -18,9 +18,13 @@ compatible with existing browser and external API consumers.
 - [x] 2026-11-01 10:18 UTC: Focused malicious-input and compatibility checks
   passed (130 tests); baseline and candidate payload bytes match, while the
   response media type changes from HTML to JSON.
-- [ ] 2026-11-01 10:18 UTC: Complete the full backend suite and repository checks.
-- [ ] 2026-11-01 10:15 UTC: Obtain independent candidate review and current PR CI
-  results. Main alert closure requires a human-authorized merge and new scan.
+- [x] 2026-11-01 10:28 UTC: Full pinned-environment backend suite passed: 15,249
+  tests, 109 skips and 41 subtests. Repository-wide lefthook checks, architecture
+  boundaries and the unit-of-work ratchet passed.
+- [x] 2026-11-01 10:28 UTC: Independent candidate review found no concrete HTTP
+  bypass or regression. Ready PR #3292 contains this focused contract change.
+- [ ] 2026-11-01 10:28 UTC: Obtain current PR CI results. Main alert closure
+  requires a human merge and new scan.
 
 ## Surprises & Discoveries
 
@@ -42,9 +46,11 @@ compatible with existing browser and external API consumers.
 
 ## Outcomes & Retrospective
 
-Focused verification passes. The full backend suite and repository checks are
-still in progress. No claim is made that the default-branch alerts have closed
-or that this change is deployed.
+Focused and full backend verification and repository checks pass. The initial
+reused Python environment had stale dependency versions and a missing SOCKS
+extra; a fresh environment installed from `requirements-ci.txt` passed with
+process proxy variables removed. PR #3292 is ready for review. Default-branch
+alerts remain open until a human merge and subsequent scan; this is not deployed.
 
 ## Context and Orientation
 
@@ -93,6 +99,15 @@ tests/service/learn/test_live_follow_up_route_boundaries.py
 tests/service/learn/test_learn_stream_response_cleanup.py` passed all 130 tests.
 An isolated baseline-helper route returned `text/html`; the candidate returned
 `application/json` with the same bytes and the `nosniff` header.
+
+Full result: `PYTHONPATH=. python -m pytest -n 2 --dist loadfile -q --tb=short
+-p no:testmon tests` from `src/api` passed 15,249 tests and 41 subtests, with
+109 existing skips. Dependencies came from `src/api/requirements-ci.txt`; the
+process unset upper/lowercase HTTP, HTTPS and ALL proxy variables. The run also
+included the independent notification, export and parser fixes being submitted
+in separate PRs. `lefthook run pre-commit --all-files`,
+`python3 scripts/check_architecture_boundaries.py` and
+`python3 scripts/check_uow_commit_sites.py` passed.
 
 ## Idempotence and Recovery
 
