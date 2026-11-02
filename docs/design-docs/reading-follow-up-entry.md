@@ -21,11 +21,13 @@ and focuses the next course element. Drafts, open conversations and streaming
 answers lock automatic selection. Historical questions can be reopened in place.
 There is no persistent bottom follow-up action or visible scope explanation.
 
-A text element may contain several Markdown paragraphs. The supported cutoff is
-the actual saved element end, not an arbitrary internal HTML paragraph. Text
-requests opt into the complete current lesson prefix through that end, excluding
-future elements. See [context contract](../references/follow-up-classroom-context.md).
-Live voice, listening/classroom and print retain their existing context contracts.
+A text element may contain several Markdown paragraphs. The entry remains
+anchored to the saved element, rather than an arbitrary internal HTML paragraph.
+This change only updates entry selection and inline presentation. Requests and
+backend context assembly retain the existing element anchor and history-window
+contract; no new context scope is sent. See the unchanged
+[context contract](../references/follow-up-classroom-context.md).
+Live voice, listening/classroom and print retain their existing contracts.
 
 ## Analytics
 

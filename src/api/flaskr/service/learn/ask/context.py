@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.service.common import raise_error
-from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.agent.rewind import read_turn_learner_values
 from flaskr.service.learn.ask.memory import render_follow_up_memory
 from flaskr.service.learn.elements.payloads import _deserialize_payload
@@ -19,7 +18,7 @@ from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
 )
-from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.learn.utils_v2 import FollowUpInfo, get_fmt_prompt
 from flaskr.service.memory.api import load_memory
 from flaskr.service.shifu.api import find_node_with_parents, get_shifu_struct
@@ -307,101 +306,6 @@ def load_prior_classroom_history(
     return [*messages, *anchor_input][-max_history_messages:]
 
 
-def load_reading_lesson_prefix(
-    anchor_element: object,
-    *,
-    progress_record_bid: str,
-    generated_block_model: object,
-) -> list[dict[str, str]]:
-    """Read the full active lesson prefix through an authoritative finalized element."""
-    if (
-        anchor_element is None
-        or anchor_element.progress_record_bid != progress_record_bid
-        or not anchor_element.is_final
-        or anchor_element.element_type in {"interaction", "ask", "answer"}
-        or not anchor_element.generated_block_bid
-    ):
-        raise_param_error("reload_element_bid")
-    block_model = generated_block_model
-    scope = [
-        block_model.progress_record_bid == progress_record_bid,
-        block_model.user_bid == anchor_element.user_bid,
-        block_model.shifu_bid == anchor_element.shifu_bid,
-        block_model.outline_item_bid == anchor_element.outline_item_bid,
-        block_model.deleted == 0,
-        block_model.status == 1,
-    ]
-    anchor_block = (
-        block_model.query.filter(
-            *scope,
-            block_model.generated_block_bid == anchor_element.generated_block_bid,
-        )
-        .order_by(block_model.id.desc())
-        .first()
-    )
-    if anchor_block is None:
-        raise_param_error("reload_element_bid")
-    rows = (
-        block_model.query.filter(
-            *scope,
-            block_model.id < anchor_block.id,
-            block_model.type.in_(
-                [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
-            ),
-            block_model.generated_content != "",
-        )
-        .order_by(block_model.id.asc())
-        .all()
-    )
-    messages: list[dict[str, str]] = []
-    for row in [*rows, anchor_block]:
-        if row.type == BLOCK_TYPE_MDCONTENT_VALUE:
-            values = read_turn_learner_values(row)
-            if values:
-                messages.append({"role": "user", "content": ",".join(values)})
-        if row is not anchor_block:
-            messages.append(
-                {
-                    "role": "user"
-                    if row.type == BLOCK_TYPE_MDINTERACTION_VALUE
-                    else "assistant",
-                    "content": str(row.generated_content),
-                }
-            )
-    # A generated turn may contain multiple finalized elements. The whole turn
-    # also contains later teaching, so use only its active element prefix.
-    element_model = LearnGeneratedElement
-    siblings = (
-        element_model.query.filter(
-            element_model.progress_record_bid == progress_record_bid,
-            element_model.user_bid == anchor_element.user_bid,
-            element_model.shifu_bid == anchor_element.shifu_bid,
-            element_model.outline_item_bid == anchor_element.outline_item_bid,
-            element_model.generated_block_bid == anchor_element.generated_block_bid,
-            element_model.event_type == "element",
-            element_model.element_index <= anchor_element.element_index,
-            element_model.element_type.notin_(["interaction", "ask", "answer"]),
-            element_model.deleted == 0,
-            element_model.status == 1,
-            element_model.is_final == 1,
-        )
-        .order_by(element_model.element_index.asc(), element_model.id.asc())
-        .all()
-    )
-    for element in siblings:
-        content = str(element.content_text or "")
-        if not content.strip():
-            payload = _deserialize_payload(element.payload or "")
-            content = "\n\n".join(
-                visual.content
-                for visual in payload.previous_visuals or []
-                if visual.content
-            )
-        if content.strip():
-            messages.append({"role": "assistant", "content": content})
-    return messages
-
-
 def load_follow_up_history(
     *,
     progress_record_bid: str,
@@ -411,7 +315,6 @@ def load_follow_up_history(
     element_rows_loader: Callable[[str, str], list[object]] | None = None,
     generated_block_model: object | None = None,
     quotation_messages: list[str] | None = None,
-    reading_context: str | None = None,
 ) -> list[dict[str, str]]:
     """Load prior classroom turns, the selected anchor and its recent sidecar."""
     history_limit = max(0, int(max_history_messages))
@@ -424,8 +327,6 @@ def load_follow_up_history(
         anchor_element = load_latest(anchor_element_bid)
         if anchor_element is not None:
             if anchor_element.progress_record_bid != progress_record_bid:
-                if reading_context == "lesson_prefix":
-                    raise_param_error("reload_element_bid")
                 return []
             follow_up_elements = list(
                 load_element_rows(
@@ -433,25 +334,6 @@ def load_follow_up_history(
                     anchor_element_bid,
                 )
             )
-
-    if reading_context == "lesson_prefix":
-        prefix = load_reading_lesson_prefix(
-            anchor_element,
-            progress_record_bid=progress_record_bid,
-            generated_block_model=block_model,
-        )
-        sidecar = (
-            build_follow_up_element_history(
-                anchor_element,
-                follow_up_elements,
-                history_limit,
-                quotation_messages=quotation_messages,
-            )
-            or []
-        )
-        if anchor_element.content_text and sidecar:
-            sidecar = sidecar[1:]
-        return [*prefix, *sidecar]
 
     element_history = build_follow_up_element_history(
         anchor_element,
@@ -516,7 +398,6 @@ def build_follow_up_conversation_context(
     format_prompt: Callable[..., str] | None = None,
     output_language: str | None = None,
     fallback_system_prompt: str | None = None,
-    reading_context: str | None = None,
 ) -> FollowUpConversationContext:
     """Compose the effective prompt and history for either follow-up transport."""
     if not str(outline_item_bid or "").strip():
@@ -601,7 +482,6 @@ def build_follow_up_conversation_context(
         element_rows_loader=element_rows_loader,
         generated_block_model=generated_block_model,
         quotation_messages=quotation_messages,
-        reading_context=reading_context,
     )
     llm_messages = [{"role": "system", "content": system_instruction}, *history]
     provider_messages = list(history)

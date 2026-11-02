@@ -101,9 +101,8 @@ def _seed_classroom(*, sidecars: bool = True) -> LearnGeneratedElement:
 
 
 @pytest.mark.parametrize("sidecars", [False, True])
-@pytest.mark.parametrize("reading_context", [None, "lesson_prefix"])
 def test_anchor_includes_prior_teaching_and_real_answers_only(
-    app: Flask, sidecars: bool, reading_context: str | None
+    app: Flask, sidecars: bool
 ) -> None:
     """Completed classroom blocks precede the exact selected text and its own sidecar."""
     with app.app_context():
@@ -116,7 +115,6 @@ def test_anchor_includes_prior_teaching_and_real_answers_only(
             progress_record_bid=anchor.progress_record_bid,
             anchor_element_bid=anchor.element_bid,
             max_history_messages=10,
-            reading_context=reading_context,
         )
         expected = [
             {"role": "assistant", "content": "Earlier explanation"},
@@ -456,143 +454,3 @@ def test_synthesized_classroom_values_are_not_exact_quotation_sources(
         )
         assert any(m["content"] == "first value,second value" for m in history)
         assert quotes == []
-
-
-def _seed_reading_prefix() -> LearnGeneratedElement:
-    """Create a long lesson and a multi-element turn with following text."""
-    scope = uuid.uuid4().hex
-    fields = {
-        "progress_record_bid": scope,
-        "user_bid": f"reader-{scope}",
-        "shifu_bid": f"course-{scope}",
-        "outline_item_bid": f"lesson-{scope}",
-    }
-    with unit_of_work():
-        for index in range(15):
-            db.session.add(
-                make_generated_block(
-                    **fields,
-                    generated_block_bid=uuid.uuid4().hex,
-                    generated_content=f"Earlier teaching {index}",
-                    type=BLOCK_TYPE_MDCONTENT_VALUE,
-                    status=1,
-                )
-            )
-        db.session.flush()
-        turn = make_generated_block(
-            **fields,
-            generated_block_bid=uuid.uuid4().hex,
-            generated_content="Earlier sibling\n\nSelected ending\n\nFuture same-turn text",
-            type=BLOCK_TYPE_MDCONTENT_VALUE,
-            status=1,
-        )
-        db.session.add(turn)
-        db.session.flush()
-        anchor = None
-        for index, text in enumerate(
-            ["Earlier sibling", "Selected ending", "Future same-turn text"]
-        ):
-            element = make_generated_element(
-                **fields,
-                element_bid=uuid.uuid4().hex,
-                generated_block_bid=turn.generated_block_bid,
-                element_type="text",
-                content_text=text,
-                element_index=index,
-                is_final=1,
-            )
-            db.session.add(element)
-            if index == 1:
-                anchor = element
-        db.session.flush()
-        db.session.add(
-            make_generated_block(
-                **fields,
-                generated_block_bid=uuid.uuid4().hex,
-                generated_content="Future turn",
-                type=BLOCK_TYPE_MDCONTENT_VALUE,
-                status=1,
-            )
-        )
-        assert anchor is not None
-        for kind, text in [("ask", "Recent question"), ("answer", "Recent answer")]:
-            db.session.add(
-                make_generated_element(
-                    **fields,
-                    element_bid=uuid.uuid4().hex,
-                    element_type=kind,
-                    content_text=text,
-                    payload=_serialize_payload(
-                        ElementPayloadDTO(anchor_element_bid=anchor.element_bid)
-                    ),
-                )
-            )
-    return anchor
-
-
-@pytest.mark.parametrize("limit", [0, 1, 2])
-def test_reading_prefix_contains_every_prior_turn_and_exact_current_element_prefix(
-    app: Flask, limit: int
-) -> None:
-    """Classroom prefix is independent of the recent follow-up message budget."""
-    with app.app_context():
-        anchor = _seed_reading_prefix()
-        history = load_follow_up_history(
-            progress_record_bid=anchor.progress_record_bid,
-            anchor_element_bid=anchor.element_bid,
-            max_history_messages=limit,
-            reading_context="lesson_prefix",
-        )
-        expected = [f"Earlier teaching {index}" for index in range(15)]
-        expected += ["Earlier sibling", "Selected ending"]
-        expected += ["Recent question", "Recent answer"][-limit:] if limit else []
-        assert [message["content"] for message in history] == expected
-        assert not any("Future" in message["content"] for message in history)
-        # Existing entry points retain their recent-history window.
-        ordinary = load_follow_up_history(
-            progress_record_bid=anchor.progress_record_bid,
-            anchor_element_bid=anchor.element_bid,
-            max_history_messages=2,
-        )
-        assert [message["content"] for message in ordinary] == [
-            "Selected ending",
-            "Recent question",
-            "Recent answer",
-        ]
-
-
-@pytest.mark.parametrize(
-    "invalid", ["missing", "foreign", "unfinished", "retired", "interaction"]
-)
-def test_reading_prefix_rejects_invalid_anchor_without_latest_history_fallback(
-    app: Flask, invalid: str
-) -> None:
-    """Unknown, cross-attempt and unfinished anchors cannot reveal later teaching."""
-    from flaskr.service.common.models import AppError
-
-    with app.app_context():
-        anchor = _seed_reading_prefix()
-        bid = anchor.element_bid
-        progress = anchor.progress_record_bid
-        if invalid == "missing":
-            bid = "unknown-element"
-        elif invalid == "foreign":
-            progress = "another-progress"
-        else:
-            with unit_of_work():
-                if invalid == "unfinished":
-                    anchor.is_final = 0
-                elif invalid == "interaction":
-                    anchor.element_type = "interaction"
-                else:
-                    block = LearnGeneratedBlock.query.filter_by(
-                        generated_block_bid=anchor.generated_block_bid
-                    ).one()
-                    block.status = 0
-        with pytest.raises(AppError):
-            load_follow_up_history(
-                progress_record_bid=progress,
-                anchor_element_bid=bid,
-                max_history_messages=10,
-                reading_context="lesson_prefix",
-            )

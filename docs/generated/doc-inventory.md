@@ -322,7 +322,7 @@
 | `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-31` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
-| `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-11-02` | `true` |
+| `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/i18n-zh-CN.md` | Simplified Chinese product terminology | `reference` | `current` | `shared` | `2026-10-30` | `true` |

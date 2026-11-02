@@ -118,10 +118,11 @@ classroom presentations retain their existing contracts.
 
 A persistent text element can contain multiple Markdown paragraphs. The current
 boundary is the real element end; do not fabricate paragraph element IDs or
-attribute an internal paragraph to the entire element. The text ASK request opts
-into `reading_context: 'lesson_prefix'`; see
-`docs/references/follow-up-classroom-context.md` for its authoritative cutoff
-and validation rules. Live follow-ups retain their existing provider context.
+attribute an internal paragraph to the entire element. Entry and presentation
+changes must retain the existing ASK payload, saved-element anchor, history
+window and backend context assembly. Do not add a reading-specific context
+scope. See `docs/references/follow-up-classroom-context.md` for the existing
+context contract. Live follow-ups retain their existing provider context.
 
 Reading AskBlock uses `inlineReading`, keeps collapsed instances mounted, and
 reports draft presence to the controller. Messages remain in useAskStateStore.

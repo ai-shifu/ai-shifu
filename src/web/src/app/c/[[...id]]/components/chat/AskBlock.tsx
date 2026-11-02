@@ -425,7 +425,6 @@ export default function AskBlock({
         reload_generated_block_bid: element_bid,
         reload_element_bid: element_bid,
         listen: false,
-        ...(inlineReading ? { reading_context: 'lesson_prefix' } : {}),
       },
       creditInsufficientAudience,
       async response => {
@@ -575,7 +574,6 @@ export default function AskBlock({
     isLive,
     liveVoice,
     liveVoiceSurface,
-    inlineReading,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {

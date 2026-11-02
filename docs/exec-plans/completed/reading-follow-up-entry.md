@@ -6,32 +6,35 @@ Replace repeated reading-mode follow-up actions with one paragraph-end reading
 boundary entry, using the approved local prototype as the visual target. Desktop
 hover selects immediately. Mobile chooses the lowest complete visible end after
 scrolling and accepts short taps to change the point. Questions expand inline,
-retain drafts and history, and use preceding lesson context through a persisted
-content boundary. There is no fixed bottom entry or visible range explanation.
+retain drafts and history, and reuse the existing saved-element anchor and
+follow-up context assembly. There is no fixed bottom entry or visible range explanation.
 
 ## Progress
 
 - [x] 2026-11-02 UTC: Inspected the existing learner, store, streaming and backend context paths; created a feature branch from current origin/main.
 - [x] 2026-11-02 UTC: Integrated the reading entry, keyboard access and inline question surface with shared state.
-- [x] 2026-11-02 UTC: Verified the context cutoff, analytics and desktop/mobile behavior with focused tests, production build, type-check, lint and repository checks.
+- [x] 2026-11-02 UTC: Verified analytics and desktop/mobile behavior with focused tests, production build, type-check, lint and repository checks.
+- [x] 2026-11-02 UTC: Removed all proposed backend context changes at the user's request; inline and ordinary requests now send the same existing ASK payload.
 
 ## Surprises & Discoveries
 
 - Rendering uses persistent engine elements, not arbitrary DOM paragraphs.
   Never fabricate element IDs or attribute an internal paragraph to a whole
   element: that can include subsequent content.
-- Existing follow-up history omits earlier sibling elements in the anchor's
-  generated block. Backend context must preserve that prefix without future text.
+- Context behavior is outside this UI change. The existing history window and
+  saved-element anchor remain authoritative; no full-lesson prefix is introduced.
 
 ## Decision Log
 
 - Reuse finalized persistent content elements and existing store/request paths.
+- Keep follow-up context unchanged, as explicitly requested by the user. Remove
+  the proposed context scope, backend implementation and its tests from this PR.
 - Preserve listen/classroom behavior; opt in to the new inline reading surface.
 - Keep eligible-view tracking out of hover/scroll; measure deliberate accepted opens and dismissals.
 
 ## Outcomes & Retrospective
 
-Implementation is complete. Backend context suites passed 228 tests. Frontend
+The implementation is limited to frontend entry and presentation. Frontend
 focused suites cover the reading controller/tracker, inline AskBlock, real root
 composition, eligibility, store/transport, and listening compatibility. The Node
 22.23.4 production build, type-check, lint, architecture check and full pre-commit
@@ -43,7 +46,8 @@ No local backend service or physical handset was available for an authenticated
 full-stack browser acceptance run. The implementation is ready for review and
 subsequent environment acceptance; no production deployment or main merge was
 performed. The supported precise cutoff is a persisted element end, which can
-contain multiple Markdown paragraphs; Live retains its existing context window.
+contain multiple Markdown paragraphs. All follow-ups retain their existing
+context assembly and history windows.
 
 ## Context and Orientation
 
@@ -60,13 +64,13 @@ constraints are restated here so this plan is independently understandable.
 2. Replace rendered repeated actions with stable reserved boundary markers,
    preserving audio/regeneration and finalize timing.
 3. Opt reading AskBlock into an inline surface, retaining mounted state on close.
-4. Correct and verify preceding context through the selected persistent end.
-5. Add the analytics contract, focused regression coverage and real browser checks.
+4. Preserve the existing ASK payload and backend context contract.
+5. Add the analytics contract and focused regression coverage.
 
 ## Concrete Steps
 
 Run focused Jest suites from `src/web`, type-check and lint. Run focused backend
-context tests and repository harness checks. Review the resulting diff, run the
+compatibility tests and repository harness checks. Review the resulting diff, run the
 required developer-tool gate before committing, and open a non-draft PR.
 
 ## Validation and Acceptance
@@ -74,7 +78,8 @@ required developer-tool gate before committing, and open a non-draft PR.
 Desktop hover is immediate and mobile taps never turn swipes or selections into
 questions. Only one candidate is shown; incomplete/offscreen mobile ends are
 excluded. Drafts, streaming and history survive collapse and mode switching.
-Requests use real anchors and cannot include course content beyond the cutoff.
+Requests use the same real element anchors and payload as before; context
+assembly and history-window behavior are unchanged.
 Disabled follow-ups and non-reading modes retain their existing contracts.
 
 ## Idempotence and Recovery

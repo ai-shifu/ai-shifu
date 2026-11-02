@@ -739,7 +739,7 @@ describe('AskBlock', () => {
   });
 
   it.each([false, true])(
-    'opts into lesson-prefix context only for inline reading (inline=%s)',
+    'preserves the existing follow-up context payload (inline=%s)',
     async inlineReading => {
       render(
         <AppContext.Provider value={{ mobileStyle: false } as any}>
@@ -763,8 +763,10 @@ describe('AskBlock', () => {
         reload_generated_block_bid: 'block-1',
         reload_element_bid: 'block-1',
         listen: false,
-        ...(inlineReading ? { reading_context: 'lesson_prefix' } : {}),
       });
+      expect(mockGetRunMessage.mock.calls[0][3]).not.toHaveProperty(
+        'reading_context',
+      );
     },
   );
 

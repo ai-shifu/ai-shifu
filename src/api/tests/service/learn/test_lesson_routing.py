@@ -60,13 +60,11 @@ def test_a_follow_up_question_is_not_a_lesson_turn() -> None:
 @pytest.mark.parametrize("listen", [False, True], ids=["read", "listen"])
 @pytest.mark.parametrize("preview", [False, True], ids=["formal", "preview"])
 @pytest.mark.parametrize("anchored", [False, True], ids=["unanchored", "anchored"])
-@pytest.mark.parametrize("reading_context", [None, "lesson_prefix"])
 def test_follow_up_dispatch_preserves_the_sidecar_request(
     monkeypatch: pytest.MonkeyPatch,
     listen: bool,
     preview: bool,
     anchored: bool,
-    reading_context: str | None,
 ) -> None:
     """Ask must bypass agent turns and retain its request and emitted events."""
     from flaskr.service.learn.agent import lesson_entry
@@ -102,7 +100,6 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
             outline_bid="lesson-bid",
             user_input=question,
             input_type=INPUT_TYPE_ASK,
-            reading_context=reading_context,
             reload_generated_block_bid=block_bid,
             reload_element_bid=element_bid,
             listen=listen,
@@ -123,7 +120,6 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
             "user_input": question,
             "reload_generated_block_bid": block_bid,
             "reload_element_bid": element_bid,
-            "reading_context": reading_context,
             "listen": listen,
             "learning_mode": "listen" if listen else "read",
             "preview_mode": preview,
