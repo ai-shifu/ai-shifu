@@ -640,20 +640,26 @@ class InteractionSyntaxFilter:
         Inline syntax and HTML blocks of types 6 and 7 end at a blank line; only a
         literal already spanning it, or an unfinished HTML block of types 1-5
         opened at the start of a line, can carry on.
+
+        The restarted context is compacted from the text before the cut, without
+        the line that starts there. So the cut must also be settled in that text:
+        an HTML block that only the next line's container end closes would stay
+        open in the compacted context and swallow the line.
         """
-        source = before + text[: cut + 1]
         at = len(before) + cut
-        context = analyze_marker_context(source, final=False)
-        if any(start < at < end for start, end in context.literals):
-            return False
-        html = context.pending_html_start
-        if html is None or html >= at:
-            return True
-        line = max(source.rfind("\n", 0, html), source.rfind("\r", 0, html)) + 1
-        return not (
-            _CONTAINER_PREFIX.fullmatch(source, line, html)
-            and _SPANNING_HTML_START.match(source, html)
-        )
+        for source in (before + text[: cut + 1], before + text[:cut]):
+            context = analyze_marker_context(source, final=False)
+            if any(start < at < end for start, end in context.literals):
+                return False
+            html = context.pending_html_start
+            if html is None or html >= at:
+                continue
+            line = max(source.rfind("\n", 0, html), source.rfind("\r", 0, html)) + 1
+            if _CONTAINER_PREFIX.fullmatch(source, line, html) and (
+                _SPANNING_HTML_START.match(source, html)
+            ):
+                return False
+        return True
 
     def _reset_raw(self) -> None:
         self._raw_base = ""
