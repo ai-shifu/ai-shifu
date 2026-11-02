@@ -435,6 +435,10 @@ def test_course_trace_finishes_from_committed_outcome_when_consumer_closes(
     if outcome == "error":
         with pytest.raises(RuntimeError, match="business write failed"):
             list(stream)
+    elif outcome == "discarded":
+        # A refused save ends the turn as discarded; the stream layer ends it quietly.
+        with pytest.raises(lesson_entry.DiscardedTurnError):
+            list(stream)
     else:
         for event in stream:
             if outcome == "disconnected" or event.type in {

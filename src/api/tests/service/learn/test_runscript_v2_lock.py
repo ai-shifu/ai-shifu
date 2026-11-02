@@ -866,6 +866,49 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
         assert events[2]["is_terminal"] is True
 
 
+def test_run_script_ends_a_turn_a_reset_discarded_without_an_error(
+    monkeypatch: object,
+) -> None:
+    """The learner asked for the replacement, so the old turn stops quietly."""
+    from flaskr.service.common.models import ERROR_CODE
+    from flaskr.service.learn.agent.lesson_entry import DiscardedTurnError
+
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
+        logged = []
+        monkeypatch.setattr(
+            host_run, "_log_run_script_stream_error", lambda *a: logged.append(a)
+        )
+
+        def fake_lesson_events(**_kwargs: object) -> object:
+            message = "Turn discarded"
+            raise DiscardedTurnError(message, ERROR_CODE["server.common.unknownError"])
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
+
+        chunks = list(
+            host_run.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                user_input={"input": ["x"]},
+                input_type="normal",
+                listen=True,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert [event["type"] for event in events] == ["break", "done"]
+        assert events[1]["is_terminal"] is True
+        assert logged == []
+
+
 def test_run_script_maps_standard_timeout_error_to_retryable_message(
     monkeypatch: object,
 ) -> None:

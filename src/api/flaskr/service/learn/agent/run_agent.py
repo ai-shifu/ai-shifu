@@ -1252,6 +1252,16 @@ def _stream_turn(
                     tracing.after_save(
                         session=session, reason=event.reason, discarded=not kept
                     )
+                if not kept:
+                    # A reset or rewind refused this save. Stop before the boundary is
+                    # translated: the element adapter finalizes the turn's elements on
+                    # it, and nothing of a discarded turn may be written. The caller ends
+                    # the stream quietly and does not carry the lesson on from here.
+                    return TurnOutcome(
+                        reason=event.reason,
+                        taught=bool("".join(taught).strip()),
+                        discarded=True,
+                    )
                 if session.finished and kept:  # not for a turn a reset discarded
                     # Before the terminal event, because the browser stops reading the stream on
                     # it. These are the only thing that ticks the lesson off in the outline, ends
