@@ -16,6 +16,8 @@ Course links follow the same official-versus-customer-domain rule.
 - [x] 2026-11-02: Align course links, document the contract, and verify regressions.
 - [x] 2026-11-02: Passed repository-wide gates and prepared the change for a
   ready pull request; implementation scope and acceptance were independently reviewed.
+- [x] 2026-11-02: Addressed review findings with independent fixes for failed
+  API discovery and legacy account selectors overriding validated ownership.
 
 ## Surprises & Discoveries
 
@@ -47,13 +49,19 @@ Course links follow the same official-versus-customer-domain rule.
 
 ## Outcomes & Retrospective
 
-Focused validation passed: 280 backend tests and 135 frontend tests, plus
+Focused validation passed: 293 backend tests and 150 frontend tests, plus
 TypeScript and frontend lint. Ten optional SaaS-plugin tests are skipped
 because that plugin is not installed in this checkout. Two independent code
 reviews found no in-scope defects. The full repository-wide pre-commit gate
 passed using the existing project Python environment, including architecture,
-documentation, translation, formatting, and lint checks. No deployment or
-stored-data migration is required for review.
+documentation, translation, formatting, and lint checks. No schema or
+stored-link migration is required.
+
+Review follow-up preserves explicit empty same-origin discovery results while
+using the configured backend on HTTP, JSON, network, or invalid-response
+failures. Commercial runtime settings now prioritize validated domain/course
+ownership over legacy explicit account selectors, including recovery when the
+first host lookup fails. Production rollout remains a separate release step.
 
 ## Context and Orientation
 

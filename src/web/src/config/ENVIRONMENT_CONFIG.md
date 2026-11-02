@@ -44,6 +44,11 @@ same-origin `/api` ingress. Localhost frontend/backend origins retain the
 configured backend base even when their ports differ. See
 [route-utils.ts](../app/api/config/route-utils.ts) and its tests for the host
 comparison contract. The development proxy is described in the frontend README.
+If discovery fails because of an HTTP error, invalid JSON or response shape,
+or a network error, the browser retains the configured backend base. Both
+asynchronous requests and synchronous lifecycle requests use that same cached
+resolution. A successfully returned empty `apiBaseUrl` still selects same-origin
+requests rather than the configured fallback.
 
 ## Frontend Build Identity
 
@@ -119,12 +124,11 @@ Use the backend names in the table instead.
 From `src/web`, run the configuration-parser and Next configuration-route tests:
 
 ```bash
-npm test -- --runInBand --runTestsByPath src/config/environment.test.ts src/app/api/config/route.test.ts
+npm test -- --runInBand --runTestsByPath src/config/environment.test.ts src/app/api/config/route.test.ts src/lib/initialize-runtime-config.test.ts
 ```
 
-`initialize-runtime-config.ts` has no dedicated test suite. These tests do not verify
-its backend payload mapping, fallback behavior, or store updates; changes to
-that bootstrap path need focused regression coverage.
+The runtime initializer suite also checks discovery failures, backend payload
+mapping, and store updates through the real environment resolver.
 
 In a local running setup, inspect the two requests separately: Next should
 return the expected backend base; Flask should return the configured public

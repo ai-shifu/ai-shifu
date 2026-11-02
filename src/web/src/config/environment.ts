@@ -123,13 +123,23 @@ async function getClientApiBaseUrl(): Promise<string> {
   configFetchPromise = (async () => {
     try {
       const response = await fetch('/api/config');
-      if (response.ok) {
-        const config = await response.json();
-        cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl) || '';
+      if (!response.ok) {
+        throw new Error(
+          `Backend location discovery failed: ${response.status}`,
+        );
       }
+      const config = await response.json();
+      if (typeof config?.apiBaseUrl !== 'string') {
+        throw new Error(
+          'Backend location discovery returned an invalid API base',
+        );
+      }
+      // A successfully discovered empty base intentionally selects same-origin.
+      cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl);
     } catch (error) {
       console.warn('Failed to fetch runtime config:', error);
-      cachedApiBaseUrl = '';
+      // Discovery failure must not discard a reachable configured backend.
+      cachedApiBaseUrl = getApiBaseUrl();
     }
 
     configFetched = true;
@@ -176,7 +186,8 @@ export async function getDynamicApiBaseUrl(): Promise<string> {
 
 /**
  * Reads resolved runtime configuration without suspending a lifecycle callback.
- * An empty base is ready (same origin); undefined means it has not loaded yet.
+ * Includes the configured fallback after discovery failure. An empty base is
+ * ready (same origin); undefined means it has not loaded yet.
  */
 export function getCachedDynamicApiBaseUrl(): string | undefined {
   if (typeof window === 'undefined') {
