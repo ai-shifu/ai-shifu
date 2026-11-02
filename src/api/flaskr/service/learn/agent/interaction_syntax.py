@@ -99,11 +99,14 @@ _SPANNING_HTML_START = re.compile(
     r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$))",
     re.IGNORECASE,
 )
-# The first characters of a plain paragraph line: a word, an inline code span or
-# emphasis. Nothing the line after it is read against depends on more than that
-# it was such a line, unlike a heading, a fence, HTML, a setext underline or a
-# reference definition.
-_PARAGRAPH_START = re.compile(r"[^\W_]|`(?!``)|[*_]{1,2}[^\W_]")
+# The first characters of a plain paragraph line: a word, an inline code span,
+# emphasis, a link or an image. Nothing the line after it is read against depends
+# on more than that it was such a line, unlike a heading, a fence, HTML, a setext
+# underline or a reference definition.
+_PARAGRAPH_START = re.compile(r"[^\W_]|`(?!``)|[*_]{1,2}[^\W_]|!?\[")
+# A line that opens a reference definition rather than a link: its label's
+# closing bracket is followed by a colon.
+_REFERENCE_START = re.compile(r"\[(?:[^\\\[\]]|\\.)*\]:")
 # Letters, digits and spaces in the middle of a narration line carry no Markdown
 # or MarkdownFlow syntax.
 _PLAIN = re.compile(r"(?:[^\W_]| )+")
@@ -593,7 +596,11 @@ class InteractionSyntaxFilter:
             return None
         last = len(blocks.lines) - 1
         start = blocks.block_content_start(last)
-        if start is None or _PARAGRAPH_START.match(body, start) is None:
+        if (
+            start is None
+            or _PARAGRAPH_START.match(body, start) is None
+            or _REFERENCE_START.match(body, start) is not None
+        ):
             return None
         context = analyze_marker_context(done, final=False)
         line = blocks.lines[last].start

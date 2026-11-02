@@ -278,6 +278,8 @@ COMPACT_ITEMS = {
     "nested": "  - step {i} uses `code` <i>x</i>\n",
     "quoted": "> - step {i} uses `code` $m$\n",
     "ordered": "{n}. step {i} uses `code` and [c]\n",
+    "linked": "- [link {i}](/u) uses `code` <b>x</b>\n",
+    "image": "- ![alt {i}](/i.png) and `code`\n",
 }
 
 
@@ -341,6 +343,8 @@ def test_compact_list_after_a_long_unfinished_item_keeps_work_linear(
         "- a\n  <!--\n  ?[L|M]\n  -->\n- b\n      ?[A|B]\n\n  " + QUESTION,
         "> - a\n>   b\n>      ```\n>   ?[A|B]\n- " + QUESTION,
         "- a\n  b\n- c\n  [r]: /u '?[A|B]'\n- " + QUESTION,
+        "- [r]: /u\n  '?[A|B]'\n- " + QUESTION,
+        "- [l](/u) a `x\n  y ?[A|B]` z\n- " + QUESTION,
     ],
 )
 def test_compact_list_lines_carry_unfinished_syntax_across_items(
