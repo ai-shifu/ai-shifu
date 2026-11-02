@@ -40,6 +40,7 @@ import re
 
 from markdownflow.engine.stream_marker_context import (
     compact_marker_context,
+    container_paragraph_witness,
     pending_autolink_is_primary,
     pending_literal_context,
 )
@@ -98,6 +99,14 @@ _SPANNING_HTML_START = re.compile(
     r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$))",
     re.IGNORECASE,
 )
+# The first characters of a plain paragraph line: a word, an inline code span,
+# emphasis, a link or an image. Nothing the line after it is read against depends
+# on more than that it was such a line, unlike a heading, a fence, HTML, a setext
+# underline or a reference definition.
+_PARAGRAPH_START = re.compile(r"[^\W_]|`(?!``)|[*_]{1,2}[^\W_]|!?\[")
+# A line that opens a reference definition rather than a link: its label's
+# closing bracket is followed by a colon.
+_REFERENCE_START = re.compile(r"\[(?:[^\\\[\]]|\\.)*\]:")
 # Letters, digits and spaces in the middle of a narration line carry no Markdown
 # or MarkdownFlow syntax.
 _PLAIN = re.compile(r"(?:[^\W_]| )+")
@@ -138,7 +147,8 @@ class InteractionSyntaxFilter:
         # The last scan of the context prefix plus held text, reused by `_find_open`.
         self._scan: tuple[MarkerContext, int, tuple[int, str] | None] | None = None
         # Raw emitted text since the last point where no Markdown state carries over,
-        # after a witness of everything before it. Literal decisions read it, so the
+        # after a witness of everything before it: a compact witness at a blank
+        # line, or one synthetic paragraph line after a settled container line. Literal decisions read it, so the
         # current containers, indentation and info strings stay exact. Kept as parts
         # so appending stays constant work; None only past `_RAW_LIMIT`.
         self._raw_base = ""
@@ -154,6 +164,9 @@ class InteractionSyntaxFilter:
         # Whether the raw context holds a character that may span lines.
         self._raw_spanning = False
         self._raw_tail = ""
+        # The raw context length before which a container checkpoint is not tried
+        # again, after one failed: doubling it keeps failed attempts linear.
+        self._raw_retry = 0
         self._pending_witness = ""
         # Held because an earlier unfinished literal may still enclose the opener.
         self._defer_hold = False
@@ -515,6 +528,9 @@ class InteractionSyntaxFilter:
                 self._raw_head = ""
                 self._raw_containers = self._has_container_head(text[cut:])
                 self._raw_spanning = _SPANNING_CHAR.search(text, cut) is not None
+                # A backoff measured on the discarded context must not hold back
+                # checkpoints in the new one.
+                self._raw_retry = 0
                 return True
         if self._raw_parts is None:
             return False
@@ -529,7 +545,86 @@ class InteractionSyntaxFilter:
         self._raw_length += len(text)
         if self._raw_length > _RAW_LIMIT:
             self._raw_parts = None
+            return False
+        if (
+            self._raw_containers
+            and self._raw_length >= self._raw_retry
+            and _LINE_BREAK_CHAR.search(text)
+            and not text.endswith("\r")
+        ):
+            return self._checkpoint_paragraph(text)
         return False
+
+    def _checkpoint_paragraph(self, text: str) -> bool:
+        """Restart the raw context after the last complete line of `text`.
+
+        Inside containers there is rarely a blank line to restart at, and every
+        literal decision rereads the raw context, so a long compact list would be
+        rescanned whole at each line. After a plain paragraph line with nothing
+        unfinished, a following line is read only against the open containers and
+        the open paragraph, which one synthetic line reproduces exactly.
+        """
+        cut = max(text.rfind("\n"), text.rfind("\r")) + 1
+        raw = self._raw_text() or ""
+        done = self._raw_base + raw[: len(raw) - (len(text) - cut)]
+        witness = self._paragraph_witness(done)
+        if witness is None:
+            self._raw_retry = 2 * self._raw_length
+            return False
+        self._raw_base = witness
+        self._raw_parts = [text[cut:]]
+        self._raw_length = len(text) - cut
+        self._raw_retry = 0
+        self._raw_structured = False
+        self._raw_head = ""
+        self._raw_containers = witness != "x\n" or self._has_container_head(text[cut:])
+        self._raw_spanning = _SPANNING_CHAR.search(text, cut) is not None
+        return True
+
+    @staticmethod
+    def _paragraph_witness(done: str) -> str | None:
+        """Return the synthetic line that can stand for `done`, or None if state carries.
+
+        `done` ends with a line break. Its last line must be a plain line of an
+        open paragraph, and no literal, block, token, label or marker may still
+        be unfinished or reach into that line from before it.
+        """
+        body = done[:-2] if done.endswith("\r\n") else done[:-1]
+        blocks = DocumentBlocks(body, COMPILED_INLINE_HTML_REGEX)
+        steps, paragraph = blocks.container_state
+        if not paragraph:
+            return None
+        last = len(blocks.lines) - 1
+        start = blocks.block_content_start(last)
+        if (
+            start is None
+            or _PARAGRAPH_START.match(body, start) is None
+            or _REFERENCE_START.match(body, start) is not None
+        ):
+            return None
+        context = analyze_marker_context(done, final=False)
+        line = blocks.lines[last].start
+        if (
+            context.unmatched_backticks
+            or context.unmatched_math
+            or context.pending_label_starts
+            or context.pending_resource_opener
+            or any(
+                at is not None
+                for at in (
+                    context.pending_html_start,
+                    context.pending_autolink_start,
+                    context.pending_resource_start,
+                    context.pending_block_start,
+                    context.pending_reference_start,
+                    context.pending_container_fence,
+                )
+            )
+            or any(not marker.complete for marker in context.markers)
+            or any(start < line < end for start, end in context.literals)
+        ):
+            return None
+        return container_paragraph_witness(steps)
 
     def _has_container_head(self, text: str) -> bool:
         """Whether `text` starts a container or indented line in the raw context."""
@@ -569,6 +664,7 @@ class InteractionSyntaxFilter:
         self._raw_head = ""
         self._raw_spanning = False
         self._raw_tail = ""
+        self._raw_retry = 0
 
     def _advance_witness(self, text: str, lookahead: str) -> None:
         """Extend the raw context and the bounded witness with emitted `text`.
