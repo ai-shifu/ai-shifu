@@ -285,6 +285,7 @@ COMPACT_ITEMS = {
     "strikethrough": "- ~old {i}~ uses `code` <b>x</b>\n",
     "inline-html": "- <b>step {i}</b> uses `code` $m$\n",
     "sign-or-hash": "- #tag{i} is -5 and `code`\n",
+    "repeated-punctuation": "- --verbose {i} and ***bold*** `code`\n",
 }
 
 
@@ -365,6 +366,8 @@ def test_compact_list_after_a_long_unfinished_item_keeps_work_linear(
         "- <!-- c -->\n      ?[A|B]\n\n- " + QUESTION,
         "- <div>x</div>\n  ?[L|M]\n- " + QUESTION,
         "- <b>x</b> a\n      ?[A|B]\n- " + QUESTION,
+        "- a\n  ---\n      ?[A|B]\n- " + QUESTION,
+        "- a\n  ***\n      ?[A|B]\n- " + QUESTION,
     ],
 )
 def test_compact_list_lines_carry_unfinished_syntax_across_items(

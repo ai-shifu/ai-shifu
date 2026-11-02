@@ -46,9 +46,13 @@ from markdownflow.engine.stream_marker_context import (
 )
 from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
 from markdownflow.syntax.parser.document_blocks import (
+    COMPILED_ATX_START_REGEX,
+    COMPILED_DOCUMENT_BREAK_REGEX,
     COMPILED_DOCUMENT_TAG_REGEX,
+    COMPILED_SETEXT_REGEX,
     HTML_BLOCK_TAGS,
     DocumentBlocks,
+    fence_opening,
 )
 from markdownflow.syntax.parser.marker_context import (
     MarkerContext,
@@ -103,23 +107,31 @@ _SPANNING_HTML_START = re.compile(
     r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$))",
     re.IGNORECASE,
 )
-# The first characters of a plain paragraph line: an inline code, math or
-# strikethrough span, emphasis, a link, an image or inline HTML (an HTML block
-# start is rejected separately), a sign or hash that cannot start a marker,
-# break, underline or heading, or any character that cannot open a block. Nothing the line
-# after it is read against depends on more than that it was such a line, unlike a
-# heading, a quote, a list, a fence, HTML, math, a thematic break, a setext
-# underline or a reference definition.
-_PARAGRAPH_START = re.compile(
-    r"`(?!``)|~(?!~~)|\$(?!\$)|[*_]{1,2}[^\W_]|!?\[|<|[-+=](?=[^\s\-+=])"
-    r"|#(?=[^\s#])|[^\s#>+\-=<$~`*_\[]"
-)
 # A line that opens a reference definition rather than a link: its label's
 # closing bracket is followed by a colon.
 _REFERENCE_START = re.compile(r"\[(?:[^\\\[\]]|\\.)*\]:")
 # Letters, digits and spaces in the middle of a narration line carry no Markdown
 # or MarkdownFlow syntax.
 _PLAIN = re.compile(r"(?:[^\W_]| )+")
+
+
+def _plain_paragraph_line(value: str) -> bool:
+    """Whether a line's content, after its containers, is plain paragraph text.
+
+    The line after it is read only against the open containers and paragraph
+    unless this line is one of the scanner's other block constructs: a heading,
+    a thematic break, a setext underline, a fence, an HTML block start, a
+    reference definition or a math block opener.
+    """
+    return not (
+        COMPILED_ATX_START_REGEX.match(value)
+        or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value)
+        or COMPILED_SETEXT_REGEX.fullmatch(value)
+        or fence_opening(value) is not None
+        or _opens_html_block(value, 0)
+        or _REFERENCE_START.match(value)
+        or value.startswith("$$")
+    )
 
 
 def _opens_html_block(text: str, at: int) -> bool:
@@ -614,11 +626,8 @@ class InteractionSyntaxFilter:
             return None
         last = len(blocks.lines) - 1
         start = blocks.block_content_start(last)
-        if (
-            start is None
-            or _PARAGRAPH_START.match(body, start) is None
-            or _REFERENCE_START.match(body, start) is not None
-            or _opens_html_block(body, start)
+        if start is None or not _plain_paragraph_line(
+            body[start : blocks.lines[last].content_end]
         ):
             return None
         context = analyze_marker_context(done, final=False)
