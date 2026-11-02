@@ -1029,32 +1029,6 @@ def test_load_model_max_output_tokens_ignores_invalid_config(
     assert captured == {}
 
 
-def test_stream_litellm_completion_falls_back_to_litellm_limit(
-    monkeypatch: object, app: object
-) -> None:
-    captured = {}
-    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
-    monkeypatch.setattr(llm.litellm, "get_max_tokens", lambda _model: 8192)
-    monkeypatch.setattr(
-        llm.litellm,
-        "completion",
-        lambda *_args, **kwargs: captured.update(kwargs) or iter([]),
-    )
-
-    list(
-        llm._stream_litellm_completion(
-            app,
-            "openai/gpt-test",
-            "gpt-test",
-            [],
-            {},
-            {},
-        )
-    )
-
-    assert captured["max_tokens"] == 8192
-
-
 @pytest.mark.parametrize(
     ("requested_max_tokens", "expected_max_tokens"),
     [(None, 131072), (4096, 4096), (200000, 131072)],
@@ -1094,17 +1068,30 @@ def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
     assert captured["max_tokens"] == expected_max_tokens
 
 
-def test_stream_litellm_completion_omits_unknown_limit(
-    monkeypatch: object, app: object
+def _raise_unknown_model(_model: object) -> None:
+    message = "unknown model"
+    raise ValueError(message)
+
+
+@pytest.mark.parametrize(
+    ("get_max_tokens", "requested_model", "invoke_model", "expected_max_tokens"),
+    [
+        (lambda _model: 8192, "openai/gpt-test", "gpt-test", 8192),
+        (_raise_unknown_model, "qwen/unknown-model", "unknown-model", None),
+    ],
+    ids=["falls-back-to-litellm-limit", "omits-unknown-limit"],
+)
+def test_stream_litellm_completion_without_configured_limit(
+    monkeypatch: object,
+    app: object,
+    get_max_tokens: object,
+    requested_model: str,
+    invoke_model: str,
+    expected_max_tokens: int | None,
 ) -> None:
     captured = {}
-
-    def raise_unknown(_model: object) -> None:
-        message = "unknown model"
-        raise ValueError(message)
-
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
-    monkeypatch.setattr(llm.litellm, "get_max_tokens", raise_unknown)
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", get_max_tokens)
     monkeypatch.setattr(
         llm.litellm,
         "completion",
@@ -1114,15 +1101,18 @@ def test_stream_litellm_completion_omits_unknown_limit(
     list(
         llm._stream_litellm_completion(
             app,
-            "qwen/unknown-model",
-            "unknown-model",
+            requested_model,
+            invoke_model,
             [],
             {},
             {},
         )
     )
 
-    assert "max_tokens" not in captured
+    if expected_max_tokens is None:
+        assert "max_tokens" not in captured
+    else:
+        assert captured["max_tokens"] == expected_max_tokens
 
 
 def test_qwen_provider_config_keeps_prefix_fallback() -> None:
@@ -1236,30 +1226,24 @@ def test_minimum_thinking_uses_none_when_model_metadata_is_missing(
     }
 
 
-def test_minimum_thinking_falls_back_to_standard_thinking(
-    monkeypatch: object,
+@pytest.mark.parametrize(
+    ("supported_params", "model_id", "expected"),
+    [
+        (["thinking"], "future-model", {"thinking": {"type": "disabled"}}),
+        (["temperature", "stream"], "plain-model", {}),
+    ],
+    ids=["falls-back-to-standard-thinking", "leaves-non-reasoning-unchanged"],
+)
+def test_minimum_thinking_without_reasoning_effort(
+    monkeypatch: object, supported_params: list[str], model_id: str, expected: object
 ) -> None:
     monkeypatch.setattr(
         llm.litellm,
         "get_supported_openai_params",
-        lambda **_kwargs: ["thinking"],
+        lambda **_kwargs: supported_params,
     )
 
-    assert llm._litellm_minimum_thinking_params("future-model", "provider") == {
-        "thinking": {"type": "disabled"}
-    }
-
-
-def test_minimum_thinking_leaves_non_reasoning_models_unchanged(
-    monkeypatch: object,
-) -> None:
-    monkeypatch.setattr(
-        llm.litellm,
-        "get_supported_openai_params",
-        lambda **_kwargs: ["temperature", "stream"],
-    )
-
-    assert llm._litellm_minimum_thinking_params("plain-model", "provider") == {}
+    assert llm._litellm_minimum_thinking_params(model_id, "provider") == expected
 
 
 def test_request_patch_merge_is_shallow_and_deduplicates_lists() -> None:
@@ -2510,36 +2494,6 @@ def test_invoke_llm_reports_the_finish_chunk_and_truncation(
     assert span.update_args == {"output": "partial"}
 
 
-def test_invoke_llm_records_a_failed_request(monkeypatch: object, app: object) -> None:
-    _single_test_provider(monkeypatch)
-    recorded: list[dict[str, object]] = []
-    monkeypatch.setattr(
-        llm, "record_llm_usage", lambda *_args, **kwargs: recorded.append(kwargs)
-    )
-
-    def failing_stream(*_args: object, **_kwargs: object) -> object:
-        yield FakeResponse("c1", content="part")
-        message = "provider dropped the stream"
-        raise RuntimeError(message)
-
-    monkeypatch.setattr(llm.litellm, "completion", failing_stream)
-
-    with pytest.raises(RuntimeError):
-        list(
-            llm.invoke_llm(
-                app=app,
-                user_id="u1",
-                span=DummySpan(),
-                model="test-model",
-                message="hi",
-            )
-        )
-
-    assert [(r["status"], r["error_message"]) for r in recorded] == [
-        (1, "RuntimeError")
-    ]
-
-
 def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     monkeypatch: object, app: object
 ) -> None:
@@ -2579,26 +2533,37 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     assert [resp.result for resp in responses] == ["你好"]
 
 
-def test_invoke_llm_raises_on_repeated_stream_chunk_after_text(
-    monkeypatch: object, app: object
-) -> None:
-    # A prompt answer cut off by the error must not reach publishing or profiles.
-    class RepeatedChunkError(Exception):
-        __module__ = "litellm.exceptions"
+class _RepeatedChunkError(Exception):
+    __module__ = "litellm.exceptions"
 
-    def fake_completion(*_args: object, **_kwargs: object) -> object:
-        yield FakeResponse("chunk-1", content="Chapter 1: Par")
-        message = "The model is repeating the same chunk."
-        raise RepeatedChunkError(message)
+
+@pytest.mark.parametrize(
+    ("error", "partial_text"),
+    [
+        (RuntimeError("provider dropped the stream"), "part"),
+        # A prompt answer cut off by the error must not reach publishing or profiles.
+        (
+            _RepeatedChunkError("The model is repeating the same chunk."),
+            "Chapter 1: Par",
+        ),
+    ],
+    ids=["provider-drop", "repeated-chunk"],
+)
+def test_invoke_llm_raises_and_records_a_failed_stream(
+    monkeypatch: object, app: object, error: Exception, partial_text: str
+) -> None:
+    def failing_stream(*_args: object, **_kwargs: object) -> object:
+        yield FakeResponse("chunk-1", content=partial_text)
+        raise error
 
     _single_test_provider(monkeypatch)
     recorded: list[dict[str, object]] = []
     monkeypatch.setattr(
         llm, "record_llm_usage", lambda *_args, **kwargs: recorded.append(kwargs)
     )
-    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(llm.litellm, "completion", failing_stream)
 
-    with pytest.raises(RepeatedChunkError):
+    with pytest.raises(type(error)):
         list(
             llm.invoke_llm(
                 app=app,
@@ -2608,7 +2573,10 @@ def test_invoke_llm_raises_on_repeated_stream_chunk_after_text(
                 message="hi",
             )
         )
-    assert [r["status"] for r in recorded] == [1]
+
+    assert [(r["status"], r["error_message"]) for r in recorded] == [
+        (1, type(error).__name__)
+    ]
 
 
 @pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
@@ -3111,19 +3079,57 @@ def test_stream_rate_limit_honors_bounded_retry_after(
     assert delays == [27.0]
 
 
-def test_stream_rate_limit_after_output_is_not_retried(
-    monkeypatch: object, app: object
+@pytest.mark.parametrize(
+    ("scripts", "expected_error", "expected_calls"),
+    [
+        (
+            [[_stream_chunk("partial"), _FakeRateLimitError("TPM exhausted")]],
+            AppError,
+            1,
+        ),
+        (
+            [
+                [
+                    _stream_chunk("partial"),
+                    _FakeMidStreamFallbackError("mid-stream death"),
+                ]
+            ],
+            _FakeMidStreamFallbackError,
+            1,
+        ),
+        (
+            [
+                [_FakeAPIConnectionError("first failure")],
+                [_FakeMidStreamFallbackError("second failure")],
+            ],
+            _FakeMidStreamFallbackError,
+            2,
+        ),
+        ([[ValueError("business error")]], ValueError, 1),
+    ],
+    ids=[
+        "rate-limit-after-output",
+        "error-after-content",
+        "retry-attempts-bounded",
+        "non-retryable-error",
+    ],
+)
+def test_stream_retry_stops_and_raises(
+    monkeypatch: object,
+    app: object,
+    scripts: object,
+    expected_error: type[Exception],
+    expected_calls: int,
 ) -> None:
     _patch_retryable_stream_errors(monkeypatch)
-    calls = _patch_scripted_streams(
-        monkeypatch,
-        [[_stream_chunk("partial"), _FakeRateLimitError("TPM exhausted")]],
-    )
+    calls = _patch_scripted_streams(monkeypatch, scripts)
 
-    with pytest.raises(AppError):
+    with pytest.raises(expected_error) as excinfo:
         _collect_retry_stream(app)
 
-    assert calls["count"] == 1
+    if expected_error is ValueError:
+        assert str(excinfo.value) == "business error"
+    assert calls["count"] == expected_calls
 
 
 def test_stream_rate_limit_after_tool_call_is_not_retried(
@@ -3231,49 +3237,6 @@ def test_stream_retry_discards_reasoning_from_failed_attempt(
     ] == ["fresh reasoning"]
     assert [chunk.choices[0].delta.content for chunk in chunks] == [None, "answer"]
     assert calls["count"] == 2
-
-
-def test_stream_error_after_content_is_not_retried(
-    monkeypatch: object, app: object
-) -> None:
-    _patch_retryable_stream_errors(monkeypatch)
-    calls = _patch_scripted_streams(
-        monkeypatch,
-        [[_stream_chunk("partial"), _FakeMidStreamFallbackError("mid-stream death")]],
-    )
-
-    with pytest.raises(_FakeMidStreamFallbackError):
-        _collect_retry_stream(app)
-
-    assert calls["count"] == 1
-
-
-def test_stream_retry_attempts_are_bounded(monkeypatch: object, app: object) -> None:
-    _patch_retryable_stream_errors(monkeypatch)
-    calls = _patch_scripted_streams(
-        monkeypatch,
-        [
-            [_FakeAPIConnectionError("first failure")],
-            [_FakeMidStreamFallbackError("second failure")],
-        ],
-    )
-
-    with pytest.raises(_FakeMidStreamFallbackError):
-        _collect_retry_stream(app)
-
-    assert calls["count"] == 2
-
-
-def test_stream_non_retryable_error_raises_immediately(
-    monkeypatch: object, app: object
-) -> None:
-    _patch_retryable_stream_errors(monkeypatch)
-    calls = _patch_scripted_streams(monkeypatch, [[ValueError("business error")]])
-
-    with pytest.raises(ValueError, match="business error"):
-        _collect_retry_stream(app)
-
-    assert calls["count"] == 1
 
 
 def test_stream_retry_noop_when_exception_types_unavailable(
