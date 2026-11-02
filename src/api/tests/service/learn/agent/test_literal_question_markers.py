@@ -302,3 +302,43 @@ def test_container_marker_split_across_deltas_keeps_its_structure(source: str) -
         source[start:end] for start, end in find_document_interaction_spans(source)
     ]
     _assert_filter(source, spans)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "<!--\n?[...Explain]",
+        "Intro\n\n<!--\n?[...Explain]",
+        "<!-- ?[A|B]",
+        "<?php\n?[A|B]",
+        "<![CDATA[\n?[A|B]",
+        "<!DOCTYPE x\n?[A|B]",
+    ],
+)
+def test_unterminated_html_block_keeps_the_rest_literal(source: str) -> None:
+    """HTML blocks 2-5 without a terminator run to the end, as CommonMark reads them."""
+    assert list(find_document_interaction_spans(source)) == []
+    assert script_text_inputs(source) == ()
+    _assert_filter(source, [])
+
+
+def test_unterminated_inline_comment_is_text() -> None:
+    """Mid-paragraph '<!--' is not an HTML block, so a later question still counts."""
+    source = "text <!-- ?[...Explain]"
+    assert len(script_text_inputs(source)) == 1
+    _assert_filter(source, ["?[...Explain]"])
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [("<!--", "-->"), ("<?x", "?>"), ("<![CDATA[", "]]>"), ("<!DOCTYPE", ">")],
+)
+def test_quoted_html_block_settles_its_marker_before_a_later_question(
+    opening: str, closing: str, newline: str
+) -> None:
+    """A marker inside a quoted HTML block cannot swallow a question after it."""
+    source = newline.join(
+        [f"> \t{opening}", "> {{ unfinished", f"> {closing}", "", "?[%{{ real }} A|B]"]
+    )
+    _assert_filter(source, ["?[%{{ real }} A|B]"])

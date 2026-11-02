@@ -465,7 +465,11 @@ def test_angle_candidate_keeps_its_enclosing_native_literal_until_it_is_settled(
     # Inside a settled literal or a raw marker name, the example is not a question.
     inner = "?[A|B]"
     source = opening + inner + ending + "\n\n" + QUESTION
-    expected = (opening + inner + ending + "\n\n", [QUESTION])
+    if opening.startswith("<!--") and "-->" not in ending:
+        # An unterminated comment block runs to the end, taking the question too.
+        expected = (source, [])
+    else:
+        expected = (opening + inner + ending + "\n\n", [QUESTION])
     for stream in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:

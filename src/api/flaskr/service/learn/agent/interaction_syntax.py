@@ -88,6 +88,9 @@ _LINE_BREAK_CHAR = re.compile(r"[\r\n]")
 _CONTAINER_HEAD = re.compile(r"(?:^|[\r\n])(?:[ \t]|>|[-*+][ \t]|[0-9]{1,9}[.)])")
 # Enough of a line start to hold the longest container marker.
 _HEAD_KEEP = 11
+# Characters that may open a literal, an HTML block or a marker spanning lines,
+# whose reading inside containers the bounded witness does not keep exactly.
+_SPANNING_CHAR = re.compile(r"[<`~$\[{]")
 # What may precede a block on its line: indentation and container markers.
 _CONTAINER_PREFIX = re.compile(r"[ \t>*+\-0-9.)]*")
 # HTML blocks that run across blank lines until their terminator.
@@ -148,6 +151,8 @@ class InteractionSyntaxFilter:
         # The start of the raw context's current line, kept so a container marker
         # split across deltas is still recognized.
         self._raw_head = ""
+        # Whether the raw context holds a character that may span lines.
+        self._raw_spanning = False
         self._raw_tail = ""
         self._pending_witness = ""
         # Held because an earlier unfinished literal may still enclose the opener.
@@ -479,11 +484,12 @@ class InteractionSyntaxFilter:
             self._raw_parts = ["".join(self._raw_parts)]
         return self._raw_parts[0] if self._raw_parts else ""
 
-    def _track_raw(self, prefix_before: str, text: str) -> None:
+    def _track_raw(self, prefix_before: str, text: str) -> bool:
         """Extend the raw literal context, restarting it at the last safe point.
 
         Only the new text and a short tail are searched for a safe point, and one
         is scanned only when found, so appending stays proportional to the text.
+        Returns whether the context restarted.
         """
         tail = self._raw_tail
         self._raw_tail = (tail + text)[-8:]
@@ -508,17 +514,22 @@ class InteractionSyntaxFilter:
                 self._raw_structured = bool(_LINE_BREAK_CHAR.search(text, cut))
                 self._raw_head = ""
                 self._raw_containers = self._has_container_head(text[cut:])
-                return
+                self._raw_spanning = _SPANNING_CHAR.search(text, cut) is not None
+                return True
         if self._raw_parts is None:
-            return
+            return False
         self._raw_structured = self._raw_structured or bool(
             _LINE_BREAK_CHAR.search(text)
         )
         self._raw_containers = self._has_container_head(text) or self._raw_containers
+        self._raw_spanning = (
+            self._raw_spanning or _SPANNING_CHAR.search(text) is not None
+        )
         self._raw_parts.append(text)
         self._raw_length += len(text)
         if self._raw_length > _RAW_LIMIT:
             self._raw_parts = None
+        return False
 
     def _has_container_head(self, text: str) -> bool:
         """Whether `text` starts a container or indented line in the raw context."""
@@ -556,26 +567,34 @@ class InteractionSyntaxFilter:
         self._raw_structured = False
         self._raw_containers = False
         self._raw_head = ""
+        self._raw_spanning = False
         self._raw_tail = ""
 
     def _advance_witness(self, text: str, lookahead: str) -> None:
         """Extend the raw context and the bounded witness with emitted `text`.
 
-        At a line ending inside block structure the witness is rebuilt from the
-        exact raw context, since compacting the witness alone would lose container
-        lines; otherwise it is extended incrementally.
+        The witness is extended in bounded work. Inside containers, compacting it
+        alone can misread a literal, HTML block or marker spanning lines, so at a
+        line ending it is rebuilt from the exact raw context when that context holds
+        a character that may open one. Plain container text, such as a long list of
+        words, is never rescanned. The witness is also rebuilt when the memory guard
+        is about to drop the raw context.
         """
-        self._track_raw(self._context_prefix, text)
+        dropping = None
+        containers = self._raw_parts is not None and self._raw_containers
+        if containers and self._raw_length + len(text) > _RAW_LIMIT:
+            dropping = self._raw_base + (self._raw_text() or "")
+        restarted = self._track_raw(self._context_prefix, text)
         counts: dict[int, int] = {}
-        # Lines are where container structure is read, so a line ending is where
-        # the witness is rebuilt; within a line it is extended in bounded work.
-        raw = (
-            self._raw_text()
-            if self._raw_containers and _LINE_BREAK_CHAR.search(text)
-            else None
-        )
-        if raw is not None:
-            source, label_counts = self._raw_base + raw, None
+        if dropping is not None and self._raw_parts is None:
+            source, label_counts = dropping + text, None
+        elif (restarted and containers) or (
+            self._raw_parts is not None
+            and self._raw_containers
+            and self._raw_spanning
+            and _LINE_BREAK_CHAR.search(text)
+        ):
+            source, label_counts = self._raw_base + (self._raw_text() or ""), None
         else:
             source = self._context_prefix + text
             label_counts = self._context_label_counts
