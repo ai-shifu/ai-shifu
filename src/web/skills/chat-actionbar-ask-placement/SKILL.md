@@ -5,6 +5,17 @@ description: Use when changing chat action bars, follow-up entry points, or AskB
 
 # 操作栏与追问锚点
 
+## Learner reading precedence
+
+For the learner reading composition, including course preview, the
+[Reading boundary entry](#reading-boundary-entry) section takes precedence over
+earlier statements requiring embedded mobile `custom-button-after-content`
+markup or desktop Ask buttons in `LIKE_STATUS`. Those statements describe the
+previous reading presentation and must not restore repeated actions in
+`LessonConversation`. Existing `LIKE_STATUS` / `ASK` finalization still controls
+boundary eligibility. Preserve legacy action contracts in other consumers;
+listening, classroom and editor Debug behavior is not changed by this exception.
+
 ## 核心规则
 
 - 同一 `parent_element_bid` 仅允许存在一个 `ASK` 项。
