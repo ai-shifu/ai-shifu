@@ -104,6 +104,11 @@ jest.mock('react-i18next', () => {
 });
 
 describe('C preview layout', () => {
+  beforeEach(() => {
+    useEnvStore.setState({
+      runtimeConfigContext: { courseId: '123', status: 'ready', generation: 1 },
+    });
+  });
   const originalHref = window.location.href;
   const mockedGetCourseInfo = getCourseInfo as jest.MockedFunction<
     typeof getCourseInfo
@@ -145,6 +150,7 @@ describe('C preview layout', () => {
     act(() => {
       useEnvStore.setState({
         runtimeConfigLoaded: false,
+        runtimeConfigContext: null,
         courseId: '',
       });
     });

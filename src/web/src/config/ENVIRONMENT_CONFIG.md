@@ -21,6 +21,11 @@ same course reuses its settings. Concurrent loads for one context are shared;
 only the current context can commit branding and commercial settings. Failed
 runtime loads keep bootstrap available and remain retryable. A discovered API
 base still updates request transport when the subsequent runtime request fails.
+The internal `runtimeConfigContext` records the course, request generation, and
+loading/ready/failed status separately from that global bootstrap flag. Course
+WeChat authorization waits for a ready configuration for the current route and
+rechecks the current generation before navigating. A matching failed context
+releases authorization preparation without reusing a previous context's App ID.
 
 ## Frontend Environment
 

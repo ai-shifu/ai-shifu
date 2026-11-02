@@ -86,6 +86,10 @@ its configuration. Only the response for the current course context can update
 the shared store, so a slower previous request cannot restore another course's
 logo or overwrite backend branding. Account selectors alone never select a
 course logo.
+WeChat authorization also checks course-specific runtime readiness instead of
+treating the global bootstrap flag as proof that the current course's App ID has
+loaded. Failed configuration releases preparation without authorizing with a
+previous course or backend App ID, and stale callbacks cannot start navigation.
 
 The backend derives the business owner from the validated Shifu or domain
 context, with a legacy explicit account selector used only when neither is

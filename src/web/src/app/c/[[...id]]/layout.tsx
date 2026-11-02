@@ -179,7 +179,9 @@ export default function ChatLayout({
 
   // const [loading, setLoading] = useState<boolean>(true);
   const queryCode = searchParams?.get('code') || '';
+  const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
   const wechatAuthorization = useCourseWechatAuthorizationState({
+    courseId: routeCourseId || '',
     runtimeConfigLoaded: envDataInitialized,
     enabled:
       typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true',
@@ -195,7 +197,6 @@ export default function ChatLayout({
   const querySkip = searchParams?.get('skip') || '';
   const queryListen = searchParams?.get('listen') || '';
   const queryMode = searchParams?.get('mode') || '';
-  const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
   const storageCourseId = routeCourseId || queryCourseId || courseId;
   const outlineBid = queryLessonId;
   const currChannel = queryChannel;

@@ -17,6 +17,12 @@ export interface LegalUrls {
   privacy: Record<SupportedLocale, string>;
 }
 
+export interface RuntimeConfigContext {
+  courseId: string;
+  status: 'loading' | 'ready' | 'failed';
+  generation: number;
+}
+
 export interface EnvStoreState {
   courseId: string;
   appId: string;
@@ -46,6 +52,7 @@ export interface EnvStoreState {
   defaultLoginMethod: string;
   legalUrls: LegalUrls;
   runtimeConfigLoaded: boolean;
+  runtimeConfigContext: RuntimeConfigContext | null;
   updateCourseId: (courseId: string) => Promise<void>;
   updateAppId: (appId: string) => Promise<void>;
   updateAlwaysShowLessonTree: (value: string) => Promise<void>;

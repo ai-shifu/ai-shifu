@@ -342,6 +342,8 @@ describe('runtime host branding', () => {
         ),
       );
       const loadingB = initializeEnvData('/c/b');
+      const contextB = useEnvStore.getState().runtimeConfigContext;
+      expect(contextB).toMatchObject({ courseId: 'b', status: 'loading' });
       a.resolve(
         runtimeResponse({
           logoWideUrl: '/a.png',
@@ -350,6 +352,7 @@ describe('runtime host branding', () => {
       );
       await loadingA;
       expect(useEnvStore.getState().runtimeConfigLoaded).toBe(false);
+      expect(useEnvStore.getState().runtimeConfigContext).toEqual(contextB);
       expect(useEnvStore.getState().logoWideUrl).not.toBe('/a.png');
 
       b.resolve(
@@ -363,6 +366,7 @@ describe('runtime host branding', () => {
         logoWideUrl: '/b.png',
         stripePublishableKey: 'pk_b',
         runtimeConfigLoaded: true,
+        runtimeConfigContext: { ...contextB, status: 'ready' },
       });
     });
   });

@@ -123,6 +123,7 @@ const applyRuntimeConfig = (
     resolvedBase,
   }: Awaited<ReturnType<typeof loadRuntimeConfig>>,
   courseBid: string,
+  requestGeneration: number,
 ) => {
   const current = useEnvStore.getState();
   const paymentChannels = normalizeStringArray(
@@ -174,6 +175,11 @@ const applyRuntimeConfig = (
         : current.defaultLoginMethod,
     legalUrls: runtimeConfig?.legalUrls ?? current.legalUrls,
     runtimeConfigLoaded: true,
+    runtimeConfigContext: {
+      courseId: courseBid,
+      status: 'ready',
+      generation: requestGeneration,
+    },
   };
   if (
     typeof runtimeConfig?.payOrderExpireSeconds === 'number' &&
@@ -203,7 +209,14 @@ export const initializeEnvData = async (pathname?: string): Promise<void> => {
   }
   activeCourseBid = courseBid;
   const requestGeneration = ++generation;
-  useEnvStore.setState(siteLogos);
+  useEnvStore.setState({
+    ...siteLogos,
+    runtimeConfigContext: {
+      courseId: courseBid,
+      status: 'loading',
+      generation: requestGeneration,
+    },
+  });
   const loading = (async () => {
     try {
       const resolvedBase = await resolveRuntimeBase();
@@ -212,7 +225,7 @@ export const initializeEnvData = async (pathname?: string): Promise<void> => {
       useEnvStore.setState({ baseURL: resolvedBase });
       const result = await getRuntimeConfig(courseBid, resolvedBase);
       if (generation !== requestGeneration) return;
-      applyRuntimeConfig(result, courseBid);
+      applyRuntimeConfig(result, courseBid, requestGeneration);
       loadedCourseBid = courseBid;
       if (getBoolEnv('eruda') && !erudaStarted) {
         erudaStarted = true;
@@ -227,7 +240,14 @@ export const initializeEnvData = async (pathname?: string): Promise<void> => {
       if (generation !== requestGeneration) return;
       loadedCourseBid = null;
       console.error('Failed to initialize runtime environment', error);
-      useEnvStore.setState({ runtimeConfigLoaded: true });
+      useEnvStore.setState({
+        runtimeConfigLoaded: true,
+        runtimeConfigContext: {
+          courseId: courseBid,
+          status: 'failed',
+          generation: requestGeneration,
+        },
+      });
     } finally {
       if (generation === requestGeneration) activeLoad = null;
     }

@@ -289,6 +289,11 @@ describe('course layout and page WeChat authorization integration', () => {
     });
     useEnvStore.setState({
       runtimeConfigLoaded: true,
+      runtimeConfigContext: {
+        courseId: 'course-1',
+        status: 'ready',
+        generation: 1,
+      },
       courseId: 'course-1',
       enableWxcode: 'true',
       appId: 'wx-app-id',

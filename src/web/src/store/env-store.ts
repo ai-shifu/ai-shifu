@@ -74,6 +74,7 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   updateLegalUrls: async (legalUrls: EnvStoreState['legalUrls']) =>
     set({ legalUrls }),
   runtimeConfigLoaded: false,
+  runtimeConfigContext: null,
   setRuntimeConfigLoaded: (runtimeConfigLoaded: boolean) =>
     set({ runtimeConfigLoaded }),
 }));

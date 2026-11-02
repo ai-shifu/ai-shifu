@@ -2,6 +2,7 @@ import React from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { wechatLogin } from '@/constants/ui-constants';
 import { debugWarn } from '@/lib/debug-console';
+import { useEnvStore } from '@/store/env-store';
 import { useCourseWechatAuthorizationState } from './use-course-wechat-authorization';
 
 let mockInWechat = true;
@@ -21,6 +22,7 @@ type AuthorizationParams = Parameters<
 >[0];
 
 const defaultParams = (): AuthorizationParams => ({
+  courseId: 'course-1',
   runtimeConfigLoaded: true,
   enabled: true,
   appId: 'wx-app-id',
@@ -50,6 +52,16 @@ describe('useCourseWechatAuthorizationState', () => {
     mockWechatLogin.mockReset();
     mockInWechat = true;
     mockInMiniProgram = false;
+    useEnvStore.setState({
+      runtimeConfigLoaded: true,
+      runtimeConfigContext: {
+        courseId: 'course-1',
+        status: 'ready',
+        generation: 1,
+      },
+      appId: 'wx-app-id',
+      enableWxcode: 'true',
+    });
   });
 
   afterEach(() => {
@@ -91,6 +103,204 @@ describe('useCourseWechatAuthorizationState', () => {
 
     expect(result.current.ready).toBe(false);
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not authorize a new course using an already-loaded admin context', () => {
+    useEnvStore.setState({
+      runtimeConfigContext: { courseId: '', status: 'ready', generation: 1 },
+    });
+    const { result } = renderAuthorization();
+    expect(result.current.ready).toBe(false);
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+  });
+
+  it.each(['ready', 'loading'] as const)(
+    'does not use old disabled settings or synchronize a code before its course context is ready (%s)',
+    status => {
+      useEnvStore.setState({
+        runtimeConfigContext: {
+          courseId: status === 'ready' ? 'course-2' : 'course-1',
+          status,
+          generation: 2,
+        },
+        appId: '',
+        enableWxcode: 'false',
+      });
+      const { result, params } = renderAuthorization({
+        enabled: false,
+        appId: '',
+        queryCode: 'new-course-code',
+      });
+      expect(result.current.ready).toBe(false);
+      expect(params.updateWechatCode).not.toHaveBeenCalled();
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    },
+  );
+
+  it('fails open after the matching context fails without authorizing its previous app ID', () => {
+    useEnvStore.setState({
+      runtimeConfigContext: {
+        courseId: 'course-1',
+        status: 'failed',
+        generation: 2,
+      },
+    });
+    const { result } = renderAuthorization();
+    expect(result.current.ready).toBe(true);
+    act(() => result.current.authorize({ appId: 'wx-app-id' }));
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+  });
+
+  it('rejects a captured callback after its shared context changes before React commits', () => {
+    const { result } = renderAuthorization({
+      queryCode: 'code',
+      wechatCode: 'code',
+    });
+    const authorize = result.current.authorize;
+    act(() => {
+      useEnvStore.setState({
+        runtimeConfigContext: {
+          courseId: 'course-2',
+          status: 'loading',
+          generation: 2,
+        },
+      });
+      authorize({ appId: 'wx-app-id' });
+    });
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+  });
+
+  it('rejects a previous course callback even when both courses use the same app ID', () => {
+    const { result, rerender, params } = renderAuthorization({
+      queryCode: 'code',
+      wechatCode: 'code',
+    });
+    const authorize = result.current.authorize;
+    act(() =>
+      useEnvStore.setState({
+        runtimeConfigContext: {
+          courseId: 'course-2',
+          status: 'ready',
+          generation: 2,
+        },
+      }),
+    );
+    rerender({ ...params, courseId: 'course-2' });
+    act(() =>
+      authorize({
+        appId: 'wx-app-id',
+        redirectUrl: 'https://example.test/c/course-1',
+      }),
+    );
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+  });
+
+  it('rejects a retained callback from an older generation of the same course', () => {
+    const { result } = renderAuthorization({
+      queryCode: 'code',
+      wechatCode: 'code',
+    });
+    const authorize = result.current.authorize;
+    act(() =>
+      useEnvStore.setState({
+        runtimeConfigContext: {
+          courseId: 'course-1',
+          status: 'ready',
+          generation: 2,
+        },
+      }),
+    );
+    act(() => authorize({ appId: 'wx-app-id' }));
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unmounted course callback before the new route invalidates the old store snapshot', () => {
+    const oldCourse = renderAuthorization({
+      queryCode: 'code',
+      wechatCode: 'code',
+    });
+    const authorize = oldCourse.result.current.authorize;
+    oldCourse.unmount();
+    renderHook(
+      () =>
+        useCourseWechatAuthorizationState({
+          ...defaultParams(),
+          courseId: 'course-2',
+        }),
+      {
+        wrapper: function NewRoute({ children }) {
+          React.useLayoutEffect(() => {
+            authorize({ appId: 'wx-app-id' });
+          }, []);
+          return <>{children}</>;
+        },
+      },
+    );
+    expect(useEnvStore.getState().runtimeConfigContext?.courseId).toBe(
+      'course-1',
+    );
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+  });
+
+  it('rechecks an authorization effect captured before a layout effect invalidated its context', () => {
+    renderHook(() => useCourseWechatAuthorizationState(defaultParams()), {
+      wrapper: function ContextInvalidator({ children }) {
+        React.useLayoutEffect(() => {
+          useEnvStore.setState({
+            runtimeConfigContext: {
+              courseId: 'course-2',
+              status: 'loading',
+              generation: 2,
+            },
+          });
+        }, []);
+        return <>{children}</>;
+      },
+    });
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+    act(() => {
+      useEnvStore.setState({
+        runtimeConfigContext: {
+          courseId: 'course-1',
+          status: 'ready',
+          generation: 3,
+        },
+      });
+    });
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not synchronize a URL code from an effect whose context was invalidated', () => {
+    const params = { ...defaultParams(), queryCode: 'fresh-code' };
+    renderHook(() => useCourseWechatAuthorizationState(params), {
+      wrapper: function ContextInvalidator({ children }) {
+        React.useLayoutEffect(() => {
+          useEnvStore.setState({
+            runtimeConfigContext: {
+              courseId: 'course-2',
+              status: 'loading',
+              generation: 2,
+            },
+          });
+        }, []);
+        return <>{children}</>;
+      },
+    });
+    expect(params.updateWechatCode).not.toHaveBeenCalled();
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+  });
+
+  it('uses the empty path context for the legacy query-only course route', () => {
+    useEnvStore.setState({
+      runtimeConfigContext: { courseId: '', status: 'ready', generation: 2 },
+    });
+    const { result } = renderAuthorization({
+      courseId: '',
+      queryCode: 'code',
+      wechatCode: 'code',
+    });
+    expect(result.current.ready).toBe(true);
+    expect(mockWechatLogin).not.toHaveBeenCalled();
   });
 
   it.each(['', 'stale-code'])(
@@ -164,6 +374,26 @@ describe('useCourseWechatAuthorizationState', () => {
 
     expect(result.current.ready).toBe(true);
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries the same app ID for a new course after a previous synchronous navigation failure', () => {
+    mockWechatLogin.mockImplementationOnce(() => {
+      throw new Error('navigation unavailable');
+    });
+    const { result, rerender, params } = renderAuthorization();
+    expect(result.current.ready).toBe(true);
+    act(() =>
+      useEnvStore.setState({
+        runtimeConfigContext: {
+          courseId: 'course-2',
+          status: 'ready',
+          generation: 2,
+        },
+      }),
+    );
+    rerender({ ...params, courseId: 'course-2' });
+    expect(result.current.ready).toBe(false);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(2);
   });
 
   it('retains a navigation lock after the URL code and configuration change', () => {

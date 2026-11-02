@@ -20,6 +20,8 @@ The canonical contract is in
   frontend reviews passed.
 - [x] 2026-11-02 11:29 UTC: Passed the repository-wide pre-commit gate and
   prepared the completed change for a ready pull request.
+- [x] 2026-11-02: Addressed the course OAuth review with context/generation
+  readiness and guarded navigation; 103 focused frontend tests passed.
 
 ## Surprises & Discoveries
 
@@ -31,6 +33,8 @@ The canonical contract is in
   must keep the validated business owner and reject stale response writes.
 - A failed logo-eligibility query must decline the visual fallback while
   preserving the already-resolved commercial context.
+- Review found that global bootstrap readiness alone let course OAuth start
+  with another context's App ID before the new course response arrived.
 
 ## Decision Log
 
@@ -45,6 +49,9 @@ The canonical contract is in
 - Matched but ineffective request hosts never use the course fallback.
 - Route-context refresh is part of this feature. It must deduplicate requests
   for the same course and prevent late responses from overwriting newer context.
+- Course OAuth readiness includes the route identity, current request
+  generation, and successful runtime status. A failed current context releases
+  preparation without authorizing with a stale App ID.
 - This is a visual branding change, with no new interaction or analytics payload.
 
 ## Outcomes & Retrospective
@@ -96,6 +103,8 @@ before committing. Generate knowledge indexes after plan archival.
   merchant selection, and navigation destinations remain covered by regressions.
 - Course A to B and course to backend transitions refresh the correct logos;
   delayed responses, failure/retry, and repeated same-course loads are safe.
+- Admin-to-course and course-to-course OAuth wait for the matching runtime
+  configuration; stale effects/callbacks cannot navigate with another App ID.
 
 ## Idempotence and Recovery
 
