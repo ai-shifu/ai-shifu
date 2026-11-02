@@ -58,7 +58,7 @@ idempotence and fresh explicit recreation. Final deployed revision acceptance is
 
 ## Context and Orientation
 
-`learn/memory` adapts profile variables; `agent/run_agent.py` loads and commits
+`service/memory` (formerly `learn/memory`) adapts profile variables; `agent/run_agent.py` loads and commits
 turns. `route/user.py` owns authenticated learner routes. `MainMenuModal` is the
 shared user menu, and `Settings` holds learner dialogs.
 

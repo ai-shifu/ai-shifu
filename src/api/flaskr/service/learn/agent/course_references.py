@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
-from flaskr.service.profile.api import is_course_reference
+from flaskr.service.memory.api import is_course_reference
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
 from markdownflow.engine.script import (
     render_first_prompt,

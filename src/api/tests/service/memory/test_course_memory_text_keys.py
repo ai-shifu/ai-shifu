@@ -8,7 +8,7 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.profile.course_memory import (
+from flaskr.service.memory.course_memory import (
     course_memory_deletion_state,
     course_memory_value_versions,
     delete_course_memory,

@@ -18,9 +18,9 @@ from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
 )
-from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.learn.utils_v2 import FollowUpInfo, get_fmt_prompt
+from flaskr.service.memory.api import load_memory
 from flaskr.service.shifu.api import find_node_with_parents, get_shifu_struct
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,

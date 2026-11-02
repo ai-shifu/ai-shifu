@@ -9,8 +9,8 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.memory import load_memory
-from flaskr.service.profile.api import (
+from flaskr.service.memory import load_memory
+from flaskr.service.memory.api import (
     course_memory_deletion_state,
     delete_course_memory,
     list_course_memory,

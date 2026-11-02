@@ -5,10 +5,7 @@ from flask import Flask, Response, request
 from flaskr.common.http import sensitive_body
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.profile.api import (
-    delete_course_memory,
-    list_course_memory,
-)
+from flaskr.service.memory.api import delete_course_memory, list_course_memory
 
 
 def _identifier(value: object, name: str) -> str:

@@ -11,7 +11,7 @@ from uuid import uuid4
 from flaskr.dao import db
 from flaskr.i18n import clear_language, set_language
 from flaskr.service.learn.agent import debug_session, run_agent
-from flaskr.service.learn.memory.dtos import MemorySnapshot
+from flaskr.service.memory.dtos import MemorySnapshot
 from flaskr.service.profile.models import VariableValue
 from markdownflow.engine import Engine, Session
 from markdownflow.engine.script import ScriptBundle, render_first_prompt

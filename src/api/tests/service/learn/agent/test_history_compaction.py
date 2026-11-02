@@ -14,7 +14,7 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.rewind import checkpoint_of, restore
 from flaskr.service.learn.learn_dtos import GeneratedType
-from flaskr.service.profile.api import delete_course_memory
+from flaskr.service.memory.api import delete_course_memory
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine, ErrorEvent, MessageTurn, TurnDone

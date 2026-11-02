@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.learn.memory import load_learner_memory
+from flaskr.service.memory import load_learner_memory
 from flaskr.service.profile.models import VariableValue
 
 USER = "learner-1"

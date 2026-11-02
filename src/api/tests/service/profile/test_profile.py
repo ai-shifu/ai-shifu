@@ -3,12 +3,12 @@
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.memory.settings_writer import update_user_profile_with_lable
 from flaskr.service.profile import profile_manage
 from flaskr.service.profile.account_fields import (
     get_profile_labels,
     get_user_profile_labels,
 )
-from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick_internal,
@@ -59,9 +59,9 @@ def test_profile_language_round_trip_preserves_legacy_locale(
     stored_language: str,
     expected_language: str,
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
 
@@ -103,9 +103,9 @@ def test_retired_sex_label_is_not_returned_or_rewritten(
     *,
     with_aggregate: bool,
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
 

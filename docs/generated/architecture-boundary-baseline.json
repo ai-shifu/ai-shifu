@@ -346,6 +346,14 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/learn/memory/__init__.py|flaskr.service.memory",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/memory/__init__.py",
+      "target": "flaskr.service.memory",
+      "message": "flaskr/service/learn/memory/__init__.py imports cross-service module flaskr.service.memory outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/learn/routes.py|flaskr.service.billing.admission",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/learn/routes.py",
@@ -514,11 +522,35 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
-      "key": "backend.cross_service_import|flaskr/service/profile/course_values.py|flaskr.service.user.repository",
+      "key": "backend.cross_service_import|flaskr/service/profile/course_memory.py|flaskr.service.memory.course_memory",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/profile/course_memory.py",
+      "target": "flaskr.service.memory.course_memory",
+      "message": "flaskr/service/profile/course_memory.py imports cross-service module flaskr.service.memory.course_memory outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/profile/course_references.py|flaskr.service.memory.course_references",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/profile/course_references.py",
+      "target": "flaskr.service.memory.course_references",
+      "message": "flaskr/service/profile/course_references.py imports cross-service module flaskr.service.memory.course_references outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/profile/course_values.py|flaskr.service.memory.course_values",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/profile/course_values.py",
-      "target": "flaskr.service.user.repository",
-      "message": "flaskr/service/profile/course_values.py imports cross-service module flaskr.service.user.repository outside the shared/common stable entry points.",
+      "target": "flaskr.service.memory.course_values",
+      "message": "flaskr/service/profile/course_values.py imports cross-service module flaskr.service.memory.course_values outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/profile/funcs.py|flaskr.service.memory.settings_writer",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/profile/funcs.py",
+      "target": "flaskr.service.memory.settings_writer",
+      "message": "flaskr/service/profile/funcs.py imports cross-service module flaskr.service.memory.settings_writer outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {

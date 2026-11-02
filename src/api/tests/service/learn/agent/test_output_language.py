@@ -15,7 +15,7 @@ from flaskr.i18n import clear_language, set_language
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.output_language import configure_output_language
 from flaskr.service.learn.learn_funcs import reset_learn_record
-from flaskr.service.learn.memory import load_memory
+from flaskr.service.memory import load_memory
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine
 from markdownflow.engine.output_language import (

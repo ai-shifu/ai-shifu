@@ -12,7 +12,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
-from flaskr.service.profile.api import delete_course_memory, list_course_memory
+from flaskr.service.memory.api import delete_course_memory, list_course_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine, Session

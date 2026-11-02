@@ -315,11 +315,7 @@ def test_bounded_prompt_refreshes_nickname_and_preserves_omitted_exact_answer(
     app: Flask, nickname: str
 ) -> None:
     """A budget notice cannot disable memory refresh or change an older expanded script."""
-    from flaskr.service.learn.memory import (
-        MemoryUpdate,
-        VariableMemoryUpdate,
-        stage_memory,
-    )
+    from flaskr.service.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
     from flaskr.service.profile.models import Variable
 
     with app.app_context():

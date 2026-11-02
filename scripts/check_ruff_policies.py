@@ -89,7 +89,7 @@ REVIEWED_RETURN_CONTRACTS = {
         "sync_stripe_checkout_session": "dict[str, Any]",
         "success_buy_record": "AICourseBuyRecordDTO | None",
     },
-    "src/api/flaskr/service/profile/funcs.py": {
+    "src/api/flaskr/service/memory/settings_writer.py": {
         "update_user_profile_with_lable": "bool"
     },
     "src/api/flaskr/service/shifu/funcs.py": {

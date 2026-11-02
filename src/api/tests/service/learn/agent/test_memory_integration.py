@@ -12,7 +12,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.learn_dtos import GeneratedType
-from flaskr.service.learn.memory import (
+from flaskr.service.memory import (
     MemoryUpdate,
     VariableMemoryUpdate,
     load_memory,

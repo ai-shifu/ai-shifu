@@ -7,11 +7,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from flaskr.dao import db
-from flaskr.service.profile.api import (
+from flaskr.service.memory.course_references import (
     COURSE_REFERENCE_PREFIX,
     SHARED_ANSWER_PREFIX,
-    get_global_profile_keys,
 )
+from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import LargeBinary, cast, func, select
 

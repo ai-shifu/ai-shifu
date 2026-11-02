@@ -1,6 +1,6 @@
 """Verify double-brace prompt variables and invalid names."""
 
-from flaskr.service.learn.memory import MemorySnapshot
+from flaskr.service.memory import MemorySnapshot
 
 
 def test_fmt_prompt_replaces_double_braces(app: object, monkeypatch: object) -> None:

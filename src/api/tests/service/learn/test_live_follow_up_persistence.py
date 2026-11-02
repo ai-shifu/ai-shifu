@@ -28,9 +28,9 @@ from flaskr.service.learn.live_follow_up_persistence import (
     load_persisted_live_follow_up_turn,
     persist_live_follow_up_turn,
 )
-from flaskr.service.learn.memory import MemorySnapshot
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.learn.utils_v2 import FollowUpInfo
+from flaskr.service.memory import MemorySnapshot
 from flaskr.service.metering import BillUsageRecord
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,

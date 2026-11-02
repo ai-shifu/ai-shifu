@@ -32,6 +32,11 @@ from .learner_profile import (
 from .models import VariableValue
 
 
+def load_user_aggregate_without_credentials(user_id: str) -> UserAggregate | None:
+    """Load the user aggregate without credentials, never creating a missing user."""
+    return load_user_aggregate(user_id, with_credentials=False)
+
+
 def ensure_user_aggregate(user_id: str) -> UserAggregate | None:
     """Load the user aggregate, creating the user entity first if it is missing."""
     aggregate = load_user_aggregate(user_id)

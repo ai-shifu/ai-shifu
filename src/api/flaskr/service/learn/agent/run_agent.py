@@ -93,9 +93,11 @@ from flaskr.service.learn.learn_funcs import (
     get_current_lesson_outline,
     resolve_outline_progression,
 )
-from flaskr.service.learn.memory import (
+from flaskr.service.memory.api import (
     MemoryUpdate,
     VariableMemoryUpdate,
+    course_memory_deletion_state,
+    is_course_reference,
     load_memory,
     stage_memory,
 )
@@ -105,12 +107,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_LOCKED,
     LEARN_STATUS_NOT_STARTED,
 )
-from flaskr.service.profile.api import (
-    SYS_USER_LANGUAGE,
-    SYS_USER_NICKNAME,
-    course_memory_deletion_state,
-    is_course_reference,
-)
+from flaskr.service.profile.api import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from flaskr.service.shifu.models import PublishedOutlineItem
 from flaskr.util.uuid import generate_id
 

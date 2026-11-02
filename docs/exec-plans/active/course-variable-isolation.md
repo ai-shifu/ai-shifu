@@ -71,9 +71,9 @@ Semantic summaries and full memory quality/cache/cost acceptance remain separate
 
 ## Context and Orientation
 
-`profile/course_values.py` resolves registered global fields and exact course values;
+`memory/course_values.py` resolves registered global fields and exact course values;
 `profile/account_fields.py` owns the account-backed system fields.
-`profile/course_references.py` now only reserves retired names. The shared-answer
+`memory/course_references.py` now only reserves retired names. The shared-answer
 resolver/writer is removed. `run_agent.py` no longer grants cross-course answers;
 its compatibility cleanup uses `agent/course_references.py` and the existing
 initial-prompt refresh helper. Engine defaults and SSE shape are unchanged.

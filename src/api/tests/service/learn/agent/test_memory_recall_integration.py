@@ -11,7 +11,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.learn_dtos import GeneratedType
-from flaskr.service.profile.api import delete_course_memory
+from flaskr.service.memory.api import delete_course_memory
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.repository import create_user_entity
@@ -25,7 +25,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 from tests.service.learn.agent.test_memory_integration import _drive
-from tests.service.profile.test_course_references import (
+from tests.service.memory.test_course_references import (
     _published_text,
     _value,
     context,

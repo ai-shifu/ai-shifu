@@ -254,7 +254,7 @@ def test_live_entry_keeps_preceding_classroom_and_its_voice_boundary(
     from flaskr.service.learn.live_follow_up_session_store import (
         LiveFollowUpSessionBinding,
     )
-    from flaskr.service.learn.memory import MemorySnapshot
+    from flaskr.service.memory import MemorySnapshot
 
     monkeypatch.setattr(
         context, "load_memory", lambda *_args, **_kwargs: MemorySnapshot(variables={})

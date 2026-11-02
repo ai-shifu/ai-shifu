@@ -352,6 +352,7 @@
 | `src/api/flaskr/service/feedback/AGENTS.md` | Backend Service: feedback | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/learn/AGENTS.md` | Backend Service: learn | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/llm/AGENTS.md` | Backend Service: llm | `instruction` | `current` | `backend` | `-` | `true` |
+| `src/api/flaskr/service/memory/AGENTS.md` | Backend Service: memory | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/metering/AGENTS.md` | Backend Service: metering | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/order/AGENTS.md` | Backend Service: order | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/profile/AGENTS.md` | Backend Service: profile | `instruction` | `current` | `backend` | `-` | `true` |

@@ -39,8 +39,8 @@ from flaskr.service.learn.langfuse_naming import (
     build_langfuse_span_name,
     build_langfuse_trace_name,
 )
-from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.memory.api import load_memory
 from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
