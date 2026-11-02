@@ -24,6 +24,8 @@ The canonical contract is in
   readiness and guarded navigation; 103 focused frontend tests passed.
 - [x] 2026-11-02: Disabled unowned merchant settings during context changes,
   aligned admin capability guards, and passed 310 frontend tests across 18 suites.
+- [x] 2026-11-02: Released rejected OpenID recovery navigation and passed the
+  final 19-suite frontend regression run with 357 tests.
 
 ## Surprises & Discoveries
 
@@ -40,6 +42,8 @@ The canonical contract is in
 - A failed or pending context change must not expose another context's merchant
   flags, channels, or Stripe key. Clearing them requires admin capability guards
   to wait for the non-course configuration before evaluating redirects.
+- A guarded authorization rejection needs an explicit result: OpenID recovery
+  cannot enter a permanent redirecting phase when no navigation was issued.
 
 ## Decision Log
 
@@ -60,6 +64,8 @@ The canonical contract is in
 - Unknown and changed contexts disable merchant settings synchronously. Only
   a matching verified context can retain its settings during refresh; failures
   and late responses cannot restore another context's configuration.
+- Rejected navigation releases its OpenID recovery attempt and tentative session
+  marker. Existing navigation locks and legacy void handlers remain compatible.
 - This is a visual branding change, with no new interaction or analytics payload.
 
 ## Outcomes & Retrospective
@@ -71,8 +77,9 @@ reviews confirmed domain precedence, explicit-removal semantics, safe commercial
 fallback, response ordering, transport configuration, and route deduplication.
 Review regressions additionally cover course-specific OAuth, stale/unmounted
 authorization callbacks, repeated configuration failures, merchant provenance,
-and non-course admin capability guards. All 310 frontend tests across 18 suites,
-TypeScript, and frontend lint passed after those fixes.
+non-course admin capability guards, and rejected OpenID recovery navigation.
+All 357 frontend tests across 19 suites, TypeScript, and frontend lint passed
+after those fixes.
 The repository-wide pre-commit gate passed, including documentation,
 architecture, translations, formatting, and lint. The completed change is ready
 for PR review. No migration, environment change, deployment, or main-branch

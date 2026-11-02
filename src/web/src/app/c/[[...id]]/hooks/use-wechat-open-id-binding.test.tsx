@@ -338,6 +338,70 @@ describe('useWechatOpenIdBinding', () => {
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['missing-code', 'empty-exchange', 'rejected-exchange'] as const)(
+    'releases rejected recovery after %s without consuming the session marker',
+    async outcome => {
+      const exchange = deferred<string>();
+      mockUpdateWxcode.mockReturnValue(exchange.promise);
+      const authorize = jest.fn(() => false);
+      const { result } = renderBinding({
+        code: outcome === 'missing-code' ? '' : 'code-a',
+        authorize,
+      });
+      if (outcome !== 'missing-code') {
+        await act(async () => {
+          if (outcome === 'empty-exchange') exchange.resolve('');
+          else exchange.reject(new Error('exchange failed'));
+        });
+      }
+
+      expect(result.current).toBe(true);
+      expect(authorize).toHaveBeenCalledTimes(1);
+      expect(sessionStorage.getItem(REBIND_SESSION_KEY)).toBeNull();
+      act(() => jest.advanceTimersByTime(60_001));
+      expect(result.current).toBe(true);
+      expect(authorize).toHaveBeenCalledTimes(1);
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows a fresh valid attempt after rejection without reviving the retired attempt', () => {
+    const rejected = jest.fn(() => false);
+    const first = renderBinding({ code: '', authorize: rejected });
+    expect(first.result.current).toBe(true);
+    expect(sessionStorage.getItem(REBIND_SESSION_KEY)).toBeNull();
+
+    const accepted = jest.fn(() => true);
+    first.rerender({ ...first.params, appId: 'wx-fresh', authorize: accepted });
+    expect(first.result.current).toBe(true);
+    expect(accepted).not.toHaveBeenCalled();
+    first.unmount();
+
+    const next = renderBinding({
+      code: '',
+      appId: 'wx-fresh',
+      authorize: accepted,
+    });
+    expect(next.result.current).toBe(false);
+    expect(accepted).toHaveBeenCalledTimes(1);
+    expect(accepted).toHaveBeenCalledWith(
+      expect.objectContaining({ appId: 'wx-fresh' }),
+    );
+    expect(sessionStorage.getItem(REBIND_SESSION_KEY)).toBe('1');
+  });
+
+  it.each([true, undefined])(
+    'keeps Profile closed when the navigation handler accepts with %s',
+    accepted => {
+      const authorize = jest.fn(() => accepted);
+      const { result } = renderBinding({ code: '', authorize });
+      act(() => jest.advanceTimersByTime(60_001));
+      expect(result.current).toBe(false);
+      expect(authorize).toHaveBeenCalledTimes(1);
+      expect(sessionStorage.getItem(REBIND_SESSION_KEY)).toBe('1');
+    },
+  );
+
   it('releases Profile if starting OAuth navigation throws', () => {
     mockWechatLogin.mockImplementationOnce(() => {
       throw new Error('navigation unavailable');
@@ -348,6 +412,7 @@ describe('useWechatOpenIdBinding', () => {
     expect(result.current).toBe(true);
     expect(mockDebugWarn).toHaveBeenCalled();
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(REBIND_SESSION_KEY)).toBeNull();
   });
 
   it('releases Profile when no WeChat app ID is configured', () => {

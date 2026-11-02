@@ -26,6 +26,11 @@ loading/ready/failed status separately from that global bootstrap flag. Course
 WeChat authorization waits for a ready configuration for the current route and
 rechecks the current generation before navigating. A matching failed context
 releases authorization preparation without reusing a previous context's App ID.
+Guarded course authorization reports `false` when it rejects navigation and
+`true` when navigation has been issued or remains in flight. The OpenID binding
+consumer releases rejected recovery attempts and rolls back their tentative
+session marker; legacy handlers that return `void` remain compatible. A genuine
+navigation lock is not released by configuration failures or stale callbacks.
 Merchant flags, payment channels, and the Stripe publishable key are disabled
 before loading an unknown or different context. Only a verified configuration
 for that same context can be retained during a refresh. A failed request never

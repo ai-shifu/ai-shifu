@@ -3,6 +3,7 @@ import { updateWxcode } from '@/api/user';
 import { inMiniProgram, inWechat, wechatLogin } from '@/constants/ui-constants';
 import { debugWarn } from '@/lib/debug-console';
 import { removeParamFromUrl } from '@/lib/url-utils';
+import type { CourseWechatAuthorize } from './use-course-wechat-authorization';
 
 export const WECHAT_OPENID_BINDING_TIMEOUT_MS = 10_000;
 const OPENID_REBIND_SESSION_KEY = 'wechat_openid_rebind_attempted';
@@ -28,7 +29,7 @@ type WechatOpenIdBindingParams = BindingIdentity & {
   enabled: boolean;
   appId: string;
   refreshUserInfo: () => Promise<unknown>;
-  authorize?: typeof wechatLogin;
+  authorize?: CourseWechatAuthorize;
 };
 
 const sameIdentity = (left: BindingIdentity, right: BindingIdentity) =>
@@ -52,8 +53,8 @@ export const useWechatOpenIdBinding = (
     enabled,
     appId,
     refreshUserInfo,
-    authorize = wechatLogin,
   } = params;
+  const authorize: CourseWechatAuthorize = params.authorize ?? wechatLogin;
   const applicable =
     initialized && isLoggedIn && enabled && inWechat() && !inMiniProgram();
   const latestRef = useRef({ params, applicable });
@@ -113,17 +114,33 @@ export const useWechatOpenIdBinding = (
         release();
         return;
       }
+      const rollbackRecoveryMarker = () => {
+        try {
+          // This attempt wrote the marker above. A rejected navigation must
+          // not suppress a later recovery from a fresh binding attempt.
+          sessionStorage.removeItem(OPENID_REBIND_SESSION_KEY);
+        } catch {
+          // Storage failures must not keep preparation blocked.
+        }
+      };
       currentAttempt.phase = 'redirecting';
       setSettledAttempt({ ...currentAttempt });
       try {
-        authorize({
+        const navigation = authorize({
           appId,
           redirectUrl: removeParamFromUrl(window.location.href, [
             'code',
             'state',
           ]),
         });
+        // Legacy handlers return void. Only an explicit rejection proves no
+        // navigation owns the document and allows preparation to continue.
+        if (navigation === false) {
+          rollbackRecoveryMarker();
+          release();
+        }
       } catch (error) {
+        rollbackRecoveryMarker();
         debugWarn(
           '[lesson-page] WeChat OpenID recovery could not navigate',
           error,

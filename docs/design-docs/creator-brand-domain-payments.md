@@ -90,6 +90,10 @@ WeChat authorization also checks course-specific runtime readiness instead of
 treating the global bootstrap flag as proof that the current course's App ID has
 loaded. Failed configuration releases preparation without authorizing with a
 previous course or backend App ID, and stale callbacks cannot start navigation.
+Rejected recovery navigation also releases OpenID preparation without consuming
+a recovery marker. Only an issued navigation holds the full-page transition
+lock; configuration failures cannot leave a learner waiting for a rejected
+redirect indefinitely.
 Unknown or changed runtime contexts disable the previous merchant flags,
 channels, and Stripe key before fetching their own settings. Failures keep those
 settings disabled; refreshing the same verified context may retain its own

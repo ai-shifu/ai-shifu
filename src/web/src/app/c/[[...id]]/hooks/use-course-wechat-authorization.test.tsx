@@ -147,7 +147,9 @@ describe('useCourseWechatAuthorizationState', () => {
     });
     const { result } = renderAuthorization();
     expect(result.current.ready).toBe(true);
-    act(() => result.current.authorize({ appId: 'wx-app-id' }));
+    act(() =>
+      expect(result.current.authorize({ appId: 'wx-app-id' })).toBe(false),
+    );
     expect(mockWechatLogin).not.toHaveBeenCalled();
   });
 
@@ -411,6 +413,30 @@ describe('useCourseWechatAuthorizationState', () => {
     act(() => jest.advanceTimersByTime(60_000));
 
     expect(result.current.ready).toBe(false);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports an issued navigation through context changes until BFCache retires it', () => {
+    const { result } = renderAuthorization();
+    const authorize = result.current.authorize;
+    act(() => {
+      useEnvStore.setState({
+        runtimeConfigContext: {
+          courseId: 'course-2',
+          status: 'loading',
+          generation: 2,
+        },
+        appId: 'wx-new',
+      });
+      expect(authorize({ appId: 'wx-app-id' })).toBe(true);
+    });
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    act(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent('pageshow', { persisted: true }),
+      );
+      expect(authorize({ appId: 'wx-app-id' })).toBe(false);
+    });
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
   });
 

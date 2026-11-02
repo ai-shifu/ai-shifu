@@ -12,10 +12,16 @@ import { inMiniProgram, inWechat, wechatLogin } from '@/constants/ui-constants';
 import { debugWarn } from '@/lib/debug-console';
 import { useEnvStore } from '@/store/env-store';
 
+// False rejects navigation; true or a legacy void return means it was issued
+// (or an existing navigation still owns the document).
+export type CourseWechatAuthorize = (
+  options: Parameters<typeof wechatLogin>[0],
+) => boolean | void;
+
 type CourseWechatAuthorization = {
   ready: boolean;
   preparationAbandoned: boolean;
-  authorize: typeof wechatLogin;
+  authorize: CourseWechatAuthorize;
 };
 
 const CourseWechatAuthorizationContext =
@@ -98,8 +104,10 @@ export const useCourseWechatAuthorizationState = ({
     appId,
   ]);
 
-  const authorize = useCallback<typeof wechatLogin>(
+  const authorize = useCallback<CourseWechatAuthorize>(
     options => {
+      // A changed context cannot cancel an already-issued navigation.
+      if (navigationStartedRef.current) return true;
       // Recheck the shared snapshot at the actual navigation boundary. A route
       // update may invalidate a callback/effect captured before React rerenders.
       if (
@@ -108,15 +116,15 @@ export const useCourseWechatAuthorizationState = ({
         options.appId !== appId ||
         !isCurrentContext()
       )
-        return;
-      if (navigationStartedRef.current || preparationAbandonedRef.current)
-        return;
+        return false;
+      if (preparationAbandonedRef.current) return false;
       // Set the shared lock before assigning location. A child remount or a
       // deadline cannot cancel an already-issued full-page navigation.
       navigationStartedRef.current = true;
       setNavigationPending(true);
       try {
         wechatLogin(options);
+        return true;
       } catch (error) {
         navigationStartedRef.current = false;
         setNavigationPending(false);
