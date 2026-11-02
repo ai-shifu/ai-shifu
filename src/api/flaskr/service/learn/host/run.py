@@ -16,6 +16,7 @@ from flaskr.common.shifu_context import (
 )
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import AppError
+from flaskr.service.learn.agent.lesson_entry import DiscardedTurnError
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.host.db_session import (
@@ -520,21 +521,30 @@ def run_script(
                 and not client_disconnected
                 and isinstance(stream_error, Exception)
             ):
-                _log_run_script_stream_error(app, stream_error)
-                if isinstance(stream_error, AppError):
-                    error_content = str(stream_error)
-                elif _is_retryable_llm_stream_connection_error(stream_error):
-                    error_content = str(_("server.learn.llmStreamInterrupted"))
-                else:
-                    error_content = str(_("server.common.unknownError"))
-                yield _to_sse_chunk(
-                    _make_terminal_event(
-                        outline_bid=outline_bid,
-                        event_type="error",
-                        content=error_content,
-                        element_adapter=stream_element_adapter,
+                if isinstance(stream_error, DiscardedTurnError):
+                    # The learner reset or rewound the lesson while this turn ran. The
+                    # turn simply stops: no error for a replacement they asked for.
+                    app.logger.info(
+                        "run_script turn discarded by a reset: user_bid=%s outline_bid=%s",
+                        user_bid,
+                        outline_bid,
                     )
-                )
+                else:
+                    _log_run_script_stream_error(app, stream_error)
+                    if isinstance(stream_error, AppError):
+                        error_content = str(stream_error)
+                    elif _is_retryable_llm_stream_connection_error(stream_error):
+                        error_content = str(_("server.learn.llmStreamInterrupted"))
+                    else:
+                        error_content = str(_("server.common.unknownError"))
+                    yield _to_sse_chunk(
+                        _make_terminal_event(
+                            outline_bid=outline_bid,
+                            event_type="error",
+                            content=error_content,
+                            element_adapter=stream_element_adapter,
+                        )
+                    )
                 block_end_event = _make_terminal_event(
                     outline_bid=outline_bid,
                     event_type=GeneratedType.BREAK.value,

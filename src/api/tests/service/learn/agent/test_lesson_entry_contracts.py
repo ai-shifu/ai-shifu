@@ -640,6 +640,40 @@ def test_failed_turn_a_reset_discarded_is_marked_for_the_stream(
     assert exc.value.code == ERROR_CODE["server.common.unknownError"]
 
 
+@pytest.mark.parametrize("reason", ["end", "interaction", "finished"])
+def test_turn_a_reset_discarded_stops_the_lesson_whatever_its_end(
+    app: object, monkeypatch: object, reason: str
+) -> None:
+    """A turn whose save a reset refused is not carried on, even one that ran out of text.
+
+    A "continue" after it would open the learner's new attempt from the old stream.
+    """
+    runner = _entry_with_runner(monkeypatch)
+
+    outcomes = iter(
+        [
+            TurnOutcome(reason=reason, taught=True, discarded=True),
+            TurnOutcome(reason="interaction", taught=True),
+        ]
+    )
+
+    def discarded_turn(*_args: object, **_kwargs: object) -> object:
+        yield from ()
+        return next(outcomes)
+
+    runner.side_effect = discarded_turn
+    with pytest.raises(entry.DiscardedTurnError):
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid="learner",
+                shifu_bid="course",
+                outline_bid="lesson",
+            )
+        )
+    assert runner.call_count == 1
+
+
 def test_input_budget_failure_uses_localized_error_after_the_saved_turn(
     app: object,
     monkeypatch: object,

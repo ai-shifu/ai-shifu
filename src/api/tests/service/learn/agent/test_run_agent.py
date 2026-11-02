@@ -888,6 +888,38 @@ def test_a_failed_turn_reports_whether_a_reset_discarded_it(
     assert ([name for name, _ in calls].count("save_session") == 1) is not reset
 
 
+@pytest.mark.parametrize("reason", ["end", "interaction", "finished"])
+def test_a_turn_a_reset_discarded_at_its_end_reports_it_and_sends_no_boundary(
+    monkeypatch: pytest.MonkeyPatch, calls: list, reason: str
+) -> None:
+    """A refused save at TurnDone is reported, before the boundary reaches the adapter.
+
+    The element adapter finalizes the turn's elements on that boundary, and the caller must
+    know the turn was discarded so it does not carry the lesson on from it.
+    """
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+    turn = run_agent.run_agent_lesson(
+        _LoggingApp(),
+        engine=_Engine([ContentDelta(text="Shown text."), TurnDone(reason=reason)]),
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    events: list = []
+    outcome = None
+    while outcome is None:
+        try:
+            events.append(next(turn))
+        except StopIteration as done:
+            outcome = done.value
+    assert outcome.discarded is True
+    assert outcome.reason == reason
+    assert not any(e.type in (GeneratedType.BREAK, GeneratedType.DONE) for e in events)
+    assert "save_session" not in [name for name, _ in calls]
+
+
 def test_the_block_a_turn_records_is_the_one_its_elements_reference(
     calls: list,
 ) -> None:
@@ -2583,7 +2615,8 @@ def test_a_turn_a_reset_discarded_does_not_advance_the_outline(
     )
     events = _run(_finished_engine(), app=_LoggingApp())
     assert asked == []
-    assert [e.type for e in events] == [GeneratedType.DONE]
+    # Nor is its boundary sent: the stream layer ends the discarded turn quietly.
+    assert [e.type for e in events] == []
 
 
 # --- a question the model typed instead of asking for one ----------------------------------

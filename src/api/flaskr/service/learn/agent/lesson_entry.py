@@ -57,7 +57,11 @@ if TYPE_CHECKING:
 
 
 class DiscardedTurnError(AppError):
-    """A failed turn whose save a concurrent reset rejected; nothing it showed may be kept."""
+    """A turn whose save a concurrent reset or rewind rejected; nothing it showed may be kept.
+
+    The stream ends it quietly: the learner asked for the replacement, so the old turn just
+    stops, without an error and without anything of it written.
+    """
 
 
 class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
@@ -520,6 +524,15 @@ def agent_lesson_events(
                         **debug_options,
                     )
                 )
+                if outcome is not None and outcome.discarded:
+                    # A reset or rewind replaced this turn while it ran, so its save was
+                    # refused. Nothing it showed may be kept, and it must not be carried on:
+                    # a "continue" from here would start the learner's new attempt from the
+                    # old stream. However the turn itself ended, it ends here, quietly.
+                    try:
+                        raise_error("server.common.unknownError")
+                    except AppError as error:
+                        raise DiscardedTurnError(error.message, error.code) from None
                 if outcome is not None and outcome.reason is None:
                     # The engine can return a bare ErrorEvent after a provider failure. It has
                     # already saved the usable session, but the legacy stream has no error DTO;
@@ -530,12 +543,7 @@ def agent_lesson_events(
                         if outcome.error_code == "input_budget_exceeded"
                         else "server.common.unknownError"
                     )
-                    try:
-                        raise_error(key)
-                    except AppError as error:
-                        if not outcome.discarded:
-                            raise
-                        raise DiscardedTurnError(error.message, error.code) from None
+                    raise_error(key)
                 # A turn that ran out of content with the lesson not over is followed by the next,
                 # as the host's own "continue": the learner's input and the rewind belonged to the
                 # first turn only. The browser is not asked to do this. It never sees the boundary
