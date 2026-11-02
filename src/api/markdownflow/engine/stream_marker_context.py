@@ -864,6 +864,9 @@ def compact_marker_context(
     for end in context.indent_restart_after:
         if end < len(source):
             start = max(source.rfind("\n", 0, end), source.rfind("\r", 0, end)) + 1
+            # Keep the line's container markers: an empty list item must stay a
+            # list item, and only its content becomes the non-paragraph stand-in.
+            start += container_opening(source[start:end])[0]
             if start < end:
                 gap_characters[start:end] = "#" + " " * (end - start - 1)
     gap_source = "".join(gap_characters)

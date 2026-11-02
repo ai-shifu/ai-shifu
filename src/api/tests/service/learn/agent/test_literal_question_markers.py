@@ -450,3 +450,26 @@ def test_quoted_html_block_settles_its_marker_before_a_later_question(
         [f"> \t{opening}", "> {{ unfinished", f"> {closing}", "", "?[%{{ real }} A|B]"]
     )
     _assert_filter(source, ["?[%{{ real }} A|B]"])
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        "- \n  ```\n" + QUESTION,
+        "* \n  ~~~\n" + QUESTION,
+        "2. \n   ```\n" + QUESTION,
+        "> - \n>   ```\n" + QUESTION,
+        "- \n  ```\n  " + EXAMPLE + "\n  ```\n- " + QUESTION,
+    ],
+)
+def test_fence_in_an_empty_list_item_closes_with_the_item(
+    source: str, newline: str
+) -> None:
+    """A fence opened under an empty list item ends where the item ends."""
+    source = source.replace("\n", newline)
+    spans = [
+        source[start:end] for start, end in find_document_interaction_spans(source)
+    ]
+    assert spans == [QUESTION]
+    _assert_filter(source, spans)
