@@ -193,6 +193,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Keep WeChat OpenID preparation ahead of Profile onboarding](./completed/profile-onboarding-wechat-rebinding.md)
 - [Publish Web images without the Cook name](./completed/public-web-image-name.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
+- [Reading follow-up entry](./completed/reading-follow-up-entry.md)
 - [Compact completed memory recall history](./completed/recall-history-compaction.md)
 - [Remove manual memory definition write APIs](./completed/remove-manual-memory-definition-apis.md)
 - [Remove the MarkdownFlow arena](./completed/remove-markdownflow-arena.md)

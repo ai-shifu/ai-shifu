@@ -1,6 +1,6 @@
 import styles from './LessonConversation.module.scss';
 import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
-import { X } from 'lucide-react';
+import { X, MessageCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -37,6 +37,8 @@ import useLessonConversation, {
 } from './use-lesson-conversation';
 import type { ChatContentItem } from './use-lesson-conversation';
 import AskBlock from './AskBlock';
+import { useReadingFollowUp } from './use-reading-follow-up';
+import { getReadingFollowUpAnchors } from './reading-follow-up-anchors';
 import MobileInteractionBlock from './MobileInteractionBlock';
 import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
@@ -102,6 +104,7 @@ import {
 import { useLessonPdfPrint } from './use-lesson-pdf-print';
 import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
 import { buildCoursePageUrl } from '@/lib/url-utils';
+import { stripCustomButtonAfterContent } from '@/lib/custom-button-after-content';
 import type {
   ChapterNavigationHandler,
   ChapterUpdateHandler,
@@ -635,7 +638,7 @@ export const LessonConversation = ({
             isCreditInsufficientBusinessCode(item.business_code),
         ),
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
-        mobileStyle,
+        mobileStyle: false,
         askButtonMarkup,
         followUpDisabled: isFollowUpUnavailable,
       }),
@@ -643,7 +646,6 @@ export const LessonConversation = ({
       askButtonMarkup,
       isFollowUpUnavailable,
       items,
-      mobileStyle,
       scopedAskListByAnchorElementBid,
     ],
   );
@@ -833,6 +835,87 @@ export const LessonConversation = ({
   const renderedReadModeItems = isPreparingLessonPdf
     ? readModeItems
     : visibleReadModeItems;
+
+  const readingFollowUpAnchors = useMemo(
+    () => getReadingFollowUpAnchors(renderedReadModeItems),
+    [renderedReadModeItems],
+  );
+  const ensureReadingAsk = useCallback(
+    (anchor: string) => {
+      toggleAskExpanded(anchor);
+    },
+    [toggleAskExpanded],
+  );
+  const readingFollowUp = useReadingFollowUp({
+    rootRef: chatRef,
+    items: renderedReadModeItems,
+    eligibleAnchors: readingFollowUpAnchors,
+    enabled:
+      !isSlideMode &&
+      !isPreparingLessonPdf &&
+      !isFollowUpUnavailable &&
+      (!isLiveVoiceFollowUpConfigured || isLiveVoiceFollowUpSupported),
+    mobile: mobileStyle,
+    previewMode,
+    scopeKey: resolvedLessonId,
+    onEnsureAsk: ensureReadingAsk,
+    trackEvent,
+  });
+  useEffect(() => {
+    if (!readingFollowUp.expandedAnchor || isSlideMode || isPreparingLessonPdf)
+      return;
+    const frame = requestAnimationFrame(() => {
+      const panel = [
+        ...(chatRef.current?.querySelectorAll<HTMLElement>(
+          '[data-reading-follow-up-panel-anchor]',
+        ) ?? []),
+      ].find(
+        element =>
+          element.dataset.readingFollowUpPanelAnchor ===
+          readingFollowUp.expandedAnchor,
+      );
+      panel?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    readingFollowUp.expandedAnchor,
+    isSlideMode,
+    isPreparingLessonPdf,
+    renderedReadModeItems.length,
+  ]);
+  const closeReadingFollowUp = useCallback(() => {
+    const anchor = readingFollowUp.expandedAnchor;
+    readingFollowUp.close('close');
+    requestAnimationFrame(() => {
+      const source = [
+        ...(chatRef.current?.querySelectorAll<HTMLElement>(
+          '[data-reading-follow-up-anchor]',
+        ) ?? []),
+      ].find(element => element.dataset.readingFollowUpAnchor === anchor);
+      source
+        ?.querySelector<HTMLButtonElement>(
+          '[data-reading-follow-up-marker] button',
+        )
+        ?.focus({ preventScroll: true });
+    });
+  }, [readingFollowUp]);
+  const continueReading = useCallback(() => {
+    const anchor = readingFollowUp.expandedAnchor;
+    readingFollowUp.close('continue');
+    requestAnimationFrame(() => {
+      const content = [
+        ...(chatRef.current?.querySelectorAll<HTMLElement>(
+          '[data-reading-course-element]',
+        ) ?? []),
+      ];
+      const index = content.findIndex(
+        element => element.dataset.readingCourseElement === anchor,
+      );
+      const target = content[index + 1] ?? content[index];
+      target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      target?.focus({ preventScroll: true });
+    });
+  }, [readingFollowUp]);
 
   useEffect(() => {
     onLessonPdfActionChange?.(
@@ -1602,9 +1685,19 @@ export const LessonConversation = ({
                     ) {
                       return null;
                     }
+                    const readonlyReadingHistory =
+                      isFollowUpUnavailable ||
+                      !readingFollowUpAnchors.has(
+                        item.parent_element_bid || '',
+                      ) ||
+                      (isLiveVoiceFollowUpConfigured &&
+                        !isLiveVoiceFollowUpSupported);
                     return (
                       <div
                         data-lesson-print-follow-up='true'
+                        data-reading-follow-up-panel-anchor={
+                          item.parent_element_bid
+                        }
                         key={`ask-${parentKey}`}
                         style={{
                           position: 'relative',
@@ -1613,12 +1706,47 @@ export const LessonConversation = ({
                           padding: '0 20px',
                         }}
                       >
+                        {!isPreparingLessonPdf &&
+                        !readonlyReadingHistory &&
+                        item.ask_list?.length &&
+                        readingFollowUp.expandedAnchor !==
+                          item.parent_element_bid ? (
+                          <button
+                            type='button'
+                            className={styles.readingFollowUpHistory}
+                            onClick={() =>
+                              readingFollowUp.toggle(
+                                item.parent_element_bid || '',
+                                'history',
+                              )
+                            }
+                          >
+                            <MessageCircle
+                              size={14}
+                              aria-hidden='true'
+                            />
+                            {t('module.chat.ask')}
+                            <span aria-hidden='true'>
+                              {Math.ceil(item.ask_list.length / 2)}
+                            </span>
+                          </button>
+                        ) : null}
                         <AskBlock
-                          isExpanded={item.isAskExpanded}
-                          readonlyHistory={
-                            isLiveVoiceFollowUpConfigured &&
-                            !isLiveVoiceFollowUpSupported
+                          inlineReading={
+                            !isPreparingLessonPdf && !readonlyReadingHistory
                           }
+                          isExpanded={
+                            readingFollowUp.expandedAnchor ===
+                            item.parent_element_bid
+                          }
+                          onDraftChange={hasDraft =>
+                            readingFollowUp.onDraftChange(
+                              item.parent_element_bid || '',
+                              hasDraft,
+                            )
+                          }
+                          onContinueReading={continueReading}
+                          readonlyHistory={readonlyReadingHistory}
                           followUpMode={followUpMode}
                           liveVoice={
                             isLiveVoiceFollowUpSupported
@@ -1630,7 +1758,7 @@ export const LessonConversation = ({
                           outline_bid={resolvedLessonId}
                           preview_mode={previewMode}
                           element_bid={item.parent_element_bid || ''}
-                          onToggleAskExpanded={handleClickAskButton}
+                          onToggleAskExpanded={closeReadingFollowUp}
                           askList={(item.ask_list || []) as any[]}
                         />
                       </div>
@@ -1687,9 +1815,7 @@ export const LessonConversation = ({
                               : undefined
                           }
                           readonly={item.readonly}
-                          disableAskButton={
-                            isInteractionFollowUp || isFollowUpUnavailable
-                          }
+                          disableAskButton={true}
                           onRefresh={onRefresh}
                           onToggleAskExpanded={handleClickAskButton}
                           askButtonVariant={
@@ -1774,6 +1900,15 @@ export const LessonConversation = ({
                     );
                   }
 
+                  const hasReadingBoundary =
+                    readingFollowUpAnchors.has(item.element_bid) &&
+                    !isPreparingLessonPdf &&
+                    !isFollowUpUnavailable &&
+                    (!isLiveVoiceFollowUpConfigured ||
+                      isLiveVoiceFollowUpSupported);
+                  const isReadingCandidate =
+                    !readingFollowUp.expandedAnchor &&
+                    readingFollowUp.candidateAnchor === item.element_bid;
                   const isCourseInteraction =
                     item.type === ChatContentItemType.INTERACTION &&
                     !shouldExcludeLessonPdfInteraction(item.content);
@@ -1795,13 +1930,25 @@ export const LessonConversation = ({
                       data-lesson-print-interaction={
                         isCourseInteraction ? 'true' : undefined
                       }
+                      data-reading-course-element={item.element_bid}
+                      data-reading-follow-up-anchor={
+                        hasReadingBoundary ? item.element_bid : undefined
+                      }
+                      tabIndex={-1}
+                      className={
+                        hasReadingBoundary
+                          ? styles.readingFollowUpContent
+                          : undefined
+                      }
                       key={`content-${baseKey}`}
                       style={{
                         position: 'relative',
                         margin:
                           !idx || item.type === ChatContentItemType.INTERACTION
                             ? '0 auto'
-                            : '40px auto 0 auto',
+                            : hasReadingBoundary
+                              ? '8px auto 0 auto'
+                              : '40px auto 0 auto',
                         maxWidth: mobileStyle ? '100%' : '1000px',
                         padding: getReadModeElementPadding(idx === 0),
                       }}
@@ -1823,7 +1970,16 @@ export const LessonConversation = ({
                         markdown-flow-ui never restarts it from the beginning.
                       */}
                       <ContentBlock
-                        item={item}
+                        item={
+                          hasReadingBoundary
+                            ? {
+                                ...item,
+                                content:
+                                  stripCustomButtonAfterContent(item.content) ??
+                                  '',
+                              }
+                            : item
+                        }
                         contentLanguage={contentLanguage}
                         printMode={isPreparingLessonPdf && isCourseInteraction}
                         mobileStyle={mobileStyle}
@@ -1867,6 +2023,53 @@ export const LessonConversation = ({
                         onAudioEnded={handleAudioEnded}
                         onTypeFinished={handleReadModeTypeFinished}
                       />
+                      {hasReadingBoundary ? (
+                        <div
+                          data-lesson-print-exclude='true'
+                          data-reading-follow-up-marker='true'
+                          data-reading-follow-up-active={
+                            isReadingCandidate ? 'true' : undefined
+                          }
+                          className={cn(
+                            styles.readingFollowUpMarker,
+                            mobileStyle && styles.readingFollowUpMobile,
+                          )}
+                        >
+                          <span
+                            className={styles.readingFollowUpRule}
+                            style={{ opacity: isReadingCandidate ? 1 : 0 }}
+                            aria-hidden='true'
+                          />
+                          <button
+                            type='button'
+                            className={
+                              !isReadingCandidate
+                                ? styles.readingFollowUpInactive
+                                : undefined
+                            }
+                            tabIndex={
+                              readingFollowUp.isLocked && !isReadingCandidate
+                                ? -1
+                                : 0
+                            }
+                            onFocus={() =>
+                              readingFollowUp.selectCandidate(item.element_bid)
+                            }
+                            onClick={() =>
+                              readingFollowUp.toggle(
+                                item.element_bid,
+                                'boundary',
+                              )
+                            }
+                          >
+                            <MessageCircle
+                              size={14}
+                              aria-hidden='true'
+                            />
+                            {t('module.chat.ask')}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

@@ -401,6 +401,15 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     reload_generated_block_bid:
                         type: string
                         required: false
+                    reload_element_bid:
+                        type: string
+                        required: false
+                        description: Finalized reading element selected as the follow-up boundary
+                    reading_context:
+                        type: string
+                        enum: [lesson_prefix]
+                        required: false
+                        description: Include the complete active lesson prefix through the selected element; ASK only
             - in: query
               name: preview_mode
               type: string
@@ -419,6 +428,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         input_type = payload.get("input_type", None)
         reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
         reload_element_bid = payload.get("reload_element_bid", None)
+        reading_context = payload.get("reading_context")
+        if reading_context is not None and (
+            reading_context != "lesson_prefix" or input_type != "ask"
+        ):
+            raise_param_error("reading_context")
         listen_raw = payload.get("listen", False)
         if isinstance(listen_raw, str):
             listen = listen_raw.strip().lower() == "true"
@@ -467,6 +481,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 input_type=input_type,
                 reload_generated_block_bid=reload_generated_block_bid,
                 reload_element_bid=reload_element_bid,
+                reading_context=reading_context,
                 listen=listen,
                 learning_mode=learning_mode,
                 preview_mode=preview_mode,

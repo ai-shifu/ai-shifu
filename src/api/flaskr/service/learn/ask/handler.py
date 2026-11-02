@@ -268,6 +268,7 @@ def handle_input_ask(
         runtime_language=runtime_language,
         runtime_profiles=dict(runtime_profiles or {}),
         anchor_element_bid=anchor_element_bid,
+        reading_context=getattr(context, "_reading_context", None),
         max_history_messages=ask_max_history_len,
         latest_element_loader=_load_latest_active_element_row,
         element_rows_loader=find_follow_up_element_rows,

@@ -105,3 +105,28 @@ The `ListenModeSlideRenderer.test.tsx` case
 in `src/app/c/[[...id]]/components/chat/` verifies a mounted, collapsed block
 with the same anchor after closure. The [streaming Skill](../chat-element-streaming/SKILL.md)
 also describes hidden in-flight typewriter behavior and terminal cleanup.
+
+## Reading boundary entry
+
+The learner reading page now renders one active entry through
+`useReadingFollowUp` and `useReadingFollowUpPoint`, with stable marker space at
+finalized persistent content-element ends. Desktop hover commits immediately;
+mobile uses the lowest completely visible marker after scrolling, with short
+taps for manual selection. Do not reintroduce per-element embedded mobile markup
+or repeated desktop Ask buttons into this reading composition. Listening and
+classroom presentations retain their existing contracts.
+
+A persistent text element can contain multiple Markdown paragraphs. The current
+boundary is the real element end; do not fabricate paragraph element IDs or
+attribute an internal paragraph to the entire element. The text ASK request opts
+into `reading_context: 'lesson_prefix'`; see
+`docs/references/follow-up-classroom-context.md` for its authoritative cutoff
+and validation rules. Live follow-ups retain their existing provider context.
+
+Reading AskBlock uses `inlineReading`, keeps collapsed instances mounted, and
+reports draft presence to the controller. Messages remain in useAskStateStore.
+Close/continue are explicit controller transitions; hover, scroll and keyboard
+focus only select a candidate. Keep semantic keyboard-focusable boundary
+buttons, revealing only the selected candidate. Do not lock page scrolling for
+an inline mobile surface. Preserve print-only content and exclude every marker
+and history action from the lesson PDF.

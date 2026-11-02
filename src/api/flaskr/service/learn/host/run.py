@@ -227,6 +227,7 @@ def run_script(
     preview_mode: bool = False,
     shifu_context_snapshot: dict[str, object] | None = None,
     language: str | None = None,
+    reading_context: str | None = None,
 ) -> Generator[str, None, None]:
     """Run script."""
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
@@ -333,6 +334,7 @@ def run_script(
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
                     reload_element_bid=reload_element_bid,
+                    reading_context=reading_context,
                     listen=runtime_listen,
                     learning_mode=learning_mode,
                     preview_mode=preview_mode,

@@ -449,3 +449,71 @@ def test_a_failed_session_lookup_still_answers_without_a_session(
     )
     assert "session_id" not in ask_runtime.traces[-1]["trace_payload"]
     assert "level" not in ask_runtime.finalized[-1]["root_span_payload"]
+
+
+def test_reading_scope_reaches_the_real_follow_up_context_builder(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    """The opt-in survives runtime admission and reaches the provider's history."""
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+    from tests.common.fixtures.model_factories import make_generated_element
+
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        progress_bid = _progress(course, position=2)
+        block_bid, anchor_bid = uuid4().hex, uuid4().hex
+        fields = {
+            "progress_record_bid": progress_bid,
+            "user_bid": course.user_bid,
+            "shifu_bid": course.course_bid,
+            "outline_item_bid": course.outline_bid,
+        }
+        with unit_of_work():
+            for index in range(12):
+                db.session.add(
+                    make_generated_block(
+                        **fields,
+                        generated_block_bid=uuid4().hex,
+                        generated_content=f"Visible prior teaching {index}",
+                        type=BLOCK_TYPE_MDCONTENT_VALUE,
+                        status=1,
+                    )
+                )
+            db.session.flush()
+            db.session.add(
+                make_generated_block(
+                    **fields,
+                    generated_block_bid=block_bid,
+                    generated_content="Visible selected text\n\nHidden future text",
+                    type=BLOCK_TYPE_MDCONTENT_VALUE,
+                    status=1,
+                )
+            )
+            db.session.add(
+                make_generated_element(
+                    **fields,
+                    element_bid=anchor_bid,
+                    generated_block_bid=block_bid,
+                    content_text="Visible selected text",
+                    element_type="text",
+                    is_final=1,
+                )
+            )
+        _ask(
+            app,
+            course,
+            reload_element_bid=anchor_bid,
+            reading_context="lesson_prefix",
+        )
+        messages = ask_runtime.calls.llm[-1]["messages"]
+        visible = [message["content"] for message in messages]
+        assert any("Visible prior teaching 0" in content for content in visible)
+        assert any("Visible prior teaching 11" in content for content in visible)
+        assert any("Visible selected text" in content for content in visible)
+        assert not any("Hidden future text" in content for content in visible)

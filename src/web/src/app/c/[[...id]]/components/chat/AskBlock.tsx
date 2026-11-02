@@ -8,7 +8,13 @@ import React, {
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { useTranslation } from 'react-i18next';
-import { Maximize2, Minimize2, X } from 'lucide-react';
+import {
+  ArrowDown,
+  Maximize2,
+  MessageCircle,
+  Minimize2,
+  X,
+} from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
 import { getRunMessage, SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/learning';
 import { fixMarkdownStream } from '@/lib/markdown-utils';
@@ -66,6 +72,9 @@ export interface AskBlockProps {
   readonlyHistory?: boolean;
   printMode?: boolean;
   forceDesktopSlidePanel?: boolean;
+  inlineReading?: boolean;
+  onDraftChange?: (hasDraft: boolean) => void;
+  onContinueReading?: () => void;
   shifu_bid: string;
   outline_bid: string;
   preview_mode?: boolean;
@@ -87,6 +96,9 @@ export default function AskBlock({
   readonlyHistory = false,
   printMode = false,
   forceDesktopSlidePanel = false,
+  inlineReading = false,
+  onDraftChange,
+  onContinueReading,
   shifu_bid,
   outline_bid,
   preview_mode = false,
@@ -138,6 +150,12 @@ export default function AskBlock({
   );
 
   const [inputValue, setInputValue] = useState('');
+  const draftChangeRef = useRef(onDraftChange);
+  draftChangeRef.current = onDraftChange;
+  useEffect(() => {
+    draftChangeRef.current?.(Boolean(inputValue.trim()));
+  }, [inputValue, inlineReading]);
+  useEffect(() => () => draftChangeRef.current?.(false), []);
   const sseRef = useRef<any>(null);
   const currentContentRef = useRef<string>('');
   const currentAnswerElementBidRef = useRef<string>('');
@@ -407,6 +425,7 @@ export default function AskBlock({
         reload_generated_block_bid: element_bid,
         reload_element_bid: element_bid,
         listen: false,
+        ...(inlineReading ? { reading_context: 'lesson_prefix' } : {}),
       },
       creditInsufficientAudience,
       async response => {
@@ -556,6 +575,7 @@ export default function AskBlock({
     isLive,
     liveVoice,
     liveVoiceSurface,
+    inlineReading,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -591,6 +611,7 @@ export default function AskBlock({
   const hasAskAnswerMessages = messagesToShow.length > 0;
   const shouldRenderMobileDialog =
     !readonlyHistory &&
+    !inlineReading &&
     mobileStyle &&
     shouldShowMobileDialog &&
     (hasAskAnswerMessages || shouldForceSlideMobileDialog);
@@ -678,7 +699,7 @@ export default function AskBlock({
   }, [expanded, shouldRenderMobileDialog]);
 
   useEffect(() => {
-    if (!mobileStyle || !shouldShowMobileDialog || !expanded) {
+    if (inlineReading || !mobileStyle || !shouldShowMobileDialog || !expanded) {
       return;
     }
 
@@ -704,7 +725,13 @@ export default function AskBlock({
       resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
     };
-  }, [mobileStyle, shouldShowMobileDialog, expanded, messagesToShow]);
+  }, [
+    inlineReading,
+    mobileStyle,
+    shouldShowMobileDialog,
+    expanded,
+    messagesToShow,
+  ]);
 
   useEffect(() => {
     if (!isDesktopSlideAskBlock || !expanded) {
@@ -941,6 +968,65 @@ export default function AskBlock({
       </div>
     );
   };
+
+  if (inlineReading && !printMode && !readonlyHistory) {
+    return (
+      <section
+        data-reading-follow-up-panel='true'
+        className={cn(styles.askBlock, styles.inlineReading, className)}
+        aria-label={t('module.chat.ask')}
+        style={expanded ? undefined : { display: 'none' }}
+        onKeyDown={event => {
+          if (
+            event.key === 'Escape' &&
+            expanded &&
+            !event.nativeEvent.isComposing &&
+            event.keyCode !== 229
+          ) {
+            event.stopPropagation();
+            handleClose();
+          }
+        }}
+      >
+        <header className={styles.inlineHeader}>
+          <h3>
+            <MessageCircle
+              size={17}
+              aria-hidden='true'
+            />
+            {t('module.chat.ask')}
+          </h3>
+          <button
+            type='button'
+            className={styles.inlineClose}
+            aria-label={t('common.core.close')}
+            onClick={handleClose}
+          >
+            <X
+              size={18}
+              aria-hidden='true'
+            />
+          </button>
+        </header>
+        <div className={styles.inlineMessages}>
+          {renderMessages({ messages: displayList })}
+        </div>
+        {renderInput(styles.inlineInput)}
+        <footer className={styles.inlineFooter}>
+          <button
+            type='button'
+            onClick={onContinueReading ?? handleClose}
+          >
+            {t('module.chat.continueReading')}
+            <ArrowDown
+              size={15}
+              aria-hidden='true'
+            />
+          </button>
+        </footer>
+      </section>
+    );
+  }
 
   if (!printMode && shouldRenderMobileDialog) {
     return (

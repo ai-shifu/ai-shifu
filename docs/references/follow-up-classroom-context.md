@@ -2,7 +2,7 @@
 title: Follow-up Classroom Context
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-09
+last_reviewed: 2026-11-02
 canonical: true
 ---
 
@@ -45,6 +45,36 @@ Context reads do not mutate classroom history, progress, memory or agent session
 Existing provider routing, SSE, billing and persistence paths remain in use.
 Semantic recall, transcript compression and teaching-quality acceptance are
 separate work; this bounded context does not promise the entire lesson transcript.
+
+## Explicit reading lesson prefix
+
+The serial reading entry opts in through the existing text ASK endpoint:
+`PUT /api/learn/shifu/<shifu_bid>/run/<outline_bid>`, with
+`input_type: "ask"`, a real `reload_element_bid`, and optional
+`reading_context: "lesson_prefix"`. This is the only accepted nonempty scope
+value, and it is rejected on ordinary teaching requests. Omitting it retains
+the bounded behavior above for existing text and listen callers; Live session
+creation also retains its existing bounded context.
+
+The reading scope separates classroom context from recent follow-up history.
+It includes every active, undeleted teaching block and actual submitted learner
+answer before the anchor's generated block in the same learning attempt,
+learner, course and lesson. Within the current generated block, it reads only
+active finalized elements through the selected element index, including earlier
+sibling elements. It never appends that generated block's complete text because
+that text may include teaching after the selected boundary. Nonempty visual
+payload content supplies context when a visual element has no `content_text`.
+Recent ASK/ANSWER sidecars remain local to the selected anchor and retain the
+existing `ASK_MAX_HISTORY_LEN` budget; they do not consume or truncate the
+classroom prefix. Existing provider-specific delivery limits still apply.
+
+An element is an authoritative persisted rendering boundary and can contain
+multiple Markdown paragraphs. This API does not accept client-authored context,
+a DOM paragraph ID, or an offset within an element. Clients must choose a
+finalized real element end. Missing, cross-attempt, unfinished, interaction,
+ASK/ANSWER, or retired-parent anchors are rejected in this scope; they never
+fall back to the latest lesson rows. Context assembly remains read-only and
+uses the existing SSE, provider, billing, publication and permission paths.
 
 ## Current course memory in 2.0
 

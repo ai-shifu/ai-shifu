@@ -39,6 +39,7 @@ def _follow_up_events(
     preview_mode: bool,
     stop_event: threading.Event,
     element_adapter: ListenElementRunAdapter,
+    reading_context: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
     """Answer a follow-up question, owning its database session like a lesson step."""
     from flaskr.service.learn.ask.follow_up_run import (
@@ -56,6 +57,7 @@ def _follow_up_events(
                 user_input=user_input,
                 reload_generated_block_bid=reload_generated_block_bid,
                 reload_element_bid=reload_element_bid,
+                reading_context=reading_context,
                 listen=listen,
                 learning_mode=learning_mode,
                 preview_mode=preview_mode,
@@ -94,6 +96,7 @@ def _lesson_events(
     stop_event: threading.Event,
     element_adapter: ListenElementRunAdapter,
     heartbeat_interval: float,
+    reading_context: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
     """Produce this lesson's events: every lesson is taught by the 2.0 engine.
 
@@ -111,6 +114,7 @@ def _lesson_events(
             user_input=user_input,
             reload_generated_block_bid=reload_generated_block_bid,
             reload_element_bid=reload_element_bid,
+            reading_context=reading_context,
             listen=listen,
             learning_mode=learning_mode,
             preview_mode=preview_mode,

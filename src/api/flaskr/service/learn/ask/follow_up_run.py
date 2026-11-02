@@ -92,6 +92,7 @@ class AskContext:
     _listen: bool
     _learning_mode: str
     _stop_event: threading.Event | None
+    _reading_context: str | None = None
     _langfuse_output_chunks: list[str] = field(default_factory=list)
     _system_prompts: dict[str, str | None] = field(default_factory=dict)
 
@@ -149,6 +150,7 @@ def follow_up_events(
     learning_mode: str,
     preview_mode: bool,
     stop_event: threading.Event | None,
+    reading_context: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Stream the answer to one follow-up question and save its history rows.
 
@@ -177,6 +179,7 @@ def follow_up_events(
         _listen=listen,
         _learning_mode=normalized_mode,
         _stop_event=stop_event,
+        _reading_context=reading_context,
     )
     tracing = _FollowUpTrace.admit(
         app, user_info, outline_item_info, user_input, preview_mode
