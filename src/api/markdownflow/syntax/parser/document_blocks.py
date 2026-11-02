@@ -415,6 +415,9 @@ class DocumentBlocks:
         self.content_starts = [line.start for line in self.lines]
         self.container_steps: list[tuple[int, ...]] = [() for _ in self.lines]
         self.virtual_padding = [0 for _ in self.lines]
+        # The containers still open after the last line, and whether a paragraph
+        # is open in them: all the container state a following line is read with.
+        self.container_state: tuple[tuple[int, ...], bool] = ((), False)
         self.container_paragraphs = self._container_paragraphs()
         self.starts = [line.start for line in self.lines]
         self.by_start = {line.start: index for index, line in enumerate(self.lines)}
@@ -933,6 +936,7 @@ class DocumentBlocks:
                 or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(remaining) is not None
             ):
                 paragraph = False
+        self.container_state = (active, paragraph)
         return boundaries
 
     @staticmethod

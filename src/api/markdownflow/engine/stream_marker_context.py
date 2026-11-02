@@ -255,6 +255,19 @@ def _container_opening(steps: tuple[int, ...], text: str = "") -> str:
     return "".join(pieces)
 
 
+def container_paragraph_witness(steps: tuple[int, ...]) -> str | None:
+    """Return one paragraph line that leaves exactly `steps` open, or None.
+
+    A line read after it finds the same open containers and an open paragraph
+    in them, which is all the block state a plain paragraph line carries on.
+    """
+    opening = _container_opening(steps)
+    content, actual, virtual = container_opening_info(opening + "x")
+    if actual != steps or virtual or content != len(opening):
+        return None
+    return opening + "x\n"
+
+
 def _indented_prefix(text: str, steps: tuple[int, ...]) -> str:
     opening = _container_opening(steps, text) + "    x"
     lines = physical_lines(text)

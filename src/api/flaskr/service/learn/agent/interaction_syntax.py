@@ -40,11 +40,20 @@ import re
 
 from markdownflow.engine.stream_marker_context import (
     compact_marker_context,
+    container_paragraph_witness,
     pending_autolink_is_primary,
     pending_literal_context,
 )
 from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
-from markdownflow.syntax.parser.document_blocks import DocumentBlocks
+from markdownflow.syntax.parser.document_blocks import (
+    COMPILED_ATX_START_REGEX,
+    COMPILED_DOCUMENT_BREAK_REGEX,
+    COMPILED_DOCUMENT_TAG_REGEX,
+    COMPILED_SETEXT_REGEX,
+    HTML_BLOCK_TAGS,
+    DocumentBlocks,
+    fence_opening,
+)
 from markdownflow.syntax.parser.marker_context import (
     MarkerContext,
     analyze_marker_context,
@@ -98,9 +107,44 @@ _SPANNING_HTML_START = re.compile(
     r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$))",
     re.IGNORECASE,
 )
+# A line that opens a reference definition rather than a link: its label's
+# closing bracket is followed by a colon.
+_REFERENCE_START = re.compile(r"\[(?:[^\\\[\]]|\\.)*\]:")
 # Letters, digits and spaces in the middle of a narration line carry no Markdown
 # or MarkdownFlow syntax.
 _PLAIN = re.compile(r"(?:[^\W_]| )+")
+
+
+def _plain_paragraph_line(value: str) -> bool:
+    """Whether a line's content, after its containers, is plain paragraph text.
+
+    The line after it is read only against the open containers and paragraph
+    unless this line is one of the scanner's other block constructs: a heading,
+    a thematic break, a setext underline, a fence, an HTML block start, a
+    reference definition or a math block opener.
+    """
+    return not (
+        COMPILED_ATX_START_REGEX.match(value)
+        or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value)
+        or COMPILED_SETEXT_REGEX.fullmatch(value)
+        or fence_opening(value) is not None
+        or _opens_html_block(value, 0)
+        or _REFERENCE_START.match(value)
+        or value.startswith("$$")
+    )
+
+
+def _opens_html_block(text: str, at: int) -> bool:
+    """Whether the line content at `at` starts an HTML block rather than inline HTML.
+
+    Types 1-5 can close on their own line and still change how the next line is
+    read; a type-6 block tag runs on to a blank line. Type 7 cannot interrupt the
+    paragraph a plain line continues, and an unfinished block is pending anyway.
+    """
+    if _SPANNING_HTML_START.match(text, at):
+        return True
+    tag = COMPILED_DOCUMENT_TAG_REGEX.match(text, at)
+    return tag is not None and tag.group(1).lower() in HTML_BLOCK_TAGS
 
 
 class InteractionSyntaxFilter:
@@ -138,7 +182,8 @@ class InteractionSyntaxFilter:
         # The last scan of the context prefix plus held text, reused by `_find_open`.
         self._scan: tuple[MarkerContext, int, tuple[int, str] | None] | None = None
         # Raw emitted text since the last point where no Markdown state carries over,
-        # after a witness of everything before it. Literal decisions read it, so the
+        # after a witness of everything before it: a compact witness at a blank
+        # line, or one synthetic paragraph line after a settled container line. Literal decisions read it, so the
         # current containers, indentation and info strings stay exact. Kept as parts
         # so appending stays constant work; None only past `_RAW_LIMIT`.
         self._raw_base = ""
@@ -529,7 +574,85 @@ class InteractionSyntaxFilter:
         self._raw_length += len(text)
         if self._raw_length > _RAW_LIMIT:
             self._raw_parts = None
+            return False
+        if (
+            # Only a context that may span lines is rebuilt at each line end, and
+            # an attempt costs no more than that rebuild, so trying at every line
+            # end keeps the work linear without any backoff.
+            self._raw_containers
+            and self._raw_spanning
+            and _LINE_BREAK_CHAR.search(text)
+            and not text.endswith("\r")
+        ):
+            return self._checkpoint_paragraph(text)
         return False
+
+    def _checkpoint_paragraph(self, text: str) -> bool:
+        """Restart the raw context after the last complete line of `text`.
+
+        Inside containers there is rarely a blank line to restart at, and every
+        literal decision rereads the raw context, so a long compact list would be
+        rescanned whole at each line. After a plain paragraph line with nothing
+        unfinished, a following line is read only against the open containers and
+        the open paragraph, which one synthetic line reproduces exactly.
+        """
+        cut = max(text.rfind("\n"), text.rfind("\r")) + 1
+        raw = self._raw_text() or ""
+        done = self._raw_base + raw[: len(raw) - (len(text) - cut)]
+        witness = self._paragraph_witness(done)
+        if witness is None:
+            return False
+        self._raw_base = witness
+        self._raw_parts = [text[cut:]]
+        self._raw_length = len(text) - cut
+        self._raw_structured = False
+        self._raw_head = ""
+        self._raw_containers = witness != "x\n" or self._has_container_head(text[cut:])
+        self._raw_spanning = _SPANNING_CHAR.search(text, cut) is not None
+        return True
+
+    @staticmethod
+    def _paragraph_witness(done: str) -> str | None:
+        """Return the synthetic line that can stand for `done`, or None if state carries.
+
+        `done` ends with a line break. Its last line must be a plain line of an
+        open paragraph, and no literal, block, token, label or marker may still
+        be unfinished or reach into that line from before it.
+        """
+        body = done[:-2] if done.endswith("\r\n") else done[:-1]
+        blocks = DocumentBlocks(body, COMPILED_INLINE_HTML_REGEX)
+        steps, paragraph = blocks.container_state
+        if not paragraph:
+            return None
+        last = len(blocks.lines) - 1
+        start = blocks.block_content_start(last)
+        if start is None or not _plain_paragraph_line(
+            body[start : blocks.lines[last].content_end]
+        ):
+            return None
+        context = analyze_marker_context(done, final=False)
+        line = blocks.lines[last].start
+        if (
+            context.unmatched_backticks
+            or context.unmatched_math
+            or context.pending_label_starts
+            or context.pending_resource_opener
+            or any(
+                at is not None
+                for at in (
+                    context.pending_html_start,
+                    context.pending_autolink_start,
+                    context.pending_resource_start,
+                    context.pending_block_start,
+                    context.pending_reference_start,
+                    context.pending_container_fence,
+                )
+            )
+            or any(not marker.complete for marker in context.markers)
+            or any(start < line < end for start, end in context.literals)
+        ):
+            return None
+        return container_paragraph_witness(steps)
 
     def _has_container_head(self, text: str) -> bool:
         """Whether `text` starts a container or indented line in the raw context."""
@@ -545,20 +668,26 @@ class InteractionSyntaxFilter:
         Inline syntax and HTML blocks of types 6 and 7 end at a blank line; only a
         literal already spanning it, or an unfinished HTML block of types 1-5
         opened at the start of a line, can carry on.
+
+        The restarted context is compacted from the text before the cut, without
+        the line that starts there. So the cut must also be settled in that text:
+        an HTML block that only the next line's container end closes would stay
+        open in the compacted context and swallow the line.
         """
-        source = before + text[: cut + 1]
         at = len(before) + cut
-        context = analyze_marker_context(source, final=False)
-        if any(start < at < end for start, end in context.literals):
-            return False
-        html = context.pending_html_start
-        if html is None or html >= at:
-            return True
-        line = max(source.rfind("\n", 0, html), source.rfind("\r", 0, html)) + 1
-        return not (
-            _CONTAINER_PREFIX.fullmatch(source, line, html)
-            and _SPANNING_HTML_START.match(source, html)
-        )
+        for source in (before + text[: cut + 1], before + text[:cut]):
+            context = analyze_marker_context(source, final=False)
+            if any(start < at < end for start, end in context.literals):
+                return False
+            html = context.pending_html_start
+            if html is None or html >= at:
+                continue
+            line = max(source.rfind("\n", 0, html), source.rfind("\r", 0, html)) + 1
+            if _CONTAINER_PREFIX.fullmatch(source, line, html) and (
+                _SPANNING_HTML_START.match(source, html)
+            ):
+                return False
+        return True
 
     def _reset_raw(self) -> None:
         self._raw_base = ""
