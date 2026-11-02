@@ -838,8 +838,12 @@ def compact_marker_context(
     # nesting level. No source text or future closing bracket is discarded.
     records = merge_labels(records)
     # Completed literal syntax must not become a fresh opener when old prose is discarded.
+    # A complete marker's name is opaque text: its lines carry no Markdown syntax.
     gap_characters = list(source)
-    for start, end in context.literals:
+    for start, end in (
+        *context.literals,
+        *((marker.start, marker.end) for marker in context.markers if marker.complete),
+    ):
         for offset in range(start, min(end, len(source))):
             if gap_characters[offset] not in " \t\r\n":
                 gap_characters[offset] = "x"

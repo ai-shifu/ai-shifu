@@ -687,9 +687,12 @@ class DocumentBlocks:
         )
         if token_end is None:
             # A confirmed parent-container dedent ends native HTML even without a terminator.
-            # Plain EOF retains the historical incomplete-token fallback.
             if self.container_steps[index] and limit < len(self.text):
                 return BlockSpan(limit, at, limit, closed=True)
+            # Without a terminator the block runs to its container's end, as
+            # CommonMark reads it; while streaming the terminator may still come.
+            if final:
+                return BlockSpan(limit, at, limit)
             return None
         end = self.line_at(token_end).content_end
         return BlockSpan(end, token_end, end, closed=True)

@@ -61,7 +61,7 @@ def test_authored_text_hint_keeps_the_exact_opaque_variable(
 @pytest.mark.parametrize(
     "prefix",
     [
-        "<!-- outer --> ",
+        "Text <!-- outer --> ",
         "<!-- {{ unfinished -->\n\n",
         "<!-- ?[%{{ fake }} A | ...Fake] -->\n\n",
         "```\n{{ unfinished\n?[%{{ fake }} A | ...Fake]\n```\n\n",
@@ -80,12 +80,12 @@ def test_literal_examples_stay_excluded_before_a_real_opaque_question(
     ]
 
 
-def test_html_block_question_retains_its_existing_hint_admission() -> None:
-    """Native literal metadata must not exclude a question the legacy hint reader accepts."""
+def test_html_block_question_is_an_example_not_an_input() -> None:
+    """A question inside an HTML block is literal text, as the browser renders it."""
     script = "<div>\n?[%{{ Why <!--this-->? }} A | ...Explain]\n</div>"
-    assert [(q.variable, q.placeholder) for q in script_text_inputs(script)] == [
-        ("Why <!--this-->?", "Explain")
-    ]
+    assert script_text_inputs(script) == ()
+    # An HTML comment block owns the rest of its closing line as well.
+    assert script_text_inputs("<!-- outer --> ?[%{{ x }} A | ...Explain]") == ()
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
