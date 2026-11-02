@@ -45,7 +45,11 @@ from markdownflow.engine.stream_marker_context import (
     pending_literal_context,
 )
 from markdownflow.syntax.constants import COMPILED_INLINE_HTML_REGEX
-from markdownflow.syntax.parser.document_blocks import DocumentBlocks
+from markdownflow.syntax.parser.document_blocks import (
+    COMPILED_DOCUMENT_TAG_REGEX,
+    HTML_BLOCK_TAGS,
+    DocumentBlocks,
+)
 from markdownflow.syntax.parser.marker_context import (
     MarkerContext,
     analyze_marker_context,
@@ -100,13 +104,15 @@ _SPANNING_HTML_START = re.compile(
     re.IGNORECASE,
 )
 # The first characters of a plain paragraph line: an inline code, math or
-# strikethrough span, emphasis, a link or an image, or any character that cannot
-# open a block. Nothing the line
+# strikethrough span, emphasis, a link, an image or inline HTML (an HTML block
+# start is rejected separately), a sign or hash that cannot start a marker,
+# break, underline or heading, or any character that cannot open a block. Nothing the line
 # after it is read against depends on more than that it was such a line, unlike a
 # heading, a quote, a list, a fence, HTML, math, a thematic break, a setext
 # underline or a reference definition.
 _PARAGRAPH_START = re.compile(
-    r"`(?!``)|~(?!~~)|\$(?!\$)|[*_]{1,2}[^\W_]|!?\[|[^\s#>+\-=|<$~:`*_\[]"
+    r"`(?!``)|~(?!~~)|\$(?!\$)|[*_]{1,2}[^\W_]|!?\[|<|[-+=](?=[^\s\-+=])"
+    r"|#(?=[^\s#])|[^\s#>+\-=<$~`*_\[]"
 )
 # A line that opens a reference definition rather than a link: its label's
 # closing bracket is followed by a colon.
@@ -114,6 +120,19 @@ _REFERENCE_START = re.compile(r"\[(?:[^\\\[\]]|\\.)*\]:")
 # Letters, digits and spaces in the middle of a narration line carry no Markdown
 # or MarkdownFlow syntax.
 _PLAIN = re.compile(r"(?:[^\W_]| )+")
+
+
+def _opens_html_block(text: str, at: int) -> bool:
+    """Whether the line content at `at` starts an HTML block rather than inline HTML.
+
+    Types 1-5 can close on their own line and still change how the next line is
+    read; a type-6 block tag runs on to a blank line. Type 7 cannot interrupt the
+    paragraph a plain line continues, and an unfinished block is pending anyway.
+    """
+    if _SPANNING_HTML_START.match(text, at):
+        return True
+    tag = COMPILED_DOCUMENT_TAG_REGEX.match(text, at)
+    return tag is not None and tag.group(1).lower() in HTML_BLOCK_TAGS
 
 
 class InteractionSyntaxFilter:
@@ -599,6 +618,7 @@ class InteractionSyntaxFilter:
             start is None
             or _PARAGRAPH_START.match(body, start) is None
             or _REFERENCE_START.match(body, start) is not None
+            or _opens_html_block(body, start)
         ):
             return None
         context = analyze_marker_context(done, final=False)
