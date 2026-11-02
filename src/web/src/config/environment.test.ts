@@ -48,9 +48,11 @@ describe('frontend build metadata', () => {
 describe('cached runtime API base URL', () => {
   const originalFetch = global.fetch;
   const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const originalHost = window.location.host;
 
   afterEach(() => {
     global.fetch = originalFetch;
+    window.location.host = originalHost;
     jest.restoreAllMocks();
     if (originalApiBaseUrl === undefined) {
       delete process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -97,6 +99,7 @@ describe('cached runtime API base URL', () => {
     'caches the configured backend after a %s discovery failure',
     async failure => {
       process.env.NEXT_PUBLIC_API_BASE_URL = 'https://backend.example.test///';
+      window.location.host = 'backend.example.test';
       jest.spyOn(console, 'warn').mockImplementation(() => undefined);
       global.fetch = jest.fn(async () => {
         if (failure === 'network') {

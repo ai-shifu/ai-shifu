@@ -42,13 +42,18 @@ changes; rebuild when changing a browser build-time fallback.
 On custom domains the Next route may return an empty base so the browser uses
 same-origin `/api` ingress. Localhost frontend/backend origins retain the
 configured backend base even when their ports differ. See
-[route-utils.ts](../app/api/config/route-utils.ts) and its tests for the host
+[api-base-url.ts](api-base-url.ts) and the Next route tests for the host
 comparison contract. The development proxy is described in the frontend README.
 If discovery fails because of an HTTP error, invalid JSON or response shape,
-or a network error, the browser retains the configured backend base. Both
-asynchronous requests and synchronous lifecycle requests use that same cached
-resolution. A successfully returned empty `apiBaseUrl` still selects same-origin
-requests rather than the configured fallback.
+or a network error, the browser applies the same host rules: a non-local host
+different from the configured API host keeps same-origin requests, including
+customer subdomains under the same parent domain. The configured host and
+supported local development retain the configured backend base, including its
+path. Host comparison alone cannot identify an official frontend and backend on
+different non-local hosts; that deployment requires successful discovery to
+provide the explicit API base. Both asynchronous requests and synchronous
+lifecycle requests use the same cached resolution. Successful discovery values
+are always respected, including an empty `apiBaseUrl` selecting same-origin.
 
 ## Frontend Build Identity
 

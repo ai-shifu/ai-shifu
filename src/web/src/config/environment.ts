@@ -7,6 +7,8 @@
  * Supports retrieving environment variables at runtime
  */
 
+import { resolveApiBaseUrlForHost } from './api-base-url';
+
 interface EnvironmentConfig {
   // Immutable Frontend Build Metadata
   appVersion: string;
@@ -138,8 +140,12 @@ async function getClientApiBaseUrl(): Promise<string> {
       cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl);
     } catch (error) {
       console.warn('Failed to fetch runtime config:', error);
-      // Discovery failure must not discard a reachable configured backend.
-      cachedApiBaseUrl = getApiBaseUrl();
+      // Match server discovery: customer hosts stay same-origin, while the
+      // configured host and supported local development retain their backend.
+      cachedApiBaseUrl = resolveApiBaseUrlForHost(
+        getApiBaseUrl(),
+        window.location.host,
+      );
     }
 
     configFetched = true;

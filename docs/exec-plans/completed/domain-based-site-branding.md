@@ -18,6 +18,9 @@ Course links follow the same official-versus-customer-domain rule.
   ready pull request; implementation scope and acceptance were independently reviewed.
 - [x] 2026-11-02: Addressed review findings with independent fixes for failed
   API discovery and legacy account selectors overriding validated ownership.
+- [x] 2026-11-02: Rejected course/domain conflicts after recovered host lookup,
+  aligned official-domain readiness metadata, and kept customer-domain discovery
+  failures on the same origin using the existing shared host/local rules.
 
 ## Surprises & Discoveries
 
@@ -49,7 +52,7 @@ Course links follow the same official-versus-customer-domain rule.
 
 ## Outcomes & Retrospective
 
-Focused validation passed: 293 backend tests and 150 frontend tests, plus
+Focused validation passed: 299 backend tests and 183 frontend tests, plus
 TypeScript and frontend lint. Ten optional SaaS-plugin tests are skipped
 because that plugin is not installed in this checkout. Two independent code
 reviews found no in-scope defects. The full repository-wide pre-commit gate
@@ -57,11 +60,26 @@ passed using the existing project Python environment, including architecture,
 documentation, translation, formatting, and lint checks. No schema or
 stored-link migration is required.
 
-Review follow-up preserves explicit empty same-origin discovery results while
-using the configured backend on HTTP, JSON, network, or invalid-response
-failures. Commercial runtime settings now prioritize validated domain/course
+Review follow-up preserves explicit empty same-origin discovery results. On
+HTTP, JSON, network, or invalid-response failures it keeps customer hosts
+same-origin and retains the configured backend on matching/local hosts.
+Commercial runtime settings now prioritize validated domain/course
 ownership over legacy explicit account selectors, including recovery when the
 first host lookup fails. Production rollout remains a separate release step.
+
+The failure fallback uses the same exact-host/local rules as server discovery;
+sharing a parent domain does not prove that a host is an official frontend.
+Resolved course ownership is kept separate from the legacy selector, and a
+recovered domain lookup cannot replace a mismatched course owner. The existing
+SPA course-payment-settings refresh lifecycle remains outside this change;
+its review thread stays open, and the new branding test does not require its
+fetch-count behavior.
+
+An additional offline engine check passed 3,270 tests and failed one legacy
+serializer fixture with the local `pydantic-ai-slim` 2.43.0 installation, while
+the repository requires 2.53.0. The same single test also fails on the archived,
+unchanged main baseline with that environment. No engine source is changed by
+this PR.
 
 ## Context and Orientation
 
