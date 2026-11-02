@@ -10,12 +10,16 @@ from flaskr.api.llm import LLMStreamResponse
 from flaskr.api.markdownflow import TurnCapacityError, iter_turn
 from flaskr.service.learn.agent.lesson_record import claim_for_writing
 from flaskr.service.learn.ask.quotations import LearnerQuotationSource
-from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
-from flaskr.service.profile.api import (
+from flaskr.service.memory.api import (
     COURSE_REFERENCE_PREFIX,
     SHARED_ANSWER_PREFIX,
+    MemoryUpdate,
+    VariableMemoryUpdate,
     course_memory_deletion_state,
     course_memory_value_versions,
+    stage_memory,
+)
+from flaskr.service.profile.api import (
     get_global_profile_keys,
     global_profile_value_versions,
 )

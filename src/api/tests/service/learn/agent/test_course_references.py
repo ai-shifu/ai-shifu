@@ -28,7 +28,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 from tests.service.learn.agent.test_memory_integration import _drive
-from tests.service.profile.test_course_references import (
+from tests.service.memory.test_course_references import (
     context,
 )
 

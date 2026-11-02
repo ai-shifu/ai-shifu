@@ -10,8 +10,10 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.check_risk import funcs as risk_funcs
 from flaskr.service.common.models import AppError
+from flaskr.service.memory import api as memory_api
+from flaskr.service.memory import course_values
+from flaskr.service.memory import settings_writer as funcs
 from flaskr.service.profile import api as profile_api
-from flaskr.service.profile import course_values, funcs
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import (
@@ -49,7 +51,7 @@ def _label(key: str, value: object) -> UserProfileLabelItemDTO:
 )
 def test_retired_profile_label_writes_are_course_scoped(user: object, key: str) -> None:
     with unit_of_work():
-        profile_api.update_user_profile_with_lable(
+        memory_api.update_user_profile_with_lable(
             user.app,
             user.bid,
             _label(key, "Course value"),
@@ -63,9 +65,7 @@ def test_retired_profile_label_writes_are_course_scoped(user: object, key: str) 
     assert account.language == "en-US"
     row = VariableValue.query.filter_by(user_bid=user.bid, key=key).one()
     assert (row.value, row.shifu_bid) == ("Course value", "course")
-    assert key not in profile_api.get_user_profiles(
-        user.app, user.bid, "another-course"
-    )
+    assert key not in memory_api.get_user_profiles(user.app, user.bid, "another-course")
 
 
 def test_profile_dto_saves_course_avatar_without_changing_account_or_empty_keys(
@@ -78,7 +78,7 @@ def test_profile_dto_saves_course_avatar_without_changing_account_or_empty_keys(
     for _ in range(2):
         with unit_of_work():
             assert (
-                profile_api.update_user_profile_with_lable(
+                memory_api.update_user_profile_with_lable(
                     user.app, user.bid, payload, course_id="course"
                 )
                 is True
@@ -101,7 +101,7 @@ def test_empty_profile_update_can_initialize_missing_user_without_variable_write
     assert load_user_aggregate(user.bid) is None
     with unit_of_work():
         assert (
-            profile_api.update_user_profile_with_lable(
+            memory_api.update_user_profile_with_lable(
                 user.app, user.bid, [], course_id="course"
             )
             is True
@@ -176,11 +176,11 @@ def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_
     payload = [_label("sys_user_nickname", "Requested name")]
     if verdict == CHECK_RESULT_REJECT:
         with pytest.raises(AppError), unit_of_work():
-            profile_api.update_user_profile_with_lable(user.app, user.bid, payload)
+            memory_api.update_user_profile_with_lable(user.app, user.bid, payload)
     else:
         with unit_of_work():
             assert (
-                profile_api.update_user_profile_with_lable(user.app, user.bid, payload)
+                memory_api.update_user_profile_with_lable(user.app, user.bid, payload)
                 is True
             )
     db.session.expire_all()

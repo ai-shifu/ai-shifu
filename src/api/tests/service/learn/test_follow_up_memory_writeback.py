@@ -659,8 +659,8 @@ def test_completed_memory_patch_is_course_scoped_and_atomic_with_history(
     from flaskr.dao import db
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
-    from flaskr.service.learn.memory import VariableMemoryUpdate, load_memory
     from flaskr.service.learn.models import LearnGeneratedBlock
+    from flaskr.service.memory import VariableMemoryUpdate, load_memory
 
     scope = storage_scope
     args = {
@@ -735,18 +735,18 @@ def test_completed_patch_cannot_restore_a_reset_attempt_or_concurrent_deletion(
     """Check the live attempt and deletion generation inside the same final write transaction."""
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
-    from flaskr.service.learn.memory import (
+    from flaskr.service.learn.models import LearnProgressRecord
+    from flaskr.service.memory import (
         MemoryUpdate,
         VariableMemoryUpdate,
         load_memory,
         stage_memory,
     )
-    from flaskr.service.learn.models import LearnProgressRecord
-    from flaskr.service.order.consts import LEARN_STATUS_RESET
-    from flaskr.service.profile.api import (
+    from flaskr.service.memory.api import (
         course_memory_deletion_state,
         delete_course_memory,
     )
+    from flaskr.service.order.consts import LEARN_STATUS_RESET
     from flaskr.service.profile.models import VariableValue
 
     scope = storage_scope
@@ -833,7 +833,7 @@ def test_declared_system_field_uses_existing_global_profile_storage(
     """Author-declared registered fields remain global; explicit undeclared requests cannot edit them."""
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
-    from flaskr.service.learn.memory import load_memory
+    from flaskr.service.memory import load_memory
     from flaskr.service.profile.api import global_profile_value_versions
 
     scope = storage_scope
@@ -914,13 +914,13 @@ def test_late_follow_up_cannot_overwrite_a_newer_course_value(
     """Compare row versions, including unseen keys and value changes returning to the old text."""
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
-    from flaskr.service.learn.memory import (
+    from flaskr.service.memory import (
         MemoryUpdate,
         VariableMemoryUpdate,
         load_memory,
         stage_memory,
     )
-    from flaskr.service.profile.api import course_memory_value_versions
+    from flaskr.service.memory.api import course_memory_value_versions
 
     scope = storage_scope
     with app.app_context():
@@ -977,7 +977,7 @@ def test_late_follow_up_keeps_newer_global_profile_corrections(
 
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
-    from flaskr.service.learn.memory import VariableMemoryUpdate, load_memory
+    from flaskr.service.memory import VariableMemoryUpdate, load_memory
     from flaskr.service.profile.api import global_profile_value_versions
     from flaskr.service.user.common import update_user_info
     from flaskr.service.user.repository import (

@@ -4,16 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from flaskr.service.learn.memory.dtos import MemorySnapshot, MemoryUpdate
-from flaskr.service.learn.memory.reader import load_course_variables
-from flaskr.service.profile.api import (
+from flaskr.service.memory.course_memory import (
     course_memory_deletion_state,
     course_memory_value_versions,
+)
+from flaskr.service.memory.course_references import is_course_reference
+from flaskr.service.memory.course_values import get_user_profiles, save_user_profiles
+from flaskr.service.memory.dtos import MemorySnapshot, MemoryUpdate
+from flaskr.service.memory.reader import load_course_variables
+from flaskr.service.profile.api import (
     get_global_profile_keys,
-    get_user_profiles,
     global_profile_value_versions,
-    is_course_reference,
-    save_user_profiles,
 )
 from flaskr.service.profile.dtos import ProfileToSave
 

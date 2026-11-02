@@ -8,10 +8,10 @@ from typing import Never
 import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import AppError
+from flaskr.service.memory.course_values import get_user_profiles, save_user_profiles
+from flaskr.service.memory.settings_writer import update_user_profile_with_lable
 from flaskr.service.profile.account_fields import get_user_profile_labels
-from flaskr.service.profile.course_values import get_user_profiles, save_user_profiles
 from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
     PROFILE_ONBOARDING_STATE_VERSION,
@@ -76,7 +76,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
             lambda *_args, **_kwargs: [],
         )
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.check_text_content",
+        "flaskr.service.memory.settings_writer.check_text_content",
         lambda *_args, **_kwargs: True,
     )
 
@@ -506,7 +506,7 @@ def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
             lambda *_args, **_kwargs: definitions,
         )
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.check_text_content",
+        "flaskr.service.memory.settings_writer.check_text_content",
         lambda *_args, **_kwargs: True,
     )
 

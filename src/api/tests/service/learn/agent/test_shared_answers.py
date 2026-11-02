@@ -35,7 +35,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from tests.service.learn.agent.test_memory_integration import _drive
-from tests.service.profile.test_shared_answers import context, shared, source_value
+from tests.service.memory.test_shared_answers import context, shared, source_value
 
 __all__ = ["context", "shared"]
 

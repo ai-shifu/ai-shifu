@@ -11,12 +11,8 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.rewind import RewindPlan, checkpoint_of
-from flaskr.service.learn.memory import (
-    MemoryUpdate,
-    VariableMemoryUpdate,
-    stage_memory,
-)
-from flaskr.service.profile.api import delete_course_memory
+from flaskr.service.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
+from flaskr.service.memory.api import delete_course_memory
 from flaskr.service.profile.models import VariableValue
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel

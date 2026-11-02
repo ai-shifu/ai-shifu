@@ -62,7 +62,7 @@ This is the **source of truth** for what learners can study in production mode.
 - User variable values: `var_variable_values` (`flaskr.service.profile.models.VariableValue`)
   - Global/system scope values: `shifu_bid == ""` (core profile labels)
   - Course scope values: `shifu_bid == <course_id>` (custom variables collected during learning)
-  - Read helper used in learning runtime: `flaskr.service.profile.api.get_user_profiles` (implemented in `profile/course_values.py`)
+  - Read helper used in learning runtime: `flaskr.service.memory.api.get_user_profiles` (implemented in `memory/course_values.py`)
 
 ## Implemented course progress metrics
 

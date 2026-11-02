@@ -227,10 +227,8 @@ def verify_phone_code(
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     """Verify phone code."""
-    from flaskr.service.profile.api import (
-        get_user_profile_labels,
-        update_user_profile_with_lable,
-    )
+    from flaskr.service.memory.api import update_user_profile_with_lable
+    from flaskr.service.profile.api import get_user_profile_labels
 
     raw_phone = (phone or "").strip()
     normalized_phone = normalize_phone_identifier(raw_phone)

@@ -820,7 +820,7 @@ def test_legacy_profile_migration_preserves_target_nickname(
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.check_text_content",
+        "flaskr.service.memory.settings_writer.check_text_content",
         lambda *_args: True,
     )
 
@@ -887,7 +887,7 @@ def test_sign_in_label_migration_ignores_historical_background_and_unregistered_
             lambda *_args, **_kwargs: [],
         )
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.check_text_content",
+        "flaskr.service.memory.settings_writer.check_text_content",
         lambda *_args: True,
     )
 
@@ -987,7 +987,7 @@ def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.check_text_content",
+        "flaskr.service.memory.settings_writer.check_text_content",
         lambda *_args: True,
     )
 

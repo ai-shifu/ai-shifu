@@ -1,7 +1,7 @@
 """Verify prompt variables resolve without mutating learner profiles."""
 
 import pytest
-from flaskr.service.learn.memory import MemorySnapshot
+from flaskr.service.memory import MemorySnapshot
 
 
 def test_fmt_prompt_replaces_known_variables(app: object, monkeypatch: object) -> None:

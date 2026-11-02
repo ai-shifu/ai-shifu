@@ -10,8 +10,8 @@ from uuid import uuid4
 import pytest
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.ask import context
-from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
-from flaskr.service.profile.api import delete_course_memory
+from flaskr.service.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
+from flaskr.service.memory.api import delete_course_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
 

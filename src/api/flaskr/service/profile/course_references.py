@@ -1,9 +1,7 @@
-"""Reject retired cross-course aliases without resolving or copying learner values."""
+"""Moved to :mod:`flaskr.service.memory.course_references`; this alias keeps the old import path for one release."""
 
-COURSE_REFERENCE_PREFIX = "course:"
-SHARED_ANSWER_PREFIX = "share:"
+import sys
 
+from flaskr.service.memory import course_references
 
-def is_course_reference(key: str) -> bool:
-    """Reserve both retired namespaces, including malformed names and old payloads."""
-    return key.startswith((COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX))
+sys.modules[__name__] = course_references

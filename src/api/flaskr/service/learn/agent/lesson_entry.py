@@ -31,6 +31,7 @@ from flaskr.service.learn.agent.run_agent import learner_values, run_agent_lesso
 from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.memory.api import COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX
 from flaskr.service.metering.api import UsageContext
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
@@ -38,11 +39,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.profile.api import (
-    COURSE_REFERENCE_PREFIX,
-    SHARED_ANSWER_PREFIX,
-    get_global_profile_keys,
-)
+from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,

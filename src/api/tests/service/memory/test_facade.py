@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.memory import (
+from flaskr.service.memory import (
     MemorySnapshot,
     MemoryUpdate,
     VariableMemoryUpdate,
@@ -16,8 +16,8 @@ from flaskr.service.learn.memory import (
     load_memory,
     stage_memory,
 )
-from flaskr.service.profile.course_values import get_user_profiles
-from flaskr.service.profile.funcs import update_user_profile_with_lable
+from flaskr.service.memory.course_values import get_user_profiles
+from flaskr.service.memory.settings_writer import update_user_profile_with_lable
 from flaskr.service.profile.learner_profile import clear_learner_profile
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity

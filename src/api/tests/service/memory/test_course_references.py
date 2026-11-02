@@ -9,9 +9,9 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.utils_v2 import get_fmt_prompt
-from flaskr.service.profile.course_values import get_user_profiles, save_user_profiles
+from flaskr.service.memory import load_memory
+from flaskr.service.memory.course_values import get_user_profiles, save_user_profiles
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import (
@@ -205,12 +205,8 @@ def test_registered_system_fields_are_global_but_custom_values_have_no_global_fa
 def test_all_write_adapters_drop_retired_aliases(
     context: SimpleNamespace, prefix: str, writer: str
 ) -> None:
-    from flaskr.service.learn.memory import (
-        MemoryUpdate,
-        VariableMemoryUpdate,
-        stage_memory,
-    )
-    from flaskr.service.profile.funcs import update_user_profile_with_lable
+    from flaskr.service.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
+    from flaskr.service.memory.settings_writer import update_user_profile_with_lable
 
     c = context
     key = f"{prefix}{c.source}:goal"

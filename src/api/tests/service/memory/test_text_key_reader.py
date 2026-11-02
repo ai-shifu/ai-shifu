@@ -8,10 +8,7 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.memory.reader import (
-    load_course_variables,
-    load_learner_memory,
-)
+from flaskr.service.memory.reader import load_course_variables, load_learner_memory
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import MetaData, String
 

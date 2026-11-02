@@ -1,6 +1,6 @@
 """Verify variable value resolution behavior."""
 
-from flaskr.service.profile.course_values import _get_latest_variable_value
+from flaskr.service.memory.course_values import _get_latest_variable_value
 
 
 class _DummyValue:

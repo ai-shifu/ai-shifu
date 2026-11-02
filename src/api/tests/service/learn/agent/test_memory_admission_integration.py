@@ -10,7 +10,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.memory import load_memory
+from flaskr.service.memory import load_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine

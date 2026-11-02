@@ -11,7 +11,7 @@ from flaskr.service.learn import utils_v2
 from flaskr.service.learn.ask import context
 from flaskr.service.learn.gemini_live_token import GeminiLiveHistoryTurn
 from flaskr.service.learn.live_follow_up_session_store import LiveFollowUpSessionBinding
-from flaskr.service.learn.memory import MemorySnapshot
+from flaskr.service.memory import MemorySnapshot
 from flaskr.util.prompt_loader import load_prompt_template
 
 

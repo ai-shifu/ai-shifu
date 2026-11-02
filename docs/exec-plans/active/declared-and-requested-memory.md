@@ -85,7 +85,7 @@ remain in the workspace MDF 2.0 plan.
 `engine/tools.py` owns model writes and deferred questions. `engine.py` owns
 accepted inputs; `session.py` and `agent/rewind.py` preserve pending state.
 `lesson_entry.py` is the sole production engine factory and binds GatewayModel.
-`learn/memory` owns typed variable reads/writes; `run_agent.py` loads and stages
+`service/memory` (formerly `learn/memory`) owns typed variable reads/writes; `run_agent.py` loads and stages
 memory with the session's transaction.
 
 ## Plan of Work

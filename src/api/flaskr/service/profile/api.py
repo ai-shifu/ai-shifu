@@ -1,49 +1,56 @@
-"""Stable public entry points for cross-service profile operations."""
+"""Stable public entry points for cross-service profile operations.
+
+The profile service owns the account-backed learner fields (nickname, language,
+learner profile) and the learner profile itself. Course-scoped learner memory
+lives in :mod:`flaskr.service.memory`.
+"""
 
 from flaskr.service.profile.account_fields import (
+    apply_core_mapping,
+    check_text_content,
+    current_core_value,
+    ensure_user_aggregate,
     get_global_profile_keys,
+    get_profile_labels,
     get_user_profile_labels,
     global_profile_value_versions,
+    update_aggregate_field,
 )
-from flaskr.service.profile.constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
-from flaskr.service.profile.course_memory import (
-    course_memory_deletion_state,
-    course_memory_value_versions,
-    delete_course_memory,
-    list_course_memory,
+from flaskr.service.profile.constants import (
+    ACTIVE_SYSTEM_PROFILE_KEYS,
+    SYS_USER_BACKGROUND,
+    SYS_USER_LANGUAGE,
+    SYS_USER_NICKNAME,
 )
-from flaskr.service.profile.course_references import (
-    COURSE_REFERENCE_PREFIX,
-    SHARED_ANSWER_PREFIX,
-    is_course_reference,
-)
-from flaskr.service.profile.course_values import get_user_profiles, save_user_profiles
-from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.learner_profile import (
     LEARNER_PROFILE_MAX_LENGTH,
     LEARNER_PROFILE_NICKNAME_MAX_LENGTH,
+    apply_learner_profile_system_value,
     has_learner_profile_or_state,
     merge_learner_profile_for_sign_in,
+    validate_learner_profile_system_value,
 )
+from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 
 __all__ = [
-    "COURSE_REFERENCE_PREFIX",
+    "ACTIVE_SYSTEM_PROFILE_KEYS",
     "LEARNER_PROFILE_MAX_LENGTH",
     "LEARNER_PROFILE_NICKNAME_MAX_LENGTH",
-    "SHARED_ANSWER_PREFIX",
+    "SYS_USER_BACKGROUND",
     "SYS_USER_LANGUAGE",
     "SYS_USER_NICKNAME",
-    "course_memory_deletion_state",
-    "course_memory_value_versions",
-    "delete_course_memory",
+    "apply_core_mapping",
+    "apply_learner_profile_system_value",
+    "check_text_content",
+    "current_core_value",
+    "ensure_user_aggregate",
     "get_global_profile_keys",
+    "get_profile_item_definition_list",
+    "get_profile_labels",
     "get_user_profile_labels",
-    "get_user_profiles",
     "global_profile_value_versions",
     "has_learner_profile_or_state",
-    "is_course_reference",
-    "list_course_memory",
     "merge_learner_profile_for_sign_in",
-    "save_user_profiles",
-    "update_user_profile_with_lable",
+    "update_aggregate_field",
+    "validate_learner_profile_system_value",
 ]

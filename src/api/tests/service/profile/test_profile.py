@@ -3,12 +3,12 @@
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.memory.settings_writer import update_user_profile_with_lable
 from flaskr.service.profile import profile_manage
 from flaskr.service.profile.account_fields import (
     get_profile_labels,
     get_user_profile_labels,
 )
-from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick_internal,
