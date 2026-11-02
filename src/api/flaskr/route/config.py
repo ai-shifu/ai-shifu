@@ -79,7 +79,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         # Course/account context selects commercial capabilities. Site branding
         # is selected independently from the effective request domain.
         explicit_creator_bid = str(request.args.get("creator_bid", "") or "").strip()
-        creator_bid = explicit_creator_bid or str(get_shifu_creator_bid() or "").strip()
+        # A validated course/domain owner cannot be overridden by a caller's
+        # legacy account selector. Authoritative order ownership is unchanged.
+        creator_bid = str(get_shifu_creator_bid() or "").strip() or explicit_creator_bid
         request_host = _extract_request_host()
         legal_urls = RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
@@ -150,7 +152,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         contact_us_url = branding.contact_us_url or get_config("CONTACT_US_URL", "")
         official_site_url = get_config("OFFICIAL_SITE_URL", "")
 
-        resolved_creator_bid = creator_bid or domain_owner_bid
+        resolved_creator_bid = domain_owner_bid or creator_bid
         customization_capabilities = build_customization_capabilities(
             runtime_billing.entitlements
         )

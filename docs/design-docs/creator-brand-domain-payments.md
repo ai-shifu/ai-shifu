@@ -70,13 +70,14 @@ branding. An effective customer domain selects its owner's wide/square logos,
 favicon, home destination, and contact destination. Account switches and
 course changes do not select a different site brand.
 
-The backend derives the business owner from the requested Shifu or explicit
-account context. On a verified custom host, the requested course's owner must
+The backend derives the business owner from the validated Shifu or domain
+context, with a legacy explicit account selector used only when neither is
+available. On a verified custom host, the requested course's owner must
 equal the domain owner; collaborators retain their existing course permissions.
 Runtime entitlements, WeChat App ID, ready payment channels, and the relevant
 Stripe publishable key remain tied to that business context independently of
 site branding. Secrets are never serialized. The legacy `creator_bid` query
-parameter can select commercial context but cannot override the site's brand.
+parameter cannot override validated course/domain ownership or the site's brand.
 
 Authoring detail, save, publish, and preview responses generate course links on
 the exact effective customer host used for the request. Official requests use

@@ -41,19 +41,16 @@ def build_runtime_billing_context(
     # or requested course. Course ownership is checked by with_shifu_context.
     domain = resolve_runtime_domain_result(app, request_host)
     domain_owner_bid = domain.creator_bid if domain.is_custom_domain else None
-    business_creator_bid = normalized_creator_bid or domain_owner_bid or ""
+    # Courses served on a customer domain must belong to its owner. An
+    # arbitrary legacy account selector cannot change that site's checkout.
+    business_creator_bid = domain_owner_bid or normalized_creator_bid
     entitlement_state = resolve_creator_entitlement_state(business_creator_bid)
     entitlements = RuntimeBillingEntitlementsDTO(
         **serialize_creator_entitlements(entitlement_state).__json__()
     )
     branding = RuntimeBillingBrandingDTO()
     if domain_owner_bid:
-        branding_state = (
-            entitlement_state
-            if domain_owner_bid == business_creator_bid
-            else resolve_creator_entitlement_state(domain_owner_bid)
-        )
-        branding = _build_branding_payload(branding_state)
+        branding = _build_branding_payload(entitlement_state)
     elif not domain.matched:
         # Preserve the existing non-domain context metadata for API consumers.
         domain.creator_bid = normalized_creator_bid or None
