@@ -418,7 +418,9 @@ def test_reset_during_rewind_refuses_late_save_and_leaves_no_active_history(
 
     gateway = Gateway(stream_function=reset_during_model)
     monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
-    run("New answer", anchor=anchor)
+    # The reset refused the save, so the turn ends as discarded (quietly, in the stream).
+    with pytest.raises(lesson_entry.DiscardedTurnError):
+        run("New answer", anchor=anchor)
     assert history().elements == []
     assert load_agent_session(app, identity, identity, preview_mode=True) is None
 
