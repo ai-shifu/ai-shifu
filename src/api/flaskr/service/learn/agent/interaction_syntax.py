@@ -86,6 +86,7 @@ _INSIDE_TRIGGER = re.compile(r"[\]}\r\n]")
 # block structure the bounded witness does not keep exactly.
 _STRUCTURED_START = re.compile(r"[ \t]|>|[-*+][ \t]|[0-9]{1,9}[.)]")
 _LINE_BREAK_CHAR = re.compile(r"[\r\n]")
+_CONTAINER_LINE = re.compile(r"[\r\n](?:[ \t]|>|[-*+][ \t]|[0-9]{1,9}[.)])")
 # What may precede a block on its line: indentation and container markers.
 _CONTAINER_PREFIX = re.compile(r"[ \t>*+\-0-9.)]*")
 # HTML blocks that run across blank lines until their terminator.
@@ -139,8 +140,10 @@ class InteractionSyntaxFilter:
         self._raw_base = ""
         self._raw_parts: list[str] | None = []
         self._raw_length = 0
-        # Whether the raw context holds container or indented lines.
+        # Whether the raw context spans lines, and whether it holds container or
+        # indented lines.
         self._raw_structured = False
+        self._raw_containers = False
         self._raw_tail = ""
         self._pending_witness = ""
         # Held because an earlier unfinished literal may still enclose the opener.
@@ -148,6 +151,8 @@ class InteractionSyntaxFilter:
         # Where in the held text line starts still need their first character
         # checked for a possible paragraph end.
         self._defer_lines_from = 0
+        # A delta since the last check may decide an opener on an earlier line.
+        self._defer_dirty = False
         # The context prefix last checked to absorb plain narration unchanged.
         self._plain_prefix: str | None = None
         self._plain_ok = False
@@ -189,10 +194,19 @@ class InteractionSyntaxFilter:
             self._pending_literal_chunks.clear()
         before = len(self._held)
         self._held += text
-        if self._defer_hold and not self._may_decide(before, text):
-            # Nothing in this delta can close the literal or end the paragraph,
-            # so the held opener's classification cannot have changed.
-            return ""
+        if self._defer_hold:
+            may_decide = self._may_decide(before, text)
+            if _LINE_BREAK_CHAR.search(self._held, 0, before) is None:
+                # The opener is on the line still arriving: decide as it changes.
+                if not may_decide:
+                    return ""
+            else:
+                # The opener is on an earlier line, decided on complete lines: look
+                # again once a line that may decide it has ended.
+                self._defer_dirty = self._defer_dirty or may_decide
+                if not (self._defer_dirty and _LINE_BREAK_CHAR.search(text)):
+                    return ""
+                self._defer_dirty = False
         if (
             self._inside
             and not _INSIDE_TRIGGER.search(text)
@@ -366,6 +380,7 @@ class InteractionSyntaxFilter:
                 self._held = self._held[start:]
                 self._defer_hold = True
                 self._defer_lines_from = 0
+                self._defer_dirty = False
                 return "".join(out)
             if start < 0 and self._fence is not None:
                 # Inside a code block with no fence in sight: all text, but a line that may yet
@@ -473,24 +488,32 @@ class InteractionSyntaxFilter:
             for match in _SAFE_POINT.finditer(tail + text)
             if match.end() >= len(tail)
         ]
-        if self._raw_parts is not None:
-            before = self._raw_base + (self._raw_text() or "")
-        else:
-            before = prefix_before
+        before: str | None = None
         for cut in reversed(cuts):
+            if before is None:
+                # Joined only when a safe point may restart the context.
+                before = (
+                    self._raw_base + (self._raw_text() or "")
+                    if self._raw_parts is not None
+                    else prefix_before
+                )
             if self._restarts_at(before, text, cut):
                 self._raw_base = compact_marker_context(before + text[:cut])
                 self._raw_parts = [text[cut:]]
                 self._raw_length = len(text) - cut
-                self._raw_structured = bool(
+                self._raw_structured = bool(_LINE_BREAK_CHAR.search(text, cut))
+                self._raw_containers = bool(
                     _STRUCTURED_START.match(text, cut)
-                    or _LINE_BREAK_CHAR.search(text, cut)
+                    or _CONTAINER_LINE.search(text, cut)
                 )
                 return
         if self._raw_parts is None:
             return
         self._raw_structured = self._raw_structured or bool(
             _LINE_BREAK_CHAR.search(text)
+        )
+        self._raw_containers = self._raw_containers or bool(
+            _CONTAINER_LINE.search(tail[-1:] + text)
             or (not self._raw_length and _STRUCTURED_START.match(text))
         )
         self._raw_parts.append(text)
@@ -525,6 +548,7 @@ class InteractionSyntaxFilter:
         self._raw_parts = []
         self._raw_length = 0
         self._raw_structured = False
+        self._raw_containers = False
         self._raw_tail = ""
 
     def _advance_witness(self, text: str, lookahead: str) -> None:
@@ -540,7 +564,7 @@ class InteractionSyntaxFilter:
         # the witness is rebuilt; within a line it is extended in bounded work.
         raw = (
             self._raw_text()
-            if self._raw_structured and _LINE_BREAK_CHAR.search(text)
+            if self._raw_containers and _LINE_BREAK_CHAR.search(text)
             else None
         )
         if raw is not None:
@@ -939,18 +963,33 @@ class InteractionSyntaxFilter:
         if self._scan is None:
             return None
         context, base, pending = self._scan
+        held = self._held
+        if not final and not held.endswith(("\n", "\r")):
+            # An unfinished last line can still turn into, or out of, a paragraph
+            # interrupt ('#' before its space, '<div' before its next character).
+            # An opener on an earlier line is decided on complete lines only, so
+            # that line cannot settle it before the whole text would.
+            complete = max(held.rfind("\n"), held.rfind("\r")) + 1
+            if at < complete:
+                held = held[:complete]
         raw = self._raw_text()
-        if raw is not None:
+        if raw is not None or held is not self._held:
             # Decide on the exact current text rather than its witness.
-            source = self._raw_base + raw + self._held
+            if raw is not None:
+                prefix, label_counts = self._raw_base + raw, None
+            else:
+                prefix, label_counts = self._context_prefix, self._context_label_counts
+            source = prefix + held
             if self._raw_scan is None or self._raw_scan[0] != (source, final):
                 self._raw_scan = (
                     (source, final),
-                    analyze_marker_context(source, final=final),
+                    analyze_marker_context(
+                        source, final=final, label_counts=label_counts
+                    ),
                     None if final else pending_literal_context(source),
                 )
             _, context, pending = self._raw_scan
-            base = len(self._raw_base) + len(raw)
+            base = len(prefix)
         source_at = base + at
         if not final:
             if pending is not None and pending[0] < source_at:
@@ -1001,7 +1040,9 @@ class InteractionSyntaxFilter:
         and bounded.
         """
         if "{{" in text and (
-            self._raw_structured or _LINE_BREAK_CHAR.search(text) is not None
+            self._raw_structured
+            or self._raw_containers
+            or _LINE_BREAK_CHAR.search(text) is not None
         ):
             raw = self._raw_text()
             if raw is not None:

@@ -6,8 +6,6 @@ runtime filter on streamed narration. The literal contexts follow CommonMark as
 the web client renders them (micromark with remark-math).
 """
 
-import time
-
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from markdownflow.engine.script import collected_names, detect_syntax
@@ -119,7 +117,7 @@ def test_unclosed_fence_keeps_everything_after_it_as_code(newline: str) -> None:
 
 def _feed_counted(
     monkeypatch: pytest.MonkeyPatch, head: str, tail: str
-) -> tuple[InteractionSyntaxFilter, str, bool, int, float]:
+) -> tuple[InteractionSyntaxFilter, str, bool, int]:
     """Feed `head`, then `tail` one character at a time, counting scanned text."""
     from flaskr.service.learn.agent import interaction_syntax
     from markdownflow.engine import stream_marker_context
@@ -136,14 +134,13 @@ def _feed_counted(
     monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
     syntax = InteractionSyntaxFilter()
     shown = syntax.feed(head)
-    started = time.perf_counter()
     narrated_before_end = False
     for character in tail:
         released = syntax.feed(character)
         shown += released
         narrated_before_end = narrated_before_end or bool(released)
     shown += syntax.flush()
-    return syntax, shown, narrated_before_end, inspected, time.perf_counter() - started
+    return syntax, shown, narrated_before_end, inspected
 
 
 NARRATION = "and then the lesson goes on " * 720  # About 20,000 characters.
@@ -156,10 +153,9 @@ def test_question_decided_at_the_paragraph_end_keeps_work_linear(
 ) -> None:
     """After the paragraph ends, the held question is a question and narration flows."""
     tail = " then.\n\n" + NARRATION
-    syntax, shown, narrated, inspected, elapsed = _feed_counted(
+    syntax, shown, narrated, inspected = _feed_counted(
         monkeypatch, opening + HELD, tail
     )
-    assert elapsed < 1.0
     assert narrated
     assert syntax.spans == [HELD]
     assert shown == opening + tail
@@ -172,27 +168,43 @@ def test_question_in_a_late_closing_span_stays_literal(
 ) -> None:
     """A span closing far after the opener still makes the example literal text."""
     tail = " " + "word " * 300 + closing + " " + NARRATION
-    syntax, shown, narrated, inspected, elapsed = _feed_counted(
+    syntax, shown, narrated, inspected = _feed_counted(
         monkeypatch, opening + HELD, tail
     )
-    assert elapsed < 1.0
     assert narrated
     assert syntax.spans == []
     assert shown == opening + HELD + tail
     assert inspected <= 40 * len(tail)
 
 
-def test_long_held_paragraph_stays_fast(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A question held through a long paragraph costs work linear in its length."""
-    paragraph = ("and the lesson goes on\n" * 870)[:-1]  # About 20,000 characters.
+@pytest.mark.parametrize("lines", [870, 3480])
+def test_long_held_paragraph_keeps_work_linear(
+    lines: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A question held through a long paragraph costs work linear in its length.
+
+    Both scanned and joined characters are bounded per input character, at
+    about 20,000 and 80,000 characters, so the bound holds as the paragraph grows.
+    """
+    joined = 0
+    original = InteractionSyntaxFilter._raw_text
+
+    def counted(self: InteractionSyntaxFilter) -> str | None:
+        nonlocal joined
+        text = original(self)
+        joined += len(text or "")
+        return text
+
+    monkeypatch.setattr(InteractionSyntaxFilter, "_raw_text", counted)
+    paragraph = ("and the lesson goes on\n" * lines)[:-1]
     tail = " " + paragraph + "\n\nNext."
-    syntax, shown, _, inspected, elapsed = _feed_counted(
+    syntax, shown, _, inspected = _feed_counted(
         monkeypatch, "Use the ` key " + HELD, tail
     )
-    assert elapsed < 1.0
     assert syntax.spans == [HELD]
     assert shown == "Use the ` key " + tail
     assert inspected <= 40 * len(tail)
+    assert joined <= 4 * len(tail)
 
 
 def test_narration_after_a_decided_paragraph_flows_before_flush() -> None:
@@ -237,3 +249,39 @@ def test_long_narration_keeps_its_exact_block_structure(source: str) -> None:
             syntax.feed(source[at : at + size])
         syntax.flush()
         assert syntax.spans == spans, size
+
+
+def test_raw_context_is_joined_only_when_it_can_restart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Appending narration must not rejoin the whole raw context on every delta."""
+    joined = 0
+    original = InteractionSyntaxFilter._raw_text
+
+    def counted(self: InteractionSyntaxFilter) -> str | None:
+        nonlocal joined
+        text = original(self)
+        joined += len(text or "")
+        return text
+
+    monkeypatch.setattr(InteractionSyntaxFilter, "_raw_text", counted)
+    paragraph = "the lesson goes on, step by step, and then\n" * 40
+    narration = (paragraph + "\n") * 12  # About 20,000 characters, many lines.
+    syntax = InteractionSyntaxFilter()
+    shown = "".join(syntax.feed(character) for character in narration)
+    assert shown + syntax.flush() == narration
+    assert joined <= 4 * len(narration)
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+@pytest.mark.parametrize("line", ["#x`", "-x`", "1.x`", "<divx`", "==x`", "``x`"])
+def test_unfinished_interrupt_lookalike_waits_for_its_line(
+    line: str, newline: str
+) -> None:
+    """'#' or '<div' still arriving is not yet a paragraph interrupt."""
+    source = "`" + EXAMPLE + newline + line
+    spans = [
+        source[start:end] for start, end in find_document_interaction_spans(source)
+    ]
+    assert spans == []
+    _assert_filter(source, [])
