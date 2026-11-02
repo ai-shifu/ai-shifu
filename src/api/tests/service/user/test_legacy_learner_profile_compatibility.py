@@ -70,9 +70,9 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
     monkeypatch: object,
     writer: object,
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
     monkeypatch.setattr(
@@ -153,9 +153,9 @@ def test_background_writers_dual_write_canonical_profile_and_variable_history(
         ),
         SimpleNamespace(profile_key="sys_user_style", profile_id="style-variable"),
     ]
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: definitions,
         )
     monkeypatch.setattr(
@@ -211,9 +211,9 @@ def test_background_writers_dual_write_canonical_profile_and_variable_history(
 def test_background_write_keeps_state_row_unchanged_but_status_is_completed(
     app: object, monkeypatch: object
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
     monkeypatch.setattr(
@@ -253,9 +253,9 @@ def test_background_write_keeps_state_row_unchanged_but_status_is_completed(
 def test_historical_background_rows_never_override_canonical_profile(
     app: object, monkeypatch: object
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [
                 SimpleNamespace(
                     profile_key="sys_user_background",
@@ -328,9 +328,9 @@ def test_historical_background_rows_never_override_canonical_profile(
 def test_null_canonical_background_is_empty_instead_of_falling_back(
     app: object, monkeypatch: object
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [
                 SimpleNamespace(
                     profile_key="sys_user_background",
@@ -378,9 +378,9 @@ def test_null_canonical_background_is_empty_instead_of_falling_back(
 def test_background_writers_enforce_canonical_length_before_writing(
     app: object, monkeypatch: object, writer: object
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
     monkeypatch.setattr(
@@ -431,9 +431,9 @@ def test_background_writers_enforce_canonical_length_before_writing(
 def test_background_moderation_rejection_and_flush_failure_roll_back_both_writes(
     app: object, monkeypatch: object
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
 
@@ -500,9 +500,9 @@ def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
             profile_id="nickname-variable",
         )
     ]
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: definitions,
         )
     monkeypatch.setattr(

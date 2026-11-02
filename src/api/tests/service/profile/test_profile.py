@@ -59,9 +59,9 @@ def test_profile_language_round_trip_preserves_legacy_locale(
     stored_language: str,
     expected_language: str,
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
 
@@ -103,9 +103,9 @@ def test_retired_sex_label_is_not_returned_or_rewritten(
     *,
     with_aggregate: bool,
 ) -> None:
-    for module in ("funcs", "course_values"):
+    for module in ("settings_writer", "course_values"):
         monkeypatch.setattr(
-            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            f"flaskr.service.memory.{module}.get_profile_item_definition_list",
             lambda *_args, **_kwargs: [],
         )
 
