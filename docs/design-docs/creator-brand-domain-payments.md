@@ -2,7 +2,7 @@
 title: Creator Brand Domain And Payments
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-07-12
+last_reviewed: 2026-11-02
 canonical: true
 ---
 
@@ -61,10 +61,29 @@ present.
 
 ## Runtime Resolution
 
-The backend derives the course owner from the requested Shifu. On a verified
-custom host, that owner must equal the domain owner. Runtime config then emits
-owner branding, WeChat App ID, ready payment channels, and the relevant Stripe
-publishable key. Secrets are never serialized.
+Site branding follows the effective request domain in both the teacher backend
+and learner pages. The configured official `HOST_URL` always uses global
+platform branding, even if the account or course owner has customer branding
+or the official host was accidentally entered as a customer binding. Unknown,
+disabled, expired, unverified, or non-TLS customer bindings also use global
+branding. An effective customer domain selects its owner's wide/square logos,
+favicon, home destination, and contact destination. Account switches and
+course changes do not select a different site brand.
+
+The backend derives the business owner from the requested Shifu or explicit
+account context. On a verified custom host, the requested course's owner must
+equal the domain owner; collaborators retain their existing course permissions.
+Runtime entitlements, WeChat App ID, ready payment channels, and the relevant
+Stripe publishable key remain tied to that business context independently of
+site branding. Secrets are never serialized. The legacy `creator_bid` query
+parameter can select commercial context but cannot override the site's brand.
+
+Authoring detail, save, publish, and preview responses generate course links on
+the exact effective customer host used for the request. Official requests use
+the configured official origin and never fall back to the course owner's
+customer domain. Invalid hosts do not become course-link destinations.
+Existing shared links are not rewritten. Payment callbacks and OAuth callback
+origins retain their separate configuration contracts.
 
 Custom WeChat identities use an App-ID-scoped credential identifier. The
 platform app keeps the legacy identifier shape for compatibility.

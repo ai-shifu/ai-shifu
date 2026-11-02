@@ -911,6 +911,54 @@ describe('AdminLayout', () => {
     );
   });
 
+  test.each([
+    ['https://app.ai-shifu.test', '/platform-logo.png', '/admin'],
+    [
+      'https://academy.example.test',
+      '/academy-logo.png',
+      'https://academy.example.test/home',
+    ],
+  ])(
+    'keeps runtime host branding on %s across account and admin route changes',
+    (origin, logoUrl, homeUrl) => {
+      Object.assign(window.location, { href: `${origin}/admin`, origin });
+      mockEnvState.logoWideUrl = logoUrl;
+      mockEnvState.homeUrl = homeUrl;
+
+      const { rerender } = render(
+        <AdminLayout>
+          <div>{childText}</div>
+        </AdminLayout>,
+      );
+
+      const expectHostBranding = () => {
+        expect(screen.getAllByAltText('logo')[0]).toHaveAttribute(
+          'src',
+          logoUrl,
+        );
+        expect(screen.getAllByAltText('logo')[0].closest('a')).toHaveAttribute(
+          'href',
+          homeUrl,
+        );
+        expect(mockApplyCreatorBranding).not.toHaveBeenCalled();
+      };
+
+      expectHostBranding();
+      mockUserStoreState.userInfo = {
+        user_id: 'other-creator',
+        is_operator: true,
+      };
+      mockUsePathname.mockReturnValue('/admin/operations/billing');
+      rerender(
+        <AdminLayout>
+          <div>{childText}</div>
+        </AdminLayout>,
+      );
+
+      expectHostBranding();
+    },
+  );
+
   test('renders the billing navigation entry and membership card with credits', () => {
     render(
       <AdminLayout>

@@ -78,7 +78,8 @@ builder. See the [image publication guide](../../../../docs/references/docker-im
 
 Configure these in `src/api/.env` for manual development, or the backend
 service environment for deployment. The config service may supply persisted
-settings, and entitled teacher/domain branding can override global values.
+settings. Effective customer-domain branding can override global presentation;
+account and course context alone cannot change the site's brand.
 The public response is an allowlisted projection, not an environment dump.
 
 | Capability  | Backend configuration                                                                           | Runtime output                                                                    |
@@ -102,7 +103,9 @@ the supported legal fields. Missing configuration is returned as an empty URL;
 UI fallback behavior belongs to the legal-link components.
 
 `HOME_URL` defaults to `/admin` and accepts relative or absolute destinations.
-Teacher branding can override it. An explicit `/c/<shifu_bid>` course request
+Effective customer-domain branding can override it on both backend and learner
+pages. The official host always keeps global branding and navigation. An
+explicit `/c/<shifu_bid>` course request
 keeps its course target. Private payment and OAuth credentials stay on the
 backend; a publishable Stripe key is the public exception listed above.
 

@@ -35,6 +35,7 @@ from flaskr.service.billing.customization import (
     resolve_provider_credential_context,
 )
 from flaskr.service.billing.domains import (
+    normalize_domain_host,
     resolve_creator_bid_by_host,
     resolve_effective_custom_origin,
 )
@@ -161,6 +162,7 @@ __all__ = [
     "load_credit_notification_policy",
     "load_credit_notification_policy_for_operator",
     "load_referral_reward_summary",
+    "normalize_domain_host",
     "persist_credit_wallet_snapshot",
     "quantize_credit_amount",
     "refresh_credit_wallet_snapshot",

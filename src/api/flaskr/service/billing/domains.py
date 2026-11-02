@@ -209,7 +209,7 @@ def verify_domain_binding(
 def resolve_creator_bid_by_host(app: Flask, host: object) -> str | None:
     """Resolve a verified creator custom domain back to creator_bid."""
     normalized_host = normalize_domain_host(host, strict=False)
-    if not normalized_host:
+    if not normalized_host or _is_official_host(normalized_host):
         return None
 
     with app.app_context():
@@ -276,9 +276,9 @@ def resolve_runtime_domain_result(
     """Return runtime-config domain metadata for the current request host."""
     normalized_host = normalize_domain_host(host, strict=False)
     normalized_creator_bid = _normalize_bid(creator_bid)
-    if not normalized_host:
+    if not normalized_host or _is_official_host(normalized_host):
         return RuntimeBillingDomainDTO(
-            request_host=None,
+            request_host=normalized_host or None,
             matched=False,
             is_custom_domain=False,
             creator_bid=normalized_creator_bid or None,
@@ -331,6 +331,12 @@ def resolve_runtime_domain_result(
                 "pending",
             ),
         )
+
+
+def _is_official_host(host: str) -> bool:
+    """Keep the configured official origin outside customer domain routing."""
+    official_host = normalize_domain_host(get_config("HOST_URL", ""), strict=False)
+    return bool(official_host and host == official_host)
 
 
 def normalize_domain_host(value: object, *, strict: bool = True) -> str:
