@@ -99,11 +99,12 @@ _SPANNING_HTML_START = re.compile(
     r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$))",
     re.IGNORECASE,
 )
-# The first characters of a plain paragraph line: a word, an inline code span,
-# emphasis, a link or an image. Nothing the line after it is read against depends
-# on more than that it was such a line, unlike a heading, a fence, HTML, a setext
+# The first characters of a plain paragraph line: an inline code span, emphasis, a
+# link or an image, or any character that cannot open a block. Nothing the line
+# after it is read against depends on more than that it was such a line, unlike a
+# heading, a quote, a list, a fence, HTML, math, a thematic break, a setext
 # underline or a reference definition.
-_PARAGRAPH_START = re.compile(r"[^\W_]|`(?!``)|[*_]{1,2}[^\W_]|!?\[")
+_PARAGRAPH_START = re.compile(r"`(?!``)|[*_]{1,2}[^\W_]|!?\[|[^\s#>+\-=|<$~:`*_\[]")
 # A line that opens a reference definition rather than a link: its label's
 # closing bracket is followed by a colon.
 _REFERENCE_START = re.compile(r"\[(?:[^\\\[\]]|\\.)*\]:")
@@ -164,9 +165,6 @@ class InteractionSyntaxFilter:
         # Whether the raw context holds a character that may span lines.
         self._raw_spanning = False
         self._raw_tail = ""
-        # The raw context length before which a container checkpoint is not tried
-        # again, after one failed: doubling it keeps failed attempts linear.
-        self._raw_retry = 0
         self._pending_witness = ""
         # Held because an earlier unfinished literal may still enclose the opener.
         self._defer_hold = False
@@ -528,9 +526,6 @@ class InteractionSyntaxFilter:
                 self._raw_head = ""
                 self._raw_containers = self._has_container_head(text[cut:])
                 self._raw_spanning = _SPANNING_CHAR.search(text, cut) is not None
-                # A backoff measured on the discarded context must not hold back
-                # checkpoints in the new one.
-                self._raw_retry = 0
                 return True
         if self._raw_parts is None:
             return False
@@ -547,8 +542,11 @@ class InteractionSyntaxFilter:
             self._raw_parts = None
             return False
         if (
+            # Only a context that may span lines is rebuilt at each line end, and
+            # an attempt costs no more than that rebuild, so trying at every line
+            # end keeps the work linear without any backoff.
             self._raw_containers
-            and self._raw_length >= self._raw_retry
+            and self._raw_spanning
             and _LINE_BREAK_CHAR.search(text)
             and not text.endswith("\r")
         ):
@@ -569,12 +567,10 @@ class InteractionSyntaxFilter:
         done = self._raw_base + raw[: len(raw) - (len(text) - cut)]
         witness = self._paragraph_witness(done)
         if witness is None:
-            self._raw_retry = 2 * self._raw_length
             return False
         self._raw_base = witness
         self._raw_parts = [text[cut:]]
         self._raw_length = len(text) - cut
-        self._raw_retry = 0
         self._raw_structured = False
         self._raw_head = ""
         self._raw_containers = witness != "x\n" or self._has_container_head(text[cut:])
@@ -670,7 +666,6 @@ class InteractionSyntaxFilter:
         self._raw_head = ""
         self._raw_spanning = False
         self._raw_tail = ""
-        self._raw_retry = 0
 
     def _advance_witness(self, text: str, lookahead: str) -> None:
         """Extend the raw context and the bounded witness with emitted `text`.

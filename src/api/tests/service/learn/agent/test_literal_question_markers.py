@@ -280,6 +280,7 @@ COMPACT_ITEMS = {
     "ordered": "{n}. step {i} uses `code` and [c]\n",
     "linked": "- [link {i}](/u) uses `code` <b>x</b>\n",
     "image": "- ![alt {i}](/i.png) and `code`\n",
+    "punctuation": '- "Step {i}" uses `code` <b>x</b>\n',
 }
 
 
@@ -303,13 +304,20 @@ def test_compact_list_with_inline_syntax_keeps_work_linear(
 
 
 @pytest.mark.parametrize("items", [100, 200])
+@pytest.mark.parametrize(
+    ("head", "line_by_line"),
+    [
+        ("- a `open\n" + "  and the lesson goes on `x\n" * 400 + "\nNext\n\n", True),
+        ("- a `open\n" + "  and the lesson goes on\n" * 800 + "  close`\n", False),
+    ],
+    ids=["closed-by-a-blank-line", "settled-after-one-large-chunk"],
+)
 def test_compact_list_after_a_long_unfinished_item_keeps_work_linear(
-    items: int, monkeypatch: pytest.MonkeyPatch
+    head: str, line_by_line: bool, items: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A checkpoint backoff from text a blank line has closed does not carry on."""
-    head = "- a `open\n" + "  and the lesson goes on `x\n" * (4 * items) + "\nNext\n\n"
+    """A long unfinished item before the list does not keep its lines rescanned."""
     syntax = InteractionSyntaxFilter()
-    for line in head.splitlines(keepends=True):
+    for line in head.splitlines(keepends=True) if line_by_line else [head]:
         syntax.feed(line)
     body = "".join(f"- step {i} uses `code` <b>x</b>\n" for i in range(items))
     inspected = 0
