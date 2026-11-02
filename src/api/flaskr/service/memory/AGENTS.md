@@ -25,4 +25,4 @@ Entry files in this directory: `api.py`, `facade.py`, `reader.py`,
 
 ## Tests
 
-`cd src/api && pytest tests/service/memory tests/service/profile tests/service/learn/memory -q`
+`cd src/api && pytest tests/service/memory -q`
