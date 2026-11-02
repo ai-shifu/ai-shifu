@@ -69,6 +69,10 @@ pre-commit:
       glob: "*.py"
       run: ruff format {staged_files}
       stage_fixed: true
+    check-ruff-policies:
+      # ruff.toml must keep flagging production code and exempting only fixtures.
+      glob: "{ruff.toml,scripts/check_ruff_policies.py,src/api/flaskr/**/*.py,src/api/migrations/env.py,src/api/scripts/inventory/match_routes.py}"
+      run: python3 scripts/check_ruff_policies.py
 
     # --- Frontend (web local tooling) ---------------------------------------
     prettier-web:
