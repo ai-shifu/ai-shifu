@@ -348,6 +348,8 @@ def test_compact_list_after_a_long_unfinished_item_keeps_work_linear(
         "- alpha\n  x\n    <!--\n\n- " + QUESTION,
         "- x\n    <!--\n\n- " + QUESTION,
         "> x\n>     <?p\n\n- " + QUESTION,
+        "- [a\n  b]: /u\n  '?[A|B]'\n- " + QUESTION,
+        "- [a\n  b\n  c]: /u\n  (?[A|B])\n- " + QUESTION,
     ],
 )
 def test_compact_list_lines_carry_unfinished_syntax_across_items(
