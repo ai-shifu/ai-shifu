@@ -16,6 +16,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.memory.api import delete_course_memory, load_memory
+from flaskr.service.memory.course_memory import course_memory_deletion_state
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT_VALUE
@@ -255,6 +256,26 @@ def test_merge_carries_guest_course_memory_without_overwriting_target(
         assert variables["pet"] == "target pet"
         assert "city" not in variables
         assert "hobby" not in variables
+        # The whole "goal" history moved: no older guest version is left to resurface.
+        assert (
+            VariableValue.query.filter_by(
+                user_bid=GUEST, shifu_bid=COURSE, key="goal"
+            ).count()
+            == 0
+        )
+        assert (
+            VariableValue.query.filter_by(
+                user_bid=TARGET, shifu_bid=COURSE, key="goal"
+            ).count()
+            == 2
+        )
+        # A key the account already had stays the account's; the guest's row stays put.
+        assert (
+            VariableValue.query.filter_by(
+                user_bid=GUEST, shifu_bid=COURSE, key="pet"
+            ).count()
+            == 1
+        )
 
         assert (
             VariableValue.query.filter_by(
@@ -288,18 +309,24 @@ def test_merge_does_not_resurrect_a_value_the_guest_deleted(app: object) -> None
         )
         db.session.commit()
 
+        guest_generations, _ = course_memory_deletion_state(GUEST, COURSE)
+
         _merge(app)
 
         variables = load_memory(
             app, TARGET, COURSE, include_course_variables=True
         ).variables
         assert "secret" not in variables
-        # A guest tombstone never hides the target's own value.
+        # A guest tombstone never hides the account's own value.
         assert variables["mood"] == "target mood"
-        assert VariableValue.query.filter_by(user_bid=TARGET, key="secret").count() == 0
+        # The deletion moved with the value, under the same generation the migrated
+        # session recorded, so a resumed lesson still drops the forgotten answer.
+        generations, deleted = course_memory_deletion_state(TARGET, COURSE)
+        assert "secret" in deleted
+        assert generations["secret"] == guest_generations["secret"]
 
 
-def test_merge_respects_a_target_deletion_newer_than_the_guest_value(
+def test_merge_keeps_every_key_the_account_has_history_for(
     app: object,
 ) -> None:
     with app.app_context():
@@ -311,14 +338,18 @@ def test_merge_respects_a_target_deletion_newer_than_the_guest_value(
         delete_course_memory(TARGET, COURSE, target_row.id)
         db.session.commit()
         _add_value(GUEST, COURSE, "newer", "guest newer")
+        before = course_memory_deletion_state(TARGET, COURSE)
 
         _merge(app)
 
         variables = load_memory(
             app, TARGET, COURSE, include_course_variables=True
         ).variables
+        # The account deleted both keys: its history wins, whichever side wrote last,
+        # so a migrated session realigns to the same deletions on its next turn.
         assert "older" not in variables
-        assert variables["newer"] == "guest newer"
+        assert "newer" not in variables
+        assert course_memory_deletion_state(TARGET, COURSE) == before
 
 
 def test_merge_moves_course_memory_even_when_no_progress_moves(app: object) -> None:

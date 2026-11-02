@@ -151,40 +151,38 @@ def delete_course_memory(user_bid: str, shifu_bid: str, value_id: int) -> dict:
 
 
 def migrate_course_memory(from_user_bid: str, to_user_bid: str, shifu_bid: str) -> int:
-    """Hand a merged guest's live course values to the account they signed in to.
+    """Hand a merged guest's course memory to the account they signed in to.
 
-    Only the newest row of each key moves, and only while it is live: a key whose newest
-    guest row is a deletion marker stays forgotten. The target's own history decides the
-    rest. A live target value always wins, and a target deletion marker wins over a guest
-    value written before it, since rows are append-only and the larger ID is the later
-    intent. Moving the row rather than copying it keeps that ID order intact. Global rows
-    and retired course references never move. Runs in the caller's unit of work.
+    Memory moves key by key, as whole histories: for every key the account has never
+    touched in this course, all of the guest's rows move -- older versions and deletion
+    markers too. Moving rather than copying keeps their IDs, so the newest-ID rule and
+    the deletion generations a migrated agent session compares against stay exactly as
+    the guest left them: a value the guest deleted stays deleted, and no older guest
+    version is left behind to become current again. A key the account has any history
+    for (a value or a deletion) is the account's: its rows win and the guest's stay put,
+    and a migrated session realigns to them on its next turn. Global rows and retired
+    course references never move. Returns how many keys moved. Runs in the caller's
+    unit of work.
     """
     if not shifu_bid or not from_user_bid or from_user_bid == to_user_bid:
         return 0
-    guest_heads: dict[str, VariableValue] = {}
-    for row in _course_rows(from_user_bid, shifu_bid).order_by(VariableValue.id):
-        guest_heads[row.key] = row
-    target_heads: dict[str, VariableValue] = {}
-    for row in _course_rows(to_user_bid, shifu_bid).order_by(VariableValue.id):
-        target_heads[row.key] = row
-    target_live = {
+    guest_keys = {
         row.key
-        for row in _course_rows(to_user_bid, shifu_bid).filter(
-            VariableValue.deleted == 0
+        for row in _course_rows(from_user_bid, shifu_bid).with_entities(
+            VariableValue.key
         )
     }
-    moving = []
-    for key, head in guest_heads.items():
-        if head.deleted or is_course_reference(key) or key in target_live:
-            continue
-        target_head = target_heads.get(key)
-        if target_head is not None and target_head.id > head.id:
-            continue
-        moving.append(head.id)
+    account_keys = {
+        row.key
+        for row in _course_rows(to_user_bid, shifu_bid).with_entities(VariableValue.key)
+    }
+    moving = sorted(
+        key for key in guest_keys - account_keys if not is_course_reference(key)
+    )
     if moving:
-        VariableValue.query.filter(VariableValue.id.in_(moving)).update(
-            {VariableValue.user_bid: to_user_bid}, synchronize_session=False
-        )
+        exact_key = cast(VariableValue.key, LargeBinary)
+        _course_rows(from_user_bid, shifu_bid).filter(
+            exact_key.in_([key.encode("utf-8") for key in moving])
+        ).update({VariableValue.user_bid: to_user_bid}, synchronize_session=False)
         db.session.flush()
     return len(moving)
