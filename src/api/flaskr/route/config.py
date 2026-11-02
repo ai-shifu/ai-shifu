@@ -81,8 +81,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @with_shifu_context()
     def get_runtime_config() -> Response:
-        # Course/account context selects commercial capabilities. Site branding
-        # is selected independently from the effective request domain.
+        # Domain identity selects site branding. Validated course ownership can
+        # supply a logo fallback when that account has no configured domain.
         explicit_creator_bid = str(request.args.get("creator_bid", "") or "").strip()
         # A validated course/domain owner cannot be overridden by a caller's
         # legacy account selector. Authoritative order ownership is unchanged.

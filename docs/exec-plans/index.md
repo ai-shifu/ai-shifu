@@ -74,6 +74,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Speed Up Backend Pull Request Feedback](./completed/ci-backend-speed-stack.md)
 - [Consolidate shared admin primitives](./completed/consolidate-admin-primitives.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
+- [Course Logos Without Custom Domains](./completed/course-logo-without-domain.md)
 - [Explicit same-owner course memory reads](./completed/course-memory-references.md)
 - [Course-only models and temperatures](./completed/course-only-llm-settings.md)
 - [Charge settings previews to the course owner](./completed/course-owner-preview-billing.md)

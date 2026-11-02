@@ -22,7 +22,20 @@ const normalizeStringArray = (value: unknown, fallback: string[]): string[] => {
   return fallback;
 };
 
-let initPromise: Promise<void> | null = null;
+let activeCourseBid: string | null = null;
+let loadedCourseBid: string | null = null;
+let activeLoad: Promise<void> | null = null;
+let generation = 0;
+let erudaStarted = false;
+let siteLogos = {
+  logoWideUrl: environment.logoWideUrl,
+  logoSquareUrl: environment.logoSquareUrl,
+};
+
+const getCourseBid = (pathname: string): string => {
+  const segments = pathname.split('/').filter(Boolean);
+  return segments[0] === 'c' && segments[1] ? segments[1] : '';
+};
 
 const resolveRuntimeBase = async (): Promise<string> => {
   const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
@@ -66,178 +79,159 @@ const buildRuntimeConfigUrl = (resolvedBase: string): string => {
     : `${baseWithLeading}/api/runtime-config`;
 };
 
-const loadRuntimeConfig = async () => {
-  const {
-    updateAppId,
-    updateAlwaysShowLessonTree,
-    updateUmamiWebsiteId,
-    updateUmamiScriptSrc,
-    updateEruda,
-    updateBaseURL,
-    updateLogoWideUrl,
-    updateLogoSquareUrl,
-    updateFaviconUrl,
-    updateEnableWxcode,
-    updateHomeUrl,
-    updateContactUsUrl,
-    updateOfficialSiteUrl,
-    updateCurrencySymbol,
-    updateDefaultCoursePrice,
-    updateMinimumPaidCoursePrice,
-    updateBillingEnabled,
-    updateStripePublishableKey,
-    updateStripeEnabled,
-    updatePayOrderExpireSeconds,
-    updatePaymentChannels,
-    updateLoginMethodsEnabled,
-    updateDefaultLoginMethod,
-    updateLegalUrls,
-  } = useEnvStore.getState() as EnvStoreState;
-
-  const resolvedBase = await resolveRuntimeBase();
-
-  await updateBaseURL(resolvedBase);
-
+const loadRuntimeConfig = async (courseBid: string, resolvedBase: string) => {
   const runtimeUrl = buildRuntimeConfigUrl(resolvedBase);
-
-  const pathShifuBid =
-    typeof window !== 'undefined'
-      ? (() => {
-          try {
-            const pathname = window.location.pathname || '';
-            const segments = pathname.split('/').filter(Boolean);
-            return segments[0] === 'c' && segments[1] ? segments[1] : '';
-          } catch {
-            return '';
-          }
-        })()
-      : '';
-
-  const runtimeUrlWithShifu = pathShifuBid
-    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(pathShifuBid)}`
+  const runtimeUrlWithShifu = courseBid
+    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(courseBid)}`
     : runtimeUrl;
-
-  const fetchRuntimeConfig = async () => {
-    // Always try to fetch backend runtime-config (using absolute or relative URL)
-    try {
-      const res = await fetch(runtimeUrlWithShifu, { cache: 'no-store' });
-      if (res.ok) {
-        return res.json();
-      }
-      console.warn('Backend runtime config fetch failed, status:', res.status);
-    } catch (error) {
-      console.warn('Backend runtime config fetch error:', error);
-    }
-    // Fallback to local Next route (still returns base url)
-    const fallbackRes = await fetch('/api/config', { cache: 'no-store' });
-    if (!fallbackRes.ok) {
-      throw new Error(
-        `Failed to load runtime config (fallback): ${fallbackRes.status}`,
-      );
-    }
-    return fallbackRes.json();
-  };
-
-  const payload = await fetchRuntimeConfig();
+  const response = await fetch(runtimeUrlWithShifu, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Backend runtime config fetch failed: ${response.status}`);
+  }
+  const payload = await response.json();
+  if (payload?.code !== undefined && payload.code !== 0) {
+    throw new Error('Backend runtime config rejected the requested context');
+  }
   const runtimeConfig = payload?.data ?? payload;
+  if (
+    !runtimeConfig ||
+    typeof runtimeConfig !== 'object' ||
+    Array.isArray(runtimeConfig) ||
+    typeof runtimeConfig.logoWideUrl !== 'string' ||
+    typeof runtimeConfig.logoSquareUrl !== 'string'
+  ) {
+    throw new Error('Backend runtime config returned an invalid payload');
+  }
+  return { runtimeConfig, resolvedBase };
+};
 
+const pendingLoads = new Map<string, ReturnType<typeof loadRuntimeConfig>>();
+
+const getRuntimeConfig = (courseBid: string, resolvedBase: string) => {
+  const pending = pendingLoads.get(courseBid);
+  if (pending) return pending;
+  const loading = loadRuntimeConfig(courseBid, resolvedBase).finally(() => {
+    pendingLoads.delete(courseBid);
+  });
+  pendingLoads.set(courseBid, loading);
+  return loading;
+};
+
+const applyRuntimeConfig = (
+  {
+    runtimeConfig,
+    resolvedBase,
+  }: Awaited<ReturnType<typeof loadRuntimeConfig>>,
+  courseBid: string,
+) => {
+  const current = useEnvStore.getState();
   const paymentChannels = normalizeStringArray(
     runtimeConfig?.paymentChannels,
-    (useEnvStore.getState() as EnvStoreState).paymentChannels,
+    current.paymentChannels,
   );
   const loginMethods = normalizeStringArray(
     runtimeConfig?.loginMethodsEnabled,
-    (useEnvStore.getState() as EnvStoreState).loginMethodsEnabled,
+    current.loginMethodsEnabled,
   );
-
-  await updateAppId(runtimeConfig?.wechatAppId || '');
-  await updateAlwaysShowLessonTree(
-    runtimeConfig?.alwaysShowLessonTree?.toString() || 'false',
-  );
-  await updateUmamiWebsiteId(runtimeConfig?.umamiWebsiteId || '');
-  await updateUmamiScriptSrc(runtimeConfig?.umamiScriptSrc || '');
-  await updateEruda(runtimeConfig?.enableEruda?.toString() || 'false');
-  await updateLogoWideUrl(runtimeConfig?.logoWideUrl || '');
-  await updateLogoSquareUrl(runtimeConfig?.logoSquareUrl || '');
-  await updateFaviconUrl(runtimeConfig?.faviconUrl || '');
-  await updateEnableWxcode(
-    runtimeConfig?.enableWechatCode?.toString() || 'true',
-  );
-  await updateHomeUrl(runtimeConfig?.homeUrl || environment.homeUrl);
-  await updateContactUsUrl(runtimeConfig?.contactUsUrl || '');
-  await updateOfficialSiteUrl(
-    resolveOfficialSiteUrl(runtimeConfig?.officialSiteUrl),
-  );
-  await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
-  await updateDefaultCoursePrice(
-    typeof runtimeConfig?.defaultCoursePrice === 'number'
-      ? runtimeConfig.defaultCoursePrice
-      : 0.5,
-  );
-  await updateMinimumPaidCoursePrice(
-    typeof runtimeConfig?.minimumPaidCoursePrice === 'number'
-      ? runtimeConfig.minimumPaidCoursePrice
-      : 0.5,
-  );
-  await updateBillingEnabled(
-    runtimeConfig?.billingEnabled !== undefined
-      ? runtimeConfig.billingEnabled.toString()
-      : 'false',
-  );
-  await updateStripePublishableKey(runtimeConfig?.stripePublishableKey || '');
-  await updateStripeEnabled(
-    runtimeConfig?.stripeEnabled !== undefined
-      ? runtimeConfig.stripeEnabled.toString()
-      : 'false',
-  );
+  const next: Partial<EnvStoreState> = {
+    baseURL: resolvedBase,
+    appId: runtimeConfig?.wechatAppId || '',
+    alwaysShowLessonTree:
+      runtimeConfig?.alwaysShowLessonTree?.toString() || 'false',
+    umamiWebsiteId: runtimeConfig?.umamiWebsiteId || '',
+    umamiScriptSrc: runtimeConfig?.umamiScriptSrc || '',
+    eruda: runtimeConfig?.enableEruda?.toString() || 'false',
+    logoWideUrl: runtimeConfig?.logoWideUrl || '',
+    logoSquareUrl: runtimeConfig?.logoSquareUrl || '',
+    faviconUrl: runtimeConfig?.faviconUrl || '',
+    enableWxcode: runtimeConfig?.enableWechatCode?.toString() || 'true',
+    homeUrl: runtimeConfig?.homeUrl || environment.homeUrl,
+    contactUsUrl: runtimeConfig?.contactUsUrl || '',
+    officialSiteUrl: resolveOfficialSiteUrl(runtimeConfig?.officialSiteUrl),
+    currencySymbol: runtimeConfig?.currencySymbol || '¥',
+    defaultCoursePrice:
+      typeof runtimeConfig?.defaultCoursePrice === 'number'
+        ? runtimeConfig.defaultCoursePrice
+        : 0.5,
+    minimumPaidCoursePrice:
+      typeof runtimeConfig?.minimumPaidCoursePrice === 'number'
+        ? runtimeConfig.minimumPaidCoursePrice
+        : 0.5,
+    billingEnabled:
+      runtimeConfig?.billingEnabled !== undefined
+        ? runtimeConfig.billingEnabled.toString()
+        : 'false',
+    stripePublishableKey: runtimeConfig?.stripePublishableKey || '',
+    stripeEnabled:
+      runtimeConfig?.stripeEnabled !== undefined
+        ? runtimeConfig.stripeEnabled.toString()
+        : 'false',
+    paymentChannels,
+    loginMethodsEnabled: loginMethods,
+    defaultLoginMethod:
+      typeof runtimeConfig?.defaultLoginMethod === 'string'
+        ? runtimeConfig.defaultLoginMethod
+        : current.defaultLoginMethod,
+    legalUrls: runtimeConfig?.legalUrls ?? current.legalUrls,
+    runtimeConfigLoaded: true,
+  };
   if (
     typeof runtimeConfig?.payOrderExpireSeconds === 'number' &&
     Number.isFinite(runtimeConfig.payOrderExpireSeconds) &&
     runtimeConfig.payOrderExpireSeconds > 0
   ) {
-    await updatePayOrderExpireSeconds(runtimeConfig.payOrderExpireSeconds);
+    next.payOrderExpireSeconds = runtimeConfig.payOrderExpireSeconds;
   }
-  await updatePaymentChannels(paymentChannels);
-  await updateLoginMethodsEnabled(loginMethods);
-  await updateDefaultLoginMethod(
-    typeof runtimeConfig?.defaultLoginMethod === 'string'
-      ? runtimeConfig.defaultLoginMethod
-      : (useEnvStore.getState() as EnvStoreState).defaultLoginMethod,
-  );
-  await updateLegalUrls(
-    runtimeConfig?.legalUrls ??
-      (useEnvStore.getState() as EnvStoreState).legalUrls,
-  );
+  if (!courseBid || runtimeConfig?.domain?.is_custom_domain) {
+    siteLogos = {
+      logoWideUrl: next.logoWideUrl || '',
+      logoSquareUrl: next.logoSquareUrl || '',
+    };
+  }
+  // Store setters only call Zustand set. One commit keeps route generations
+  // from interleaving branding, authentication and payment fields.
+  useEnvStore.setState(next);
 };
 
-export const initializeEnvData = async (): Promise<void> => {
-  const { runtimeConfigLoaded } = useEnvStore.getState() as EnvStoreState;
-  if (runtimeConfigLoaded) {
-    return;
+export const initializeEnvData = async (pathname?: string): Promise<void> => {
+  const courseBid = getCourseBid(
+    pathname ?? (typeof window === 'undefined' ? '' : window.location.pathname),
+  );
+  if (courseBid === activeCourseBid) {
+    if (activeLoad) return activeLoad;
+    if (loadedCourseBid === courseBid) return;
   }
-
-  if (!initPromise) {
-    initPromise = (async () => {
-      try {
-        await loadRuntimeConfig();
-      } catch (error) {
-        console.error('Failed to initialize runtime environment', error);
-      } finally {
-        const { setRuntimeConfigLoaded } =
-          useEnvStore.getState() as EnvStoreState;
-        setRuntimeConfigLoaded(true);
-        if (getBoolEnv('eruda')) {
-          import('eruda')
-            .then(eruda => eruda.default.init())
-            .catch(err =>
-              console.error('Failed to initialize eruda debugger', err),
-            );
-        }
+  activeCourseBid = courseBid;
+  const requestGeneration = ++generation;
+  useEnvStore.setState(siteLogos);
+  const loading = (async () => {
+    try {
+      const resolvedBase = await resolveRuntimeBase();
+      if (generation !== requestGeneration) return;
+      // Discovery owns transport configuration even if runtime settings fail.
+      useEnvStore.setState({ baseURL: resolvedBase });
+      const result = await getRuntimeConfig(courseBid, resolvedBase);
+      if (generation !== requestGeneration) return;
+      applyRuntimeConfig(result, courseBid);
+      loadedCourseBid = courseBid;
+      if (getBoolEnv('eruda') && !erudaStarted) {
+        erudaStarted = true;
+        import('eruda')
+          .then(eruda => eruda.default.init())
+          .catch(err => {
+            erudaStarted = false;
+            console.error('Failed to initialize eruda debugger', err);
+          });
       }
-    })().finally(() => {
-      initPromise = null;
-    });
-  }
-
-  await initPromise;
+    } catch (error) {
+      if (generation !== requestGeneration) return;
+      loadedCourseBid = null;
+      console.error('Failed to initialize runtime environment', error);
+      useEnvStore.setState({ runtimeConfigLoaded: true });
+    } finally {
+      if (generation === requestGeneration) activeLoad = null;
+    }
+  })();
+  activeLoad = loading;
+  await loading;
 };

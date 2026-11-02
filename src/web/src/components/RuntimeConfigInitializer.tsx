@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { initializeEnvData } from '@/lib/initialize-runtime-config';
-import { useEnvStore } from '@/store';
+import { useEnvStore } from '@/store/env-store';
 
 const RuntimeConfigInitializer = () => {
+  const pathname = usePathname();
   const faviconUrl = useEnvStore(state => state.faviconUrl);
   useEffect(() => {
-    initializeEnvData();
-  }, []);
+    void initializeEnvData(pathname || '');
+  }, [pathname]);
 
   useEffect(() => {
     if (!faviconUrl) return;

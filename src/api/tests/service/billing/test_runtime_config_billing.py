@@ -13,6 +13,8 @@ from flaskr.common import public_urls
 from flaskr.common.config import ENV_VARS
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
+    BILLING_DOMAIN_BINDING_STATUS_DISABLED,
+    BILLING_DOMAIN_BINDING_STATUS_FAILED,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
     BILLING_DOMAIN_SSL_STATUS_ACTIVE,
@@ -538,6 +540,199 @@ def test_legacy_account_selector_cannot_override_the_requested_course_owner(
     _assert_global_site_branding(payload)
     assert payload["entitlements"]["branding_enabled"] is True
     assert payload["domain"]["creator_bid"] == "creator-1"
+
+
+@pytest.mark.parametrize("host", ["app.example.com", "localhost"])
+@pytest.mark.parametrize("binding_history", ["absent", "deleted", "removed"])
+def test_domainless_course_uses_owner_logos_without_changing_site_identity(
+    runtime_config_client: object,
+    host: str,
+    binding_history: str,
+) -> None:
+    with runtime_config_client.application.app_context():
+        binding = BillingDomainBinding.query.filter_by(creator_bid="creator-1").one()
+        if binding_history == "absent":
+            dao.db.session.delete(binding)
+        elif binding_history == "deleted":
+            binding.deleted = 1
+        else:
+            binding.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
+        dao.db.session.commit()
+
+    payload = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1&creator_bid=creator-2",
+        headers={"Host": host},
+    ).get_json(force=True)["data"]
+
+    assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
+    assert payload["homeUrl"] == "/"
+    assert payload["contactUsUrl"] == ""
+    assert payload["domain"]["is_custom_domain"] is False
+    assert payload["domain"]["creator_bid"] == "creator-1"
+    assert payload["entitlements"]["branding_enabled"] is True
+    assert payload["stripePublishableKey"] == "pk_test_global"
+    assert payload["paymentChannels"] == ["pingxx", "stripe"]
+    assert payload["branding"] == {
+        "logo_wide_url": "https://cdn.example.com/creator-wide.png",
+        "logo_square_url": "https://cdn.example.com/creator-square.png",
+        "favicon_url": None,
+        "home_url": None,
+        "contact_us_url": None,
+    }
+
+
+@pytest.mark.parametrize(
+    "binding_state", ["verified", "pending", "failed", "tls", "entitlement_disabled"]
+)
+def test_configured_domain_prevents_course_logo_fallback_on_platform(
+    runtime_config_client: object,
+    binding_state: str,
+) -> None:
+    with runtime_config_client.application.app_context():
+        binding = BillingDomainBinding.query.filter_by(creator_bid="creator-1").one()
+        if binding_state == "pending":
+            binding.status = BILLING_DOMAIN_BINDING_STATUS_PENDING
+        elif binding_state == "failed":
+            binding.status = BILLING_DOMAIN_BINDING_STATUS_FAILED
+        elif binding_state == "tls":
+            binding.ssl_status = BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED
+        elif binding_state == "entitlement_disabled":
+            entitlement = BillingEntitlement.query.filter_by(
+                creator_bid="creator-1"
+            ).one()
+            entitlement.custom_domain_enabled = 0
+        dao.db.session.commit()
+
+    payload = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "app.example.com"},
+    ).get_json(force=True)["data"]
+
+    _assert_global_site_branding(payload)
+
+
+@pytest.mark.parametrize("course_context", [False, True])
+@pytest.mark.parametrize("branding_state", ["active", "disabled", "expired", "no_logo"])
+def test_domainless_logo_fallback_requires_course_and_eligible_assets(
+    runtime_config_client: object,
+    course_context: bool,
+    branding_state: str,
+) -> None:
+    with runtime_config_client.application.app_context():
+        binding = BillingDomainBinding.query.filter_by(creator_bid="creator-1").one()
+        binding.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
+        entitlement = BillingEntitlement.query.filter_by(creator_bid="creator-1").one()
+        if branding_state == "disabled":
+            entitlement.branding_enabled = 0
+        elif branding_state == "expired":
+            entitlement.effective_to = now_utc() - timedelta(days=1)
+        elif branding_state == "no_logo":
+            entitlement.feature_payload = {"branding": {"home_url": "/creator-home"}}
+        dao.db.session.commit()
+
+    query = {"creator_bid": "creator-1"}
+    if course_context:
+        query["shifu_bid"] = "shifu-1"
+    payload = runtime_config_client.get(
+        "/api/runtime-config", query_string=query, headers={"Host": "app.example.com"}
+    ).get_json(force=True)["data"]
+
+    if course_context and branding_state == "active":
+        assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    else:
+        _assert_global_site_branding(payload)
+
+
+def test_ineffective_matched_host_blocks_domainless_course_logo_fallback(
+    runtime_config_client: object,
+) -> None:
+    with runtime_config_client.application.app_context():
+        binding = BillingDomainBinding.query.filter_by(creator_bid="creator-1").one()
+        binding.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
+        dao.db.session.commit()
+
+    for host in ("creator.example.com", "inactive.example.com"):
+        payload = runtime_config_client.get(
+            "/api/runtime-config?shifu_bid=shifu-1", headers={"Host": host}
+        ).get_json(force=True)["data"]
+        _assert_global_site_branding(payload)
+        assert payload["domain"]["matched"] is True
+
+
+def test_domainless_course_prefers_saved_logo_assets_without_copying_favicon(
+    runtime_config_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with runtime_config_client.application.app_context():
+        binding = BillingDomainBinding.query.filter_by(creator_bid="creator-1").one()
+        binding.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
+        dao.db.session.commit()
+    saved_branding = Mock(
+        return_value={
+            "logo_wide_url": "https://cdn.example.com/saved-wide.png",
+            "logo_square_url": "https://cdn.example.com/saved-square.png",
+            "favicon_url": "https://cdn.example.com/saved-favicon.ico",
+        }
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.customization.resolve_creator_branding", saved_branding
+    )
+
+    payload = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "app.example.com"},
+    ).get_json(force=True)["data"]
+
+    saved_branding.assert_called_once_with("creator-1")
+    assert payload["logoWideUrl"] == "https://cdn.example.com/saved-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/saved-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
+
+
+def test_course_logo_eligibility_failure_preserves_commercial_context(
+    runtime_config_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with runtime_config_client.application.app_context():
+        binding = BillingDomainBinding.query.filter_by(creator_bid="creator-1").one()
+        binding.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
+        entitlement = BillingEntitlement.query.filter_by(creator_bid="creator-1").one()
+        entitlement.feature_payload = {
+            **entitlement.feature_payload,
+            "custom_payment_enabled": True,
+        }
+        dao.db.session.commit()
+    monkeypatch.setattr(config_route, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        "flaskr.service.billing.customization.is_creator_customization_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.runtime_config.has_creator_domain_binding",
+        Mock(side_effect=RuntimeError("Domain eligibility unavailable")),
+    )
+    integrations = Mock(return_value={"stripe": {"publishable_key": "pk_creator"}})
+    monkeypatch.setattr(
+        config_route, "resolve_creator_public_integrations", integrations
+    )
+    fallback = Mock(wraps=build_default_runtime_billing_context)
+    monkeypatch.setattr(config_route, "build_default_runtime_billing_context", fallback)
+
+    payload = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1&creator_bid=creator-2",
+        headers={"Host": "app.example.com"},
+    ).get_json(force=True)["data"]
+
+    _assert_global_site_branding(payload)
+    fallback.assert_not_called()
+    integrations.assert_called_once_with("creator-1")
+    assert payload["entitlements"]["branding_enabled"] is True
+    assert payload["domain"]["creator_bid"] == "creator-1"
+    assert payload["stripePublishableKey"] == "pk_creator"
+    assert payload["paymentChannels"] == ["stripe"]
+    assert payload["paymentConfigurationReady"] is True
 
 
 def test_recovered_host_lookup_rejects_a_course_owned_by_another_account(

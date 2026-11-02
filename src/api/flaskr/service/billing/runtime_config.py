@@ -14,7 +14,11 @@ from .consts import (
     BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS,
     BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
 )
-from .domains import normalize_domain_host, resolve_runtime_domain_result
+from .domains import (
+    has_creator_domain_binding,
+    normalize_domain_host,
+    resolve_runtime_domain_result,
+)
 from .dtos import (
     RuntimeBillingBrandingDTO,
     RuntimeBillingContextDTO,
@@ -38,7 +42,7 @@ def build_runtime_billing_context(
     request_host: str = "",
     course_creator_bid: str = "",
 ) -> RuntimeBillingContextDTO:
-    """Keep account entitlements separate from domain-selected site branding."""
+    """Select domain branding with a logo fallback for domainless courses."""
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_course_creator_bid = str(course_creator_bid or "").strip()
     # Domain identity describes the site, regardless of the signed-in account
@@ -67,6 +71,28 @@ def build_runtime_billing_context(
     elif not domain.matched:
         # Preserve the existing non-domain context metadata for API consumers.
         domain.creator_bid = business_creator_bid or None
+        if normalized_course_creator_bid and entitlement_state.branding_enabled:
+            try:
+                has_domain_binding = has_creator_domain_binding(
+                    app, normalized_course_creator_bid
+                )
+            except Exception:
+                # Unknown eligibility must not enable the logo fallback or
+                # discard commercial settings already resolved for the course.
+                has_domain_binding = True
+                app.logger.exception(
+                    "Failed to resolve course logo domain eligibility; "
+                    "using site logos creator_bid=%s",
+                    normalized_course_creator_bid,
+                )
+            if not has_domain_binding:
+                course_branding = _build_branding_payload(entitlement_state)
+                # A course logo does not change the platform site's favicon,
+                # navigation destinations, domain identity, or commercial owner.
+                branding = RuntimeBillingBrandingDTO(
+                    logo_wide_url=course_branding.logo_wide_url,
+                    logo_square_url=course_branding.logo_square_url,
+                )
     return RuntimeBillingContextDTO(
         entitlements=entitlements,
         branding=branding,

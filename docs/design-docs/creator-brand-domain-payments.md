@@ -61,14 +61,31 @@ present.
 
 ## Runtime Resolution
 
-Site branding follows the effective request domain in both the teacher backend
-and learner pages. The configured official `HOST_URL` always uses global
-platform branding, even if the account or course owner has customer branding
-or the official host was accidentally entered as a customer binding. Unknown,
-disabled, expired, unverified, or non-TLS customer bindings also use global
-branding. An effective customer domain selects its owner's wide/square logos,
-favicon, home destination, and contact destination. Account switches and
-course changes do not select a different site brand.
+An effective customer domain selects its owner's wide/square logos, favicon,
+home destination, and contact destination in both the teacher backend and
+learner pages. The configured official `HOST_URL` keeps global platform branding
+in the teacher backend and on non-course pages, even if the signed-in account
+has customer branding or the official host was accidentally entered as a
+customer binding. A matched but disabled, expired, unverified, or non-TLS
+customer binding also keeps global branding.
+
+Learner courses have one logo-only fallback outside a matched customer host:
+when the validated course owner has the branding entitlement and no configured
+custom domain, the course uses that owner's wide and square logos. Its favicon,
+home/contact destinations, domain identity, permissions, and commercial context
+retain their separate platform/domain rules. A configured domain means any
+non-deleted binding that has not been disabled through domain removal; pending,
+failed, non-TLS, and expired-entitlement bindings still count as configured.
+Disabled or deleted history does not prevent the logo fallback. Having a domain
+entitlement without a binding does not prevent it either. Missing logos and
+disabled/expired branding entitlements use global logos.
+
+The browser refreshes runtime configuration when entering another course or
+leaving learner course pages. Lesson navigation within the same course reuses
+its configuration. Only the response for the current course context can update
+the shared store, so a slower previous request cannot restore another course's
+logo or overwrite backend branding. Account selectors alone never select a
+course logo.
 
 The backend derives the business owner from the validated Shifu or domain
 context, with a legacy explicit account selector used only when neither is

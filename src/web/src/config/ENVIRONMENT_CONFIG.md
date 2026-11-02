@@ -12,8 +12,15 @@ The frontend has two configuration requests with different owners:
 [initialize-runtime-config.ts](../lib/initialize-runtime-config.ts) loads the backend payload
 into [env-store.ts](../store/env-store.ts). Components consume that store.
 [environment.ts](environment.ts) supplies bootstrap defaults; it is not a second
-browser configuration service. A successful Next `/api/config` fallback proves
+browser configuration service. A successful Next `/api/config` response proves
 only backend-location discovery, not that runtime settings loaded successfully.
+
+The root initializer refreshes backend settings on changes to the learner course
+identity (`/c/<shifu_bid>`) and when leaving course pages. Navigation within the
+same course reuses its settings. Concurrent loads for one context are shared;
+only the current context can commit branding and commercial settings. Failed
+runtime loads keep bootstrap available and remain retryable. A discovered API
+base still updates request transport when the subsequent runtime request fails.
 
 ## Frontend Environment
 
@@ -88,8 +95,14 @@ builder. See the [image publication guide](../../../../docs/references/docker-im
 
 Configure these in `src/api/.env` for manual development, or the backend
 service environment for deployment. The config service may supply persisted
-settings. Effective customer-domain branding can override global presentation;
-account and course context alone cannot change the site's brand.
+settings. Effective customer-domain branding can override global presentation.
+On learner course pages outside a matched customer host, a validated owner with
+the branding entitlement and no configured domain can supply wide/square logos.
+Disabled/deleted domain history counts as removed; pending or otherwise
+ineffective configured bindings still prevent this fallback. This course-only
+rule does not change the site's favicon, navigation destinations, domain
+identity, or the official backend's brand. See the
+[canonical branding contract](../../../../docs/design-docs/creator-brand-domain-payments.md#runtime-resolution).
 The public response is an allowlisted projection, not an environment dump.
 
 | Capability  | Backend configuration                                                                           | Runtime output                                                                    |
@@ -132,8 +145,9 @@ From `src/web`, run the configuration-parser and Next configuration-route tests:
 npm test -- --runInBand --runTestsByPath src/config/environment.test.ts src/app/api/config/route.test.ts src/lib/initialize-runtime-config.test.ts
 ```
 
-The runtime initializer suite also checks discovery failures, backend payload
-mapping, and store updates through the real environment resolver.
+The runtime initializer suites also check discovery failures, backend payload
+mapping, course changes, backend navigation, stale-response ordering, and store
+updates through the real environment resolver.
 
 In a local running setup, inspect the two requests separately: Next should
 return the expected backend base; Flask should return the configured public

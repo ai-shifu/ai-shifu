@@ -267,6 +267,22 @@ def resolve_effective_custom_origin(app: Flask, creator_bid: object) -> str | No
         return f"https://{normalized_host}"
 
 
+def has_creator_domain_binding(app: Flask, creator_bid: object) -> bool:
+    """Return whether an account has a configured domain that was not removed."""
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return False
+    with app_context_scope(app):
+        return (
+            BillingDomainBinding.query.filter(
+                BillingDomainBinding.deleted == 0,
+                BillingDomainBinding.creator_bid == normalized_creator_bid,
+                BillingDomainBinding.status != BILLING_DOMAIN_BINDING_STATUS_DISABLED,
+            ).first()
+            is not None
+        )
+
+
 def resolve_runtime_domain_result(
     app: Flask,
     host: object,

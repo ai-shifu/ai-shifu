@@ -3,13 +3,16 @@ import { render } from '@testing-library/react';
 import RuntimeConfigInitializer from './RuntimeConfigInitializer';
 
 let mockFaviconUrl = '';
+let mockPathname = '/admin';
 const mockInitializeEnvData = jest.fn();
 
 jest.mock('@/lib/initialize-runtime-config', () => ({
-  initializeEnvData: () => mockInitializeEnvData(),
+  initializeEnvData: (pathname: string) => mockInitializeEnvData(pathname),
 }));
 
-jest.mock('@/store', () => ({
+jest.mock('next/navigation', () => ({ usePathname: () => mockPathname }));
+
+jest.mock('@/store/env-store', () => ({
   useEnvStore: (selector: (state: { faviconUrl: string }) => unknown) =>
     selector({ faviconUrl: mockFaviconUrl }),
 }));
@@ -17,6 +20,7 @@ jest.mock('@/store', () => ({
 describe('runtime site favicon', () => {
   beforeEach(() => {
     mockFaviconUrl = '';
+    mockPathname = '/admin';
     mockInitializeEnvData.mockReset();
     document.head.innerHTML = '';
   });
@@ -67,5 +71,23 @@ describe('runtime site favicon', () => {
     rerender(<RuntimeConfigInitializer />);
 
     expect(document.head.querySelector("link[rel='icon']")).toBeNull();
+  });
+
+  test('refreshes runtime context on course and noncourse route changes', () => {
+    mockPathname = '/c/course-a';
+    const { rerender } = render(<RuntimeConfigInitializer />);
+    expect(mockInitializeEnvData).toHaveBeenLastCalledWith('/c/course-a');
+
+    rerender(<RuntimeConfigInitializer />);
+    expect(mockInitializeEnvData).toHaveBeenCalledTimes(1);
+
+    mockPathname = '/c/course-b';
+    rerender(<RuntimeConfigInitializer />);
+    expect(mockInitializeEnvData).toHaveBeenLastCalledWith('/c/course-b');
+
+    mockPathname = '/admin';
+    rerender(<RuntimeConfigInitializer />);
+    expect(mockInitializeEnvData).toHaveBeenLastCalledWith('/admin');
+    expect(mockInitializeEnvData).toHaveBeenCalledTimes(3);
   });
 });
