@@ -19,12 +19,12 @@ from flaskr.service.profile.api import (
     ensure_user_aggregate,
     get_profile_item_definition_list,
     get_profile_labels,
+    load_user_aggregate_without_credentials,
     update_aggregate_field,
     validate_learner_profile_system_value,
 )
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.models import VariableValue
-from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.uuid import generate_id
 
 
@@ -182,7 +182,7 @@ def get_user_profiles(
 
     user_values = load_scoped_values(app, user_id, course_id)
 
-    aggregate = load_user_aggregate(user_id, with_credentials=False)
+    aggregate = load_user_aggregate_without_credentials(user_id)
 
     result: dict[str, str] = {}
     for profile_item in profiles_items:

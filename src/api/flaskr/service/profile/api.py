@@ -14,6 +14,7 @@ from flaskr.service.profile.account_fields import (
     get_profile_labels,
     get_user_profile_labels,
     global_profile_value_versions,
+    load_user_aggregate_without_credentials,
     update_aggregate_field,
 )
 from flaskr.service.profile.constants import (
@@ -50,6 +51,7 @@ __all__ = [
     "get_user_profile_labels",
     "global_profile_value_versions",
     "has_learner_profile_or_state",
+    "load_user_aggregate_without_credentials",
     "merge_learner_profile_for_sign_in",
     "update_aggregate_field",
     "validate_learner_profile_system_value",

@@ -26,7 +26,8 @@ Entry files in this directory: `api.py`, `routes.py`, `account_fields.py`,
 - Do not rename variable mappings or profile DTO fields without coordinated
   frontend and backend updates.
 - Do not import `flaskr.service.memory` from this package: memory depends on
-  profile, not the other way round.
+  profile, not the other way round. The only exception is the one-release
+  compatibility aliases listed below, which import memory to keep old paths.
 - `funcs.py`, `course_values.py`, `course_memory.py` and `course_references.py`
   here are one-release aliases of the memory service; do not add code to them
   or import them.
