@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.memory.course_references import is_course_reference
 from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import LargeBinary, cast, func, select
@@ -147,3 +148,43 @@ def delete_course_memory(user_bid: str, shifu_bid: str, value_id: int) -> dict:
         )
         db.session.flush()
         return {"conflict": False}
+
+
+def migrate_course_memory(from_user_bid: str, to_user_bid: str, shifu_bid: str) -> int:
+    """Hand a merged guest's live course values to the account they signed in to.
+
+    Only the newest row of each key moves, and only while it is live: a key whose newest
+    guest row is a deletion marker stays forgotten. The target's own history decides the
+    rest. A live target value always wins, and a target deletion marker wins over a guest
+    value written before it, since rows are append-only and the larger ID is the later
+    intent. Moving the row rather than copying it keeps that ID order intact. Global rows
+    and retired course references never move. Runs in the caller's unit of work.
+    """
+    if not shifu_bid or not from_user_bid or from_user_bid == to_user_bid:
+        return 0
+    guest_heads: dict[str, VariableValue] = {}
+    for row in _course_rows(from_user_bid, shifu_bid).order_by(VariableValue.id):
+        guest_heads[row.key] = row
+    target_heads: dict[str, VariableValue] = {}
+    for row in _course_rows(to_user_bid, shifu_bid).order_by(VariableValue.id):
+        target_heads[row.key] = row
+    target_live = {
+        row.key
+        for row in _course_rows(to_user_bid, shifu_bid).filter(
+            VariableValue.deleted == 0
+        )
+    }
+    moving = []
+    for key, head in guest_heads.items():
+        if head.deleted or is_course_reference(key) or key in target_live:
+            continue
+        target_head = target_heads.get(key)
+        if target_head is not None and target_head.id > head.id:
+            continue
+        moving.append(head.id)
+    if moving:
+        VariableValue.query.filter(VariableValue.id.in_(moving)).update(
+            {VariableValue.user_bid: to_user_bid}, synchronize_session=False
+        )
+        db.session.flush()
+    return len(moving)
