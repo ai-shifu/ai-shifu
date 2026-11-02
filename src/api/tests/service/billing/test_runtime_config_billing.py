@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
 from flask import Flask
@@ -12,8 +13,10 @@ from flaskr.common import public_urls
 from flaskr.common.config import ENV_VARS
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
+    BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
     BILLING_DOMAIN_SSL_STATUS_ACTIVE,
+    BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
@@ -23,6 +26,8 @@ from flaskr.service.billing.runtime_config import (
     build_default_runtime_billing_context,
     build_runtime_billing_context,
 )
+from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -89,6 +94,10 @@ def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
     monkeypatch.setattr(
         public_urls,
         "get_config",
+        lambda key, default="": config_values.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.domains.get_config",
         lambda key, default="": config_values.get(key, default),
     )
     monkeypatch.setattr(
@@ -385,22 +394,29 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
     }
 
 
-def test_runtime_config_uses_shifu_context_for_creator_branding(
+def _assert_global_site_branding(payload: dict[str, object]) -> None:
+    assert payload["logoWideUrl"] == "https://cdn.example.com/global-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/global-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
+    assert payload["homeUrl"] == "/"
+    assert payload["contactUsUrl"] == ""
+    assert all(value is None for value in payload["branding"].values())
+
+
+def test_runtime_config_keeps_course_entitlements_without_changing_official_branding(
     runtime_config_client: object,
 ) -> None:
     response = runtime_config_client.get(
         "/api/runtime-config?shifu_bid=shifu-1",
-        headers={"Host": "localhost"},
+        headers={"Host": "app.example.com"},
     )
     payload = response.get_json(force=True)["data"]
 
-    assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
-    assert payload["homeUrl"] == "https://creator.example.com/home"
-    assert payload["contactUsUrl"] == "https://creator.example.com/contact"
+    _assert_global_site_branding(payload)
     assert payload["billingEnabled"] is True
     assert payload["entitlements"]["branding_enabled"] is True
     assert payload["domain"] == {
-        "request_host": None,
+        "request_host": "app.example.com",
         "matched": False,
         "is_custom_domain": False,
         "creator_bid": "creator-1",
@@ -410,19 +426,246 @@ def test_runtime_config_uses_shifu_context_for_creator_branding(
     }
 
 
-def test_runtime_config_uses_explicit_creator_bid_param(
+def test_runtime_config_keeps_account_entitlements_without_changing_official_branding(
     runtime_config_client: object,
 ) -> None:
-    # The /admin backend has no shifu_bid in the path; an explicit creator_bid
-    # query param must resolve that creator's branding directly.
+    # Legacy account-specific requests must not replace the site's brand.
     response = runtime_config_client.get(
         "/api/runtime-config?creator_bid=creator-1",
         headers={"Host": "localhost"},
     )
     payload = response.get_json(force=True)["data"]
 
+    _assert_global_site_branding(payload)
+    assert payload["entitlements"]["branding_enabled"] is True
+
+
+@pytest.mark.parametrize("creator_bid", ["creator-1", "creator-2"])
+def test_customer_site_branding_does_not_depend_on_the_requested_account(
+    runtime_config_client: object,
+    creator_bid: str,
+) -> None:
+    response = runtime_config_client.get(
+        "/api/runtime-config",
+        query_string={"creator_bid": creator_bid},
+        headers={"Host": "creator.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
     assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
     assert payload["homeUrl"] == "https://creator.example.com/home"
+    assert payload["contactUsUrl"] == "https://creator.example.com/contact"
+    assert payload["domain"]["creator_bid"] == "creator-1"
+    assert payload["entitlements"]["branding_enabled"] is True
+
+
+@pytest.mark.parametrize("creator_bid", ["creator-1", "creator-2"])
+@pytest.mark.parametrize("host", ["app.example.com", "creator.example.com"])
+@pytest.mark.parametrize("host_context_available", [True, False])
+@pytest.mark.parametrize("has_course_context", [True, False])
+def test_domain_branding_preserves_the_validated_payment_context(
+    runtime_config_client: object,
+    monkeypatch: object,
+    creator_bid: str,
+    host: str,
+    host_context_available: bool,
+    has_course_context: bool,
+) -> None:
+    if not host_context_available:
+        # Best-effort bootstrap lookup can fail before the billing lookup succeeds.
+        monkeypatch.setattr(
+            "flaskr.common.shifu_context._resolve_host_creator_bid",
+            lambda _app, _host: None,
+        )
+    with runtime_config_client.application.app_context():
+        for row in BillingEntitlement.query.all():
+            row.feature_payload = {
+                **(row.feature_payload or {}),
+                "custom_payment_enabled": True,
+            }
+        dao.db.session.commit()
+    monkeypatch.setattr(config_route, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        "flaskr.service.billing.customization.is_creator_customization_enabled",
+        lambda: True,
+    )
+    requested_accounts = []
+
+    def integrations(account_bid: str) -> dict[str, dict[str, str]]:
+        requested_accounts.append(account_bid)
+        return {"stripe": {"publishable_key": f"pk_{account_bid}"}}
+
+    monkeypatch.setattr(
+        config_route, "resolve_creator_public_integrations", integrations
+    )
+    query = {"creator_bid": creator_bid}
+    if has_course_context:
+        query["shifu_bid"] = "shifu-1"
+    payload = runtime_config_client.get(
+        "/api/runtime-config",
+        query_string=query,
+        headers={"Host": host},
+    ).get_json(force=True)["data"]
+
+    expected_creator_bid = (
+        "creator-1"
+        if host == "creator.example.com" or has_course_context
+        else creator_bid
+    )
+    assert requested_accounts == [expected_creator_bid]
+    assert payload["stripePublishableKey"] == f"pk_{expected_creator_bid}"
+    assert payload["paymentChannels"] == ["stripe"]
+    assert payload["paymentConfigurationReady"] is True
+    assert payload["entitlements"]["branding_enabled"] is (
+        expected_creator_bid == "creator-1"
+    )
+    if host == "app.example.com":
+        _assert_global_site_branding(payload)
+    else:
+        assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+
+
+def test_legacy_account_selector_cannot_override_the_requested_course_owner(
+    runtime_config_client: object,
+) -> None:
+    payload = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1&creator_bid=creator-2",
+        headers={"Host": "app.example.com"},
+    ).get_json(force=True)["data"]
+
+    _assert_global_site_branding(payload)
+    assert payload["entitlements"]["branding_enabled"] is True
+    assert payload["domain"]["creator_bid"] == "creator-1"
+
+
+def test_recovered_host_lookup_rejects_a_course_owned_by_another_account(
+    runtime_config_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
+        lambda _app, _shifu_bid: "creator-2",
+    )
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._resolve_host_creator_bid",
+        lambda _app, _host: None,
+    )
+    fallback = Mock(wraps=build_default_runtime_billing_context)
+    integrations = Mock()
+    monkeypatch.setattr(config_route, "build_default_runtime_billing_context", fallback)
+    monkeypatch.setattr(
+        config_route, "resolve_creator_public_integrations", integrations
+    )
+
+    with pytest.raises(AppError) as error:
+        runtime_config_client.get(
+            "/api/runtime-config?shifu_bid=shifu-2&creator_bid=creator-1",
+            headers={"Host": "creator.example.com"},
+        )
+
+    assert error.value.code == ERROR_CODE["server.shifu.shifuNotFound"]
+    fallback.assert_not_called()
+    integrations.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("host", "course_creator_bid", "expected_creator_bid"),
+    [
+        ("app.example.com", "creator-1", "creator-1"),
+        ("app.example.com", "creator-2", "creator-2"),
+        ("creator.example.com", "creator-1", "creator-1"),
+        ("creator.example.com", "creator-2", None),
+    ],
+)
+def test_runtime_builder_preserves_course_ownership_independently_of_legacy_selectors(
+    runtime_config_client: object,
+    host: str,
+    course_creator_bid: str,
+    expected_creator_bid: str | None,
+) -> None:
+    app = runtime_config_client.application
+    with app.app_context():
+        if expected_creator_bid is None:
+            with pytest.raises(AppError) as error:
+                build_runtime_billing_context(
+                    app,
+                    creator_bid="collaborator-account",
+                    course_creator_bid=course_creator_bid,
+                    request_host=host,
+                )
+            assert error.value.code == ERROR_CODE["server.shifu.shifuNotFound"]
+        else:
+            context = build_runtime_billing_context(
+                app,
+                creator_bid="collaborator-account",
+                course_creator_bid=course_creator_bid,
+                request_host=host,
+            )
+            assert context.domain.creator_bid == expected_creator_bid
+            assert context.entitlements.branding_enabled is (
+                expected_creator_bid == "creator-1"
+            )
+
+
+@pytest.mark.parametrize("invalid_state", ["pending", "tls", "disabled", "expired"])
+def test_ineffective_customer_domain_keeps_global_branding_even_with_a_branded_course(
+    runtime_config_client: object,
+    invalid_state: str,
+) -> None:
+    with runtime_config_client.application.app_context():
+        binding = BillingDomainBinding.query.filter_by(host="creator.example.com").one()
+        entitlement = BillingEntitlement.query.filter_by(creator_bid="creator-1").one()
+        if invalid_state == "pending":
+            binding.status = BILLING_DOMAIN_BINDING_STATUS_PENDING
+        elif invalid_state == "tls":
+            binding.ssl_status = BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED
+        elif invalid_state == "disabled":
+            entitlement.custom_domain_enabled = 0
+        else:
+            entitlement.effective_to = now_utc() - timedelta(days=1)
+        dao.db.session.commit()
+
+    payload = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "creator.example.com"},
+    ).get_json(force=True)["data"]
+
+    _assert_global_site_branding(payload)
+    assert payload["domain"]["is_custom_domain"] is False
+
+
+def test_accidental_customer_binding_cannot_override_the_official_domain(
+    runtime_config_client: object,
+) -> None:
+    from flaskr.service.billing.domains import (
+        build_creator_domain_bindings,
+        resolve_creator_bid_by_host,
+    )
+
+    app = runtime_config_client.application
+    with app.app_context():
+        assert (
+            build_creator_domain_bindings(app, "creator-1").items[0].is_effective
+            is True
+        )
+        binding = BillingDomainBinding.query.filter_by(host="creator.example.com").one()
+        binding.host = "app.example.com"
+        dao.db.session.commit()
+        assert resolve_creator_bid_by_host(app, "APP.EXAMPLE.COM:443") is None
+        assert (
+            build_creator_domain_bindings(app, "creator-1").items[0].is_effective
+            is False
+        )
+
+    payload = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "app.example.com"},
+    ).get_json(force=True)["data"]
+
+    _assert_global_site_branding(payload)
+    assert payload["domain"]["is_custom_domain"] is False
     assert payload["entitlements"]["branding_enabled"] is True
 
 
@@ -570,14 +813,25 @@ def test_runtime_config_reports_disabled_billing_flag(
     }
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RuntimeError("boom"),
+        AppError(
+            "Optional billing is unavailable", ERROR_CODE["server.billing.disabled"]
+        ),
+    ],
+    ids=["unexpected_error", "optional_app_error"],
+)
 def test_runtime_config_falls_back_when_billing_context_build_fails(
     runtime_config_client: object,
     monkeypatch: object,
+    failure: Exception,
 ) -> None:
     monkeypatch.setattr(
         config_route,
         "build_runtime_billing_context",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+        Mock(side_effect=failure),
     )
 
     response = runtime_config_client.get(

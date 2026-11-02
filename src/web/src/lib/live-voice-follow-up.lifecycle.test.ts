@@ -37,6 +37,11 @@ const response = (body: unknown) => ({
 
 describe('Live lifecycle reports through the shared request transport', () => {
   const originalFetch = global.fetch;
+  const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const originalLocation = {
+    origin: window.location.origin,
+    host: window.location.host,
+  };
   let live: typeof import('./live-voice-follow-up');
   let environment: typeof import('@/config/environment');
   let requestLanguage: typeof import('./request-language');
@@ -61,6 +66,12 @@ describe('Live lifecycle reports through the shared request transport', () => {
     requestLanguage.clearPendingRequestLanguage();
     window.sessionStorage.clear();
     global.fetch = originalFetch;
+    Object.assign(window.location, originalLocation);
+    if (originalApiBaseUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_API_BASE_URL = originalApiBaseUrl;
+    }
   });
 
   const createSession = async (apiBaseUrl = '') => {
@@ -83,6 +94,49 @@ describe('Live lifecycle reports through the shared request transport', () => {
       .mockReset()
       .mockResolvedValue(response({ code: 0, data: { ended: true } }));
   };
+
+  it('keeps lifecycle writes on the customer host after discovery fails', async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://app.example.test';
+    Object.assign(window.location, {
+      origin: 'https://creator.example.test',
+      host: 'creator.example.test',
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    fetchMock
+      .mockResolvedValueOnce({ ...response({}), ok: false, status: 503 })
+      .mockResolvedValueOnce(
+        response({ code: 0, data: { session_bid: 'live/session' } }),
+      );
+
+    await live.createLiveFollowUpSession('course', 'lesson', {
+      preview_mode: false,
+      anchor_element_bid: 'anchor',
+      learning_mode: 'read',
+      surface: 'read_content',
+    });
+
+    expect(environment.getCachedDynamicApiBaseUrl()).toBe('');
+    expect(fetchMock.mock.calls[1][0]).toMatch(
+      /^https:\/\/creator\.example\.test\//,
+    );
+    fetchMock
+      .mockReset()
+      .mockResolvedValue(response({ code: 0, data: { ended: true } }));
+
+    const result = live.finalizeLiveFollowUpSession(
+      'live/session',
+      [turn],
+      'hidden',
+    );
+
+    // The cached same-origin result must be ready before this call yields.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://creator.example.test/api/learn/live-follow-up/session/live%2Fsession/finalize',
+      expect.objectContaining({ keepalive: true }),
+    );
+    await expect(result).resolves.toEqual({ ended: true });
+  });
 
   it.each(['', 'https://api.example.test'])(
     'initiates native fetch before pagehide returns (base %s)',
