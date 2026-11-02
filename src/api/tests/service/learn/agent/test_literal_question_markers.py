@@ -281,6 +281,8 @@ COMPACT_ITEMS = {
     "linked": "- [link {i}](/u) uses `code` <b>x</b>\n",
     "image": "- ![alt {i}](/i.png) and `code`\n",
     "punctuation": '- "Step {i}" uses `code` <b>x</b>\n',
+    "math": "- $x_{i}$ uses `code` <b>x</b>\n",
+    "strikethrough": "- ~old {i}~ uses `code` <b>x</b>\n",
 }
 
 

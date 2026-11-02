@@ -99,12 +99,15 @@ _SPANNING_HTML_START = re.compile(
     r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$))",
     re.IGNORECASE,
 )
-# The first characters of a plain paragraph line: an inline code span, emphasis, a
-# link or an image, or any character that cannot open a block. Nothing the line
+# The first characters of a plain paragraph line: an inline code, math or
+# strikethrough span, emphasis, a link or an image, or any character that cannot
+# open a block. Nothing the line
 # after it is read against depends on more than that it was such a line, unlike a
 # heading, a quote, a list, a fence, HTML, math, a thematic break, a setext
 # underline or a reference definition.
-_PARAGRAPH_START = re.compile(r"`(?!``)|[*_]{1,2}[^\W_]|!?\[|[^\s#>+\-=|<$~:`*_\[]")
+_PARAGRAPH_START = re.compile(
+    r"`(?!``)|~(?!~~)|\$(?!\$)|[*_]{1,2}[^\W_]|!?\[|[^\s#>+\-=|<$~:`*_\[]"
+)
 # A line that opens a reference definition rather than a link: its label's
 # closing bracket is followed by a colon.
 _REFERENCE_START = re.compile(r"\[(?:[^\\\[\]]|\\.)*\]:")
