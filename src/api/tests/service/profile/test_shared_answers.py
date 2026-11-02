@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.profile.course_values import get_user_profiles, save_user_profiles
 from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.funcs import get_user_profiles, save_user_profiles
 from flaskr.service.profile.models import Variable, VariableValue
 
 from tests.service.profile.test_course_references import (

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.profile.funcs import get_global_profile_keys
+from flaskr.service.profile.account_fields import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import LargeBinary, cast, func, select
 

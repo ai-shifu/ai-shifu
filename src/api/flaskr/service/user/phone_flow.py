@@ -227,7 +227,7 @@ def verify_phone_code(
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     """Verify phone code."""
-    from flaskr.service.profile.funcs import (
+    from flaskr.service.profile.api import (
         get_user_profile_labels,
         update_user_profile_with_lable,
     )

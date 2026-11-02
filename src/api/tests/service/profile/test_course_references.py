@@ -11,8 +11,8 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.utils_v2 import get_fmt_prompt
+from flaskr.service.profile.course_values import get_user_profiles, save_user_profiles
 from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.funcs import get_user_profiles, save_user_profiles
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import (
     DraftOutlineItem,

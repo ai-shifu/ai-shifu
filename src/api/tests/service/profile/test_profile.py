@@ -4,11 +4,11 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.profile import profile_manage
-from flaskr.service.profile.funcs import (
+from flaskr.service.profile.account_fields import (
     get_profile_labels,
     get_user_profile_labels,
-    update_user_profile_with_lable,
 )
+from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick_internal,
@@ -23,7 +23,7 @@ def test_profile_language_options_use_shared_locale_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_locale_labels",
+        "flaskr.service.profile.account_fields.get_locale_labels",
         lambda: {"es-ES": "Español", "ja-JP": "日本語"},
     )
 
@@ -59,10 +59,11 @@ def test_profile_language_round_trip_preserves_legacy_locale(
     stored_language: str,
     expected_language: str,
 ) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
+    for module in ("funcs", "course_values"):
+        monkeypatch.setattr(
+            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            lambda *_args, **_kwargs: [],
+        )
 
     with app.app_context():
         user_bid = f"profile-language-{stored_language}"
@@ -102,10 +103,11 @@ def test_retired_sex_label_is_not_returned_or_rewritten(
     *,
     with_aggregate: bool,
 ) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
+    for module in ("funcs", "course_values"):
+        monkeypatch.setattr(
+            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            lambda *_args, **_kwargs: [],
+        )
 
     with app.app_context():
         user_bid = f"sex-label-string-{with_aggregate}"

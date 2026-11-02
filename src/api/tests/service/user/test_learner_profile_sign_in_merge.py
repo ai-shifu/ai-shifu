@@ -881,10 +881,11 @@ def test_sign_in_label_migration_ignores_historical_background_and_unregistered_
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
-    monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
+    for module in ("funcs", "course_values"):
+        monkeypatch.setattr(
+            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            lambda *_args, **_kwargs: [],
+        )
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.check_text_content",
         lambda *_args: True,
