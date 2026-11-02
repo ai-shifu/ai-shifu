@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 import { useBillingOverview } from '@/hooks/use-billing-data';
+import type { RuntimeConfigContext } from '@/types/store';
 import { AdminBillingPageClient } from './AdminBillingPageClient';
 
 let mockSearchParamsValue = '';
@@ -22,6 +23,11 @@ const mockEnvState = {
   billingEnabled: 'true',
   paymentChannels: ['stripe', 'pingxx'],
   runtimeConfigLoaded: true,
+  runtimeConfigContext: {
+    courseId: '',
+    status: 'ready',
+    generation: 1,
+  } as RuntimeConfigContext | null,
   stripeEnabled: 'true',
 };
 
@@ -107,6 +113,11 @@ describe('AdminBillingPage', () => {
     mockEnvState.billingEnabled = 'true';
     mockEnvState.paymentChannels = ['stripe', 'pingxx'];
     mockEnvState.runtimeConfigLoaded = true;
+    mockEnvState.runtimeConfigContext = {
+      courseId: '',
+      status: 'ready',
+      generation: 1,
+    };
     mockEnvState.stripeEnabled = 'true';
 
     mockGetBillingCatalog.mockReset();
@@ -289,6 +300,7 @@ describe('AdminBillingPage', () => {
     const packagesPanel = screen.getByTestId('admin-billing-packages-panel');
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByTestId('admin-billing-page')).toHaveClass(
       'overscroll-none',
     );
@@ -326,17 +338,80 @@ describe('AdminBillingPage', () => {
     expect(mockGetBillingLedger).not.toHaveBeenCalled();
   });
 
-  test('redirects back to admin when billing is disabled', async () => {
-    mockEnvState.billingEnabled = 'false';
+  test.each<{
+    name: string;
+    context: RuntimeConfigContext | null;
+    loaded?: boolean;
+  }>([
+    {
+      name: 'unfinished global bootstrap',
+      context: { courseId: '', status: 'ready', generation: 2 },
+      loaded: false,
+    },
+    { name: 'unknown context', context: null },
+    {
+      name: 'loading admin context',
+      context: { courseId: '', status: 'loading', generation: 2 },
+    },
+    {
+      name: 'loading course context',
+      context: { courseId: 'course-a', status: 'loading', generation: 2 },
+    },
+    {
+      name: 'ready course context',
+      context: { courseId: 'course-a', status: 'ready', generation: 2 },
+    },
+    {
+      name: 'failed course context',
+      context: { courseId: 'course-a', status: 'failed', generation: 2 },
+    },
+  ])('waits for admin runtime config during $name', ({ context, loaded }) => {
+    mockEnvState.runtimeConfigContext = context;
+    mockEnvState.runtimeConfigLoaded = loaded ?? true;
 
-    renderPage();
+    const { rerender } = render(<AdminBillingPageClient />);
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/admin');
-    });
-    expect(mockGetBillingCatalog).not.toHaveBeenCalled();
     expect(screen.queryByTestId('admin-billing-page')).not.toBeInTheDocument();
+    expect(mockGetBillingCatalog).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockEnvState.billingEnabled = 'false';
+    rerender(<AdminBillingPageClient />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockEnvState.runtimeConfigLoaded = true;
+    mockEnvState.runtimeConfigContext = {
+      courseId: '',
+      status: 'ready',
+      generation: 3,
+    };
+    rerender(<AdminBillingPageClient />);
+
+    expect(mockReplace).toHaveBeenCalledWith('/admin');
   });
+
+  test.each(['ready', 'failed'] as const)(
+    'redirects back to admin when billing is disabled after admin config is %s',
+    async status => {
+      mockEnvState.billingEnabled = 'false';
+      mockEnvState.runtimeConfigContext = {
+        courseId: '',
+        status,
+        generation: 2,
+      };
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/admin');
+      });
+      expect(mockGetBillingCatalog).not.toHaveBeenCalled();
+      expect(
+        screen.queryByTestId('admin-billing-page'),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   test('renders the global pricing experience for a Stripe-only deployment', async () => {
     mockEnvState.paymentChannels = ['stripe'];

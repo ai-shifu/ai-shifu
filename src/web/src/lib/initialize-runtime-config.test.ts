@@ -484,7 +484,7 @@ describe('runtime host branding', () => {
   });
 
   test.each(['http', 'json', 'business-error', 'discovery-only'])(
-    'retries the same course after a %s runtime failure without clearing existing business settings',
+    'retries the same course after a %s runtime failure while preserving discovered transport',
     async failure => {
       Object.assign(window.location, {
         origin: 'https://creator.example.test',
@@ -527,7 +527,7 @@ describe('runtime host branding', () => {
         expect(useEnvStore.getState()).toMatchObject({
           runtimeConfigLoaded: true,
           baseURL: '',
-          stripePublishableKey: 'existing-key',
+          stripePublishableKey: '',
         });
         expect(getResolvedBaseURL()).toBe('https://creator.example.test');
         await initializeEnvData('/c/a');

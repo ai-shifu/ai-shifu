@@ -24,6 +24,7 @@ const normalizeStringArray = (value: unknown, fallback: string[]): string[] => {
 
 let activeCourseBid: string | null = null;
 let loadedCourseBid: string | null = null;
+let paymentSettingsCourseBid: string | null = null;
 let activeLoad: Promise<void> | null = null;
 let generation = 0;
 let erudaStarted = false;
@@ -196,6 +197,7 @@ const applyRuntimeConfig = (
   }
   // Store setters only call Zustand set. One commit keeps route generations
   // from interleaving branding, authentication and payment fields.
+  paymentSettingsCourseBid = courseBid;
   useEnvStore.setState(next);
 };
 
@@ -209,8 +211,26 @@ export const initializeEnvData = async (pathname?: string): Promise<void> => {
   }
   activeCourseBid = courseBid;
   const requestGeneration = ++generation;
+  const current = useEnvStore.getState();
+  const verifiedStoreContext =
+    current.runtimeConfigContext?.status === 'ready'
+      ? current.runtimeConfigContext.courseId
+      : null;
+  const previousPaymentContext =
+    paymentSettingsCourseBid ?? verifiedStoreContext;
+  const hasCurrentPaymentSettings =
+    current.runtimeConfigLoaded && previousPaymentContext === courseBid;
+  paymentSettingsCourseBid = hasCurrentPaymentSettings ? courseBid : null;
   useEnvStore.setState({
     ...siteLogos,
+    // Pending or failed configuration cannot borrow another context's merchant.
+    // Keep a known configuration only when refreshing that same context.
+    ...(!hasCurrentPaymentSettings && {
+      billingEnabled: 'false',
+      stripeEnabled: 'false',
+      stripePublishableKey: '',
+      paymentChannels: [],
+    }),
     runtimeConfigContext: {
       courseId: courseBid,
       status: 'loading',

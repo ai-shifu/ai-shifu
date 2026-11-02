@@ -17,7 +17,13 @@ export default function AdminOperationProviderPricesPage() {
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const stripeEnabled = useEnvStore(state => state.stripeEnabled === 'true');
   const paymentChannels = useEnvStore(state => state.paymentChannels);
-  const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
+  const adminRuntimeConfigSettled = useEnvStore(
+    state =>
+      state.runtimeConfigLoaded &&
+      state.runtimeConfigContext?.courseId === '' &&
+      (state.runtimeConfigContext.status === 'ready' ||
+        state.runtimeConfigContext.status === 'failed'),
+  );
   const hasStripeChannel = React.useMemo(
     () =>
       (Array.isArray(paymentChannels) ? paymentChannels : []).some(
@@ -32,13 +38,13 @@ export default function AdminOperationProviderPricesPage() {
     billingEnabled && stripeEnabled && hasStripeChannel;
 
   React.useEffect(() => {
-    if (!runtimeConfigLoaded || canManageProviderPrices) {
+    if (!adminRuntimeConfigSettled || canManageProviderPrices) {
       return;
     }
     router.replace('/admin/operations');
-  }, [canManageProviderPrices, router, runtimeConfigLoaded]);
+  }, [adminRuntimeConfigSettled, canManageProviderPrices, router]);
 
-  if (!isReady || !runtimeConfigLoaded || !canManageProviderPrices) {
+  if (!isReady || !adminRuntimeConfigSettled || !canManageProviderPrices) {
     return <Loading />;
   }
 

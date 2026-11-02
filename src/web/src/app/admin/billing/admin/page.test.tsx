@@ -7,6 +7,7 @@ import api from '@/api';
 import { AdminBillingOperationsConsole } from '@/app/admin/operations/billing/AdminBillingOperationsConsole';
 import { applyAdminBillingOpsState } from '@/components/billing/AdminBillingShared';
 import type { AdminBillingSubscriptionItem } from '@/types/billing';
+import type { RuntimeConfigContext } from '@/types/store';
 
 const mockToast = jest.fn();
 const mockReplace = jest.fn();
@@ -16,6 +17,11 @@ const mockEnvState = {
   loginMethodsEnabled: ['phone'],
   defaultLoginMethod: 'phone',
   runtimeConfigLoaded: true,
+  runtimeConfigContext: {
+    courseId: '',
+    status: 'ready',
+    generation: 1,
+  } as RuntimeConfigContext | null,
 };
 
 jest.mock('next/navigation', () => ({
@@ -137,6 +143,11 @@ describe('AdminBillingOperationsConsole', () => {
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockEnvState.runtimeConfigLoaded = true;
+    mockEnvState.runtimeConfigContext = {
+      courseId: '',
+      status: 'ready',
+      generation: 1,
+    };
     mockGetAdminBillingFocusTeachers.mockReset();
     mockGetAdminBillingEntitlements.mockReset();
     mockGrantAdminBillingEntitlement.mockReset();
@@ -311,26 +322,89 @@ describe('AdminBillingOperationsConsole', () => {
     });
   });
 
-  test('redirects back to admin when billing is disabled', async () => {
-    mockEnvState.billingEnabled = 'false';
+  test.each<{
+    name: string;
+    context: RuntimeConfigContext | null;
+    loaded?: boolean;
+  }>([
+    {
+      name: 'unfinished global bootstrap',
+      context: { courseId: '', status: 'ready', generation: 2 },
+      loaded: false,
+    },
+    { name: 'unknown context', context: null },
+    {
+      name: 'loading admin context',
+      context: { courseId: '', status: 'loading', generation: 2 },
+    },
+    {
+      name: 'loading course context',
+      context: { courseId: 'course-a', status: 'loading', generation: 2 },
+    },
+    {
+      name: 'ready course context',
+      context: { courseId: 'course-a', status: 'ready', generation: 2 },
+    },
+    {
+      name: 'failed course context',
+      context: { courseId: 'course-a', status: 'failed', generation: 2 },
+    },
+  ])('waits for admin runtime config during $name', ({ context, loaded }) => {
+    mockEnvState.runtimeConfigContext = context;
+    mockEnvState.runtimeConfigLoaded = loaded ?? true;
 
-    render(
-      <SWRConfig
-        value={{
-          provider: () => new Map(),
-        }}
-      >
-        <AdminBillingOperationsConsole />
-      </SWRConfig>,
-    );
+    const { rerender } = render(<AdminBillingOperationsConsole />);
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/admin');
-    });
     expect(
       screen.queryByTestId('admin-billing-console-page'),
     ).not.toBeInTheDocument();
+    expect(mockGetAdminBillingSubscriptions).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockEnvState.billingEnabled = 'false';
+    rerender(<AdminBillingOperationsConsole />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockEnvState.runtimeConfigLoaded = true;
+    mockEnvState.runtimeConfigContext = {
+      courseId: '',
+      status: 'ready',
+      generation: 3,
+    };
+    rerender(<AdminBillingOperationsConsole />);
+
+    expect(mockReplace).toHaveBeenCalledWith('/admin');
   });
+
+  test.each(['ready', 'failed'] as const)(
+    'redirects back to admin when billing is disabled after admin config is %s',
+    async status => {
+      mockEnvState.billingEnabled = 'false';
+      mockEnvState.runtimeConfigContext = {
+        courseId: '',
+        status,
+        generation: 2,
+      };
+
+      render(
+        <SWRConfig
+          value={{
+            provider: () => new Map(),
+          }}
+        >
+          <AdminBillingOperationsConsole />
+        </SWRConfig>,
+      );
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/admin');
+      });
+      expect(
+        screen.queryByTestId('admin-billing-console-page'),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   test('renders admin billing tabs and loads active billing operation sections', async () => {
     const user = userEvent.setup();
@@ -348,6 +422,7 @@ describe('AdminBillingOperationsConsole', () => {
     expect(
       screen.getByTestId('admin-billing-console-page'),
     ).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,

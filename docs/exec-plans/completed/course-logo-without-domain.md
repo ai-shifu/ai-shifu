@@ -22,6 +22,8 @@ The canonical contract is in
   prepared the completed change for a ready pull request.
 - [x] 2026-11-02: Addressed the course OAuth review with context/generation
   readiness and guarded navigation; 103 focused frontend tests passed.
+- [x] 2026-11-02: Disabled unowned merchant settings during context changes,
+  aligned admin capability guards, and passed 310 frontend tests across 18 suites.
 
 ## Surprises & Discoveries
 
@@ -35,6 +37,9 @@ The canonical contract is in
   preserving the already-resolved commercial context.
 - Review found that global bootstrap readiness alone let course OAuth start
   with another context's App ID before the new course response arrived.
+- A failed or pending context change must not expose another context's merchant
+  flags, channels, or Stripe key. Clearing them requires admin capability guards
+  to wait for the non-course configuration before evaluating redirects.
 
 ## Decision Log
 
@@ -52,6 +57,9 @@ The canonical contract is in
 - Course OAuth readiness includes the route identity, current request
   generation, and successful runtime status. A failed current context releases
   preparation without authorizing with a stale App ID.
+- Unknown and changed contexts disable merchant settings synchronously. Only
+  a matching verified context can retain its settings during refresh; failures
+  and late responses cannot restore another context's configuration.
 - This is a visual branding change, with no new interaction or analytics payload.
 
 ## Outcomes & Retrospective
@@ -61,6 +69,10 @@ SaaS-plugin tests are skipped because the plugin is not installed locally.
 TypeScript, frontend lint, Ruff, and architecture checks passed. Independent
 reviews confirmed domain precedence, explicit-removal semantics, safe commercial
 fallback, response ordering, transport configuration, and route deduplication.
+Review regressions additionally cover course-specific OAuth, stale/unmounted
+authorization callbacks, repeated configuration failures, merchant provenance,
+and non-course admin capability guards. All 310 frontend tests across 18 suites,
+TypeScript, and frontend lint passed after those fixes.
 The repository-wide pre-commit gate passed, including documentation,
 architecture, translations, formatting, and lint. The completed change is ready
 for PR review. No migration, environment change, deployment, or main-branch

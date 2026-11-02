@@ -26,6 +26,11 @@ loading/ready/failed status separately from that global bootstrap flag. Course
 WeChat authorization waits for a ready configuration for the current route and
 rechecks the current generation before navigating. A matching failed context
 releases authorization preparation without reusing a previous context's App ID.
+Merchant flags, payment channels, and the Stripe publishable key are disabled
+before loading an unknown or different context. Only a verified configuration
+for that same context can be retained during a refresh. A failed request never
+restores another context's merchant or build-time payment defaults. Admin billing
+capability guards wait for a settled non-course context before redirecting.
 
 ## Frontend Environment
 

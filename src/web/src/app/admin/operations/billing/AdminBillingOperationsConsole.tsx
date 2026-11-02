@@ -35,7 +35,13 @@ export function AdminBillingOperationsConsole() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
-  const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
+  const adminRuntimeConfigSettled = useEnvStore(
+    state =>
+      state.runtimeConfigLoaded &&
+      state.runtimeConfigContext?.courseId === '' &&
+      (state.runtimeConfigContext.status === 'ready' ||
+        state.runtimeConfigContext.status === 'failed'),
+  );
   const activeTabFromUrl = React.useMemo(() => {
     return resolveConsoleTab(searchParams.get('tab'));
   }, [searchParams]);
@@ -47,11 +53,11 @@ export function AdminBillingOperationsConsole() {
   }, [activeTabFromUrl]);
 
   React.useEffect(() => {
-    if (!runtimeConfigLoaded || billingEnabled) {
+    if (!adminRuntimeConfigSettled || billingEnabled) {
       return;
     }
     router.replace('/admin');
-  }, [billingEnabled, router, runtimeConfigLoaded]);
+  }, [adminRuntimeConfigSettled, billingEnabled, router]);
 
   const updateTab = React.useCallback(
     (nextTab: AdminBillingConsoleTab) => {
@@ -69,7 +75,7 @@ export function AdminBillingOperationsConsole() {
     [router],
   );
 
-  if (!runtimeConfigLoaded || !billingEnabled) {
+  if (!adminRuntimeConfigSettled || !billingEnabled) {
     return null;
   }
 

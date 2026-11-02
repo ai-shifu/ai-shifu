@@ -90,6 +90,11 @@ WeChat authorization also checks course-specific runtime readiness instead of
 treating the global bootstrap flag as proof that the current course's App ID has
 loaded. Failed configuration releases preparation without authorizing with a
 previous course or backend App ID, and stale callbacks cannot start navigation.
+Unknown or changed runtime contexts disable the previous merchant flags,
+channels, and Stripe key before fetching their own settings. Failures keep those
+settings disabled; refreshing the same verified context may retain its own
+configuration. Admin billing capability redirects wait for a settled non-course
+context, so this temporary disabled state is not treated as a final denial.
 
 The backend derives the business owner from the validated Shifu or domain
 context, with a legacy explicit account selector used only when neither is
