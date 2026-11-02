@@ -87,6 +87,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Regenerate editor Debug from a selected step](./completed/debug-regenerate-from-step.md)
 - [Device Authorization Skill Analytics](./completed/device-auth-skill-analytics.md)
 - [Reuse production Web Docker dependencies](./completed/docker-web-dependency-reuse.md)
+- [Domain-Based Site Branding](./completed/domain-based-site-branding.md)
 - [Keep editor previews in the selected language](./completed/editor-preview-language.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Environment-wide MarkdownFlow 2.0](./completed/environment-wide-markdownflow-v2.md)

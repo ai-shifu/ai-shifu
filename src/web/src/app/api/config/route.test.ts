@@ -1,4 +1,7 @@
-import { shouldUseSameOriginApiBase } from './route-utils';
+import {
+  resolveApiBaseUrlForHost,
+  shouldUseSameOriginApiBase,
+} from './route-utils';
 
 describe('api config route host matching', () => {
   it('keeps the configured API base for localhost dev ports', () => {
@@ -24,5 +27,24 @@ describe('api config route host matching', () => {
     expect(
       shouldUseSameOriginApiBase('app.example.com', 'app.example.com'),
     ).toBe(false);
+  });
+
+  it.each([
+    [
+      'https://app.example.com/backend',
+      'app.example.com',
+      'https://app.example.com/backend',
+    ],
+    ['http://localhost:8080', 'localhost:3000', 'http://localhost:8080'],
+    ['https://app.example.com', 'creator.example.com', ''],
+    ['https://app.example.com', 'academy.customer.com', ''],
+    [
+      'https://app.example.com',
+      'APP.EXAMPLE.COM, proxy.internal',
+      'https://app.example.com',
+    ],
+    ['/backend', 'academy.customer.com', '/backend'],
+  ])('resolves %s for request host %s', (configured, host, expected) => {
+    expect(resolveApiBaseUrlForHost(configured, host)).toBe(expected);
   });
 });

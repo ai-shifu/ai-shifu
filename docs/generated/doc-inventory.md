@@ -30,7 +30,7 @@
 | `docs/design-docs/billing-subscription-design.md` | Billing 设计文档 | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `proposed` | `backend` | `2026-05-25` | `true` |
 | `docs/design-docs/billing-subscription-purchase-sms.md` | Billing Subscription Purchase SMS Design | `design-doc` | `needs-review` | `backend` | `-` | `true` |
-| `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-07-12` | `true` |
+| `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-11-02` | `true` |
 | `docs/design-docs/fresh-mysql-migration.md` | Fresh MySQL Migration Replay Repair | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/index.md` | Design Docs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-10-27` | `true` |
@@ -119,6 +119,7 @@
 | `docs/exec-plans/completed/debug-regenerate-from-step.md` | Regenerate editor Debug from a selected step | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/device-auth-skill-analytics.md` | Device Authorization Skill Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/docker-web-dependency-reuse.md` | Reuse production Web Docker dependencies | `exec-plan-completed` | `completed` | `web` | `2026-10-06` | `false` |
+| `docs/exec-plans/completed/domain-based-site-branding.md` | Domain-Based Site Branding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/editor-preview-language.md` | Keep editor previews in the selected language | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/environment-wide-markdownflow-v2.md` | Environment-wide MarkdownFlow 2.0 | `exec-plan-completed` | `completed` | `learner` | `2026-10-27` | `false` |

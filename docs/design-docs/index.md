@@ -21,7 +21,7 @@ Implementation and architecture decisions that shape repository behavior live he
 - [Billing Subscription Purchase SMS Design](../design-docs/billing-subscription-purchase-sms.md)
   - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Creator Brand Domain And Payments](../design-docs/creator-brand-domain-payments.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-07-12` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-02` | Canonical: `true`
 - [Fresh MySQL Migration Replay Repair](../design-docs/fresh-mysql-migration.md)
   - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Langfuse Trace Association](../design-docs/langfuse-trace-association.md)

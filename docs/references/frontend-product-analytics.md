@@ -312,6 +312,13 @@ They are an example, not the start of an event registry.
   presented as exact row-level joins.
 - Consumer: aggregate course-sharing adoption and outcome analysis.
 
+Course destinations follow the effective entry domain: official entries share
+official links, and verified customer entries share links on that exact customer
+host. This presentation/destination change preserves the existing share and
+`creator_publish_link_copy` event names, triggers, eligibility, deduplication,
+and payloads. Consumers continue grouping by course and surface; no domain,
+complete URL, brand asset URL, or merchant configuration is added to telemetry.
+
 Teacher and learner entries now open a shared popover:
 `course_share_click/result` still measure the actual ordinary share action
 inside that popover, not opening the popover.

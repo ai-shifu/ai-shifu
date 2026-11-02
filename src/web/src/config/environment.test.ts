@@ -47,9 +47,18 @@ describe('frontend build metadata', () => {
 
 describe('cached runtime API base URL', () => {
   const originalFetch = global.fetch;
+  const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const originalHost = window.location.host;
 
   afterEach(() => {
     global.fetch = originalFetch;
+    window.location.host = originalHost;
+    jest.restoreAllMocks();
+    if (originalApiBaseUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_API_BASE_URL = originalApiBaseUrl;
+    }
   });
 
   it.each([
@@ -82,6 +91,43 @@ describe('cached runtime API base URL', () => {
         await expect(getDynamicApiBaseUrl()).resolves.toBe(expected);
         expect(global.fetch).toHaveBeenCalledTimes(1);
         expect(global.fetch).toHaveBeenCalledWith('/api/config');
+      });
+    },
+  );
+
+  it.each(['http', 'json', 'network', 'response-shape'])(
+    'caches the configured backend after a %s discovery failure',
+    async failure => {
+      process.env.NEXT_PUBLIC_API_BASE_URL = 'https://backend.example.test///';
+      window.location.host = 'backend.example.test';
+      jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      global.fetch = jest.fn(async () => {
+        if (failure === 'network') {
+          throw new TypeError('Network request failed');
+        }
+        return {
+          ok: failure !== 'http',
+          status: failure === 'http' ? 503 : 200,
+          json: async () =>
+            failure === 'json' ? JSON.parse('<html>Unavailable</html>') : {},
+        } as Response;
+      });
+
+      await jest.isolateModulesAsync(async () => {
+        const { getCachedDynamicApiBaseUrl, getDynamicApiBaseUrl } =
+          await import('./environment');
+
+        expect(getCachedDynamicApiBaseUrl()).toBeUndefined();
+        await expect(getDynamicApiBaseUrl()).resolves.toBe(
+          'https://backend.example.test',
+        );
+        expect(getCachedDynamicApiBaseUrl()).toBe(
+          'https://backend.example.test',
+        );
+        await expect(getDynamicApiBaseUrl()).resolves.toBe(
+          'https://backend.example.test',
+        );
+        expect(global.fetch).toHaveBeenCalledTimes(1);
       });
     },
   );
