@@ -78,7 +78,7 @@ exercise documentation, annotation, and test-fixture exception boundaries.
 ## Concrete Steps
 
 Use `/tmp/ai-shifu-ruff-upgrade-venv` for Ruff 0.17.3 and markdown-it-py 4.0.0.
-Run `python -m unittest discover -s src/api/tests/scripts -p 'test_ruff_*policy.py'`.
+Run `python3 scripts/check_ruff_policies.py` (these policy checks were later moved from `src/api/tests/scripts/test_ruff_*policy.py` into that lint script).
 Run affected backend tests with the existing Python 3.11 environment, then
 `ruff check .`, `ruff format --check .`, `python scripts/check_dev_tools.py`,
 `python scripts/check_repo_harness.py`, and
