@@ -300,6 +300,34 @@ def test_compact_list_with_inline_syntax_keeps_work_linear(
     assert inspected <= 80 * len(body)
 
 
+@pytest.mark.parametrize("items", [100, 200])
+def test_compact_list_after_a_long_unfinished_item_keeps_work_linear(
+    items: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A checkpoint backoff from text a blank line has closed does not carry on."""
+    head = "- a `open\n" + "  and the lesson goes on `x\n" * (4 * items) + "\nNext\n\n"
+    syntax = InteractionSyntaxFilter()
+    for line in head.splitlines(keepends=True):
+        syntax.feed(line)
+    body = "".join(f"- step {i} uses `code` <b>x</b>\n" for i in range(items))
+    inspected = 0
+    from flaskr.service.learn.agent import interaction_syntax
+    from markdownflow.engine import stream_marker_context
+
+    original = interaction_syntax.analyze_marker_context
+
+    def counted(source: str, **kwargs: object) -> object:
+        nonlocal inspected
+        inspected += len(source)
+        return original(source, **kwargs)
+
+    monkeypatch.setattr(interaction_syntax, "analyze_marker_context", counted)
+    monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
+    shown = "".join(syntax.feed(character) for character in body) + syntax.flush()
+    assert shown == body
+    assert inspected <= 60 * len(body)
+
+
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize(
     "source",

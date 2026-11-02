@@ -525,6 +525,9 @@ class InteractionSyntaxFilter:
                 self._raw_head = ""
                 self._raw_containers = self._has_container_head(text[cut:])
                 self._raw_spanning = _SPANNING_CHAR.search(text, cut) is not None
+                # A backoff measured on the discarded context must not hold back
+                # checkpoints in the new one.
+                self._raw_retry = 0
                 return True
         if self._raw_parts is None:
             return False
