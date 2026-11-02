@@ -42,6 +42,7 @@ SHIFU = "shifu-bid"
 OUTLINE = "outline-bid"
 PROGRESS = "progress-record-bid"
 SCRIPT = "# Lesson\n\nSome content."
+_BRIEF = "speak to a final-year student"
 
 
 class _Session:
@@ -342,20 +343,92 @@ def test_deleted_named_answer_requires_new_submission_not_regeneration(
     )
 
 
-def test_a_learner_who_has_not_started_begins_the_lesson(
+@pytest.mark.parametrize(
+    ("started", "pending", "user_input", "turn_type", "fields"),
+    [
+        pytest.param(False, False, None, "start", {}, id="not-started-begins"),
+        pytest.param(
+            True, False, None, "continue", {}, id="started-with-nothing-said-carries-on"
+        ),
+        # What the learner was asked for must not arrive as a side remark.
+        pytest.param(
+            True,
+            True,
+            "B",
+            "interaction.response",
+            {"values": ["B"]},
+            id="input-while-pending-is-its-answer",
+        ),
+        # The engine refuses every other turn type while one is pending, so a continue would
+        # end the turn with an error. An empty answer is unusable, so the engine asks again.
+        pytest.param(
+            True,
+            True,
+            "   ",
+            "interaction.response",
+            {"values": []},
+            id="blank-input-answers-pending-with-nothing",
+        ),
+        # A clicked choice arrives in the shape the browser sends.
+        pytest.param(
+            True,
+            True,
+            {"feeling": ["Good"]},
+            "interaction.response",
+            {"values": ["Good"]},
+            id="selected-answer-in-browser-shape",
+        ),
+        # Joining them into one string would leave the engine matching a value no option has.
+        pytest.param(
+            True,
+            True,
+            {"topics": ["a", "b"]},
+            "interaction.response",
+            {"values": ["a", "b"]},
+            id="every-multi-select-choice",
+        ),
+        pytest.param(
+            True,
+            False,
+            "why?",
+            "message",
+            {"text": "why?"},
+            id="remark-with-nothing-pending",
+        ),
+        # The engine joins a first-turn message to the opening prompt; a start turn drops it.
+        pytest.param(
+            False,
+            False,
+            "explain this simply",
+            "message",
+            {"text": "explain this simply"},
+            id="first-turn-message-is-heard",
+        ),
+    ],
+)
+def test_the_turn_asked_for_follows_the_session_and_the_input(
     calls: list,
+    started: bool,
+    pending: bool,
+    user_input: object,
+    turn_type: str,
+    fields: dict,
 ) -> None:
-    engine = _Engine([TurnDone(reason="end")])
-    _run(engine)
-    assert engine.turns[0].type == "start"
-    assert calls  # the session was written
-
-
-def test_a_started_lesson_with_nothing_said_carries_on(calls: list) -> None:
-    engine = _Engine([TurnDone(reason="end")], session=_Session(started=True))
-    _run(engine)
-    assert engine.turns[0].type == "continue"
-    assert calls
+    """The kind of turn depends on whether the lesson started and a question is pending."""
+    engine = _Engine(
+        [TurnDone(reason="end")],
+        session=_Session(started=started, pending=[object()] if pending else None),
+    )
+    _run(engine, user_input=user_input)
+    turn = engine.turns[0]
+    assert turn.type == turn_type
+    for name, value in fields.items():
+        assert getattr(turn, name) == value
+    # The session is written for the lesson the learner is on.
+    kwargs = next(kw for name, kw in calls if name == "save_session")
+    assert kwargs["user_bid"] == USER
+    assert kwargs["shifu_bid"] == SHIFU
+    assert kwargs["outline_item_bid"] == OUTLINE
 
 
 def test_a_finished_lesson_asked_for_a_turn_says_it_is_over_and_writes_nothing(
@@ -462,58 +535,6 @@ def test_usage_binding_failure_retires_the_reserved_block(
     assert calls == []
 
 
-def test_input_while_a_question_is_pending_is_read_as_its_answer(calls: list) -> None:
-    """That is what the learner was asked for, so it must not arrive as a side remark."""
-    engine = _Engine(
-        [TurnDone(reason="end")],
-        session=_Session(started=True, pending=[object()]),
-    )
-    _run(engine, user_input="B")
-    turn = engine.turns[0]
-    assert turn.type == "interaction.response"
-    assert turn.values == ["B"]
-    assert calls
-
-
-def test_input_with_no_question_pending_is_a_remark_to_react_to(calls: list) -> None:
-    engine = _Engine([TurnDone(reason="end")], session=_Session(started=True))
-    _run(engine, user_input="why?")
-    turn = engine.turns[0]
-    assert turn.type == "message"
-    assert turn.text == "why?"
-    assert calls
-
-
-def test_blank_input_still_answers_the_pending_question_with_nothing(
-    calls: list,
-) -> None:
-    """Blank input answers the pending question with nothing rather than skipping it.
-
-    The engine refuses every other turn type while one is pending, so a continue would end the turn
-    with an error and leave the question unasked. An empty answer is unusable, so the engine asks
-    it again -- which is what pressing send on an empty box should do.
-    """
-    engine = _Engine(
-        [TurnDone(reason="end")],
-        session=_Session(started=True, pending=[object()]),
-    )
-    _run(engine, user_input="   ")
-    turn = engine.turns[0]
-    assert turn.type == "interaction.response"
-    assert turn.values == []
-    assert calls
-
-
-def test_a_learner_who_says_something_on_the_first_turn_is_heard(calls: list) -> None:
-    """The engine joins a first-turn message to the opening prompt; a start turn drops it."""
-    engine = _Engine([TurnDone(reason="end")])
-    _run(engine, user_input="explain this simply")
-    turn = engine.turns[0]
-    assert turn.type == "message"
-    assert turn.text == "explain this simply"
-    assert calls
-
-
 @pytest.mark.usefixtures("calls")
 def test_a_lesson_resumed_from_storage_is_not_started_again(
     monkeypatch: pytest.MonkeyPatch,
@@ -561,14 +582,6 @@ def test_every_event_of_a_turn_shares_one_generated_block() -> None:
     )
     events = _run(engine)
     assert len({e.generated_block_bid for e in events}) == 1
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_memory_write_does_not_reach_the_learner_as_an_event() -> None:
-    """It is a write, not something to render; 1.0 sends variable updates from its own path."""
-    engine = _Engine([MemoryUpdated(key="name", value="Ada"), TurnDone(reason="end")])
-    events = _run(engine)
-    assert [e.type for e in events] == [GeneratedType.BREAK]
 
 
 class _App:
@@ -643,27 +656,74 @@ def test_memory_is_staged_before_the_session_that_commits_it(calls: list) -> Non
     ]
 
 
-def test_every_memory_write_of_a_turn_lands_in_one_patch(calls: list) -> None:
-    engine = _Engine(
-        [
-            MemoryUpdated(key="a", value="1", scope="user"),
-            MemoryUpdated(key="b", value="2", scope="user"),
-            TurnDone(reason="end"),
-        ]
-    )
-    _run(engine)
-    (staged,) = [update for name, update in calls if name == "stage_memory"]
-    assert [(v.key, v.value) for v in staged.variables] == [("a", "1"), ("b", "2")]
-
-
-def test_a_memory_value_is_stored_as_text(calls: list) -> None:
-    """The variable writer takes strings; anything else has to be rendered as one."""
-    engine = _Engine(
-        [MemoryUpdated(key="n", value=42, scope="user"), TurnDone(reason="end")]
-    )
-    _run(engine)
-    (staged,) = [update for name, update in calls if name == "stage_memory"]
-    assert staged.variables[0].value == "42"
+@pytest.mark.parametrize(
+    ("memory", "profile"),
+    [
+        pytest.param(
+            [
+                MemoryUpdated(key="a", value="1", scope="user"),
+                MemoryUpdated(key="b", value="2", scope="user"),
+            ],
+            [("a", "1"), ("b", "2")],
+            id="every-write-of-a-turn-lands-in-one-patch",
+        ),
+        # The variable writer takes strings; anything else has to be rendered as one.
+        pytest.param(
+            [MemoryUpdated(key="n", value=42, scope="user")],
+            [("n", "42")],
+            id="a-value-is-stored-as-text",
+        ),
+        # `remember` defaults to session scope: a turn's working notes are not facts about a
+        # learner, and written through the profile they would leak into preview, Ask and
+        # follow-up prompts and outlive the session that made sense of them.
+        pytest.param(
+            [
+                MemoryUpdated(
+                    key="current_exercise", value="fractions", scope="session"
+                ),
+                MemoryUpdated(key="pace", value="slow", scope="user"),
+            ],
+            [("pace", "slow")],
+            id="only-what-outlives-the-session",
+        ),
+        # A script collects `%{{purpose}}` in one lesson and uses `{{purpose}}` in the next.
+        # 1.0 writes every answer a question collects to the profile, which a later lesson
+        # reads. Kept only in the session, the second lesson of the general-education course
+        # showed "你的学习目标是 {{purpose}}" word for word and asked for the purpose again.
+        pytest.param(
+            [
+                MemoryUpdated(key="purpose", value="还没想好", source="interaction"),
+                MemoryUpdated(
+                    key="current_exercise", value="fractions", scope="session"
+                ),
+            ],
+            [("purpose", "还没想好")],
+            id="an-answer-to-a-scripted-question",
+        ),
+        pytest.param(
+            [MemoryUpdated(key="note", value="x", scope="session")],
+            [],
+            id="a-note-for-itself-writes-no-profile",
+        ),
+        pytest.param(
+            [MemoryUpdated(key="name", value="Ada")],
+            [],
+            id="a-default-scope-note-writes-no-profile",
+        ),
+    ],
+)
+def test_what_a_turn_remembers_reaches_the_profile_and_not_the_learner(
+    calls: list, memory: list, profile: list
+) -> None:
+    """A memory write is a write, not something to render; 1.0 sends variable updates itself."""
+    events = _run(_Engine([*memory, TurnDone(reason="end")]))
+    assert [e.type for e in events] == [GeneratedType.BREAK]
+    staged = [update for name, update in calls if name == "stage_memory"]
+    if profile:
+        (update,) = staged
+        assert [(v.key, v.value) for v in update.variables] == profile
+    else:
+        assert staged == []
 
 
 def test_a_failed_turn_still_writes_what_it_produced(calls: list) -> None:
@@ -683,74 +743,7 @@ def test_a_failed_turn_still_writes_what_it_produced(calls: list) -> None:
     assert events == []
 
 
-def test_the_session_is_written_for_the_lesson_the_learner_is_on(calls: list) -> None:
-    engine = _Engine([TurnDone(reason="end")])
-    _run(engine)
-    kwargs = next(kw for name, kw in calls if name == "save_session")
-    assert kwargs["user_bid"] == USER
-    assert kwargs["shifu_bid"] == SHIFU
-    assert kwargs["outline_item_bid"] == OUTLINE
-
-
 # --- what is worth keeping ---------------------------------------------------------------
-
-
-def test_only_what_outlives_the_session_is_written_to_the_profile(calls: list) -> None:
-    """`remember` defaults to session scope: a turn's working notes are not facts about a learner.
-
-    Writing them through the profile would leak into preview, Ask and follow-up prompts and
-    outlive the session that made sense of them.
-    """
-    engine = _Engine(
-        [
-            MemoryUpdated(key="current_exercise", value="fractions", scope="session"),
-            MemoryUpdated(key="pace", value="slow", scope="user"),
-            TurnDone(reason="end"),
-        ]
-    )
-    _run(engine)
-    (staged,) = [update for name, update in calls if name == "stage_memory"]
-    assert [(v.key, v.value) for v in staged.variables] == [("pace", "slow")]
-
-
-def test_an_answer_to_a_scripted_question_is_written_to_the_profile(
-    calls: list,
-) -> None:
-    """A script collects `%{{purpose}}` in one lesson and uses `{{purpose}}` in the next.
-
-    1.0 writes every answer a question collects to the learner's profile, which is what a later
-    lesson reads. Kept only in the session, the answer never left the lesson that asked it: on
-    the general-education course the second lesson showed the learner "你的学习目标是 {{purpose}}"
-    word for word, and a later lesson asked for the purpose again.
-    """
-    engine = _Engine(
-        [
-            MemoryUpdated(key="purpose", value="还没想好", source="interaction"),
-            MemoryUpdated(key="current_exercise", value="fractions", scope="session"),
-            TurnDone(reason="end"),
-        ]
-    )
-    _run(engine)
-    (staged,) = [update for name, update in calls if name == "stage_memory"]
-    assert [(v.key, v.value) for v in staged.variables] == [("purpose", "还没想好")]
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_turn_that_only_notes_something_for_itself_writes_no_profile(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    recorded: list[str] = []
-    monkeypatch.setattr(
-        run_agent, "stage_memory", lambda *_a, **_k: recorded.append("staged")
-    )
-    engine = _Engine(
-        [
-            MemoryUpdated(key="note", value="x", scope="session"),
-            TurnDone(reason="end"),
-        ]
-    )
-    _run(engine)
-    assert recorded == []
 
 
 def test_what_the_course_knows_about_the_learner_reaches_a_new_session(
@@ -830,30 +823,6 @@ def test_the_values_a_learner_chose_survive_the_wire_format(
     sent: object, expected: list[str]
 ) -> None:
     assert run_agent.learner_values(sent) == expected
-
-
-def test_a_selected_answer_reaches_the_pending_interaction(calls: list) -> None:
-    """A clicked choice arrives in the shape the browser sends."""
-    engine = _Engine(
-        [TurnDone(reason="end")],
-        session=_Session(started=True, pending=[object()]),
-    )
-    _run(engine, user_input={"feeling": ["Good"]})
-    turn = engine.turns[0]
-    assert turn.type == "interaction.response"
-    assert turn.values == ["Good"]
-    assert calls
-
-
-def test_every_choice_of_a_multi_select_reaches_the_engine(calls: list) -> None:
-    """Joining them into one string would leave the engine matching a value no option has."""
-    engine = _Engine(
-        [TurnDone(reason="end")],
-        session=_Session(started=True, pending=[object()]),
-    )
-    _run(engine, user_input={"topics": ["a", "b"]})
-    assert engine.turns[0].values == ["a", "b"]
-    assert calls
 
 
 # --- a lesson reset while the turn was running -------------------------------------------
@@ -970,32 +939,30 @@ def test_a_turn_that_only_fails_is_still_written(calls: list) -> None:
     assert [name for name, _ in calls].count("save_session") == 1
 
 
+@pytest.mark.parametrize(
+    ("finished", "reason", "marks"),
+    [
+        pytest.param(True, "finished", 1, id="finished"),
+        pytest.param(False, "end", 0, id="still-in-progress"),
+    ],
+)
 def test_a_finished_lesson_is_marked_where_progress_is_read(
-    monkeypatch: pytest.MonkeyPatch, calls: list
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list,
+    finished: bool,
+    reason: str,
+    marks: int,
 ) -> None:
     """Progress comes from the record's status, not from the session's own flag."""
     marked: list[object] = []
     monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
 
     session = _Session()
-    session.finished = True
-    engine = _Engine([TurnDone(reason="finished")], session=session)
+    session.finished = finished
+    engine = _Engine([TurnDone(reason=reason)], session=session)
     _run(engine)
 
-    assert len(marked) == 1
-    assert calls
-
-
-def test_a_lesson_still_in_progress_is_not_marked_finished(
-    monkeypatch: pytest.MonkeyPatch, calls: list
-) -> None:
-    marked: list[object] = []
-    monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
-
-    engine = _Engine([TurnDone(reason="end")])
-    _run(engine)
-
-    assert marked == []
+    assert len(marked) == marks
     assert calls
 
 
@@ -2181,29 +2148,115 @@ def _narration(events: list) -> str:
     return "".join(_contents(events))
 
 
-@pytest.mark.usefixtures("calls")
-def test_a_question_the_lesson_just_asked_is_not_asked_again() -> None:
-    """The model writes the question into the lesson and passes it to `interact` as well.
+def _window_narration() -> str:
+    """Size a narration so the echo window opens exactly on the `r` of `separate`."""
+    lead = "Intro separate "
+    padding = len("rate") + run_agent._ECHO_WINDOW_CHARS + lead.index("rate")
+    return lead + "x" * (padding - len(lead))
 
-    Both reached the learner, one after the other: the narration ended on the question and the
-    same sentence appeared again on its own line above the buttons.
-    """
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    ("narration", "prompt", "option", "asked"),
+    [
+        # The model writes the question into the lesson and passes it to `interact` as well;
+        # both reached the learner, the same sentence again on its own line above the buttons.
+        pytest.param(
+            ["第一个问题：你会编程吗？"], "你会编程吗？", "会", False, id="just-asked"
+        ),
+        # Chinese does not separate words with spaces, so there is no boundary to require:
+        # demanding one refused the repetition on exactly the content it was reported on.
+        pytest.param(
+            ["第一个问题是你会编程吗？"],
+            "你会编程吗？",
+            "会",
+            False,
+            id="chinese-needs-no-space-before-it",
+        ),
+        # A space between words must not hide the repetition it separates.
+        pytest.param(
+            ["So, can you code?"], "can you code?", "yes", False, id="english-too"
+        ),
+        # The narration wraps the question across two lines; the prompt has it on one.
+        pytest.param(
+            ["One last thing. Can you\ncode?"],
+            "Can you code?",
+            "yes",
+            False,
+            id="line-break-inside-the-question",
+        ),
+        # Often the prompt is the only place the model asks; suppressing it leaves nothing.
+        pytest.param(
+            ["一人公司的第一课讲完了。"],
+            "你会编程吗？",
+            "会",
+            True,
+            id="not-asked-before",
+        ),
+        # The check looks only at the end of the narration: matching anywhere would silence a
+        # question whose words the lesson used a paragraph ago.
+        pytest.param(
+            [
+                "你会编程吗？这个问题我们稍后再谈。",
+                "先说说我自己的经历，我做过很多年的研发工作，" * 6,
+            ],
+            "你会编程吗？",
+            "会",
+            True,
+            id="same-words-earlier-in-the-turn",
+        ),
+        # `rate` sits inside `separate`: matching characters is not matching what was said.
+        pytest.param(
+            ["We will separate the examples."],
+            "rate",
+            "good",
+            True,
+            id="short-prompt-inside-a-longer-word",
+        ),
+        # `rate` at the start of `rated` is not the word `rate`; the character after decides.
+        pytest.param(
+            ["Here is how the examples were rated."],
+            "rate",
+            "good",
+            True,
+            id="prompt-starts-a-longer-word",
+        ),
+        # The character before a match decides it, and a slice would have thrown it away:
+        # handed only the window, the check sees nothing left of `rate` and drops the question.
+        pytest.param(
+            [_window_narration()],
+            "rate",
+            "good",
+            True,
+            id="window-opening-inside-a-word",
+        ),
+    ],
+)
+def test_a_question_the_narration_ended_on_is_not_asked_again(
+    narration: list[str], prompt: str, option: str, *, asked: bool
+) -> None:
+    """Only a repetition at the end of the narration is dropped; the controls always remain."""
     engine = _Engine(
         [
-            ContentDelta(text="第一个问题：你会编程吗？"),
+            *[ContentDelta(text=chunk) for chunk in narration],
             InteractionRequest(
                 id="q1",
                 spec=InteractionSpec(
                     type="single",
-                    prompt="你会编程吗？",
-                    options=[Option(display="会", value="会")],
+                    prompt=prompt,
+                    options=[Option(display=option, value=option)],
                 ),
             ),
             TurnDone(reason="interaction"),
         ]
     )
     events = _run(engine)
-    assert _contents(events) == ["第一个问题：你会编程吗？"]
+    said = "".join(narration)
+    if asked:
+        assert _contents(events)[-1] == prompt
+        assert _narration(events) == said + prompt
+    else:
+        assert _narration(events) == said
     assert any(e.type == GeneratedType.INTERACTION for e in events)
 
 
@@ -2224,54 +2277,54 @@ def _asked_after(narration: str, prompt: str) -> list[str]:
 
 
 @pytest.mark.usefixtures("calls")
-def test_a_question_just_asked_in_other_words_is_not_asked_again() -> None:
-    """The narration ends on the question; the prompt says it with a word or two changed.
-
-    General-education course (2026-09-24): the learner read the question the narration ended
-    on and, right under it, the prompt asking it again with three characters dropped -- the
-    same question twice, missed because the two were not character for character the same.
-    """
-    narration = (
-        "任何一项复杂工作，都能拆成一条工作流。\n\n"
-        "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
-    )
-    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
-    assert "".join(_asked_after(narration, prompt)) == narration
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_different_question_after_the_narration_is_still_asked() -> None:
-    """Only a near copy of the question the narration ends on is dropped, not a related one."""
-    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
-    prompt = "这件事里，哪一步最适合交给 AI？"
-    assert _asked_after(narration, prompt) == [narration, prompt]
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_question_with_one_word_changed_is_still_asked() -> None:
-    """A changed word can turn the question around; dropped, its controls would sit under the wrong one.
-
-    Review of #2958: "largest" and "smallest" are alike by character, not by meaning.
-    """
-    narration = "我们看这组数：3、9、4。这组数里最大的数是哪一个？请从下面选。"
-    prompt = "这组数里最小的数是哪一个？请从下面选。"
-    assert _asked_after(narration, prompt) == [narration, prompt]
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_question_followed_by_a_short_aside_is_not_asked_again() -> None:
-    """The narration asks, adds a line of encouragement, and the prompt asks again."""
-    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。别担心，随便说说就行。"
-    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
-    assert _asked_after(narration, prompt) == [narration]
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_short_prompt_is_not_matched_loosely() -> None:
-    """A two-word prompt can resemble any ending; only an exact repeat of it is dropped."""
-    narration = "准备好了吗？我们继续。"
-    prompt = "准备好了？"
-    assert _asked_after(narration, prompt) == [narration, prompt]
+@pytest.mark.parametrize(
+    ("narration", "prompt", "asked"),
+    [
+        # General-education course (2026-09-24): the learner read the question the narration
+        # ended on and, right under it, the prompt asking it again with three characters
+        # dropped -- missed because the two were not character for character the same.
+        pytest.param(
+            "任何一项复杂工作，都能拆成一条工作流。\n\n"
+            "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。",
+            "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。",
+            False,
+            id="same-question-in-other-words",
+        ),
+        # Only a near copy of the question the narration ends on is dropped.
+        pytest.param(
+            "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。",
+            "这件事里，哪一步最适合交给 AI？",
+            True,
+            id="a-different-question",
+        ),
+        # Review of #2958: "largest" and "smallest" are alike by character, not by meaning;
+        # dropped, the controls would sit under the wrong question.
+        pytest.param(
+            "我们看这组数：3、9、4。这组数里最大的数是哪一个？请从下面选。",
+            "这组数里最小的数是哪一个？请从下面选。",
+            True,
+            id="one-word-changed",
+        ),
+        # The narration asks, adds a line of encouragement, and the prompt asks again.
+        pytest.param(
+            "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。别担心，随便说说就行。",
+            "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。",
+            False,
+            id="followed-by-a-short-aside",
+        ),
+        # A two-word prompt can resemble any ending; only an exact repeat of it is dropped.
+        pytest.param("准备好了吗？我们继续。", "准备好了？", True, id="short-prompt"),
+    ],
+)
+def test_a_question_just_asked_in_other_words_is_not_asked_again(
+    narration: str, prompt: str, *, asked: bool
+) -> None:
+    """The narration ends on the question; the prompt may say it with a word or two changed."""
+    contents = _asked_after(narration, prompt)
+    if asked:
+        assert contents == [narration, prompt]
+    else:
+        assert "".join(contents) == narration
 
 
 def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -> None:
@@ -2341,152 +2394,6 @@ def test_a_question_put_again_sends_its_controls_but_not_its_text_again() -> Non
     events = _run(engine)
     assert _contents(events) == []
     assert any(e.type == GeneratedType.INTERACTION for e in events)
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_question_the_lesson_did_not_ask_still_reaches_the_learner() -> None:
-    """Often the prompt is the only place the model asks; suppressing it leaves nothing to answer."""
-    engine = _Engine(
-        [
-            ContentDelta(text="一人公司的第一课讲完了。"),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="你会编程吗？",
-                    options=[Option(display="会", value="会")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    events = _run(engine)
-    assert _contents(events) == ["一人公司的第一课讲完了。", "你会编程吗？"]
-
-
-@pytest.mark.usefixtures("calls")
-def test_the_same_words_earlier_in_the_turn_do_not_suppress_the_question() -> None:
-    """A repetition is what is dropped, not a phrase the lesson happened to use before.
-
-    The check looks only at the end of the narration: matching anywhere would silence a question
-    whose words the lesson used a paragraph ago, and the learner would face bare buttons.
-    """
-    engine = _Engine(
-        [
-            ContentDelta(text="你会编程吗？这个问题我们稍后再谈。"),
-            ContentDelta(text="先说说我自己的经历，我做过很多年的研发工作，" * 6),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="你会编程吗？",
-                    options=[Option(display="会", value="会")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    events = _run(engine)
-    assert _contents(events)[-1] == "你会编程吗？"
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_short_prompt_inside_a_longer_word_is_not_a_repetition() -> None:
-    """Matching characters is not matching what was said.
-
-    `rate` sits inside `separate`. Counted as a repetition, the lesson would drop the only place
-    it asks and leave the learner a set of controls with no question above them.
-    """
-    engine = _Engine(
-        [
-            ContentDelta(text="We will separate the examples."),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="rate",
-                    options=[Option(display="good", value="good")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    events = _run(engine)
-    assert _contents(events) == ["We will separate the examples.", "rate"]
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_question_the_narration_ended_on_is_a_repetition_in_english_too() -> None:
-    """A space between words must not hide the repetition it separates."""
-    engine = _Engine(
-        [
-            ContentDelta(text="So, can you code?"),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="can you code?",
-                    options=[Option(display="yes", value="yes")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    events = _run(engine)
-    assert _narration(events) == "So, can you code?"
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_chinese_question_needs_no_space_before_it_to_count_as_repeated() -> None:
-    """Chinese does not separate words with spaces, so there is no boundary to require.
-
-    Demanding one refused the repetition on exactly the content it was reported on: a question
-    introduced by a phrase running straight into it, with no colon and no space between.
-    """
-    engine = _Engine(
-        [
-            ContentDelta(text="第一个问题是你会编程吗？"),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="你会编程吗？",
-                    options=[Option(display="会", value="会")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    assert _contents(_run(engine)) == ["第一个问题是你会编程吗？"]
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_window_opening_inside_a_word_does_not_invent_a_boundary() -> None:
-    """The character before a match decides it, and a slice would have thrown that character away.
-
-    The narration is sized so the window opens exactly at `rate`, inside `separate`. Handed only
-    the slice, the check sees nothing to the left of the match and calls it a word of its own, so
-    the only question in the turn is dropped and the learner is left with bare controls.
-    """
-    lead = "Intro separate "
-    # Place the window's first character on the `r` of `separate`.
-    padding = len("rate") + run_agent._ECHO_WINDOW_CHARS + lead.index("rate")
-    narration = lead + "x" * (padding - len(lead))
-    engine = _Engine(
-        [
-            ContentDelta(text=narration),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="rate",
-                    options=[Option(display="good", value="good")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    assert _contents(_run(engine))[-1] == "rate"
 
 
 # --- telling the outline the lesson is over -----------------------------------------------
@@ -2679,46 +2586,6 @@ def test_a_turn_a_reset_discarded_does_not_advance_the_outline(
     assert [e.type for e in events] == [GeneratedType.DONE]
 
 
-@pytest.mark.usefixtures("calls")
-def test_a_prompt_that_is_the_start_of_a_longer_word_is_not_a_repetition() -> None:
-    """`rate` at the start of `rated` is not the word `rate`; the character after decides too."""
-    engine = _Engine(
-        [
-            ContentDelta(text="Here is how the examples were rated."),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="rate",
-                    options=[Option(display="good", value="good")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    assert _contents(_run(engine))[-1] == "rate"
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_line_break_inside_the_question_does_not_hide_the_repetition() -> None:
-    """The narration wraps the question across two lines; the prompt has it on one."""
-    engine = _Engine(
-        [
-            ContentDelta(text="One last thing. Can you\ncode?"),
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt="Can you code?",
-                    options=[Option(display="yes", value="yes")],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    assert _narration(_run(engine)) == "One last thing. Can you\ncode?"
-
-
 # --- a question the model typed instead of asking for one ----------------------------------
 
 
@@ -2902,86 +2769,46 @@ def test_a_line_that_only_looks_like_a_fence_does_not_open_or_close_one() -> Non
     assert _filtered("前缀```\n?[q]\n```") == ("前缀```\n\n```", ["?[q]"])
 
 
-@pytest.mark.usefixtures("calls")
-def test_the_author_s_brief_travels_with_the_script() -> None:
-    """Beside the script as author material, never in the engine's own rules.
-
-    The system prompt is the contract that makes the engine work -- call the tool, never
-    narrate, finish when done. Author text placed there carries the same authority, so a brief
-    saying "don't ask, just teach" would switch the tool protocol off. It is also the stable
-    prefix every turn of every lesson shares, and per-lesson text there costs the prefix cache.
-    """
-    seen: dict[str, object] = {}
-
-    class _Recorder(_Engine):
-        async def new_session(self, script: object, **kwargs: object) -> object:
-            seen["script"] = script
-            return await super().new_session(script, **kwargs)
-
-    engine = _Recorder([TurnDone(reason="end")])
-    list(
-        run_agent.run_agent_lesson(
-            None,
-            engine=engine,
-            script=SCRIPT,
-            teaching_brief="speak to a final-year student",
-            user_bid=USER,
-            shifu_bid=SHIFU,
-            outline_bid=OUTLINE,
-            user_input=None,
-            listen=False,
-            iter_turn=_drive,
-        )
-    )
-    bundle = seen["script"]
-    assert bundle.script == SCRIPT
-    assert bundle.constraints == "speak to a final-year student"
+_FRESH = object()
+"""Stands for a lesson with no stored session, so the host builds a new one."""
 
 
 @pytest.mark.usefixtures("calls")
-def test_a_lesson_with_no_brief_sends_none() -> None:
-    """An empty field is no instruction, not an empty one for the model to puzzle over."""
-    seen: dict[str, object] = {}
-
-    class _Recorder(_Engine):
-        async def new_session(self, script: object, **kwargs: object) -> object:
-            seen["script"] = script
-            return await super().new_session(script, **kwargs)
-
-    list(
-        run_agent.run_agent_lesson(
-            None,
-            engine=_Recorder([TurnDone(reason="end")]),
-            script=SCRIPT,
-            user_bid=USER,
-            shifu_bid=SHIFU,
-            outline_bid=OUTLINE,
-            user_input=None,
-            listen=False,
-            iter_turn=_drive,
-        )
-    )
-    assert seen["script"].constraints is None
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_resumed_lesson_sees_a_brief_written_since_it_was_saved(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("stored_brief", "brief", "expected"),
+    [
+        # Beside the script as author material, never in the engine's own rules. The system
+        # prompt is the contract that makes the engine work -- call the tool, never narrate,
+        # finish when done. Author text placed there carries the same authority, so a brief
+        # saying "don't ask, just teach" would switch the tool protocol off. It is also the
+        # stable prefix every turn shares, and per-lesson text there costs the prefix cache.
+        pytest.param(_FRESH, _BRIEF, _BRIEF, id="travels-with-the-script"),
+        # An empty field is no instruction, not an empty one for the model to puzzle over.
+        pytest.param(_FRESH, "", None, id="no-brief-sends-none"),
+        # A stored session carries the snapshot taken when it was last saved. A lesson in
+        # progress when an author writes or edits a brief would otherwise never see it.
+        pytest.param(None, _BRIEF, _BRIEF, id="resumed-sees-a-brief-written-since"),
+        # Re-reading has to carry a removal too, or a cleared field would live on.
+        pytest.param("an old brief", "", None, id="resumed-drops-a-deleted-brief"),
+    ],
+)
+def test_the_author_s_brief_reaches_the_lesson_beside_its_script(
+    monkeypatch: pytest.MonkeyPatch, stored_brief: object, brief: str, expected: object
 ) -> None:
-    """A stored session carries the snapshot taken when it was last saved.
+    from markdownflow.engine.script import ScriptBundle
 
-    A lesson already in progress when an author writes or edits a brief would otherwise never
-    see it, and one begun before briefs reached this engine would never see a brief at all.
-    """
-    stored = _Session(started=True)
-    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    resuming = stored_brief is not _FRESH
+    stored = _Session(started=resuming)
+    if resuming:
+        stored.script = ScriptBundle(script=SCRIPT, constraints=stored_brief)
+        monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
     engine = _Engine([TurnDone(reason="end")], session=stored)
     list(
         run_agent.run_agent_lesson(
             None,
             engine=engine,
             script=SCRIPT,
-            teaching_brief="speak to a final-year student",
+            teaching_brief=brief,
             user_bid=USER,
             shifu_bid=SHIFU,
             outline_bid=OUTLINE,
@@ -2990,36 +2817,16 @@ def test_a_resumed_lesson_sees_a_brief_written_since_it_was_saved(
             iter_turn=_drive,
         )
     )
-    assert stored.script.constraints == "speak to a final-year student"
-    # The script itself is left alone: swapping it under a conversation already taught from it
-    # would leave the two disagreeing about what was said.
-    assert stored.script.script == SCRIPT
-
-
-@pytest.mark.usefixtures("calls")
-def test_a_brief_an_author_deleted_stops_reaching_a_resumed_lesson(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Re-reading has to carry a removal too, or a cleared field would live on in the session."""
-    from markdownflow.engine.script import ScriptBundle
-
-    stored = _Session(started=True)
-    stored.script = ScriptBundle(script=SCRIPT, constraints="an old brief")
-    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
-    list(
-        run_agent.run_agent_lesson(
-            None,
-            engine=_Engine([TurnDone(reason="end")], session=stored),
-            script=SCRIPT,
-            user_bid=USER,
-            shifu_bid=SHIFU,
-            outline_bid=OUTLINE,
-            user_input=None,
-            listen=False,
-            iter_turn=_drive,
-        )
-    )
-    assert stored.script.constraints is None
+    if resuming:
+        assert engine.new_session_calls == []
+        bundle = stored.script
+    else:
+        (call,) = engine.new_session_calls
+        bundle = call["script"]
+    assert bundle.constraints == expected
+    # The script itself is left alone: swapping it under a conversation already taught from
+    # it would leave the two disagreeing about what was said.
+    assert bundle.script == SCRIPT
 
 
 # --- going back to an earlier turn ----------------------------------------------------------
