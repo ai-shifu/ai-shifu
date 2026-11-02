@@ -152,20 +152,37 @@ def migrate_user_study_record(
     db.session.query(LearnProgressRecord).filter(
         LearnProgressRecord.id.in_(record_ids)
     ).update({LearnProgressRecord.user_bid: to_user_id}, synchronize_session=False)
-    # Blocks, elements and audio carry the same progress record link. That link is not
-    # unique across courses (legacy rows may share or leave it empty), so the course
-    # bounds every update.
-    for model in (LearnGeneratedBlock, LearnGeneratedElement, LearnGeneratedAudio):
+    # Blocks, elements and audio carry the same progress record link, but that link is not
+    # unique (legacy rows may share it or leave it empty), so the course and the migrated
+    # outlines bound every move: an outline the account already started keeps its rows
+    # with the guest, like its progress record. Audio follows the blocks it belongs to.
+    migrated_outlines = {attend.outline_item_bid for attend in migrate_attends}
+    moved_blocks = [
+        row.generated_block_bid
+        for row in db.session.query(LearnGeneratedBlock.generated_block_bid).filter(
+            LearnGeneratedBlock.user_bid == from_user_id,
+            LearnGeneratedBlock.shifu_bid == normalized_course_id,
+            LearnGeneratedBlock.outline_item_bid.in_(migrated_outlines),
+            LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
+        )
+    ]
+    for model in (LearnGeneratedBlock, LearnGeneratedElement):
         db.session.query(model).filter(
             model.user_bid == from_user_id,
             model.shifu_bid == normalized_course_id,
+            model.outline_item_bid.in_(migrated_outlines),
             model.progress_record_bid.in_(progress_record_bids),
         ).update({model.user_bid: to_user_id}, synchronize_session=False)
+    if moved_blocks:
+        db.session.query(LearnGeneratedAudio).filter(
+            LearnGeneratedAudio.user_bid == from_user_id,
+            LearnGeneratedAudio.shifu_bid == normalized_course_id,
+            LearnGeneratedAudio.generated_block_bid.in_(moved_blocks),
+        ).update({LearnGeneratedAudio.user_bid: to_user_id}, synchronize_session=False)
 
     # The live agent session is found by its active key, so the key has to follow the owner.
     # Preview sessions are an author's drafts and stay put. A target that already holds a
     # live session for the outline keeps it; the unique key would refuse a second one.
-    migrated_outlines = {attend.outline_item_bid for attend in migrate_attends}
     sessions = LearnAgentSession.query.filter(
         LearnAgentSession.user_bid == from_user_id,
         LearnAgentSession.shifu_bid == normalized_course_id,

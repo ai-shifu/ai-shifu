@@ -304,6 +304,86 @@ def test_merge_leaves_other_courses_rows_that_share_a_progress_link(
         )
 
 
+def test_merge_leaves_rows_of_outlines_the_account_already_started(
+    app: object,
+) -> None:
+    """A shared progress link must not drag along an outline that stays with the guest."""
+    with app.app_context():
+        _add_progress(GUEST, COURSE, "outline-1")
+        shared = f"progress-{GUEST}-outline-1"
+        db.session.add(
+            make_progress_record(
+                progress_record_bid=shared,
+                shifu_bid=COURSE,
+                outline_item_bid="outline-2",
+                user_bid=GUEST,
+                status=LEARN_STATUS_IN_PROGRESS,
+            )
+        )
+        db.session.add(
+            make_generated_block(
+                generated_block_bid="kept-block",
+                progress_record_bid=shared,
+                user_bid=GUEST,
+                block_bid="source-outline-2",
+                outline_item_bid="outline-2",
+                shifu_bid=COURSE,
+                type=BLOCK_TYPE_CONTENT_VALUE,
+                generated_content="kept",
+                position=1,
+                status=1,
+            )
+        )
+        db.session.add(
+            make_generated_element(
+                element_bid="kept-element",
+                progress_record_bid=shared,
+                user_bid=GUEST,
+                generated_block_bid="kept-block",
+                outline_item_bid="outline-2",
+                shifu_bid=COURSE,
+            )
+        )
+        db.session.add(
+            LearnGeneratedAudio(
+                audio_bid="kept-audio",
+                generated_block_bid="kept-block",
+                progress_record_bid=shared,
+                user_bid=GUEST,
+                shifu_bid=COURSE,
+            )
+        )
+        db.session.commit()
+        _add_progress(TARGET, COURSE, "outline-2")
+
+        _merge(app)
+
+        assert (
+            LearnGeneratedBlock.query.filter_by(generated_block_bid="kept-block")
+            .one()
+            .user_bid
+            == GUEST
+        )
+        assert (
+            LearnGeneratedElement.query.filter_by(element_bid="kept-element")
+            .one()
+            .user_bid
+            == GUEST
+        )
+        assert (
+            LearnGeneratedAudio.query.filter_by(audio_bid="kept-audio").one().user_bid
+            == GUEST
+        )
+        assert (
+            LearnGeneratedElement.query.filter_by(
+                element_bid=f"element-{GUEST}-outline-1"
+            )
+            .one()
+            .user_bid
+            == TARGET
+        )
+
+
 def test_merge_carries_guest_course_memory_without_overwriting_target(
     app: object,
 ) -> None:
