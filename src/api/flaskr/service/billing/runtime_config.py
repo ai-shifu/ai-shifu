@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.service.common.models import raise_error
+
 from .consts import (
     BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
     BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS,
@@ -34,16 +36,27 @@ def build_runtime_billing_context(
     *,
     creator_bid: str,
     request_host: str = "",
+    course_creator_bid: str = "",
 ) -> RuntimeBillingContextDTO:
     """Keep account entitlements separate from domain-selected site branding."""
     normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_course_creator_bid = str(course_creator_bid or "").strip()
     # Domain identity describes the site, regardless of the signed-in account
-    # or requested course. Course ownership is checked by with_shifu_context.
+    # or requested course. Recheck course ownership when the earlier best-effort
+    # domain lookup in with_shifu_context could not resolve the host.
     domain = resolve_runtime_domain_result(app, request_host)
     domain_owner_bid = domain.creator_bid if domain.is_custom_domain else None
+    if (
+        normalized_course_creator_bid
+        and domain_owner_bid
+        and normalized_course_creator_bid != domain_owner_bid
+    ):
+        raise_error("server.shifu.shifuNotFound")
     # Courses served on a customer domain must belong to its owner. An
     # arbitrary legacy account selector cannot change that site's checkout.
-    business_creator_bid = domain_owner_bid or normalized_creator_bid
+    business_creator_bid = (
+        normalized_course_creator_bid or domain_owner_bid or normalized_creator_bid
+    )
     entitlement_state = resolve_creator_entitlement_state(business_creator_bid)
     entitlements = RuntimeBillingEntitlementsDTO(
         **serialize_creator_entitlements(entitlement_state).__json__()
@@ -53,7 +66,7 @@ def build_runtime_billing_context(
         branding = _build_branding_payload(entitlement_state)
     elif not domain.matched:
         # Preserve the existing non-domain context metadata for API consumers.
-        domain.creator_bid = normalized_creator_bid or None
+        domain.creator_bid = business_creator_bid or None
     return RuntimeBillingContextDTO(
         entitlements=entitlements,
         branding=branding,

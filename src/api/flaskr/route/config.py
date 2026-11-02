@@ -4,7 +4,11 @@ from flask import Flask, Response, request
 
 from flaskr.common.config import ENV_VARS
 from flaskr.common.public_urls import build_google_oauth_callback_url
-from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
+from flaskr.common.shifu_context import (
+    get_shifu_context_snapshot,
+    get_shifu_creator_bid,
+    with_shifu_context,
+)
 from flaskr.service.billing.customization import (
     build_customization_capabilities,
     is_creator_customization_enabled,
@@ -23,6 +27,7 @@ from flaskr.service.billing.runtime_config import (
     build_default_runtime_billing_context,
     build_runtime_billing_context,
 )
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -81,7 +86,11 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         explicit_creator_bid = str(request.args.get("creator_bid", "") or "").strip()
         # A validated course/domain owner cannot be overridden by a caller's
         # legacy account selector. Authoritative order ownership is unchanged.
-        creator_bid = str(get_shifu_creator_bid() or "").strip() or explicit_creator_bid
+        context_creator_bid = str(get_shifu_creator_bid() or "").strip()
+        course_creator_bid = (
+            context_creator_bid if get_shifu_context_snapshot().get("shifu_bid") else ""
+        )
+        creator_bid = context_creator_bid or explicit_creator_bid
         request_host = _extract_request_host()
         legal_urls = RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
@@ -117,8 +126,14 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     app,
                     creator_bid=creator_bid,
                     request_host=request_host,
+                    course_creator_bid=course_creator_bid,
                 )
-            except Exception:
+            except Exception as exc:
+                if (
+                    isinstance(exc, AppError)
+                    and exc.code == ERROR_CODE["server.shifu.shifuNotFound"]
+                ):
+                    raise
                 # Runtime config is a shared bootstrap dependency. Fall back
                 # to a stable empty billing payload instead of failing the
                 # whole endpoint when billing data is unavailable.

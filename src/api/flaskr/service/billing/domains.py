@@ -633,6 +633,7 @@ def _serialize_domain_binding(
             custom_domain_enabled
             and row.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
             and row.ssl_status == BILLING_DOMAIN_SSL_STATUS_ACTIVE
+            and not _is_official_host(normalize_domain_host(row.host, strict=False))
         ),
         metadata=metadata.to_metadata_json(),
     )

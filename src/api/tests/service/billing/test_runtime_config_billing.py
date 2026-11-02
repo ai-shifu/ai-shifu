@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
 from flask import Flask
@@ -25,6 +26,7 @@ from flaskr.service.billing.runtime_config import (
     build_default_runtime_billing_context,
     build_runtime_billing_context,
 )
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
@@ -538,6 +540,75 @@ def test_legacy_account_selector_cannot_override_the_requested_course_owner(
     assert payload["domain"]["creator_bid"] == "creator-1"
 
 
+def test_recovered_host_lookup_rejects_a_course_owned_by_another_account(
+    runtime_config_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
+        lambda _app, _shifu_bid: "creator-2",
+    )
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._resolve_host_creator_bid",
+        lambda _app, _host: None,
+    )
+    fallback = Mock(wraps=build_default_runtime_billing_context)
+    integrations = Mock()
+    monkeypatch.setattr(config_route, "build_default_runtime_billing_context", fallback)
+    monkeypatch.setattr(
+        config_route, "resolve_creator_public_integrations", integrations
+    )
+
+    with pytest.raises(AppError) as error:
+        runtime_config_client.get(
+            "/api/runtime-config?shifu_bid=shifu-2&creator_bid=creator-1",
+            headers={"Host": "creator.example.com"},
+        )
+
+    assert error.value.code == ERROR_CODE["server.shifu.shifuNotFound"]
+    fallback.assert_not_called()
+    integrations.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("host", "course_creator_bid", "expected_creator_bid"),
+    [
+        ("app.example.com", "creator-1", "creator-1"),
+        ("app.example.com", "creator-2", "creator-2"),
+        ("creator.example.com", "creator-1", "creator-1"),
+        ("creator.example.com", "creator-2", None),
+    ],
+)
+def test_runtime_builder_preserves_course_ownership_independently_of_legacy_selectors(
+    runtime_config_client: object,
+    host: str,
+    course_creator_bid: str,
+    expected_creator_bid: str | None,
+) -> None:
+    app = runtime_config_client.application
+    with app.app_context():
+        if expected_creator_bid is None:
+            with pytest.raises(AppError) as error:
+                build_runtime_billing_context(
+                    app,
+                    creator_bid="collaborator-account",
+                    course_creator_bid=course_creator_bid,
+                    request_host=host,
+                )
+            assert error.value.code == ERROR_CODE["server.shifu.shifuNotFound"]
+        else:
+            context = build_runtime_billing_context(
+                app,
+                creator_bid="collaborator-account",
+                course_creator_bid=course_creator_bid,
+                request_host=host,
+            )
+            assert context.domain.creator_bid == expected_creator_bid
+            assert context.entitlements.branding_enabled is (
+                expected_creator_bid == "creator-1"
+            )
+
+
 @pytest.mark.parametrize("invalid_state", ["pending", "tls", "disabled", "expired"])
 def test_ineffective_customer_domain_keeps_global_branding_even_with_a_branded_course(
     runtime_config_client: object,
@@ -568,14 +639,25 @@ def test_ineffective_customer_domain_keeps_global_branding_even_with_a_branded_c
 def test_accidental_customer_binding_cannot_override_the_official_domain(
     runtime_config_client: object,
 ) -> None:
-    from flaskr.service.billing.domains import resolve_creator_bid_by_host
+    from flaskr.service.billing.domains import (
+        build_creator_domain_bindings,
+        resolve_creator_bid_by_host,
+    )
 
     app = runtime_config_client.application
     with app.app_context():
+        assert (
+            build_creator_domain_bindings(app, "creator-1").items[0].is_effective
+            is True
+        )
         binding = BillingDomainBinding.query.filter_by(host="creator.example.com").one()
         binding.host = "app.example.com"
         dao.db.session.commit()
         assert resolve_creator_bid_by_host(app, "APP.EXAMPLE.COM:443") is None
+        assert (
+            build_creator_domain_bindings(app, "creator-1").items[0].is_effective
+            is False
+        )
 
     payload = runtime_config_client.get(
         "/api/runtime-config?shifu_bid=shifu-1",
@@ -731,14 +813,25 @@ def test_runtime_config_reports_disabled_billing_flag(
     }
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RuntimeError("boom"),
+        AppError(
+            "Optional billing is unavailable", ERROR_CODE["server.billing.disabled"]
+        ),
+    ],
+    ids=["unexpected_error", "optional_app_error"],
+)
 def test_runtime_config_falls_back_when_billing_context_build_fails(
     runtime_config_client: object,
     monkeypatch: object,
+    failure: Exception,
 ) -> None:
     monkeypatch.setattr(
         config_route,
         "build_runtime_billing_context",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+        Mock(side_effect=failure),
     )
 
     response = runtime_config_client.get(

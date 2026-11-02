@@ -74,6 +74,10 @@ The backend derives the business owner from the validated Shifu or domain
 context, with a legacy explicit account selector used only when neither is
 available. On a verified custom host, the requested course's owner must
 equal the domain owner; collaborators retain their existing course permissions.
+That ownership check is repeated during runtime-config resolution if the earlier
+best-effort host lookup failed. A conflicting course owner is rejected rather
+than replaced by the domain owner, and the rejection cannot fall back to global
+bootstrap configuration.
 Runtime entitlements, WeChat App ID, ready payment channels, and the relevant
 Stripe publishable key remain tied to that business context independently of
 site branding. Secrets are never serialized. The legacy `creator_bid` query
