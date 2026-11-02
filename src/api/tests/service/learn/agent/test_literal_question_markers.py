@@ -285,3 +285,20 @@ def test_unfinished_interrupt_lookalike_waits_for_its_line(
     ]
     assert spans == []
     _assert_filter(source, [])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "- ```x`{{name ?[A|B]}}",
+        "12) ```x`{{name ?[A|B]}}",
+        "Intro\n\n- ```x`{{name ?[A|B]}}",
+        "- > ```x`{{name ?[A|B]}}",
+    ],
+)
+def test_container_marker_split_across_deltas_keeps_its_structure(source: str) -> None:
+    """A list or quote marker split across deltas settles as the whole text does."""
+    spans = [
+        source[start:end] for start, end in find_document_interaction_spans(source)
+    ]
+    _assert_filter(source, spans)

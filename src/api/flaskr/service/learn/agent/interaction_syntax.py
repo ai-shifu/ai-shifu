@@ -82,11 +82,12 @@ _DEFER_TRIGGER = re.compile(r"[`$<>]")
 _INTERRUPT_START = re.compile(r"[ \t]*(?:[\r\n#>*+\-=_~`<|0-9])")
 _LINE_START = re.compile(r"\r\n|\r(?!\n)|\n")
 _INSIDE_TRIGGER = re.compile(r"[\]}\r\n]")
-# Raw text spanning lines, or a first line that opens a container or is indented:
-# block structure the bounded witness does not keep exactly.
-_STRUCTURED_START = re.compile(r"[ \t]|>|[-*+][ \t]|[0-9]{1,9}[.)]")
 _LINE_BREAK_CHAR = re.compile(r"[\r\n]")
-_CONTAINER_LINE = re.compile(r"[\r\n](?:[ \t]|>|[-*+][ \t]|[0-9]{1,9}[.)])")
+# A container or indented line start, at the context start or after a line break:
+# block structure the bounded witness does not keep exactly.
+_CONTAINER_HEAD = re.compile(r"(?:^|[\r\n])(?:[ \t]|>|[-*+][ \t]|[0-9]{1,9}[.)])")
+# Enough of a line start to hold the longest container marker.
+_HEAD_KEEP = 11
 # What may precede a block on its line: indentation and container markers.
 _CONTAINER_PREFIX = re.compile(r"[ \t>*+\-0-9.)]*")
 # HTML blocks that run across blank lines until their terminator.
@@ -144,6 +145,9 @@ class InteractionSyntaxFilter:
         # indented lines.
         self._raw_structured = False
         self._raw_containers = False
+        # The start of the raw context's current line, kept so a container marker
+        # split across deltas is still recognized.
+        self._raw_head = ""
         self._raw_tail = ""
         self._pending_witness = ""
         # Held because an earlier unfinished literal may still enclose the opener.
@@ -502,24 +506,26 @@ class InteractionSyntaxFilter:
                 self._raw_parts = [text[cut:]]
                 self._raw_length = len(text) - cut
                 self._raw_structured = bool(_LINE_BREAK_CHAR.search(text, cut))
-                self._raw_containers = bool(
-                    _STRUCTURED_START.match(text, cut)
-                    or _CONTAINER_LINE.search(text, cut)
-                )
+                self._raw_head = ""
+                self._raw_containers = self._has_container_head(text[cut:])
                 return
         if self._raw_parts is None:
             return
         self._raw_structured = self._raw_structured or bool(
             _LINE_BREAK_CHAR.search(text)
         )
-        self._raw_containers = self._raw_containers or bool(
-            _CONTAINER_LINE.search(tail[-1:] + text)
-            or (not self._raw_length and _STRUCTURED_START.match(text))
-        )
+        self._raw_containers = self._has_container_head(text) or self._raw_containers
         self._raw_parts.append(text)
         self._raw_length += len(text)
         if self._raw_length > _RAW_LIMIT:
             self._raw_parts = None
+
+    def _has_container_head(self, text: str) -> bool:
+        """Whether `text` starts a container or indented line in the raw context."""
+        joined = self._raw_head + text
+        line = max(joined.rfind("\n"), joined.rfind("\r")) + 1
+        self._raw_head = joined[line : line + _HEAD_KEEP]
+        return _CONTAINER_HEAD.search(joined) is not None
 
     @staticmethod
     def _restarts_at(before: str, text: str, cut: int) -> bool:
@@ -549,6 +555,7 @@ class InteractionSyntaxFilter:
         self._raw_length = 0
         self._raw_structured = False
         self._raw_containers = False
+        self._raw_head = ""
         self._raw_tail = ""
 
     def _advance_witness(self, text: str, lookahead: str) -> None:
