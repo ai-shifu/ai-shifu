@@ -31,9 +31,9 @@ from flaskr.service.common.session_attribution import (
     session_skill_attribution_reference,
 )
 from flaskr.service.feedback.funs import submit_feedback
-from flaskr.service.profile.api import merge_learner_profile_for_sign_in
-from flaskr.service.profile.funcs import (
+from flaskr.service.profile.api import (
     get_user_profile_labels,
+    merge_learner_profile_for_sign_in,
     update_user_profile_with_lable,
 )
 from flaskr.service.referral.service import extract_referral_post_auth_fields

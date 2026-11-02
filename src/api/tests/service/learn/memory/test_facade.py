@@ -16,10 +16,8 @@ from flaskr.service.learn.memory import (
     load_memory,
     stage_memory,
 )
-from flaskr.service.profile.funcs import (
-    get_user_profiles,
-    update_user_profile_with_lable,
-)
+from flaskr.service.profile.course_values import get_user_profiles
+from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.learner_profile import clear_learner_profile
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity

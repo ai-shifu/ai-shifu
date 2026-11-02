@@ -10,7 +10,8 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.memory.reader import load_course_variables
-from flaskr.service.profile import funcs, profile_manage
+from flaskr.service.profile import account_fields, funcs, profile_manage
+from flaskr.service.profile import api as profile_api
 from flaskr.service.profile.constants import ACTIVE_SYSTEM_PROFILE_KEYS
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.models import Variable, VariableValue
@@ -79,11 +80,11 @@ def test_custom_course_values_do_not_use_or_change_global_definitions(
                 user.app, user.course
             )
         }
-        assert key not in funcs.get_user_profiles(user.app, user.bid, user.course)
-        assert set(funcs.get_profile_labels()) == ACTIVE_SYSTEM_PROFILE_KEYS
+        assert key not in profile_api.get_user_profiles(user.app, user.bid, user.course)
+        assert set(account_fields.get_profile_labels()) == ACTIVE_SYSTEM_PROFILE_KEYS
         assert {
             item.key
-            for item in funcs.get_user_profile_labels(
+            for item in profile_api.get_user_profile_labels(
                 user.app, user.bid, user.course
             ).profiles
         } == ACTIVE_SYSTEM_PROFILE_KEYS
@@ -95,14 +96,14 @@ def test_custom_course_values_do_not_use_or_change_global_definitions(
                 )
             )
             if writer == "runtime":
-                funcs.save_user_profiles(
+                profile_api.save_user_profiles(
                     user.app,
                     user.bid,
                     user.course,
                     [ProfileToSave(key, "Course value", local_definition_bid)],
                 )
             else:
-                funcs.update_user_profile_with_lable(
+                profile_api.update_user_profile_with_lable(
                     user.app,
                     user.bid,
                     [{"key": key, "value": "Course value"}],
@@ -125,10 +126,12 @@ def test_custom_course_values_do_not_use_or_change_global_definitions(
         ).one()
         assert row.variable_bid == local_definition_bid
         assert (
-            funcs.get_user_profiles(user.app, user.bid, user.course)[key]
+            profile_api.get_user_profiles(user.app, user.bid, user.course)[key]
             == "Course value"
         )
-        assert key not in funcs.get_user_profiles(user.app, user.bid, "other-course")
+        assert key not in profile_api.get_user_profiles(
+            user.app, user.bid, "other-course"
+        )
         account = load_user_aggregate(user.bid)
         assert (account.avatar, account.language, account.birthday) == (
             "current-avatar.png",
@@ -171,7 +174,7 @@ def test_custom_writes_require_course_before_any_system_write_or_moderation(
         )
         if writer == "runtime":
             write_profiles = partial(
-                funcs.save_user_profiles,
+                profile_api.save_user_profiles,
                 user.app,
                 user.bid,
                 course_id,
@@ -182,7 +185,7 @@ def test_custom_writes_require_course_before_any_system_write_or_moderation(
             )
         else:
             write_profiles = partial(
-                funcs.update_user_profile_with_lable,
+                profile_api.update_user_profile_with_lable,
                 user.app,
                 user.bid,
                 [
@@ -242,14 +245,14 @@ def test_undeclared_course_values_never_gain_a_definition(
     user = retired_profile_user
     with user.app.app_context(), unit_of_work():
         if writer == "runtime":
-            funcs.save_user_profiles(
+            profile_api.save_user_profiles(
                 user.app,
                 user.bid,
                 user.course,
                 [ProfileToSave(key, "Requested note", "")],
             )
         else:
-            funcs.update_user_profile_with_lable(
+            profile_api.update_user_profile_with_lable(
                 user.app,
                 user.bid,
                 [{"key": key, "value": "Requested note"}],
@@ -257,7 +260,7 @@ def test_undeclared_course_values_never_gain_a_definition(
             )
     with user.app.app_context():
         assert Variable.query.filter_by(shifu_bid=user.course, key=key).count() == 0
-        assert key not in funcs.get_user_profiles(user.app, user.bid, user.course)
+        assert key not in profile_api.get_user_profiles(user.app, user.bid, user.course)
         row = VariableValue.query.filter_by(
             user_bid=user.bid, shifu_bid=user.course, key=key
         ).one()
@@ -294,7 +297,7 @@ def test_course_value_keeps_supplied_definition_id_and_reads_by_course_key(
         )
     with user.app.app_context():
         with unit_of_work():
-            funcs.save_user_profiles(
+            profile_api.save_user_profiles(
                 user.app,
                 user.bid,
                 user.course,
@@ -305,10 +308,12 @@ def test_course_value_keeps_supplied_definition_id_and_reads_by_course_key(
             user_bid=user.bid, shifu_bid=user.course, key=key
         ).one()
         assert row.variable_bid == supplied_bid
-        assert funcs.get_user_profiles(user.app, user.bid, user.course)[key] == (
+        assert profile_api.get_user_profiles(user.app, user.bid, user.course)[key] == (
             "Current course value"
         )
-        assert key not in funcs.get_user_profiles(user.app, user.bid, "other-course")
+        assert key not in profile_api.get_user_profiles(
+            user.app, user.bid, "other-course"
+        )
         historical = VariableValue.query.filter_by(
             variable_value_bid=global_value_bid
         ).one()

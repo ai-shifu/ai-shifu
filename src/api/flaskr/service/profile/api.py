@@ -1,5 +1,10 @@
 """Stable public entry points for cross-service profile operations."""
 
+from flaskr.service.profile.account_fields import (
+    get_global_profile_keys,
+    get_user_profile_labels,
+    global_profile_value_versions,
+)
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from flaskr.service.profile.course_memory import (
     course_memory_deletion_state,
@@ -12,12 +17,8 @@ from flaskr.service.profile.course_references import (
     SHARED_ANSWER_PREFIX,
     is_course_reference,
 )
-from flaskr.service.profile.funcs import (
-    get_global_profile_keys,
-    get_user_profiles,
-    global_profile_value_versions,
-    save_user_profiles,
-)
+from flaskr.service.profile.course_values import get_user_profiles, save_user_profiles
+from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.learner_profile import (
     LEARNER_PROFILE_MAX_LENGTH,
     LEARNER_PROFILE_NICKNAME_MAX_LENGTH,
@@ -36,6 +37,7 @@ __all__ = [
     "course_memory_value_versions",
     "delete_course_memory",
     "get_global_profile_keys",
+    "get_user_profile_labels",
     "get_user_profiles",
     "global_profile_value_versions",
     "has_learner_profile_or_state",
@@ -43,4 +45,5 @@ __all__ = [
     "list_course_memory",
     "merge_learner_profile_for_sign_in",
     "save_user_profiles",
+    "update_user_profile_with_lable",
 ]

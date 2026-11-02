@@ -8,8 +8,8 @@ from flaskr.service.common.dtos import UserInfo
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.common.session_attribution import touch_session_skill_attribution
+from flaskr.service.profile.api import save_user_profiles
 from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.funcs import save_user_profiles
 
 from .repository import (
     build_user_info_from_aggregate,
