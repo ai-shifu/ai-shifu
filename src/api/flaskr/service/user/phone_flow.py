@@ -10,6 +10,7 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.memory.api import migrate_course_memory
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
@@ -81,8 +82,20 @@ def _release_bootstrap_lock() -> None:
 def migrate_user_study_record(
     app: Flask, from_user_id: str, to_user_id: str, course_id: str | None = None
 ) -> None:
-    """Migrate user study record."""
-    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+    """Move a merged guest's lesson state for one course to the signed-in account.
+
+    Outlines the target has not started move whole: progress records, generated blocks,
+    the elements and audio hanging off them, and the live agent session. The guest's live
+    course memory moves for keys the target has no live value for. Runs in the caller's
+    unit of work and never commits.
+    """
+    from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.tts.models import LearnGeneratedAudio
 
     normalized_course_id = str(course_id or "").strip()
     if not normalized_course_id:
@@ -120,11 +133,16 @@ def migrate_user_study_record(
             continue
         migrate_attends.append(from_attend)
 
+    migrated_memory = migrate_course_memory(
+        from_user_id, to_user_id, normalized_course_id
+    )
     if not migrate_attends:
         app.logger.info(
-            "migrate_user_study_record no-op: from_records=%s to_records=%s course_id=%s",
+            "migrate_user_study_record no-op: from_records=%s to_records=%s "
+            "migrated_memory=%s course_id=%s",
             len(from_attends),
             len(to_attends),
+            migrated_memory,
             normalized_course_id,
         )
         return
@@ -134,14 +152,63 @@ def migrate_user_study_record(
     db.session.query(LearnProgressRecord).filter(
         LearnProgressRecord.id.in_(record_ids)
     ).update({LearnProgressRecord.user_bid: to_user_id}, synchronize_session=False)
-    db.session.query(LearnGeneratedBlock).filter(
-        LearnGeneratedBlock.user_bid == from_user_id,
-        LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
-    ).update({LearnGeneratedBlock.user_bid: to_user_id}, synchronize_session=False)
+    # Blocks, elements and audio carry the same progress record link, but that link is not
+    # unique (legacy rows may share it or leave it empty), so the course and the migrated
+    # outlines bound every move: an outline the account already started keeps its rows
+    # with the guest, like its progress record. Audio follows the blocks it belongs to.
+    migrated_outlines = {attend.outline_item_bid for attend in migrate_attends}
+    moved_blocks = [
+        row.generated_block_bid
+        for row in db.session.query(LearnGeneratedBlock.generated_block_bid).filter(
+            LearnGeneratedBlock.user_bid == from_user_id,
+            LearnGeneratedBlock.shifu_bid == normalized_course_id,
+            LearnGeneratedBlock.outline_item_bid.in_(migrated_outlines),
+            LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
+        )
+    ]
+    for model in (LearnGeneratedBlock, LearnGeneratedElement):
+        db.session.query(model).filter(
+            model.user_bid == from_user_id,
+            model.shifu_bid == normalized_course_id,
+            model.outline_item_bid.in_(migrated_outlines),
+            model.progress_record_bid.in_(progress_record_bids),
+        ).update({model.user_bid: to_user_id}, synchronize_session=False)
+    if moved_blocks:
+        db.session.query(LearnGeneratedAudio).filter(
+            LearnGeneratedAudio.user_bid == from_user_id,
+            LearnGeneratedAudio.shifu_bid == normalized_course_id,
+            LearnGeneratedAudio.generated_block_bid.in_(moved_blocks),
+        ).update({LearnGeneratedAudio.user_bid: to_user_id}, synchronize_session=False)
+
+    # The live agent session is found by its active key, so the key has to follow the owner.
+    # Preview sessions are an author's drafts and stay put. A target that already holds a
+    # live session for the outline keeps it; the unique key would refuse a second one.
+    sessions = LearnAgentSession.query.filter(
+        LearnAgentSession.user_bid == from_user_id,
+        LearnAgentSession.shifu_bid == normalized_course_id,
+        LearnAgentSession.outline_item_bid.in_(migrated_outlines),
+        LearnAgentSession.deleted == 0,
+        LearnAgentSession.active_key.in_(
+            [active_key_for(from_user_id, outline) for outline in migrated_outlines]
+        ),
+    ).all()
+    migrated_sessions = 0
+    for session in sessions:
+        target_key = active_key_for(to_user_id, session.outline_item_bid)
+        if LearnAgentSession.query.filter(
+            LearnAgentSession.active_key == target_key
+        ).first():
+            continue
+        session.user_bid = to_user_id
+        session.active_key = target_key
+        migrated_sessions += 1
     db.session.flush()
     app.logger.info(
-        "migrate_user_study_record done: migrated_records=%s course_id=%s",
+        "migrate_user_study_record done: migrated_records=%s migrated_sessions=%s "
+        "migrated_memory=%s course_id=%s",
         len(migrate_attends),
+        migrated_sessions,
+        migrated_memory,
         normalized_course_id,
     )
 

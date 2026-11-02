@@ -5,6 +5,7 @@ from flaskr.service.memory.course_memory import (
     course_memory_value_versions,
     delete_course_memory,
     list_course_memory,
+    migrate_course_memory,
 )
 from flaskr.service.memory.course_references import (
     COURSE_REFERENCE_PREFIX,
@@ -43,6 +44,7 @@ __all__ = [
     "load_course_variables",
     "load_learner_memory",
     "load_memory",
+    "migrate_course_memory",
     "save_user_profiles",
     "stage_memory",
     "update_user_profile_with_lable",

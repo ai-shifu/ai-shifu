@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.memory.course_references import is_course_reference
 from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import LargeBinary, cast, func, select
@@ -147,3 +148,41 @@ def delete_course_memory(user_bid: str, shifu_bid: str, value_id: int) -> dict:
         )
         db.session.flush()
         return {"conflict": False}
+
+
+def migrate_course_memory(from_user_bid: str, to_user_bid: str, shifu_bid: str) -> int:
+    """Hand a merged guest's course memory to the account they signed in to.
+
+    Memory moves key by key, as whole histories: for every key the account has never
+    touched in this course, all of the guest's rows move -- older versions and deletion
+    markers too. Moving rather than copying keeps their IDs, so the newest-ID rule and
+    the deletion generations a migrated agent session compares against stay exactly as
+    the guest left them: a value the guest deleted stays deleted, and no older guest
+    version is left behind to become current again. A key the account has any history
+    for (a value or a deletion) is the account's: its rows win and the guest's stay put,
+    and a migrated session realigns to them on its next turn. Global rows and retired
+    course references never move. Returns how many keys moved. Runs in the caller's
+    unit of work.
+    """
+    if not shifu_bid or not from_user_bid or from_user_bid == to_user_bid:
+        return 0
+    guest_keys = {
+        row.key
+        for row in _course_rows(from_user_bid, shifu_bid).with_entities(
+            VariableValue.key
+        )
+    }
+    account_keys = {
+        row.key
+        for row in _course_rows(to_user_bid, shifu_bid).with_entities(VariableValue.key)
+    }
+    moving = sorted(
+        key for key in guest_keys - account_keys if not is_course_reference(key)
+    )
+    if moving:
+        exact_key = cast(VariableValue.key, LargeBinary)
+        _course_rows(from_user_bid, shifu_bid).filter(
+            exact_key.in_([key.encode("utf-8") for key in moving])
+        ).update({VariableValue.user_bid: to_user_bid}, synchronize_session=False)
+        db.session.flush()
+    return len(moving)
