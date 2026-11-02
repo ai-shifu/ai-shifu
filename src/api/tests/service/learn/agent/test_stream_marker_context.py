@@ -1039,3 +1039,20 @@ def test_html_closing_line_witness_does_not_retain_body_text(
     shown.append(syntax.flush())
     assert "".join(shown) == prefix + "\n"
     assert syntax.spans == [QUESTION]
+
+
+@pytest.mark.parametrize(
+    ("source", "witness"),
+    [
+        ("- \n", "- \n"),
+        ("> - \n", "> - \n"),
+        ("> ```\n> a\n> ```\n>", "> # x \n>"),
+        ("- a\n", "- x \n"),
+    ],
+    ids=["empty-item", "quoted-empty-item", "quoted-fence", "item-with-text"],
+)
+def test_block_end_stand_in_keeps_the_line_containers(
+    source: str, witness: str
+) -> None:
+    """A line that lets indented code follow keeps its quote and list markers."""
+    assert stream_marker_context.compact_marker_context(source) == witness
