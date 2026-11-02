@@ -24,7 +24,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('../useOperatorGuard', () => ({
+jest.mock('../use-operator-guard', () => ({
   __esModule: true,
   default: () => ({
     isReady: true,

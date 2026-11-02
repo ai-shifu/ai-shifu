@@ -86,9 +86,9 @@ remains separately tracked above.
 
 ## Context and Orientation
 
-`follow_up_context.py` owns scoped memory and anchor history. `handle_input_ask.py`
+`ask/context.py` owns scoped memory and anchor history. `ask/handler.py`
 appends the current formatted query and routes provider messages to the adapter.
-Only `ask_provider_adapters/coze_adapter.py` changes runtime behavior. Existing
+Only `ask/providers/coze_adapter.py` changes runtime behavior. Existing
 safe-client, SSE chunks, request context, credentials and host transaction remain.
 
 ## Plan of Work

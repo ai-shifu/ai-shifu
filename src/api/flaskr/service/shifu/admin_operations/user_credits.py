@@ -14,6 +14,9 @@ from flaskr.service.billing.api import (
     grant_referral_reward_credits_to_user,
     load_referral_reward_summary,
 )
+from flaskr.service.billing.api import (
+    quantize_credit_amount as _quantize_credit_amount,
+)
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -34,7 +37,27 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.service.shifu.admin import (
+from flaskr.service.shifu.admin_dtos_users import (
+    AdminOperationUserCreditDeductionRequestDTO,
+    AdminOperationUserCreditDeductionResultDTO,
+    AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserCreditGrantResultDTO,
+    AdminOperationUserCreditLedgerPageDTO,
+    AdminOperationUserCreditUsageDetailDTO,
+    AdminOperationUserCreditUsageDetailItemDTO,
+    AdminOperationUserGrantBootstrapDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+    AdminOperationUserPackageGrantResultDTO,
+    AdminOperationUserReferralRewardSummaryDTO,
+)
+from flaskr.service.shifu.admin_operations.courses_credit_usage import (
+    _build_latest_bill_usage_record_subquery,
+)
+from flaskr.service.shifu.admin_operations.courses_listing import (
+    _build_latest_billing_order_subquery,
+    _build_operator_course_query_filter,
+)
+from flaskr.service.shifu.admin_shared import (
     COURSE_CREDIT_USAGE_MODE_ASK,
     COURSE_CREDIT_USAGE_MODE_LEARN,
     COURSE_CREDIT_USAGE_MODE_LISTEN,
@@ -54,17 +77,17 @@ from flaskr.service.shifu.admin import (
     OPERATOR_USER_CREDIT_TYPE_GRANT,
     OPERATOR_USER_CREDIT_TYPE_OTHER,
     OPERATOR_USER_LIST_MAX_PAGE_SIZE,
+    _format_decimal,
+    _normalize_metadata_json,
+    _resolve_operator_credit_grant_type,
+)
+from flaskr.service.shifu.admin_user_credits import (
     _allocate_usage_detail_credits,
-    _assert_operator_user_grant_target_supported,
     _build_course_credit_usage_ask_filter,
     _build_course_credit_usage_learn_filter,
-    _build_latest_bill_usage_record_subquery,
-    _build_latest_billing_order_subquery,
-    _build_operator_course_query_filter,
     _build_operator_user_credit_ledger_item,
     _build_operator_user_credit_summary,
     _collect_operator_user_credit_order_source_bids,
-    _format_decimal,
     _load_active_subscription_product_display_name_i18n_key,
     _load_billing_order_map,
     _load_generated_block_content_map,
@@ -74,29 +97,16 @@ from flaskr.service.shifu.admin import (
     _load_operator_user_credit_usage_main_row,
     _load_operator_user_credit_usage_owner_ledger_rows,
     _load_operator_user_credit_usage_segment_rows,
-    _load_operator_user_or_raise,
-    _normalize_metadata_json,
-    _quantize_credit_amount,
     _resolve_course_credit_usage_mode_filter,
     _resolve_course_credit_usage_scene_filter,
-    _resolve_operator_credit_grant_type,
     _resolve_operator_user_credit_grant_source_filter,
     _resolve_operator_user_credit_type_filter,
     _resolve_operator_user_credit_usage_context,
     _resolve_usage_detail_item_content,
 )
-from flaskr.service.shifu.admin_dtos import (
-    AdminOperationUserCreditDeductionRequestDTO,
-    AdminOperationUserCreditDeductionResultDTO,
-    AdminOperationUserCreditGrantRequestDTO,
-    AdminOperationUserCreditGrantResultDTO,
-    AdminOperationUserCreditLedgerPageDTO,
-    AdminOperationUserCreditUsageDetailDTO,
-    AdminOperationUserCreditUsageDetailItemDTO,
-    AdminOperationUserGrantBootstrapDTO,
-    AdminOperationUserPackageGrantRequestDTO,
-    AdminOperationUserPackageGrantResultDTO,
-    AdminOperationUserReferralRewardSummaryDTO,
+from flaskr.service.shifu.admin_user_profiles import (
+    _assert_operator_user_grant_target_supported,
+    _load_operator_user_or_raise,
 )
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, or_

@@ -1,4 +1,4 @@
-jest.mock('@/api/studyV2', () => ({
+jest.mock('@/api/learning', () => ({
   SYS_INTERACTION_TYPE: {
     NEXT_CHAPTER: '_sys_next_chapter',
     PAY: '_sys_pay',

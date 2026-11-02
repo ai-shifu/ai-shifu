@@ -3,8 +3,8 @@
 This module owns shared frontend stores, store providers, and app-level state
 containers used by auth, i18n loading, and shifu flows.
 
-Entry files in this directory: `useUserStore.ts`, `useShifu.tsx`,
-`useI18nLoadingStore.ts`, `userProvider.tsx`.
+Entry files in this directory: `use-user-store.ts`, `use-shifu.tsx`,
+`use-i18n-loading-store.ts`, `UserProvider.tsx`.
 
 Shared compatibility, i18n, privacy and verification rules are inherited from
 the root and `src/web/AGENTS.md`; the constraints below are local.

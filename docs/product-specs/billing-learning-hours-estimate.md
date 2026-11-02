@@ -81,7 +81,7 @@ models and interactions change consumption. Course creation, preview, debugging
 and other credit uses reduce the balance available for learner delivery.
 Promotional bonuses are not included in the recurring allocation estimate.
 
-The shared implementation is `src/web/src/lib/billingLearningTime.ts`, consumed
+The shared implementation is `src/web/src/lib/billing-learning-time.ts`, consumed
 by the domestic and global plan comparisons. Settlement, eligibility, purchase
 actions and checkout analytics remain unchanged. No new user interaction is
 introduced. An increase in purchase conversion has not yet been established.

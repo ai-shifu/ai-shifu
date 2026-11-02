@@ -5,22 +5,22 @@ import type { ComponentPropsWithoutRef } from 'react';
 import { Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import { Button, type ButtonProps } from '@/components/ui/Button';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { showDefaultToast, useToast } from '@/hooks/useToast';
+} from '@/components/ui/Tooltip';
+import { showDefaultToast, useToast } from '@/hooks/use-toast';
 import {
   buildCourseShareContent,
   normalizeCourseShareUrl,
   shareCourse,
   type CourseShareMethod,
   type CourseShareOutcome,
-} from '@/lib/courseShare';
+} from '@/lib/course-share';
 
 export type CourseShareSurface =
   | 'teacher_header'

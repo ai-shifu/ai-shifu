@@ -2,15 +2,16 @@
 
 import pytest
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.profile import profile_manage
-from flaskr.service.profile.funcs import (
+from flaskr.service.profile.account_fields import (
     get_profile_labels,
     get_user_profile_labels,
-    update_user_profile_with_lable,
 )
+from flaskr.service.profile.funcs import update_user_profile_with_lable
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.profile.profile_manage import (
-    add_profile_item_quick,
+    add_profile_item_quick_internal,
     get_profile_item_definition_list,
     get_profile_variable_usage,
     hide_unused_profile_items,
@@ -22,11 +23,11 @@ def test_profile_language_options_use_shared_locale_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_locale_labels",
+        "flaskr.service.profile.account_fields.get_locale_labels",
         lambda: {"es-ES": "Español", "ja-JP": "日本語"},
     )
 
-    language = get_profile_labels()["language"]
+    language = get_profile_labels()["sys_user_language"]
 
     assert language["items"] == ["Español", "日本語"]
     assert language["items_mapping"] == {
@@ -58,10 +59,11 @@ def test_profile_language_round_trip_preserves_legacy_locale(
     stored_language: str,
     expected_language: str,
 ) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
+    for module in ("funcs", "course_values"):
+        monkeypatch.setattr(
+            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            lambda *_args, **_kwargs: [],
+        )
 
     with app.app_context():
         user_bid = f"profile-language-{stored_language}"
@@ -74,8 +76,10 @@ def test_profile_language_round_trip_preserves_legacy_locale(
         original_language = load_user_aggregate(user_bid).language
 
         profiles = get_user_profile_labels(app, user_bid, "course-one").profiles
-        language_profile = next(item for item in profiles if item.key == "language")
-        expected_label = get_profile_labels()["language"]["items_mapping"][
+        language_profile = next(
+            item for item in profiles if item.key == "sys_user_language"
+        )
+        expected_label = get_profile_labels()["sys_user_language"]["items_mapping"][
             expected_language
         ]
         assert language_profile.value == expected_label
@@ -93,16 +97,17 @@ def test_profile_language_round_trip_preserves_legacy_locale(
 
 
 @pytest.mark.parametrize("with_aggregate", [False, True])
-def test_sex_label_resolves_stored_string_without_requiring_aggregate(
+def test_retired_sex_label_is_not_returned_or_rewritten(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     *,
     with_aggregate: bool,
 ) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
+    for module in ("funcs", "course_values"):
+        monkeypatch.setattr(
+            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            lambda *_args, **_kwargs: [],
+        )
 
     with app.app_context():
         user_bid = f"sex-label-string-{with_aggregate}"
@@ -126,14 +131,18 @@ def test_sex_label_resolves_stored_string_without_requiring_aggregate(
         db.session.commit()
 
         labels = get_user_profile_labels(app, user_bid, "course-one").profiles
-        female_label = get_profile_labels()["sex"]["items_mapping"][2]
 
-    assert next(item.value for item in labels if item.key == "sex") == female_label
-
-
-def test_add_profile_item_quick_creates_definition(app: object) -> None:
+    assert "sex" not in {item.key for item in labels}
     with app.app_context():
-        definition = add_profile_item_quick(
+        assert (
+            VariableValue.query.filter_by(user_bid=user_bid, key="sex").one().value
+            == "2"
+        )
+
+
+def test_internal_creation_keeps_definition_listing_available(app: object) -> None:
+    with app.app_context(), unit_of_work():
+        definition = add_profile_item_quick_internal(
             app,
             parent_id="course-1",
             key="favorite_color",

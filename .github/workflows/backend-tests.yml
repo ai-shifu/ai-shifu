@@ -107,6 +107,12 @@ jobs:
           python -m pip install -r requirements-ci.txt
           python -m ruff --version
 
+      - name: Check ruff policy boundaries
+        if: steps.backend-changes.outputs.run == 'true'
+        # Lint runs only for pull requests; this keeps the policy gate on main
+        # pushes and manual runs too.
+        run: python scripts/check_ruff_policies.py
+
       - name: Install system test dependencies
         if: steps.backend-changes.outputs.run == 'true'
         run: |

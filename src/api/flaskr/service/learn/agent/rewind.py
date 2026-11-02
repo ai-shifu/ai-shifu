@@ -63,6 +63,83 @@ class RewindPlan:
     retired_block_bids: list[str] = field(default_factory=list)
 
 
+def plan_turn_rewind(
+    turns: list[dict[str, Any]],
+    *,
+    block_bid: str,
+    answering: bool,
+    question_id: str | None = None,
+) -> RewindPlan | None:
+    """Select and validate the same rewind for every course session store.
+
+    Content replays its own input. An answer edit restores the turn that
+    accepted that question, retaining the question's original teaching.
+    """
+    anchor = next(
+        (i for i, turn in enumerate(turns) if turn.get("block_bid") == block_bid),
+        None,
+    )
+    if anchor is None:
+        raise RewindUnavailableError
+    target = anchor
+    if answering:
+        target = None
+        for i in range(anchor + 1, len(turns)):
+            # Published learning keeps its existing next-turn boundary. Draft
+            # presentation metadata names the turn that actually accepted input.
+            if question_id is None:
+                target = i
+                break
+            if "answered_question_id" in turns[i]:
+                if turns[i]["answered_question_id"] == question_id:
+                    target = i
+                    break
+                continue
+            record = turns[i].get("record")
+            checkpoint = record.get("checkpoint") if isinstance(record, dict) else None
+            pending = (
+                checkpoint.get("pending") if isinstance(checkpoint, dict) else None
+            )
+            if (
+                isinstance(pending, list)
+                and pending
+                and isinstance(pending[0], dict)
+                and pending[0].get("tool_call_id") == question_id
+            ):
+                target = i
+                break
+        if target is None:
+            return None
+    record = turns[target].get("record")
+    if not isinstance(record, dict) or record.get("version") != _VERSION:
+        raise RewindUnavailableError
+    checkpoint = record.get("checkpoint")
+    values = record.get("values")
+    if (
+        not isinstance(checkpoint, dict)
+        or not {"messages", "memory", "pending", "answers", "turn", "finished"}
+        <= checkpoint.keys()
+        or not isinstance(checkpoint["messages"], int)
+        or checkpoint["messages"] < 0
+        or not isinstance(checkpoint["pending"], list)
+        or any(not isinstance(q, dict) for q in checkpoint["pending"])
+        or not isinstance(values, list)
+        or any(not isinstance(value, str) for value in values)
+        or (answering and not checkpoint["pending"])
+        or (
+            answering
+            and question_id is not None
+            and checkpoint["pending"][0].get("tool_call_id") != question_id
+        )
+    ):
+        raise RewindUnavailableError
+    return RewindPlan(
+        checkpoint=checkpoint,
+        replay_values=None if answering else list(values),
+        retired_block_bids=[turn["block_bid"] for turn in turns[target:]],
+    )
+
+
 def checkpoint_of(session: Session) -> dict[str, Any]:
     """Return the state of `session` a later rewind needs, as JSON-ready data."""
     state = session.to_dict()
@@ -237,28 +314,14 @@ def plan_rewind(
     block = _anchor_block(user_bid=user_bid, outline_bid=outline_bid, anchor=anchor)
     if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
         raise RewindUnavailableError
-    if answering:
-        later = _turn_blocks_from(block, include_it=False)
-        if not later:
-            return None
-        target = later[0]
-    else:
-        target = block
-    record = read_turn_record(target)
-    if record is None:
-        raise RewindUnavailableError
-    if answering and not record["checkpoint"].get("pending"):
-        # The turn after the question did not begin with a question waiting, so it was not the
-        # one that received this answer.
-        raise RewindUnavailableError
-    return RewindPlan(
-        checkpoint=record["checkpoint"],
-        replay_values=None if answering else list(record.get("values") or []),
-        retired_block_bids=[
-            b.generated_block_bid
-            for b in _turn_blocks_from(target, include_it=True)
-            if b.generated_block_bid
+    blocks = _turn_blocks_from(block, include_it=True)
+    return plan_turn_rewind(
+        [
+            {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
+            for b in blocks
         ],
+        block_bid=block.generated_block_bid,
+        answering=answering,
     )
 
 

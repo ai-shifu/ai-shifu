@@ -16,9 +16,9 @@ import {
 import { Switch } from '@/components/ui/Switch';
 import { Textarea } from '@/components/ui/Textarea';
 import { FormLabel } from '@/components/ui/Form';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import type { ModelOption } from '@/types/shifu';
-import type { FollowUpVoice } from '@/lib/liveVoiceFollowUp';
+import type { FollowUpVoice } from '@/lib/live-voice-follow-up';
 
 import { getLiveVoiceStyleI18nKey } from './live-voice-style';
 

@@ -29,7 +29,7 @@ jest.mock('@/lib/stripe-storage', () => ({
   consumeStripeCheckoutSession: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

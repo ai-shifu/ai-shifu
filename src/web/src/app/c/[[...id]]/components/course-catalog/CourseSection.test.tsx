@@ -1,0 +1,270 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { LEARNING_PERMISSION } from '@/api/learning';
+import { LESSON_STATUS_VALUE } from '@/constants/course-constants';
+import { CourseSection } from './CourseSection';
+
+const mockUserState = { isLoggedIn: true };
+const mockSystemState = { previewMode: false };
+const mockOpenPayModal = jest.fn();
+const mockI18n = { language: 'zh-CN' };
+
+jest.mock('@/api/learning', () => ({
+  LEARNING_PERMISSION: {
+    NORMAL: 'normal',
+    TRIAL: 'trial',
+    GUEST: 'guest',
+  },
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key, i18n: mockI18n }),
+}));
+
+jest.mock('@/store', () => ({
+  useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
+    selector(mockUserState),
+}));
+
+jest.mock('@/store/use-system-store', () => ({
+  useSystemStore: (selector: (state: typeof mockSystemState) => unknown) =>
+    selector(mockSystemState),
+}));
+
+jest.mock('@/store/use-course-store', () => ({
+  useCourseStore: (
+    selector: (state: { openPayModal: typeof mockOpenPayModal }) => unknown,
+  ) => selector({ openPayModal: mockOpenPayModal }),
+}));
+
+jest.mock('./ResetChapterButton', () => ({
+  __esModule: true,
+  default: ({ lessonId }: { lessonId: string }) => (
+    <button aria-label={`Reset ${lessonId}`} />
+  ),
+}));
+
+describe('CourseSection navigation acceptance', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUserState.isLoggedIn = true;
+    mockSystemState.previewMode = false;
+    mockI18n.language = 'zh-CN';
+  });
+
+  it('inherits Spanish for a Spanish lesson title', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-spanish'
+        name='Introducción al curso'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('Introducción al curso')).not.toHaveAttribute(
+      'lang',
+    );
+  });
+
+  it('uses English pronunciation for an English guide title in a Spanish interface', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-guide-en'
+        name='How to use this course'
+        chapterId='chapter-1'
+        titleLanguage='en-US'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('How to use this course')).toHaveAttribute(
+      'lang',
+      'en-US',
+    );
+  });
+
+  it('uses Chinese pronunciation for a Chinese guide title in a Spanish interface', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-guide-zh'
+        name='学习说明'
+        chapterId='chapter-1'
+        titleLanguage='zh-CN'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('学习说明')).toHaveAttribute('lang', 'zh-CN');
+  });
+
+  it('marks a Latin-only lesson title as English in a Chinese interface', () => {
+    render(
+      <CourseSection
+        id='lesson-english'
+        name='English lesson title'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('English lesson title')).toHaveAttribute(
+      'lang',
+      'en',
+    );
+  });
+
+  it.each(['ar-SA', 'th-TH'])(
+    'marks a Latin-only lesson title as English in a %s interface',
+    language => {
+      mockI18n.language = language;
+
+      render(
+        <CourseSection
+          id='lesson-english'
+          name='English lesson title'
+          chapterId='chapter-1'
+          type={LEARNING_PERMISSION.GUEST}
+        />,
+      );
+
+      expect(screen.getByText('English lesson title')).toHaveAttribute(
+        'lang',
+        'en',
+      );
+    },
+  );
+
+  it('reports navigation only after the lesson passes access guards', () => {
+    const onTrySelect = jest.fn();
+    const onSelect = jest.fn();
+
+    render(
+      <CourseSection
+        id='lesson-1'
+        name='Private lesson title'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.TRIAL}
+        is_paid
+        status_value={LESSON_STATUS_VALUE.LEARNING}
+        onTrySelect={onTrySelect}
+        onSelect={onSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Private lesson title'));
+
+    expect(onTrySelect).toHaveBeenCalledWith({ id: 'lesson-1' });
+    expect(onSelect).toHaveBeenCalledWith({ id: 'lesson-1' });
+  });
+
+  it('does not report navigation for locked or paywalled lessons', () => {
+    const onTrySelect = jest.fn();
+    const onSelect = jest.fn();
+    const { rerender } = render(
+      <CourseSection
+        id='lesson-locked'
+        name='Locked lesson title'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.NORMAL}
+        is_paid
+        status_value={LESSON_STATUS_VALUE.LOCKED}
+        onTrySelect={onTrySelect}
+        onSelect={onSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Locked lesson title'));
+    expect(onTrySelect).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    rerender(
+      <CourseSection
+        id='lesson-paywalled'
+        name='Paywalled lesson title'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.NORMAL}
+        is_paid={false}
+        status_value={LESSON_STATUS_VALUE.LEARNING}
+        onTrySelect={onTrySelect}
+        onSelect={onSelect}
+      />,
+    );
+    fireEvent.click(screen.getByText('Paywalled lesson title'));
+
+    expect(mockOpenPayModal).toHaveBeenCalledWith({
+      type: LEARNING_PERMISSION.NORMAL,
+      payload: {
+        chapterId: 'chapter-1',
+        lessonId: 'lesson-paywalled',
+      },
+    });
+    expect(onTrySelect).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it.each([LESSON_STATUS_VALUE.PREPARE_LEARNING, LESSON_STATUS_VALUE.LOCKED])(
+    'does not offer reset for a %s lesson',
+    status => {
+      render(
+        <CourseSection
+          id='lesson-1'
+          name='Lesson title'
+          chapterId='chapter-1'
+          type={LEARNING_PERMISSION.GUEST}
+          status_value={status}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('button', { name: 'Reset lesson-1' }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it('offers reset as soon as a lesson starts and keeps it after completion', () => {
+    const lessonProps = {
+      id: 'lesson-1',
+      name: 'Lesson title',
+      chapterId: 'chapter-1',
+      type: LEARNING_PERMISSION.GUEST,
+    };
+    const { rerender } = render(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.PREPARE_LEARNING}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Reset lesson-1' }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.LEARNING}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Reset lesson-1' }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.COMPLETED}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Reset lesson-1' }),
+    ).toBeInTheDocument();
+  });
+});

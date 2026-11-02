@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
+import { formatAdminCredits } from '@/app/admin/lib/number-format';
 import { Badge } from '@/components/ui/Badge';
 import {
   Card,

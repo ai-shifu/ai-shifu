@@ -1,7 +1,6 @@
 """Verify native language labels reach generated prompts."""
 
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
-from markdown_flow import MarkdownFlow, ProcessMode
 
 
 def test_french_locale_uses_native_language_name() -> None:
@@ -19,35 +18,38 @@ def test_arabic_and_thai_locales_use_native_language_names() -> None:
     assert resolve_markdownflow_output_language("th-TH") == "ไทย"
 
 
-def test_french_native_name_reaches_content_and_interaction_prompts() -> None:
-    class CapturingProvider:
-        def __init__(self) -> None:
-            self.calls = []
-
-        def complete(self, messages: object, **_kwargs: object) -> object:
-            self.calls.append(messages)
-            if "JSON Interaction Translation Task" in messages[0]["content"]:
-                return '{"buttons":["Continuer"]}'
-            return "Réponse"
-
-        def stream(self, _messages: object, **_kwargs: object) -> object:
-            return iter(())
-
-    provider = CapturingProvider()
-    output_language = resolve_markdownflow_output_language("fr-FR")
-    markdown_flow = MarkdownFlow(
-        "生成正文\n\n?[继续]",
-        llm_provider=provider,
-    ).set_output_language(output_language)
-
-    markdown_flow.process(block_index=0, mode=ProcessMode.COMPLETE)
-    markdown_flow.process(block_index=1, mode=ProcessMode.COMPLETE)
-
-    content_messages, interaction_messages = provider.calls
-    assert "OUTPUT: 100% Français" in content_messages[-1]["content"]
-    assert "100% Français OUTPUT REQUIRED" in interaction_messages[0]["content"]
-
-
 def test_urdu_variants_use_native_output_language_name() -> None:
     for locale in ("ur", "ur-PK", "ur_IN", "UR_pk", "اردو"):
         assert resolve_markdownflow_output_language(locale) == "اردو"
+
+
+def test_canonicalize_language_tag_normalizes_subtag_case() -> None:
+    from flaskr.common.i18n_utils import canonicalize_language_tag
+
+    assert canonicalize_language_tag("zh_hans_cn") == "zh-Hans-CN"
+    assert canonicalize_language_tag("EN-us") == "en-US"
+    assert canonicalize_language_tag("es-419") == "es-419"
+    assert canonicalize_language_tag("--") == ""
+    # Callers own whitespace handling.
+    assert canonicalize_language_tag(" zh-cn") == " zh-CN"
+
+
+def test_match_supported_language_prefers_exact_then_primary_subtag() -> None:
+    from flaskr.common.i18n_utils import match_supported_language
+
+    supported = ["en-US", "zh-CN", "zh-TW"]
+    assert match_supported_language("zh-TW", supported) == "zh-TW"
+    assert match_supported_language("zh-HK", supported) == "zh-CN"
+    assert match_supported_language("EN-gb", supported) == "en-US"
+    assert match_supported_language("fr-FR", supported) is None
+
+
+def test_first_accept_language_returns_first_tag_without_quality() -> None:
+    from flaskr.common.i18n_utils import first_accept_language
+
+    assert first_accept_language("zh-CN,zh;q=0.9,en;q=0.8") == "zh-CN"
+    assert first_accept_language(" en-us;q=0.9 , zh") == "en-us"
+    assert first_accept_language("") is None
+    assert first_accept_language(None) is None
+    assert first_accept_language(",en") is None
+    assert first_accept_language(";q=1") is None

@@ -50,7 +50,7 @@ This is the **source of truth** for what learners can study in production mode.
 ### Follow-up Q/A logs (追问)
 
 - `learn_generated_blocks` (`LearnGeneratedBlock`)
-  - Follow-up handler: `flaskr.service.learn.handle_input_ask.handle_input_ask`
+  - Follow-up handler: `flaskr.service.learn.ask.handler.handle_input_ask`
   - For follow-ups:
     - Student question: `type = BLOCK_TYPE_MDASK_VALUE`, `role = ROLE_STUDENT`
     - Teacher answer: `type = BLOCK_TYPE_MDANSWER_VALUE`, `role = ROLE_TEACHER`
@@ -62,7 +62,7 @@ This is the **source of truth** for what learners can study in production mode.
 - User variable values: `var_variable_values` (`flaskr.service.profile.models.VariableValue`)
   - Global/system scope values: `shifu_bid == ""` (core profile labels)
   - Course scope values: `shifu_bid == <course_id>` (custom variables collected during learning)
-  - Read helper used in learning runtime: `flaskr.service.profile.funcs.get_user_profiles`
+  - Read helper used in learning runtime: `flaskr.service.profile.api.get_user_profiles` (implemented in `profile/course_values.py`)
 
 ## Implemented course progress metrics
 
@@ -77,9 +77,10 @@ these distinct populations and histories:
   orders. It does not union every paid order.
 - `_load_dashboard_course_learned_lesson_count_map` counts distinct eligible
   leaf lessons across all non-deleted, non-reset progress rows for each scoped
-  learner. `_load_dashboard_course_last_learning_map` takes `max(updated_at)`
-  across that learner's non-deleted, non-reset course rows. Neither selects a
-  latest row per lesson.
+  learner. The learner list's last-learning subquery in
+  `_build_dashboard_course_learners` takes `max(updated_at)` across that
+  learner's non-deleted, non-reset course rows. Neither selects a latest row
+  per lesson.
 - `_load_dashboard_course_completed_learner_bids` examines all non-deleted
   status records for each learner/leaf lesson, ordered by `created_at`, then
   `id`. A lesson counts as completed if any record is completed, or if a reset
@@ -118,7 +119,7 @@ The implemented dashboard service lives in:
 - `src/api/flaskr/service/dashboard/`
   - `dtos.py` (Pydantic DTOs with `__json__`)
   - `funcs.py` (query/aggregation helpers)
-  - `routes.py` (HTTP routes, `@inject`)
+  - `routes.py` (HTTP routes, registered from `flaskr/route/__init__.py`)
 
 ### Permission model
 
@@ -210,7 +211,7 @@ The dashboard uses these admin routes:
 
 Dashboard endpoints are registered in:
 
-- `src/web/src/api/api.ts`
+- `src/web/src/api/endpoint-definitions.ts`
 
 Then use the generated functions via `import api from '@/api'`.
 

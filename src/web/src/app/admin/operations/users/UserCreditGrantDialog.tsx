@@ -5,14 +5,14 @@ import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
-import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
-import { useToast } from '@/hooks/useToast';
-import { useTracking } from '@/hooks/useTracking';
+import { formatAdminCredits } from '@/app/admin/lib/number-format';
+import { useToast } from '@/hooks/use-toast';
+import { useTracking } from '@/hooks/use-tracking';
 import {
   CREDIT_VALIDITY_UNITS,
   estimateCreditExpiry,
   type CreditValidityUnit,
-} from './creditValidity';
+} from './credit-validity';
 import { ErrorWithCode } from '@/lib/request';
 import {
   formatBillingCompactDateTime,
@@ -52,11 +52,11 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 import {
   formatOperatorUtcDateTime,
   parseOperatorUtcDateTime,
-} from './dateTime';
+} from './date-time';
 import type {
   AdminOperationUserBenefitGrantResponse,
   AdminOperationUserCreditGrantRequest,

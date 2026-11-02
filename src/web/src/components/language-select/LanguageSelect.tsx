@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage, normalizeLanguage } from '@/i18n';
 import { localeCodes, localeEntries } from '@/lib/i18n-locales';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 
 import { type ClassValue } from 'clsx';
 import { cn } from '@/lib/utils';

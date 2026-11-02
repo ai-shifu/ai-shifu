@@ -16,6 +16,7 @@ from flaskr.service.metering.consts import (
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import PublishedShifu
 from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import OperationalError
 
 _BUILTIN_DEMO_SHIFU_BID = "demo-configured-1"
 
@@ -326,6 +327,106 @@ def test_record_llm_usage_marks_builtin_demo_course_non_billable(
     assert record is not None
     assert record.billable == 0
     assert captured == []
+
+
+def test_a_failed_demo_lookup_still_records_billable_usage(
+    metering_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: captured.append(usage_bid),
+    )
+
+    def _lookup_fails(_app: object, _shifu_bid: str) -> bool:
+        message = "course table unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder.is_builtin_demo_shifu", _lookup_fails
+    )
+
+    with metering_app.app_context():
+        usage_bid = record_llm_usage(
+            metering_app,
+            UsageContext(
+                user_bid="user-lookup-failure",
+                shifu_bid="course-1",
+                usage_scene=BILL_USAGE_SCENE_PROD,
+            ),
+            provider="openai",
+            model="gpt-test",
+            is_stream=True,
+            input=8,
+            output=13,
+            total=21,
+        )
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+
+    assert record is not None
+    assert record.billable == 1
+    assert captured == [usage_bid]
+
+
+_CONNECTION_LOST = OperationalError("SELECT 1", {}, ConnectionError())
+
+
+def _record_course_usage(app: Flask) -> str:
+    return record_llm_usage(
+        app,
+        UsageContext(user_bid="learner", shifu_bid="course-1"),
+        provider="openai",
+        model="gpt-test",
+        is_stream=True,
+        input=8,
+        output=13,
+        total=21,
+    )
+
+
+def test_a_database_error_on_the_caller_session_still_propagates(
+    metering_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hiding it would only move the failure to the caller's next commit."""
+
+    def _lookup_fails(_app: object, _shifu_bid: str) -> bool:
+        raise _CONNECTION_LOST
+
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder.is_builtin_demo_shifu", _lookup_fails
+    )
+    with metering_app.app_context(), pytest.raises(OperationalError):
+        _record_course_usage(metering_app)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [_CONNECTION_LOST, RuntimeError("course table unavailable")],
+    ids=["database", "ordinary"],
+)
+def test_a_lookup_error_on_a_fresh_session_records_billable_usage(
+    metering_app: Flask, monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    """A native caller owns no session, so the lookup's failure stays local."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _lookup_fails(_app: object, _shifu_bid: str) -> bool:
+        raise error
+
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder.is_builtin_demo_shifu", _lookup_fails
+    )
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, **_kwargs: None,
+    )
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        usage_bid = executor.submit(_record_course_usage, metering_app).result(
+            timeout=10
+        )
+    row = BillUsageRecord.query.filter_by(usage_bid=usage_bid).one()
+    assert row.billable == 1
 
 
 def test_record_tts_usage_marks_builtin_demo_course_non_billable(

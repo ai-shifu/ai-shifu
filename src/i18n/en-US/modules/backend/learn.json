@@ -11,6 +11,7 @@
     "askProviderTimeout": "The external knowledge service timed out. Please try again later.",
     "askProviderUnavailable": "The external knowledge service is temporarily unavailable.",
     "continueButton": "Continue",
+    "debugServiceUnavailable": "The debugging service is temporarily unavailable. Please try again later.",
     "debugSessionExpired": "This debug session has expired or the script changed. Start debugging again.",
     "defaultLearnerName": "Learner",
     "freeTextPlaceholder": "Your answer",

@@ -22,7 +22,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/api/studyV2', () => ({
+jest.mock('@/api/learning', () => ({
   LEARNING_PERMISSION: {
     GUEST: 'guest',
     TRIAL: 'trial',
@@ -39,7 +39,7 @@ jest.mock('@/store', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

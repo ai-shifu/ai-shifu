@@ -60,8 +60,8 @@ parameter mapping remains a separate focused change; 1.0 rollback stays availabl
 
 ## Context and Orientation
 
-Runtime owner: `src/api/flaskr/service/learn/ask_provider_adapters/volc_knowledge_adapter.py`.
-The shared builder is `learn/follow_up_context.py`; tests already cover actual
+Runtime owner: `src/api/flaskr/service/learn/ask/providers/volc_knowledge_adapter.py`.
+The shared builder is `learn/ask/context.py`; tests already cover actual
 course-note storage, scope, updates and deletion. Signing must use the final body.
 Existing explicit `pre_processing.messages` normalization is a compatibility
 contract, including blank user content being replaced by the current query.

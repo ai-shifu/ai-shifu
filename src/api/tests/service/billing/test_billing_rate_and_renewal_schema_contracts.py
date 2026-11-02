@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from flaskr.service.billing.models import (
     BillingRenewalEvent,
     CreditLedgerEntry,
@@ -12,8 +10,6 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from sqlalchemy import Numeric
-
-_API_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_credit_schema_models_define_wallet_ledger_rate_and_renewal_tables() -> None:
@@ -46,17 +42,3 @@ def test_credit_schema_models_define_wallet_ledger_rate_and_renewal_tables() -> 
     assert "renewal_event_bid" in renewal_table.c
     assert "event_type" in renewal_table.c
     assert "scheduled_at" in renewal_table.c
-
-
-def test_billing_rate_and_renewal_migration_creates_missing_schema_tables() -> None:
-    source = (
-        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
-    ).read_text(encoding="utf-8")
-
-    assert 'revision = "b114d7f5e2c1"' in source
-    assert 'op.create_table(\n        "credit_usage_rates",' in source
-    assert 'op.create_table(\n        "bill_renewal_events",' in source
-    assert "sa.Numeric(precision=20, scale=10)" in source
-    assert "ix_credit_usage_rates_lookup" in source
-    assert "ix_bill_renewal_events_status_scheduled" in source
-    assert "ix_bill_renewal_events_subscription_event_scheduled" in source

@@ -7,7 +7,7 @@ import api from '@/api';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
+import useOperatorGuard from '@/app/admin/operations/use-operator-guard';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import type { AdminReferralOverview } from '@/types/referral';

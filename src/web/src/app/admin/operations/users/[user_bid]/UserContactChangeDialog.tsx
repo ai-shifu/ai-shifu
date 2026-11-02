@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { useToast } from '@/hooks/useToast';
-import { useTracking } from '@/hooks/useTracking';
+import { useToast } from '@/hooks/use-toast';
+import { useTracking } from '@/hooks/use-tracking';
 import { ErrorWithCode } from '@/lib/request';
 import type {
   AdminOperationUserContactChangeRequest,

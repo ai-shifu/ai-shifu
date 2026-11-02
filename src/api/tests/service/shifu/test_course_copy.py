@@ -17,7 +17,9 @@ from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
 from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
 from flaskr.service.profile.models import Variable
-from flaskr.service.shifu.admin import copy_operator_course
+from flaskr.service.shifu.admin_operations.courses_transfer_copy import (
+    copy_operator_course,
+)
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_history,
@@ -40,7 +42,7 @@ def _unique_email(label: str) -> str:
 @pytest.fixture(autouse=True)
 def _stub_copy_course_risk_control(monkeypatch: object) -> None:
     monkeypatch.setattr(
-        "flaskr.service.shifu.admin.check_text_with_risk_control",
+        "flaskr.service.shifu.admin_operations.courses_transfer_copy.check_text_with_risk_control",
         lambda *_args, **_kwargs: None,
     )
 
@@ -367,7 +369,7 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.shifu.admin.run_creator_granted_post_auth",
+            "flaskr.service.shifu.admin_operations.courses_transfer_copy.run_creator_granted_post_auth",
             lambda *_args, **kwargs: post_auth_calls.append(kwargs),
         )
 
@@ -630,7 +632,7 @@ def test_copy_course_route_for_operator(
     monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
     _clear_config_caches()
     monkeypatch.setattr(
-        "flaskr.service.shifu.admin.check_text_with_risk_control",
+        "flaskr.service.shifu.admin_operations.courses_transfer_copy.check_text_with_risk_control",
         lambda _app, resource_bid, user_id, content: risk_checks.append(
             (resource_bid, user_id, content)
         ),
@@ -744,7 +746,7 @@ def test_copy_course_risk_rejection_does_not_create_target_user(
         raise_error("server.check.checkRiskControlReject")
 
     monkeypatch.setattr(
-        "flaskr.service.shifu.admin.check_text_with_risk_control",
+        "flaskr.service.shifu.admin_operations.courses_transfer_copy.check_text_with_risk_control",
         _reject_risk,
     )
 

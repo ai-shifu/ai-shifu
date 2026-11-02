@@ -219,8 +219,9 @@ def build_runtime_branding():
         flask_app: object,
         creator_bid: str,
         request_host: str,
+        course_creator_bid: str = "",
     ) -> object:
-        del flask_app, creator_bid, request_host
+        del flask_app, creator_bid, request_host, course_creator_bid
         return runtime_billing_context
 
     def build_default_runtime_context(creator_bid: str, request_host: str) -> object:

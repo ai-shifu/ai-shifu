@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { initializeEnvData } from '@/lib/initializeEnvData';
+import { initializeEnvData } from '@/lib/initialize-runtime-config';
 import { useEnvStore } from '@/store';
 
 const RuntimeConfigInitializer = () => {

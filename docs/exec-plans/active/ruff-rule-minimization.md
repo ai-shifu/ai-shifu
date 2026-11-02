@@ -167,11 +167,12 @@ earliest unmerged branch first, then replay successors in order.
 
 ## Interfaces and Dependencies
 
-- Ruff is pinned at 0.16.5 in `lefthook.yml`,
+- Ruff is pinned at 0.17.3 in `lefthook.yml`,
   `.github/workflows/lint.yml`, `docs/engineering-baseline.md`, and
   `scripts/check_dev_tools.py`, with the contributor install command mirrored
-  in `INSTALL_MANUAL.md`. The doctor verifies the binary on `PATH`, so a Ruff
-  upgrade must update all five locations together. Upgrade work is
+  in `INSTALL_MANUAL.md`; backend test tooling also pins the version in
+  `src/api/requirements-ci.txt`. The doctor verifies the binary on `PATH`, so a
+  Ruff upgrade must update all six locations together. Upgrade work is
   separate because changing the rule inventory while shrinking policy would
   make the census non-reproducible.
 - `ruff.toml` is a shared contract for local hooks and CI. A rule is not adopted

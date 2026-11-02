@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.shifu.admin_dtos import (
+from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserDetailDTO,
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,

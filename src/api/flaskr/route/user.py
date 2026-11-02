@@ -10,6 +10,11 @@ from flask import Flask, Response, current_app, g, make_response, request
 
 from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.http import sensitive_body
+from flaskr.common.i18n_utils import (
+    canonicalize_language_tag,
+    first_accept_language,
+    match_supported_language,
+)
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao.uow import unit_of_work
@@ -26,9 +31,9 @@ from flaskr.service.common.session_attribution import (
     session_skill_attribution_reference,
 )
 from flaskr.service.feedback.funs import submit_feedback
-from flaskr.service.profile.api import merge_learner_profile_for_sign_in
-from flaskr.service.profile.funcs import (
+from flaskr.service.profile.api import (
     get_user_profile_labels,
+    merge_learner_profile_for_sign_in,
     update_user_profile_with_lable,
 )
 from flaskr.service.referral.service import extract_referral_post_auth_fields
@@ -144,20 +149,7 @@ _EMAIL_LOGIN_CONFIG = _VerificationLoginConfig(
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:
-    normalized = str(language_code or "").strip().replace("_", "-")
-    parts = [segment for segment in normalized.split("-") if segment]
-    if not parts:
-        return ""
-
-    normalized_parts = [parts[0].lower()]
-    for segment in parts[1:]:
-        if len(segment) == 2 and segment.isalpha():
-            normalized_parts.append(segment.upper())
-        elif len(segment) == 4 and segment.isalpha():
-            normalized_parts.append(segment.title())
-        else:
-            normalized_parts.append(segment)
-    return "-".join(normalized_parts)
+    return canonicalize_language_tag(str(language_code or "").strip())
 
 
 def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
@@ -168,17 +160,10 @@ def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
     supported_languages = (
         tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
     )
-    normalized_language_lower = normalized_language.lower()
-    for supported_language in supported_languages:
-        if supported_language.lower() == normalized_language_lower:
-            return supported_language
-
-    primary_language = normalized_language_lower.split("-", 1)[0]
-    for supported_language in supported_languages:
-        if supported_language.lower().split("-", 1)[0] == primary_language:
-            return supported_language
-
-    return normalized_language
+    return (
+        match_supported_language(normalized_language, supported_languages)
+        or normalized_language
+    )
 
 
 def _resolve_profile_onboarding_runtime_language(
@@ -214,14 +199,7 @@ def _extract_request_language(payload: dict | None = None) -> str | None:
             raw_language = str(language).strip()
 
     if not raw_language:
-        accept_language = request.headers.get("Accept-Language", "")
-        if not accept_language:
-            return None
-
-        first_part = accept_language.split(",")[0].strip()
-        if not first_part:
-            return None
-        raw_language = first_part.split(";")[0].strip()
+        raw_language = first_accept_language(request.headers.get("Accept-Language"))
 
     return _resolve_supported_runtime_language(raw_language)
 
@@ -355,7 +333,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/info", methods=["GET"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def info() -> str:
+    def info() -> Response:
         """Get user information.
 
         ---
@@ -380,7 +358,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(request.user)
 
     @app.route(path_prefix + "/ensure_admin_creator", methods=["POST"])
-    def ensure_admin_creator() -> str:
+    def ensure_admin_creator() -> Response:
         """Ensure admin creator permissions for the current user.
 
         ---
@@ -412,7 +390,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response({"granted": True})
 
     @app.route(path_prefix + "/onboarding/status", methods=["GET"])
-    def onboarding_status() -> str:
+    def onboarding_status() -> Response:
         return make_common_response(
             build_onboarding_status(
                 app,
@@ -422,7 +400,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/onboarding/complete", methods=["POST"])
-    def complete_onboarding() -> str:
+    def complete_onboarding() -> Response:
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             payload = {}
@@ -439,7 +417,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def update_info() -> str:
+    def update_info() -> Response:
         """Update user information.
 
         ---
@@ -557,7 +535,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/captcha", methods=["GET"])
     @bypass_token_validation
     @sensitive_body()
-    def captcha_api() -> str:
+    def captcha_api() -> Response:
         """Create image captcha.
 
         ---
@@ -570,7 +548,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/captcha/verify", methods=["POST"])
     @bypass_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def captcha_verify_api() -> str:
+    def captcha_verify_api() -> Response:
         """Verify image captcha and return one-time ticket.
 
         ---
@@ -596,7 +574,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @recovery_optional_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def send_sms_code_api() -> str:
+    def send_sms_code_api() -> Response:
         """Send SMS Captcha.
 
         ---
@@ -667,7 +645,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @recovery_optional_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def console_send_sms_code_api() -> str:
+    def console_send_sms_code_api() -> Response:
         """Send SMS verification code for console clients without image captcha.
 
         ---
@@ -696,7 +674,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @recovery_optional_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def send_email_code_api() -> str:
+    def send_email_code_api() -> Response:
         """Send email verification code.
 
         ---
@@ -807,7 +785,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/device/authorize", methods=["POST"])
     @bypass_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def device_authorize_api() -> str:
+    def device_authorize_api() -> Response:
         """Start a device authorization request for a command-line client.
 
         ---
@@ -831,7 +809,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/device/token", methods=["POST"])
     @bypass_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def device_token_api() -> str:
+    def device_token_api() -> Response:
         """Poll a pending device authorization until it is resolved.
 
         Returns the current status instead of an error while the request is
@@ -850,7 +828,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/device/pending", methods=["GET"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def device_pending_api() -> str:
+    def device_pending_api() -> Response:
         """Describe the pending authorization behind a pairing code.
 
         ---
@@ -867,7 +845,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/device/approve", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def device_approve_api() -> str:
+    def device_approve_api() -> Response:
         """Approve a pending device authorization for the signed-in user.
 
         ---
@@ -888,7 +866,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/device/deny", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def device_deny_api() -> str:
+    def device_deny_api() -> Response:
         """Reject a pending device authorization.
 
         ---
@@ -918,7 +896,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/sessions", methods=["GET"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def list_sessions_api() -> str:
+    def list_sessions_api() -> Response:
         """List the sign-in sessions belonging to the current user.
 
         ---
@@ -934,7 +912,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/sessions/revoke", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def revoke_session_api() -> str:
+    def revoke_session_api() -> Response:
         """End one of the current user's sign-in sessions.
 
         ---
@@ -954,7 +932,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/sessions/revoke-others", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def revoke_other_sessions_api() -> str:
+    def revoke_other_sessions_api() -> Response:
         """End every session except the one making this request.
 
         ---
@@ -973,7 +951,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def get_profile() -> str:
+    def get_profile() -> Response:
         """Get user profile.
 
         ---
@@ -1011,7 +989,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/update_profile", methods=["POST"])
     @sensitive_body()
-    def update_profile() -> str:
+    def update_profile() -> Response:
         """Update user profile.
 
         ---
@@ -1073,7 +1051,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/upload_avatar", methods=["POST"])
     @sensitive_body()
-    def upload_avatar() -> str:
+    def upload_avatar() -> Response:
         """Upload avatar.
 
         ---
@@ -1112,7 +1090,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_openid", methods=["POST"])
     @with_shifu_context()
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def update_wechat_openid() -> str:
+    def update_wechat_openid() -> Response:
         """Update Wechat OpenID.
 
         ---
@@ -1158,7 +1136,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @sensitive_body()
     @bypass_token_validation
     @recovery_optional_token_validation
-    def sumbit_feedback_api() -> str:
+    def sumbit_feedback_api() -> Response:
         """Submit feedback.
 
         ---
@@ -1209,7 +1187,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @optional_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def google_oauth_start() -> str:
+    def google_oauth_start() -> Response:
         provider = get_provider("google")
         metadata = {}
         redirect_uri = request.args.get("redirect_uri")
@@ -1241,7 +1219,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/oauth/google/callback-origin", methods=["GET"])
     @bypass_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def google_oauth_callback_origin() -> str:
+    def google_oauth_callback_origin() -> Response:
         """Resolve which domain a pending Google login should return to.
 
         Every domain shares one Google callback, so the page that receives it
@@ -1259,7 +1237,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @optional_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def google_oauth_callback() -> str:
+    def google_oauth_callback() -> Response:
         provider = get_provider("google")
         current_user = getattr(request, "user", None)
         current_user_id = None
@@ -1295,7 +1273,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_password", methods=["POST"])
     @bypass_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def login_password() -> str:
+    def login_password() -> Response:
         """Login with password.
 
         ---
@@ -1327,6 +1305,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     ),
                     credential_identifier=str(
                         auth_result.metadata.get("password_credential_identifier") or ""
+                    ),
+                    credential_version=str(
+                        auth_result.metadata.get("credential_version") or ""
                     ),
                 )
                 persist_token(
@@ -1374,7 +1355,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/set_password", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def set_password() -> str:
+    def set_password() -> Response:
         """Set password for logged-in user (first time only).
 
         ---
@@ -1401,7 +1382,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/change_password", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def change_password() -> str:
+    def change_password() -> Response:
         """Change password for logged-in user (requires old password).
 
         ---
@@ -1428,7 +1409,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/reset_password", methods=["POST"])
     @bypass_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def reset_password() -> str:
+    def reset_password() -> Response:
         """Reset password via verification code.
 
         ---
@@ -1455,7 +1436,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     # health check
     @app.route("/health", methods=["GET"])
     @bypass_token_validation
-    def health() -> str:
+    def health() -> Response:
         app.logger.info("health")
         return make_common_response("ok")
 

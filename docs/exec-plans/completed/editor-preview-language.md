@@ -1,5 +1,9 @@
 # Keep editor previews in the selected language
 
+> Superseded in part on 2026-10-30: only `sys_user_language` selects preview
+> language. The former `language` alias is an independent course variable; see
+> [variable scopes](../../references/course-variable-scopes.md).
+
 ## Purpose / Big Picture
 
 Teachers must be able to preview a multilingual draft, change language, continue,
@@ -79,7 +83,7 @@ production incident or every provider failure has been reconstructed.
 
 ## Context and Orientation
 
-`usePreviewChat.tsx` owns editor streaming, variable edits and restart. The preview
+`use-debug-session.tsx` owns editor streaming, variable edits and restart. The preview
 route selects the legacy context or agent debug session. Agent output-language
 policy is configured per request. The classroom uses the separate study transport.
 

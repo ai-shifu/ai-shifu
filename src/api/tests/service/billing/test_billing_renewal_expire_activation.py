@@ -23,7 +23,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
@@ -35,6 +34,7 @@ from flaskr.service.billing.renewal import (
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
 
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.renewal_execution_test_helpers import (
     create_credit_bucket,
     create_credit_wallet,
@@ -72,13 +72,12 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
             created_at=current_cycle_start,
             updated_at=current_cycle_start,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-pingxx-expire-paid-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=9900,
             paid_amount=9900,
             payment_provider="pingxx",
@@ -246,13 +245,12 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
             created_at=current_cycle_start,
             updated_at=current_cycle_start,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-pingxx-expire-reserved-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=9900,
             paid_amount=9900,
             payment_provider="pingxx",
@@ -410,13 +408,12 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
             created_at=current_cycle_start,
             updated_at=current_cycle_start,
         )
-        activated_order = BillingOrder(
+        activated_order = make_billing_order(
             bill_order_bid="bill-shared-bucket-consumed-activated",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=9900,
             paid_amount=9900,
             payment_provider="pingxx",
@@ -430,13 +427,12 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        reserved_order = BillingOrder(
+        reserved_order = make_billing_order(
             bill_order_bid="bill-shared-bucket-consumed-reserved",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=9900,
             paid_amount=9900,
             payment_provider="pingxx",
@@ -602,13 +598,12 @@ def test_expire_event_fails_when_reserved_renewal_activation_is_incomplete(
             created_at=current_cycle_start,
             updated_at=current_cycle_start,
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-pingxx-expire-reserved-fail-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=9900,
             paid_amount=9900,
             payment_provider="pingxx",

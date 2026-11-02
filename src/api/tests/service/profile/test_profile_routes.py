@@ -36,17 +36,69 @@ class TestProfileRoutes:
             raising=False,
         )
 
-    def test_get_profile_item_definitions_passes_type_filter(
-        self, monkeypatch: object, test_client: object
+    def test_unimplemented_profile_item_route_is_not_registered(
+        self, app: object, monkeypatch: object, test_client: object
+    ) -> None:
+        self._mock_request_user(monkeypatch)
+        path = "/api/profiles/get-profile-item"
+
+        assert path not in {rule.rule for rule in app.url_map.iter_rules()}
+        response = test_client.post(path, json={"profile_id": "profile_1"})
+        payload = response.get_json(silent=True) or {}
+        assert payload.get("code") == 404
+
+    @pytest.mark.parametrize(
+        ("suffix", "request_payload"),
+        [
+            (
+                "add-profile-item-quick",
+                {"parent_id": "shifu_1", "profile_key": "goal"},
+            ),
+            (
+                "save-profile-item",
+                {
+                    "parent_id": "shifu_1",
+                    "profile_id": "profile_1",
+                    "profile_key": "goal",
+                    "profile_type": "text",
+                },
+            ),
+            ("delete-profile-item", {"profile_id": "profile_1"}),
+        ],
+    )
+    def test_manual_definition_write_routes_are_not_registered(
+        self,
+        app: object,
+        monkeypatch: object,
+        test_client: object,
+        suffix: str,
+        request_payload: dict[str, str],
+    ) -> None:
+        self._mock_request_user(monkeypatch)
+        path = f"/api/profiles/{suffix}"
+
+        assert path not in {rule.rule for rule in app.url_map.iter_rules()}
+        response = test_client.post(path, json=request_payload)
+
+        assert response.is_json
+        assert response.get_json()["code"] == 404
+
+    @pytest.mark.parametrize("query", ["", "&type=all", "&type=text", "&type=option"])
+    def test_get_profile_item_definitions_has_no_type_filter(
+        self, monkeypatch: object, test_client: object, query: str
     ) -> None:
         called = {}
+        definition = {
+            "profile_key": "What would you like to learn?",
+            "profile_scope": "user",
+            "profile_type": "text",
+            "profile_type_str": "Text",
+            "profile_id": "pid",
+        }
 
-        def fake_get_definitions(
-            _app_ctx: object, parent_id: object, definition_type: object
-        ) -> object:
+        def fake_get_definitions(_app_ctx: object, parent_id: object) -> object:
             called["parent_id"] = parent_id
-            called["definition_type"] = definition_type
-            return []
+            return [definition]
 
         monkeypatch.setattr(
             "flaskr.service.profile.routes.get_profile_item_definition_list",
@@ -55,13 +107,14 @@ class TestProfileRoutes:
         self._mock_request_user(monkeypatch)
 
         resp = test_client.get(
-            "/api/profiles/get-profile-item-definitions?parent_id=shifu_1&type=text"
+            "/api/profiles/get-profile-item-definitions?parent_id=shifu_1" + query
         )
         payload = resp.get_json(force=True)
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert called == {"parent_id": "shifu_1", "definition_type": "text"}
+        assert called == {"parent_id": "shifu_1"}
+        assert payload["data"] == [definition]
 
     def test_hide_unused_profile_items_requires_parent(
         self, monkeypatch: object, test_client: object
@@ -159,71 +212,3 @@ class TestProfileRoutes:
         assert called["parent_id"] == "shifu_1"
         assert called["profile_keys"] == ["k1"]
         assert called["hidden"] is True
-
-    def test_save_profile_item_only_supports_text_type(
-        self, monkeypatch: object, test_client: object
-    ) -> None:
-        self._mock_request_user(monkeypatch)
-
-        resp = test_client.post(
-            "/api/profiles/save-profile-item",
-            json={
-                "parent_id": "shifu_1",
-                "profile_key": "nickname",
-                "profile_type": "option",
-            },
-        )
-        payload = resp.get_json(force=True)
-
-        assert resp.status_code == 200
-        assert payload["code"] != 0
-
-    def test_save_profile_item_passes_only_active_fields(
-        self, monkeypatch: object, test_client: object
-    ) -> None:
-        called = {}
-
-        def fake_save(
-            _app_ctx: object,
-            profile_id: object,
-            parent_id: object,
-            user_id: object,
-            key: object,
-        ) -> object:
-            called["profile_id"] = profile_id
-            called["parent_id"] = parent_id
-            called["user_id"] = user_id
-            called["key"] = key
-            return {
-                "profile_key": key,
-                "profile_scope": "user",
-                "profile_type": "text",
-                "profile_id": profile_id or "pid",
-            }
-
-        monkeypatch.setattr(
-            "flaskr.service.profile.routes.save_profile_item", fake_save
-        )
-        self._mock_request_user(monkeypatch)
-
-        resp = test_client.post(
-            "/api/profiles/save-profile-item",
-            json={
-                "profile_id": "profile_1",
-                "parent_id": "shifu_1",
-                "profile_key": "nickname",
-                "profile_type": "text",
-                "profile_remark": "ignored",
-                "profile_items": [{"name": "A", "value": "a"}],
-            },
-        )
-        payload = resp.get_json(force=True)
-
-        assert resp.status_code == 200
-        assert payload["code"] == 0
-        assert called == {
-            "profile_id": "profile_1",
-            "parent_id": "shifu_1",
-            "user_id": "test-user",
-            "key": "nickname",
-        }

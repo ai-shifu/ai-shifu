@@ -11,7 +11,7 @@ import React, {
 import { Volume2, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
-import useExclusiveAudio from '@/hooks/useExclusiveAudio';
+import useExclusiveAudio from '@/hooks/use-exclusive-audio';
 import type { AudioSegment } from '@/lib/audio-utils';
 import {
   createAudioContext,
@@ -24,7 +24,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 
 export interface AudioPlayerProps {
   /** OSS URL when audio is complete */

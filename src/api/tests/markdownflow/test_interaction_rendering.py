@@ -1,8 +1,8 @@
 """Opaque memory keys survive shared rendering without application dependencies."""
 
 import pytest
-from markdown_flow import InteractionParser
 from markdownflow import (
+    InteractionParser,
     InteractionSpec,
     Option,
     QuestionLabels,

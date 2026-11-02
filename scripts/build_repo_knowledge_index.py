@@ -39,7 +39,6 @@ REQUIRED_RUNTIME_ASSETS = (
     ROOT / "docker" / "docker-compose.dev.yml",
     ROOT / "docker" / "observability" / "loki-config.yml",
     ROOT / "docker" / "observability" / "tempo-config.yml",
-    ROOT / "docker" / "observability" / "prometheus.yml",
     ROOT / "docker" / "observability" / "promtail-config.yml",
     ROOT / "docker" / "observability" / "otel-collector-config.yml",
 )

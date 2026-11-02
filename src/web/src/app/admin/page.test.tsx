@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
-import { copyText } from '@/lib/textutils';
+import { copyText } from '@/lib/text-utils';
 
 import AdminPage from './page';
 
@@ -70,34 +70,34 @@ jest.mock('@/store', () => ({
     }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: mockToast,
   }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),
 }));
 
-jest.mock('@/hooks/useOnboarding', () => ({
+jest.mock('@/hooks/use-onboarding', () => ({
   useCreatorOnboardingStatus: () => ({
     data: null,
   }),
 }));
 
-jest.mock('@/lib/urlUtils', () => ({
+jest.mock('@/lib/url-utils', () => ({
   getCourseCreatorUrl: () => mockCourseCreatorUrl,
 }));
 
-jest.mock('@/lib/textutils', () => ({
+jest.mock('@/lib/text-utils', () => ({
   copyText: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@/lib/onboardingTargets', () => ({
-  ...jest.requireActual('@/lib/onboardingTargets'),
+jest.mock('@/lib/onboarding-targets', () => ({
+  ...jest.requireActual('@/lib/onboarding-targets'),
   buildGuideCourseTargetId: () => undefined,
 }));
 

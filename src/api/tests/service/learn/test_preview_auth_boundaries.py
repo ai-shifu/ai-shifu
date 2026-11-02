@@ -45,7 +45,7 @@ def test_bypassed_preview_route_installs_only_a_validated_user(
     app = Flask(__name__)
     user = SimpleNamespace(user_id="learner")
     validate = Mock(return_value=user)
-    monkeypatch.setattr("flaskr.route.user.validate_user", validate)
+    monkeypatch.setattr("flaskr.service.user.api.validate_user", validate)
     with app.test_request_context(headers={"Authorization": "Bearer token"}):
         assert permissions.resolve_preview_request_user(app) is user
         assert request.user is user

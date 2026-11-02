@@ -293,6 +293,7 @@ def _seed_white_label(
     host: str,
     custom_domain_enabled: bool = True,
     binding_status: int | None = None,
+    ssl_status: int | None = None,
 ) -> None:
     from datetime import timedelta
 
@@ -336,7 +337,11 @@ def _seed_white_label(
                 status=status,
                 verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
                 verification_token="token-test",
-                ssl_status=BILLING_DOMAIN_SSL_STATUS_ACTIVE,
+                ssl_status=(
+                    ssl_status
+                    if ssl_status is not None
+                    else BILLING_DOMAIN_SSL_STATUS_ACTIVE
+                ),
             )
         )
         dao.db.session.commit()
@@ -386,7 +391,7 @@ def test_resolve_effective_custom_origin_none_when_binding_pending(app: object) 
     assert resolve_effective_custom_origin(app, creator_bid) is None
 
 
-def test_publish_base_url_prefers_custom_domain(
+def test_publish_base_url_does_not_choose_the_course_owners_domain(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
@@ -400,9 +405,44 @@ def test_publish_base_url_prefers_custom_domain(
     set_shifu_context("course-x", creator_bid)
     try:
         with app.app_context():
-            assert _resolve_publish_base_url(app) == "https://pub.acme.test"
+            assert _resolve_publish_base_url(app) == "https://example.com"
     finally:
         clear_shifu_context()
+
+
+@pytest.mark.parametrize("domain_state", ["verified", "pending", "disabled", "no_tls"])
+def test_publish_base_url_uses_only_an_effective_request_domain(
+    app: object, monkeypatch: pytest.MonkeyPatch, domain_state: str
+) -> None:
+    from flaskr.service.billing.consts import (
+        BILLING_DOMAIN_BINDING_STATUS_PENDING,
+        BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
+    )
+    from flaskr.service.shifu.route import _resolve_publish_base_url
+
+    _seed_white_label(
+        app,
+        creator_bid=f"wl-request-{domain_state}",
+        host=f"request-{domain_state.replace('_', '-')}.acme.test",
+        custom_domain_enabled=domain_state != "disabled",
+        binding_status=(
+            BILLING_DOMAIN_BINDING_STATUS_PENDING if domain_state == "pending" else None
+        ),
+        ssl_status=(
+            BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED
+            if domain_state == "no_tls"
+            else None
+        ),
+    )
+    monkeypatch.setenv("HOST_URL", "https://example.com/")
+    _reset_config_cache("HOST_URL")
+    request_origin = f"https://request-{domain_state.replace('_', '-')}.acme.test"
+
+    with app.test_request_context("/", base_url=request_origin):
+        expected_origin = (
+            request_origin if domain_state == "verified" else "https://example.com"
+        )
+        assert _resolve_publish_base_url(app) == expected_origin
 
 
 def test_publish_base_url_falls_back_without_custom_domain(

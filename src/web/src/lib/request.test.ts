@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/react';
-import { toast, toastOnce } from '@/hooks/useToast';
+import { toast, toastOnce } from '@/hooks/use-toast';
 import i18n from 'i18next';
 import {
   Request,
@@ -19,7 +19,7 @@ import {
   TRACE_REQUEST_ID_HEADER,
 } from './request-trace';
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
 }));

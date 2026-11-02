@@ -13,6 +13,7 @@ from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
     raise_param_error,
 )
+from flaskr.service.learn.api import load_course_learned_lesson_count_map
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
 )
@@ -29,7 +30,6 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _build_course_order_amount_expr,
     _coerce_operator_datetime,
     _format_decimal,
-    _load_course_user_contact_map,
     _load_operator_course_outline_items,
     _load_operator_user_last_login_map,
     _resolve_course_user_learning_status,
@@ -39,6 +39,7 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
 from flaskr.service.shifu.models import (
     AiCourseAuth,
 )
+from flaskr.service.user.api import load_user_contact_map
 from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
@@ -251,48 +252,6 @@ def _load_course_user_joined_at_map(
     return joined_at_map
 
 
-def _load_course_user_learned_lesson_count_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-    leaf_outline_bids: Sequence[str],
-) -> dict[str, int]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    normalized_leaf_outline_bids = [
-        str(outline_item_bid or "").strip()
-        for outline_item_bid in leaf_outline_bids
-        if str(outline_item_bid or "").strip()
-    ]
-    if not normalized_user_bids or not normalized_leaf_outline_bids:
-        return {}
-
-    rows = (
-        db.session.query(
-            LearnProgressRecord.user_bid,
-            db.func.count(db.func.distinct(LearnProgressRecord.outline_item_bid)).label(
-                "learned_lesson_count"
-            ),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.user_bid.in_(normalized_user_bids),
-            LearnProgressRecord.outline_item_bid.in_(normalized_leaf_outline_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .all()
-    )
-    return {
-        str(user_bid or "").strip(): int(learned_lesson_count or 0)
-        for user_bid, learned_lesson_count in rows
-        if str(user_bid or "").strip()
-    }
-
-
 def get_operator_course_users(
     app: Flask,
     *,
@@ -341,7 +300,7 @@ def get_operator_course_users(
         user_bids = [
             str(user.user_bid or "").strip() for user in users if user.user_bid
         ]
-        contact_map = _load_course_user_contact_map(user_bids)
+        contact_map = load_user_contact_map(user_bids)
         last_login_map = _load_operator_user_last_login_map(user_bids)
         paid_amount_map = _load_course_user_paid_amount_map(
             normalized_shifu_bid, user_bids
@@ -357,7 +316,7 @@ def get_operator_course_users(
         )
         visible_leaf_outline_bids = _resolve_visible_leaf_outline_bids(outline_items)
         total_lesson_count = len(visible_leaf_outline_bids)
-        learned_lesson_count_map = _load_course_user_learned_lesson_count_map(
+        learned_lesson_count_map = load_course_learned_lesson_count_map(
             normalized_shifu_bid,
             user_bids,
             visible_leaf_outline_bids,

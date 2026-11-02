@@ -63,6 +63,8 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -843,15 +845,13 @@ def test_expire_pending_orders_task_delegates_to_sync_flow(
 
     with billing_task_integration_app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="bill-order-expire-task-1",
                 creator_bid="creator-expire-task-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-expire-task-1",
-                currency="CNY",
                 payable_amount=990,
-                paid_amount=0,
                 payment_provider="pingxx",
                 channel="alipay_qr",
                 provider_reference_id="charge-expire-task-1",
@@ -914,15 +914,13 @@ def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
 
     with billing_task_integration_app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="bill-order-expire-task-legacy-1",
                 creator_bid="creator-expire-task-legacy-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-expire-task-legacy-1",
-                currency="CNY",
                 payable_amount=990,
-                paid_amount=0,
                 payment_provider="pingxx",
                 channel="alipay_qr",
                 provider_reference_id="charge-expire-task-legacy-1",
@@ -975,17 +973,14 @@ def test_sync_pingxx_order_without_reference_does_not_raise(
     from flaskr.service.billing.checkout import _sync_pingxx_order
 
     with billing_task_integration_app.app_context():
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="bill-order-refless-pingxx-unit",
             creator_bid="creator-refless-unit",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid="bill-product-plan-monthly",
             subscription_bid="sub-refless-unit",
-            currency="CNY",
             payable_amount=990,
-            paid_amount=0,
             payment_provider="pingxx",
-            provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json={},
         )
@@ -1005,18 +1000,15 @@ def test_sync_billing_order_expires_reference_less_pingxx_order(
     now = datetime(2026, 6, 9, 12, 0, 0)
     with billing_task_integration_app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="bill-order-refless-pingxx-expire",
                 creator_bid="creator-refless-expire",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-refless-expire",
-                currency="CNY",
                 payable_amount=990,
-                paid_amount=0,
                 payment_provider="pingxx",
                 channel="alipay_qr",
-                provider_reference_id="",
                 status=BILLING_ORDER_STATUS_PENDING,
                 expires_at=now - timedelta(minutes=1),
                 metadata_json={},
@@ -1055,15 +1047,13 @@ def test_sync_billing_order_expires_legacy_stripe_session_without_metadata(
     now = now_utc()
     with billing_task_integration_app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid=order_bid,
                 creator_bid="creator-legacy-stripe-expired",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-legacy-stripe-expired",
-                currency="CNY",
                 payable_amount=990,
-                paid_amount=0,
                 payment_provider="stripe",
                 provider_reference_id=session_id,
                 status=BILLING_ORDER_STATUS_PENDING,
@@ -1153,7 +1143,7 @@ def test_legacy_stripe_timeout_compatibility_remains_fail_closed(
     from flaskr.service.billing.checkout import _validate_stripe_checkout_evidence
     from flaskr.service.common.models import AppError
 
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid="bill-order-guard",
         creator_bid="creator-guard",
         product_bid="product-guard",
@@ -1195,7 +1185,7 @@ def test_legacy_stripe_timeout_rejects_partial_foreign_metadata(
     intent: dict[str, object] = {"metadata": {}}
     target = session if metadata_owner == "session" else intent
     target["metadata"] = {metadata_key: foreign_value}
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid="bill-order-partial-foreign",
         creator_bid="creator-owner",
         product_bid="product-owner",
@@ -1247,17 +1237,14 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
     now = datetime(2026, 6, 9, 12, 0, 0)
     with billing_task_integration_app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="bill-order-lock-1",
                 creator_bid="creator-lock-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-lock-1",
-                currency="CNY",
                 payable_amount=990,
-                paid_amount=0,
                 payment_provider="pingxx",
-                provider_reference_id="",  # reference-less: no provider network
                 status=BILLING_ORDER_STATUS_PENDING,
                 expires_at=now - timedelta(minutes=1),
                 metadata_json={},

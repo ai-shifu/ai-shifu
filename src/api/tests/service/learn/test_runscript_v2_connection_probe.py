@@ -1,8 +1,8 @@
 """Verify runscript v2 connection probe behavior."""
 
 import pytest
-from flaskr.service.learn import runscript_v2
-from flaskr.service.learn.runscript_v2 import _ensure_healthy_db_connection
+from flaskr.service.learn.host import db_session as host_db_session
+from flaskr.service.learn.host.db_session import _ensure_healthy_db_connection
 from sqlalchemy.exc import OperationalError
 
 
@@ -64,7 +64,7 @@ def _patch_session(monkeypatch: object, behaviours: object) -> object:
         pass
 
     _FakeDb.session = session
-    monkeypatch.setattr(runscript_v2, "db", _FakeDb)
+    monkeypatch.setattr(host_db_session, "db", _FakeDb)
     return session
 
 

@@ -1,16 +1,17 @@
 """Verify learner-profile definitions and visibility updates."""
 
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.profile import profile_manage
 from flaskr.service.profile.profile_manage import (
-    add_profile_item_quick,
+    add_profile_item_quick_internal,
     get_profile_item_definition_list,
     hide_unused_profile_items,
 )
 
 
-def test_add_profile_item_quick_creates_definition(app: object) -> None:
-    with app.app_context():
-        definition = add_profile_item_quick(
+def test_internal_creation_keeps_definition_listing_available(app: object) -> None:
+    with app.app_context(), unit_of_work():
+        definition = add_profile_item_quick_internal(
             app,
             parent_id="course-1",
             key="favorite_color",

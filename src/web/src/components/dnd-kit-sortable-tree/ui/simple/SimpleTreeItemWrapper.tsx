@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { ChevronDown, ChevronRight, Plus, Settings } from 'lucide-react';
 import React, { forwardRef } from 'react';
 import type { TreeItemComponentProps } from '../../types';
-import './SimpleTreeItemWrapper.css';
+import './simple-tree-item-wrapper.css';
 
 interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
   onChapterSelect?: () => void;

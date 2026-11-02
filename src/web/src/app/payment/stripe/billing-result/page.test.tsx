@@ -42,7 +42,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => mockReadonlySearchParams,
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

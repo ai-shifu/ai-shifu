@@ -32,8 +32,8 @@ from flaskr.service.profile_research.session import (
     _normalize_session_variables,
     _ProfileResearchSession,
 )
-from markdown_flow import BlockType, MarkdownFlow
-from markdownflow.engine.variable_names import normalize_variable_name
+from markdownflow import BlockType, MarkdownFlowDocument
+from markdownflow.syntax.variable_names import normalize_variable_name
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -116,7 +116,7 @@ def _authored_questions(source: str) -> tuple[str, ...]:
     """Read the allowed control contracts; their order never drives execution."""
     return tuple(
         question.content
-        for question in MarkdownFlow(document=source).get_all_blocks()
+        for question in MarkdownFlowDocument(document=source).get_all_blocks()
         if question.block_type == BlockType.INTERACTION
     )
 

@@ -35,6 +35,8 @@ from flaskr.service.referral.models import (
     ReferralInviteReward,
 )
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 
 def _relation(
     *,
@@ -109,15 +111,12 @@ def _billing_artifacts(
     end_at: datetime,
     ledger_state: str,
 ) -> tuple[BillingOrder, CreditWalletBucket, CreditLedgerEntry]:
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid="inviter-admin-queue",
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid="product-monthly-pro",
         subscription_bid="sub-admin-queue",
-        currency="CNY",
-        payable_amount=0,
-        paid_amount=0,
         payment_provider="manual",
         channel="manual",
         provider_reference_id=f"referral-reward:{reward_bid}",

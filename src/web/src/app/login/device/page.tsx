@@ -15,11 +15,11 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useUserStore } from '@/store';
-import { EVENT_NAMES, useTracking } from '@/hooks/useTracking';
+import { EVENT_NAMES, useTracking } from '@/hooks/use-tracking';
 import {
   normalizeDeviceOsForAnalytics,
   normalizeRegistrationAttributionForAnalytics,
-} from './deviceAuthorizationAnalytics';
+} from './device-authorization-analytics';
 
 type PendingDevice = {
   user_code: string;

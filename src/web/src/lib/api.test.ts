@@ -9,8 +9,6 @@ jest.mock('./request', () => ({
     patch: jest.fn(),
     post: jest.fn(),
     put: jest.fn(),
-    stream: jest.fn(),
-    streamLine: jest.fn(),
   },
 }));
 

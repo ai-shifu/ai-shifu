@@ -11,7 +11,7 @@ from flaskr.service.profile_research.engine_runtime import (
     profile_answer_evidence,
     run_profile_turn,
 )
-from markdownflow.engine.variable_names import format_variable_assignment
+from markdownflow.syntax.variable_names import format_variable_assignment
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,

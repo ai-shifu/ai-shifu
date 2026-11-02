@@ -312,6 +312,13 @@ They are an example, not the start of an event registry.
   presented as exact row-level joins.
 - Consumer: aggregate course-sharing adoption and outcome analysis.
 
+Course destinations follow the effective entry domain: official entries share
+official links, and verified customer entries share links on that exact customer
+host. This presentation/destination change preserves the existing share and
+`creator_publish_link_copy` event names, triggers, eligibility, deduplication,
+and payloads. Consumers continue grouping by course and surface; no domain,
+complete URL, brand asset URL, or merchant configuration is added to telemetry.
+
 Teacher and learner entries now open a shared popover:
 `course_share_click/result` still measure the actual ordinary share action
 inside that popover, not opening the popover.
@@ -413,6 +420,93 @@ solely because historical Umami rows or queries exist.
 - Payload: `shifu_bid` and `outline_bid` are stable pseudonymous machine IDs for course/lesson grouping; `operation` is `answer_edit|regenerate`; `learning_mode` is `read|listen`; only result events add `result=success|failed|cancelled`. No anchor, input, variable names, output, URL or errors are collected.
 - Consumers: Teacher draft-quality weekly Umami reports. New additive family; existing learner run/reset contracts and historical queries remain unchanged.
 - Verification: Hook tests cover exact anchors, initiation/confirmation timing, terminal outcomes, internal continuation chains and lifecycle cancellation. Helper tests cover payload allowlisting, exclusions, deduplication and synchronous/asynchronous tracking failures.
+
+## Editor Debug step regeneration
+
+Accepted retries after a failed or stopped regeneration use the same attempt
+and terminal-result family below. The retry control is available only for the
+current Debug session's retained logical target and is hidden during a running
+request; repeated or blocked callbacks do not create additional attempts.
+Retrying is a distinct accepted request, so it gets one new start and at most
+one result. The payload schema and consumer stay unchanged. The retry target,
+checkpoint, discarded content and errors are never included in analytics.
+
+- Business question: Can teachers rerun a selected Debug step and its following
+  steps successfully while keeping earlier output?
+- Metric: Weekly initiated regeneration attempts and their terminal success,
+  failure and cancellation shares, grouped by course and lesson. Starts and
+  results are aggregate counts, with no per-attempt join; navigation loss and
+  best-effort delivery can leave gaps. This does not measure all Debug usage
+  or an exposure-to-use conversion rate.
+- Events: `teacher_debug_regenerate_start` when a locally validated,
+  anchored regeneration request is initiated;
+  `teacher_debug_regenerate_result` at its first completed generation request,
+  business or transport failure, or cancellation by stop, replacement, reset,
+  navigation or unmount. Success includes both a completed lesson and a
+  successful pause at the next interaction: terminal `DONE`, `TEXT_END`, or a
+  clean stream close after nonterminal `DONE` confirms that request's success.
+  Opening or cancelling a confirmation dialog is not an attempt. Individual
+  text chunks and intermediate element events do not imply success.
+- Population and surface: Authorized teachers using step regeneration in the
+  course editor's Debug panel. Initial runs, full restarts, answers, ordinary
+  continuations, blocked or stale targets, full-course draft classroom preview,
+  published learning and guests are excluded. The shared account-level
+  analytics exclusion policy applies.
+- Count and deduplication: One start and at most one terminal result per
+  admitted regeneration. The producer retains the completion closure across
+  automatic continuation requests, so they neither start a second attempt nor
+  cancel the first one. Re-entry guards reject duplicate clicks; a later
+  deliberate regeneration is a new attempt. No persistent deduplication or
+  correlation token is added.
+- Consumers and compatibility: Teacher authoring-quality weekly Umami reports
+  compare aggregate attempts and outcomes by course and lesson. This is an
+  additive event family. The separate `teacher_preview_rewind_*` classroom
+  family continues to exclude editor Debug; historical queries stay unchanged.
+- Complete delivered application-event payload: `shifu_bid` and `outline_bid`
+  are stable pseudonymous course/lesson machine IDs required for grouping.
+  Result events add only the low-cardinality, non-personal
+  `result=success|failed|cancelled` enum. There is no step anchor, debug session
+  ID, input, variable name/value, prompt, output, title, URL or error. Shared
+  transport establishes pseudonymous identity and normalized routing context
+  separately, without enriching event data.
+- Delivery and verification: Use `useTracking`; synchronous throws, rejected
+  promises, missing configuration and blocked scripts cannot affect the
+  regeneration. Helper tests cover exact names and allowlisted payloads,
+  eligibility, every terminal outcome, per-attempt deduplication and tracking
+  failures. Hook tests cover initiation timing, continuation chains and
+  terminal lifecycle transitions; shared transport tests cover the final
+  delivered payload and global account exclusions. Local tests do not establish
+  deployed Umami coverage.
+
+## Editor Debug answer editing
+
+- Business question and metric: Can teachers revise an earlier Debug answer
+  successfully while preserving preceding teaching? Weekly starts and terminal
+  success, failure and cancellation shares are grouped by course and lesson;
+  aggregate counts are not per-attempt joins.
+- Events: `teacher_debug_answer_edit_start` when a confirmed, locally validated
+  anchored answer-edit request is initiated; `teacher_debug_answer_edit_result`
+  at its first successful pause/completion, business/transport failure or
+  cancellation by stop, replacement, reset, navigation or unmount. Opening or
+  cancelling confirmation, blocked clicks and intermediate chunks emit nothing.
+- Population: Authorized teachers and collaborators admitted to editor Debug
+  answer editing, including accepted retries. Guests, ordinary answers,
+  content regeneration, full restarts, learner and full-course preview are
+  excluded; shared account-level analytics exclusions still apply.
+- Deduplication: One start and at most one result per accepted request. Re-entry
+  with the same answer while awaiting the first output is blocked. A different
+  answer can replace that run after confirmation. Each accepted retry or later
+  deliberate edit is a new attempt. Automatic continuation does not double count.
+- Payload: Only stable pseudonymous `shifu_bid` and `outline_bid`; result adds
+  `result=success|failed|cancelled`. No interaction anchor, Debug session ID,
+  input, variable, prompt, output, title, URL or raw error is collected.
+- Consumers and compatibility: Teacher authoring-quality weekly Umami reports
+  consume this new additive family. Existing `teacher_debug_regenerate_*` and
+  `teacher_preview_rewind_*` names, meanings and payloads remain unchanged.
+- Verification: Helper tests assert exact allowlisted payloads, eligibility,
+  per-attempt deduplication, every terminal result and sync/async delivery
+  failures. Hook tests assert confirmation timing, prefix preservation, retry
+  and late-stream rejection. Tracking is best-effort and cannot affect teaching.
 
 ## About dialog exposure
 

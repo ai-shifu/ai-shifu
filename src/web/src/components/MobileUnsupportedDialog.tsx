@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUiLayoutStore } from '@/store/useUiLayoutStore';
+import { useUiLayoutStore } from '@/store/use-ui-layout-store';
 import {
   AlertDialog,
   AlertDialogAction,

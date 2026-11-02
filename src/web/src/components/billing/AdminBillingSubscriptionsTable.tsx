@@ -21,8 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { useBillingAdminPagedQuery } from '@/hooks/useBillingAdminPagedQuery';
-import { useAdminListQueryState } from '@/hooks/useAdminListQueryState';
+import { useBillingAdminPagedQuery } from '@/hooks/use-billing-admin-paged-query';
+import { useAdminListQueryState } from '@/hooks/use-admin-list-query-state';
 import type {
   AdminBillingSubscriptionItem,
   BillingPagedResponse,

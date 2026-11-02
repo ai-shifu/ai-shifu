@@ -4,7 +4,7 @@
 import clsx from 'clsx';
 import React, { forwardRef } from 'react';
 import type { TreeItemComponentProps, FlattenedItem } from '../../types';
-import './FolderTreeItemWrapper.css';
+import './folder-tree-item-wrapper.css';
 
 function flattenParents<T>(
   parent: FlattenedItem<T> | null,

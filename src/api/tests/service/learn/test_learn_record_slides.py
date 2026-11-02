@@ -5,6 +5,11 @@ import types
 import pytest
 from flask import request
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 
 def _require_app(app: object) -> None:
     if app is None:
@@ -38,15 +43,14 @@ def test_get_learn_record_omits_legacy_fields_and_keeps_audio_positions(
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -56,8 +60,6 @@ def test_get_learn_record_omits_legacy_fields_and_keeps_audio_positions(
             type=BLOCK_TYPE_MDCONTENT_VALUE,
             role=1,
             generated_content="Before.\n\n<svg><text>v</text></svg>\n\nAfter.",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         audio_0 = LearnGeneratedAudio(
@@ -131,15 +133,14 @@ def test_get_learn_record_omits_legacy_fields_for_answer_blocks(app: object) -> 
         LearnProgressRecord.query.delete()
         db.session.commit()
 
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid=progress_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             user_bid=user_bid,
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
@@ -149,8 +150,6 @@ def test_get_learn_record_omits_legacy_fields_for_answer_blocks(app: object) -> 
             type=BLOCK_TYPE_MDANSWER_VALUE,
             role=1,
             generated_content="先看第一段。\n\n<svg><text>a</text></svg>\n\n再看第二段。",
-            position=0,
-            block_content_conf="",
             status=1,
         )
         audio_0 = LearnGeneratedAudio(

@@ -31,7 +31,7 @@ from flaskr.service.config import (
     get_config,
     has_config_override,
 )
-from flaskr.service.learn.follow_up_context import (
+from flaskr.service.learn.ask.context import (
     build_follow_up_conversation_context,
 )
 from flaskr.service.learn.gemini_live_token import (
@@ -130,12 +130,7 @@ class LiveFollowUpModelUnavailableError(RuntimeError):
 
 
 def _make_live_response(data: dict[str, object]) -> Response:
-    serialized = make_common_response(data)
-    return Response(
-        serialized,
-        mimetype="application/json",
-        headers={"X-Content-Type-Options": "nosniff"},
-    )
+    return make_common_response(data)
 
 
 def _validate_token_deadlines(

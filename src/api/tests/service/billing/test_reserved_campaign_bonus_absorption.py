@@ -24,6 +24,8 @@ from flaskr.service.billing.models import (
 )
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 if TYPE_CHECKING:
     from flask import Flask
 
@@ -38,7 +40,7 @@ def _seed_reserved_bonus(
         available_credits=0,
         reserved_credits=reserved,
     )
-    order = BillingOrder(bill_order_bid=uuid4().hex, creator_bid=creator)
+    order = make_billing_order(bill_order_bid=uuid4().hex, creator_bid=creator)
     bucket = CreditWalletBucket(
         wallet_bucket_bid=uuid4().hex,
         creator_bid=creator,

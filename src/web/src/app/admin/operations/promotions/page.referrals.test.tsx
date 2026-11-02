@@ -15,7 +15,7 @@ import {
   mockGetReferralCampaignRelations,
   mockGetReferralCampaigns,
   mockUpdateReferralCampaignStatus,
-} from './promotionsTestUtils.test-support';
+} from './promotions-test-utils.test-support';
 import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage referral campaigns', () => {

@@ -10,8 +10,9 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.service.billing import checkout
-from flaskr.service.billing.models import BillingOrder
 from flaskr.service.common.models import AppError
+
+from tests.common.fixtures.model_factories import make_billing_order
 
 
 @pytest.mark.parametrize(
@@ -153,7 +154,7 @@ def test_reference_reconciliation_finds_owned_order_and_passes_stripe_session_on
     reference = f"ref-{suffix}"
     with app.app_context():
         db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid=order_bid,
                 creator_bid=creator_bid,
                 payment_provider=provider,
@@ -199,7 +200,7 @@ def test_reference_reconciliation_cannot_sync_unmatched_or_deleted_orders(
     )
     with app.app_context():
         db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid=order_bid,
                 creator_bid=creator_bid,
                 payment_provider="stripe",

@@ -2,7 +2,7 @@ import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import {
   type CourseQuickFilterKey,
   formatCount,
-} from './operationCoursePageShared';
+} from './operation-course-page-shared';
 
 export type CourseOverviewCard = {
   key: string;

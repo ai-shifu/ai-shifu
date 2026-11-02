@@ -13,9 +13,11 @@ import ScriptEditor, {
 const refreshLabel = 'refresh';
 const historyLinkText = 'history';
 const mockMarkdownFlowEditor = jest.fn();
-const mockLessonPreview = jest.fn();
+const mockDebugPanel = jest.fn();
 const mockTrackEvent = jest.fn();
-const mockUsePreviewChat = jest.fn();
+const mockUseDebugSession = jest.fn();
+const mockRetryRegeneration = jest.fn();
+let mockCanRetryRegeneration = false;
 const mockRefreshUserInfo = jest.fn();
 let mockUserToken = 'token';
 
@@ -107,10 +109,10 @@ jest.mock('../loading', () => {
   MockLoading.displayName = 'MockLoading';
   return MockLoading;
 });
-jest.mock('@/components/lesson-preview', () => ({
+jest.mock('@/components/lesson-debug', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
-    mockLessonPreview(props);
+    mockDebugPanel(props);
     return null;
   },
 }));
@@ -181,7 +183,7 @@ jest.mock('@/components/ui/Tabs', () => ({
 jest.mock('react-rnd', () => ({
   Rnd: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-jest.mock('@/hooks/useToast', () => ({ toast: jest.fn() }));
+jest.mock('@/hooks/use-toast', () => ({ toast: jest.fn() }));
 jest.mock('@/store', () => ({
   useEnvStore: jest.fn(() => 'https://example.com'),
   __esModule: true,
@@ -200,16 +202,16 @@ jest.mock('@/store', () => ({
       clearReplay: jest.fn(),
     }),
 }));
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
-jest.mock('@/lib/urlUtils', () => ({
+jest.mock('@/lib/url-utils', () => ({
   buildUrlWithLessonId: jest.fn((url: string, lessonId: string) =>
     lessonId ? `${url}?lessonid=${lessonId}` : url,
   ),
   replaceCurrentUrlWithLessonId: jest.fn(),
 }));
-jest.mock('@/hooks/useOnboarding', () => ({
+jest.mock('@/hooks/use-onboarding', () => ({
   useCreatorOnboardingStatus: () => ({
     data: {
       eligible: false,
@@ -243,23 +245,25 @@ jest.mock('@/hooks/useOnboarding', () => ({
     skip: jest.fn(),
   }),
 }));
-jest.mock('@/components/lesson-preview/usePreviewChat', () => ({
-  usePreviewChat: (options: unknown) => {
-    mockUsePreviewChat(options);
+jest.mock('@/components/lesson-debug/use-debug-session', () => ({
+  useDebugSession: (options: unknown) => {
+    mockUseDebugSession(options);
     return {
       items: [],
       isLoading: false,
-      error: null,
-      startPreview: jest.fn(),
-      stopPreview: jest.fn(),
-      resetPreview: jest.fn(),
-      onRefresh: jest.fn(),
-      onSend: jest.fn(),
-      persistVariables: jest.fn(),
-      onVariableChange: jest.fn(),
-      variables: {},
-      requestAudioForBlock: jest.fn(),
-      reGenerateConfirm: jest.fn(),
+      errorMessage: null,
+      startRun: jest.fn(),
+      stopRun: jest.fn(),
+      resetSession: jest.fn(),
+      regenerateContent: jest.fn(),
+      retryRegeneration: mockRetryRegeneration,
+      canRetryRegeneration: mockCanRetryRegeneration,
+      submitInteraction: jest.fn(),
+      persistVariableValues: jest.fn(),
+      setVariableValue: jest.fn(),
+      variableValues: {},
+      requestElementAudio: jest.fn(),
+      regenerationConfirmation: jest.fn(),
     };
   },
 }));
@@ -301,7 +305,7 @@ const baseActions = {
   restoreHiddenVariables: jest.fn(),
   hideVariableByKey: jest.fn(),
   saveMdflow: jest.fn(),
-  previewParse: jest.fn(),
+  prepareDebugSession: jest.fn(),
   unhideVariablesByKeys: jest.fn(),
   refreshProfileDefinitions: jest.fn(),
   syncHiddenVariablesToUsage: jest.fn(),
@@ -386,9 +390,11 @@ describe('ShifuEdit draft conflict checks', () => {
 
   beforeEach(() => {
     mockMarkdownFlowEditor.mockReset();
-    mockLessonPreview.mockReset();
+    mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
-    mockUsePreviewChat.mockReset();
+    mockUseDebugSession.mockReset();
+    mockRetryRegeneration.mockReset();
+    mockCanRetryRegeneration = false;
     mockRefreshUserInfo.mockReset();
     mockUserToken = 'token';
     mockUserStoreState.isInitialized = true;
@@ -461,37 +467,43 @@ describe('ShifuEdit draft conflict checks', () => {
   test('passes the owner credit audience into lesson preview', () => {
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: 'teacher',
     });
   });
 
-  test('keeps preview variable filtering independent of editor props', async () => {
+  test('shows explicit input and style keys through ordinary preview variables', async () => {
     setLessonNode();
     mockShifuState.mdflow = 'Hello {{sys_user_style}} {{sys_user_input}}';
+    mockShifuState.variables = ['sys_user_style', 'sys_user_input'];
+    mockShifuState.hiddenVariables = ['hidden_topic'];
     mockShifuState.systemVariables = [
       { name: 'sys_user_nickname', label: 'Nickname' },
-      { name: 'sys_user_style', label: 'Style' },
-      { name: 'sys_user_input', label: 'User Input' },
+      { name: 'sys_user_language', label: 'Teaching language' },
+      { name: 'sys_user_background', label: 'Background' },
     ];
-    baseActions.previewParse.mockResolvedValue({
-      variables: {
+    baseActions.prepareDebugSession.mockResolvedValue({
+      variableValues: {
         sys_user_nickname: 'Learner',
+        sys_user_language: 'Chinese',
+        sys_user_background: 'Teacher',
         sys_user_style: 'Concise',
-        sys_user_input: 'Internal input',
+        sys_user_input: 'Course input example',
       },
-      blocksCount: 1,
+      blockCount: 1,
       systemVariableKeys: [
         'sys_user_nickname',
-        'sys_user_style',
-        'sys_user_input',
+        'sys_user_language',
+        'sys_user_background',
       ],
       allVariableKeys: [
         'sys_user_nickname',
+        'sys_user_language',
+        'sys_user_background',
         'sys_user_style',
         'sys_user_input',
       ],
-      unusedKeys: [],
+      unusedVariableKeys: [],
     });
 
     render(<ScriptEditor id='shifu-1' />);
@@ -508,18 +520,21 @@ describe('ShifuEdit draft conflict checks', () => {
     );
 
     await waitFor(() => {
-      expect(mockLessonPreview).toHaveBeenCalled();
+      expect(mockDebugPanel).toHaveBeenCalled();
     });
-    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
-      'sys_user_style',
-    );
-    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
-      'sys_user_input',
-    );
-    expect(mockLessonPreview.mock.lastCall?.[0].systemVariableKeys).toEqual([
-      'sys_user_nickname',
+    expect(mockDebugPanel.mock.lastCall?.[0].hiddenVariableKeys).toEqual([
+      'hidden_topic',
     ]);
-    expect(baseActions.previewParse).toHaveBeenCalledWith(
+    expect(mockDebugPanel.mock.lastCall?.[0].variableValues).toMatchObject({
+      sys_user_style: '',
+      sys_user_input: '',
+    });
+    expect(mockDebugPanel.mock.lastCall?.[0].systemVariableKeys).toEqual([
+      'sys_user_nickname',
+      'sys_user_language',
+      'sys_user_background',
+    ]);
+    expect(baseActions.prepareDebugSession).toHaveBeenCalledWith(
       'Hello {{sys_user_style}} {{sys_user_input}}',
       'shifu-1',
       'lesson-1',
@@ -534,7 +549,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: 'teacher-collaborator',
     });
   });
@@ -555,12 +570,12 @@ describe('ShifuEdit draft conflict checks', () => {
       mockShifuState.mdflow = `?[%{{ ${key} }} 男 | 女 | 秘密]`;
       mockShifuState.variables = [key];
       mockShifuState.hiddenVariables = [key];
-      baseActions.previewParse.mockResolvedValue({
-        variables: { [key]: '' },
-        blocksCount: 1,
+      baseActions.prepareDebugSession.mockResolvedValue({
+        variableValues: { [key]: '' },
+        blockCount: 1,
         systemVariableKeys: [],
         allVariableKeys: [key],
-        unusedKeys: [],
+        unusedVariableKeys: [],
       });
 
       render(<ScriptEditor id='shifu-1' />);
@@ -596,12 +611,12 @@ describe('ShifuEdit draft conflict checks', () => {
       mockShifuState.mdflow = source;
       mockShifuState.variables = ['q'];
       mockShifuState.hiddenVariables = ['q'];
-      baseActions.previewParse.mockResolvedValue({
-        variables: { q: '' },
-        blocksCount: 1,
+      baseActions.prepareDebugSession.mockResolvedValue({
+        variableValues: { q: '' },
+        blockCount: 1,
         systemVariableKeys: [],
         allVariableKeys: ['q'],
-        unusedKeys: [],
+        unusedVariableKeys: [],
       });
 
       render(<ScriptEditor id='shifu-1' />);
@@ -629,7 +644,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: null,
     });
     expect(
@@ -658,10 +673,10 @@ describe('ShifuEdit draft conflict checks', () => {
         });
 
       const { rerender } = render(<ScriptEditor id='shifu-1' />);
-      const previewButton = screen
+      const debugButton = screen
         .getByText('module.shifu.previewArea.action')
         .closest('button');
-      expect(previewButton).toBeDisabled();
+      expect(debugButton).toBeDisabled();
       expect(mockRefreshUserInfo).not.toHaveBeenCalled();
 
       await act(async () => {
@@ -671,8 +686,8 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(mockRefreshUserInfo).toHaveBeenLastCalledWith({
         skipErrorToast: true,
       });
-      expect(previewButton).toBeDisabled();
-      expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+      expect(debugButton).toBeDisabled();
+      expect(mockUseDebugSession).toHaveBeenLastCalledWith({
         creditInsufficientAudience: null,
       });
 
@@ -682,10 +697,10 @@ describe('ShifuEdit draft conflict checks', () => {
       rerender(<ScriptEditor id='shifu-1' />);
 
       expect(mockRefreshUserInfo).toHaveBeenCalledTimes(2);
-      expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+      expect(mockUseDebugSession).toHaveBeenLastCalledWith({
         creditInsufficientAudience: audience,
       });
-      expect(previewButton).toBeEnabled();
+      expect(debugButton).toBeEnabled();
 
       await act(async () => {
         await jest.advanceTimersByTimeAsync(30000);
@@ -715,7 +730,7 @@ describe('ShifuEdit draft conflict checks', () => {
       await jest.advanceTimersByTimeAsync(60000);
     });
     expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
-    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
       creditInsufficientAudience: null,
     });
   });
@@ -1122,25 +1137,25 @@ describe('ShifuEdit draft conflict checks', () => {
           expectedPayload,
         );
       });
-      baseActions.previewParse.mockResolvedValue({
-        variables: {},
-        blocksCount: 0,
+      baseActions.prepareDebugSession.mockResolvedValue({
+        variableValues: {},
+        blockCount: 0,
         systemVariableKeys: [],
         allVariableKeys: [],
-        unusedKeys: [],
+        unusedVariableKeys: [],
       });
 
       const { rerender } = render(<ScriptEditor id='shifu-1' />);
       expect(mockTrackEvent).not.toHaveBeenCalled();
       rerender(<ScriptEditor id='shifu-1' />);
       expect(mockTrackEvent).not.toHaveBeenCalled();
-      const previewButton = screen
+      const debugButton = screen
         .getByText('module.shifu.previewArea.action')
         .closest('button')!;
-      fireEvent.click(previewButton);
+      fireEvent.click(debugButton);
 
       await waitFor(() => {
-        expect(baseActions.previewParse).toHaveBeenCalledWith(
+        expect(baseActions.prepareDebugSession).toHaveBeenCalledWith(
           mdflow,
           'shifu-1',
           'lesson-1',
@@ -1181,10 +1196,10 @@ describe('ShifuEdit draft conflict checks', () => {
       rerender(<ScriptEditor id='shifu-1' />);
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
 
-      await waitFor(() => expect(previewButton).not.toBeDisabled());
-      fireEvent.click(previewButton);
+      await waitFor(() => expect(debugButton).not.toBeDisabled());
+      fireEvent.click(debugButton);
       await waitFor(() => {
-        expect(baseActions.previewParse).toHaveBeenCalledTimes(2);
+        expect(baseActions.prepareDebugSession).toHaveBeenCalledTimes(2);
       });
       expect(mockTrackEvent.mock.calls).toEqual([
         ['creator_lesson_preview_click', expectedPayload],
@@ -1206,18 +1221,18 @@ describe('ShifuEdit draft conflict checks', () => {
     if (guard === 'missing_lesson') mockShifuState.currentNode.bid = '';
     const { rerender } = render(<ScriptEditor id='shifu-1' />);
     rerender(<ScriptEditor id='shifu-1' />);
-    const previewAction = screen.queryByText('module.shifu.previewArea.action');
+    const debugAction = screen.queryByText('module.shifu.previewArea.action');
     if (guard === 'chapter') {
-      expect(previewAction).not.toBeInTheDocument();
+      expect(debugAction).not.toBeInTheDocument();
     } else {
-      expect(previewAction).toBeInTheDocument();
-      const previewButton = previewAction!.closest('button')!;
-      if (guard !== 'missing_lesson') expect(previewButton).toBeDisabled();
-      fireEvent.click(previewButton);
+      expect(debugAction).toBeInTheDocument();
+      const debugButton = debugAction!.closest('button')!;
+      if (guard !== 'missing_lesson') expect(debugButton).toBeDisabled();
+      fireEvent.click(debugButton);
     }
     expect(mockTrackEvent).not.toHaveBeenCalled();
     expect(baseActions.saveMdflow).not.toHaveBeenCalled();
-    expect(baseActions.previewParse).not.toHaveBeenCalled();
+    expect(baseActions.prepareDebugSession).not.toHaveBeenCalled();
   });
 
   test('enables regenerate actions for editable lesson preview', async () => {
@@ -1227,15 +1242,37 @@ describe('ShifuEdit draft conflict checks', () => {
     fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
 
     await waitFor(() => {
-      expect(mockLessonPreview).toHaveBeenCalled();
+      expect(mockDebugPanel).toHaveBeenCalled();
     });
 
-    expect(mockLessonPreview.mock.calls.at(-1)?.[0]).toEqual(
+    expect(mockDebugPanel.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({
-        showGenerateBtn: true,
+        showRegenerateAction: true,
       }),
     );
   });
+
+  test.each([true, false])(
+    'forwards regeneration retry only when available: %s',
+    async canRetry => {
+      setLessonNode();
+      mockCanRetryRegeneration = canRetry;
+
+      render(<ScriptEditor id='shifu-1' />);
+      fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+      await waitFor(() => expect(mockDebugPanel).toHaveBeenCalled());
+
+      const panelProps = mockDebugPanel.mock.lastCall?.[0];
+      if (canRetry) {
+        expect(panelProps.onRetryRegeneration).toBe(mockRetryRegeneration);
+        panelProps.onRetryRegeneration();
+        expect(mockRetryRegeneration).toHaveBeenCalledTimes(1);
+      } else {
+        expect(panelProps.onRetryRegeneration).toBeUndefined();
+        expect(mockRetryRegeneration).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   test('does not enable regenerate actions before shifu data is ready', async () => {
     setLessonNode();
@@ -1246,12 +1283,12 @@ describe('ShifuEdit draft conflict checks', () => {
     fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
 
     await waitFor(() => {
-      expect(mockLessonPreview).toHaveBeenCalled();
+      expect(mockDebugPanel).toHaveBeenCalled();
     });
 
-    expect(mockLessonPreview.mock.calls.at(-1)?.[0]).toEqual(
+    expect(mockDebugPanel.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({
-        showGenerateBtn: false,
+        showRegenerateAction: false,
       }),
     );
   });

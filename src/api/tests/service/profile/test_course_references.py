@@ -11,8 +11,8 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.utils_v2 import get_fmt_prompt
+from flaskr.service.profile.course_values import get_user_profiles, save_user_profiles
 from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.funcs import get_user_profiles, save_user_profiles
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -121,7 +121,7 @@ def _published_text(context: SimpleNamespace, content: str, **fields: object) ->
 
 def _follow_up(context: SimpleNamespace, **kwargs: object) -> object:
     """Build real follow-up prompts while isolating unrelated conversation queries."""
-    from flaskr.service.learn.follow_up_context import (
+    from flaskr.service.learn.ask.context import (
         build_follow_up_conversation_context,
     )
 
@@ -185,7 +185,9 @@ def test_registered_system_fields_are_global_but_custom_values_have_no_global_fa
         assert data["sys_user_nickname"] == "Learner"
     data = load_memory(c.app, c.user, c.target, include_course_variables=True).variables
     assert "goal" not in data
-    assert data["sys_user_style"] == "Examples first"
+    assert "sys_user_style" not in data
+    _value(c, "Local style", shifu_bid=c.target, key="sys_user_style")
+    assert get_user_profiles(c.app, c.user, c.target)["sys_user_style"] == "Local style"
     assert "Legacy global custom" not in str(data)
     _value(c, "Local goal", shifu_bid=c.target)
     assert get_user_profiles(c.app, c.user, c.target)["goal"] == "Local goal"

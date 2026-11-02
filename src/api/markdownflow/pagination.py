@@ -24,9 +24,8 @@ Consecutive prose keeps its existing element identity, as it does in the 1.0 str
 
 from __future__ import annotations
 
-from markdown_flow.formatter.stream import StreamFormatter
-
 from .preserve_markers import PreserveMarkerFormatter
+from .syntax.formatter.stream import StreamFormatter
 
 
 class LessonPager:

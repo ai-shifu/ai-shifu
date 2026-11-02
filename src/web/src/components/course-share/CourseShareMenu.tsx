@@ -3,26 +3,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import { Button } from '@/components/ui/Button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/Popover';
-import { showDefaultToast, useToast } from '@/hooks/useToast';
+import { showDefaultToast, useToast } from '@/hooks/use-toast';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 import {
   buildCourseShareContent,
   copyCourseShareText,
   fenceCoursePosterMaterial,
   normalizeCourseShareUrl,
-} from '@/lib/courseShare';
+} from '@/lib/course-share';
 import {
   CourseShareButton,
   type CourseShareButtonProps,

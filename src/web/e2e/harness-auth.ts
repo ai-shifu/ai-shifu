@@ -23,12 +23,16 @@ const ensurePhoneLoginVisible = async (page: Page) => {
   return phoneInput;
 };
 
-export const loginWithPhone = async (page: Page, redirectPath: string) => {
+export const loginWithPhone = async (
+  page: Page,
+  redirectPath: string,
+  phone = DEFAULT_PHONE,
+) => {
   await page.goto(`/login?redirect=${encodeURIComponent(redirectPath)}`);
   await expect(page.getByTestId('login-page')).toBeVisible();
 
   const phoneInput = await ensurePhoneLoginVisible(page);
-  await phoneInput.fill(DEFAULT_PHONE);
+  await phoneInput.fill(phone);
 
   const termsCheckbox = page.locator('#terms');
   if (await termsCheckbox.isVisible()) {

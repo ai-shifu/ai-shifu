@@ -26,13 +26,13 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 import {
   useBillingOverview,
   useBillingWalletBuckets,
-} from '@/hooks/useBillingData';
-import { useTracking } from '@/hooks/useTracking';
-import { toast } from '@/hooks/useToast';
+} from '@/hooks/use-billing-data';
+import { useTracking } from '@/hooks/use-tracking';
+import { toast } from '@/hooks/use-toast';
 import type {
   BillingBucketCategory,
   BillingWalletBucket,

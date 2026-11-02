@@ -96,12 +96,12 @@ jest.mock('@/store', () => ({
   ) => selector(mockEnvState),
 }));
 
-jest.mock('@/lib/textutils', () => ({
+jest.mock('@/lib/text-utils', () => ({
   __esModule: true,
   copyText: (...args: unknown[]) => mockCopyText(...args),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   __esModule: true,
   fail: (...args: unknown[]) => mockToastFail(...args),
   show: (...args: unknown[]) => mockToastShow(...args),

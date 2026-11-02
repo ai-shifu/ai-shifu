@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
@@ -105,52 +105,6 @@ def grant_manual_credits_to_user(
             "validity_unit": validity_unit,
         },
         audit_metadata=None,
-        display_name=display_name,
-        note=note,
-        grant_channel=grant_channel,
-    )
-
-
-def grant_manual_credits_with_expiry(
-    app: Flask,
-    *,
-    user_bid: str,
-    operator_user_bid: str,
-    request_id: str,
-    amount: str,
-    grant_source: str,
-    expires_at: datetime,
-    display_name: str = "",
-    note: str = "",
-    grant_channel: str,
-    audit_metadata: dict[str, object] | None = None,
-) -> ManualCreditGrantResult:
-    """Grant internal compensation with an authoritative absolute UTC expiry.
-
-    Stored naive timestamps are UTC; aware values are normalized to UTC. This
-    internal service entry point is not part of the operator API or CLI.
-    """
-    granted_at = now_utc()
-    if not isinstance(expires_at, datetime):
-        raise_param_error("expires_at")
-    try:
-        if expires_at.tzinfo is not None:
-            expires_at = expires_at.astimezone(UTC).replace(tzinfo=None)
-    except (OverflowError, ValueError):
-        raise_param_error("expires_at")
-    if expires_at <= granted_at:
-        raise_param_error("expires_at")
-    return _grant_manual_credits(
-        app,
-        user_bid=user_bid,
-        operator_user_bid=operator_user_bid,
-        request_id=request_id,
-        amount=amount,
-        grant_source=grant_source,
-        granted_at=granted_at,
-        expires_at=expires_at,
-        validity_metadata={},
-        audit_metadata=audit_metadata,
         display_name=display_name,
         note=note,
         grant_channel=grant_channel,

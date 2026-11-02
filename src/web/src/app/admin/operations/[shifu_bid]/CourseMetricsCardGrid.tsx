@@ -5,7 +5,7 @@ import { AdminMetricCard } from '@/app/admin/components/AdminMetricCard';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 
 type MetricCard = {
   label: string;

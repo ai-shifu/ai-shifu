@@ -8,7 +8,7 @@ import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Button } from '@/components/ui/Button';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 import {
   resolveLoginIdentifierTypes,
   selectSingleLoginIdentifierType,
@@ -17,21 +17,21 @@ import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import type { AdminOperationUserCreditUsageDetailResponse } from '../../operation-user-types';
-import useOperatorGuard from '../../useOperatorGuard';
+import useOperatorGuard from '../../use-operator-guard';
 import UserDetailSummarySection from './UserDetailSummarySection';
 import UserContactChangeDialog from './UserContactChangeDialog';
 import UserDetailTabsSection from './UserDetailTabsSection';
-import useUserCreditLedgerData from './useUserCreditLedgerData';
-import useUserDetailData from './useUserDetailData';
+import useUserCreditLedgerData from './use-user-credit-ledger-data';
+import useUserDetailData from './use-user-detail-data';
 import useUserDetailViewModel, {
   formatLearningProgress,
-} from './useUserDetailViewModel';
+} from './use-user-detail-view-model';
 import {
   DETAIL_TAB_HASHES,
   EMPTY_VALUE,
   resolveDetailTabFromHash,
   type DetailTab,
-} from './userDetailConstants';
+} from './user-detail-constants';
 
 type UserBidParams = {
   user_bid: string;

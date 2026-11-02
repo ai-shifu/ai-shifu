@@ -2,7 +2,7 @@
 
 This module contains route functions for shifu.
 use restful api to manage shifu.
-will be auto registered by flaskr.framework.plugin.inject.inject
+registered by flaskr.route.register_route
 includes:
     - get shifu list
     - create shifu
@@ -61,7 +61,6 @@ from flaskr.api.llm.model_selection import (
 from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.route.common import (
     bypass_token_validation,
@@ -79,7 +78,7 @@ from flaskr.service.common.session_attribution import (
     get_session_skill_attribution_by_reference,
 )
 from flaskr.service.common.skill_request_analytics import has_skill_request_analytics
-from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.ask.provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_span_name,
@@ -279,13 +278,7 @@ def _get_request_base_url() -> str:
 
 
 def _resolve_publish_base_url(app: Flask) -> str:
-    """Resolve the publish/preview base URL for a shifu.
-
-    When the request arrives through a verified custom domain that domain takes
-    precedence regardless of who owns the shifu, so every creator on that
-    domain sees the same base URL for publishing and previews. Falls back to
-    the shifu owner's custom domain, then to the default public origin.
-    """
+    """Use the verified request domain or the configured official web origin."""
     host = None
     if has_request_context():
         host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
@@ -296,44 +289,22 @@ def _resolve_publish_base_url(app: Flask) -> str:
     if host:
         try:
             from flaskr.service.billing.api import (
+                normalize_domain_host,
                 resolve_creator_bid_by_host,
-                resolve_effective_custom_origin,
             )
 
-            domain_creator_bid = resolve_creator_bid_by_host(app, host)
-            if domain_creator_bid:
-                domain_origin = resolve_effective_custom_origin(app, domain_creator_bid)
-                if domain_origin:
-                    return domain_origin
+            normalized_host = normalize_domain_host(host, strict=False)
+            if normalized_host and resolve_creator_bid_by_host(app, normalized_host):
+                return f"https://{normalized_host}"
         except Exception:
             app.logger.exception(
                 "Failed to resolve custom domain from request host; host=%s",
                 host,
             )
 
-    from flaskr.common.shifu_context import (
-        get_shifu_creator_bid as get_context_creator_bid,
-    )
-
-    creator_bid = get_context_creator_bid()
-    if creator_bid:
-        try:
-            from flaskr.service.billing.api import (
-                resolve_effective_custom_origin,
-            )
-
-            custom_origin = resolve_effective_custom_origin(app, creator_bid)
-            if custom_origin:
-                return custom_origin
-        except Exception:
-            app.logger.exception(
-                "Failed to resolve custom domain for publish link; creator_bid=%s",
-                creator_bid,
-            )
     return _get_request_base_url()
 
 
-@inject
 def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     """Register shifu routes."""
     app.logger.info("register shifu routes %s", path_prefix)
@@ -476,7 +447,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/shifus", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def get_shifu_list_api() -> str:
+    def get_shifu_list_api() -> Response:
         """Get shifu list.
 
         ---
@@ -546,21 +517,21 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def archive_shifu_api(shifu_id: str) -> str:
+    def archive_shifu_api(shifu_id: str) -> Response:
         user_id = request.user.user_id
         archive_shifu(app, user_id, shifu_id)
         return make_common_response({"archived": True})
 
     @app.route(path_prefix + "/shifus/<shifu_id>/unarchive", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def unarchive_shifu_api(shifu_id: str) -> str:
+    def unarchive_shifu_api(shifu_id: str) -> Response:
         user_id = request.user.user_id
         unarchive_shifu(app, user_id, shifu_id)
         return make_common_response({"archived": False})
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/permissions", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def list_shifu_permissions_api(shifu_bid: str) -> str:
+    def list_shifu_permissions_api(shifu_bid: str) -> Response:
         """List shared permissions for a shifu."""
         owner_id = _require_shifu_owner(shifu_bid)
         contact_type = _normalize_contact_type(request.args.get("contact_type", ""))
@@ -618,7 +589,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def grant_shifu_permissions_api(shifu_bid: str) -> str:
+    def grant_shifu_permissions_api(shifu_bid: str) -> Response:
         """Grant shared permissions for a shifu."""
         owner_id = _require_shifu_owner(shifu_bid)
         payload = request.get_json() or {}
@@ -657,7 +628,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def remove_shifu_permissions_api(shifu_bid: str) -> str:
+    def remove_shifu_permissions_api(shifu_bid: str) -> Response:
         """Remove a shared permission from a shifu."""
         owner_id = _require_shifu_owner(shifu_bid)
         payload = request.get_json() or {}
@@ -672,7 +643,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/shifus", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def create_shifu_api() -> str:
+    def create_shifu_api() -> Response:
         """Create shifu.
 
         ---
@@ -731,7 +702,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
     @with_shifu_context()
-    def get_shifu_detail_api(shifu_bid: str) -> str:
+    def get_shifu_detail_api(shifu_bid: str) -> Response:
         """Get shifu detail.
 
         ---
@@ -770,7 +741,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
-    def save_shifu_detail_api(shifu_bid: str) -> str:
+    def save_shifu_detail_api(shifu_bid: str) -> Response:
         """Save shifu detail.
 
         ---
@@ -947,7 +918,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/favorite", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
     @with_shifu_context()
-    def mark_favorite_shifu_api(shifu_bid: str) -> str:
+    def mark_favorite_shifu_api(shifu_bid: str) -> Response:
         """Mark favorite shifu.
 
         ---
@@ -996,7 +967,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/publish", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.PUBLISH)
     @with_shifu_context()
-    def publish_shifu_api(shifu_bid: str) -> str:
+    def publish_shifu_api(shifu_bid: str) -> Response:
         """Publish shifu.
 
         ---
@@ -1032,7 +1003,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
     @with_shifu_context()
-    def preview_shifu_api(shifu_bid: str) -> str:
+    def preview_shifu_api(shifu_bid: str) -> Response:
         """Preview shifu.
 
         ---
@@ -1079,7 +1050,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/reorder", methods=["PATCH"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
-    def update_chapter_order_api(shifu_bid: str) -> str:
+    def update_chapter_order_api(shifu_bid: str) -> Response:
         """Update chapter order.
 
         Reorder one complete sibling group, or submit the legacy full tree.
@@ -1143,7 +1114,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
-    def create_outline_api(shifu_bid: str) -> str:
+    def create_outline_api(shifu_bid: str) -> Response:
         """Create unit.
 
         ---
@@ -1226,7 +1197,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/batch", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
-    def create_outlines_batch_api(shifu_bid: str) -> str:
+    def create_outlines_batch_api(shifu_bid: str) -> Response:
         """Create multiple outlines atomically.
 
         ---
@@ -1293,7 +1264,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>", methods=["POST"]
     )
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def modify_outline_api(shifu_bid: str, outline_bid: str) -> str:
+    def modify_outline_api(shifu_bid: str, outline_bid: str) -> Response:
         """Modify outline.
 
         ---
@@ -1370,7 +1341,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     @with_shifu_context()
-    def get_unit_info_api(shifu_bid: str, outline_bid: str) -> str:
+    def get_unit_info_api(shifu_bid: str, outline_bid: str) -> Response:
         """Get unit info.
 
         ---
@@ -1408,7 +1379,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     )
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
-    def delete_unit_api(shifu_bid: str, outline_bid: str) -> str:
+    def delete_unit_api(shifu_bid: str, outline_bid: str) -> Response:
         """Delete unit.
 
         ---
@@ -1447,7 +1418,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     @with_shifu_context()
-    def get_mdflow_api(shifu_bid: str, outline_bid: str) -> str:
+    def get_mdflow_api(shifu_bid: str, outline_bid: str) -> Response:
         """Get mdflow.
 
         ---
@@ -1484,7 +1455,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         methods=["GET"],
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_draft_meta_api(shifu_bid: str) -> str:
+    def get_draft_meta_api(shifu_bid: str) -> Response:
         """Get draft meta.
 
         ---
@@ -1539,7 +1510,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     )
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
-    def save_mdflow_api(shifu_bid: str, outline_bid: str) -> str | Response:
+    def save_mdflow_api(shifu_bid: str, outline_bid: str) -> Response:
         """Save mdflow.
 
         ---
@@ -1617,7 +1588,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     @with_shifu_context()
-    def parse_mdflow_api(shifu_bid: str, outline_bid: str) -> str:
+    def parse_mdflow_api(shifu_bid: str, outline_bid: str) -> Response:
         """Parse mdflow.
 
         ---
@@ -1664,7 +1635,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     @with_shifu_context()
-    def get_mdflow_history_api(shifu_bid: str, outline_bid: str) -> str:
+    def get_mdflow_history_api(shifu_bid: str, outline_bid: str) -> Response:
         """Get mdflow history.
 
         ---
@@ -1741,7 +1712,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @with_shifu_context()
     def get_mdflow_history_version_detail_api(
         shifu_bid: str, outline_bid: str, version_id: str
-    ) -> str:
+    ) -> Response:
         """Get mdflow history version detail.
 
         ---
@@ -1789,7 +1760,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     )
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
-    def restore_mdflow_history_api(shifu_bid: str, outline_bid: str) -> str | Response:
+    def restore_mdflow_history_api(shifu_bid: str, outline_bid: str) -> Response:
         """Restore mdflow history version.
 
         ---
@@ -1889,7 +1860,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
     @with_shifu_context()
-    def get_outline_tree_api(shifu_bid: str) -> str:
+    def get_outline_tree_api(shifu_bid: str) -> Response:
         """Get outline tree.
 
         ---
@@ -1921,7 +1892,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         return make_common_response(get_outline_tree(app, user_id, shifu_bid))
 
     @app.route(path_prefix + "/upfile", methods=["POST"])
-    def upfile_api() -> str:
+    def upfile_api() -> Response:
         """Upfile to oss.
 
         ---
@@ -1960,7 +1931,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         return make_common_response(upload_file(app, user_id, resource_id, file))
 
     @app.route(path_prefix + "/url-upfile", methods=["POST"])
-    def upload_url_api() -> str:
+    def upload_url_api() -> Response:
         """Upload url to oss.
 
         ---
@@ -2001,7 +1972,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         return make_common_response(upload_url(app, user_id, url))
 
     @app.route(path_prefix + "/get-video-info", methods=["POST"])
-    def get_video_info_api() -> str:
+    def get_video_info_api() -> Response:
         """Get video info.
 
         ---
@@ -2062,7 +2033,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                             format: binary
         """
         temp_dir = tempfile.mkdtemp(prefix="shifu_export_")
-        file_path = Path(temp_dir) / f"{shifu_bid}.json"
+        file_path = Path(temp_dir) / "course.json"
         export_shifu(app, shifu_bid, str(file_path))
 
         @after_this_request
@@ -2085,7 +2056,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/ask/config", methods=["GET"])
     @bypass_token_validation
-    def ask_config_api() -> str:
+    def ask_config_api() -> Response:
         """Get ask provider configuration metadata.
 
         ---
@@ -2127,7 +2098,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             set_language(original_language)
 
     @app.route(path_prefix + "/ask/preview", methods=["POST"])
-    def ask_preview_api() -> str:
+    def ask_preview_api() -> Response:
         """Preview ask provider output with current settings.
 
         ---
@@ -2184,14 +2155,14 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     description: Provider error before fallback
         """
         from flaskr.api.llm import chat_llm
-        from flaskr.service.learn.ask_provider_adapters import (
+        from flaskr.service.learn.ask.providers import (
             AskProviderError,
             AskProviderRuntime,
             AskProviderTimeoutError,
             apply_knowledge_to_messages,
             stream_ask_provider_response,
         )
-        from flaskr.service.learn.ask_provider_adapters.consts import (
+        from flaskr.service.learn.ask.providers.consts import (
             ASK_PROVIDERS_WITH_LLM_SYNTHESIS,
         )
         from flaskr.service.metering import UsageContext
@@ -2415,7 +2386,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/tts/minimax/voices", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def list_minimax_tts_voices_api() -> str:
+    def list_minimax_tts_voices_api() -> Response:
         from flaskr.service.tts.api import list_minimax_cloned_voices
 
         user_id = request.user.user_id
@@ -2437,7 +2408,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/tts/minimax/voices/validate-id", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def validate_minimax_tts_voice_id_api() -> str:
+    def validate_minimax_tts_voice_id_api() -> Response:
         from flaskr.service.tts.api import (
             is_valid_minimax_custom_voice_id,
         )
@@ -2453,7 +2424,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/tts/config", methods=["GET"])
     @bypass_token_validation
-    def tts_config_api() -> str:
+    def tts_config_api() -> Response:
         """Get TTS provider configuration.
 
         ---

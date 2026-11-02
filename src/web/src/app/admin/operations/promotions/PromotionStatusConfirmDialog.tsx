@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
-import type { PromotionStatusChangeTarget } from './promotionPageShared';
+import type { PromotionStatusChangeTarget } from './promotion-page-shared';
 
 const PromotionStatusConfirmDialog = ({
   changeTarget,

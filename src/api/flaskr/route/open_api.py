@@ -5,7 +5,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
-from flask import Flask, request
+from flask import Flask, Response, request
 
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -66,7 +66,7 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/order/query", methods=["POST"])
     @bypass_token_validation
     @require_api_key
-    def open_api_order_query() -> str:
+    def open_api_order_query() -> Response:
         shifu_bid, user_identify, user_identify_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_query_order(
@@ -77,7 +77,7 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/order/grant", methods=["POST"])
     @bypass_token_validation
     @require_api_key
-    def open_api_order_grant() -> str:
+    def open_api_order_grant() -> Response:
         shifu_bid, user_identify, user_identify_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_grant_order(
@@ -88,7 +88,7 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/order/revoke", methods=["POST"])
     @bypass_token_validation
     @require_api_key
-    def open_api_order_revoke() -> str:
+    def open_api_order_revoke() -> Response:
         shifu_bid, user_identify, user_identify_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_revoke_order(

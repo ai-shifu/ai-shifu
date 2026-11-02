@@ -6,7 +6,8 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.service.learn import routes, runscript_v2
+from flaskr.service.learn import routes
+from flaskr.service.learn.host import run as host_run
 from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 
 from . import test_runscript_v2_lock as existing
@@ -28,22 +29,22 @@ def request_boundary(
     ) -> list[dict[str, object]]:
         if request.param == "formal":
             cache = existing.FakeCacheProvider(existing.FakeLock([True]))
-            monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+            monkeypatch.setattr(host_run, "cache_provider", cache)
             monkeypatch.setattr(
-                runscript_v2,
+                host_run,
                 "ListenElementRunAdapter",
                 existing.FakeListenElementAdapter,
             )
-            monkeypatch.setattr(runscript_v2, "_teaches_with_agent", lambda **_k: False)
-            monkeypatch.setattr(runscript_v2, "_lesson_events", lambda **_k: factory())
+            monkeypatch.setattr(host_run, "_teaches_with_agent", lambda **_k: False)
+            monkeypatch.setattr(host_run, "_lesson_events", lambda **_k: factory())
             monkeypatch.setattr(
-                runscript_v2, "_remove_db_session_safely", lambda *_a, **_k: None
+                host_run, "_remove_db_session_safely", lambda *_a, **_k: None
             )
             monkeypatch.setattr(
-                runscript_v2, "_discard_session_connection", lambda **_k: None
+                host_run, "_discard_session_connection", lambda **_k: None
             )
             app.config["SSE_HEARTBEAT_INTERVAL"] = 0
-            chunks = list(runscript_v2.run_script(app, "course", "lesson", "learner"))
+            chunks = list(host_run.run_script(app, "course", "lesson", "learner"))
         else:
             with app.test_request_context("/"):
                 response = routes._stream_sse_response(

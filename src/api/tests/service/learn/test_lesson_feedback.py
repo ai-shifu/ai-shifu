@@ -20,6 +20,11 @@ from flaskr.service.learn.models import (
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 
 class LessonFeedbackTests(unittest.TestCase):
     """Verify lesson feedback behavior."""
@@ -52,7 +57,7 @@ class LessonFeedbackTests(unittest.TestCase):
         self.ctx.pop()
 
     def test_submit_feedback_upserts_single_active_row(self) -> None:
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-1",
             shifu_bid="shifu-1",
             outline_item_bid="outline-1",
@@ -60,17 +65,14 @@ class LessonFeedbackTests(unittest.TestCase):
             status=LEARN_STATUS_COMPLETED,
         )
         dao.db.session.add(progress)
-        interaction = LearnGeneratedBlock(
+        interaction = make_generated_block(
             generated_block_bid="block-1",
             progress_record_bid=progress.progress_record_bid,
             user_bid=progress.user_bid,
-            block_bid="",
             outline_item_bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
             type=BLOCK_TYPE_MDINTERACTION_VALUE,
             role=1,
-            generated_content="",
-            position=0,
             block_content_conf=build_lesson_feedback_interaction_md(),
             status=1,
         )
@@ -120,17 +122,14 @@ class LessonFeedbackTests(unittest.TestCase):
     def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(
         self,
     ) -> None:
-        interaction = LearnGeneratedBlock(
+        interaction = make_generated_block(
             generated_block_bid="block-1",
             progress_record_bid="progress-1",
             user_bid="user-1",
-            block_bid="",
             outline_item_bid="outline-1",
             shifu_bid="shifu-1",
             type=BLOCK_TYPE_MDINTERACTION_VALUE,
             role=1,
-            generated_content="",
-            position=0,
             block_content_conf=build_lesson_feedback_interaction_md(),
             status=1,
         )

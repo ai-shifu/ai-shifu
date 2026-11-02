@@ -322,7 +322,7 @@
 
 - 修改 `src/api/flaskr/service/shifu/admin_operations/route.py`，或在该 namespace 下增加独立 referral route module，避免单文件过大。
 - 在 `src/api/flaskr/service/referral/` 下增加 referral read model helpers。
-- 按现有模式，在 `src/api/flaskr/service/referral/dtos.py` 或 `src/api/flaskr/service/shifu/admin_dtos.py` 增加 DTO。
+- 按现有模式，在 `src/api/flaskr/service/referral/dtos.py` 或 `src/api/flaskr/service/shifu/admin_dtos_users.py` 增加 DTO。
 - 增加 `src/api/tests/service/referral/` 测试，以及 `src/api/tests/service/shifu/` 下 route permission 测试。
 
 实现要求：
@@ -345,7 +345,7 @@
 
 文件：
 
-- 修改 `src/web/src/api/api.ts`。
+- 修改 `src/web/src/api/endpoint-definitions.ts`。
 - 在现有前端 API 层创建或修改 referral API wrappers。
 - 如果拆分更清晰，增加 `src/web/src/types/referral.ts`。
 - 更新 `src/i18n/zh-CN`、`src/i18n/en-US`、`src/i18n/fr-FR` 下 JSON。

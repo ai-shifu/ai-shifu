@@ -7,12 +7,8 @@ the existing generic TTS/SSE contract and never receives Tencent credentials.
 from __future__ import annotations
 
 import base64
-import datetime as dt
-import hashlib
-import hmac
 import json
 import logging
-import time
 import unicodedata
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -31,6 +27,7 @@ from flaskr.api.tts.base import (
     TTSResult,
     VoiceSettings,
 )
+from flaskr.api.tts.tencent_tc3 import build_tc3_headers
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts import resolve_tts_billable_chars
@@ -51,7 +48,6 @@ TENCENT_TTS_SERVICE = "trtc"
 TENCENT_TTS_ACTION = "TextToSpeechSSE"
 TENCENT_TTS_VERSION = "2019-07-22"
 TENCENT_TTS_REGION = "ap-guangzhou"
-TENCENT_TTS_ALGORITHM = "TC3-HMAC-SHA256"
 TENCENT_DEFAULT_MODEL = "flow_01_turbo"
 TENCENT_DEFAULT_VOICE_ID = "v-female-R2s4N9qJ"
 
@@ -426,14 +422,6 @@ def encode_tencent_sse_payload(payload: dict[str, object]) -> str:
     )
 
 
-def _sha256_hex(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def _tc3_sign(key: bytes, message: str) -> bytes:
-    return hmac.new(key, message.encode("utf-8"), hashlib.sha256).digest()
-
-
 def build_tencent_tc3_headers(
     *,
     payload_json: str,
@@ -442,60 +430,18 @@ def build_tencent_tc3_headers(
     timestamp: int | None = None,
 ) -> dict[str, str]:
     """Build tencent TC3 headers."""
-    request_timestamp = int(timestamp if timestamp is not None else time.time())
-    request_date = dt.datetime.fromtimestamp(
-        request_timestamp,
-        tz=dt.UTC,
-    ).strftime("%Y-%m-%d")
-    canonical_headers = (
-        "content-type:application/json\n"
-        f"host:{TENCENT_TTS_HOST}\n"
-        f"x-tc-action:{TENCENT_TTS_ACTION.lower()}\n"
+    return build_tc3_headers(
+        host=TENCENT_TTS_HOST,
+        service=TENCENT_TTS_SERVICE,
+        action=TENCENT_TTS_ACTION,
+        version=TENCENT_TTS_VERSION,
+        region=TENCENT_TTS_REGION,
+        payload_json=payload_json,
+        secret_id=secret_id,
+        secret_key=secret_key,
+        timestamp=timestamp,
+        accept="text/event-stream",
     )
-    signed_headers = "content-type;host;x-tc-action"
-    canonical_request = "\n".join(
-        [
-            "POST",
-            "/",
-            "",
-            canonical_headers,
-            signed_headers,
-            _sha256_hex(payload_json),
-        ]
-    )
-    credential_scope = f"{request_date}/{TENCENT_TTS_SERVICE}/tc3_request"
-    string_to_sign = "\n".join(
-        [
-            TENCENT_TTS_ALGORITHM,
-            str(request_timestamp),
-            credential_scope,
-            _sha256_hex(canonical_request),
-        ]
-    )
-    secret_date = _tc3_sign(
-        ("TC3" + str(secret_key or "")).encode("utf-8"), request_date
-    )
-    secret_service = _tc3_sign(secret_date, TENCENT_TTS_SERVICE)
-    secret_signing = _tc3_sign(secret_service, "tc3_request")
-    signature = hmac.new(
-        secret_signing,
-        string_to_sign.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    authorization = (
-        f"{TENCENT_TTS_ALGORITHM} Credential={secret_id}/{credential_scope}, "
-        f"SignedHeaders={signed_headers}, Signature={signature}"
-    )
-    return {
-        "Authorization": authorization,
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream",
-        "Host": TENCENT_TTS_HOST,
-        "X-TC-Action": TENCENT_TTS_ACTION,
-        "X-TC-Version": TENCENT_TTS_VERSION,
-        "X-TC-Region": TENCENT_TTS_REGION,
-        "X-TC-Timestamp": str(request_timestamp),
-    }
 
 
 def _contains_cjk(text: str) -> bool:

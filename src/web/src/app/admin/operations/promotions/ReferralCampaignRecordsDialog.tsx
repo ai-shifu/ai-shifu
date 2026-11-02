@@ -11,13 +11,13 @@ import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
   formatAdminUtcDateTime,
-} from '@/app/admin/lib/dateTime';
+} from '@/app/admin/lib/date-time';
 import ReferralRelationsPanel, {
   formatReferralText,
   REFERRAL_PAGE_SIZE,
   ReferralUserSummary,
 } from '@/app/admin/operations/referrals/ReferralRelationsPanel';
-import { useEnvStore } from '@/store/envStore';
+import { useEnvStore } from '@/store/env-store';
 import type { EnvStoreState } from '@/types/store';
 import {
   Dialog,
@@ -40,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { showErrorToast } from '@/hooks/useToast';
+import { showErrorToast } from '@/hooks/use-toast';
 import type {
   AdminReferralCampaignInvitationItem,
   AdminReferralCampaignInvitationListResponse,
@@ -51,7 +51,7 @@ import {
   TABLE_CELL_CLASS,
   TABLE_HEAD_CLASS,
   TABLE_LAST_CELL_CLASS,
-} from './promotionPageShared';
+} from './promotion-page-shared';
 
 type InvitationFilters = {
   inviter_user_bid: string;

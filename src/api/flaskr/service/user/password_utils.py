@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 import bcrypt
 from flaskr.service.common.models import raise_error
+
+
+def password_credential_version(password_hash: str) -> str:
+    """Bind successful verification to the exact stored bcrypt hash."""
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()
 
 
 def hash_password(plain_text: str) -> str:

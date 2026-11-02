@@ -10,8 +10,9 @@ from unittest.mock import Mock
 
 import pytest
 from flask import has_app_context
-from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.const import INPUT_TYPE_ASK
+from flaskr.service.learn.host import lesson as host_lesson
+from flaskr.service.learn.host import run as host_run
 from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 
 from . import test_runscript_v2_lock as stream_helpers
@@ -28,10 +29,8 @@ def _no_real_commit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stand in for the commit checkpoint the agent path ends with: there is no database here."""
     from flaskr.common.config import Config
 
-    monkeypatch.setattr(runscript_v2, "_commit_pending_step", lambda: None)
-    monkeypatch.setattr(
-        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
-    )
+    monkeypatch.setattr(host_lesson, "_commit_pending_step", lambda: None)
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
     monkeypatch.setattr(Config, "_instance", None)
 
 
@@ -42,7 +41,7 @@ def _routes_to_agent(**kwargs: object) -> bool:
         "reload_generated_block_bid": None,
         "reload_element_bid": None,
     }
-    return runscript_v2._teaches_with_agent(**{**defaults, **kwargs})
+    return host_lesson._teaches_with_agent(**{**defaults, **kwargs})
 
 
 def test_a_lesson_is_taught_with_the_agent_engine() -> None:
@@ -86,15 +85,15 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
     def refuse_agent(*_args: object, **_kwargs: object) -> NoReturn:
         pytest.fail("A follow-up must not enter the teaching agent turn loop")
 
-    monkeypatch.setattr(runscript_v2, "_follow_up_events", follow_up)
+    monkeypatch.setattr(host_lesson, "_follow_up_events", follow_up)
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", refuse_agent)
     commits = []
     monkeypatch.setattr(
-        runscript_v2, "_commit_pending_step", lambda: commits.append(True)
+        host_lesson, "_commit_pending_step", lambda: commits.append(True)
     )
 
     events = list(
-        runscript_v2._lesson_events(
+        host_lesson._lesson_events(
             app=app,
             user_bid="learner-bid",
             shifu_bid=SHIFU,
@@ -148,15 +147,15 @@ def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
     app = stream_helpers._make_test_app()
     lock = stream_helpers.FakeLock([True])
     cache = stream_helpers.FakeCacheProvider(lock)
-    lesson_key = runscript_v2._get_run_script_status_key(app, "learner", "lesson")
+    lesson_key = host_run._get_run_script_status_key(app, "learner", "lesson")
     cache.setex(lesson_key, 60, "active-lesson")
-    monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+    monkeypatch.setattr(host_run, "cache_provider", cache)
     acquire = Mock(return_value=True)
     release = Mock()
-    monkeypatch.setattr(runscript_v2, "_ask_sem_acquire", acquire)
-    monkeypatch.setattr(runscript_v2, "_ask_sem_release", release)
+    monkeypatch.setattr(host_run, "_ask_sem_acquire", acquire)
+    monkeypatch.setattr(host_run, "_ask_sem_release", release)
     remove = Mock()
-    monkeypatch.setattr(runscript_v2, "_remove_db_session_safely", remove)
+    monkeypatch.setattr(host_run, "_remove_db_session_safely", remove)
     agent = Mock(side_effect=AssertionError("Ask entered the teaching agent"))
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", agent)
     adapters = []
@@ -167,7 +166,7 @@ def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
         adapters.append(adapter)
         return adapter
 
-    monkeypatch.setattr(runscript_v2, "ListenElementRunAdapter", make_adapter)
+    monkeypatch.setattr(host_run, "ListenElementRunAdapter", make_adapter)
     seen = []
 
     def follow_up(**kwargs: object) -> Iterator[RunElementSSEMessageDTO]:
@@ -176,10 +175,10 @@ def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
             type="element", event_type="element", content="Sidecar answer"
         )
 
-    monkeypatch.setattr(runscript_v2, "_follow_up_events", follow_up)
+    monkeypatch.setattr(host_lesson, "_follow_up_events", follow_up)
     events = stream_helpers._parse_sse_events(
         list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid=SHIFU,
                 outline_bid="lesson",
@@ -245,7 +244,7 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
         logger = logging.getLogger("test_lesson_routing")
 
     list(
-        runscript_v2._lesson_events(
+        host_lesson._lesson_events(
             app=_App(),
             user_bid="user-bid",
             shifu_bid=SHIFU,
@@ -305,12 +304,12 @@ def test_a_lesson_with_no_script_is_completed_rather_than_failing(
     monkeypatch.setattr(lesson_entry, "complete_empty_lesson", _complete)
     steps: list[str] = []
     monkeypatch.setattr(
-        runscript_v2,
+        host_lesson,
         "_ensure_healthy_db_connection",
         lambda _app: steps.append("probe"),
     )
     monkeypatch.setattr(
-        runscript_v2, "_commit_pending_step", lambda: steps.append("commit")
+        host_lesson, "_commit_pending_step", lambda: steps.append("commit")
     )
 
     def _adapt(events: Iterator[object]) -> Iterator[object]:
@@ -322,7 +321,7 @@ def test_a_lesson_with_no_script_is_completed_rather_than_failing(
         logger = logging.getLogger("test_lesson_routing")
 
     events = list(
-        runscript_v2._lesson_events(
+        host_lesson._lesson_events(
             app=_App(),
             user_bid="user-bid",
             shifu_bid=SHIFU,
@@ -381,7 +380,7 @@ def test_going_back_in_a_lesson_with_no_script_is_refused(
 
     with pytest.raises(AppError):
         list(
-            runscript_v2._lesson_events(
+            host_lesson._lesson_events(
                 app=_App(),
                 user_bid="user-bid",
                 shifu_bid=SHIFU,
@@ -424,7 +423,7 @@ def test_a_busy_worker_tells_the_learner_to_retry(
 
     with pytest.raises(AppError):
         list(
-            runscript_v2._lesson_events(
+            host_lesson._lesson_events(
                 app=_App(),
                 user_bid="user-bid",
                 shifu_bid=SHIFU,
@@ -464,7 +463,7 @@ def test_the_input_the_browser_sends_reaches_the_agent_path(
 
     sent = {"feeling": ["Good"]}
     list(
-        runscript_v2._lesson_events(
+        host_lesson._lesson_events(
             app=_App(),
             user_bid="user-bid",
             shifu_bid=SHIFU,
@@ -499,7 +498,7 @@ def test_the_agent_path_makes_what_the_adapter_staged_durable(
     )
     committed: list[bool] = []
     monkeypatch.setattr(
-        runscript_v2, "_commit_pending_step", lambda: committed.append(True)
+        host_lesson, "_commit_pending_step", lambda: committed.append(True)
     )
 
     class _App:
@@ -508,7 +507,7 @@ def test_the_agent_path_makes_what_the_adapter_staged_durable(
         logger = logging.getLogger("test_lesson_routing")
 
     events = list(
-        runscript_v2._lesson_events(
+        host_lesson._lesson_events(
             app=_App(),
             user_bid="user-bid",
             shifu_bid=SHIFU,

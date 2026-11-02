@@ -6,7 +6,7 @@ import re
 from bisect import bisect_right
 from string import punctuation
 
-from .document_blocks import (
+from markdownflow.syntax.parser.document_blocks import (
     compact_angle_autolink_prefix,
     container_content_start,
     container_opening,
@@ -15,9 +15,10 @@ from .document_blocks import (
     indentation,
     physical_lines,
 )
-from .marker_context import analyze_marker_context
+from markdownflow.syntax.parser.marker_context import analyze_marker_context
+from markdownflow.syntax.variable_names import read_variable_marker
+
 from .stream_html_context import pending_html_prefix
-from .variable_names import read_variable_marker
 
 _HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]|$)")
 
@@ -252,6 +253,19 @@ def _container_opening(steps: tuple[int, ...], text: str = "") -> str:
                 + " " * (step - leading - width)
             )
     return "".join(pieces)
+
+
+def container_paragraph_witness(steps: tuple[int, ...]) -> str | None:
+    """Return one paragraph line that leaves exactly `steps` open, or None.
+
+    A line read after it finds the same open containers and an open paragraph
+    in them, which is all the block state a plain paragraph line carries on.
+    """
+    opening = _container_opening(steps)
+    content, actual, virtual = container_opening_info(opening + "x")
+    if actual != steps or virtual or content != len(opening):
+        return None
+    return opening + "x\n"
 
 
 def _indented_prefix(text: str, steps: tuple[int, ...]) -> str:
@@ -837,8 +851,12 @@ def compact_marker_context(
     # nesting level. No source text or future closing bracket is discarded.
     records = merge_labels(records)
     # Completed literal syntax must not become a fresh opener when old prose is discarded.
+    # A complete marker's name is opaque text: its lines carry no Markdown syntax.
     gap_characters = list(source)
-    for start, end in context.literals:
+    for start, end in (
+        *context.literals,
+        *((marker.start, marker.end) for marker in context.markers if marker.complete),
+    ):
         for offset in range(start, min(end, len(source))):
             if gap_characters[offset] not in " \t\r\n":
                 gap_characters[offset] = "x"
@@ -846,8 +864,13 @@ def compact_marker_context(
     for end in context.indent_restart_after:
         if end < len(source):
             start = max(source.rfind("\n", 0, end), source.rfind("\r", 0, end)) + 1
-            if start < end:
-                gap_characters[start:end] = "#" + " " * (end - start - 1)
+            # Keep the line's container markers, which literal masking above may
+            # have replaced: an empty list item must stay a list item, and only
+            # the content becomes the non-paragraph stand-in.
+            content = start + container_opening(source[start:end])[0]
+            gap_characters[start:content] = source[start:content]
+            if content < end:
+                gap_characters[content:end] = "#" + " " * (end - content - 1)
     gap_source = "".join(gap_characters)
     pieces: list[str] = []
     length = 0

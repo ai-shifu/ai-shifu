@@ -6,8 +6,8 @@ from typing import Self
 
 import pytest
 import requests
-from flaskr.service.learn import ask_provider_adapters as module
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask import providers as module
+from flaskr.service.learn.ask.providers import (
     common,
     coze_adapter,
     dify_adapter,
@@ -1609,7 +1609,7 @@ def test_dify_transports_shared_course_memory_to_outbound_query(
     dify_app: object, monkeypatch: object
 ) -> None:
     """Verify the actual adapter serializes the shared context, beyond builder-only claims."""
-    from flaskr.service.learn import follow_up_context
+    from flaskr.service.learn.ask import context as follow_up_context
 
     monkeypatch.setattr(
         follow_up_context, "load_follow_up_history", lambda **_kwargs: []
@@ -1970,3 +1970,71 @@ def test_coze_native_success_headers_are_not_malformed_payloads(
     )
     assert [chunk.content for chunk in chunks] == ["ok"]
     assert not logged
+
+
+_WRAPPED_QUERY = "Reply ONLY in plain text.\n\nUser question:\nWhat is recursion?"
+
+
+def test_get_biji_knowledge_adapter_searches_with_the_learner_question(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    sent = {}
+
+    def _fake_post(_url: object, **kwargs: object) -> object:
+        sent["json"] = kwargs.get("json")
+        return _FakeResponse(json_data={"success": True, "data": {"results": []}})
+
+    monkeypatch.setattr(get_biji_knowledge_adapter.requests, "post", _fake_post)
+    runtime = module.AskProviderRuntime(
+        llm_context_stream_factory=lambda _context: iter([]),
+        search_query="What is recursion?",
+    )
+    list(
+        module.GetBijiKnowledgeAskProviderAdapter().stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query=_WRAPPED_QUERY,
+            messages=[],
+            provider_config={
+                "config": {"api_key": "k", "client_id": "c", "topic_id": "t"}
+            },
+            runtime=runtime,
+        )
+    )
+    assert sent["json"]["query"] == "What is recursion?"
+
+
+def test_volc_rewrite_context_replaces_the_wrapped_question_once() -> None:
+    from flaskr.service.learn.ask.providers.volc_knowledge_adapter import (
+        _with_follow_up_context,
+    )
+
+    history = [
+        {"role": "assistant", "content": "Recursion calls itself."},
+        {"role": "user", "content": _WRAPPED_QUERY},
+    ]
+    result = _with_follow_up_context(
+        None,
+        config_value=None,
+        path="/api/knowledge/collection/search_knowledge",
+        user_query=_WRAPPED_QUERY,
+        search_query="What is recursion?",
+        messages=history,
+    )
+    assert result == {
+        "rewrite": True,
+        "messages": [
+            {"role": "assistant", "content": "Recursion calls itself."},
+            {"role": "user", "content": "What is recursion?"},
+        ],
+    }
+
+
+def test_retrieval_query_falls_back_to_the_user_query_without_a_runtime() -> None:
+    from flaskr.service.learn.ask.providers.base import retrieval_query
+
+    assert retrieval_query(_WRAPPED_QUERY, None) == _WRAPPED_QUERY
+    assert retrieval_query(_WRAPPED_QUERY, module.AskProviderRuntime()) == (
+        _WRAPPED_QUERY
+    )

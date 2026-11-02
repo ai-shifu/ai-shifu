@@ -176,7 +176,7 @@ is always attributed and therefore never uses `unattributed`.
   removed either because the revoked count was not sent. Disclose both historical
   limitations and the producer rollout boundary when comparing cohorts.
 - Verification:
-  `src/web/src/components/Settings/SessionManagerModal.test.tsx`
+  `src/web/src/components/settings/SessionManagerModal.test.tsx`
   asserts that outcomes fire only on confirmed revocations, that a failed
   revocation emits nothing, and that no session identifier reaches a payload.
   It covers single and bulk requests across identity replacement, unchanged

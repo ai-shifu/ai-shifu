@@ -886,6 +886,7 @@ class RunElementSSEMessageDTO(BaseModel):
 
     type: str = Field(..., description="Run event type")
     event_type: str = Field(..., description="Run event type mirror")
+    code: int | None = Field(default=None, description="Optional business error code")
     generated_block_bid: str | None = Field(
         default=None, description="Source generated block identifier"
     )
@@ -916,6 +917,8 @@ class RunElementSSEMessageDTO(BaseModel):
             if isinstance(self.content, BaseModel)
             else self.content,
         }
+        if self.code is not None:
+            ret["code"] = self.code
         if self.generated_block_bid is not None:
             ret["generated_block_bid"] = self.generated_block_bid
         if self.run_session_bid is not None:
@@ -1016,9 +1019,6 @@ class PlaygroundPreviewRequest(BaseModel):
         default=None, description="Markdown-Flow document content"
     )
     block_index: int = Field(..., description="Block index to preview")
-    context: list[dict[str, str]] | None = Field(
-        default=None, description="Conversation context messages"
-    )
     variables: dict[str, Any] | None = Field(
         default=None,
         description="Variables to replace inside Markdown-Flow document",
@@ -1026,14 +1026,26 @@ class PlaygroundPreviewRequest(BaseModel):
     user_input: dict[str, list[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
     )
-    document_prompt: str | None = Field(
-        default=None, description="Document level system prompt"
+    reload_generated_block_bid: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description="Debug turn to regenerate together with its following steps",
     )
-    interaction_prompt: str | None = Field(
-        default=None, description="Interaction render prompt override"
+
+    reload_element_bid: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description="Exact Debug interaction whose answer is being revised",
     )
-    interaction_error_prompt: str | None = Field(
-        default=None, description="Interaction error prompt override"
+
+    request_generation: int | None = Field(
+        default=None,
+        strict=True,
+        ge=1,
+        le=9007199254740991,
+        description="Increasing client request generation within this Debug session",
     )
 
     def get_document(self) -> str:

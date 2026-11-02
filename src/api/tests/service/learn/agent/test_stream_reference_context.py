@@ -23,29 +23,27 @@ def _assert_streams(source: str, expected: tuple[str, list[str]]) -> None:
 
 @pytest.mark.parametrize("ending", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize(
-    ("body", "extract"),
+    "body",
     [
-        ("{{?[A|B]}}", True),
-        ("{{?[A|B]}} text", False),
-        ('{{?[A|B]}} "note"', True),
-        ('{{?[A|B]}} "note" extra', False),
-        ("<{{?[A|B]}}>", True),
-        ("<{{?[A|B]}}", False),
-        ("{{?[A|B] answer}}", False),
-        ("<{{?[A|B] answer}}>", True),
-        ('{{?[A|B]}}\n"note"', True),
-        ("{{?[A|B]}}\ntext", True),
+        "{{?[A|B]}}",
+        "{{?[A|B]}} text",
+        '{{?[A|B]}} "note"',
+        '{{?[A|B]}} "note" extra',
+        "<{{?[A|B]}}>",
+        "<{{?[A|B]}}",
+        "{{?[A|B] answer}}",
+        "<{{?[A|B] answer}}>",
+        '{{?[A|B]}}\n"note"',
+        "{{?[A|B]}}\ntext",
     ],
 )
 def test_reference_literal_and_raw_marker_fallback_agree_at_every_cut(
-    ending: str, body: str, extract: bool
+    ending: str, body: str
 ) -> None:
+    # A valid definition is literal text; an invalid one leaves the opener inside
+    # a raw marker name. Either way the example is not a question.
     source = "[ref]: " + body.replace("\n", ending)
-    expected = (
-        source.replace(INNER, "") if extract else source,
-        [INNER] if extract else [],
-    )
-    _assert_streams(source, expected)
+    _assert_streams(source, (source, []))
 
 
 @pytest.mark.parametrize("container", ["", "> ", "- "])
@@ -57,13 +55,9 @@ def test_reference_resolution_does_not_consume_the_following_authored_question(
         container + "[ref]: {{" + INNER + "}}" + ("" if extract else " text") + "\n\n"
     )
     source = prefix + QUESTION
-    _assert_streams(
-        source,
-        (
-            prefix.replace(INNER, "") if extract else prefix,
-            ([INNER] if extract else []) + [QUESTION],
-        ),
-    )
+    # The example stays in the definition or the raw marker; only the authored
+    # question after it is extracted.
+    _assert_streams(source, (prefix, [QUESTION]))
 
 
 @pytest.mark.parametrize("slashes", range(4))
@@ -74,7 +68,9 @@ def test_reference_raw_marker_escape_parity_survives_prefix_compaction(
     source = (
         "[ref]: " + "\\" * slashes + "{{" + INNER + "}}" + ("" if valid else " text")
     )
-    extract = valid or slashes % 2 == 1
+    # Escaped braces leave the example as text: literal in a valid definition,
+    # a live control in the paragraph an invalid definition falls back to.
+    extract = not valid and slashes % 2 == 1
     _assert_streams(
         source,
         (source.replace(INNER, "") if extract else source, [INNER] if extract else []),

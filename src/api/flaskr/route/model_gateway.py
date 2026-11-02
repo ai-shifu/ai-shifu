@@ -190,7 +190,7 @@ def register_model_gateway_handler(
 
     @app.route(path_prefix + "/account", methods=["GET"])
     @bypass_token_validation
-    def model_gateway_account() -> tuple[Response, int] | str:
+    def model_gateway_account() -> tuple[Response, int] | Response:
         """Return the current account and credit snapshot."""
         try:
             return make_common_response(_account_payload(app, _gateway_user(app)))

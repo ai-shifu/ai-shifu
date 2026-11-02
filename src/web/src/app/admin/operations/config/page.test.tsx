@@ -53,11 +53,11 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: mockT }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-jest.mock('../useOperatorGuard', () => ({
+jest.mock('../use-operator-guard', () => ({
   __esModule: true,
   default: () => ({ isReady: true }),
 }));

@@ -1,10 +1,14 @@
 """Expose config HTTP routes."""
 
-from flask import Flask, request
+from flask import Flask, Response, request
 
 from flaskr.common.config import ENV_VARS
 from flaskr.common.public_urls import build_google_oauth_callback_url
-from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
+from flaskr.common.shifu_context import (
+    get_shifu_context_snapshot,
+    get_shifu_creator_bid,
+    with_shifu_context,
+)
 from flaskr.service.billing.customization import (
     build_customization_capabilities,
     is_creator_customization_enabled,
@@ -23,6 +27,7 @@ from flaskr.service.billing.runtime_config import (
     build_default_runtime_billing_context,
     build_runtime_billing_context,
 )
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -75,14 +80,17 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
-    def get_runtime_config() -> str:
-        # An explicit creator_bid lets surfaces without a shifu in the path
-        # (e.g. the /admin backend) fetch a creator's branding. Falls back to
-        # the shifu-context creator when absent, so existing callers are
-        # unaffected. Branding here is public display data already served to
-        # learners, so no sensitive data is exposed.
+    def get_runtime_config() -> Response:
+        # Course/account context selects commercial capabilities. Site branding
+        # is selected independently from the effective request domain.
         explicit_creator_bid = str(request.args.get("creator_bid", "") or "").strip()
-        creator_bid = explicit_creator_bid or str(get_shifu_creator_bid() or "").strip()
+        # A validated course/domain owner cannot be overridden by a caller's
+        # legacy account selector. Authoritative order ownership is unchanged.
+        context_creator_bid = str(get_shifu_creator_bid() or "").strip()
+        course_creator_bid = (
+            context_creator_bid if get_shifu_context_snapshot().get("shifu_bid") else ""
+        )
+        creator_bid = context_creator_bid or explicit_creator_bid
         request_host = _extract_request_host()
         legal_urls = RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
@@ -118,8 +126,14 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     app,
                     creator_bid=creator_bid,
                     request_host=request_host,
+                    course_creator_bid=course_creator_bid,
                 )
-            except Exception:
+            except Exception as exc:
+                if (
+                    isinstance(exc, AppError)
+                    and exc.code == ERROR_CODE["server.shifu.shifuNotFound"]
+                ):
+                    raise
                 # Runtime config is a shared bootstrap dependency. Fall back
                 # to a stable empty billing payload instead of failing the
                 # whole endpoint when billing data is unavailable.
@@ -139,29 +153,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         domain_owner_bid = str(
             getattr(runtime_billing.domain, "creator_bid", None) or ""
         ).strip()
-        # Capture before the owner re-resolve below: its exception fallback
-        # rebuilds a default context that would drop the custom-domain flag.
         is_custom_domain = bool(
             getattr(runtime_billing.domain, "is_custom_domain", False)
         )
-        if domain_owner_bid and is_custom_domain and domain_owner_bid != creator_bid:
-            try:
-                runtime_billing = build_runtime_billing_context(
-                    app,
-                    creator_bid=domain_owner_bid,
-                    request_host=request_host,
-                )
-            except Exception:
-                app.logger.exception(
-                    "Failed to re-resolve billing runtime config for domain "
-                    "owner; domain_owner_bid=%s request_host=%s",
-                    domain_owner_bid,
-                    request_host or "-",
-                )
-                runtime_billing = build_default_runtime_billing_context(
-                    creator_bid=domain_owner_bid,
-                    request_host=request_host,
-                )
 
         branding = runtime_billing.branding
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")

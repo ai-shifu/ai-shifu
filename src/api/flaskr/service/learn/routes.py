@@ -14,13 +14,14 @@ from flaskr.dao import (
     is_abnormal_stream_termination,
     is_protocol_interrupt_error,
 )
-from flaskr.framework.plugin.inject import inject
-from flaskr.i18n import get_current_language
+from flaskr.i18n import _, get_current_language
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common import raise_error
-from flaskr.service.common.models import AppError, raise_param_error
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_param_error
+from flaskr.service.learn.elements.run_adapter import get_listen_element_record
+from flaskr.service.learn.host.run import get_run_status, run_script
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -39,14 +40,12 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
 )
 from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
-from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
 )
 from flaskr.service.learn.request_stream import RequestCompletion
-from flaskr.service.learn.runscript_v2 import get_run_status, run_script
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -57,27 +56,6 @@ from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.util import generate_id
 from pydantic import ValidationError
 from sqlalchemy import select
-
-
-def _normalize_user_input(value: object) -> dict[str, list[str]] | None:
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        normalized = {}
-        for key, raw in value.items():
-            if raw is None:
-                continue
-            if isinstance(raw, list):
-                cleaned = [str(item) for item in raw if item is not None]
-            else:
-                cleaned = [str(raw)]
-            if cleaned:
-                normalized[str(key)] = cleaned
-        return normalized or None
-    if isinstance(value, list):
-        cleaned = [str(item) for item in value if item is not None]
-        return {"user_input": cleaned} if cleaned else None
-    return {"user_input": [str(value)]}
 
 
 def _to_sse_data_line(message: object) -> str:
@@ -227,7 +205,6 @@ def _normalize_learning_mode(value: object, *, listen: bool = False) -> str:
     return "listen" if listen else "read"
 
 
-@inject
 def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """Register learn routes."""
     app.logger.info("register learn routes %s", path_prefix)
@@ -291,7 +268,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
-    def get_shifu_api(shifu_bid: str) -> str:
+    def get_shifu_api(shifu_bid: str) -> Response:
         """Get shifu.
 
         ---
@@ -343,7 +320,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     @with_shifu_context()
-    def get_outline_item_tree_api(shifu_bid: str) -> str:
+    def get_outline_item_tree_api(shifu_bid: str) -> Response:
         """Get outline item tree.
 
         ---
@@ -518,46 +495,40 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             - name: outline_bid
               type: string
               required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    content:
-                        type: string
-                        required: true
-                        description: Markdown-Flow document content (legacy alias: prompt)
-                    block_index:
-                        type: integer
-                        required: true
-                        description: block index to preview
-                    context:
-                        type: array
-                        required: false
-                        description: chat context forwarded to LLM
-                        items:
-                            type: object
-                    document_prompt:
-                        type: string
-                        required: false
-                        description: document prompt
-                    variables:
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
                         type: object
-                        required: false
-                        description: variables
-                    user_input:
-                        type: object
-                        required: false
-                        description: user input map (legacy alias: input)
-                    interaction_prompt:
-                        type: string
-                        required: false
-                        description: override interaction render prompt
-                    interaction_error_prompt:
-                        type: string
-                        required: false
-                        description: override interaction error prompt
+                        required:
+                            - block_index
+                            - debug_session_id
+                        properties:
+                            content:
+                                type: string
+                                description: Markdown-Flow document content
+                            block_index:
+                                type: integer
+                                description: block index to preview
+                            variables:
+                                type: object
+                                description: variables
+                            user_input:
+                                type: object
+                                description: user input map
+                            debug_session_id:
+                                type: string
+                                description: editor debug session identifier
+                            reload_generated_block_bid:
+                                type: string
+                                description: debug turn to regenerate from
+                            reload_element_bid:
+                                type: string
+                                description: exact interaction to revise using user_input
+                            request_generation:
+                                type: integer
+                                description: increasing client request generation within this Debug session
         responses:
             200:
                 description: stream preview block success
@@ -568,21 +539,14 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             example: 'data: {"type":"element","event_type":"element","content":{"element_type":"text","content":"..."}}'
         """
         payload = request.get_json(silent=True) or {}
-        normalized_user_input = payload.get("user_input")
-        if normalized_user_input is None and "input" in payload:
-            normalized_user_input = _normalize_user_input(payload.get("input"))
-        block_index = payload.get("block_index")
-        if block_index is None:
-            block_index = payload.get("blockIndex")
         preview_payload = {
-            "content": payload.get("content") or payload.get("prompt"),
-            "block_index": block_index,
-            "context": payload.get("context"),
+            "content": payload.get("content"),
+            "block_index": payload.get("block_index"),
             "variables": payload.get("variables"),
-            "user_input": normalized_user_input,
-            "document_prompt": payload.get("document_prompt"),
-            "interaction_prompt": payload.get("interaction_prompt"),
-            "interaction_error_prompt": payload.get("interaction_error_prompt"),
+            "user_input": payload.get("user_input"),
+            "reload_generated_block_bid": payload.get("reload_generated_block_bid"),
+            "reload_element_bid": payload.get("reload_element_bid"),
+            "request_generation": payload.get("request_generation"),
         }
         try:
             preview_request = PlaygroundPreviewRequest(**preview_payload)
@@ -613,14 +577,16 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             raise_param_error("Invalid debug session identifier")
 
         # Capture the request fallback before streaming clears request-local i18n.
-        # Both runtimes receive the same authoritative editor language.
+        # Course variables remain independent from the teaching-language setting.
         variables = dict(preview_request.variables or {})
         preview_language = resolve_preview_language(variables)
         preview_request.variables = {
             **variables,
             "sys_user_language": preview_language,
-            "language": preview_language,
         }
+        # Nested streaming contexts may clear the request's translation language.
+        debug_unavailable_message = _("server.learn.debugServiceUnavailable")
+        debug_unavailable_code = ERROR_CODE["server.learn.debugServiceUnavailable"]
         from flaskr.service.learn.agent.debug_session import stream_debug_preview
 
         def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
@@ -641,9 +607,14 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             error_event_factory=lambda exc: RunElementSSEMessageDTO(
                 type="error",
                 event_type="error",
+                code=exc.code if isinstance(exc, AppError) else None,
                 generated_block_bid=generate_id(app),
                 is_terminal=False,
-                content=str(exc),
+                content=(
+                    debug_unavailable_message
+                    if isinstance(exc, AppError) and exc.code == debug_unavailable_code
+                    else str(exc)
+                ),
             ),
             terminal_event_factory=lambda: RunElementSSEMessageDTO(
                 type="done",
@@ -659,7 +630,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def get_run_status_api(shifu_bid: str, outline_bid: str) -> str:
+    def get_run_status_api(shifu_bid: str, outline_bid: str) -> Response:
         """Get run status.
 
         ---
@@ -698,7 +669,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["GET"]
     )
     @with_shifu_context()
-    def get_record_api(shifu_bid: str, outline_bid: str) -> str:
+    def get_record_api(shifu_bid: str, outline_bid: str) -> Response:
         """Get learn records of the outline.
 
         ---
@@ -762,7 +733,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["DELETE"]
     )
     @with_shifu_context()
-    def delete_record_api(shifu_bid: str, outline_bid: str) -> str:
+    def delete_record_api(shifu_bid: str, outline_bid: str) -> Response:
         """Reset the record of the outline.
 
         ---
@@ -809,7 +780,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def lesson_reset_status_api(shifu_bid: str, outline_bid: str) -> str:
+    def lesson_reset_status_api(shifu_bid: str, outline_bid: str) -> Response:
         """Return whether the learner may still reset the outline.
 
         ---
@@ -863,7 +834,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str) -> str:
+    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str) -> Response:
         """Submit lesson feedback.
 
         ---
@@ -925,7 +896,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/lesson-feedbacks", methods=["GET"])
     @with_shifu_context()
-    def list_lesson_feedbacks_api(shifu_bid: str) -> str:
+    def list_lesson_feedbacks_api(shifu_bid: str) -> Response:
         """List lesson feedbacks for a course (teacher/authoring side).
 
         ---
@@ -981,7 +952,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def generate_content_api(
         shifu_bid: str, generated_block_bid: str, action: str
-    ) -> str:
+    ) -> Response:
         """Generate the content of the generated block.
 
         ---
@@ -1026,7 +997,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def get_generated_content_api(shifu_bid: str, generated_block_bid: str) -> str:
+    def get_generated_content_api(shifu_bid: str, generated_block_bid: str) -> Response:
         """Get the content of the generated block.
 
         ---

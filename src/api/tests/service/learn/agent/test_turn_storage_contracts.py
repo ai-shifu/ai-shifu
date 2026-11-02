@@ -8,13 +8,13 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import in_unit_of_work, unit_of_work
 from flaskr.service.learn.agent import lesson_record, run_agent
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnStatus,
     OutlineItemUpdateDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -28,6 +28,8 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.shifu.models import LogPublishedStruct, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+
+from tests.common.fixtures.model_factories import make_progress_record
 
 
 @pytest.fixture
@@ -152,7 +154,7 @@ def test_open_notifies_only_when_progress_starts_and_preserves_completion(
     progress_bid = uuid.uuid4().hex
     with identity.app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=progress_bid,
                 user_bid=identity.user,
                 shifu_bid=identity.course,
@@ -239,7 +241,7 @@ def test_failure_staging_turn_rolls_back_progress_and_block_together(
     if initial_status is not None:
         with identity.app.app_context(), unit_of_work():
             db.session.add(
-                LearnProgressRecord(
+                make_progress_record(
                     progress_record_bid=uuid.uuid4().hex,
                     user_bid=identity.user,
                     shifu_bid=identity.course,

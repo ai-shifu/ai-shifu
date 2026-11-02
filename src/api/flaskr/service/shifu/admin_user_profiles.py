@@ -27,13 +27,6 @@ from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserSummaryDTO,
 )
 from flaskr.service.shifu.admin_shared import (
-    COURSE_USER_LEARNING_STATUS_COMPLETED,
-    COURSE_USER_LEARNING_STATUS_LEARNING,
-    COURSE_USER_LEARNING_STATUS_NOT_STARTED,
-    COURSE_USER_ROLE_CREATOR,
-    COURSE_USER_ROLE_NORMAL,
-    COURSE_USER_ROLE_OPERATOR,
-    COURSE_USER_ROLE_STUDENT,
     OPERATOR_USER_PRELOADED_AUTH_CREDENTIAL_PROVIDERS,
     OPERATOR_USER_QUICK_FILTER_VALUES,
     OPERATOR_USER_REGISTRATION_CREDENTIAL_PROVIDERS,
@@ -50,7 +43,6 @@ from flaskr.service.shifu.admin_shared import (
     OPERATOR_USER_SUPPORTED_LOGIN_METHOD_PROVIDERS,
     USER_STATE_TO_OPERATOR_STATUS,
     _format_decimal,
-    _normalize_identifier,
 )
 from flaskr.service.shifu.models import (
     AiCourseAuth,
@@ -78,220 +70,12 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.selectable import Subquery
 
 
-def _load_course_user_contact_map(
-    user_bids: Sequence[str],
-) -> dict[str, dict[str, str]]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    credential_rows = (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid.in_(normalized_user_bids),
-            AuthCredential.deleted == 0,
-            AuthCredential.provider_name.in_(["phone", "email", "google"]),
-        )
-        .order_by(AuthCredential.id.desc())
-        .all()
-    )
-    contact_map: dict[str, dict[str, str]] = {
-        user_bid: {"mobile": "", "email": ""} for user_bid in normalized_user_bids
-    }
-    for credential in credential_rows:
-        user_bid = str(credential.user_bid or "").strip()
-        if not user_bid:
-            continue
-        resolved = contact_map.setdefault(user_bid, {"mobile": "", "email": ""})
-        identifier = str(credential.identifier or "").strip()
-        if (
-            credential.provider_name == "phone"
-            and not resolved["mobile"]
-            and identifier
-        ):
-            resolved["mobile"] = identifier
-        if (
-            credential.provider_name in {"email", "google"}
-            and not resolved["email"]
-            and identifier
-        ):
-            resolved["email"] = identifier
-
-    users = (
-        UserEntity.query.filter(
-            UserEntity.user_bid.in_(normalized_user_bids),
-            UserEntity.deleted == 0,
-        )
-        .order_by(UserEntity.id.asc())
-        .all()
-    )
-    for user in users:
-        user_bid = str(user.user_bid or "").strip()
-        if not user_bid:
-            continue
-        resolved = contact_map.setdefault(user_bid, {"mobile": "", "email": ""})
-        identify = str(user.user_identify or "").strip()
-        if len(identify) == 11 and identify.isdigit() and not resolved["mobile"]:
-            resolved["mobile"] = identify
-        elif "@" in identify and not resolved["email"]:
-            resolved["email"] = identify
-    return contact_map
-
-
-def _load_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
-    if not user_bids:
-        return {}
-
-    credentials = (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid.in_(list(user_bids)),
-            AuthCredential.provider_name.in_(["phone", "email", "google"]),
-            AuthCredential.deleted == 0,
-        )
-        .order_by(AuthCredential.id.desc())
-        .all()
-    )
-    phone_map: dict[str, str] = {}
-    email_map: dict[str, str] = {}
-    for credential in credentials:
-        user_bid = credential.user_bid or ""
-        if not user_bid:
-            continue
-        if credential.provider_name == "phone" and user_bid not in phone_map:
-            phone_map[user_bid] = credential.identifier or ""
-        if (
-            credential.provider_name in {"email", "google"}
-            and user_bid not in email_map
-        ):
-            email_map[user_bid] = credential.identifier or ""
-
-    users = (
-        UserEntity.query.filter(
-            UserEntity.user_bid.in_(list(user_bids)),
-            UserEntity.deleted == 0,
-        )
-        .order_by(UserEntity.id.asc())
-        .all()
-    )
-    user_map: dict[str, dict[str, str]] = {}
-    for user in users:
-        mobile = phone_map.get(user.user_bid, "")
-        email = email_map.get(user.user_bid, "")
-        identify = user.user_identify or ""
-        if not mobile and identify.isdigit():
-            mobile = identify
-        if not email and "@" in identify:
-            email = identify
-        user_map[user.user_bid] = {
-            "mobile": mobile or "",
-            "email": email or "",
-            "identify": identify,
-            "nickname": user.nickname or "",
-        }
-    return user_map
-
-
-def _load_operator_user_last_login_map(
-    user_bids: Sequence[str],
-) -> dict[str, datetime]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    rows = (
-        db.session.query(
-            UserToken.user_id.label("user_bid"),
-            db.func.max(UserToken.created).label("last_login_at"),
-        )
-        .filter(
-            UserToken.user_id.in_(normalized_user_bids),
-            UserToken.token != "",
-        )
-        .group_by(UserToken.user_id)
-        .all()
-    )
-    return {
-        str(user_bid or "").strip(): last_login_at
-        for user_bid, last_login_at in rows
-        if str(user_bid or "").strip() and last_login_at
-    }
-
-
-def _resolve_course_user_role(
-    *,
-    is_creator: bool,
-    is_operator: bool,
-    is_student: bool,
-) -> str:
-    if is_operator:
-        return COURSE_USER_ROLE_OPERATOR
-    if is_creator:
-        return COURSE_USER_ROLE_CREATOR
-    if is_student:
-        return COURSE_USER_ROLE_STUDENT
-    return COURSE_USER_ROLE_NORMAL
-
-
-def _resolve_course_user_learning_status(
-    *,
-    learned_lesson_count: int,
-    total_lesson_count: int,
-) -> str:
-    if total_lesson_count > 0 and learned_lesson_count >= total_lesson_count:
-        return COURSE_USER_LEARNING_STATUS_COMPLETED
-    if learned_lesson_count > 0:
-        return COURSE_USER_LEARNING_STATUS_LEARNING
-    return COURSE_USER_LEARNING_STATUS_NOT_STARTED
-
-
 def _build_course_order_amount_expr() -> ColumnElement[Any]:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),
         else_=0,
     )
-
-
-def _find_matching_creator_bids(keyword: str) -> set[str] | None:
-    normalized = _normalize_identifier(keyword)
-    if not normalized:
-        return None
-
-    user_bids = {
-        row[0]
-        for row in db.session.query(UserEntity.user_bid)
-        .filter(
-            UserEntity.deleted == 0,
-            or_(
-                UserEntity.user_bid == normalized,
-                UserEntity.user_identify == normalized,
-            ),
-        )
-        .all()
-        if row and row[0]
-    }
-
-    credential_rows = (
-        db.session.query(AuthCredential.user_bid)
-        .filter(
-            AuthCredential.deleted == 0,
-            AuthCredential.provider_name.in_(["phone", "email"]),
-            AuthCredential.identifier == normalized,
-        )
-        .all()
-    )
-    for row in credential_rows:
-        if row and row[0]:
-            user_bids.add(row[0])
-
-    return user_bids
 
 
 def _resolve_operator_user_status(raw_state: object) -> str:

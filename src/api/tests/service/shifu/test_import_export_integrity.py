@@ -178,6 +178,7 @@ def test_reimport_creates_a_course_revision_and_replaces_active_outlines(
         keywords="keyword",
         description="Updated",
         avatar_res_bid="avatar",
+        # Files exported before the runtime setting was retired still carry this key.
         flow_engine=2,
         ask_llm_temperature=0.4,
     )
@@ -188,7 +189,6 @@ def test_reimport_creates_a_course_revision_and_replaces_active_outlines(
         )
         assert [row.title for row in revisions] == ["Imported course", "Updated course"]
         assert revisions[0].id == initial_id
-        assert revisions[-1].flow_engine == 2
         assert revisions[-1].updated_user_bid == import_owner
         old_rows = DraftOutlineItem.query.filter(
             DraftOutlineItem.id.in_(initial_outline_ids)
@@ -222,6 +222,77 @@ def test_risk_rejection_rolls_back_new_revision_outline_deletions_and_history(
         )
         assert DraftOutlineItem.query.filter_by(shifu_bid=bid, deleted=0).count() == 3
         assert LogDraftStruct.query.filter_by(shifu_bid=bid).count() == history_count
+
+
+@pytest.mark.parametrize("replace_existing", [False, True])
+@pytest.mark.parametrize(
+    "content", ["?[{{ sys_custom }} ...Answer]", "?[%{{sys_custom}} Yes | No]"]
+)
+def test_import_rejects_system_question_keys_before_risk_checks_or_persistence(
+    app: object,
+    import_owner: str,
+    monkeypatch: pytest.MonkeyPatch,
+    replace_existing: bool,
+    content: str,
+) -> None:
+    bid = (
+        transfers.import_shifu(app, None, _file(_payload()), import_owner)
+        if replace_existing
+        else None
+    )
+    with app.app_context():
+        course_count = DraftShifu.query.filter_by(created_user_bid=import_owner).count()
+        original_outlines = [
+            (row.id, row.content, row.deleted)
+            for row in DraftOutlineItem.query.filter_by(created_user_bid=import_owner)
+            .order_by(DraftOutlineItem.id)
+            .all()
+        ]
+        history_count = LogDraftStruct.query.filter_by(
+            created_user_bid=import_owner
+        ).count()
+    risk_check = Mock()
+    monkeypatch.setattr(transfers, "check_text_with_risk_control", risk_check)
+    payload = _payload()
+    payload["shifu"]["title"] = "Rejected replacement"
+    payload["outline_items"][-1]["content"] = content
+
+    with pytest.raises(AppError) as error:
+        transfers.import_shifu(app, bid, _file(payload), import_owner)
+
+    assert error.value.code == ERROR_CODE["server.profile.keyReserved"]
+    risk_check.assert_not_called()
+    with app.app_context():
+        assert (
+            DraftShifu.query.filter_by(created_user_bid=import_owner).count()
+            == course_count
+        )
+        assert [
+            (row.id, row.content, row.deleted)
+            for row in DraftOutlineItem.query.filter_by(created_user_bid=import_owner)
+            .order_by(DraftOutlineItem.id)
+            .all()
+        ] == original_outlines
+        assert (
+            LogDraftStruct.query.filter_by(created_user_bid=import_owner).count()
+            == history_count
+        )
+
+
+def test_import_preserves_system_variable_references(
+    app: object, import_owner: str
+) -> None:
+    payload = _payload()
+    content = "Hello {{sys_user_nickname}}.\n\n?[{{goal}} ...Your goal]"
+    payload["outline_items"][-1]["content"] = content
+
+    bid = transfers.import_shifu(app, None, _file(payload), import_owner)
+
+    with app.app_context():
+        outline = DraftOutlineItem.query.filter_by(
+            shifu_bid=bid, title="Second lesson", deleted=0
+        ).one()
+        assert outline.content == content
 
 
 @pytest.mark.parametrize(

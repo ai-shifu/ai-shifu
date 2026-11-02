@@ -14,7 +14,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import CreditLedgerEntry
 from flaskr.service.common.models import AppError
-from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -27,6 +26,11 @@ from flaskr.service.shifu.admin_operations import courses_credit_usage as usage_
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
 )
 
 
@@ -62,7 +66,7 @@ def _usage(scope: dict, **overrides: object) -> BillUsageRecord:
 
 def _element(scope: dict, block_bid: str, content: str, **overrides: object) -> None:
     db.session.add(
-        LearnGeneratedElement(
+        make_generated_element(
             **{
                 **scope,
                 "generated_block_bid": block_bid,
@@ -82,7 +86,7 @@ def _element(scope: dict, block_bid: str, content: str, **overrides: object) -> 
 
 def _block(scope: dict, block_bid: str, **overrides: object) -> None:
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             **{
                 **scope,
                 "generated_block_bid": block_bid,

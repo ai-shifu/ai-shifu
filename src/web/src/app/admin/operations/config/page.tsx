@@ -9,7 +9,7 @@ import AdminTitle from '@/app/admin/components/AdminTitle';
 import {
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
+} from '@/components/admin/admin-table-styles';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -38,10 +38,10 @@ import {
   ADMIN_BILLING_TABS_LIST_CLASSNAME,
   ADMIN_BILLING_TABS_TRIGGER_CLASSNAME,
 } from '@/components/billing/AdminBillingShared';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import { ErrorWithCode } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
-import useOperatorGuard from '../useOperatorGuard';
+import useOperatorGuard from '../use-operator-guard';
 import RateCreateDialog from './RateCreateDialog';
 import {
   RATE_TABS,
@@ -56,7 +56,7 @@ import {
   type RateIdentity,
   type RateRow,
   type RateTab,
-} from './rateConfig';
+} from './rate-config';
 
 const RATE_TABLE_PAGE_SIZE = 10;
 

@@ -3,6 +3,29 @@
 from flask import Flask
 
 
+def register_service_routes(app: Flask) -> None:
+    """Register the service-owned route groups.
+
+    create_app calls this before loading flaskr/plugins, so plugin callbacks can
+    find these view functions. The groups keep their own /api paths,
+    independent of PATH_PREFIX.
+    """
+    from flaskr.service.billing.routes import register_billing_routes
+    from flaskr.service.dashboard.routes import register_dashboard_routes
+    from flaskr.service.learn.routes import register_learn_routes
+    from flaskr.service.llm.route import register_llm_routes
+    from flaskr.service.profile.routes import register_learner_profile_routes
+    from flaskr.service.shifu.route import register_shifu_routes
+
+    with app.app_context():
+        register_billing_routes(app)
+        register_dashboard_routes(app)
+        register_learn_routes(app)
+        register_llm_routes(app)
+        register_learner_profile_routes(app)
+        register_shifu_routes(app)
+
+
 def register_route(app: Flask) -> Flask:
     """Register every API route group on the Flask application."""
     from flaskr.service.common.skill_request_analytics import (

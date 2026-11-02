@@ -1,5 +1,5 @@
 import { gen } from '@/lib/api';
-import api from './api';
+import api from './endpoint-definitions';
 
 export type IAPIKeys = keyof typeof api;
 export type IAPIFunction = { [_x in IAPIKeys]: ReturnType<typeof gen> };

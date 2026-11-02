@@ -20,9 +20,9 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useTracking } from '@/hooks/useTracking';
-import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
+} from '@/components/ui/Tooltip';
+import { useTracking } from '@/hooks/use-tracking';
+import { buildOnboardingTargetProps } from '@/lib/onboarding-targets';
 
 type CourseHelpAction =
   | 'activate_learners'

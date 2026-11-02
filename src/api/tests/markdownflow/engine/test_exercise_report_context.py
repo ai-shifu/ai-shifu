@@ -69,6 +69,21 @@ async def test_paginated_reads_advance_only_in_contiguous_order(
 
 
 @pytest.mark.anyio
+async def test_post_read_notice_requires_hint_totals_for_unanswered_questions() -> None:
+    ctx = _fixture()
+    offset = 0
+    while offset is not None:
+        offset = json.loads(await read_exercise_history(ctx, offset))["next_offset"]
+    notice = _engine()._instructions(ctx)
+    assert "omit scalar count assertions" in notice
+    assert "except for a question with empty submissions" in notice
+    assert "assert its hints total" in notice
+    assert "empty submissions has no rounds to derive from" in (
+        ExerciseQuestion.model_fields["hints"].description or ""
+    )
+
+
+@pytest.mark.anyio
 async def test_only_successful_calculation_supplies_current_totals() -> None:
     ctx = _fixture()
     records = _records(ctx)

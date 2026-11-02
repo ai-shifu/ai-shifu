@@ -1,11 +1,11 @@
-import { LIVE_FOLLOW_UP_CAPACITY_SCOPES } from '@/lib/liveVoiceCapacityScopes';
+import { LIVE_FOLLOW_UP_CAPACITY_SCOPES } from '@/lib/live-voice-capacity-scopes';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import {
   LiveVoiceFollowUpControls,
   LiveVoiceFollowUpMicrophoneButton,
 } from './LiveVoiceFollowUpControls';
-import { mockLiveVoiceController } from './liveVoiceFollowUp.test-support';
+import { mockLiveVoiceController } from './live-voice-follow-up.test-support';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({

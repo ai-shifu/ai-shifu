@@ -94,7 +94,6 @@ def user_trial_client(monkeypatch: object, tmp_path: object) -> object:
         REDIS_KEY_PREFIX_IP_BAN="test:ipban:",
         REDIS_KEY_PREFIX_IP_LIMIT="test:iplimit:",
         ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO=False,
-        ENVERIMENT="prod",
         TZ="UTC",
     )
 

@@ -29,7 +29,6 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.provider_state import _apply_billing_order_provider_update
 from flaskr.service.billing.webhooks import (
     apply_billing_native_notification,
-    handle_billing_alipay_webhook,
     handle_billing_pingxx_webhook,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
@@ -37,6 +36,7 @@ from flaskr.service.order.models import AlipayOrder, Order, PingxxOrder, WechatP
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -67,21 +67,16 @@ def billing_callback_app() -> Iterator[Flask]:
 
 
 def _create_pingxx_billing_order(bill_order_bid: str, charge_id: str) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid="creator-1",
         order_type=BILLING_ORDER_TYPE_TOPUP,
         product_bid="bill-product-topup-small",
-        subscription_bid="",
-        currency="CNY",
         payable_amount=19900,
-        paid_amount=0,
         payment_provider="pingxx",
         channel="alipay_qr",
         provider_reference_id=charge_id,
         status=BILLING_ORDER_STATUS_PENDING,
-        failure_code="",
-        failure_message="",
         metadata_json={},
     )
 
@@ -134,35 +129,27 @@ def _create_native_billing_order(
     *,
     amount: int = 19900,
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid="creator-1",
         order_type=BILLING_ORDER_TYPE_TOPUP,
         product_bid="bill-product-topup-small",
-        subscription_bid="",
-        currency="CNY",
         payable_amount=amount,
-        paid_amount=0,
         payment_provider=provider,
         channel="alipay_qr" if provider == "alipay" else "wx_pub_qr",
         provider_reference_id=provider_reference_id,
         status=BILLING_ORDER_STATUS_PENDING,
-        failure_code="",
-        failure_message="",
         metadata_json={},
     )
 
 
 def test_replaced_package_canceled_order_cannot_be_revived_by_provider_sync() -> None:
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid="bill-order-canceled-replaced-1",
         creator_bid="creator-1",
         order_type=BILLING_ORDER_TYPE_TOPUP,
         product_bid="bill-product-topup-small",
-        subscription_bid="",
-        currency="CNY",
         payable_amount=19900,
-        paid_amount=0,
         payment_provider="stripe",
         channel="checkout_session",
         provider_reference_id="cs_replaced_1",
@@ -411,21 +398,17 @@ class TestBillingPingxxCallbacks:
                 )
             )
             dao.db.session.add(
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="bill-pingxx-trial-upgrade-1",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
                     product_bid="bill-product-plan-monthly",
                     subscription_bid="sub-manual-trial-to-pingxx",
-                    currency="CNY",
                     payable_amount=9900,
-                    paid_amount=0,
                     payment_provider="pingxx",
                     channel="wx_pub_qr",
                     provider_reference_id="ch_trial_upgrade_pingxx_1",
                     status=BILLING_ORDER_STATUS_PENDING,
-                    failure_code="",
-                    failure_message="",
                     metadata_json={"checkout_type": "subscription"},
                 )
             )
@@ -603,18 +586,8 @@ class TestBillingNativeCallbacks:
     """Verify billing native callbacks behavior."""
 
     def test_alipay_billing_callback_duplicate_paid_is_idempotent(
-        self, billing_callback_app: object, monkeypatch: object
+        self, billing_callback_app: object
     ) -> None:
-        class FakeAlipayProvider:
-            def handle_notification(self, *, payload: object, app: object) -> object:
-                _ = (payload, app)
-                return _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS")
-
-        monkeypatch.setattr(
-            "flaskr.service.billing.webhooks.get_payment_provider",
-            lambda _provider_name: FakeAlipayProvider(),
-        )
-
         with billing_callback_app.app_context():
             dao.db.session.add(
                 _create_native_billing_order(
@@ -632,13 +605,15 @@ class TestBillingNativeCallbacks:
             )
             dao.db.session.commit()
 
-        first_payload, first_status = handle_billing_alipay_webhook(
+        first_payload, first_status = apply_billing_native_notification(
             billing_callback_app,
-            {},
+            "alipay",
+            _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS"),
         )
-        second_payload, second_status = handle_billing_alipay_webhook(
+        second_payload, second_status = apply_billing_native_notification(
             billing_callback_app,
-            {},
+            "alipay",
+            _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS"),
         )
 
         assert first_status == 200

@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn import follow_up_context as context
+from flaskr.service.learn.ask import context
 from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
 from flaskr.service.profile.api import delete_course_memory
 from flaskr.service.profile.models import VariableValue
@@ -167,7 +167,7 @@ def test_provider_outbound_observes_scoped_memory_updates_and_deletion(
     app: Flask, scope: tuple[str, str], monkeypatch: pytest.MonkeyPatch, provider: str
 ) -> None:
     """Real stored notes reach native providers with fresh scope and no adapter writes."""
-    from flaskr.service.learn.ask_provider_adapters import (
+    from flaskr.service.learn.ask.providers import (
         coze_adapter,
         coze_workflow_adapter,
         volc_knowledge_adapter,

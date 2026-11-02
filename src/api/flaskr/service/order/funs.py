@@ -1,7 +1,7 @@
 """Implement business operations for legacy orders."""
 
 import ast
-import datetime
+import datetime as dt
 import decimal
 import json
 import re
@@ -32,7 +32,7 @@ from flaskr.service.billing.api import (
 )
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.native_payment_status import (
-    extract_native_trade_payload,
+    extract_native_paid_amount,
     extract_native_trade_status,
     native_snapshot_status,
 )
@@ -313,8 +313,8 @@ def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
     else:
         created_at = created_at.astimezone(pytz.UTC)
 
-    current_time = datetime.datetime.now(pytz.UTC)
-    return current_time > created_at + datetime.timedelta(seconds=pay_order_expire_time)
+    current_time = dt.datetime.now(pytz.UTC)
+    return current_time > created_at + dt.timedelta(seconds=pay_order_expire_time)
 
 
 @contextmanager
@@ -1947,7 +1947,7 @@ def sync_native_payment_order(
             notification=sync_result,
             source="sync",
         )
-        actual_amount = _extract_native_notification_amount(
+        actual_amount = extract_native_paid_amount(
             provider_name,
             sync_result.provider_payload or {},
         )
@@ -2209,33 +2209,6 @@ def _is_native_payment_successful(
 ) -> bool:
     raw_status = _native_raw_status(provider, payload)
     return _native_snapshot_status(provider, payload, raw_status) == 1
-
-
-def _extract_native_notification_amount(
-    provider: str,
-    payload: dict[str, object],
-) -> int | None:
-    trade_payload = extract_native_trade_payload(payload)
-    if provider == "alipay":
-        total_amount = (
-            trade_payload.get("total_amount")
-            if isinstance(trade_payload, dict)
-            else None
-        )
-        if total_amount in (None, ""):
-            return None
-        return int((decimal.Decimal(str(total_amount)) * 100).to_integral_value())
-    if provider == "wechatpay":
-        amount = (
-            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
-        )
-        if not isinstance(amount, dict):
-            return None
-        value = amount.get("payer_total", amount.get("total"))
-        if value in (None, ""):
-            return None
-        return int(value)
-    return None
 
 
 def _inject_order_query(url: str, order_id: str) -> str:
@@ -2777,7 +2750,7 @@ def success_buy_record_from_native(
         if native_order is None:
             return False
 
-        actual_amount = _extract_native_notification_amount(
+        actual_amount = extract_native_paid_amount(
             provider,
             notification.provider_payload or {},
         )

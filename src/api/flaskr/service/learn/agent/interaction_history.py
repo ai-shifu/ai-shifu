@@ -11,7 +11,7 @@ from flaskr.api.markdownflow import (
     answer_is_usable,
     normalize_answer,
 )
-from markdown_flow import InteractionParser
+from markdownflow import InteractionParser
 from pydantic import ValidationError
 
 from .legacy_protocol import render_interaction
@@ -21,18 +21,49 @@ if TYPE_CHECKING:
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 
 
+def structured_user_input(raw_spec: object, values: list[str]) -> str | None:
+    """Encode a submitted answer as the renderer's structured control defaults.
+
+    Existing structured defaults preserve commas/newlines inside each submitted value.
+    Returns None for a confirmation, an invalid spec or an unusable answer.
+    """
+    try:
+        spec = InteractionSpec.model_validate(raw_spec)
+    except ValidationError:
+        return None
+    if spec.type == "confirm":
+        return None
+    answer = normalize_answer(spec, InteractionAnswer(values=values))
+    if not answer_is_usable(spec, answer):
+        return None
+    option_values = {option.stored for option in spec.options}
+    selected = [value for value in answer.values if value in option_values]
+    free_text = [value for value in answer.values if value not in option_values]
+    return json.dumps(
+        {
+            "selectedValues": selected,
+            "inputText": ", ".join(free_text),
+            "buttonText": selected[0]
+            if selected and spec.type in ("single", "single_or_text")
+            else "",
+        },
+        ensure_ascii=False,
+    )
+
+
 def _matches_control(spec: InteractionSpec, content: str) -> bool:
     """Compare original controls without translating an omitted input hint again."""
+    parser = InteractionParser()
+    parsed = parser.parse(content)
     if not spec.placeholder and spec.type in (
         "text",
         "single_or_text",
         "multi_or_text",
     ):
-        parsed = InteractionParser().parse(content)
         if not parsed or not parsed.get("question"):
             return False
         spec = spec.model_copy(update={"placeholder": parsed["question"]})
-    return render_interaction(spec) == content
+    return parser.parse(render_interaction(spec)) == parsed
 
 
 def _unanswered_call_ids(block: LearnGeneratedBlock) -> set[str]:
@@ -145,29 +176,9 @@ def project_interaction_inputs(
         identities = questions.get(first.get("tool_call_id"), [])
         if not identities:
             continue
-        try:
-            spec = InteractionSpec.model_validate(first.get("spec"))
-        except ValidationError:
+        user_input = structured_user_input(first.get("spec"), values)
+        if user_input is None:
             continue
-        if spec.type == "confirm":
-            continue
-        answer = normalize_answer(spec, InteractionAnswer(values=values))
-        if not answer_is_usable(spec, answer):
-            continue
-        option_values = {option.stored for option in spec.options}
-        selected = [value for value in answer.values if value in option_values]
-        free_text = [value for value in answer.values if value not in option_values]
-        # Existing structured defaults preserve commas/newlines inside each submitted value.
-        user_input = json.dumps(
-            {
-                "selectedValues": selected,
-                "inputText": ", ".join(free_text),
-                "buttonText": selected[0]
-                if selected and spec.type in ("single", "single_or_text")
-                else "",
-            },
-            ensure_ascii=False,
-        )
         for identity in identities:
             result[identity] = user_input
     return result

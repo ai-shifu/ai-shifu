@@ -113,3 +113,41 @@ def test_fmt_prompt_reuses_resolved_values_including_empty_values(
             resolved_profiles=resolved_profiles,
         )
     assert result == "Hello " + resolved_profiles.get("nickname", "{nickname}")
+
+
+@pytest.mark.parametrize("key", ["sys_user_input", "course_answer"])
+@pytest.mark.parametrize("braces", [1, 2])
+def test_request_input_does_not_fill_missing_course_variables(
+    app: object, monkeypatch: object, key: str, braces: int
+) -> None:
+    from flaskr.service.learn import utils_v2
+
+    monkeypatch.setattr(
+        utils_v2, "load_memory", lambda *_args: MemorySnapshot(variables={})
+    )
+    template = "Saved answer: " + "{" * braces + key + "}" * braces
+    with app.app_context():
+        result = utils_v2.get_fmt_prompt(
+            app, "user-1", "course-1", template, user_input="Current user message"
+        )
+    assert result == template
+
+
+@pytest.mark.parametrize("key", ["sys_user_input", "course_answer"])
+@pytest.mark.parametrize("braces", [1, 2])
+def test_request_input_does_not_override_explicit_course_values(
+    app: object, monkeypatch: object, key: str, braces: int
+) -> None:
+    from flaskr.service.learn import utils_v2
+
+    profiles = {key: "Saved course answer"}
+    monkeypatch.setattr(
+        utils_v2, "load_memory", lambda *_args: MemorySnapshot(variables=profiles)
+    )
+    template = "Saved answer: " + "{" * braces + key + "}" * braces
+    with app.app_context():
+        result = utils_v2.get_fmt_prompt(
+            app, "user-1", "course-1", template, user_input="Current user message"
+        )
+    assert result == "Saved answer: Saved course answer"
+    assert profiles == {key: "Saved course answer"}

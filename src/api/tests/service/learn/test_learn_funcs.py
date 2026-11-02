@@ -7,6 +7,11 @@ import unittest.mock
 
 from flask import Flask
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 # Provide a lightweight Redis stub if the dependency is missing in the test env.
 try:
     import redis as _redis  # type: ignore[import-untyped]  # noqa: F401
@@ -62,17 +67,16 @@ class LearnRecordLoadTests(unittest.TestCase):
 
     def test_learn_record_loads_generated_and_input_content_separately(self) -> None:
         """Ensure learn record loading uses generated content and real user input."""
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-1",
             shifu_bid="shifu-1",
             outline_item_bid="outline-1",
             user_bid="user-1",
             status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
         )
         dao.db.session.add(progress)
 
-        content_block = LearnGeneratedBlock(
+        content_block = make_generated_block(
             generated_block_bid="gen-1",
             progress_record_bid=progress.progress_record_bid,
             user_bid=progress.user_bid,
@@ -82,10 +86,9 @@ class LearnRecordLoadTests(unittest.TestCase):
             type=BLOCK_TYPE_MDCONTENT_VALUE,
             generated_content="assistant summary output",
             block_content_conf="mdflow content should not be returned",
-            position=0,
             status=1,
         )
-        error_block = LearnGeneratedBlock(
+        error_block = make_generated_block(
             generated_block_bid="gen-2",
             progress_record_bid=progress.progress_record_bid,
             user_bid=progress.user_bid,
@@ -98,7 +101,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             position=1,
             status=1,
         )
-        interaction_block = LearnGeneratedBlock(
+        interaction_block = make_generated_block(
             generated_block_bid="gen-3",
             progress_record_bid=progress.progress_record_bid,
             user_bid=progress.user_bid,

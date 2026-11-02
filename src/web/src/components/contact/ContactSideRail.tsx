@@ -1,5 +1,5 @@
 import { useEnvStore } from '@/store';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import { EnvStoreState } from '@/types/store';
 import { cn } from '@/lib/utils';
 import { Headset } from 'lucide-react';

@@ -82,7 +82,7 @@ this PR. New follow-up/admission calls have full attribution.
 
 ## Context and Orientation
 
-handle_input_ask.py constructs providers and contextual LLM factories.
+ask/handler.py constructs providers and contextual LLM factories.
 context_v2.py owns post-stream history durability. agent/engine/tools.py owns
 remember admission/capacity; agent/bridge.py owns thread/loop cancellation.
 The memory facade stages scoped variables and filters deletion generations.

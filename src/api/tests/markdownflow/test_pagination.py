@@ -6,7 +6,7 @@ import random
 from typing import TYPE_CHECKING
 
 import pytest
-from markdown_flow import StreamFormatter
+from markdownflow import StreamFormatter
 from markdownflow.pagination import LessonPager
 
 if TYPE_CHECKING:

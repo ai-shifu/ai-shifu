@@ -6,8 +6,8 @@ import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
-import { useToast } from '@/hooks/useToast';
-import { useTracking } from '@/hooks/useTracking';
+import { useToast } from '@/hooks/use-toast';
+import { useTracking } from '@/hooks/use-tracking';
 import Loading from '@/components/loading';
 import {
   Dialog,

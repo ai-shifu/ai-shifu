@@ -64,7 +64,7 @@ jobs:
       - name: Install tools
         run: |
           python -m pip install --upgrade pip
-          pip install "ruff==0.16.5" "pre-commit-hooks==6.0.0"
+          pip install "ruff==0.17.3" "pre-commit-hooks==6.0.0"
           (cd src/web && npm ci)
 
       - name: Collect files changed in this PR
@@ -149,5 +149,6 @@ jobs:
           [ -n "$all" ] && check-symlinks $all
           ruff check .
           ruff format --check .
+          python3 scripts/check_ruff_policies.py
           python3 scripts/check_backend_hardcoded_cn.py
           echo "Lint hard-fail checks passed."

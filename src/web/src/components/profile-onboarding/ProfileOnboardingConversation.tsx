@@ -6,7 +6,7 @@ import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/ui-constants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import { cn } from '@/lib/utils';
 import type {
@@ -14,17 +14,17 @@ import type {
   ProfileOnboardingRunSession,
   ProfileOnboardingSessionInfo,
   ProfileOnboardingTypewriterCache,
-} from './profileOnboardingConversationModel';
+} from './profile-onboarding-conversation-model';
 import {
   shouldEnableProfileOnboardingTypewriter,
   syncProfileOnboardingTypewriterCache,
-} from './profileOnboardingConversationModel';
+} from './profile-onboarding-conversation-model';
 import { ProfileAssistantAnswersView } from './ProfileAssistantAnswersView';
-import { useProfileOnboardingSession } from './useProfileOnboardingSession';
+import { useProfileOnboardingSession } from './use-profile-onboarding-session';
 import type {
   ProfileAssistantFailureCategory,
   ProfileCollectionRoute,
-} from './profileOnboardingAnalytics';
+} from './profile-onboarding-analytics';
 
 // ContentRender recreates its custom interaction component on every render.
 // Isolate it from sibling view/copy/paste state to preserve unsent input.
@@ -34,11 +34,11 @@ export {
   isProfileOnboardingSubmissionWithinLimits,
   resolveProfileDraftFromRunEvent,
   resolveProfileNicknameFromRunEvent,
-} from './profileOnboardingConversationModel';
+} from './profile-onboarding-conversation-model';
 export type {
   ProfileOnboardingRunSession,
   ProfileOnboardingSessionInfo,
-} from './profileOnboardingConversationModel';
+} from './profile-onboarding-conversation-model';
 
 export type ProfileOnboardingConversationProps = {
   createSession: () => Promise<ProfileOnboardingSessionInfo>;
@@ -65,6 +65,7 @@ export type ProfileOnboardingConversationProps = {
   onRetry?: () => void;
   questionScrollFooter?: React.ReactNode;
   onCollectionRouteChosen?: (route: ProfileCollectionRoute) => void;
+  onPlaceholderAccepted?: () => void;
   onAssistantOpened?: () => void;
   assistantAnalyticsScope?: string;
   onAssistantPromptCopied?: (originScope: string) => void;
@@ -98,6 +99,7 @@ export default function ProfileOnboardingConversation({
   onRetry,
   questionScrollFooter,
   onCollectionRouteChosen,
+  onPlaceholderAccepted,
   onAssistantOpened,
   assistantAnalyticsScope,
   onAssistantPromptCopied,
@@ -372,6 +374,9 @@ export default function ProfileOnboardingConversation({
                   content={item.content}
                   userInput={item.userInput}
                   readonly={item.readonly}
+                  onPlaceholderAccepted={
+                    item.readonly ? undefined : onPlaceholderAccepted
+                  }
                   onSend={
                     item.isFinished
                       ? undefined

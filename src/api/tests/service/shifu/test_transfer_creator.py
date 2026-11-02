@@ -14,7 +14,9 @@ from flaskr.common.shifu_context import _get_shifu_creator_bid_cached
 from flaskr.dao import db
 from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
 from flaskr.service.billing.models import BillingOrder, BillingProduct
-from flaskr.service.shifu.admin import transfer_operator_course_creator
+from flaskr.service.shifu.admin_operations.courses_transfer_copy import (
+    transfer_operator_course_creator,
+)
 from flaskr.service.shifu.funcs import shifu_permission_verification
 from flaskr.service.shifu.models import (
     AiCourseAuth,
@@ -180,7 +182,7 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.shifu.admin.load_existing_demo_shifu_ids",
+            "flaskr.service.shifu.admin_operations.courses_transfer_copy.load_existing_demo_shifu_ids",
             lambda: {demo_bid},
         )
 
@@ -249,7 +251,7 @@ def test_transfer_creator_promotes_unregistered_existing_user(
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.shifu.admin.load_existing_demo_shifu_ids",
+            "flaskr.service.shifu.admin_operations.courses_transfer_copy.load_existing_demo_shifu_ids",
             lambda: {demo_bid},
         )
 
@@ -328,7 +330,7 @@ def test_transfer_creator_skips_post_auth_when_target_already_creator(
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.shifu.admin.run_creator_granted_post_auth",
+            "flaskr.service.shifu.admin_operations.courses_transfer_copy.run_creator_granted_post_auth",
             lambda *_args, **kwargs: post_auth_calls.append(kwargs),
         )
 

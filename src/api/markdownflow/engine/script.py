@@ -9,12 +9,19 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
-from .marker_context import analyze_marker_context
+from markdownflow.syntax.parser.marker_context import (
+    MarkerContext,
+    analyze_marker_context,
+)
+from markdownflow.syntax.variable_names import (
+    read_interaction_variable,
+)
 
 # Anything that only makes sense with the MarkdownFlow syntax note.
+# Questions are not matched here: the shared marker scanner decides which
+# `?[...]` is a live control and which is an example inside literal Markdown.
 SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
-    r"|(?<!\\)\?\[[^\]\n]*\](?!\()"  # ?[...] interaction (not an escaped one, not a link)
     r"|^!?===.*$",  # ===preserved=== / !=== fences
     re.MULTILINE,
 )
@@ -82,6 +89,8 @@ class ScriptBundle:
 
 def detect_syntax(text: str) -> bool:
     """Report whether the text uses any MarkdownFlow notation outside fenced code blocks."""
+    if "?[" in text and analyze_marker_context(text).controls:
+        return True
     source = _strip_fences(text)
     return bool(SYNTAX_RE.search(source)) or any(
         marker.name is not None for marker in analyze_marker_context(source).markers
@@ -100,12 +109,16 @@ def _project_variable_markers(
     markers = {}
     masked: list[str] = []
     at = 0
-    for marker in analyze_marker_context(text, fence_indent=0).markers:
+    context = analyze_marker_context(text, fence_indent=0)
+    # Bindings follow the CommonMark document, as everywhere else.
+    bindings = _interaction_bindings(text, analyze_marker_context(text))
+    for marker in context.markers:
         token = f"{marker_prefix}{len(markers)}\x00"
         markers[token] = (
             text[marker.start : marker.end],
             marker.name,
-            bool(marker.start and text[marker.start - 1] == "%"),
+            marker.start in bindings
+            or bool(marker.start and text[marker.start - 1] == "%"),
         )
         masked.extend((text[at : marker.start], token))
         at = marker.end
@@ -130,16 +143,34 @@ def _strip_fences(text: str) -> str:
     return tokens.sub(lambda match: markers[match.group(0)][0], "\n".join(out))
 
 
+def _interaction_bindings(text: str, context: MarkerContext) -> set[int]:
+    """Locate the leading binding of every live control the scanner found."""
+    bindings: set[int] = set()
+    for start, end in context.controls:
+        marker = read_interaction_variable(text[start + 2 : end - 1])
+        if marker is not None and marker.name is not None:
+            bindings.add(start + 2 + marker.start)
+    return bindings
+
+
 def collected_names(text: str) -> frozenset[str]:
-    """Return the variables this script fills in during the lesson, named by `%{{name}}`.
+    """Return explicit percent declarations and leading interaction bindings.
 
     Fenced blocks are content the lesson shows, not instructions it follows, so a `%{{name}}`
     inside one is an example of the notation rather than a question. Counted as collected, it
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
+    # Removing fenced examples must not join surrounding text into a new binding.
+    context = analyze_marker_context(text)
+    bindings = _interaction_bindings(text, context)
+    collected = {
+        marker.name
+        for marker in context.markers
+        if marker.name is not None and marker.start in bindings
+    }
     source = _strip_fences(text)
-    return frozenset(
+    return frozenset(collected) | frozenset(
         marker.name
         for marker in analyze_marker_context(source).markers
         if marker.name is not None and marker.start and source[marker.start - 1] == "%"
@@ -323,12 +354,15 @@ def render_first_prompt(
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
     # stale fact and a fresh tool result tends to trust the fact.
-    parts = [
-        render_memory_section(
-            bundle, memory, limit=memory_limit, priority=memory_priority
-        )[0],
-        f"<script>\n{bundle.script}\n</script>",
-    ]
+    memory_section = render_memory_section(
+        bundle, memory, limit=memory_limit, priority=memory_priority
+    )[0]
+    return memory_section + "\n\n" + render_script_documents(bundle)
+
+
+def render_script_documents(bundle: ScriptBundle) -> str:
+    """Render the script, constraints and extras part of the first user message."""
+    parts = [f"<script>\n{bundle.script}\n</script>"]
     if bundle.constraints:
         parts.append(f"<constraints>\n{bundle.constraints}\n</constraints>")
     for name, body in bundle.extras.items():

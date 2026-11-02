@@ -11,11 +11,12 @@ from uuid import uuid4
 import pytest
 from flask import Flask
 from flaskr.dao import db
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
+    LogPublishedStruct,
     PublishedOutlineItem,
     PublishedShifu,
 )
@@ -409,6 +410,109 @@ def test_publish_rejects_invalid_live_contract_before_retiring_current_version(
 
 
 @pytest.mark.parametrize(
+    "content", ["?[{{ sys_custom }} ...Answer]", "?[%{{sys_custom}} Yes | No]"]
+)
+def test_publish_rejects_system_question_keys_before_retiring_current_version(
+    app: object, monkeypatch: pytest.MonkeyPatch, content: str
+) -> None:
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    shifu_bid, lesson_bid = uuid4().hex, uuid4().hex
+    summary = Mock()
+    background_thread = Mock()
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", summary)
+    monkeypatch.setattr(module.threading, "Thread", background_thread)
+    with app.app_context():
+        db.session.add_all(
+            [
+                DraftShifu(shifu_bid=shifu_bid, title="Invalid draft", llm="gpt-main"),
+                DraftOutlineItem(
+                    outline_item_bid=lesson_bid,
+                    shifu_bid=shifu_bid,
+                    title="Lesson",
+                    position="1",
+                    content=content,
+                ),
+                PublishedShifu(
+                    shifu_bid=shifu_bid, title="Current published course", deleted=0
+                ),
+                PublishedOutlineItem(
+                    outline_item_bid=lesson_bid,
+                    shifu_bid=shifu_bid,
+                    title="Current lesson",
+                    position="1",
+                    content="Current published content",
+                    deleted=0,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    with pytest.raises(AppError) as error:
+        module.publish_shifu_draft(
+            app,
+            user_id="teacher-1",
+            shifu_id=shifu_bid,
+            base_url="https://example.com",
+        )
+
+    assert error.value.code == ERROR_CODE["server.profile.keyReserved"]
+    summary.assert_not_called()
+    background_thread.assert_not_called()
+    with app.app_context():
+        current = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        assert current.title == "Current published course"
+        assert current.deleted == 0
+        current_outline = PublishedOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid
+        ).one()
+        assert current_outline.content == "Current published content"
+        assert current_outline.deleted == 0
+        assert LogPublishedStruct.query.filter_by(shifu_bid=shifu_bid).count() == 0
+
+
+def test_publish_preserves_system_variable_references(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    shifu_bid, lesson_bid = uuid4().hex, uuid4().hex
+    content = "Hello {{sys_user_nickname}}.\n\n?[{{goal}} ...Your goal]"
+    summary = Mock()
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", summary)
+    with app.app_context():
+        db.session.add_all(
+            [
+                DraftShifu(shifu_bid=shifu_bid, title="Valid draft", llm="gpt-main"),
+                DraftOutlineItem(
+                    outline_item_bid=lesson_bid,
+                    shifu_bid=shifu_bid,
+                    title="Lesson",
+                    position="1",
+                    content=content,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    result = module.publish_shifu_draft(
+        app,
+        user_id="teacher-1",
+        shifu_id=shifu_bid,
+        base_url="https://example.com",
+        sync_summary=True,
+    )
+
+    assert result == f"https://example.com/c/{shifu_bid}"
+    summary.assert_called_once()
+    with app.app_context():
+        published = PublishedOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid, outline_item_bid=lesson_bid, deleted=0
+        ).one()
+        assert published.content == content
+
+
+@pytest.mark.parametrize(
     "primary_model", [GEMINI_LIVE_MODEL_ID, "gemini-3.1-flash-live-preview"]
 )
 @pytest.mark.parametrize("follow_up_model", ["fast", GEMINI_LIVE_MODEL_ID])
@@ -755,55 +859,3 @@ def test_summary_is_skipped_when_the_course_is_republished_mid_generation(
             ASK_MODE_DEFAULT,
             ASK_MODE_DEFAULT,
         ]
-
-
-def test_publish_carries_the_flow_engine_setting_to_the_published_row(
-    app: object, monkeypatch: object
-) -> None:
-    """Learners run the published row, so an author switching runtime must see it take effect.
-
-    Without the copy the setting would sit in the draft looking correct while every learner kept
-    getting the old runtime, which is the kind of failure nobody reports as a bug.
-    """
-    from flaskr.service.shifu import shifu_publish_funcs as module
-    from flaskr.service.shifu.consts import FLOW_ENGINE_V2
-
-    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)
-    bid = "publish-carries-flow-engine"
-
-    with app.app_context():
-        draft = DraftShifu(
-            shifu_bid=bid,
-            title="Draft",
-            description="Desc",
-            keywords="a",
-            flow_engine=FLOW_ENGINE_V2,
-        )
-        outline = DraftOutlineItem(
-            outline_item_bid=f"{bid}-lesson",
-            shifu_bid=bid,
-            title="Lesson",
-            position="1",
-            type=401,
-            hidden=0,
-            content="# Lesson",
-        )
-        db.session.add_all([draft, outline])
-        db.session.commit()
-
-    module.publish_shifu_draft(
-        app,
-        user_id="user-1",
-        shifu_id=bid,
-        base_url="https://example.com",
-        sync_summary=True,
-    )
-
-    with app.app_context():
-        published = (
-            PublishedShifu.query.filter_by(shifu_bid=bid)
-            .order_by(PublishedShifu.id.desc())
-            .first()
-        )
-        assert published is not None
-        assert published.flow_engine == FLOW_ENGINE_V2

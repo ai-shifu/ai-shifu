@@ -8,7 +8,7 @@ import api from '@/api';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
-} from '@/app/admin/lib/dateTime';
+} from '@/app/admin/lib/date-time';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
@@ -23,16 +23,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
-import { toast } from '@/hooks/useToast';
+import { toast } from '@/hooks/use-toast';
 import { ErrorWithCode } from '@/lib/request';
 import {
   resolveLoginIdentifierTypes,
   selectSingleLoginIdentifierType,
 } from '@/lib/login-identifiers';
-import useOperatorGuard from '../useOperatorGuard';
+import useOperatorGuard from '../use-operator-guard';
 import type {
   AdminOperationCreditNotificationItem,
   CreditNotificationRule,
@@ -62,14 +62,14 @@ import {
   PAGE_SIZE,
   type NotificationFilters,
   type PageTab,
-} from './creditNotificationUtils';
+} from './credit-notification-utils';
 
-import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
+import { useCreditNotificationDryRun } from './use-credit-notification-dry-run';
 import {
   NOTIFICATION_LEGACY_SMS_RULES_MIGRATED_EVENT,
   NOTIFICATION_RULE_ACTION_EVENT,
   NOTIFICATION_RULE_TRACKING_CONTEXT,
-} from './notificationRuleTracking';
+} from './notification-rule-tracking';
 import {
   NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
   NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
@@ -80,7 +80,7 @@ import {
   NOTIFICATION_TEMPLATE_SYNC_ATTEMPT_EVENT,
   NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT,
   NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
-} from './notificationTemplateTracking';
+} from './notification-template-tracking';
 
 const SKIP_REASON_TRANSLATION_KEYS = {
   channel: 'module.operationsCreditNotifications.skipReason.channel',

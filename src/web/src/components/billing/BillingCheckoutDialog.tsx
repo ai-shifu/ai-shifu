@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { getPaymentAgreementUrl } from '@/lib/urlUtils';
+import { getPaymentAgreementUrl } from '@/lib/url-utils';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import { resolveBillingPingxxChannelLabel } from '@/lib/billing';

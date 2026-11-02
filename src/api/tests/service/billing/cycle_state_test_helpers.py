@@ -29,6 +29,8 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 _UNSET = object()
 
 __all__ = [
@@ -65,15 +67,12 @@ def create_cycle_state_renewal_order(
     paid_at: datetime | object | None = _UNSET,
     order_type: int = BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=order_type,
         product_bid="bill-product-renewal-boundary",
         subscription_bid=subscription_bid,
-        currency="CNY",
-        payable_amount=0,
-        paid_amount=0,
         payment_provider=payment_provider,
         channel="manual",
         status=BILLING_ORDER_STATUS_PAID,

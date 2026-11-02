@@ -20,16 +20,16 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 import { ErrorWithCode } from '@/lib/request';
 import { getTrackingIdentityGeneration } from '@/lib/tracking';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import type {
   AdminOperationUserCancellationPreview,
   AdminOperationUserCancellationStatus,
   AdminOperationUserItem,
 } from '../operation-user-types';
-import { formatOperatorUtcDateTime } from './dateTime';
+import { formatOperatorUtcDateTime } from './date-time';
 
 type Props = {
   open: boolean;

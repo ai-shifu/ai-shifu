@@ -23,6 +23,11 @@ from flaskr.service.shifu.models import LogPublishedStruct, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.util import generate_id
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 
 class LearnRecordFallbackTests(unittest.TestCase):
     """Verify learn record fallback behavior."""
@@ -59,7 +64,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
     def _create_progress(
         self, status: int, outline_bid: str = "outline-1"
     ) -> LearnProgressRecord:
-        progress = LearnProgressRecord(
+        progress = make_progress_record(
             progress_record_bid="progress-1",
             shifu_bid="shifu-1",
             outline_item_bid=outline_bid,
@@ -106,16 +111,14 @@ class LearnRecordFallbackTests(unittest.TestCase):
         content: str,
         position: int = 0,
     ) -> LearnGeneratedBlock:
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generate_id(self.app),
             progress_record_bid=progress.progress_record_bid,
             user_bid=progress.user_bid,
-            block_bid="",
             outline_item_bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
             type=BLOCK_TYPE_MDINTERACTION_VALUE,
             role=1,
-            generated_content="",
             position=position,
             block_content_conf=content,
             status=1,
@@ -148,17 +151,14 @@ class LearnRecordFallbackTests(unittest.TestCase):
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         button_label = _("server.learn.nextChapterButton")
         button_md = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]({button_label})"
-        block = LearnGeneratedBlock(
+        block = make_generated_block(
             generated_block_bid=generate_id(self.app),
             progress_record_bid=progress.progress_record_bid,
             user_bid=progress.user_bid,
-            block_bid="",
             outline_item_bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
             type=BLOCK_TYPE_MDINTERACTION_VALUE,
             role=1,
-            generated_content="",
-            position=0,
             block_content_conf=button_md,
             status=1,
         )

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.profile.funcs import get_global_profile_keys
+from flaskr.service.profile.account_fields import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import LargeBinary, cast, func, select
 
@@ -125,10 +125,14 @@ def delete_course_memory(user_bid: str, shifu_bid: str, value_id: int) -> dict:
             return {"conflict": True}
         if newest is None:
             return {"conflict": False}
+        # Clear every stored version, including ones retired earlier: the learner asked
+        # for the value to be gone, and no reader uses a deleted row's value.
         _course_rows(user_bid, shifu_bid).filter(
             cast(VariableValue.key, LargeBinary) == selected.key.encode("utf-8"),
-            VariableValue.deleted == 0,
-        ).update({VariableValue.deleted: 1}, synchronize_session="fetch")
+        ).update(
+            {VariableValue.deleted: 1, VariableValue.value: ""},
+            synchronize_session="fetch",
+        )
         # An appended marker advances the generation even when a legacy retired
         # row already had a larger ID than the live value being deleted.
         db.session.add(

@@ -120,7 +120,7 @@ def register_profile_routes(
 
     @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
     @sensitive_body()
-    def profile_onboarding_status_api() -> str:
+    def profile_onboarding_status_api() -> Response:
         """Get platform-level profile onboarding state for current user.
 
         ---
@@ -136,7 +136,7 @@ def register_profile_routes(
 
     @app.route(path_prefix + "/profile-onboarding/session", methods=["POST"])
     @sensitive_body()
-    def create_profile_onboarding_session_api() -> str:
+    def create_profile_onboarding_session_api() -> Response:
         """Create a transient guided-profile session from the live config."""
         payload = _request_json_object("profile_onboarding_session")
         _reject_unknown_fields(
@@ -266,7 +266,7 @@ def register_profile_routes(
 
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
     @sensitive_body()
-    def complete_profile_onboarding_api() -> str:
+    def complete_profile_onboarding_api() -> Response:
         """Complete or skip platform-level profile onboarding.
 
         ---
@@ -308,7 +308,7 @@ def register_profile_routes(
 
     @app.route(path_prefix + "/profile-onboarding/skip", methods=["POST"])
     @sensitive_body()
-    def skip_profile_onboarding_api() -> str:
+    def skip_profile_onboarding_api() -> Response:
         payload = _request_json_object("profile_onboarding")
         _reject_unknown_fields(
             payload,
@@ -324,13 +324,13 @@ def register_profile_routes(
 
     @app.route(path_prefix + "/learner-profile", methods=["GET"])
     @sensitive_body()
-    def learner_profile_api() -> str:
+    def learner_profile_api() -> Response:
         """Return the current user's canonical learning profile."""
         return make_common_response(get_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile", methods=["PUT"])
     @sensitive_body()
-    def update_learner_profile_api() -> str:
+    def update_learner_profile_api() -> Response:
         """Replace the current user's canonical learning profile."""
         payload = _request_json_object("learner_profile")
         _reject_unknown_fields(
@@ -355,13 +355,13 @@ def register_profile_routes(
 
     @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
     @sensitive_body()
-    def clear_learner_profile_api() -> str:
+    def clear_learner_profile_api() -> Response:
         """Clear the profile while keeping onboarding handled."""
         return make_common_response(clear_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])
     @sensitive_body()
-    def optimize_learner_profile_api() -> str:
+    def optimize_learner_profile_api() -> Response:
         """Return an LLM-optimized draft without saving profile state."""
         payload = _request_json_object("learner_profile")
         _reject_unknown_fields(

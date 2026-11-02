@@ -8,9 +8,10 @@ import { expect, test } from '@playwright/test';
 // This does not replace full AskBlock/real-Gemini device acceptance.
 const modules: Record<string, string> = {
   'admission.js':
-    'src/components/live-follow-up/liveFollowUpSessionAdmission.ts',
-  'ownership.js': 'src/components/live-follow-up/liveFollowUpOwnership.ts',
-  'liveVoiceFollowUp.js': 'src/lib/liveVoiceFollowUp.ts',
+    'src/components/live-follow-up/live-follow-up-session-admission.ts',
+  'ownership.js': 'src/components/live-follow-up/live-follow-up-ownership.ts',
+  'liveVoiceFollowUp.js': 'src/lib/live-voice-follow-up.ts',
+  'liveVoiceCapacityScopes.js': 'src/lib/live-voice-capacity-scopes.ts',
 };
 const scripts = Object.fromEntries(
   Object.entries(modules).map(([name, file]) => [
@@ -23,10 +24,14 @@ const scripts = Object.fromEntries(
         },
       })
       .outputText.replaceAll(
-        '@/lib/liveVoiceFollowUp',
+        '@/lib/live-voice-follow-up',
         '/modules/liveVoiceFollowUp.js',
       )
-      .replaceAll('@/lib/request', '/modules/request.js'),
+      .replaceAll('@/lib/request', '/modules/request.js')
+      .replaceAll(
+        "'./live-voice-capacity-scopes'",
+        "'/modules/liveVoiceCapacityScopes.js'",
+      ),
   ]),
 );
 

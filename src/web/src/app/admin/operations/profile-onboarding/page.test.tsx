@@ -8,7 +8,7 @@ import {
   within,
 } from '@testing-library/react';
 import api from '@/api';
-import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
+import { streamProfileOnboardingRuntime } from '@/lib/profile-onboarding-sse';
 import ProfileOnboardingAdminPage from './page';
 import {
   PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT,
@@ -18,7 +18,7 @@ import {
   PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT,
   PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT,
   PROFILE_PROMPT_GENERATE_RESULT_EVENT,
-} from './useProfileOnboardingAdminController';
+} from './use-profile-onboarding-admin-controller';
 
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -55,16 +55,16 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-jest.mock('../useOperatorGuard', () => ({
+jest.mock('../use-operator-guard', () => ({
   __esModule: true,
   default: () => ({ isReady: true }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
   }),
@@ -78,7 +78,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/lib/profileOnboardingSse', () => ({
+jest.mock('@/lib/profile-onboarding-sse', () => ({
   streamProfileOnboardingRuntime: jest.fn(() => ({ close: jest.fn() })),
 }));
 

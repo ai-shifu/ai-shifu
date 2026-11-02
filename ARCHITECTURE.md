@@ -60,7 +60,7 @@ validation.
   `src/web/src/lib/request.ts` and `src/web/src/lib/api.ts`.
 - Learner and teacher code shares responsibility-based source directories:
   `api`, `assets`, `components`, `constants`, `hooks`, `lib`, `store`, and `types`.
-- Shared analytics uses `hooks/useTracking.ts` and `lib/tracking.ts`; course
+- Shared analytics uses `hooks/use-tracking.ts` and `lib/tracking.ts`; course
   orchestration helpers live in `lib/shifu`.
 
 ## Harness Model

@@ -10,11 +10,11 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-jest.mock('@/api/bz', () => ({
+jest.mock('@/api/feedback', () => ({
   submitFeedback: (...args: unknown[]) => mockSubmitFeedback(...args),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   toast: (...args: unknown[]) => mockToast(...args),
 }));
 

@@ -14,7 +14,6 @@ from flaskr.api import langfuse_markdownflow
 from flaskr.api.langfuse import MockClient
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn import runscript_v2 as runtime
 from flaskr.service.learn.agent import lesson_entry
 from flaskr.service.learn.agent.models import LearnAgentSession
 from flaskr.service.learn.agent.preview_history import (
@@ -26,6 +25,11 @@ from flaskr.service.learn.agent.session_store import (
     preview_presentation,
     save_agent_session,
 )
+from flaskr.service.learn.elements.run_adapter import (
+    ListenElementRunAdapter,
+    get_listen_element_record,
+)
+from flaskr.service.learn.host import lesson as host_lesson
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
@@ -33,14 +37,9 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, reset_learn_record
-from flaskr.service.learn.listen_elements import (
-    ListenElementRunAdapter,
-    get_listen_element_record,
-)
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
-    LearnGeneratedElement,
     LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
@@ -53,6 +52,11 @@ from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
+from tests.common.fixtures.model_factories import (
+    make_generated_element,
+    make_progress_record,
+)
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
 
@@ -61,6 +65,14 @@ if TYPE_CHECKING:
     from flaskr.service.metering.api import UsageContext
     from pydantic_ai.messages import ModelMessage
     from pydantic_ai.models.function import AgentInfo
+
+
+def _shown(user_input: str | None) -> str:
+    """Read the submitted text or choices from a restored control's structured default."""
+    if not user_input:
+        return ""
+    data = json.loads(user_input)
+    return data["inputText"] or ",".join(data["selectedValues"])
 
 
 @pytest.fixture
@@ -172,7 +184,7 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
                 persist_only_final=True,
             )
             return list(
-                runtime._lesson_events(
+                host_lesson._lesson_events(
                     app=app,
                     user_bid=identity,
                     shifu_bid=identity,
@@ -254,7 +266,7 @@ def test_multiple_requests_keep_order_and_accepted_answers(classroom: tuple) -> 
     ]
     assert "question 1" in records[0].content
     assert "question 2" in records[2].content
-    assert records[1].payload.user_input == "My answer"
+    assert _shown(records[1].payload.user_input) == "My answer"
     assert not records[-1].payload or not records[-1].payload.user_input
     assert len(calls) == 2
     assert history(user="someone-else").elements == []
@@ -269,7 +281,7 @@ def test_preview_catalog_and_reset_are_independent_of_published_learning(
     identity, run, history, _calls = classroom
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=uuid.uuid4().hex,
                 user_bid=identity,
                 shifu_bid=identity,
@@ -385,16 +397,14 @@ def test_legacy_preview_recovers_once_and_never_uses_published_or_unowned_rows(
     )
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnGeneratedElement(
+            make_generated_element(
                 element_bid=uuid.uuid4().hex,
                 user_bid=identity,
                 shifu_bid=identity,
                 outline_item_bid=identity,
                 run_session_bid="unowned",
-                event_type="element",
                 element_type="text",
                 content_text="Do not display this published or unowned content",
-                status=1,
             )
         )
     assert history().elements == []
@@ -625,13 +635,16 @@ def test_multiple_deferred_questions_keep_controls_and_individual_answers(
         e for e in history().elements if e.element_type == ElementType.INTERACTION
     ]
     assert len(controls) == 2
-    assert controls[0].payload.user_input == "First answer"
+    assert _shown(controls[0].payload.user_input) == "First answer"
     assert not controls[1].payload.user_input
     run("Second answer")
     controls = [
         e for e in history().elements if e.element_type == ElementType.INTERACTION
     ]
-    assert [e.payload.user_input for e in controls] == ["First answer", "Second answer"]
+    assert [_shown(e.payload.user_input) for e in controls] == [
+        "First answer",
+        "Second answer",
+    ]
     assert load_agent_session(app, identity, identity, preview_mode=True).finished
 
 

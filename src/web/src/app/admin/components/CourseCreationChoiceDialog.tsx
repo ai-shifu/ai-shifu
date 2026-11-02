@@ -15,7 +15,7 @@ import {
 import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
+} from '@/lib/onboarding-targets';
 import CreateShifuForm, { type CreateShifuValues } from './CreateShifuForm';
 
 interface CourseCreationChoiceDialogProps {

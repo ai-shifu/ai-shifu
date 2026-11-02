@@ -37,10 +37,10 @@ from flaskr.service.learn.api import (
 )
 
 # Deprecation-window shim: the ask-provider constants moved to their canonical
-# home in flaskr/service/learn/ask_provider_adapters/consts.py. They are
+# home in flaskr/service/learn/ask/providers/consts.py. They are
 # re-exported here so existing importers keep working; import from the new
 # location in new code.
-from flaskr.service.learn.ask_provider_adapters.consts import (  # noqa: F401
+from flaskr.service.learn.ask.providers.consts import (  # noqa: F401
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_DIFY,

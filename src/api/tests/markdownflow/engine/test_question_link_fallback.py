@@ -3,8 +3,8 @@
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from markdownflow.engine import collected_names, substitute_variables
-from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.tools import _script_questions
+from markdownflow.syntax.parser.marker_context import analyze_marker_context
 
 QUESTION = "?[%{{ real }} A|B]"
 LINKS = [

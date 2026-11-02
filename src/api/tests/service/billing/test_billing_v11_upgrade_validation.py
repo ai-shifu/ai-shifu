@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from flask import Flask
@@ -35,8 +34,6 @@ from flaskr.service.metering.models import BillUsageRecord
 
 from tests.common.fixtures.bill_products import build_billing_product
 
-_API_ROOT = Path(__file__).resolve().parents[3]
-
 
 @pytest.fixture
 def billing_v11_upgrade_app() -> Flask:
@@ -57,22 +54,6 @@ def billing_v11_upgrade_app() -> Flask:
         yield app
         dao.db.session.remove()
         dao.db.drop_all()
-
-
-def test_billing_v11_upgrade_migration_chain_extends_v1_schema() -> None:
-    source = (
-        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
-    ).read_text(encoding="utf-8")
-
-    assert 'revision = "b114d7f5e2c1"' in source
-    assert 'down_revision = "1c8f4b7a9d2e"' in source
-    assert 'op.create_table(\n        "bill_entitlements",' in source
-    assert 'op.create_table(\n        "bill_domain_bindings",' in source
-    assert 'op.create_table(\n        "bill_daily_usage_metrics",' in source
-    assert 'op.create_table(\n        "bill_daily_ledger_summary",' in source
-    assert not (
-        _API_ROOT / "migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py"
-    ).exists()
 
 
 def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(

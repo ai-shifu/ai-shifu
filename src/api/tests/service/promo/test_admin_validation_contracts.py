@@ -2,10 +2,8 @@
 
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import Mock
 
 import pytest
-from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.promo import admin
 from flaskr.service.promo.consts import (
@@ -274,39 +272,3 @@ def test_status_filters_select_only_matching_utc_window_and_enabled_state(
         for name in windows:
             assert [row.name for row in model.query.filter(build(name)).all()] == [name]
         assert build("") is None
-
-
-def test_coupon_code_generation_retries_collisions_across_batch_and_usage(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    admin.create_operator_promotion_coupon(app, "operator", _coupon_payload())
-    with app.app_context():
-        db.session.add(
-            CouponUsage(
-                coupon_usage_bid="used", coupon_bid="batch", code="USED", name="Used"
-            )
-        )
-        db.session.commit()
-        generate = Mock(side_effect=["TESTCOUPON", "USED", "UNIQUE"])
-        monkeypatch.setattr(admin, "_generate_random_coupon_code", generate)
-        assert admin._generate_unique_coupon_code() == "UNIQUE"
-        assert generate.call_count == 3
-        assert admin._generate_unique_coupon_codes(0) == []
-
-
-def test_coupon_code_exhaustion_has_bounded_attempts_and_no_partial_rows(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    admin.create_operator_promotion_coupon(app, "operator", _coupon_payload())
-    generate = Mock(return_value="TESTCOUPON")
-    monkeypatch.setattr(admin, "_generate_random_coupon_code", generate)
-    with app.app_context():
-        with pytest.raises(AppError) as caught:
-            admin._generate_unique_coupon_code()
-        assert (
-            caught.value.code
-            == ERROR_CODE["server.discount.couponCodeGenerationFailed"]
-        )
-        assert generate.call_count == 20
-        assert Coupon.query.count() == 1
-        assert CouponUsage.query.count() == 0

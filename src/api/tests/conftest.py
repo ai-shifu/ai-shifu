@@ -54,7 +54,6 @@ from sqlalchemy.ext.compiler import compiles
 class _TestPluginManager:
     def __init__(self) -> None:
         self.extension_functions = {}
-        self.extensible_generic_functions = {}
         self.is_enabled = False
 
     def register_extension(self, target_func_name: object, func: object) -> None:
@@ -69,14 +68,6 @@ class _TestPluginManager:
     ) -> object:
         _ = (args, kwargs)
         return result
-
-    def register_extensible_generic(self, func_name: object, func: object) -> None:
-        self.extensible_generic_functions.setdefault(func_name, []).append(func)
-
-    def execute_extensible_generic(
-        self, _func_name: object, *args: object, **kwargs: object
-    ) -> None:
-        _ = (args, kwargs)
 
 
 set_plugin_manager(_TestPluginManager())
@@ -94,12 +85,21 @@ def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> o
 
 import contextlib
 
+from flask_sqlalchemy import SQLAlchemy
+
+from tests.common.fixtures.db_template import create_all_from_template
+from tests.common.fixtures.env_isolation import clear_registered_env
 from tests.common.fixtures.fake_llm import (
     fake_chat_llm,
     fake_get_current_models,
     fake_invoke_llm,
 )
 from tests.common.fixtures.fake_redis import FakeRedis
+
+# Patched once for the whole session: test modules call db.create_all() in their
+# own per-test app fixtures, and copying a cached schema is much cheaper than
+# rebuilding it on every file-backed SQLite database.
+SQLAlchemy.create_all = create_all_from_template
 
 
 @pytest.fixture(scope="session")
@@ -203,7 +203,7 @@ def mock_redis_client(monkeypatch: object, request: object) -> object:
         "flaskr.service.user.auth.providers.google",
         "flaskr.service.config.funcs",
         "flaskr.service.shifu.funcs",
-        "flaskr.service.learn.runscript_v2",
+        "flaskr.service.learn.host.run",
         "flaskr.service.order.funs",
     ]
     for module_path in module_paths:
@@ -216,6 +216,25 @@ def mock_redis_client(monkeypatch: object, request: object) -> object:
             monkeypatch.setattr(module, "redis_client", fake_redis, raising=False)
 
     return fake_redis
+
+
+_REAL_BCRYPT = import_module("bcrypt")
+_REAL_GENSALT = _REAL_BCRYPT.gensalt
+
+
+def _minimum_cost_gensalt(rounds: int = 12, prefix: bytes = b"2b") -> bytes:
+    """Hash test passwords at bcrypt's minimum cost; production keeps cost 12.
+
+    checkpw reads the cost from each hash, so verification is unchanged; only
+    the key-stretching work that made password tests take seconds is skipped.
+    """
+    del rounds
+    return _REAL_GENSALT(rounds=4, prefix=prefix)
+
+
+# Patched once for the whole session on the real module: some tests swap a fake
+# into sys.modules["bcrypt"], and no test needs production-cost hashing.
+_REAL_BCRYPT.gensalt = _minimum_cost_gensalt
 
 
 def _should_skip_llm_mock(request: object) -> bool:
@@ -235,19 +254,19 @@ def mock_llm_calls(monkeypatch: object, request: object) -> None:
         llm, "get_current_models", fake_get_current_models, raising=False
     )
     # handle_input_ask binds chat_llm at import time.
-    ask = sys.modules.get("flaskr.service.learn.handle_input_ask")
+    ask = sys.modules.get("flaskr.service.learn.ask.handler")
     if ask is not None:
         monkeypatch.setattr(ask, "chat_llm", fake_chat_llm, raising=False)
 
 
 @pytest.fixture(autouse=True)
-def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
+def isolate_env_for_non_app_tests(
+    request: object, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
     if "app" in request.fixturenames:
         yield
         return
-    original = {key: os.environ.get(key) for key in ENV_VARS}
-    for key in ENV_VARS:
-        os.environ.pop(key, None)
+    clear_registered_env(monkeypatch)
 
     # Some tests monkeypatch env vars while a session-scoped Flask app has
     # already initialized the enhanced config cache. Clear caches so get_config
@@ -261,11 +280,6 @@ def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
         if config_module.Config._instance is not None:
             config_module.Config._instance.enhanced._cache.clear()
     yield
-    for key, value in original.items():
-        if value is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = value
 
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()

@@ -9,7 +9,7 @@ import AdminTableShell from '@/components/admin/AdminTableShell';
 import {
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
+} from '@/components/admin/admin-table-styles';
 import { Button } from '@/components/ui/Button';
 import {
   DropdownMenu,
@@ -38,7 +38,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 import {
   buildBillingSwrKey,
   formatBillingCredits,

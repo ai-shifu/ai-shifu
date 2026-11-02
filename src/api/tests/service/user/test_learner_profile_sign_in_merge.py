@@ -868,22 +868,24 @@ def test_legacy_profile_migration_preserves_target_nickname(
 
 
 @pytest.mark.parametrize("sign_in_method", ["phone", "email"])
-def test_sign_in_generic_label_migration_ignores_historical_background(
+def test_sign_in_label_migration_ignores_historical_background_and_unregistered_values(
     app: object,
     monkeypatch: object,
     sign_in_method: object,
 ) -> None:
     from flaskr.service.user import email_flow, phone_flow
 
+    unregistered_keys = ("sex", "birth", "avatar", "language", "sys_user_style")
     flow = phone_flow if sign_in_method == "phone" else email_flow
     _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
-    monkeypatch.setattr(
-        "flaskr.service.profile.funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
+    for module in ("funcs", "course_values"):
+        monkeypatch.setattr(
+            f"flaskr.service.profile.{module}.get_profile_item_definition_list",
+            lambda *_args, **_kwargs: [],
+        )
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.check_text_content",
         lambda *_args: True,
@@ -907,6 +909,16 @@ def test_sign_in_generic_label_migration_ignores_historical_background(
                 value="Historical guest background",
             )
         )
+        for key in unregistered_keys:
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid.uuid4().hex,
+                    user_bid=source.user_bid,
+                    shifu_bid="",
+                    key=key,
+                    value="Historical global value",
+                )
+            )
         db.session.commit()
 
         if sign_in_method == "phone":
@@ -934,7 +946,28 @@ def test_sign_in_generic_label_migration_ignores_historical_background(
             deleted=0,
         ).all()
 
-    assert stored_target.learner_profile == ""
+        assert stored_target.learner_profile == ""
+        assert (
+            stored_target.avatar,
+            stored_target.language,
+            stored_target.birthday,
+        ) == ("", "en-US", None)
+        assert (
+            VariableValue.query.filter(
+                VariableValue.user_bid == target.user_bid,
+                VariableValue.key.in_(unregistered_keys),
+            ).count()
+            == 0
+        )
+        assert {
+            row.key: row.value
+            for row in VariableValue.query.filter(
+                VariableValue.user_bid == source.user_bid,
+                VariableValue.key.in_(unregistered_keys),
+                VariableValue.deleted == 0,
+            ).all()
+        } == dict.fromkeys(unregistered_keys, "Historical global value")
+
     assert migrated_rows == []
 
 

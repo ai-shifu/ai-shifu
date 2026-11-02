@@ -3,8 +3,8 @@
 This module owns thin endpoint definition wrappers that expose Cook Web API
 calls on top of the shared request and generated-client helpers.
 
-Entry files in this directory: `api.ts`, `index.ts`, `user.ts`, `course.ts`,
-`studyV2.ts`.
+Entry files in this directory: `endpoint-definitions.ts`, `index.ts`, `user.ts`, `course.ts`,
+`learning.ts`.
 
 Shared compatibility, i18n, privacy and verification rules are inherited from
 the root and `src/web/AGENTS.md`; the constraints below are local.

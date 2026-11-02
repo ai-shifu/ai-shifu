@@ -19,7 +19,7 @@
 - Diagnostics scripts may surface request-scoped evidence, but they must avoid
   printing unrelated log history when the request id is missing or ambiguous.
 - Local observability compose config may expose loopback-only ports for Grafana,
-  Loki, Tempo, Prometheus, and OTEL, but it must not require committed secrets.
+  Loki, Tempo, and OTEL, but it must not require committed secrets.
 
 ## Follow-Up Areas
 

@@ -9,7 +9,6 @@ from flask import Flask
 from flaskr import dao
 from flaskr.dao import db
 from flaskr.service.user.consts import (
-    CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
     USER_STATE_REGISTERED,
@@ -19,7 +18,6 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     create_user_entity,
-    get_first_verified_credential_created_at,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
     upsert_user_entity,
@@ -292,78 +290,6 @@ def test_upsert_user_entity_creates_and_updates_records(app: object) -> None:
             )
             assert created is False
             assert entity.nickname == "Updated"
-        finally:
-            AuthCredential.query.filter_by(user_bid=user_bid).delete()
-            UserEntity.query.filter_by(user_bid=user_bid).delete()
-            db.session.commit()
-
-
-def test_get_first_verified_credential_created_at_prefers_earliest_verified(
-    app: object,
-) -> None:
-    user_bid = uuid.uuid4().hex[:32]
-    with app.app_context():
-        create_user_entity(
-            user_bid=user_bid,
-            identify="user@example.com",
-            nickname="Test User",
-            language="en-US",
-            avatar="",
-            state=USER_STATE_REGISTERED,
-        )
-        _insert_email_credential(
-            user_bid,
-            "late@example.com",
-            created_at=datetime(2026, 4, 9, 10, 0, 0),
-        )
-        _insert_email_credential(
-            user_bid,
-            "early@example.com",
-            provider_name="google",
-            created_at=datetime(2026, 4, 8, 10, 0, 0),
-        )
-        _insert_email_credential(
-            user_bid,
-            "ignored@example.com",
-            provider_name="phone",
-            state=CREDENTIAL_STATE_UNVERIFIED,
-            created_at=datetime(2026, 4, 7, 10, 0, 0),
-        )
-        db.session.commit()
-
-        try:
-            assert get_first_verified_credential_created_at(user_bid=user_bid) == (
-                datetime(2026, 4, 8, 10, 0, 0)
-            )
-        finally:
-            AuthCredential.query.filter_by(user_bid=user_bid).delete()
-            UserEntity.query.filter_by(user_bid=user_bid).delete()
-            db.session.commit()
-
-
-def test_get_first_verified_credential_created_at_returns_none_without_verified(
-    app: object,
-) -> None:
-    user_bid = uuid.uuid4().hex[:32]
-    with app.app_context():
-        create_user_entity(
-            user_bid=user_bid,
-            identify="user@example.com",
-            nickname="Test User",
-            language="en-US",
-            avatar="",
-            state=USER_STATE_REGISTERED,
-        )
-        _insert_email_credential(
-            user_bid,
-            "pending@example.com",
-            state=CREDENTIAL_STATE_UNVERIFIED,
-            created_at=datetime(2026, 4, 9, 10, 0, 0),
-        )
-        db.session.commit()
-
-        try:
-            assert get_first_verified_credential_created_at(user_bid=user_bid) is None
         finally:
             AuthCredential.query.filter_by(user_bid=user_bid).delete()
             UserEntity.query.filter_by(user_bid=user_bid).delete()

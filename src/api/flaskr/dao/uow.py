@@ -71,6 +71,11 @@ def app_context_scope(app: object) -> AbstractContextManager[AppContext | None]:
     return _foreign_app_context(target)
 
 
+def reuses_caller_session(app: object) -> bool:
+    """Report whether ``app_context_scope(app)`` would run on the caller's session."""
+    return _reuses_caller_app_context(app)
+
+
 def _unwrap_app(app: object) -> Flask:
     return app._get_current_object() if isinstance(app, LocalProxy) else app
 

@@ -20,13 +20,15 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.tts.validation import StrictTTSSettings
 
+from tests.common.fixtures.model_factories import make_generated_block
+
 
 @pytest.fixture
 def stored(app: object) -> object:
     identity = uuid.uuid4().hex
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnGeneratedBlock(
+            make_generated_block(
                 generated_block_bid=identity,
                 shifu_bid=identity,
                 user_bid=identity,
@@ -34,8 +36,6 @@ def stored(app: object) -> object:
                 generated_content="Lesson content",
                 position=4,
                 status=1,
-                deleted=0,
-                liked=0,
             )
         )
         db.session.add(

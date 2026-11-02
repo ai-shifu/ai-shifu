@@ -61,7 +61,6 @@ from flaskr.service.billing.models import (
     BillingCampaign,
     BillingCampaignProduct,
     BillingEntitlement,
-    BillingOrder,
     BillingProductProviderPrice,
     BillingRenewalEvent,
     BillingSubscription,
@@ -83,6 +82,7 @@ from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -300,13 +300,11 @@ def admin_billing_client(monkeypatch: object) -> Iterator[dict[str, object]]:
         )
         dao.db.session.add_all(
             [
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="order-paid",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid="bill-product-topup-small",
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=19900,
                     paid_amount=19900,
                     payment_provider="pingxx",
@@ -316,15 +314,13 @@ def admin_billing_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                     paid_at=datetime(2026, 4, 4, 9, 0, 0),
                     created_at=datetime(2026, 4, 4, 8, 0, 0),
                 ),
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="order-failed",
                     creator_bid="creator-2",
                     order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
                     product_bid="bill-product-plan-yearly",
                     subscription_bid="sub-past-due",
-                    currency="CNY",
                     payable_amount=99900,
-                    paid_amount=0,
                     payment_provider="stripe",
                     channel="checkout_session",
                     provider_reference_id="cs_failed",
@@ -877,13 +873,11 @@ class TestAdminBillingRoutes:
 
         with app.app_context():
             dao.db.session.add(
-                BillingOrder(
+                make_billing_order(
                     bill_order_bid="order-campaign-hit",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
                     product_bid="bill-product-topup-small",
-                    subscription_bid="",
-                    currency="CNY",
                     payable_amount=4000,
                     paid_amount=4000,
                     payment_provider="pingxx",

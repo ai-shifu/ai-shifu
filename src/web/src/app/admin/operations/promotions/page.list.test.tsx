@@ -4,7 +4,7 @@ import {
   mockGetCoupons,
   mockUpdateCampaignStatus,
   mockUpdateCouponStatus,
-} from './promotionsTestUtils.test-support';
+} from './promotions-test-utils.test-support';
 import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage list and pagination', () => {

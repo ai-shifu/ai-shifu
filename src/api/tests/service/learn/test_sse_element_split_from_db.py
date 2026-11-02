@@ -7,13 +7,13 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.const import ROLE_TEACHER
+from flaskr.service.learn.elements.rows import _element_from_row
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_element_rows import _element_from_row
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -22,6 +22,11 @@ from flaskr.service.learn.models import (
 from flaskr.service.learn.routes import _to_sse_data_line
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
+
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
 
 LESSONS = [
     pytest.param("Narration without a visual.", ["text"], id="narration"),
@@ -76,9 +81,7 @@ def persisted_lesson(app: object) -> object:
     }
     with app.app_context():
         with unit_of_work():
-            db.session.add(
-                LearnProgressRecord(**identity, status=602, block_position=0)
-            )
+            db.session.add(make_progress_record(**identity, status=602))
         yield identity
         with unit_of_work():
             LearnGeneratedElement.query.filter_by(shifu_bid=suffix).delete()
@@ -93,15 +96,13 @@ def test_persisted_content_round_trips_through_sse_without_losing_content(
     block_bid = uuid.uuid4().hex
     with unit_of_work():
         db.session.add(
-            LearnGeneratedBlock(
+            make_generated_block(
                 **persisted_lesson,
                 generated_block_bid=block_bid,
                 role=ROLE_TEACHER,
                 type=BLOCK_TYPE_MDCONTENT_VALUE,
-                position=0,
                 generated_content=content,
                 status=1,
-                deleted=0,
             )
         )
     outline_bid = persisted_lesson["outline_item_bid"]

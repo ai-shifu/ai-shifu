@@ -24,7 +24,6 @@ XML_BLOCK = re.compile(r"<(svg|math|script|style)[^>]*>[\s\S]*?</\1>", re.IGNORE
 DATA_URI = re.compile(r"data:[a-zA-Z0-9/+;=,]+")
 MULTI_NEWLINE = re.compile(r"\n{3,}")
 MULTI_SPACE = re.compile(r"[ \t]+")
-ANY_HTML_TAG = re.compile(r"<[^>]*>")
 
 # ---------------------------------------------------------------------------
 # MarkdownFlow authoring syntax (never speak these aloud)

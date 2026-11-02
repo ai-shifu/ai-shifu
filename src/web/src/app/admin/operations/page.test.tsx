@@ -143,13 +143,13 @@ jest.mock('react-i18next', () => ({
   },
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: mockToast,
   }),
 }));
 
-jest.mock('@/lib/textutils', () => ({
+jest.mock('@/lib/text-utils', () => ({
   copyText: (...args: unknown[]) => mockCopyText(...args),
 }));
 

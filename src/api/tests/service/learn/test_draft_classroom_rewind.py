@@ -16,22 +16,22 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     save_agent_session,
 )
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import reset_learn_record
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
-    LearnGeneratedElement,
     LearnProgressRecord,
 )
 from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
+from tests.common.fixtures.model_factories import make_generated_element
 from tests.service.learn.test_draft_classroom_history import (
     classroom as classroom,  # noqa: PLC0414 - pytest fixture re-export.
 )
@@ -40,6 +40,14 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from flask import Flask
+
+
+def _shown(user_input: str | None) -> str:
+    """Read the submitted text or choices from a restored control's structured default."""
+    if not user_input:
+        return ""
+    data = json.loads(user_input)
+    return data["inputText"] or ",".join(data["selectedValues"])
 
 
 def test_editing_an_old_draft_answer_replaces_only_its_future(
@@ -64,7 +72,7 @@ def test_editing_an_old_draft_answer_replaces_only_its_future(
     ]
     assert elements[0].element_bid == original[0].element_bid
     assert elements[1].element_bid == original[1].element_bid
-    assert elements[1].payload.user_input == "New choice"
+    assert _shown(elements[1].payload.user_input) == "New choice"
     assert "question 4" in elements[2].content
     session = load_agent_session(app, identity, identity, preview_mode=True)
     serialized = json.dumps(session.to_dict())
@@ -88,7 +96,7 @@ def test_draft_content_regeneration_reuses_the_original_answer(
     restored = history()
     assert restored.last_progress_updated_at == old.last_progress_updated_at
     assert restored.elements[0].element_bid == old.elements[0].element_bid
-    assert restored.elements[1].payload.user_input == "Original answer"
+    assert _shown(restored.elements[1].payload.user_input) == "Original answer"
     assert "question 3" in restored.elements[2].content
     assert "question 2" not in " ".join(e.content or "" for e in restored.elements)
     assert "Original answer" in json.dumps(
@@ -108,7 +116,7 @@ def test_anchored_first_pending_answer_does_not_require_a_checkpoint(
         data["ai_shifu_preview_presentation"].pop("turns", None)
         row.session_data = json.dumps(data)
     run("First answer", anchor=anchor)
-    assert history().elements[1].payload.user_input == "First answer"
+    assert _shown(history().elements[1].payload.user_input) == "First answer"
 
 
 def test_missing_old_checkpoint_does_not_discard_existing_history(
@@ -185,16 +193,14 @@ def test_foreign_anchor_is_rejected_without_changing_the_draft(
         row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
         runs = json.loads(row.session_data)["ai_shifu_preview_presentation"]["runs"]
         db.session.add(
-            LearnGeneratedElement(
+            make_generated_element(
                 **owner,
                 element_bid=anchor,
                 generated_block_bid=uuid.uuid4().hex,
                 run_session_bid=runs[0],
-                event_type="element",
                 element_type="text",
                 content_text="Foreign teaching",
                 is_final=1,
-                status=1,
             )
         )
     before = history().model_dump()
@@ -276,7 +282,7 @@ def test_editing_one_of_two_questions_restores_its_own_accepting_turn(
     assert [e.element_bid for e in restored_controls] == [
         e.element_bid for e in controls
     ]
-    assert [e.payload.user_input or "" for e in restored_controls] == (
+    assert [_shown(e.payload.user_input) for e in restored_controls] == (
         ["Replacement", ""] if question == 0 else ["First answer", "Replacement"]
     )
     session = load_agent_session(app, identity, identity, preview_mode=True)
@@ -434,9 +440,40 @@ def test_separate_model_turns_keep_earlier_displayed_answers(
         run(anchor=third_teaching)
     elements = history().elements
     controls = [e for e in elements if e.element_type == ElementType.INTERACTION]
-    assert [e.payload.user_input or "" for e in controls] == [
+    assert [_shown(e.payload.user_input) for e in controls] == [
         "First answer",
         "Replacement second answer" if operation == "edit" else "Second answer",
         "",
     ]
     assert len(elements) == 6
+
+
+def test_existing_draft_accepting_checkpoint_ignores_an_unaccepted_attempt(
+    app: Flask, classroom: tuple
+) -> None:
+    identity, run, history, _calls = classroom
+    run()
+    anchor = history().elements[1].element_bid
+    run("Accepted answer")
+    with app.app_context(), unit_of_work():
+        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
+        data = json.loads(row.session_data)
+        turns = data["ai_shifu_preview_presentation"]["turns"]
+        accepting_block = turns[1]["block_bid"]
+        rejected = json.loads(json.dumps(turns[1]))
+        rejected["block_bid"] = "unaccepted-attempt"
+        rejected["answered_question_id"] = None
+        rejected["record"]["values"] = []
+        turns.insert(1, rejected)
+        row.session_data = json.dumps(data)
+    with app.app_context():
+        plan = preview_rewind.plan_preview_rewind(
+            app,
+            user_bid=identity,
+            shifu_bid=identity,
+            outline_bid=identity,
+            anchor=anchor,
+            answering=True,
+        )
+    assert plan.retired_block_bids == [accepting_block]
+    assert plan.replay_values is None

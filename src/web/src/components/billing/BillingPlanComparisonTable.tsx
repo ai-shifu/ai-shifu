@@ -6,7 +6,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/components/ui/Tooltip';
 import {
   formatBillingCreditAmount,
   formatBillingPrice,
@@ -25,7 +25,7 @@ import type {
   BillingTrialOffer,
 } from '@/types/billing';
 import { cn } from '@/lib/utils';
-import { formatBillingLearningTime } from '@/lib/billingLearningTime';
+import { formatBillingLearningTime } from '@/lib/billing-learning-time';
 import { getFreeFeatureData, getPlanFeatureData } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
 

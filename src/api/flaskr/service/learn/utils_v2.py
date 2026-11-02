@@ -140,7 +140,7 @@ def get_fmt_prompt(
         user_id: User id
         course_id: Course id
         profile_tmplate: Profile template
-        user_input: Input
+        user_input: Fallback when the profile template is empty
         profile_overrides: Request-local profile values that take precedence
         resolved_profiles: Already-resolved profile values for this request
     Returns:
@@ -154,8 +154,6 @@ def get_fmt_prompt(
     )
     if profile_overrides:
         profiles.update(profile_overrides)
-    if user_input:
-        profiles["sys_user_input"] = user_input
     keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:

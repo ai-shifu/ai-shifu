@@ -3,7 +3,7 @@
 import socket
 import time
 from contextlib import nullcontext
-from threading import Event, Thread
+from threading import Event, Thread, current_thread
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -186,9 +186,18 @@ def test_expired_flag_repopulates_without_sync_db_or_duplicate_refresh(
     )
     model = Mock()
     query = model.query.filter.return_value.order_by.return_value.first
-    query.return_value = (
-        SimpleNamespace(value=row_value, is_encrypted=False) if row_value else None
-    )
+    row = SimpleNamespace(value=row_value, is_encrypted=False) if row_value else None
+    # Count only lookups made by this test's thread. A background config refresh left
+    # running by another test in the same worker can hit the patched model too.
+    test_thread = current_thread()
+    own_queries: list[None] = []
+
+    def lookup(*_args: object, **_kwargs: object) -> object:
+        if current_thread() is test_thread:
+            own_queries.append(None)
+        return row
+
+    query.side_effect = lookup
     monkeypatch.setattr(funcs, "Config", model)
     monkeypatch.setattr(
         routes,
@@ -221,7 +230,7 @@ def test_expired_flag_repopulates_without_sync_db_or_duplicate_refresh(
     for _ in range(10):
         assert probe() == expected
     assert workers.call_count == 1
-    assert query.call_count == 1
+    assert len(own_queries) == 1
     # Simulate expiry after startup has completed and its task has exited.
     clock[0] += 86401
     client.delete(
@@ -230,10 +239,10 @@ def test_expired_flag_repopulates_without_sync_db_or_duplicate_refresh(
     )
     for _ in range(10):
         assert probe() == "unavailable"
-    assert query.call_count == 1  # No DB work in any HTTP request.
+    assert len(own_queries) == 1  # No DB work in any HTTP request.
     assert workers.call_count == 2  # Exactly one repopulation task.
     run_background_task()
-    assert query.call_count == 2
+    assert len(own_queries) == 2
     assert probe() == expected
     # Repeated misses are limited to one new task per 30 seconds after exit.
     client.delete(

@@ -37,7 +37,7 @@ For QA or operations troubleshooting of `/c/:courseId` initialization, add
 `debug=1` to the existing URL query while preserving `lessonid`, mode and other
 reproduction parameters. `src/app/c/[[...id]]/page.tsx` enables
 `src/components/debug/DebugConsoleOverlay.tsx` only for the exact value `1`;
-`src/lib/debugConsole.ts` uses the same query gate for diagnostic emission.
+`src/lib/debug-console.ts` uses the same query gate for diagnostic emission.
 Removing the parameter disables the overlay and gated diagnostics.
 
 Inspect the complete chain when changing troubleshooting behavior:
@@ -47,7 +47,7 @@ Inspect the complete chain when changing troubleshooting behavior:
   diagnostics for business codes `1001`, `1004` and `1005`. Follow recovery
   start/skip/finish, token-change cancellation and any login redirect rather
   than treating every auth response as a new logout.
-- Learner `page.tsx` and hooks such as `hooks/useLessonTree.ts` emit page and
+- Learner `page.tsx` and hooks such as `hooks/use-lesson-tree.ts` emit page and
   initialization diagnostics through the shared debug helpers.
 - The overlay captures console log/info/warn/error calls after mounting,
   retains the latest 200 entries and offers clear/collapse controls. It cannot

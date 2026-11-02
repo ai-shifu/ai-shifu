@@ -56,6 +56,7 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -191,15 +192,13 @@ def _create_renewal_order(
     cycle_start_at: datetime,
     cycle_end_at: datetime,
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid="bill-product-plan-monthly",
         subscription_bid=subscription_bid,
-        currency="CNY",
         payable_amount=990,
-        paid_amount=0,
         payment_provider="stripe",
         channel="subscription",
         provider_reference_id=f"sub_{subscription_bid}",
@@ -220,13 +219,12 @@ def _create_paid_start_order(
     paid_at: datetime,
     metadata_json: dict | None = None,
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         product_bid="bill-product-plan-monthly",
         subscription_bid=subscription_bid,
-        currency="CNY",
         payable_amount=990,
         paid_amount=990,
         payment_provider="stripe",
@@ -244,15 +242,12 @@ def _create_pending_topup_order(
     creator_bid: str = "creator-1",
     charge_id: str = "ch_billing_feishu_topup_1",
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_TOPUP,
         product_bid="bill-product-topup-small",
-        subscription_bid="",
-        currency="CNY",
         payable_amount=5000,
-        paid_amount=0,
         payment_provider="pingxx",
         channel="alipay_qr",
         provider_reference_id=charge_id,
@@ -456,15 +451,13 @@ def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription
             next_product_bid="",
             metadata_json={},
         )
-        order = BillingOrder(
+        order = make_billing_order(
             bill_order_bid="billing-webhook-amount-guard",
             creator_bid="creator-amount-guard",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid="bill-product-plan-monthly",
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=990,
-            paid_amount=0,
             payment_provider="stripe",
             channel="checkout_session",
             provider_reference_id="cs_amount_guard",
@@ -939,15 +932,13 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
             )
         )
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="billing-trial-upgrade-sync-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-trial-upgrade-sync-1",
-                currency="CNY",
                 payable_amount=9900,
-                paid_amount=0,
                 payment_provider="pingxx",
                 channel="wx_pub_qr",
                 provider_reference_id="ch_trial_upgrade_sync_pingxx_1",
@@ -995,6 +986,117 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
         ).one()
         assert subscription.cancel_at_period_end == 1
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+
+
+@pytest.mark.parametrize(
+    ("provider", "trade", "expected_failure_code"),
+    [
+        (
+            "alipay",
+            {"trade_status": "TRADE_SUCCESS", "total_amount": "99.00"},
+            "",
+        ),
+        (
+            "alipay",
+            {"trade_status": "TRADE_SUCCESS", "total_amount": "98.99"},
+            "provider_amount_mismatch",
+        ),
+        (
+            # A WeChat-funded coupon lowers payer_total, not the order total.
+            "wechatpay",
+            {"trade_state": "SUCCESS", "amount": {"total": 9900, "payer_total": 9800}},
+            "",
+        ),
+        (
+            "wechatpay",
+            {"trade_state": "SUCCESS", "amount": {"total": 9800, "payer_total": 9800}},
+            "provider_amount_mismatch",
+        ),
+        (
+            "wechatpay",
+            {"trade_state": "SUCCESS"},
+            "provider_amount_missing",
+        ),
+    ],
+)
+def test_sync_native_order_completes_only_on_the_payable_amount(
+    billing_subscription_sms_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    trade: dict[str, object],
+    expected_failure_code: str,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app)
+    now = datetime(2026, 7, 31, 4, 0, 53)
+    attempt_id = f"billing-native-sync-{provider}-attempt"
+
+    class FakeNativeProvider:
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
+            assert provider_reference == attempt_id
+            assert reference_type == "payment"
+            return PaymentNotificationResult(
+                order_bid=provider_reference,
+                status="manual_sync",
+                provider_payload={
+                    "trade": {"out_trade_no": provider_reference, **trade}
+                },
+                charge_id="native-transaction-1",
+            )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.checkout.get_payment_provider",
+        lambda _channel: FakeNativeProvider(),
+    )
+
+    with app.app_context():
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-native-sync-1",
+                creator_bid="creator-1",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                current_period_start_at=now - timedelta(days=1),
+                current_period_end_at=now + timedelta(days=14),
+            )
+        )
+        dao.db.session.add(
+            make_billing_order(
+                bill_order_bid="billing-native-sync-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-native-sync-1",
+                payable_amount=9900,
+                payment_provider=provider,
+                channel=provider,
+                provider_reference_id=attempt_id,
+                status=BILLING_ORDER_STATUS_PENDING,
+                metadata_json={"checkout_type": "subscription"},
+            )
+        )
+        dao.db.session.commit()
+
+    sync_billing_order(app, "creator-1", "billing-native-sync-1", {})
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-native-sync-1"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-native-sync-1"
+        ).one()
+        if expected_failure_code:
+            assert order.status == BILLING_ORDER_STATUS_FAILED
+            assert order.failure_code == expected_failure_code
+            assert subscription.product_bid == BILLING_TRIAL_PRODUCT_BID
+        else:
+            assert order.status == BILLING_ORDER_STATUS_PAID
+            assert subscription.product_bid == "bill-product-plan-monthly"
 
 
 def test_send_billing_paid_feishu_task_marks_sent(

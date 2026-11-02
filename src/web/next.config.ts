@@ -121,14 +121,6 @@ const nextConfig: NextConfig = {
 
   reactStrictMode: false,
 
-  turbopack: {
-    rules: {
-      '*.less': {
-        loaders: ['less-loader'],
-        as: '*.css',
-      },
-    },
-  },
   env: {
     NEXT_PUBLIC_I18N_META: JSON.stringify(frontendLocalesMetadata),
     NEXT_PUBLIC_APP_VERSION: appBuildMetadata.appVersion,

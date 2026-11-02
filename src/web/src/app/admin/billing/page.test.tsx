@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import { AdminBillingPageClient } from './AdminBillingPageClient';
 
 let mockSearchParamsValue = '';
@@ -42,19 +42,18 @@ jest.mock('@/lib/browser-timezone', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
-    getBillingBootstrap: jest.fn(),
     getBillingCatalog: jest.fn(),
     getBillingLedger: jest.fn(),
     getBillingWalletBuckets: jest.fn(),
   },
 }));
 
-jest.mock('@/hooks/useBillingData', () => ({
-  ...jest.requireActual('@/hooks/useBillingData'),
+jest.mock('@/hooks/use-billing-data', () => ({
+  ...jest.requireActual('@/hooks/use-billing-data'),
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -82,7 +81,6 @@ jest.mock('@/components/ui/Sheet', () => ({
   ),
 }));
 
-const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
@@ -111,7 +109,6 @@ describe('AdminBillingPage', () => {
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
 
-    mockGetBillingBootstrap.mockReset();
     mockGetBillingCatalog.mockReset();
     mockGetBillingLedger.mockReset();
     mockGetBillingWalletBuckets.mockReset();
@@ -199,7 +196,6 @@ describe('AdminBillingPage', () => {
         },
       ],
     });
-    mockGetBillingBootstrap.mockResolvedValue(bootstrapPayload);
     mockGetBillingWalletBuckets.mockResolvedValue({
       items: [
         {
@@ -338,7 +334,6 @@ describe('AdminBillingPage', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/admin');
     });
-    expect(mockGetBillingBootstrap).not.toHaveBeenCalled();
     expect(mockGetBillingCatalog).not.toHaveBeenCalled();
     expect(screen.queryByTestId('admin-billing-page')).not.toBeInTheDocument();
   });

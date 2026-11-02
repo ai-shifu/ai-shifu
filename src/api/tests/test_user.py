@@ -1,7 +1,7 @@
 """Verify account profiles preserve user-owned values and language."""
 
 from flaskr.dao import db
-from flaskr.service.profile.funcs import get_user_profiles
+from flaskr.service.profile.course_values import get_user_profiles
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.common import update_user_info
 from flaskr.service.user.models import UserInfo

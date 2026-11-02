@@ -24,20 +24,15 @@ _NAME_ALIASES = {
 def resolve_preview_language(
     variables: dict[str, Any], *, request_language: str | None = None
 ) -> str:
-    """Prefer the visible teaching-language field over its legacy alias.
+    """Resolve the canonical teaching-language field before the request language.
 
-    A present, blank canonical field explicitly clears the override, including
-    a stale legacy alias. An absent canonical field still accepts legacy clients.
+    An absent or blank canonical field clears the editor override. A course
+    variable named ``language`` has no effect on the output-language policy.
     Unknown text is never used as a model instruction. Call at the HTTP boundary
     to capture the request fallback before streaming clears its i18n context.
     """
-    canonical = variables.get(SYS_USER_LANGUAGE)
-    explicitly_cleared = (
-        SYS_USER_LANGUAGE in variables and not str(canonical or "").strip()
-    )
     for candidate in (
-        canonical,
-        None if explicitly_cleared else variables.get("language"),
+        variables.get(SYS_USER_LANGUAGE),
         request_language or get_current_language(),
         "en-US",
     ):

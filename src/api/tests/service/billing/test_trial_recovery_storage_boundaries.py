@@ -30,6 +30,7 @@ from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.test_billing_tasks import (
     billing_task_integration_app as trial_app,
 )
@@ -50,18 +51,13 @@ def catalog(trial_app: Flask, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _order(creator: str, metadata: object) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=trials._build_trial_order_bid(creator),
         creator_bid=creator,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         product_bid=BILLING_TRIAL_PRODUCT_BID,
-        subscription_bid="",
-        currency="CNY",
-        payable_amount=0,
-        paid_amount=0,
         payment_provider="manual",
         channel="manual",
-        provider_reference_id="",
         status=BILLING_ORDER_STATUS_PAID,
         paid_at=datetime(2026, 4, 1),
         metadata_json=metadata,

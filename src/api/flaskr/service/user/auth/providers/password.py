@@ -5,6 +5,7 @@ Supports login via phone number or email + password.
 
 from __future__ import annotations
 
+import hmac
 from typing import TYPE_CHECKING
 
 from flaskr.dao.uow import unit_of_work
@@ -20,14 +21,19 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo
+from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.password_rate_limit import PasswordLoginAttempt
-from flaskr.service.user.password_utils import verify_password
+from flaskr.service.user.password_utils import (
+    password_credential_version,
+    verify_password,
+)
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     get_password_hash,
     list_credentials,
     load_user_aggregate_by_identifier,
+    lock_password_credential,
+    lock_user_for_auth,
 )
 from flaskr.service.user.utils import create_token_value
 
@@ -92,6 +98,8 @@ class PasswordAuthProvider(AuthProvider):
                     )
                     credential = password_creds[0] if password_creds else None
                     password_hash = get_password_hash(credential) if credential else ""
+                    credential_bid = credential.credential_bid if credential else ""
+                    credential_identifier = credential.identifier if credential else ""
                     user_info = (
                         build_user_info_from_aggregate(aggregate)
                         if aggregate is not None
@@ -126,7 +134,7 @@ class PasswordAuthProvider(AuthProvider):
 
         # Session creation does not mutate the failure budget and should not hold
         # the per-account Redis lock longer than password verification requires.
-        if aggregate is None or user_info is None:
+        if aggregate is None or user_info is None or credential is None:
             raise_error("server.user.invalidCredentials")
         token = create_token_value(app, aggregate.user_bid)
         user_token = UserToken(user_info, token)
@@ -139,8 +147,9 @@ class PasswordAuthProvider(AuthProvider):
             metadata={
                 "user_bid": aggregate.user_bid,
                 "verified_identifier": identifier,
-                "password_credential_bid": credential.credential_bid,
-                "password_credential_identifier": credential.identifier,
+                "password_credential_bid": credential_bid,
+                "password_credential_identifier": credential_identifier,
+                "credential_version": password_credential_version(password_hash),
             },
         )
 
@@ -167,47 +176,30 @@ def confirm_password_login_for_token_issue(
     user_bid: str,
     credential_bid: str,
     credential_identifier: str,
+    credential_version: str,
 ) -> None:
     """Lock and confirm password-login evidence immediately before token storage."""
-    user = (
-        UserInfo.query.filter(
-            UserInfo.user_bid == user_bid,
-            UserInfo.deleted == 0,
-        )
-        .with_for_update()
-        .first()
-    )
+    user = lock_user_for_auth(user_bid)
     if user is None:
         raise_error("server.user.invalidCredentials")
 
-    contact_matches = user.user_identify == identifier
-    if not contact_matches:
-        contact_matches = (
-            AuthCredential.query.filter(
-                AuthCredential.user_bid == user_bid,
-                AuthCredential.provider_name.in_(["phone", "email"]),
-                AuthCredential.identifier == identifier,
-                AuthCredential.deleted == 0,
-            )
-            .with_for_update()
-            .first()
-            is not None
-        )
-
-    password_credential = (
-        AuthCredential.query.filter(
-            AuthCredential.credential_bid == credential_bid,
-            AuthCredential.user_bid == user_bid,
-            AuthCredential.provider_name == "password",
-            AuthCredential.deleted == 0,
-        )
-        .with_for_update()
-        .first()
+    resolved = load_user_aggregate_by_identifier(
+        identifier, providers=["phone", "email"], for_update=True
     )
+    contact_matches = resolved is not None and resolved.user_bid == user_bid
+
+    password_credential = lock_password_credential(user_bid=user_bid)
     if (
         not contact_matches
         or password_credential is None
+        or password_credential.credential_bid != credential_bid
         or password_credential.identifier != credential_identifier
+        or password_credential.state != CREDENTIAL_STATE_VERIFIED
+        or not credential_version
+        or not hmac.compare_digest(
+            password_credential_version(get_password_hash(password_credential)),
+            credential_version,
+        )
     ):
         raise_error("server.user.invalidCredentials")
 

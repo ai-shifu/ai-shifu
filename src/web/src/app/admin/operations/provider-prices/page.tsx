@@ -8,7 +8,7 @@ import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
 import { useEnvStore } from '@/store';
 import { AdminBillingProviderPricesPanel } from './AdminBillingProviderPricesPanel';
-import useOperatorGuard from '../useOperatorGuard';
+import useOperatorGuard from '../use-operator-guard';
 
 export default function AdminOperationProviderPricesPage() {
   const { t } = useTranslation();

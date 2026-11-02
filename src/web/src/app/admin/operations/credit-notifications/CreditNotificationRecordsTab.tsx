@@ -9,9 +9,9 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+} from '@/components/admin/admin-table-styles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import {
   Table,
@@ -33,7 +33,7 @@ import {
   resolveCreditNotificationErrorText,
   resolveNotificationDeliveryStatus,
   resolveNotificationSkipReason,
-} from './creditNotificationUtils';
+} from './credit-notification-utils';
 import { CreditNotificationDetailSheet } from './CreditNotificationDetailSheet';
 import { CreditNotificationOverviewCards } from './CreditNotificationOverviewCards';
 import { CreditNotificationRecordsFilter } from './CreditNotificationRecordsFilter';

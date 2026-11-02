@@ -10,15 +10,14 @@ import React, {
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useDisclosure } from '@/hooks/useDisclosure';
+import { useDisclosure } from '@/hooks/use-disclosure';
 import { useEnvStore } from '@/store';
 import { EnvStoreState } from '@/types/store';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import { useUserStore } from '@/store';
 import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
-import { applyCreatorBranding } from '@/lib/initializeEnvData';
 import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
@@ -81,16 +80,6 @@ const MainInterface = ({
     );
     window.location.href = `/login?redirect=${currentPath}`;
   }, [hasAuthenticatedAdminSession, isInitialized]);
-
-  // The /admin path carries no shifu_bid, so the bootstrap runtime-config
-  // cannot resolve a creator. Once the logged-in creator is known, re-fetch
-  // their branding so the sidebar logo and its click-through use the creator's
-  // own logo/home url (falls back to defaults when unconfigured).
-  useEffect(() => {
-    if (hasResolvedAdminSession && currentUserId) {
-      applyCreatorBranding(currentUserId);
-    }
-  }, [hasResolvedAdminSession, currentUserId]);
 
   useEffect(() => {
     const html = document.documentElement;

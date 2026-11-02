@@ -329,7 +329,7 @@ def test_listen_mode_events_are_left_for_the_change_that_maps_them(
 
 
 def _parse(rendered: str) -> dict:
-    from markdown_flow import InteractionParser
+    from markdownflow import InteractionParser
 
     return InteractionParser().parse(rendered)
 

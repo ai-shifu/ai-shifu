@@ -9,21 +9,21 @@ import pytest
 import requests
 from flask import Flask
 from flaskr.common.safe_outbound import OutboundDeadlineExceededError
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask.providers import (
     common,
     dify_adapter,
     registry,
 )
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask.providers import (
     coze_workflow_adapter as workflow,
 )
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask.providers import (
     get_biji_knowledge_adapter as biji,
 )
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask.providers import (
     volc_knowledge_adapter as volc,
 )
-from flaskr.service.learn.ask_provider_adapters.base import (
+from flaskr.service.learn.ask.providers.base import (
     AskProviderConfigError,
     AskProviderError,
     AskProviderRuntime,

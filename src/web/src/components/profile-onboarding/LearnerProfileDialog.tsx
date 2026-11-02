@@ -12,23 +12,28 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { cn } from '@/lib/utils';
+import { usePlaceholderAcceptedTracking } from '@/hooks/use-placeholder-accepted-tracking';
 import {
   LearnerProfileSaveView,
   ProfileCollectionView,
   ProfileDialogConfirmationView,
   ProfileInformationUsageControl,
 } from './LearnerProfileDialogViews';
-import type { LearnerProfileDialogProps } from './learnerProfileDialogModel';
-import { useLearnerProfileDialogController } from './useLearnerProfileDialogController';
+import type { LearnerProfileDialogProps } from './learner-profile-dialog-model';
+import { useLearnerProfileDialogController } from './use-learner-profile-dialog-controller';
 
 export type {
   LearnerProfileDialogProps,
   ProfileCollectionResult,
-} from './learnerProfileDialogModel';
+} from './learner-profile-dialog-model';
 
 export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const { open, exitPolicy, externalSubmitting = false, onDefer } = props;
   const { t } = useTranslation();
+  const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
+    'profile_onboarding',
+    open,
+  );
   const {
     state,
     derived,
@@ -339,6 +344,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                     collectionReady={collectionReady}
                     focusRef={collectionViewRef}
                     {...conversationProps}
+                    onPlaceholderAccepted={handlePlaceholderAccepted}
                   />
                 ) : (
                   <LearnerProfileSaveView

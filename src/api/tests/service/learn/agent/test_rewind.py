@@ -27,6 +27,12 @@ from markdownflow.engine.script import ScriptBundle
 from markdownflow.engine.session import PendingInteraction, Session
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_generated_element,
+    make_progress_record,
+)
+
 USER = "learner-rewind"
 SHIFU = "course-rewind"
 OUTLINE = "outline-rewind"
@@ -115,13 +121,12 @@ def _clean() -> None:
 
 def _record(status: int = LEARN_STATUS_IN_PROGRESS) -> None:
     db.session.add(
-        LearnProgressRecord(
+        make_progress_record(
             progress_record_bid=RECORD,
             user_bid=USER,
             shifu_bid=SHIFU,
             outline_item_bid=OUTLINE,
             status=status,
-            block_position=0,
         )
     )
 
@@ -134,15 +139,13 @@ def _block(
     block_type: int = BLOCK_TYPE_MDCONTENT_VALUE,
 ) -> None:
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             generated_block_bid=bid,
             progress_record_bid=RECORD,
             user_bid=USER,
             shifu_bid=SHIFU,
             outline_item_bid=OUTLINE,
-            block_bid="",
             type=block_type,
-            role=0,
             generated_content=f"taught in {bid}",
             block_content_conf=(
                 rewind.turn_record(checkpoint, values or [])
@@ -150,8 +153,6 @@ def _block(
                 else ""
             ),
             status=1,
-            deleted=0,
-            position=0,
         )
     )
     db.session.flush()
@@ -159,7 +160,7 @@ def _block(
 
 def _element(bid: str, block_bid: str) -> None:
     db.session.add(
-        LearnGeneratedElement(
+        make_generated_element(
             element_bid=bid,
             progress_record_bid=RECORD,
             user_bid=USER,
@@ -168,25 +169,15 @@ def _element(bid: str, block_bid: str) -> None:
             shifu_bid=SHIFU,
             run_session_bid="run",
             run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
             element_type="text",
             element_type_code=213,
             change_type="render",
-            target_element_bid="",
             is_renderable=0,
-            is_new=1,
-            is_marker=0,
             sequence_number=1,
             is_speakable=1,
-            audio_url="",
-            audio_segments="[]",
-            is_navigable=1,
             is_final=1,
             content_text="x",
             payload="{}",
-            status=1,
         )
     )
 
@@ -375,3 +366,36 @@ def test_old_checkpoint_does_not_inherit_a_future_interruption() -> None:
     session.interrupted = True
     rewind.restore(session, checkpoint)
     assert not session.interrupted
+
+
+@pytest.mark.parametrize("selected", [0, 1])
+def test_learner_answer_edit_preserves_the_existing_block_based_replay_boundary(
+    app: object, selected: int
+) -> None:
+    with app.app_context():
+        _clean()
+        _record()
+        _block("questions", checkpoint=_BEFORE_B1, values=[])
+        first = {
+            **_WAITING,
+            "pending": [
+                {"tool_call_id": "q1", "spec": _QUESTION.model_dump(mode="json")},
+                {"tool_call_id": "q2", "spec": _QUESTION.model_dump(mode="json")},
+            ],
+        }
+        second = {**first, "pending": first["pending"][1:]}
+        _block("answer-0", checkpoint=first, values=["old-0"])
+        _block("answer-1", checkpoint=second, values=["old-1"])
+        for i in range(2):
+            _element(f"control-{i}", "questions")
+            row = LearnGeneratedElement.query.filter_by(
+                element_bid=f"control-{i}"
+            ).one()
+            row.element_type = "interaction"
+            row.content_text = "?[Left|Right]"
+        db.session.commit()
+        plan = _plan(f"control-{selected}", answering=True)
+    assert plan is not None
+    assert plan.checkpoint["pending"][0]["tool_call_id"] == "q1"
+    assert plan.replay_values is None
+    assert plan.retired_block_bids == ["answer-0", "answer-1"]

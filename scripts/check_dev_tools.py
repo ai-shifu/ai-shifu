@@ -44,10 +44,10 @@ else:
         "npm install -g @evilmartians/lefthook  # (or use your package manager)"
     )
 PIP_INSTALL = (
-    "python -m pip install ruff==0.16.5 commitizen==4.16.2 "
+    "python -m pip install ruff==0.17.3 commitizen==4.16.2 "
     "pre-commit-hooks==6.0.0 markdown-it-py==4.0.0"
 )
-RUFF_VERSION = "0.16.5"
+RUFF_VERSION = "0.17.3"
 MARKDOWN_IT_VERSION = "4.0.0"
 NPM_INSTALL = "cd src/web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"

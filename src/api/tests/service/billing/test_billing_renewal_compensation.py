@@ -27,6 +27,7 @@ from flaskr.service.billing.webhooks import apply_billing_stripe_notification
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
 from tests.common.fixtures.bill_products import build_bill_products
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -117,15 +118,13 @@ def _create_renewal_order(
     cycle_start_at: datetime,
     cycle_end_at: datetime,
 ) -> BillingOrder:
-    return BillingOrder(
+    return make_billing_order(
         bill_order_bid=bill_order_bid,
         creator_bid=subscription.creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid=subscription.product_bid,
         subscription_bid=subscription.subscription_bid,
-        currency="CNY",
         payable_amount=9900,
-        paid_amount=0,
         payment_provider="stripe",
         channel="subscription",
         provider_reference_id=subscription.provider_subscription_id,

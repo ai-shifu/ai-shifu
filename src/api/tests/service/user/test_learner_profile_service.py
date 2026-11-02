@@ -165,7 +165,6 @@ def test_empty_profile_prefill_uses_canonical_nickname_and_latest_legacy_values(
     assert loaded["nickname_max_length"] == 64
     assert loaded["legacy_profile_values"] == {
         "sys_user_nickname": "当前称呼",
-        "sys_user_style": "亲切直接",
     }
 
 
@@ -642,7 +641,7 @@ def test_profile_moderation_allows_every_non_reject_result(
     )
 
     monkeypatch.setattr(
-        "flaskr.service.profile.learner_profile.check_text",
+        "flaskr.service.check_risk.funcs.check_text",
         lambda *_args, **_kwargs: CheckResultDTO(
             check_result=check_result,
             risk_labels=[],
@@ -680,7 +679,7 @@ def test_profile_moderation_rejects_only_explicit_reject(
     )
 
     monkeypatch.setattr(
-        "flaskr.service.profile.learner_profile.check_text",
+        "flaskr.service.check_risk.funcs.check_text",
         lambda *_args, **_kwargs: CheckResultDTO(
             check_result=CHECK_RESULT_REJECT,
             risk_labels=[],
@@ -806,9 +805,7 @@ def test_profile_safety_audit_records_text_and_provider_response(
             raw_data={"echo": text, "provider_request_id": "private-provider-id"},
         )
 
-    monkeypatch.setattr(
-        "flaskr.service.profile.learner_profile.check_text", fake_check_text
-    )
+    monkeypatch.setattr("flaskr.service.check_risk.funcs.check_text", fake_check_text)
 
     with app.app_context():
         _create_user("profile-audit")
@@ -1196,9 +1193,7 @@ def test_clear_profile_keeps_onboarding_completed_and_ignores_old_background(
     assert result["trigger_source"] == "settings"
     assert result["learner_profile"] == ""
     assert result["learner_profile_updated_at"] is None
-    assert loaded["legacy_profile_values"] == {
-        "sys_user_style": "旧全局风格",
-    }
+    assert loaded["legacy_profile_values"] == {}
     assert user.learner_profile == ""
     assert user.learner_profile_updated_at is None
     assert user.nickname == "Test learner"
@@ -1259,9 +1254,7 @@ def test_empty_profile_save_never_revives_historical_background_on_next_get(
 
     assert saved["learner_profile"] == ""
     assert loaded["learner_profile"] == ""
-    assert loaded["legacy_profile_values"] == {
-        "sys_user_style": "亲切直接",
-    }
+    assert loaded["legacy_profile_values"] == {}
     assert state.status == "completed"
     assert checked == []
 

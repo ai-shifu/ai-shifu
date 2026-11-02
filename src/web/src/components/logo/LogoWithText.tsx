@@ -1,10 +1,10 @@
 import { memo, useMemo } from 'react';
 import Image, { type StaticImageData } from 'next/image';
 
-import { useEnvStore } from '@/store/envStore';
+import { useEnvStore } from '@/store/env-store';
 
 import imgLogoColumn from '@/assets/logos/ai-shifu-logo-vertical.png';
-import { DEFAULT_WIDE_LOGO, resolveWideLogoSource } from './logoSource';
+import { DEFAULT_WIDE_LOGO, resolveWideLogoSource } from './logo-source';
 
 /**
  *

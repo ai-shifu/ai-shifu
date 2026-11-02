@@ -4,13 +4,12 @@ from collections.abc import Iterator
 
 from flask import Flask
 from flaskr.api.check import (
-    CHECK_RESULT_PASS,
     CHECK_RESULT_REJECT,
     check_text,
 )
 from flaskr.api.llm import invoke_llm
 from flaskr.dao import db
-from flaskr.service.check_risk import add_risk_control_result
+from flaskr.service.check_risk.api import record_check_result
 from flaskr.service.learn.const import (
     ROLE_TEACHER,
 )
@@ -49,15 +48,12 @@ def check_text_with_llm_response(
         input=user_input,
         output=res,
     )
-    add_risk_control_result(
+    record_check_result(
         app,
         log_script.generated_block_bid,
         user_info.user_id,
         user_input,
-        res.provider,
-        res.check_result,
-        str(res.raw_data),
-        1 if res.check_result == CHECK_RESULT_PASS else 0,
+        res,
         "check_text",
     )
 

@@ -16,7 +16,7 @@ import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
-} from '@/components/admin/adminTableStyles';
+} from '@/components/admin/admin-table-styles';
 import { cn } from '@/lib/utils';
 import type { AdminOperationCourseDetailChapter } from '../operation-course-types';
 

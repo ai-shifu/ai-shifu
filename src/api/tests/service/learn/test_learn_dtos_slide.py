@@ -1,15 +1,15 @@
 """Verify learn DTOs slide behavior."""
 
+from flaskr.service.learn.elements.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
+)
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
     BlockType,
     GeneratedType,
     LikeStatus,
-)
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyGeneratedBlockRecord,
-    LegacyLearnRecord,
 )
 
 

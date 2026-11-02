@@ -67,8 +67,8 @@ external acceptance. Preserve 1.0 rollback and human main merges.
 
 ## Context and Orientation
 
-`learn/ask_provider_adapters/coze_workflow_adapter.py` owns the run request and
-response formatting. `learn/follow_up_context.py` supplies scoped memory and
+`learn/ask/providers/coze_workflow_adapter.py` owns the run request and
+response formatting. `learn/ask/context.py` supplies scoped memory and
 anchor history; existing profile storage tests cover isolation and deletion.
 `shifu/shifu_draft_funcs.py` preserves arbitrary config entries during normalization
 and serialization. Reuse these producer/consumer boundaries without a new transport.

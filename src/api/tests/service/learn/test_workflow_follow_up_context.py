@@ -8,9 +8,9 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.service.learn.ask_provider_adapters import common
-from flaskr.service.learn.ask_provider_adapters import coze_workflow_adapter as workflow
-from flaskr.service.learn.ask_provider_adapters.base import (
+from flaskr.service.learn.ask.providers import common
+from flaskr.service.learn.ask.providers import coze_workflow_adapter as workflow
+from flaskr.service.learn.ask.providers.base import (
     AskProviderConfigError,
     AskProviderError,
 )

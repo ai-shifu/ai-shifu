@@ -38,6 +38,8 @@ from flaskr.service.billing.models import (
 )
 from sqlalchemy import text
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -557,14 +559,14 @@ def test_order_type_fallback_does_not_trigger_session_autoflush(
     billing_view_app: Flask,
 ) -> None:
     with billing_view_app.app_context():
-        dirty_order = BillingOrder(
+        dirty_order = make_billing_order(
             bill_order_bid="dirty-order",
             creator_bid="teacher-1",
             order_type=BILLING_ORDER_TYPE_TOPUP,
             product_bid="product-1",
             status=1,
         )
-        deleted_order = BillingOrder(
+        deleted_order = make_billing_order(
             bill_order_bid="deleted-order",
             creator_bid="teacher-1",
             order_type=BILLING_ORDER_TYPE_TOPUP,
@@ -577,7 +579,7 @@ def test_order_type_fallback_does_not_trigger_session_autoflush(
         dirty_order.status = 2
         dao.db.session.delete(deleted_order)
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid="pending-new-order",
                 creator_bid="teacher-1",
                 order_type=BILLING_ORDER_TYPE_TOPUP,

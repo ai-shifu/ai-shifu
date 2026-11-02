@@ -4,21 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar
 
-from flaskr.api.check import (
-    CHECK_RESULT_PASS,
-    CHECK_RESULT_REJECT,
-    check_text,
-)
+from flaskr.api.check import CHECK_RESULT_REJECT
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.check_risk.api import add_risk_control_result
+from flaskr.service.check_risk.api import check_and_record_text
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,
 )
 from flaskr.service.profile.constants import (
-    LEGACY_LEARNER_PROFILE_KEYS,
     SYS_USER_NICKNAME,
 )
 from flaskr.service.profile.models import VariableValue
@@ -55,17 +50,11 @@ _T = TypeVar("_T")
 
 def check_text_content(app: Flask, user_id: str, learner_profile: str) -> bool:
     """Moderate a learner profile and record the result."""
-    check_id = generate_id(app)
-    result = check_text(app, check_id, learner_profile, user_id)
-    add_risk_control_result(
+    result = check_and_record_text(
         app,
-        check_id,
+        generate_id(app),
         user_id,
         learner_profile,
-        result.provider,
-        result.check_result,
-        str(result.raw_data),
-        1 if result.check_result == CHECK_RESULT_PASS else 0,
         LEARNER_PROFILE_CHECK_STRATEGY,
     )
     return result.check_result != CHECK_RESULT_REJECT
@@ -163,7 +152,7 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
         VariableValue.query.filter(
             VariableValue.user_bid == user.user_bid,
             VariableValue.shifu_bid == "",
-            VariableValue.key.in_(LEGACY_LEARNER_PROFILE_KEYS),
+            VariableValue.key == SYS_USER_NICKNAME,
             VariableValue.deleted == 0,
         )
         .order_by(VariableValue.id.desc())
@@ -179,9 +168,6 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
         value = str(row.value or "").strip()
         if row.key == SYS_USER_NICKNAME:
             legacy_nickname = value
-            continue
-        if value:
-            latest_values[row.key] = value
 
     canonical_nickname = str(user.nickname or "").strip()
     if canonical_nickname and not _nickname_matches_account_identifier(
@@ -207,8 +193,7 @@ def get_learner_profile(*, user_id: str) -> dict[str, object]:
 
     legacy_profile_values = _load_legacy_learner_profile_values(user)
     if load_learner_profile_state(user.user_bid) is not None:
-        # Style may still seed an empty profile draft. Nickname remains
-        # independent and must not be revived after onboarding was handled.
+        # Nickname remains independent and must not be revived after onboarding.
         legacy_profile_values.pop(SYS_USER_NICKNAME, None)
     serialized["legacy_profile_values"] = legacy_profile_values
     return serialized

@@ -15,7 +15,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
 )
-from flaskr.service.billing.models import BillingDailyUsageMetric, BillingOrder
+from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.common.models import AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -24,6 +24,7 @@ from flaskr.service.metering.consts import (
 )
 
 from tests.common.fixtures.bill_products import build_billing_product
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing import test_admin_billing_routes as route_fixtures
 
 admin_billing_client = route_fixtures.admin_billing_client
@@ -40,7 +41,7 @@ def _search_order() -> tuple:
             "credit_amount": Decimal("345.5"),
         },
     )
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=uuid4().hex,
         creator_bid="creator-1",
         product_bid=product.product_bid,

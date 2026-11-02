@@ -20,6 +20,8 @@ from flaskr.service.billing.models import BillingOrder
 from flaskr.service.common.models import AppError
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import make_billing_order
+
 
 def _committed_order(app: object, bill_order_bid: str) -> object:
     with app.app_context(), dao.db.engine.connect() as connection:
@@ -40,18 +42,14 @@ def _seed_order(
     bill_order_bid = f"uow-b6-{uuid.uuid4().hex[:12]}"
     with app.app_context():
         dao.db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid=bill_order_bid,
                 creator_bid="uow-b6-creator",
                 order_type=order_type,
                 product_bid="uow-b6-product",
-                subscription_bid="",
-                currency="CNY",
                 payable_amount=100,
-                paid_amount=0,
                 payment_provider="pingxx",
                 channel="alipay_qr",
-                provider_reference_id="",
                 status=status,
                 expires_at=expires_at,
                 metadata_json={},

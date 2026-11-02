@@ -4,15 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
 // import { ConfigProvider } from 'antd';
-import { useSystemStore } from '@/store/useSystemStore';
+import { useSystemStore } from '@/store/use-system-store';
 import { useTranslation } from 'react-i18next';
-import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/lib/debug-console';
 
 import { useShallow } from 'zustand/react/shallow';
 import { useParams, useSearchParams } from 'next/navigation';
 
 import { getCourseInfo } from '@/api/course';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import {
   EnvStoreState,
   SystemStoreState,
@@ -21,28 +21,28 @@ import {
 } from '@/types/store';
 
 import { useEnvStore, useCourseStore } from '@/store';
-import { UserProvider } from '@/store/userProvider';
-import { useUserStore } from '@/store/useUserStore';
+import { UserProvider } from '@/store/UserProvider';
+import { useUserStore } from '@/store/use-user-store';
 import {
   CourseWechatAuthorizationProvider,
   useCourseWechatAuthorizationState,
-} from './hooks/useCourseWechatAuthorization';
+} from './hooks/use-course-wechat-authorization';
 import {
   readLearningModeFromStorage,
   writeLearningModeToStorage,
-} from './Components/learningModeStorage';
-import { resolveCourseLearningMode } from './Components/learningModePreference';
+} from './components/learning-mode-storage';
+import { resolveCourseLearningMode } from './components/learning-mode-preference';
 import {
   buildLastLearningModeAnalytics,
   LAST_LEARNING_MODE_EVENT,
   shouldTrackLastLearningMode,
-} from './Components/learningModeAnalytics';
+} from './components/learning-mode-analytics';
 import {
   normalizeLegacyListenModeInUrl,
   parseBooleanQueryParam,
   parseLearningModeQueryParam,
   setLearningModeInUrl,
-} from './Components/learningModeUrl';
+} from './components/learning-mode-url';
 
 const CLASSROOM_ACCESS_DENIAL_STATUSES = new Set([401, 403, 404]);
 const COURSE_INFO_RETRY_BASE_DELAY_MS = 1000;

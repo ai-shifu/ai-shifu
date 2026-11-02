@@ -2,10 +2,12 @@
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.learn import listen_element_run_persistence
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.elements import run_persistence
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.models import LearnGeneratedElement
 from sqlalchemy.exc import ResourceClosedError
+
+from tests.common.fixtures.model_factories import make_generated_element
 
 
 def _make_row(
@@ -15,7 +17,7 @@ def _make_row(
     run_event_seq: int,
     status: int = 1,
 ) -> object:
-    return LearnGeneratedElement(
+    return make_generated_element(
         element_bid=element_bid,
         target_element_bid=target_element_bid,
         progress_record_bid="progress-a",
@@ -25,11 +27,17 @@ def _make_row(
         shifu_bid="shifu-a",
         run_session_bid="run-a",
         run_event_seq=run_event_seq,
-        event_type="element",
-        role="teacher",
-        element_index=0,
-        deleted=0,
         status=status,
+    )
+
+
+def _adapter(app: object) -> ListenElementRunAdapter:
+    return ListenElementRunAdapter(
+        app,
+        shifu_bid="shifu-a",
+        outline_bid="outline-a",
+        user_bid="user-a",
+        run_session_bid="run-a",
     )
 
 
@@ -53,13 +61,7 @@ def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(
         )
         db.session.commit()
 
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         row_ids = adapter._find_active_element_row_ids(
             generated_block_bid="block-a",
@@ -87,13 +89,7 @@ def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(
         db.session.add(_make_row(element_bid="element-a", run_event_seq=1))
         db.session.flush()
 
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         row_ids = adapter._find_active_element_row_ids(
             generated_block_bid="block-a",
@@ -141,20 +137,14 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
     class _FakeDb:
         session = _FakeSession(fake_connection)
 
-    monkeypatch.setattr(listen_element_run_persistence, "db", _FakeDb)
+    monkeypatch.setattr(run_persistence, "db", _FakeDb)
 
     with app.app_context():
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         invalidations = []
         monkeypatch.setattr(
-            listen_element_run_persistence,
+            run_persistence,
             "invalidate_session",
             lambda *, source, _session=None: invalidations.append(source) or True,
         )
@@ -192,13 +182,7 @@ def test_deactivate_active_element_rows_retires_rows_without_touching_others(
         )
         db.session.commit()
 
-        adapter = ListenElementRunAdapter(
-            app,
-            shifu_bid="shifu-a",
-            outline_bid="outline-a",
-            user_bid="user-a",
-            run_session_bid="run-a",
-        )
+        adapter = _adapter(app)
 
         adapter._deactivate_active_element_rows(
             generated_block_bid="block-a",
@@ -214,7 +198,7 @@ def test_deactivate_active_element_rows_retires_rows_without_touching_others(
 
 
 def test_desync_forensics_capture_fingerprints_the_stale_response() -> None:
-    from flaskr.service.learn.listen_element_run_persistence import (
+    from flaskr.service.learn.elements.run_persistence import (
         _describe_desynced_connection,
     )
 
@@ -256,7 +240,7 @@ def test_desync_forensics_capture_fingerprints_the_stale_response() -> None:
 
 
 def test_desync_forensics_survives_missing_raw_connection() -> None:
-    from flaskr.service.learn.listen_element_run_persistence import (
+    from flaskr.service.learn.elements.run_persistence import (
         _describe_desynced_connection,
     )
 
@@ -273,7 +257,7 @@ def test_desync_forensics_survives_missing_raw_connection() -> None:
 def test_desync_forensics_logs_only_packet_header_not_payload() -> None:
     import socket as socket_module
 
-    from flaskr.service.learn.listen_element_run_persistence import (
+    from flaskr.service.learn.elements.run_persistence import (
         _describe_desynced_connection,
     )
 

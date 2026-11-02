@@ -14,8 +14,6 @@ from flaskr.framework.plugin.plugin_manager import (
     disable_plugin_manager,
     enable_plugin_manager,
     extensible,
-    extensible_generic,
-    extensible_generic_register,
     extension,
     get_plugin_manager,
     set_plugin_manager,
@@ -64,7 +62,6 @@ def test_disabled_manager_does_not_invoke_extensions(manager: PluginManager) -> 
     manager.register_extension("price", callback)
     manager.is_enabled = False
     assert manager.execute_extensions("price", 7) == 7
-    assert list(manager.execute_extensible_generic("price", 7)) == []
     callback.assert_not_called()
 
 
@@ -84,19 +81,15 @@ def test_extensible_preserves_metadata_and_works_without_manager(
     assert plain.__doc__ == "Return a public callback result."
 
 
-@pytest.mark.parametrize("register", [extension, extensible_generic_register])
-def test_registration_requires_enabled_manager(
-    manager: PluginManager, register: object
-) -> None:
+def test_registration_requires_enabled_manager(manager: PluginManager) -> None:
     _ = manager
     set_plugin_manager(None)
     with pytest.raises(RuntimeError, match="Plugin manager is not enabled"):
-        register("example")(lambda result: result)
+        extension("example")(lambda result: result)
 
 
-@pytest.mark.parametrize("generic", [False, True])
 def test_registration_unwraps_decorators_to_avoid_recursive_dispatch(
-    manager: PluginManager, generic: bool
+    manager: PluginManager,
 ) -> None:
     def original(result: int) -> list[int]:
         return [result + 1]
@@ -105,62 +98,8 @@ def test_registration_unwraps_decorators_to_avoid_recursive_dispatch(
     def wrapper(result: int) -> list[int]:
         pytest.fail(f"registration must invoke the original callback for {result}")
 
-    register = (
-        manager.register_extensible_generic if generic else manager.register_extension
-    )
-    register("example", wrapper)
-    if generic:
-        assert list(manager.execute_extensible_generic("example", 3)) == [4]
-    else:
-        assert manager.execute_extensions("example", 3) == [4]
-
-
-def test_generic_callbacks_skip_empty_results_and_preserve_order(
-    manager: PluginManager,
-) -> None:
-    calls = []
-
-    def empty(result: object, *, label: str) -> None:
-        calls.append((result, label))
-
-    def output(result: object, *, label: str) -> list[str]:
-        calls.append((result, label))
-        return [label, "done"]
-
-    manager.register_extensible_generic("stream", empty)
-    manager.register_extensible_generic("stream", output)
-    assert list(manager.execute_extensible_generic("stream", 8, label="item")) == [
-        "item",
-        "done",
-    ]
-    assert calls == [(8, "item"), (None, "item")]
-    assert list(manager.execute_extensible_generic("unknown", None)) == []
-
-
-def test_generic_decorator_streams_original_then_extension(
-    manager: PluginManager,
-) -> None:
-    _ = manager
-
-    @extensible_generic
-    def stream(seed: str) -> list[str]:
-        return [seed, "original"]
-
-    @extensible_generic_register("stream")
-    def extra(seed: str) -> list[str]:
-        return [seed.upper()]
-
-    assert list(stream("first")) == ["first", "original", "FIRST"]
-
-
-@pytest.mark.parametrize("result", [None, [], ["event"]])
-def test_generic_without_manager_handles_empty_or_populated_stream(
-    manager: PluginManager, result: object
-) -> None:
-    with manager.app.app_context():
-        wrapped = extensible_generic(lambda: result)
-    set_plugin_manager(None)
-    assert list(wrapped()) == (result or [])
+    manager.register_extension("example", wrapper)
+    assert manager.execute_extensions("example", 3) == [4]
 
 
 def test_hot_reload_starts_once_and_stops_on_disable(

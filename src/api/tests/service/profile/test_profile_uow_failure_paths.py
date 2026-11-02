@@ -1,9 +1,10 @@
-"""Unit-of-work behavior for profile definition writes (B1 migration)."""
+"""Verify caller-owned transactions and shared definition visibility writes."""
 
 from __future__ import annotations
 
 import pytest
 from flaskr import dao
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.profile import profile_manage
 from flaskr.service.profile.models import Variable
 
@@ -20,7 +21,7 @@ def _variable_count(app: object, shifu_bid: str, key: str) -> int:
     return len(rows)
 
 
-def test_save_profile_item_rolls_back_when_the_dto_build_fails(
+def test_internal_definition_write_rolls_back_with_its_caller(
     app: object, monkeypatch: object
 ) -> None:
     shifu_bid = "uow-profile-shifu-1"
@@ -36,19 +37,23 @@ def test_save_profile_item_rolls_back_when_the_dto_build_fails(
         failing_convert,
     )
 
-    with app.app_context(), pytest.raises(RuntimeError, match="dto boom"):
-        profile_manage.save_profile_item(app, "", shifu_bid, "uow-user", key)
+    with (
+        app.app_context(),
+        pytest.raises(RuntimeError, match="dto boom"),
+        unit_of_work(),
+    ):
+        profile_manage.add_profile_item_quick_internal(app, shifu_bid, key, "uow-user")
 
     assert _variable_count(app, shifu_bid, key) == 0
 
 
-def test_save_profile_item_commits_on_clean_exit(app: object) -> None:
+def test_internal_definition_write_commits_with_its_caller(app: object) -> None:
     shifu_bid = "uow-profile-shifu-2"
     key = "uow_profile_key_2"
 
-    with app.app_context():
-        definition = profile_manage.save_profile_item(
-            app, "", shifu_bid, "uow-user", key
+    with app.app_context(), unit_of_work():
+        definition = profile_manage.add_profile_item_quick_internal(
+            app, shifu_bid, key, "uow-user"
         )
 
     assert definition.profile_key == key
@@ -61,7 +66,10 @@ def test_hidden_state_update_is_visible_to_the_read_back(app: object) -> None:
     key = "uow_profile_key_3"
 
     with app.app_context():
-        profile_manage.save_profile_item(app, "", shifu_bid, "uow-user", key)
+        with unit_of_work():
+            profile_manage.add_profile_item_quick_internal(
+                app, shifu_bid, key, "uow-user"
+            )
         definitions = profile_manage.update_profile_item_hidden_state(
             app, shifu_bid, [key], hidden=True, user_id="uow-user"
         )
@@ -72,13 +80,14 @@ def test_hidden_state_update_is_visible_to_the_read_back(app: object) -> None:
 
 def test_nested_hidden_state_read_back_sees_the_staged_update(app: object) -> None:
     """Inside a caller's unit of work the read-back joins that session."""
-    from flaskr.dao.uow import unit_of_work
-
     shifu_bid = "uow-profile-shifu-4"
     key = "uow_profile_key_4"
 
     with app.app_context():
-        profile_manage.save_profile_item(app, "", shifu_bid, "uow-user", key)
+        with unit_of_work():
+            profile_manage.add_profile_item_quick_internal(
+                app, shifu_bid, key, "uow-user"
+            )
         with unit_of_work():
             definitions = profile_manage.update_profile_item_hidden_state(
                 app, shifu_bid, [key], hidden=True, user_id="uow-user"

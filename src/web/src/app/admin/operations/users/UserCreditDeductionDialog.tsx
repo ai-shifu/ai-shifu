@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
-import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
+import { formatAdminCredits } from '@/app/admin/lib/number-format';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -23,8 +23,8 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
-import { useToast } from '@/hooks/useToast';
-import { useTracking } from '@/hooks/useTracking';
+import { useToast } from '@/hooks/use-toast';
+import { useTracking } from '@/hooks/use-tracking';
 import { ErrorWithCode } from '@/lib/request';
 import { getTrackingIdentityGeneration } from '@/lib/tracking';
 import type {

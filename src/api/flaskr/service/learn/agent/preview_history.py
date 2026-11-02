@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of_work
+from flaskr.service.learn.agent.interaction_history import structured_user_input
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.agent.session_store import (
     PREVIEW_PRESENTATION_KEY,
@@ -15,6 +16,11 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     preview_presentation,
     preview_presentation_from_document,
+)
+from flaskr.service.learn.elements.history import (
+    _attach_follow_up_history_to_anchor_payload,
+    _build_final_elements_from_rows,
+    _merge_follow_up_elements_after_anchor,
 )
 from flaskr.service.learn.learn_dtos import (
     ElementPayloadDTO,
@@ -26,11 +32,6 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.lesson_content_updates import (
     lesson_content_state_from_session,
-)
-from flaskr.service.learn.listen_element_history import (
-    _attach_follow_up_history_to_anchor_payload,
-    _build_final_elements_from_rows,
-    _merge_follow_up_elements_after_anchor,
 )
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.shifu.models import DraftOutlineItem
@@ -172,7 +173,10 @@ def stage_preview_turn(
         call_id = pending[0]["tool_call_id"]
         still_pending = {item.tool_call_id for item in session.pending}
         if call_id not in still_pending or call_id in session.answers:
-            presentation["answers"][call_id] = ",".join(values)
+            # Use the learner history encoding so commas inside a value survive replay.
+            presentation["answers"][call_id] = structured_user_input(
+                pending[0].get("spec"), values
+            ) or ",".join(values)
             answered_question_id = call_id
     if record.get("version") == 1 and isinstance(record.get("checkpoint"), dict):
         presentation.setdefault("turns", []).append(

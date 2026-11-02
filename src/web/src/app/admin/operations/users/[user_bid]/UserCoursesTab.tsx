@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/utils';
 import { buildAdminOperationsCourseDetailUrl } from '../../operation-course-routes';
 import type { AdminOperationUserCourseItem } from '../../operation-user-types';

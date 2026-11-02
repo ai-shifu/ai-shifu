@@ -7,7 +7,7 @@ description: Use when integrating new markdown-flow-ui mobile player capabilitie
 
 ## 核心规则
 
-- 优先在 `ListenModeSlideRenderer` 这一层完成 `Slide` 新 props 的业务接入，再按需把状态回调向 `NewChatComp`、`ChatUi`、页面层逐层透传。
+- 优先在 `ListenModeSlideRenderer` 这一层完成 `Slide` 新 props 的业务接入，再按需把状态回调向 `LessonConversation`、`ChatUi`、页面层逐层透传。
 - 横屏 header 的业务内容由 ai-shifu 自己渲染，不要把头像、标题等默认值写回 `markdown-flow-ui`。
 - 播放器文案必须走 `src/i18n/<locale>/modules/chat.json`，不要在组件里写死字符串。
 - learner 端 header 上的学习模式名称、切换学习模式按钮、目录开关 `aria-label` 也必须走 `module.chat` 命名空间；共享 TS 模块只保留 mode 和 i18n key，禁止导出已经翻译好的“听课/阅读”等渲染文案。
@@ -28,7 +28,7 @@ description: Use when integrating new markdown-flow-ui mobile player capabilitie
 - 若 `Slide` 的 fullscreen 态来自“设备自动检测 + 用户手动切换”混合模型，业务层消费 `onMobileViewModeChange` 时应以“当前生效态”为准，不要再额外假设物理横屏一定不可退出。
 - 当移动端听课模式需要兼容横屏 fullscreen 场景下的 `dvh` 视口误差时，优先在页面根节点切换 class，并通过全局 CSS 变量统一把相关高度从 `dvh` 映射到 `vh`，不要在多个组件里散落同一套条件判断。
 - 当移动端听课模式的交互浮层输入框因为键盘弹起而失焦时，优先检查 `page` 或宿主层是否把键盘触发的 `resize` / `visualViewport.resize` 当成横竖屏变化处理；输入框聚焦期间应过滤这类 resize，避免整页布局状态重算导致浮层或输入组件重渲染。
-- 当移动端听课模式里单个 markdown/code element 把页面撑宽时，优先在 ai-shifu 的 `ListenModeRenderer.scss` 约束 slide 外层 flex/grid 链路的 `min-width: 0`、`max-width: 100%` 和局部 `overflow-x`，让代码块内部滚动，不要先改 `markdown-flow-ui`。
+- 当移动端听课模式里单个 markdown/code element 把页面撑宽时，优先在 ai-shifu 的 `listen-mode-renderer.scss` 约束 slide 外层 flex/grid 链路的 `min-width: 0`、`max-width: 100%` 和局部 `overflow-x`，让代码块内部滚动，不要先改 `markdown-flow-ui`。
 
 ## 工作流
 
@@ -73,7 +73,7 @@ or placement. Desktop preview has its own `ChatUi.module.scss` header sizing;
 do not apply the mobile 76px increment to desktop unconditionally.
 
 Run the existing `ChatMobileHeader.test.tsx` preview case and `ChatUi.test.tsx`
-preview-banner cases under `src/app/c/[[...id]]/Components/`. They check banner
+preview-banner cases under `src/app/c/[[...id]]/components/`. They check banner
 visibility and course/lesson wiring, not computed geometry. When changing this
 layout, also verify mobile read/listen, desktop preview, and preview with a
 lesson-update notice: content and drawer must start below the complete header

@@ -1186,9 +1186,9 @@ interface BillingPaymentProviderAdapter {
 当前前端的已知事实：
 
 - App Router 入口集中在 `src/web/src/app/`
-- 接口定义集中在 `src/web/src/api/api.ts`
+- 接口定义集中在 `src/web/src/api/endpoint-definitions.ts`
 - 请求封装集中在 `src/web/src/lib/request.ts`
-- 运行时配置通过 `src/web/src/lib/initializeEnvData.ts` 写入 `envStore`
+- 运行时配置通过 `src/web/src/lib/initialize-runtime-config.ts` 写入 `envStore`
 - 管理端统一布局在 `src/web/src/app/admin/layout.tsx`
 - 现有订单管理页已经使用 `Table + Sheet + 本地状态/搜索参数` 的管理端交互模式
 - `/admin` 现有创作中心首页已经接近目标结构；当前批次只做 Figma `方案1` 浅色稿对齐，不重做信息架构
@@ -1289,7 +1289,7 @@ Feature-owned payload 固定为 `{}`。共享 `useTracking` 仍会自动添加�
 
 #### 7.5.4 API 接入与前端类型
 
-需要在 `src/web/src/api/api.ts` 增加：
+需要在 `src/web/src/api/endpoint-definitions.ts` 增加：
 
 - `getBillingCatalog`
 - `getBillingOverview`

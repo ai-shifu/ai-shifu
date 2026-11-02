@@ -5,7 +5,7 @@ import {
   readProfileAssistantDraft,
   writeProfileAssistantDraft,
   clearProfileAssistantDrafts,
-} from '@/lib/profileAssistantDraft';
+} from '@/lib/profile-assistant-draft';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),

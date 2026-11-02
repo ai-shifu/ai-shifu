@@ -9,8 +9,8 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+} from '@/components/admin/admin-table-styles';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -39,8 +39,8 @@ import type {
   CourseUserFilters,
   CourseUserPaymentStatus,
   UserColumnKey,
-} from './courseUsersTabConfig';
-import { USER_COLUMN_DEFAULT_WIDTHS } from './courseUsersTabConfig';
+} from './course-users-tab-config';
+import { USER_COLUMN_DEFAULT_WIDTHS } from './course-users-tab-config';
 
 type ErrorState = { message: string; code?: number };
 

@@ -1,6 +1,68 @@
 """Internationalization utility functions for common i18n operations."""
 
+from collections.abc import Sequence
+
 from flaskr.i18n import get_current_language
+
+
+def canonicalize_language_tag(language_code: str) -> str:
+    """Canonicalize the case of a BCP 47 style tag such as ``zh_cn``.
+
+    Underscores become hyphens and empty segments are dropped; the primary
+    subtag is lowercased, two-letter alphabetic subtags are uppercased and
+    four-letter alphabetic subtags are title-cased. The caller decides how to
+    pre-clean the input (for example stripping whitespace). Returns ``""``
+    when no segment remains.
+    """
+    parts = [
+        segment for segment in language_code.replace("_", "-").split("-") if segment
+    ]
+    if not parts:
+        return ""
+    normalized_parts = [parts[0].lower()]
+    for segment in parts[1:]:
+        if len(segment) == 2 and segment.isalpha():
+            normalized_parts.append(segment.upper())
+        elif len(segment) == 4 and segment.isalpha():
+            normalized_parts.append(segment.title())
+        else:
+            normalized_parts.append(segment)
+    return "-".join(normalized_parts)
+
+
+def match_supported_language(
+    language_code: str, supported_languages: Sequence[str]
+) -> str | None:
+    """Return the supported locale matching ``language_code``, if any.
+
+    An exact case-insensitive match wins; otherwise the first supported
+    locale sharing the primary subtag is returned.
+    """
+    language_lower = language_code.lower()
+    for supported_language in supported_languages:
+        if supported_language.lower() == language_lower:
+            return supported_language
+
+    primary_language = language_lower.split("-", 1)[0]
+    for supported_language in supported_languages:
+        if supported_language.lower().split("-", 1)[0] == primary_language:
+            return supported_language
+    return None
+
+
+def first_accept_language(accept_language: str | None) -> str | None:
+    """Return the first language tag of an ``Accept-Language`` header.
+
+    Quality values are dropped (``"en-US;q=0.9"`` -> ``"en-US"``). Returns
+    ``None`` when the header is missing or its first entry is empty.
+    """
+    if not accept_language:
+        return None
+    first_part = accept_language.split(",")[0].strip()
+    if not first_part:
+        return None
+    return first_part.split(";")[0].strip() or None
+
 
 # Mapping of locale codes to language names in their native form
 # Used for MarkdownFlow output language setting

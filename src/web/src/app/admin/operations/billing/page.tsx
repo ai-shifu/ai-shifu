@@ -1,7 +1,7 @@
 'use client';
 
 import Loading from '@/components/loading';
-import useOperatorGuard from '../useOperatorGuard';
+import useOperatorGuard from '../use-operator-guard';
 import { AdminBillingOperationsConsole } from './AdminBillingOperationsConsole';
 
 export default function AdminBillingOperationsPage() {

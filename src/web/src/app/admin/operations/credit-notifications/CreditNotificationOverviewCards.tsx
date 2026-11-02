@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import type { AdminOperationCreditNotificationOverview } from '../operation-credit-notification-types';
-import type { NotificationOverviewCardKey } from './creditNotificationUtils';
+import type { NotificationOverviewCardKey } from './credit-notification-utils';
 
 export function CreditNotificationOverviewCards({
   overview,

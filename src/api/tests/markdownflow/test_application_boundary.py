@@ -2,8 +2,8 @@
 
 from flaskr.api import markdownflow as application
 from flaskr.api.llm import markdownflow_model
-from flaskr.service.learn import follow_up_memory_writer
 from flaskr.service.learn.agent import lesson_entry, session_store
+from flaskr.service.learn.ask import memory_writer as follow_up_memory_writer
 from flaskr.service.profile_research import engine_runtime, provider
 from markdownflow import Engine, Session, bridge
 

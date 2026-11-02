@@ -17,7 +17,7 @@ description: Use when changing chat action bars, follow-up entry points, or AskB
 - 当需求要求“按接口顺序直接展示内容与追问”时，不要额外引入 `readyElementBids`、`onTypeFinished` 等前端渲染门禁。
 - SSE 流里 `ELEMENT/CONTENT` 阶段只更新当前元素本体，不要提前插入 `LIKE_STATUS`；追问入口统一在 `TEXT_END` 后补齐，避免按钮先于流式正文出现。
 - 若后端未必为每个 `element` 都补 `TEXT_END`，前端可在“下一个 `element` 开始”或“当前流关闭”时，把上一个活动 `element` 视为隐式完成并补齐追问入口。
-- 移动端阅读模式的正文追问按钮时序必须完全复用 `useChatLogicHook` 的 finalize 结果；渲染层只消费已有 `content/LIKE_STATUS/ASK` 状态，不能再按相邻元素关系提前补按钮。
+- 移动端阅读模式的正文追问按钮时序必须完全复用 `useLessonConversation` 的 finalize 结果；渲染层只消费已有 `content/LIKE_STATUS/ASK` 状态，不能再按相邻元素关系提前补按钮。
 - 移动端正文一旦在 finalize 后补上 `custom-button-after-content`，同一 `element_bid` 后续再收到 `ELEMENT/CONTENT` 覆盖时也必须继承该按钮，不能用新的原始正文把它抹掉，否则会出现“按钮闪一下又消失”。
 - 交互块触发 `onSend` 且需要截断后续内容时，必须保留该交互块关联的辅助行（`LIKE_STATUS` / `ASK`），避免进入思考中后追问入口消失。
 - 后台调试/预览链路中收到 `interaction` 时，也要为该 `interaction` 本身补齐 `LIKE_STATUS`，否则追问按钮不会渲染。
@@ -35,7 +35,7 @@ description: Use when changing chat action bars, follow-up entry points, or AskB
 - 追问面板若支持 SSE 流式回答，自动滚底不能只依赖消息条数变化；同一条 answer 在流式追加、Markdown 重排导致内容区高度变化时，也要通过 `ResizeObserver` 或等价机制持续滚到底部。
 - 听课模式移动端横屏下的追问面板应继续复用移动端弹层交互，包括灰色遮罩和标题栏里的放大/缩小、关闭按钮；同时横屏可单独提高 `max-height`，但空态面板仍只保留标题栏与输入区高度，不要把整个横屏 viewport 刷成白底。
 - 追问消息本身应以全局 zustand store 作为唯一 source of truth，按课时 `lessonScopeKey + anchor element_bid` 归档；`AskBlock`、阅读模式和听课模式都只消费同一份 store，`props.askList` 用于历史 hydrate，后续快照是否接纳由 store 的现有守卫决定，避免局部 state、父层 override 和 items 回填互相覆盖而打断 SSE token 流。
-- 阅读模式若要展示 store 中已有、但 `items` 里尚未落地成 `ASK` block 的追问，应在渲染层按锚点补一个派生 `ASK` 容器，而不是把流式中的 `ask_list` 实时回写到 `useChatLogicHook.items`；这样既能跨模式保留追问展示，又不会因为父层列表更新把正在输出的追问闪掉。
+- 阅读模式若要展示 store 中已有、但 `items` 里尚未落地成 `ASK` block 的追问，应在渲染层按锚点补一个派生 `ASK` 容器，而不是把流式中的 `ask_list` 实时回写到 `useLessonConversation.items`；这样既能跨模式保留追问展示，又不会因为父层列表更新把正在输出的追问闪掉。
 - 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。
 - 移动端阅读模式通过 `custom-button-after-content` 给正文补追问入口时，不能把 `loading` 占位块或“紧跟在 interaction 后的正文块”当成普通内容；交互块后的后续输出阶段应始终不出现追问按钮。
 - 历史记录若在听课模式下完成初始化，切回阅读模式时也必须对当前内存里的 `contentList` 重新同步 `custom-button-after-content`，不能只依赖“阅读模式下新生成流”去补按钮，否则会出现历史正文没有追问入口、只有新流有入口的模式切换不一致。
@@ -69,20 +69,20 @@ protection against every stale snapshot.
 optional `expectedLessonScopeKey`; unscoped callers such as `AskBlock` do not
 get that guard automatically. `AskBlock`, reading mode, and listen mode consume
 the shared store. Do not reintroduce parent override maps, local message copies,
-or token-by-token writes into `useChatLogicHook.items`.
+or token-by-token writes into `useLessonConversation.items`.
 
-`NewChatComp` calls `projectReadModeItems` in `chatUiModeProjection.ts` to derive
-missing ASK containers. `buildReadModeItemsWithAskState` in `readModeItems.ts`
+`LessonConversation` calls `projectReadModeItems` in `chat-ui-mode-projection.ts` to derive
+missing ASK containers. `buildReadModeItemsWithAskState` in `read-mode-items.ts`
 has no runtime caller and is not the owner of that live projection. The same
 module exports `normalizeReadModeDisplayItem`, which `projectReadModeItems`
 imports and calls for the active reading projection. Finalize controls action-row eligibility; avoid
 adding a second completion gate or forcing ASK on interaction-only content.
 
-Inspect `useAskStateStore.test.ts` for the optional lesson-scope write guard,
-`NewChatComp.test.tsx` for imported reading-projection helpers,
-`chatUiModeProjection.test.ts` for listening projections, and
+Inspect `use-ask-state-store.test.ts` for the optional lesson-scope write guard,
+`LessonConversation.test.tsx` for imported reading-projection helpers,
+`chat-ui-mode-projection.test.ts` for listening projections, and
 `AskBlock.test.tsx` for panel behavior in
-`src/app/c/[[...id]]/Components/ChatUi/`. Run them with
+`src/app/c/[[...id]]/components/chat/`. Run them with
 `npm test -- --runInBand --runTestsByPath` from `src/web`; quote paths containing
 brackets in a shell. The store suite does not cover the hydration guards, and the current projection
 fixtures do not cover inserting a missing ASK container from stored messages.
@@ -102,6 +102,6 @@ its scoped instance.
 
 The `ListenModeSlideRenderer.test.tsx` case
 `keeps the mobile ask block mounted and collapsed after closing the listen panel`
-in `src/app/c/[[...id]]/Components/ChatUi/` verifies a mounted, collapsed block
+in `src/app/c/[[...id]]/components/chat/` verifies a mounted, collapsed block
 with the same anchor after closure. The [streaming Skill](../chat-element-streaming/SKILL.md)
 also describes hidden in-flight typewriter behavior and terminal cleanup.

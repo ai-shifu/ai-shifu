@@ -2,7 +2,7 @@ import type {
   AudioCompleteData,
   AudioSegmentData,
   SubtitleCueData,
-} from '@/api/studyV2';
+} from '@/api/learning';
 
 export interface AudioSegment {
   segmentIndex: number;

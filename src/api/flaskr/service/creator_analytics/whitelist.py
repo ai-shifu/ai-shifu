@@ -418,8 +418,3 @@ WHITELIST: Mapping[str, TableSpec] = {
         latest_course_version_only=True,
     ),
 }
-
-
-def get_table_spec(table_key: str) -> TableSpec:
-    """Return the spec for ``table_key`` or raise :class:`KeyError`."""
-    return WHITELIST[table_key]

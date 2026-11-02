@@ -1,5 +1,5 @@
 import request, { type RequestConfig } from '@/lib/request';
-import { useSystemStore } from '@/store/useSystemStore';
+import { useSystemStore } from '@/store/use-system-store';
 
 const getCurrentShifuBid = (): string => {
   if (typeof window === 'undefined') return '';
@@ -60,7 +60,7 @@ export {
   isProfileOnboardingStatus,
   runProfileOnboardingSession,
   skipGuidedProfileOnboarding as skipProfileOnboarding,
-} from '@/api/learnerProfile';
+} from '@/api/learner-profile';
 export type {
   CompleteProfileOnboardingPayload,
   LearnerProfile as CompleteProfileOnboardingResponse,
@@ -70,7 +70,7 @@ export type {
   ProfileOnboardingSessionIntent,
   ProfileOnboardingStatus,
   ProfileOnboardingStatusResponse,
-} from '@/api/learnerProfile';
+} from '@/api/learner-profile';
 
 /**
  * Send SMS verification code
@@ -79,33 +79,4 @@ export type {
  */
 export const sendSmsCode = ({ mobile, captcha_ticket }) => {
   return request.post('/api/user/send_sms_code', { mobile, captcha_ticket });
-};
-
-// Fetch detailed user profile
-export const getUserProfile = courseId => {
-  return request
-    .get('/api/user/get_profile?course_id=' + courseId)
-    .then(res => {
-      return res.profiles || [];
-    });
-};
-
-// Upload avatar
-export const uploadAvatar = ({ avatar }) => {
-  const formData = new FormData();
-  formData.append('avatar', avatar);
-  return request.post('/api/user/upload_avatar', formData);
-};
-
-// Update detailed user profile
-export const updateUserProfile = (data, courseId) => {
-  return request.post('/api/user/update_profile', {
-    profiles: data,
-    course_id: courseId,
-  });
-};
-
-// submit feedback
-export const submitFeedback = feedback => {
-  return request.post('/api/user/submit-feedback', { feedback });
 };

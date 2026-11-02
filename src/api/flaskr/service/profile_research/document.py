@@ -14,7 +14,7 @@ from flaskr.service.profile_research.session import (
     ProfileResearchValidationError,
 )
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import BlockType, InteractionParser, MarkdownFlow
+from markdownflow import BlockType, InteractionParser, MarkdownFlowDocument
 
 
 def _profile_summary_prompt() -> str:
@@ -31,7 +31,7 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
     if len(document) > MAX_DOCUMENT_CODEPOINTS:
         msg = "document is too long"
         raise ProfileResearchValidationError(msg)
-    flow = MarkdownFlow(document=document)
+    flow = MarkdownFlowDocument(document=document)
     blocks = flow.get_all_blocks()
     if not blocks:
         msg = "document has no blocks"

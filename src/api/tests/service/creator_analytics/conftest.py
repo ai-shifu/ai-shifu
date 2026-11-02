@@ -30,6 +30,11 @@ from flaskr.service.shifu.models import (
 from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import (
+    make_generated_block,
+    make_progress_record,
+)
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -173,14 +178,13 @@ def seed_progress(
     now = now_utc()
     record_bid = progress_record_bid or f"pr-{shifu_bid}-{user_bid}-{status}"
     db.session.add(
-        LearnProgressRecord(
+        make_progress_record(
             progress_record_bid=record_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_item_bid,
             user_bid=user_bid,
             status=status,
             block_position="0",
-            deleted=0,
             created_at=now,
             updated_at=now,
         )
@@ -242,7 +246,7 @@ def seed_generated_block(
     bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{block_type}-{content[:8]}"
     now = now_utc()
     db.session.add(
-        LearnGeneratedBlock(
+        make_generated_block(
             generated_block_bid=bid,
             shifu_bid=shifu_bid,
             user_bid=user_bid,
@@ -253,7 +257,6 @@ def seed_generated_block(
             role=role,
             status=status,
             generated_content=content,
-            deleted=0,
             created_at=now,
         )
     )

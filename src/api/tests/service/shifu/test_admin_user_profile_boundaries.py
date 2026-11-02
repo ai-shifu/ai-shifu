@@ -8,10 +8,12 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import admin_user_profiles as profiles
+from flaskr.service.shifu.admin_operations import courses_shared
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
 )
+from flaskr.service.user.contact_lookup import load_user_contact_map
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
@@ -133,14 +135,14 @@ def test_course_contact_maps_prefer_latest_credentials_and_fall_back_to_account_
     _credential(bound_user, "email", "deleted@example.com", deleted=1)
     db.session.flush()
     bids = [email_user, phone_user, bound_user]
-    contacts = profiles._load_course_user_contact_map(bids)
+    contacts = load_user_contact_map(bids)
     assert contacts[email_user] == {"mobile": "", "email": "fallback@example.com"}
     assert contacts[phone_user] == {"mobile": "13800138000", "email": ""}
     assert contacts[bound_user] == {
         "mobile": "13800138001",
         "email": "latest@example.com",
     }
-    users = profiles._load_user_map(bids)
+    users = courses_shared._load_user_map(bids)
     assert users[bound_user] == {
         "mobile": "13800138001",
         "email": "latest@example.com",
@@ -224,19 +226,19 @@ def test_creator_and_user_identifier_lookup_ignores_deleted_rows(
     _credential(user_id, "email", email)
     _credential("deleted-account", "email", email, deleted=1)
     db.session.flush()
-    assert profiles._find_matching_creator_bids(email) == {user_id}
-    assert profiles._find_matching_creator_bids(user_id) == {user_id}
+    assert courses_shared._find_matching_creator_bids(email) == {user_id}
+    assert courses_shared._find_matching_creator_bids(user_id) == {user_id}
     assert profiles._find_matching_user_bids_by_identifier(account_scope) == {user_id}
-    assert profiles._find_matching_creator_bids("unmatched@example.com") == set()
-    assert profiles._find_matching_creator_bids(" ") is None
+    assert courses_shared._find_matching_creator_bids("unmatched@example.com") == set()
+    assert courses_shared._find_matching_creator_bids(" ") is None
     assert profiles._find_matching_user_bids_by_identifier(" ") is None
 
 
 @pytest.mark.parametrize(
     "loader",
     [
-        profiles._load_course_user_contact_map,
-        profiles._load_user_map,
+        load_user_contact_map,
+        courses_shared._load_user_map,
         profiles._load_operator_user_auth_credentials,
         profiles._load_operator_user_registration_source_map,
         profiles._load_operator_user_last_login_map,
@@ -264,7 +266,7 @@ def test_course_user_role_has_stable_precedence(
     creator: bool, operator: bool, student: bool, expected: str
 ) -> None:
     assert (
-        profiles._resolve_course_user_role(
+        courses_shared._resolve_course_user_role(
             is_creator=creator, is_operator=operator, is_student=student
         )
         == expected
@@ -285,7 +287,7 @@ def test_learning_status_requires_progress_and_a_nonempty_course(
     learned: int, total: int, expected: str
 ) -> None:
     assert (
-        profiles._resolve_course_user_learning_status(
+        courses_shared._resolve_course_user_learning_status(
             learned_lesson_count=learned, total_lesson_count=total
         )
         == expected

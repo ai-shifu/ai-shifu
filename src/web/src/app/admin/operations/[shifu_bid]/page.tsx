@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
-import { formatAdminCount } from '@/app/admin/lib/numberFormat';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
+import { formatAdminCount } from '@/app/admin/lib/number-format';
 import { useEnvStore } from '@/store';
-import { copyText } from '@/lib/textutils';
+import { copyText } from '@/lib/text-utils';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { fail, show } from '@/hooks/useToast';
+import { fail, show } from '@/hooks/use-toast';
 import {
   resolveLoginIdentifierTypes,
   selectSingleLoginIdentifierType,
@@ -54,8 +54,8 @@ import {
   USER_COLUMN_MIN_WIDTH,
   USER_COLUMN_WIDTH_STORAGE_KEY,
   type UserColumnKey,
-} from './courseUsersTabConfig';
-import useOperatorGuard from '../useOperatorGuard';
+} from './course-users-tab-config';
+import useOperatorGuard from '../use-operator-guard';
 
 type ErrorState = { message: string; code?: number };
 

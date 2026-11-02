@@ -33,7 +33,7 @@ jest.mock('@/lib/i18n-locales', () => ({
   localeCodes: ['en-US', 'de-DE', 'es-ES', 'fr-FR', 'ur-PK'],
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

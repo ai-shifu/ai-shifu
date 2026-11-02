@@ -6,8 +6,8 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS } from './hooks/useCourseProfileOnboardingGate';
-import { WECHAT_OPENID_BINDING_TIMEOUT_MS } from './hooks/useWechatOpenIdBinding';
+import { PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS } from './hooks/use-course-profile-onboarding-gate';
+import { WECHAT_OPENID_BINDING_TIMEOUT_MS } from './hooks/use-wechat-open-id-binding';
 import ChatPage from './page';
 
 const mockGetProfileOnboarding = jest.fn();
@@ -78,7 +78,9 @@ type ResetChapterEventHandler = (
 ) => Promise<void>;
 
 const getResetChapterEventHandler = () => {
-  const { shifu: mockedShifu } = jest.requireMock('@/lib/shifu/Shifu') as {
+  const { shifu: mockedShifu } = jest.requireMock(
+    '@/lib/shifu/shifu-runtime',
+  ) as {
     shifu: {
       events: {
         addEventListener: jest.Mock;
@@ -331,7 +333,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   toast: (...args: unknown[]) => mockToast(...args),
 }));
 
@@ -339,7 +341,7 @@ jest.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-jest.mock('@/constants/uiConstants', () => ({
+jest.mock('@/constants/ui-constants', () => ({
   FRAME_LAYOUT_MOBILE: 'mobile',
   LISTEN_MODE_VH_FALLBACK_CLASSNAME: 'listen-mode-vh-fallback',
   calcFrameLayout: () => 'desktop',
@@ -381,7 +383,7 @@ jest.mock('@/store', () => ({
   ),
 }));
 
-jest.mock('@/hooks/useDisclosure', () => ({
+jest.mock('@/hooks/use-disclosure', () => ({
   useDisclosure: () => ({
     open: true,
     onClose: jest.fn(),
@@ -389,7 +391,7 @@ jest.mock('@/hooks/useDisclosure', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),
@@ -409,7 +411,7 @@ jest.mock('@/api/user', () => ({
   updateWxcode: (...args: unknown[]) => mockUpdateWxcode(...args),
 }));
 
-jest.mock('@/lib/shifu/Shifu', () => ({
+jest.mock('@/lib/shifu/shifu-runtime', () => ({
   shifu: {
     EventTypes: {
       OPEN_LOGIN_MODAL: 'OPEN_LOGIN_MODAL',
@@ -422,7 +424,7 @@ jest.mock('@/lib/shifu/Shifu', () => ({
   },
 }));
 
-jest.mock('./hooks/useLessonTree', () => ({
+jest.mock('./hooks/use-lesson-tree', () => ({
   useLessonTree: () => ({
     tree: {
       bannerInfo: null,
@@ -450,22 +452,22 @@ jest.mock('./hooks/useLessonTree', () => ({
   }),
 }));
 
-jest.mock('./Components/NavDrawer/NavDrawer', () => ({
+jest.mock('./components/navigation/NavDrawer', () => ({
   __esModule: true,
   default: (props: MockNavDrawerProps) => mockNavDrawer(props),
 }));
 
-jest.mock('./Components/ChatMobileHeader', () => ({
+jest.mock('./components/ChatMobileHeader', () => ({
   __esModule: true,
   default: (props: MockChatMobileHeaderProps) => mockChatMobileHeader(props),
 }));
 
-jest.mock('./Components/ChatUi/ChatUi', () => ({
+jest.mock('./components/chat/ChatUi', () => ({
   __esModule: true,
   default: (props: MockChatUiProps) => mockChatUi(props),
 }));
 
-jest.mock('./Components/FeedbackModal/FeedbackModal', () => ({
+jest.mock('./components/feedback/FeedbackModal', () => ({
   __esModule: true,
   default: () => null,
 }));

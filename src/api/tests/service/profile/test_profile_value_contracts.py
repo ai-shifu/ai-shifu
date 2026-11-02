@@ -1,16 +1,18 @@
 """Keep profile-label writes aligned with canonical user fields and scoped values."""
 
-import datetime
 import uuid
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from flaskr.api.check import CHECK_RESULT_PASS, CHECK_RESULT_REJECT
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.check_risk import funcs as risk_funcs
 from flaskr.service.common.models import AppError
-from flaskr.service.profile import funcs
-from flaskr.service.profile.models import VariableValue
+from flaskr.service.profile import api as profile_api
+from flaskr.service.profile import course_values, funcs
+from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import (
     UserEntity,
@@ -22,7 +24,8 @@ from flaskr.service.user.repository import (
 @pytest.fixture
 def user(app: object, monkeypatch: pytest.MonkeyPatch) -> object:
     key = uuid.uuid4().hex
-    monkeypatch.setattr(funcs, "get_profile_item_definition_list", lambda *_a: [])
+    for module in (funcs, course_values):
+        monkeypatch.setattr(module, "get_profile_item_definition_list", lambda *_a: [])
     with app.app_context():
         with unit_of_work():
             create_user_entity(
@@ -31,6 +34,7 @@ def user(app: object, monkeypatch: pytest.MonkeyPatch) -> object:
         yield SimpleNamespace(app=app, bid=key)
         with unit_of_work():
             VariableValue.query.filter_by(user_bid=key).delete()
+            Variable.query.filter_by(created_user_bid=key).delete()
             UserEntity.query.filter_by(user_bid=key).delete()
 
 
@@ -41,31 +45,32 @@ def _label(key: str, value: object) -> UserProfileLabelItemDTO:
 
 
 @pytest.mark.parametrize(
-    "raw",
-    ["2020-02-29", datetime.date(2020, 2, 29), "2021-02-29", "not-a-date", None, ""],
+    "key", ["sex", "birth", "avatar", "language", "sys_user_style"]
 )
-def test_birth_label_normalizes_date_without_invalid_canonical_value(
-    user: object, raw: object
-) -> None:
+def test_retired_profile_label_writes_are_course_scoped(user: object, key: str) -> None:
     with unit_of_work():
-        funcs.update_user_profile_with_lable(
-            user.app, user.bid, _label("birth", raw), update_all=True
+        profile_api.update_user_profile_with_lable(
+            user.app,
+            user.bid,
+            _label(key, "Course value"),
+            update_all=True,
+            course_id="course",
         )
     db.session.expire_all()
-    expected = (
-        datetime.date(2020, 2, 29)
-        if raw in ("2020-02-29", datetime.date(2020, 2, 29))
-        else None
+    account = load_user_aggregate(user.bid)
+    assert account.birthday is None
+    assert account.avatar == ""
+    assert account.language == "en-US"
+    row = VariableValue.query.filter_by(user_bid=user.bid, key=key).one()
+    assert (row.value, row.shifu_bid) == ("Course value", "course")
+    assert key not in profile_api.get_user_profiles(
+        user.app, user.bid, "another-course"
     )
-    assert load_user_aggregate(user.bid).birthday == expected
-    runtime = funcs.get_user_profiles(user.app, user.bid, "course")
-    if expected:
-        assert runtime["birth"] == "2020-02-29"
-    else:
-        assert "birth" not in runtime
 
 
-def test_profile_dto_updates_avatar_and_ignores_empty_keys(user: object) -> None:
+def test_profile_dto_saves_course_avatar_without_changing_account_or_empty_keys(
+    user: object,
+) -> None:
     payload = UserProfileLabelDTO(
         profiles=[_label("avatar", "avatar.png"), _label("", "ignored")],
         language="en-US",
@@ -73,22 +78,19 @@ def test_profile_dto_updates_avatar_and_ignores_empty_keys(user: object) -> None
     for _ in range(2):
         with unit_of_work():
             assert (
-                funcs.update_user_profile_with_lable(
+                profile_api.update_user_profile_with_lable(
                     user.app, user.bid, payload, course_id="course"
                 )
                 is True
             )
     db.session.expire_all()
-    assert load_user_aggregate(user.bid).avatar == "avatar.png"
+    assert load_user_aggregate(user.bid).avatar == ""
     values = VariableValue.query.filter_by(user_bid=user.bid).all()
     assert [(item.key, item.value, item.shifu_bid) for item in values] == [
-        ("avatar", "avatar.png", "")
+        ("avatar", "avatar.png", "course")
     ]
-    labels = funcs.get_user_profile_labels(user.app, user.bid, "course")
-    assert (
-        next(item.value for item in labels.profiles if item.key == "avatar")
-        == "avatar.png"
-    )
+    labels = profile_api.get_user_profile_labels(user.app, user.bid, "course")
+    assert "avatar" not in {item.key for item in labels.profiles}
 
 
 def test_empty_profile_update_can_initialize_missing_user_without_variable_writes(
@@ -99,7 +101,7 @@ def test_empty_profile_update_can_initialize_missing_user_without_variable_write
     assert load_user_aggregate(user.bid) is None
     with unit_of_work():
         assert (
-            funcs.update_user_profile_with_lable(
+            profile_api.update_user_profile_with_lable(
                 user.app, user.bid, [], course_id="course"
             )
             is True
@@ -110,7 +112,7 @@ def test_empty_profile_update_can_initialize_missing_user_without_variable_write
 
 
 @pytest.mark.parametrize("legacy", ["not-a-number", "999"])
-def test_invalid_legacy_sex_value_uses_display_default_without_rewriting_storage(
+def test_retired_legacy_sex_value_is_not_displayed_or_rewritten(
     user: object, legacy: str
 ) -> None:
     with unit_of_work():
@@ -124,16 +126,15 @@ def test_invalid_legacy_sex_value_uses_display_default_without_rewriting_storage
                 value=legacy,
             )
         )
-    labels = funcs.get_user_profile_labels(user.app, user.bid, "course").profiles
-    expected = funcs.get_profile_labels()["sex"]["items"][0]
-    assert next(item.value for item in labels if item.key == "sex") == expected
+    labels = profile_api.get_user_profile_labels(user.app, user.bid, "course").profiles
+    assert "sex" not in {item.key for item in labels}
     assert (
         VariableValue.query.filter_by(user_bid=user.bid, key="sex").one().value
         == legacy
     )
 
 
-def test_missing_birthday_reads_legacy_value_without_replacing_canonical_field(
+def test_missing_birthday_does_not_read_retired_legacy_value(
     user: object,
 ) -> None:
     with unit_of_work():
@@ -148,21 +149,19 @@ def test_missing_birthday_reads_legacy_value_without_replacing_canonical_field(
             )
         )
     assert load_user_aggregate(user.bid).birthday is None
-    labels = funcs.get_user_profile_labels(user.app, user.bid, "course").profiles
-    assert next(item.value for item in labels if item.key == "birth") == "1999-08-07"
+    labels = profile_api.get_user_profile_labels(user.app, user.bid, "course").profiles
+    assert "birth" not in {item.key for item in labels}
     assert load_user_aggregate(user.bid).birthday is None
 
 
-@pytest.mark.parametrize(
-    "verdict", [funcs.CHECK_RESULT_PASS, funcs.CHECK_RESULT_REJECT, "unknown"]
-)
+@pytest.mark.parametrize("verdict", [CHECK_RESULT_PASS, CHECK_RESULT_REJECT, "unknown"])
 def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_failure(
     user: object,
     monkeypatch: pytest.MonkeyPatch,
     verdict: object,
 ) -> None:
     monkeypatch.setattr(
-        funcs,
+        risk_funcs,
         "check_text",
         Mock(
             return_value=SimpleNamespace(
@@ -173,24 +172,24 @@ def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_
         ),
     )
     audit = Mock()
-    monkeypatch.setattr(funcs, "add_risk_control_result", audit)
+    monkeypatch.setattr(risk_funcs, "add_risk_control_result", audit)
     payload = [_label("sys_user_nickname", "Requested name")]
-    if verdict == funcs.CHECK_RESULT_REJECT:
+    if verdict == CHECK_RESULT_REJECT:
         with pytest.raises(AppError), unit_of_work():
-            funcs.update_user_profile_with_lable(user.app, user.bid, payload)
+            profile_api.update_user_profile_with_lable(user.app, user.bid, payload)
     else:
         with unit_of_work():
             assert (
-                funcs.update_user_profile_with_lable(user.app, user.bid, payload)
+                profile_api.update_user_profile_with_lable(user.app, user.bid, payload)
                 is True
             )
     db.session.expire_all()
     assert load_user_aggregate(user.bid).nickname == (
-        "Original" if verdict == funcs.CHECK_RESULT_REJECT else "Requested name"
+        "Original" if verdict == CHECK_RESULT_REJECT else "Requested name"
     )
     assert VariableValue.query.filter_by(
         user_bid=user.bid, key="sys_user_nickname"
-    ).count() == int(verdict != funcs.CHECK_RESULT_REJECT)
+    ).count() == int(verdict != CHECK_RESULT_REJECT)
     audit.assert_called_once()
     assert audit.call_args.args[2:6] == (
         user.bid,
@@ -199,21 +198,24 @@ def test_nickname_moderation_records_provider_verdict_and_rejects_only_explicit_
         verdict,
     )
     assert audit.call_args.args[-2:] == (
-        int(verdict == funcs.CHECK_RESULT_PASS),
+        int(verdict == CHECK_RESULT_PASS),
         "check_text",
     )
 
 
-def test_labels_find_global_nonmapped_values_with_profile_definition(
+def test_labels_ignore_retired_global_and_course_style_values(
     user: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        funcs,
-        "get_profile_item_definition_list",
-        lambda *_a: [
-            SimpleNamespace(profile_key="sys_user_style", profile_id="style-definition")
-        ],
-    )
+    for module in (funcs, course_values):
+        monkeypatch.setattr(
+            module,
+            "get_profile_item_definition_list",
+            lambda *_a: [
+                SimpleNamespace(
+                    profile_key="sys_user_style", profile_id="style-definition"
+                )
+            ],
+        )
     with unit_of_work():
         db.session.add_all(
             [
@@ -235,10 +237,14 @@ def test_labels_find_global_nonmapped_values_with_profile_definition(
                 ),
             ]
         )
-    labels = funcs.get_user_profile_labels(
+    labels = profile_api.get_user_profile_labels(
         user.app, user.bid, "course", include_nickname=False, include_background=False
     ).profiles
     values = {item.key: item.value for item in labels}
-    assert values["sys_user_style"] == "Examples first"
+    assert "sys_user_style" not in values
+    assert (
+        VariableValue.query.filter_by(user_bid=user.bid, key="sys_user_style").count()
+        == 2
+    )
     assert "sys_user_nickname" not in values
     assert "sys_user_background" not in values

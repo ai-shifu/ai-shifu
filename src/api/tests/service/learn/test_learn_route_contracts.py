@@ -23,6 +23,8 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
 )
 
+from tests.common.fixtures.model_factories import make_progress_record
+
 
 @pytest.fixture
 def feedback_course(app: object, monkeypatch: object) -> object:
@@ -36,13 +38,12 @@ def feedback_course(app: object, monkeypatch: object) -> object:
     )
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=identity,
                 shifu_bid=identity,
                 outline_item_bid=identity,
                 user_bid=identity,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
         db.session.add(
@@ -216,28 +217,6 @@ def test_feedback_list_rejects_invalid_pagination_before_querying(
     ).get_json(force=True)
     assert response["code"] == ERROR_CODE["server.common.paramsError"]
     listing.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        (None, None),
-        ({}, None),
-        ({"empty": [], "missing": None}, None),
-        (
-            {1: [None, 0, False, "answer"], "name": "Ada"},
-            {"1": ["0", "False", "answer"], "name": ["Ada"]},
-        ),
-        ([None, "answer", 0], {"user_input": ["answer", "0"]}),
-        ([None], None),
-        (False, {"user_input": ["False"]}),
-        ("answer", {"user_input": ["answer"]}),
-    ],
-)
-def test_legacy_input_normalization_preserves_answer_values(
-    value: object, expected: object
-) -> None:
-    assert routes._normalize_user_input(value) == expected
 
 
 @pytest.mark.parametrize("business_error", [False, True])
@@ -563,9 +542,8 @@ def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
     run.assert_not_called()
 
 
-@pytest.mark.parametrize("visual", [None, " true "])
-def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
-    monkeypatch: object, test_client: object, feedback_course: object, visual: object
+def test_preview_route_reads_only_current_fields_and_validates_before_model_call(
+    monkeypatch: object, test_client: object, feedback_course: object
 ) -> None:
     from flaskr.service.learn.agent import debug_session
 
@@ -576,21 +554,46 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
         json={
-            "prompt": "Lesson text",
-            "blockIndex": 0,
-            "input": ["answer", None],
-            "visual_mode": visual,
+            "content": "Lesson text",
+            "block_index": 0,
+            "user_input": {"choice": ["answer"]},
+            # Retired fields no editor bundle sends any more; they are ignored.
+            "context": [{"role": "user", "content": "old"}],
+            "document_prompt": "old",
+            "visual_mode": True,
             "debug_session_id": "editor-run-1",
+            "reload_generated_block_bid": "selected-step",
+            "reload_element_bid": "selected-question",
+            "request_generation": 7,
         },
         headers={"Token": "test-token"},
     )
     assert '"type": "done"' in response.get_data(as_text=True)
     args = preview.call_args.kwargs
     assert args["run_bid"] == "editor-run-1"
-    assert args["preview_request"].user_input == {"user_input": ["answer"]}
-    # Older editor bundles still send the retired visual_mode flag; it is ignored.
-    assert not hasattr(args["preview_request"], "visual_mode")
+    assert args["preview_request"].get_document() == "Lesson text"
+    assert args["preview_request"].user_input == {"choice": ["answer"]}
+    assert args["preview_request"].reload_generated_block_bid == "selected-step"
+    assert args["preview_request"].reload_element_bid == "selected-question"
+    assert args["preview_request"].request_generation == 7
+    for retired in ("context", "document_prompt", "visual_mode"):
+        assert not hasattr(args["preview_request"], retired)
     preview.reset_mock()
+
+    # The pre-2.0 aliases are no longer read, so such a payload lacks block_index.
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
+        json={
+            "prompt": "Lesson text",
+            "blockIndex": 0,
+            "input": ["answer"],
+            "debug_session_id": "editor-run-1",
+        },
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert response["code"] == ERROR_CODE["server.common.paramsError"]
+    preview.assert_not_called()
+
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
         json={
@@ -604,6 +607,71 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     preview.assert_not_called()
 
 
+@pytest.mark.parametrize("phase", ["initial", "answer", "regenerate", "answer_edit"])
+@pytest.mark.parametrize("language", ["en-US", "zh-CN", "fr-FR"])
+def test_debug_cache_failure_keeps_its_business_code_and_request_language(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    phase: str,
+    language: str,
+) -> None:
+    """A streamed cache failure stays retryable even after request i18n is cleared."""
+    from flaskr.i18n import clear_language, translate_for_language
+    from flaskr.service.common.models import raise_error
+    from flaskr.service.learn.agent import debug_session
+    from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
+
+    def unavailable(*_args: object, **_kwargs: object) -> object:
+        clear_language()
+        if phase != "initial":
+            yield RunElementSSEMessageDTO(
+                type="content", event_type="content", content="Partial output"
+            )
+        raise_error("server.learn.debugServiceUnavailable")
+
+    monkeypatch.setattr(debug_session, "stream_debug_preview", unavailable)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: True)
+    payload = {
+        "content": "Current editor draft",
+        "block_index": 0,
+        "debug_session_id": "editor-run-1",
+    }
+    if phase == "answer":
+        payload["user_input"] = {"answer": ["Selected answer"]}
+    elif phase in {"regenerate", "answer_edit"}:
+        payload["reload_generated_block_bid"] = "selected-turn"
+        if phase == "answer_edit":
+            payload["reload_element_bid"] = "selected-question"
+            payload["user_input"] = {"answer": ["New answer"]}
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
+        json=payload,
+        headers={"Token": "test-token", "Accept-Language": language},
+    )
+    messages = [
+        json.loads(chunk.removeprefix("data: "))
+        for chunk in response.get_data(as_text=True).strip().split("\n\n")
+    ]
+    errors = [message for message in messages if message["type"] == "error"]
+    assert len(errors) == 1
+    assert errors[0]["code"] == 4023
+    assert errors[0]["content"] == translate_for_language(
+        "server.learn.debugServiceUnavailable", language
+    )
+    assert errors[0]["is_terminal"] is False
+    assert messages[-1]["type"] == "done"
+    assert messages[-1]["is_terminal"] is True
+    assert "code" not in messages[-1]
+    if phase != "initial":
+        assert messages[0] == {
+            "type": "content",
+            "event_type": "content",
+            "content": "Partial output",
+        }
+
+
 @pytest.mark.parametrize(
     "variables",
     [
@@ -613,13 +681,13 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
         {"sys_user_language": "en-US", "language": "zh-CN"},
     ],
 )
-def test_editor_preview_streams_through_the_agent_with_synchronized_language(
+def test_editor_preview_keeps_course_language_separate_from_output_language(
     monkeypatch: object,
     test_client: object,
     feedback_course: object,
     variables: dict | None,
 ) -> None:
-    """Route editor sessions to the agent with synchronized language aliases."""
+    """Only the canonical setting controls the editor's teaching language."""
     from flaskr.service.learn.agent import debug_session
 
     marker = {"type": "preview_engine", "content": "2.0"}
@@ -641,10 +709,12 @@ def test_editor_preview_streams_through_the_agent_with_synchronized_language(
     assert '"preview_engine"' in response.get_data(as_text=True)
     assert agent.call_args.kwargs["preview_request"].content == "Current editor draft"
     assert agent.call_args.kwargs["run_bid"] == "editor-run-1"
-    expected_language = "en-US" if variables else "fr-FR"
+    expected_language = (
+        "en-US" if variables and variables.get("sys_user_language") else "fr-FR"
+    )
     assert agent.call_args.kwargs["preview_request"].variables == {
+        **(variables or {}),
         "sys_user_language": expected_language,
-        "language": expected_language,
     }
 
 
@@ -784,13 +854,12 @@ def test_reset_status_reads_recorded_usage_over_http(
     assert before["data"] == {"can_reset": True}
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=learner,
                 shifu_bid=feedback_course.bid,
                 outline_item_bid=feedback_course.bid,
                 user_bid=learner,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
     first = test_client.delete(url, headers={"Token": "test-token"}).get_json(
@@ -799,13 +868,12 @@ def test_reset_status_reads_recorded_usage_over_http(
     assert first["data"] is True
     with app.app_context(), unit_of_work():
         db.session.add(
-            LearnProgressRecord(
+            make_progress_record(
                 progress_record_bid=learner + "-again",
                 shifu_bid=feedback_course.bid,
                 outline_item_bid=feedback_course.bid,
                 user_bid=learner,
                 status=LEARN_STATUS_COMPLETED,
-                deleted=0,
             )
         )
     after = test_client.get(

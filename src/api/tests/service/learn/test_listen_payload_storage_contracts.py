@@ -4,13 +4,11 @@ import copy
 import json
 
 import pytest
-from flaskr.service.learn import listen_element_payloads as payloads
-from flaskr.service.learn import listen_element_rows as rows
+from flaskr.service.learn.elements import payloads, rows
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
     ElementAudioDTO,
-    ElementChangeType,
     ElementDTO,
     ElementPayloadDTO,
     ElementType,
@@ -21,7 +19,8 @@ from flaskr.service.learn.learn_dtos import (
     SubtitleCueDTO,
     VariableUpdateDTO,
 )
-from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+
+from tests.common.fixtures.model_factories import make_generated_element
 
 
 def _cue() -> dict:
@@ -226,46 +225,6 @@ def test_audio_dto_conversions_preserve_subtitle_alignment() -> None:
     assert result.subtitle_cues is not complete.subtitle_cues
 
 
-def test_element_storage_round_trip_preserves_identity_and_drops_transient_audio_bytes() -> (
-    None
-):
-    source = _element(
-        change_type=ElementChangeType.RENDER,
-        is_renderable=False,
-        is_speakable=True,
-        is_final=True,
-        audio_url="https://example.test/audio.mp3",
-        audio_segments=[_segment()],
-        payload=ElementPayloadDTO(user_input="answer"),
-        target_element_bid="target",
-        sequence_number=8,
-    )
-    progress = LearnProgressRecord(
-        progress_record_bid="progress",
-        user_bid="user",
-        outline_item_bid="outline",
-        shifu_bid="course",
-    )
-    row = rows._serialize_element_row(
-        progress_record=progress, element=source, run_session_bid="run", run_event_seq=9
-    )
-    assert (
-        row.progress_record_bid,
-        row.user_bid,
-        row.outline_item_bid,
-        row.shifu_bid,
-    ) == ("progress", "user", "outline", "course")
-    restored = rows._element_from_row(row)
-    assert restored.element_bid == source.element_bid
-    assert restored.content_text == "Narration"
-    assert restored.run_session_bid == "run"
-    assert restored.run_event_seq == 9
-    assert restored.audio_segments == [_segment(audio_data="", is_final=True)]
-    assert restored.payload.user_input == "answer"
-    assert not restored.is_renderable
-    assert restored.is_speakable
-
-
 @pytest.mark.parametrize(
     ("stored_type", "expected_type"),
     [
@@ -279,14 +238,13 @@ def test_element_storage_round_trip_preserves_identity_and_drops_transient_audio
 def test_legacy_rows_normalize_types_and_corrupt_audio_trails(
     stored_type: str, expected_type: ElementType, audio_json: str
 ) -> None:
-    row = LearnGeneratedElement(
+    row = make_generated_element(
         element_type=stored_type,
         change_type="future",
         audio_segments=audio_json,
         payload="{}",
         is_final=1,
         content_text="content",
-        is_renderable=1,
     )
     restored = rows._element_from_row(row)
     assert restored.element_type == expected_type
@@ -296,8 +254,8 @@ def test_legacy_rows_normalize_types_and_corrupt_audio_trails(
 
 
 def test_interaction_replay_copies_latest_answer_into_payload() -> None:
-    row = LearnGeneratedElement(
-        element_type="interaction", payload='{"user_input":"old"}', event_type="element"
+    row = make_generated_element(
+        element_type="interaction", payload='{"user_input":"old"}'
     )
     event = rows._event_from_row(row, interaction_user_input="latest answer")
     assert event.content.payload.user_input == "latest answer"
@@ -322,7 +280,7 @@ def test_interaction_replay_copies_latest_answer_into_payload() -> None:
 def test_non_structured_or_incomplete_event_payloads_remain_replayable(
     kind: str, content: str
 ) -> None:
-    row = LearnGeneratedElement(event_type=kind, content_text=content)
+    row = make_generated_element(event_type=kind, content_text=content)
     assert rows._deserialize_event_content(row) == content
 
 
@@ -374,7 +332,7 @@ def test_non_structured_or_incomplete_event_payloads_remain_replayable(
 def test_structured_events_rehydrate_their_typed_payload(
     kind: GeneratedType, content: dict, dto: type
 ) -> None:
-    row = LearnGeneratedElement(
+    row = make_generated_element(
         event_type=kind.value,
         content_text=json.dumps(content),
         generated_block_bid="block",

@@ -42,6 +42,7 @@ from flaskr.service.order.payment_providers.base import (
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_billing_product
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.test_billing_tasks import (
     billing_task_integration_app as catalog_app,
 )
@@ -81,7 +82,7 @@ def _seed(
         if subscription
         else None
     )
-    order = BillingOrder(
+    order = make_billing_order(
         bill_order_bid=uuid4().hex,
         creator_bid=creator,
         product_bid=product.product_bid,
@@ -336,6 +337,11 @@ def test_native_sync_persists_provider_evidence_and_expires_uncreated_orders(
             if provider_name == "alipay"
             else "transaction_id": "transaction-test",
         }
+        # Trade queries report the paid amount; it must match payable_amount.
+        if provider_name == "alipay":
+            payload["total_amount"] = "10.00"
+        else:
+            payload["amount"] = {"total": order.payable_amount}
         provider = Mock(
             sync_reference=Mock(
                 return_value=PaymentNotificationResult(
@@ -477,7 +483,7 @@ def test_zero_amount_checkout_stages_credit_grant_within_callers_transaction(
 def test_immediate_upgrade_validates_tier_and_paid_preorder_offset(gate: str) -> None:
     current = BillingProduct(sort_order=None if gate == "missing-tier" else 1)
     target = BillingProduct(sort_order=2, price_amount=1000)
-    preorder = BillingOrder(
+    preorder = make_billing_order(
         status=BILLING_ORDER_STATUS_PENDING
         if gate == "unpaid-preorder"
         else BILLING_ORDER_STATUS_PAID,

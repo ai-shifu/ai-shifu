@@ -9,7 +9,6 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user import common, post_auth, repository
-from flaskr.service.user.auth.base import AuthResult
 from flaskr.service.user.consts import CREDENTIAL_STATE_UNVERIFIED
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
@@ -99,39 +98,6 @@ def test_update_missing_account_has_a_stable_error(app: object, user: object) ->
     with app.app_context(), pytest.raises(AppError) as error:
         common.update_user_info(app, user, "After")
     assert error.value.code == ERROR_CODE["server.user.userNotFound"]
-
-
-def test_sms_compatibility_entry_point_forwards_full_login_context(
-    app: object, account: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from flaskr.service.common.dtos import UserToken
-
-    token = UserToken(account, "issued-token")
-    provider = Mock()
-    provider.verify.return_value = AuthResult(user=account, token=token)
-    resolver = Mock(return_value=provider)
-    monkeypatch.setattr(common, "get_provider", resolver)
-    result = common.verify_sms_code(
-        app,
-        "temporary",
-        "13800138000",
-        "2468",
-        course_id="course",
-        language="fr-FR",
-        login_context="admin",
-    )
-    resolver.assert_called_once_with("phone")
-    assert result is token
-    args = provider.verify.call_args.args
-    assert args[0] is app
-    assert args[1].identifier == "13800138000"
-    assert args[1].code == "2468"
-    assert args[1].metadata == {
-        "user_id": "temporary",
-        "course_id": "course",
-        "language": "fr-FR",
-        "login_context": "admin",
-    }
 
 
 @pytest.mark.parametrize(

@@ -12,6 +12,10 @@ from flaskr.dao import db
 from flaskr.service.common.models import (
     raise_param_error,
 )
+from flaskr.service.learn.api import (
+    build_follow_up_user_keyword_filter,
+    resolve_follow_up_matching_outline_bids,
+)
 from flaskr.service.learn.models import (
     LearnLessonFeedback,
 )
@@ -19,10 +23,6 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseRatingItemDTO,
     AdminOperationCourseRatingListDTO,
     AdminOperationCourseRatingSummaryDTO,
-)
-from flaskr.service.shifu.admin_operations.courses_follow_ups import (
-    _build_follow_up_user_keyword_filter,
-    _resolve_follow_up_matching_outline_bids,
 )
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_RATING_LIST_MAX_PAGE_SIZE,
@@ -109,14 +109,14 @@ def get_operator_course_ratings(
             LearnLessonFeedback.deleted == 0,
         ]
 
-        user_keyword_filter = _build_follow_up_user_keyword_filter(
+        user_keyword_filter = build_follow_up_user_keyword_filter(
             LearnLessonFeedback.user_bid,
             keyword,
         )
         if user_keyword_filter is not None:
             base_filters.append(user_keyword_filter)
 
-        matching_outline_item_bids = _resolve_follow_up_matching_outline_bids(
+        matching_outline_item_bids = resolve_follow_up_matching_outline_bids(
             outline_context_map,
             chapter_keyword,
         )

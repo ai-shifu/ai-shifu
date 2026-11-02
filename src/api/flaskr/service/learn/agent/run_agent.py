@@ -42,6 +42,7 @@ from flaskr.api.markdownflow import (
     StartTurn,
     TurnDone,
     collected_names,
+    rebase_initial_script,
 )
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
@@ -257,8 +258,14 @@ def _load_or_start(
     snapshot taken when it was last saved, so an author editing a learner's profile would otherwise
     never reach the lesson already in progress.
     """
+    script_edited = False
     if debug_store is not None:
         stored = debug_store.load(script=script)
+        if stored is not None and stored.script.script != script:
+            # Editor debug only: an author who edited the draft and answered expects the
+            # rest of the lesson to follow the edited script (see follow_script_edits).
+            stored.script = replace(stored.script, script=script)
+            script_edited = True
     else:
         try:
             stored = load_agent_session(
@@ -275,6 +282,8 @@ def _load_or_start(
         # Taken back before the turn is built, so the turn is whatever this state calls for: the
         # question the learner is now answering differently, or the turn being regenerated.
         restore(stored, rewind.checkpoint)
+        if debug_store is not None:
+            stored.user_memory = dict(rewind.checkpoint["user_memory"])
     if stored is not None and on_session_loaded is not None:
         on_session_loaded(stored)
     generations, deleted = (
@@ -287,7 +296,11 @@ def _load_or_start(
     if memory_deleted_keys is not None:
         memory_deleted_keys.update(deleted)
     user_memory = (
-        dict(preview_variables or {})
+        dict(stored.user_memory)
+        if debug_store is not None
+        and stored is not None
+        and (rewind is not None or preview_variables is None)
+        else dict(preview_variables or {})
         if debug_store is not None
         else load_memory(
             app,
@@ -354,6 +367,12 @@ def _load_or_start(
             # Only the brief, not the script. Replacing the script under a conversation that has
             # already been taught from it would leave the two disagreeing about what was said.
             stored.script = replace(stored.script, constraints=teaching_brief or None)
+            if script_edited:
+                # The model reads the script from the first user message, not from the
+                # bundle, so the edited draft has to replace it there as well.
+                rebased = rebase_initial_script(stored.messages, stored.script)
+                if rebased is not None:
+                    stored.messages = rebased
             return stored
         # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
         # the engine's own listen mode -- which we do not use, and which a session would keep
@@ -506,7 +525,17 @@ def run_agent_lesson(
             session_holder["session"] = session
             # The state this turn starts from, kept on its block so the lesson can be taken back
             # to it later.
-            session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
+            checkpoint = checkpoint_of(session)
+            if debug_store is not None:
+                checkpoint["user_memory"] = dict(session.user_memory)
+            session_holder["turn_record"] = turn_record(checkpoint, values)
+            if debug_store is not None:
+                debug_store.save(
+                    session,
+                    generated_block_bid=generated_block_bid,
+                    turn_record=session_holder["turn_record"],
+                    rewind=rewind,
+                )
             deleted_policy = (
                 {"memory_deleted_keys": frozenset(memory_deleted_keys)}
                 if memory_deleted_keys
@@ -1076,7 +1105,14 @@ def _stream_turn(
                 # a disconnect cannot restore the original answered question.
                 prepared = _prepared_lesson_text(prepared)
                 if debug_store is not None:
-                    debug_store.save(session)
+                    debug_store.save(
+                        session,
+                        generated_block_bid=generated_block_bid,
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                        question_ids=preview_question_ids
+                        or [p.tool_call_id for p in session.pending],
+                    )
                     kept = True
                 else:
                     kept = _persist(
@@ -1187,7 +1223,13 @@ def _stream_turn(
             if session is not None:
                 persisted = True
                 if debug_store is not None:
-                    debug_store.save(session)
+                    debug_store.save(
+                        session,
+                        generated_block_bid=generated_block_bid,
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                        question_ids=preview_question_ids,
+                    )
                     kept = True
                 else:
                     kept = _persist(
@@ -1320,7 +1362,13 @@ def _stream_turn(
     discarded = False
     if not persisted and session is not None:
         if debug_store is not None:
-            debug_store.save(session)
+            debug_store.save(
+                session,
+                generated_block_bid=generated_block_bid,
+                turn_record=session_holder.get("turn_record", ""),
+                rewind=session_holder.get("rewind"),
+                question_ids=preview_question_ids,
+            )
         else:
             discarded = not _persist(
                 app,

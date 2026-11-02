@@ -6,7 +6,7 @@ import {
   getCourseCreatorUrl,
   getPaymentAgreementUrl,
   replaceCurrentUrlWithLessonId,
-} from '../lib/urlUtils';
+} from '../lib/url-utils';
 
 const originalLocation = window.location;
 

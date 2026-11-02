@@ -60,7 +60,6 @@ def test_post_fork_initializes_live_after_resetting_resources(
     monkeypatch.setattr(sys, "argv", ["gunicorn", "-k", "gthread", "app:app"])
     # Register the environment mutation with monkeypatch for test cleanup.
     monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", "1")
-    monkeypatch.setattr("flaskr.metrics_runtime.prepare_metrics_directory", Mock())
     config = runpy.run_path(
         str(Path(__file__).resolve().parents[1] / "gunicorn.conf.py")
     )

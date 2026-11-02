@@ -1,6 +1,6 @@
 """Define DTOs for user accounts."""
 
-import datetime
+import datetime as dt
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ class UserProfileLabelItemDTO(BaseModel):
     key: str = Field(..., description="key")
     label: str = Field(..., description="label")
     type: str = Field(..., description="type")
-    value: str | datetime.date | None = Field(..., description="value")
+    value: str | dt.date | None = Field(..., description="value")
     items: list | None = Field(..., description="items")
 
     def __json__(self) -> dict:

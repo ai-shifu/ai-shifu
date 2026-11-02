@@ -39,6 +39,7 @@ from .engine.interaction import (
     normalize_answer,
 )
 from .engine.memory import InMemoryMemoryStore, MemoryStore
+from .engine.memory_context import rebase_initial_script
 from .engine.script import (
     ScriptBundle,
     collected_names,
@@ -61,8 +62,22 @@ from .interaction_rendering import (
 )
 from .pagination import LessonPager
 from .resources import load_prompt
+from .syntax import (
+    USER_ANSWER_CONTEXT_KEY,
+    BlockType,
+    InteractionParser,
+    MarkdownFlowDocument,
+    StreamFormatter,
+    escape_interaction_text,
+    find_unescaped,
+    normalize_variable_name,
+    replace_variables_in_text,
+    unescape_interaction_text,
+)
 
 __all__ = [
+    "USER_ANSWER_CONTEXT_KEY",
+    "BlockType",
     "ContentDelta",
     "ContinueTurn",
     "Engine",
@@ -72,11 +87,13 @@ __all__ = [
     "InMemorySessionStore",
     "InputBudgetExceededError",
     "InteractionAnswer",
+    "InteractionParser",
     "InteractionRequest",
     "InteractionResponseTurn",
     "InteractionSpec",
     "InteractionType",
     "LessonPager",
+    "MarkdownFlowDocument",
     "MemoryStore",
     "MemoryUpdated",
     "MessageTurn",
@@ -98,6 +115,7 @@ __all__ = [
     "Session",
     "SessionStore",
     "StartTurn",
+    "StreamFormatter",
     "ToolCall",
     "ToolResult",
     "TurnCapacityError",
@@ -109,12 +127,18 @@ __all__ = [
     "answer_is_usable",
     "collected_names",
     "detect_syntax",
+    "escape_interaction_text",
+    "find_unescaped",
     "iter_turn",
     "load_prompt",
     "normalize_answer",
+    "normalize_variable_name",
     "parse_event",
     "plain_narration",
+    "rebase_initial_script",
     "render_first_prompt",
+    "replace_variables_in_text",
     "substitute_variables",
     "to_sse",
+    "unescape_interaction_text",
 ]

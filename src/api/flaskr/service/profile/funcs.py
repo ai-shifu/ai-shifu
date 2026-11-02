@@ -1,629 +1,38 @@
-"""Implement business operations for learner profiles."""
+"""Write the learner settings page: account fields and the course's own values.
 
-import datetime
+The settings form mixes account-backed system fields (see ``account_fields``)
+with course-scoped custom values (see ``course_values``); this writer routes each
+submitted field to its owner.
+"""
+
 import logging
 
 from flask import Flask
-from flaskr.api.check import (
-    CHECK_RESULT_PASS,
-    CHECK_RESULT_REJECT,
-    check_text,
-)
 from flaskr.dao import db
-from flaskr.i18n import _, get_locale_labels
-from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
 from flaskr.service.profile.course_references import is_course_reference
-from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
-from flaskr.service.user.repository import (
-    UserAggregate,
-    load_user_aggregate,
-    update_user_entity_fields,
-)
-from flaskr.service.user.repository import (
-    _ensure_user_entity as ensure_user_entity,
-)
 from flaskr.util.uuid import generate_id
 
-from .constants import SYS_USER_BACKGROUND, SYS_USER_LANGUAGE, SYS_USER_NICKNAME
-from .learner_profile import (
-    apply_learner_profile_system_value,
-    load_learner_profile_user,
-    validate_learner_profile_system_value,
+from .account_fields import (
+    apply_core_mapping,
+    check_text_content,
+    current_core_value,
+    ensure_user_aggregate,
+    get_profile_labels,
+    update_aggregate_field,
 )
+from .constants import SYS_USER_BACKGROUND, SYS_USER_NICKNAME
+from .course_values import (
+    _get_latest_variable_value,
+    _validate_profile_write_scope,
+    load_scoped_values,
+)
+from .learner_profile import validate_learner_profile_system_value
 from .models import VariableValue
 
 logger = logging.getLogger(__name__)
-
-
-def _get_latest_variable_value(
-    values: list[VariableValue],
-    variable_key: str,
-    shifu_bid: str,
-) -> VariableValue | None:
-    """Return the newest variable value row from a pre-fetched, id-desc sorted collection.
-
-    Matching is by key only (not variable_bid) so the newest row for the
-    logical profile field wins even if the underlying Variable definition was
-    recreated and now has a different variable_bid.
-
-    Match only the requested scope. Callers select the empty scope for registered
-    system fields; a missing course value never falls back to a global custom value.
-    """
-    target_shifu = shifu_bid or ""
-    return next(
-        (
-            item
-            for item in values
-            if item.shifu_bid == target_shifu and item.key == variable_key
-        ),
-        None,
-    )
-
-
-def _ensure_user_aggregate(user_id: str) -> UserAggregate | None:
-    aggregate = load_user_aggregate(user_id)
-    if aggregate:
-        return aggregate
-    ensure_user_entity(user_id)
-    return load_user_aggregate(user_id)
-
-
-def _update_aggregate_field(
-    aggregate: UserAggregate | None, mapping: str, value: object
-) -> None:
-    if not aggregate:
-        return
-    if mapping == "name":
-        aggregate.nickname = value or ""
-    elif mapping == "user_avatar":
-        aggregate.avatar = value or ""
-    elif mapping == "user_language":
-        aggregate.language = value or ""
-    elif mapping == "user_birth":
-        aggregate.birthday = value
-    elif mapping == "learner_profile":
-        aggregate.learner_profile = str(value or "")
-
-
-def _normalize_core_value(
-    mapping: str, value: str | datetime.date | None
-) -> str | datetime.date | None:
-    if mapping == "user_birth":
-        if isinstance(value, datetime.date):
-            return value
-        if isinstance(value, str) and value:
-            try:
-                return datetime.date.fromisoformat(value)
-            except ValueError:
-                return None
-        return None
-    return value or ""
-
-
-def _apply_core_mapping(
-    user_id: str,
-    mapping: str,
-    value: str | datetime.date | None,
-) -> str | datetime.date | None:
-    if mapping == "learner_profile":
-        return apply_learner_profile_system_value(
-            user_id=user_id,
-            learner_profile=str(value or ""),
-        )
-    entity = ensure_user_entity(user_id)
-    normalized = _normalize_core_value(mapping, value)
-    if mapping == "name":
-        update_user_entity_fields(entity, nickname=normalized)
-    elif mapping == "user_avatar":
-        update_user_entity_fields(entity, avatar=normalized)
-    elif mapping == "user_language":
-        update_user_entity_fields(entity, language=normalized)
-    elif mapping == "user_birth":
-        update_user_entity_fields(entity, birthday=normalized)
-    return normalized
-
-
-def _current_core_value(
-    aggregate: UserAggregate | None, mapping: str
-) -> str | datetime.date | None:
-    if not aggregate:
-        return None
-    if mapping == "name":
-        return aggregate.nickname
-    if mapping == "user_avatar":
-        return aggregate.avatar
-    if mapping == "user_language":
-        return aggregate.language
-    if mapping == "user_birth":
-        return aggregate.birthday
-    if mapping == "learner_profile":
-        return str(aggregate.learner_profile or "")
-    return None
-
-
-def check_text_content(
-    app: Flask,
-    user_id: str,
-    user_input: str,
-) -> bool:
-    """Check text content."""
-    check_id = generate_id(app)
-    res = check_text(app, check_id, user_input, user_id)
-    add_risk_control_result(
-        app,
-        check_id,
-        user_id,
-        user_input,
-        res.provider,
-        res.check_result,
-        str(res.raw_data),
-        1 if res.check_result == CHECK_RESULT_PASS else 0,
-        "check_text",
-    )
-    return res.check_result != CHECK_RESULT_REJECT
-
-
-def get_profile_labels() -> dict[str, dict[str, object]]:
-    """Return profile labels."""
-    locale_labels = get_locale_labels()
-    return {
-        "sys_user_nickname": {
-            "label": _("server.profile.nickname"),
-            "mapping": "name",
-            "default": "",
-        },
-        "sex": {
-            "label": _("server.profile.sex"),
-            "mapping": "user_sex",
-            "items": [
-                _("server.profile.sexMale"),
-                _("server.profile.sexFemale"),
-                _("server.profile.sexSecret"),
-            ],
-            "items_mapping": {
-                0: _("server.profile.sexSecret"),
-                1: _("server.profile.sexMale"),
-                2: _("server.profile.sexFemale"),
-            },
-            "default": 0,
-        },
-        "birth": {
-            "label": _("server.profile.birth"),
-            "mapping": "user_birth",
-            "type": "date",
-            "default": datetime.date(2003, 1, 1),
-        },
-        "avatar": {
-            "label": _("server.profile.avatar"),
-            "mapping": "user_avatar",
-            "type": "image",
-            "default": "",
-        },
-        "language": {
-            "label": _("server.profile.language"),
-            "items": list(locale_labels.values()),
-            "mapping": "user_language",
-            "items_mapping": locale_labels,
-            "default": "zh-CN",
-        },
-        "sys_user_background": {
-            "label": _("server.profile.userBackground"),
-            "mapping": "learner_profile",
-            "default": "",
-        },
-        "sys_user_style": {
-            "label": _("server.profile.style"),
-        },
-    }
-
-
-def _profile_write_labels() -> dict[str, dict[str, object]]:
-    """Include the canonical language alias without duplicating settings UI labels."""
-    return {
-        **get_profile_labels(),
-        SYS_USER_LANGUAGE: {"mapping": "user_language"},
-    }
-
-
-def get_global_profile_keys() -> frozenset[str]:
-    """Return keys that the shared profile writer routes to global/account storage."""
-    return frozenset(_profile_write_labels())
-
-
-def global_profile_value_versions(
-    user_id: str, *, lock: bool = False
-) -> dict[str, tuple[int, str | None]]:
-    """Version registered global rows and canonical fields before delayed writes.
-
-    Settings update the user row before appending compatibility values. Lock in
-    that order and use current reads so newer settings or direct canonical edits
-    cannot be overwritten by an older model proposal.
-    """
-    if lock:
-        load_learner_profile_user(user_id, for_update=True)
-    aggregate = load_user_aggregate(user_id)
-    labels = _profile_write_labels()
-    query = (
-        VariableValue.query.filter(
-            VariableValue.user_bid == user_id,
-            VariableValue.shifu_bid == "",
-            VariableValue.key.in_(labels),
-        )
-        .with_entities(VariableValue.id, VariableValue.key)
-        .order_by(VariableValue.id)
-    )
-    if lock:
-        query = query.populate_existing().with_for_update()
-    rows = {row.key: row.id for row in query.all()}
-    versions = {}
-    for key, label in labels.items():
-        value = _current_core_value(aggregate, str(label.get("mapping", "")))
-        versions[key] = (rows.get(key, 0), str(value) if value is not None else None)
-    return versions
-
-
-def save_user_profiles(
-    app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
-) -> bool:
-    """Persist user profiles."""
-    profile_labels = _profile_write_labels()
-    app.logger.info("save user profiles count=%s", len(profiles))
-    for profile in profiles:
-        if profile.key == SYS_USER_BACKGROUND:
-            profile.value = validate_learner_profile_system_value(
-                app,
-                user_id=user_id,
-                learner_profile=profile.value,
-            )
-    aggregate = _ensure_user_aggregate(user_id)
-    profiles_items = get_profile_item_definition_list(app, course_id)
-
-    candidate_shifus = [course_id or ""]
-    if course_id:
-        candidate_shifus.append("")
-
-    try:
-        user_values: list[VariableValue] = (
-            VariableValue.query.filter(
-                VariableValue.user_bid == user_id,
-                VariableValue.deleted == 0,
-                VariableValue.shifu_bid.in_(candidate_shifus),
-            )
-            .order_by(VariableValue.id.desc())
-            .all()
-        )
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load var_variable_values: %s", exc)
-        user_values = []
-
-    for profile in profiles:
-        if is_course_reference(profile.key):
-            continue
-        profile_item = next(
-            (item for item in profiles_items if item.profile_key == profile.key), None
-        )
-        variable_bid = (profile.bid or "").strip() or (
-            profile_item.profile_id if profile_item else ""
-        )
-        target_shifu = "" if profile.key in profile_labels else (course_id or "")
-
-        if profile.key == SYS_USER_BACKGROUND:
-            profile.value = apply_learner_profile_system_value(
-                user_id=user_id,
-                learner_profile=str(profile.value or ""),
-            )
-            _update_aggregate_field(aggregate, "learner_profile", profile.value)
-
-        latest_value = _get_latest_variable_value(
-            user_values,
-            variable_key=profile.key,
-            shifu_bid=target_shifu,
-        )
-        if not latest_value or latest_value.value != profile.value:
-            user_value = VariableValue(
-                variable_value_bid=generate_id(app),
-                user_bid=user_id,
-                shifu_bid=target_shifu,
-                variable_bid=variable_bid,
-                key=profile.key,
-                value=profile.value or "",
-                deleted=0,
-            )
-            db.session.add(user_value)
-            user_values.insert(0, user_value)
-
-        if profile.key in profile_labels and profile.key != SYS_USER_BACKGROUND:
-            profile_lable = profile_labels[profile.key]
-            if profile_lable.get("mapping"):
-                if profile_lable.get("items_mapping"):
-                    profile.value = profile_lable["items_mapping"].get(
-                        profile.value, profile.value
-                    )
-                normalized = _apply_core_mapping(
-                    user_id,
-                    profile_lable["mapping"],
-                    profile.value,
-                )
-                _update_aggregate_field(aggregate, profile_lable["mapping"], normalized)
-
-    db.session.flush()
-    return True
-
-
-def get_user_profiles(
-    app: Flask,
-    user_id: str,
-    course_id: str,
-    *,
-    reference_text: str | tuple[str, ...] = "",
-) -> dict:
-    """Get user profiles for Mdflow run.
-
-    Note:
-    - Some profile keys ("labels") are stored globally with ``shifu_bid=''``.
-    - Other profile keys are stored per-course with ``shifu_bid=course_id``.
-
-    This function must follow the same shifu_bid routing rules as
-    :func:`save_user_profiles`, otherwise the run context may see values different
-    from what the user sees in the personal settings page.
-
-    Author documents cannot grant access to another course. ``reference_text``
-    remains a compatibility argument and never changes the selected storage scope.
-
-    """
-    _ = reference_text  # Kept for call-site compatibility; author text grants no scope.
-    profile_labels = get_profile_labels()
-    profiles_items = get_profile_item_definition_list(app, course_id)
-
-    candidate_shifus = [course_id or ""]
-    if course_id:
-        candidate_shifus.append("")
-
-    try:
-        user_values: list[VariableValue] = (
-            VariableValue.query.filter(
-                VariableValue.user_bid == user_id,
-                VariableValue.deleted == 0,
-                VariableValue.shifu_bid.in_(candidate_shifus),
-            )
-            .order_by(VariableValue.id.desc())
-            .all()
-        )
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load var_variable_values: %s", exc)
-        user_values = []
-
-    aggregate = load_user_aggregate(user_id, with_credentials=False)
-
-    result: dict[str, str] = {}
-    for profile_item in profiles_items:
-        if is_course_reference(profile_item.profile_key):
-            continue
-        # Follow save_user_profiles routing: label keys are global, others per-course.
-        target_shifu = (
-            "" if profile_item.profile_key in profile_labels else (course_id or "")
-        )
-
-        user_value = (
-            _get_latest_variable_value(
-                user_values,
-                variable_key=profile_item.profile_key,
-                shifu_bid=target_shifu,
-            )
-            if user_values
-            else None
-        )
-        if user_value:
-            result[profile_item.profile_key] = user_value.value
-
-    # Keep runtime variable resolution aligned with /api/user/get_profile:
-    # mapped system fields should use the latest canonical user entity values.
-    if aggregate:
-        for key, profile_label in profile_labels.items():
-            mapping = profile_label.get("mapping")
-            if not mapping:
-                continue
-            raw_value = _current_core_value(aggregate, mapping)
-            if raw_value is None:
-                continue
-            if isinstance(raw_value, datetime.date):
-                result[key] = raw_value.isoformat()
-            else:
-                result[key] = str(raw_value)
-        # Runtime prompt variables must stay consistent with canonical user fields.
-        result[SYS_USER_LANGUAGE] = aggregate.user_language
-        result[SYS_USER_NICKNAME] = aggregate.nickname or ""
-
-    # The historical variable row is write-only compatibility data.  Even a
-    # missing aggregate must not make it the runtime source of truth again.
-    result[SYS_USER_BACKGROUND] = aggregate.learner_profile if aggregate else ""
-
-    # Ensure system variables are always available.
-    if result.get(SYS_USER_LANGUAGE) is None:
-        result[SYS_USER_LANGUAGE] = aggregate.user_language if aggregate else "en-US"
-
-    if not result.get(SYS_USER_NICKNAME):
-        result[SYS_USER_NICKNAME] = aggregate.nickname if aggregate else ""
-
-    return result
-
-
-def _resolve_profile_language_label(
-    language: str | None,
-    locale_labels: dict[str, str],
-    default: str,
-) -> str:
-    """Resolve legacy codes without treating locale insertion order as a default."""
-    normalized = str(language or "").strip().replace("_", "-").casefold()
-    for code, label in locale_labels.items():
-        if normalized in (code.casefold(), label.casefold()):
-            return label
-
-    primary = normalized.split("-", maxsplit=1)[0]
-    for code, label in locale_labels.items():
-        if code.casefold().split("-", maxsplit=1)[0] == primary:
-            return label
-
-    return locale_labels.get(default, "")
-
-
-def get_user_profile_labels(
-    app: Flask,
-    user_id: str,
-    course_id: str,
-    *,
-    include_nickname: bool = True,
-    include_background: bool = True,
-) -> UserProfileLabelDTO:
-    """Get user profile labels.
-
-    Args:
-        app: Flask application instance
-        user_id: User id
-        course_id: Course id
-        include_nickname: Whether to include the stored nickname label.
-        include_background: Whether to include the canonical learner profile.
-
-    Returns:
-        UserProfileLabelDTO: User profile labels and resolved language.
-
-    """
-    app.logger.info("get user profile labels:%s", course_id)
-    candidate_shifus = [course_id or ""]
-    if course_id:
-        candidate_shifus.append("")
-
-    try:
-        user_values: list[VariableValue] = (
-            VariableValue.query.filter(
-                VariableValue.user_bid == user_id,
-                VariableValue.deleted == 0,
-                VariableValue.shifu_bid.in_(candidate_shifus),
-            )
-            .order_by(VariableValue.id.desc())
-            .all()
-        )
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load var_variable_values: %s", exc)
-        user_values = []
-    profiles_items = get_profile_item_definition_list(app, course_id)
-    profile_labels = get_profile_labels()
-    aggregate = load_user_aggregate(user_id)
-    language_value = aggregate.user_language if aggregate else "en-US"
-    result = UserProfileLabelDTO(profiles=[], language=language_value)
-    aggregate_mapping_keys = [
-        key
-        for key, meta in profile_labels.items()
-        if meta.get("mapping") and meta.get("mapping") != "user_sex"
-    ]
-    if aggregate:
-        for key in aggregate_mapping_keys:
-            meta = profile_labels[key]
-            mapping = meta["mapping"]
-            raw_value = _current_core_value(aggregate, mapping)
-            if raw_value is None:
-                value_entry = (
-                    _get_latest_variable_value(
-                        user_values,
-                        variable_key=key,
-                        shifu_bid="",
-                    )
-                    if user_values
-                    else None
-                )
-                if value_entry:
-                    raw_value = value_entry.value
-            display_value = raw_value
-            if mapping == "user_language":
-                display_value = _resolve_profile_language_label(
-                    raw_value, meta["items_mapping"], meta["default"]
-                )
-            elif meta.get("items_mapping"):
-                mapping_items = meta.get("items", [])
-                default_value = mapping_items[0] if mapping_items else ""
-                display_value = meta["items_mapping"].get(raw_value, default_value)
-            result.profiles.append(
-                UserProfileLabelItemDTO(
-                    key=key,
-                    label=meta["label"],
-                    type=meta.get("type", "select" if "items" in meta else "text"),
-                    value=display_value,
-                    items=meta.get("items"),
-                )
-            )
-    for key in profile_labels:
-        if key in aggregate_mapping_keys:
-            continue
-        profile_key = key
-        item = {
-            "key": profile_key,
-            "label": profile_labels[profile_key]["label"],
-            "type": profile_labels[profile_key].get(
-                "type",
-                ("select" if "items" in profile_labels[profile_key] else "text"),
-            ),
-            "value": "",
-            "items": profile_labels[profile_key].get("items"),
-        }
-        if profile_key == "sex":
-            item["value"] = next(iter(profile_labels[profile_key]["items"]), "")
-        user_value = None
-        profile_item = next(
-            (item for item in profiles_items if item.profile_key == profile_key), None
-        )
-        if profile_item:
-            if user_values:
-                user_value = _get_latest_variable_value(
-                    user_values,
-                    variable_key=profile_key,
-                    shifu_bid="",
-                )
-        else:
-            app.logger.info("profile_item not found:%s", profile_key)
-        if user_value is None and user_values:
-            user_value = _get_latest_variable_value(
-                user_values,
-                variable_key=profile_key,
-                shifu_bid="",
-            )
-        if user_value:
-            if profile_key == "sex":
-                meta = profile_labels[profile_key]
-                items_mapping = meta.get("items_mapping", {})
-                mapping_items = meta.get("items", [])
-                default_value = mapping_items[0] if mapping_items else ""
-                try:
-                    normalized_value = int(user_value.value)
-                except (TypeError, ValueError):
-                    normalized_value = None
-                item["value"] = items_mapping.get(normalized_value, default_value)
-            else:
-                item["value"] = user_value.value
-        result.profiles.append(
-            UserProfileLabelItemDTO(
-                key=item["key"],
-                label=item["label"],
-                type=item["type"],
-                value=item["value"],
-                items=item["items"],
-            )
-        )
-
-    profile_order = {key: index for index, key in enumerate(profile_labels)}
-    result.profiles.sort(key=lambda profile: profile_order[profile.key])
-
-    if not include_nickname:
-        result.profiles = [
-            profile for profile in result.profiles if profile.key != SYS_USER_NICKNAME
-        ]
-    if not include_background:
-        result.profiles = [
-            profile for profile in result.profiles if profile.key != SYS_USER_BACKGROUND
-        ]
-    return result
 
 
 def update_user_profile_with_lable(
@@ -652,6 +61,9 @@ def update_user_profile_with_lable(
     if profiles and isinstance(profiles[0], UserProfileLabelItemDTO):
         profiles = [item.__json__() for item in profiles]
 
+    course_id = _validate_profile_write_scope(
+        [profile.get("key") for profile in profiles], course_id
+    )
     for profile in profiles:
         if profile.get("key") == SYS_USER_BACKGROUND:
             profile["value"] = validate_learner_profile_system_value(
@@ -660,7 +72,7 @@ def update_user_profile_with_lable(
                 learner_profile=profile.get("value"),
             )
 
-    aggregate = _ensure_user_aggregate(user_id)
+    aggregate = ensure_user_aggregate(user_id)
     profile_items = get_profile_item_definition_list(app, course_id)
 
     if not profiles:
@@ -671,23 +83,7 @@ def update_user_profile_with_lable(
     if nickname and not check_text_content(app, user_id, nickname.get("value")):
         raise_error("server.common.nicknameNotAllowed")
 
-    candidate_shifus = [course_id or ""]
-    if course_id:
-        candidate_shifus.append("")
-
-    try:
-        user_values: list[VariableValue] = (
-            VariableValue.query.filter(
-                VariableValue.user_bid == user_id,
-                VariableValue.deleted == 0,
-                VariableValue.shifu_bid.in_(candidate_shifus),
-            )
-            .order_by(VariableValue.id.desc())
-            .all()
-        )
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load var_variable_values: %s", exc)
-        user_values = []
+    user_values = load_scoped_values(app, user_id, course_id)
 
     for profile in profiles:
         key = profile.get("key")
@@ -715,12 +111,12 @@ def update_user_profile_with_lable(
         mapping = profile_lable.get("mapping") if profile_lable else None
         mapping_already_applied = False
         if mapping == "learner_profile":
-            profile_value = _apply_core_mapping(
+            profile_value = apply_core_mapping(
                 user_id,
                 mapping,
                 profile_value,
             )
-            _update_aggregate_field(aggregate, mapping, profile_value)
+            update_aggregate_field(aggregate, mapping, profile_value)
             mapping_already_applied = True
         if mapping and (
             not mapping_already_applied
@@ -728,12 +124,12 @@ def update_user_profile_with_lable(
                 update_all
                 or (
                     profile_value != default_value
-                    and _current_core_value(aggregate, mapping) != profile_value
+                    and current_core_value(aggregate, mapping) != profile_value
                 )
             )
         ):
-            normalized = _apply_core_mapping(user_id, mapping, profile_value)
-            _update_aggregate_field(aggregate, mapping, normalized)
+            normalized = apply_core_mapping(user_id, mapping, profile_value)
+            update_aggregate_field(aggregate, mapping, normalized)
 
         # System variables (in profile_labels) are global; custom variables
         # are scoped to the course.  This must match save_user_profiles() so

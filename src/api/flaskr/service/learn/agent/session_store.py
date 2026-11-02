@@ -259,19 +259,6 @@ def _apply(
     row.finished = 1 if session.finished else 0
 
 
-def discard_agent_session(app: Flask, user_bid: str, outline_item_bid: str) -> None:
-    """Drop the learner's session for this lesson so the next run starts over.
-
-    Used when a stored session cannot be resumed, and when the teacher switches the lesson's engine
-    out from under a learner who is part-way through it.
-    """
-    require_transaction_owner("discard_agent_session", app)
-    with app_context_scope(app), unit_of_work():
-        stage_agent_session_discard(
-            user_bid=user_bid, outline_item_bid=outline_item_bid
-        )
-
-
 def stage_agent_session_discard(
     *,
     user_bid: str,

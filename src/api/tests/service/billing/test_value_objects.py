@@ -1,7 +1,5 @@
 """Verify billing value object JSON response serialization."""
 
-import json
-
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.value_objects import JsonObjectMap
 
@@ -18,7 +16,7 @@ def test_json_object_map_serializes_in_common_response() -> None:
         }
     )
 
-    payload = json.loads(response)
+    payload = response.get_json()
 
     assert payload["code"] == 0
     assert payload["data"]["metadata"] == {

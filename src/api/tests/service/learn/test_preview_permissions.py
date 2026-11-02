@@ -63,11 +63,14 @@ def _mock_user(monkeypatch: object, user_bid: str, *, is_creator: bool = False) 
         is_operator=False,
         language="en-US",
     )
-    monkeypatch.setattr(
-        "flaskr.route.user.validate_user",
-        lambda _app, _token: dummy_user,
-        raising=False,
-    )
+    # Global auth resolves users in the route module; preview routes bypass it
+    # and resolve through the user service API.
+    for target in ("flaskr.route.user", "flaskr.service.user.api"):
+        monkeypatch.setattr(
+            f"{target}.validate_user",
+            lambda _app, _token: dummy_user,
+            raising=False,
+        )
 
 
 def _assert_no_permission(response: object) -> None:
@@ -209,13 +212,14 @@ def test_non_preview_course_info_keeps_anonymous_access(
 ) -> None:
     shifu_bid = "preview-permission-non-preview"
     _seed_course(app, shifu_bid, "owner-non-preview")
-    monkeypatch.setattr(
-        "flaskr.route.user.validate_user",
-        lambda _app, _token: (_ for _ in ()).throw(
-            AssertionError("non-preview course info should bypass auth")
-        ),
-        raising=False,
-    )
+    for target in ("flaskr.route.user", "flaskr.service.user.api"):
+        monkeypatch.setattr(
+            f"{target}.validate_user",
+            lambda _app, _token: (_ for _ in ()).throw(
+                AssertionError("non-preview course info should bypass auth")
+            ),
+            raising=False,
+        )
 
     resp = test_client.get(f"/api/learn/shifu/{shifu_bid}?preview_mode=false")
     payload = resp.get_json(force=True)

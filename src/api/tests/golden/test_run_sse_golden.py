@@ -1,7 +1,7 @@
 """Golden SSE transcript for a follow-up question on the learner ``/run`` endpoint.
 
 The test drives ``PUT /api/learn/shifu/<shifu_bid>/run/<outline_bid>`` with an
-``ask`` input end-to-end (route -> runscript_v2 semaphore/queue/thread ->
+``ask`` input end-to-end (route -> learn/host semaphore/queue/thread ->
 ``learn.ask`` -> element adapter) against the seeded golden shifu, then
 normalizes the raw SSE byte stream (see ``tests/golden/normalize.py``) and
 compares it against ``tests/golden/fixtures/run_ask_flow.sse.txt``.

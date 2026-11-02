@@ -39,7 +39,7 @@ import {
   type RateIdentity,
   type RateRow,
   type RateTab,
-} from './rateConfig';
+} from './rate-config';
 
 type RateCreateDialogProps = {
   open: boolean;

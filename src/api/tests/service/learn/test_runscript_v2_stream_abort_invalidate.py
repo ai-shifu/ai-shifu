@@ -34,7 +34,7 @@ def test_discard_helper_works_on_real_scoped_session(
 ) -> None:
     import logging
 
-    from flaskr.service.learn.runscript_v2 import _discard_session_connection
+    from flaskr.service.learn.host.db_session import _discard_session_connection
 
     with app.app_context(), caplog.at_level(logging.WARNING):
         _discard_session_connection(source="real session smoke")

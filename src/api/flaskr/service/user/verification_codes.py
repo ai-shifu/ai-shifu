@@ -24,7 +24,7 @@ from flaskr.service.user.models import UserVerifyCode
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
-    import datetime
+    import datetime as dt
     from collections.abc import Iterator
 
     from flask import Flask
@@ -206,7 +206,7 @@ def _mark_verification_code_consumed(
     )
 
 
-def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
+def _is_within_seconds(value: dt.datetime, *, seconds: int) -> bool:
     if value is None:
         return False
     # Defensive: keep the original value if tzinfo manipulation fails.

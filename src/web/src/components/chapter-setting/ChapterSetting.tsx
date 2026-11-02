@@ -9,14 +9,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import api from '@/api';
-import { LEARNING_PERMISSION, LearningPermission } from '@/api/studyV2';
+import { LEARNING_PERMISSION, LearningPermission } from '@/api/learning';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/ui-constants';
 import type { LessonCreationSettings } from '@/types/shifu';
 import Image from 'next/image';
 import guestIcon from './icons/svg-guest.svg';
@@ -25,7 +25,7 @@ import normalIcon from './icons/svg-normal.svg';
 import {
   buildLessonSettingSaveAnalytics,
   buildOutlinePromptSaveAnalytics,
-} from './chapterSettingAnalytics';
+} from './chapter-setting-analytics';
 
 type ChapterSettingsDialogProps = {
   outlineBid?: string;

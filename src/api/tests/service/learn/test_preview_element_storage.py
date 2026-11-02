@@ -2,8 +2,8 @@
 
 import pytest
 from flask import Flask
+from flaskr.service.learn.elements.run_state import BlockState, StreamElementState
 from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
-from flaskr.service.learn.listen_element_run_state import BlockState, StreamElementState
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 
 

@@ -17,13 +17,13 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import (
     BillingCampaign,
     BillingCampaignProduct,
-    BillingOrder,
     BillingProduct,
 )
 from flaskr.service.common.models import AppError
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_billing_product
+from tests.common.fixtures.model_factories import make_billing_order
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -196,7 +196,7 @@ def test_campaign_that_has_orders_cannot_change_purchased_pricing_contract(
         )
         campaign_bid = created.campaign.campaign_bid
         db.session.add(
-            BillingOrder(
+            make_billing_order(
                 bill_order_bid=uuid4().hex,
                 creator_bid=uuid4().hex,
                 campaign_bid=campaign_bid,

@@ -8,7 +8,7 @@ jest.mock('@/lib/request', () => ({
   },
 }));
 
-jest.mock('@/constants/uiConstants', () => ({
+jest.mock('@/constants/ui-constants', () => ({
   inWechat: jest.fn(() => false),
 }));
 

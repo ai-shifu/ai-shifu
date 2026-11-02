@@ -236,6 +236,13 @@ ENV_VARS: dict[str, EnvVar] = {
         description="Shifu permission cache expiration time in seconds",
         group="app",
     ),
+    "SSE_HEARTBEAT_INTERVAL": EnvVar(
+        name="SSE_HEARTBEAT_INTERVAL",
+        default=0.5,
+        type=float,
+        description="Seconds between SSE heartbeats while a learner run is streaming; 0 disables them",
+        group="app",
+    ),
     "TZ": EnvVar(
         name="TZ",
         default="UTC",
@@ -452,18 +459,6 @@ Default: "phone".""",
         description="Always show lesson tree in Cook Web",
         group="frontend",
     ),
-    "UI_LOGO_HORIZONTAL": EnvVar(
-        name="UI_LOGO_HORIZONTAL",
-        default="",
-        description="Horizontal logo URL for Cook Web",
-        group="frontend",
-    ),
-    "UI_LOGO_VERTICAL": EnvVar(
-        name="UI_LOGO_VERTICAL",
-        default="",
-        description="Vertical logo URL for Cook Web",
-        group="frontend",
-    ),
     "WECHAT_APP_ID": EnvVar(
         name="WECHAT_APP_ID",
         default="",
@@ -596,20 +591,6 @@ Default: "phone".""",
     "OPENAI_BASE_URL": EnvVar(
         name="OPENAI_BASE_URL",
         description="OpenAI API base URL",
-        group="llm",
-    ),
-    "ERNIE_API_ID": EnvVar(
-        name="ERNIE_API_ID",
-        default="",
-        description="Baidu ERNIE API ID",
-        secret=True,
-        group="llm",
-    ),
-    "ERNIE_API_SECRET": EnvVar(
-        name="ERNIE_API_SECRET",
-        default="",
-        description="Baidu ERNIE API Secret",
-        secret=True,
         group="llm",
     ),
     "ERNIE_API_KEY": EnvVar(
@@ -1245,13 +1226,6 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Window in seconds for counting failed pairing-code lookups",
         group="auth",
     ),
-    "RESET_PWD_CODE_EXPIRE_TIME": EnvVar(
-        name="RESET_PWD_CODE_EXPIRE_TIME",
-        default=300,
-        type=int,
-        description="Expire time for password reset code in seconds",
-        group="auth",
-    ),
     "PHONE_CODE_EXPIRE_TIME": EnvVar(
         name="PHONE_CODE_EXPIRE_TIME",
         default=300,
@@ -1758,22 +1732,16 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Sampling rate for runtime HTTP traces (0.0 to 1.0).",
         group="monitoring",
     ),
-    "PROMETHEUS_MULTIPROC_DIR": EnvVar(
-        name="PROMETHEUS_MULTIPROC_DIR",
-        default="",
-        description="Optional fresh dedicated Gunicorn metrics directory. Leave unset for private per-master storage; do not export an empty value in single-process development.",
-        group="monitoring",
-    ),
-    "INTERNAL_METRICS_PATH": EnvVar(
-        name="INTERNAL_METRICS_PATH",
-        default="/internal/metrics",
-        description="Local metrics endpoint path scraped by Prometheus in the dev harness.",
-        group="monitoring",
-    ),
     "INTERNAL_OBSERVABILITY_HEALTH_PATH": EnvVar(
         name="INTERNAL_OBSERVABILITY_HEALTH_PATH",
         default="/internal/observability/health",
         description="Local observability health endpoint path for the dev harness.",
+        group="monitoring",
+    ),
+    "VERSION": EnvVar(
+        name="VERSION",
+        default="dev",
+        description="Service version reported in the OpenTelemetry resource",
         group="monitoring",
     ),
     # Content Detection
@@ -1830,17 +1798,18 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Timeout in seconds for Netease Yidun text moderation requests",
         group="content_detection",
     ),
-    # Lark/Feishu Integration
-    "LARK_APP_ID": EnvVar(
-        name="LARK_APP_ID",
+    # Feishu Integration
+    "FEISHU_LOG_WEBHOOK_URL": EnvVar(
+        name="FEISHU_LOG_WEBHOOK_URL",
         default="",
-        description="Lark (Feishu) app ID",
+        description="Feishu bot webhook that receives application error logs",
+        secret=True,
         group="integrations",
     ),
-    "LARK_APP_SECRET": EnvVar(
-        name="LARK_APP_SECRET",
+    "FEISHU_NOTIFY_URL": EnvVar(
+        name="FEISHU_NOTIFY_URL",
         default="",
-        description="Lark (Feishu) app secret",
+        description="Feishu bot webhook for operational notifications",
         secret=True,
         group="integrations",
     ),
@@ -1911,12 +1880,6 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         group="flask",
     ),
     # Testing Configuration
-    "DJANGO_SETTINGS_MODULE": EnvVar(
-        name="DJANGO_SETTINGS_MODULE",
-        default="api.settings",
-        description="Django settings module for testing",
-        group="testing",
-    ),
     # Minimum Shifu Price
     "MIN_SHIFU_PRICE": EnvVar(
         name="MIN_SHIFU_PRICE",
@@ -2268,6 +2231,21 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
 }
 
 
+# API key variables of the providers in flaskr.api.llm.LITELLM_PROVIDER_CONFIGS.
+# That module imports this one, so the list lives here and a test keeps the two
+# in step.
+LLM_PROVIDER_API_KEY_ENVS: tuple[str, ...] = (
+    "OPENAI_API_KEY",
+    "QWEN_API_KEY",
+    "ERNIE_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "GEMINI_API_KEY",
+    "BIGMODEL_API_KEY",
+    "SILICON_API_KEY",
+    "ARK_API_KEY",
+)
+
+
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
@@ -2283,18 +2261,9 @@ class EnhancedConfig:
         missing_required = []
         validation_errors = []
         # Check if at least one LLM is configured
-        llm_vars = [
-            "OPENAI_API_KEY",
-            "ERNIE_API_KEY",
-            "ERNIE_API_ID",
-            "ARK_API_KEY",
-            "SILICON_API_KEY",
-            "GEMINI_API_KEY",
-            "DEEPSEEK_API_KEY",
-            "QWEN_API_KEY",
-            "BIGMODEL_API_KEY",
-        ]
-        has_llm = any(self.get(var) not in (None, "") for var in llm_vars)
+        has_llm = any(
+            self.get(var) not in (None, "") for var in LLM_PROVIDER_API_KEY_ENVS
+        )
         if not has_llm:
             errors.append("At least one LLM API key must be configured")
         if (
@@ -2582,12 +2551,7 @@ class EnhancedConfig:
                         value = ""
 
                 value_str = format_value(env_var, value)
-                assignment = f'{env_var.name}="{value_str}"'
-                # prometheus_client tests key presence at import time: an empty
-                # assignment still enables mmap writers in single-process dev.
-                if env_var.name == "PROMETHEUS_MULTIPROC_DIR" and not value_str:
-                    assignment = "# " + assignment
-                lines.append(assignment)
+                lines.append(f'{env_var.name}="{value_str}"')
                 lines.append("")
 
         # Add footer

@@ -13,13 +13,13 @@ import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/components/admin/adminTableStyles';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/components/admin/admin-table-styles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
   formatAdminUtcDateTime,
-} from '@/app/admin/lib/dateTime';
+} from '@/app/admin/lib/date-time';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -31,15 +31,15 @@ import {
 } from '@/components/ui/Select';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
-import { useToast } from '@/hooks/useToast';
-import { copyText } from '@/lib/textutils';
+import { useToast } from '@/hooks/use-toast';
+import { copyText } from '@/lib/text-utils';
 import { ErrorWithCode } from '@/lib/request';
 import {
   resolveLoginIdentifierTypes,
   selectSingleLoginIdentifierType,
   type LoginIdentifierType,
 } from '@/lib/login-identifiers';
-import { normalizeModelOptions } from '@/lib/modelOptions';
+import { normalizeModelOptions } from '@/lib/model-options';
 import {
   normalizeTtsModelOptions,
   type TtsModelOption,
@@ -56,7 +56,7 @@ import type {
   AdminOperationCourseOverview,
   AdminOperationCoursePromptResponse,
 } from './operation-course-types';
-import useOperatorGuard from './useOperatorGuard';
+import useOperatorGuard from './use-operator-guard';
 import {
   ALL_OPTION_VALUE,
   buildCopyCourseName,
@@ -85,7 +85,7 @@ import {
   normalizeTransferIdentifier,
   PAGE_SIZE,
   SINGLE_SELECT_ITEM_CLASS,
-} from './operationCoursePageShared';
+} from './operation-course-page-shared';
 
 const buildModelLabelFallback = (value?: string) => {
   const normalized = String(value || '').trim();

@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
-import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
+import { showDefaultToast, showErrorToast } from '@/hooks/use-toast';
 import {
   formatBillingCreditAmount,
   formatBillingPlanInterval,
@@ -67,7 +67,7 @@ import {
   resolvePackageCampaignOptionTitle,
   resolvePackageCampaignProductDisplayTitle,
   SINGLE_SELECT_ITEM_CLASS,
-} from './promotionPageShared';
+} from './promotion-page-shared';
 
 export const PromotionCouponDialog = ({
   open,

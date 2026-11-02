@@ -13,7 +13,7 @@ import {
   formatDateValue,
   parseDateValue,
   resolveDateTimeParts,
-} from './promotionPageShared';
+} from './promotion-page-shared';
 
 const PromotionDateTimePicker = ({
   value,

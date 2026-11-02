@@ -9,8 +9,8 @@ The frontend has two configuration requests with different owners:
 | `/api/config`         | Next.js (`src/app/api/config/route.ts`)  | Only `apiBaseUrl`; locates the backend.                                                         |
 | `/api/runtime-config` | Flask (`src/api/flaskr/route/config.py`) | Public login, payment, branding, legal, and analytics settings in the shared response envelope. |
 
-[initializeEnvData.ts](../lib/initializeEnvData.ts) loads the backend payload
-into [envStore.ts](../store/envStore.ts). Components consume that store.
+[initialize-runtime-config.ts](../lib/initialize-runtime-config.ts) loads the backend payload
+into [env-store.ts](../store/env-store.ts). Components consume that store.
 [environment.ts](environment.ts) supplies bootstrap defaults; it is not a second
 browser configuration service. A successful Next `/api/config` fallback proves
 only backend-location discovery, not that runtime settings loaded successfully.
@@ -42,8 +42,18 @@ changes; rebuild when changing a browser build-time fallback.
 On custom domains the Next route may return an empty base so the browser uses
 same-origin `/api` ingress. Localhost frontend/backend origins retain the
 configured backend base even when their ports differ. See
-[route-utils.ts](../app/api/config/route-utils.ts) and its tests for the host
+[api-base-url.ts](api-base-url.ts) and the Next route tests for the host
 comparison contract. The development proxy is described in the frontend README.
+If discovery fails because of an HTTP error, invalid JSON or response shape,
+or a network error, the browser applies the same host rules: a non-local host
+different from the configured API host keeps same-origin requests, including
+customer subdomains under the same parent domain. The configured host and
+supported local development retain the configured backend base, including its
+path. Host comparison alone cannot identify an official frontend and backend on
+different non-local hosts; that deployment requires successful discovery to
+provide the explicit API base. Both asynchronous requests and synchronous
+lifecycle requests use the same cached resolution. Successful discovery values
+are always respected, including an empty `apiBaseUrl` selecting same-origin.
 
 ## Frontend Build Identity
 
@@ -78,7 +88,8 @@ builder. See the [image publication guide](../../../../docs/references/docker-im
 
 Configure these in `src/api/.env` for manual development, or the backend
 service environment for deployment. The config service may supply persisted
-settings, and entitled teacher/domain branding can override global values.
+settings. Effective customer-domain branding can override global presentation;
+account and course context alone cannot change the site's brand.
 The public response is an allowlisted projection, not an environment dump.
 
 | Capability  | Backend configuration                                                                           | Runtime output                                                                    |
@@ -102,7 +113,9 @@ the supported legal fields. Missing configuration is returned as an empty URL;
 UI fallback behavior belongs to the legal-link components.
 
 `HOME_URL` defaults to `/admin` and accepts relative or absolute destinations.
-Teacher branding can override it. An explicit `/c/<shifu_bid>` course request
+Effective customer-domain branding can override it on both backend and learner
+pages. The official host always keeps global branding and navigation. An
+explicit `/c/<shifu_bid>` course request
 keeps its course target. Private payment and OAuth credentials stay on the
 backend; a publishable Stripe key is the public exception listed above.
 
@@ -116,12 +129,11 @@ Use the backend names in the table instead.
 From `src/web`, run the configuration-parser and Next configuration-route tests:
 
 ```bash
-npm test -- --runInBand --runTestsByPath src/config/environment.test.ts src/app/api/config/route.test.ts
+npm test -- --runInBand --runTestsByPath src/config/environment.test.ts src/app/api/config/route.test.ts src/lib/initialize-runtime-config.test.ts
 ```
 
-`initializeEnvData.ts` has no dedicated test suite. These tests do not verify
-its backend payload mapping, fallback behavior, or store updates; changes to
-that bootstrap path need focused regression coverage.
+The runtime initializer suite also checks discovery failures, backend payload
+mapping, and store updates through the real environment resolver.
 
 In a local running setup, inspect the two requests separately: Next should
 return the expected backend base; Flask should return the configured public

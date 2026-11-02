@@ -37,13 +37,13 @@ from flaskr.api.tts.minimax_provider import MinimaxTTSProvider  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.dao import cleanup_session_after
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.elements.slide_builder import build_visual_segments_for_block
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_block
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.tts import (

@@ -7,27 +7,8 @@ from datetime import datetime, timedelta
 from flaskr.service.billing.consts import BILLING_SUBSCRIPTION_STATUS_ACTIVE
 from flaskr.service.billing.cycle_state_transitions import (
     resolve_effective_subscription_cycle_window,
-    subscription_has_effective_cycle,
 )
 from flaskr.service.billing.models import BillingSubscription
-
-
-def test_subscription_has_effective_cycle_uses_current_period_window() -> None:
-    current_at = datetime(2026, 4, 10, 0, 0, 0)
-    subscription = BillingSubscription(
-        subscription_bid="subscription-cycle-state",
-        creator_bid="creator-cycle-state",
-        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-        current_period_start_at=current_at - timedelta(days=1),
-        current_period_end_at=current_at + timedelta(days=1),
-    )
-
-    assert subscription_has_effective_cycle(subscription, as_of=current_at) is True
-
-    subscription.current_period_end_at = current_at
-
-    assert subscription_has_effective_cycle(subscription, as_of=current_at) is False
-    assert subscription_has_effective_cycle(None, as_of=current_at) is False
 
 
 def test_resolve_effective_subscription_cycle_window_returns_current_window() -> None:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
+from flaskr.service.learn.elements.run_state import BlockMeta
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementPayloadDTO,
@@ -12,8 +14,6 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_element_run_state import BlockMeta
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
 if TYPE_CHECKING:
     from collections.abc import Generator

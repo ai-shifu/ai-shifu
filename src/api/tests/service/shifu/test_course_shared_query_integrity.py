@@ -14,6 +14,7 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.service.user.contact_lookup import load_user_contact_map
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 
@@ -77,7 +78,7 @@ def test_contact_queries_prefer_current_credentials_and_keep_legacy_account_fall
         deleted.user_bid,
     ]
 
-    contacts = shared._load_course_user_contact_map([*user_bids, "", " "])
+    contacts = load_user_contact_map([*user_bids, "", " "])
     users = shared._load_user_map(user_bids)
     assert contacts[registered.user_bid] == {
         "mobile": "13800000002",
@@ -98,7 +99,7 @@ def test_contact_queries_prefer_current_credentials_and_keep_legacy_account_fall
     assert users[email_legacy.user_bid]["email"] == email_legacy.user_identify
     assert contacts[deleted.user_bid] == {"mobile": "", "email": ""}
     assert deleted.user_bid not in users
-    assert shared._load_course_user_contact_map(["", " "]) == {}
+    assert load_user_contact_map(["", " "]) == {}
     assert shared._load_user_map([]) == {}
 
 

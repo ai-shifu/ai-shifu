@@ -736,26 +736,3 @@ def init_redis(app: Flask) -> None:
             )
         )
     app.logger.info("init redis done")
-
-
-def run_with_redis(
-    app: object, key: object, timeout: int, func: Callable[..., R], args: object
-) -> R | None:
-    """Run with Redis."""
-    with app.app_context():
-        app.logger.info("run_with_redis start %s", key)
-        redis_client = get_redis_client()
-        if redis_client is None:
-            app.logger.info("run_with_redis skipped without Redis %s", key)
-            return None
-        lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
-        if lock.acquire(blocking=False):
-            app.logger.info("run_with_redis get lock %s", key)
-            try:
-                return func(*args)
-            finally:
-                with contextlib.suppress(Exception):
-                    lock.release()
-        else:
-            app.logger.info("run_with_redis get lock failed %s", key)
-            return None

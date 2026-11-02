@@ -12,9 +12,9 @@ from flaskr.api.llm import markdownflow_model, model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.learn import handle_input_ask
 from flaskr.service.learn.ask import follow_up_run
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask import handler as handle_input_ask
+from flaskr.service.learn.ask.providers import (
     AskProviderError,
     AskProviderRuntime,
     AskProviderTimeoutError,

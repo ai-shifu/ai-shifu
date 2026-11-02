@@ -5,8 +5,8 @@ jest.mock('remark-flow', () =>
 );
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useCourseStore, useEnvStore } from '@/store';
-import { useSystemStore } from '@/store/useSystemStore';
-import { useUserStore } from '@/store/useUserStore';
+import { useSystemStore } from '@/store/use-system-store';
+import { useUserStore } from '@/store/use-user-store';
 import ChatLayout from './layout';
 import ChatPage from './page';
 
@@ -56,7 +56,7 @@ jest.mock('@/i18n', () => ({
   browserLanguage: 'en-US',
   normalizeLanguage: () => 'en-US',
 }));
-jest.mock('@/constants/uiConstants', () => ({
+jest.mock('@/constants/ui-constants', () => ({
   FRAME_LAYOUT_MOBILE: 'mobile',
   LISTEN_MODE_VH_FALLBACK_CLASSNAME: 'listen-mode-vh-fallback',
   calcFrameLayout: () => 'desktop',
@@ -64,7 +64,7 @@ jest.mock('@/constants/uiConstants', () => ({
   inMiniProgram: () => mockInMiniProgram,
   wechatLogin: (...args: unknown[]) => mockWechatLogin(...args),
 }));
-jest.mock('@/store/useUserStore', () => {
+jest.mock('@/store/use-user-store', () => {
   const { create } = jest.requireActual('zustand');
   return {
     useUserStore: create(() => ({
@@ -78,11 +78,11 @@ jest.mock('@/store/useUserStore', () => {
   };
 });
 jest.mock('@/store', () => ({
-  ...jest.requireActual('@/store/envStore'),
-  ...jest.requireActual('@/store/useCourseStore'),
-  ...jest.requireActual('@/store/useSystemStore'),
-  ...jest.requireActual('@/store/useUiLayoutStore'),
-  ...jest.requireMock('@/store/useUserStore'),
+  ...jest.requireActual('@/store/env-store'),
+  ...jest.requireActual('@/store/use-course-store'),
+  ...jest.requireActual('@/store/use-system-store'),
+  ...jest.requireActual('@/store/use-ui-layout-store'),
+  ...jest.requireMock('@/store/use-user-store'),
 }));
 jest.mock('@/api/course', () => ({
   getCourseInfo: jest.fn().mockResolvedValue({
@@ -101,8 +101,8 @@ jest.mock('@/api/user', () => ({
   ...jest.requireActual('@/api/user'),
   updateWxcode: (...args: unknown[]) => mockUpdateWxcode(...args),
 }));
-jest.mock('@/api/learnerProfile', () => ({
-  ...jest.requireActual('@/api/learnerProfile'),
+jest.mock('@/api/learner-profile', () => ({
+  ...jest.requireActual('@/api/learner-profile'),
   getProfileOnboarding: (...args: unknown[]) =>
     mockGetProfileOnboarding(...args),
   getLearnerProfile: (...args: unknown[]) => mockGetLearnerProfile(...args),
@@ -111,14 +111,14 @@ jest.mock('@/api/learnerProfile', () => ({
   runProfileOnboardingSession: (...args: unknown[]) =>
     mockRunProfileOnboardingSession(...args),
 }));
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: jest.fn() }),
   toast: jest.fn(),
 }));
-jest.mock('@/lib/shifu/Shifu', () => ({
+jest.mock('@/lib/shifu/shifu-runtime', () => ({
   shifu: {
     EventTypes: {
       OPEN_LOGIN_MODAL: 'OPEN_LOGIN_MODAL',
@@ -127,7 +127,7 @@ jest.mock('@/lib/shifu/Shifu', () => ({
     events: { addEventListener: jest.fn(), removeEventListener: jest.fn() },
   },
 }));
-jest.mock('./hooks/useLessonTree', () => ({
+jest.mock('./hooks/use-lesson-tree', () => ({
   useLessonTree: () => ({
     tree: {
       bannerInfo: null,
@@ -151,7 +151,7 @@ jest.mock('./hooks/useLessonTree', () => ({
     getNextLessonId: jest.fn(),
   }),
 }));
-jest.mock('./Components/NavDrawer/NavDrawer', () => ({
+jest.mock('./components/navigation/NavDrawer', () => ({
   __esModule: true,
   default: ({ onPersonalInfoClick }: { onPersonalInfoClick?: () => void }) => (
     <button
@@ -162,7 +162,7 @@ jest.mock('./Components/NavDrawer/NavDrawer', () => ({
     </button>
   ),
 }));
-jest.mock('./Components/ChatUi/ChatUi', () => ({
+jest.mock('./components/chat/ChatUi', () => ({
   __esModule: true,
   default: ({ runtimeReady }: { runtimeReady: boolean }) => (
     <div
@@ -171,11 +171,11 @@ jest.mock('./Components/ChatUi/ChatUi', () => ({
     />
   ),
 }));
-jest.mock('./Components/ChatMobileHeader', () => ({
+jest.mock('./components/ChatMobileHeader', () => ({
   __esModule: true,
   default: () => null,
 }));
-jest.mock('./Components/FeedbackModal/FeedbackModal', () => ({
+jest.mock('./components/feedback/FeedbackModal', () => ({
   __esModule: true,
   default: () => null,
 }));

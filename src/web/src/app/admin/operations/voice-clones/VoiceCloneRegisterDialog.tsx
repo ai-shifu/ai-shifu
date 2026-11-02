@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import { ErrorWithCode } from '@/lib/request';
 import { isValidVolcengineCustomVoiceId } from '@/components/shifu-setting/cloned-voice-options';
 import type {

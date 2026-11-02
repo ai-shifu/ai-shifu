@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import {
   BillingStripeRedirectOverlay,
   type BillingStripeRedirectPhase,
@@ -16,8 +16,8 @@ import styles from '@/components/billing/BillingPlanComparisonTable.module.scss'
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { toast } from '@/hooks/useToast';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { toast } from '@/hooks/use-toast';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   buildBillingSwrKey,
@@ -38,9 +38,9 @@ import {
   trackCreatorBillingEventSafely,
   type CreatorBillingAnalyticsBaseInput,
   type CreatorBillingFailureCategory,
-} from '@/lib/billingAnalytics';
+} from '@/lib/billing-analytics';
 import { rememberStripeBillingOrderForAnalytics } from '@/lib/stripe-storage';
-import { formatBillingLearningTime } from '@/lib/billingLearningTime';
+import { formatBillingLearningTime } from '@/lib/billing-learning-time';
 import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,

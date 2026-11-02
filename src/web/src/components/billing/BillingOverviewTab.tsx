@@ -3,11 +3,11 @@ import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import { useEnvStore } from '@/store';
 import { EnvStoreState } from '@/types/store';
-import { toast } from '@/hooks/useToast';
-import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
+import { toast } from '@/hooks/use-toast';
+import { useBillingPingxxPolling } from '@/hooks/use-billing-pingxx-polling';
 import {
   rememberStripeBillingOrderForAnalytics,
   rememberStripeCheckoutSession,
@@ -15,7 +15,7 @@ import {
 import {
   BILLING_WALLET_BUCKETS_SWR_KEY,
   useBillingOverview,
-} from '@/hooks/useBillingData';
+} from '@/hooks/use-billing-data';
 import type {
   BillingAlert,
   BillingCheckoutResult,
@@ -52,7 +52,7 @@ import {
   type CreatorBillingAnalyticsBaseInput,
   type CreatorBillingFailureCategory,
   type CreatorBillingStatus,
-} from '@/lib/billingAnalytics';
+} from '@/lib/billing-analytics';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
 import { BillingOverviewShowcase } from './BillingOverviewShowcase';

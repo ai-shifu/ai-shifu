@@ -1,6 +1,6 @@
 """Authenticated, self-service access to custom current-course memory."""
 
-from flask import Flask, request
+from flask import Flask, Response, request
 
 from flaskr.common.http import sensitive_body
 from flaskr.route.common import make_common_response
@@ -39,7 +39,7 @@ def register_course_memory_routes(app: Flask, path_prefix: str) -> None:
 
     @app.route(path_prefix + "/course-memory", methods=["GET"])
     @sensitive_body()
-    def course_memory_list_api() -> str:
+    def course_memory_list_api() -> Response:
         course = _identifier(request.args.get("course_id"), "course_id")
         raw = request.args.get("before")
         before = _version(raw, "before") if raw is not None else None
@@ -49,7 +49,7 @@ def register_course_memory_routes(app: Flask, path_prefix: str) -> None:
 
     @app.route(path_prefix + "/course-memory", methods=["POST"])
     @sensitive_body()
-    def course_memory_delete_api() -> str:
+    def course_memory_delete_api() -> Response:
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict) or set(payload) != {"course_id", "value_id"}:
             raise_param_error("course_memory")

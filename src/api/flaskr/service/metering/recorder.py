@@ -12,9 +12,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, autonomous_unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    autonomous_unit_of_work,
+    reuses_caller_session,
+)
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import SQLAlchemyError
 
 from .consts import (
     BILL_USAGE_SCENE_PROD,
@@ -61,13 +66,28 @@ def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) ->
 
     Cold demo lookups read configuration and course rows. Reuse any caller
     session, or close a temporary read scope before autonomous usage persistence.
+    A failed lookup is logged and classified as billable, like any non-demo
+    course, so recording usage does not fail the learner's finished turn. A
+    database error on the caller's own session is re-raised: that transaction
+    is already unusable, and hiding the error would only move the failure to
+    the caller's next commit.
     """
     if context.billable is not None:
         return int(context.billable)
     if context.shifu_bid:
-        with app_context_scope(app):
-            if is_builtin_demo_shifu(app, context.shifu_bid):
-                return 0
+        on_caller_session = reuses_caller_session(app)
+        try:
+            with app_context_scope(app):
+                if is_builtin_demo_shifu(app, context.shifu_bid):
+                    return 0
+        except Exception as error:
+            if on_caller_session and isinstance(error, SQLAlchemyError):
+                raise
+            with contextlib.suppress(Exception):
+                app.logger.exception(
+                    "Demo course lookup failed for usage classification, shifu_bid=%s",
+                    context.shifu_bid,
+                )
     normalize_usage_scene(usage_scene)
     return 1
 

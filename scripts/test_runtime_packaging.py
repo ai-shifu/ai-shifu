@@ -489,7 +489,14 @@ def test_runtime_build_smoke_and_browser_use_same_production_images() -> None:
     assert "--pull never" in command
     assert not any("docker compose build" in step.get("run", "") for step in steps)
 
-    infrastructure = set(compose) - set(targets)
+    loaded_images = {compose[target]["image"] for target in targets}
+    # Test sidecars may reuse an image already built and loaded for an app target.
+    local_services = {
+        service
+        for service, configuration in compose.items()
+        if configuration.get("image") in loaded_images
+    }
+    infrastructure = set(compose) - local_services
     pulled = set()
     for step in steps[:start_index]:
         for line in step.get("run", "").replace("\\\n", " ").splitlines():
@@ -499,7 +506,7 @@ def test_runtime_build_smoke_and_browser_use_same_production_images() -> None:
     assert infrastructure <= pulled, (
         "A fresh runner needs infrastructure images before --pull never"
     )
-    assert not pulled & set(targets), (
+    assert not pulled & local_services, (
         "Pulling app images would replace the production smoke artifacts"
     )
 

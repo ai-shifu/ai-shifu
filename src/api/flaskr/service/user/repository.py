@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import (
@@ -24,8 +23,11 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
+from sqlalchemy import update
 
 if TYPE_CHECKING:
+    from datetime import date, datetime
+
     from flask import Flask
 
 logger = logging.getLogger(__name__)
@@ -336,13 +338,51 @@ def _build_user_aggregate(
 
 
 def get_user_entity_by_bid(
-    user_bid: str, *, include_deleted: bool = False
+    user_bid: str, *, include_deleted: bool = False, for_update: bool = False
 ) -> UserEntity | None:
     """Return user entity by BID."""
     query = UserEntity.query.filter_by(user_bid=user_bid)
     if not include_deleted:
         query = query.filter_by(deleted=0)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     return query.first()
+
+
+def lock_user_for_auth(user_bid: str) -> UserEntity | None:
+    """Serialize password writes and session issuance in the caller's transaction.
+
+    The no-op write also acquires a writer lock on SQLite, which ignores
+    SELECT FOR UPDATE. Preserve the profile timestamp while taking the lock.
+    Missing accounts remain a no-op for legacy token-store callers.
+    """
+    conditions = (UserEntity.user_bid == user_bid, UserEntity.deleted == 0)
+    db.session.execute(
+        update(UserEntity)
+        .where(*conditions)
+        .values(updated_at=UserEntity.updated_at)
+        .execution_options(synchronize_session=False)
+    )
+    return (
+        UserEntity.query.filter(*conditions)
+        .order_by(UserEntity.id.asc())
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+
+
+def lock_password_credential(*, user_bid: str) -> AuthCredential | None:
+    """Refresh the effective password after the caller locks its account row."""
+    return (
+        AuthCredential.query.filter_by(
+            user_bid=user_bid, provider_name="password", deleted=0
+        )
+        .order_by(AuthCredential.id.asc())
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
 
 
 def _ensure_user_entity(user_bid: str) -> UserEntity:
@@ -352,8 +392,6 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     identify = user_bid
     nickname: str | None = None
     language: str | None = None
-    avatar: str | None = None
-    birthday: date | None = None
 
     try:
         from flaskr.service.profile.models import (
@@ -370,9 +408,7 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
                     VariableValue.user_bid == user_bid,
                     VariableValue.deleted == 0,
                     VariableValue.shifu_bid == "",
-                    VariableValue.key.in_(
-                        ["sys_user_nickname", "avatar", "language", "birth"]
-                    ),
+                    VariableValue.key.in_(["sys_user_nickname", "sys_user_language"]),
                 )
                 .order_by(VariableValue.id.desc())
                 .all()
@@ -386,23 +422,14 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
                 continue
             if row.key == "sys_user_nickname" and not nickname:
                 nickname = value
-            elif row.key == "avatar" and not avatar:
-                avatar = value
-            elif row.key == "language" and not language:
+            elif row.key == "sys_user_language" and not language:
                 language = value
-            elif row.key == "birth" and not birthday:
-                try:
-                    birthday = date.fromisoformat(value)
-                except ValueError:
-                    continue
 
     return create_user_entity(
         user_bid=user_bid,
         identify=identify,
         nickname=nickname,
         language=language,
-        avatar=avatar,
-        birthday=birthday,
     )
 
 
@@ -411,9 +438,12 @@ def load_user_aggregate(
     *,
     include_deleted: bool = False,
     with_credentials: bool = True,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate."""
-    entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
+    entity = get_user_entity_by_bid(
+        user_bid, include_deleted=include_deleted, for_update=for_update
+    )
     if not entity:
         return None
     credentials: list[AuthCredential] = []
@@ -426,6 +456,7 @@ def load_user_aggregate_by_identifier(
     identifier: str,
     *,
     providers: list[str] | None = None,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate by identifier."""
     normalized = identifier.strip() if identifier else ""
@@ -447,14 +478,13 @@ def load_user_aggregate_by_identifier(
 
     # Direct match on canonical identifiers first.
     for lookup_identifier in lookup_identifiers:
-        entity = (
-            UserEntity.query.filter(
-                UserEntity.user_identify == lookup_identifier,
-                UserEntity.deleted == 0,
-            )
-            .order_by(UserEntity.id.asc())
-            .first()
-        )
+        query = UserEntity.query.filter(
+            UserEntity.user_identify == lookup_identifier,
+            UserEntity.deleted == 0,
+        ).order_by(UserEntity.id.asc())
+        if for_update:
+            query = query.populate_existing().with_for_update()
+        entity = query.first()
         if entity:
             return _build_user_aggregate(
                 entity,
@@ -466,9 +496,10 @@ def load_user_aggregate_by_identifier(
             credential = find_credential(
                 provider_name=provider,
                 identifier=lookup_identifier,
+                for_update=for_update,
             )
             if credential:
-                return load_user_aggregate(credential.user_bid)
+                return load_user_aggregate(credential.user_bid, for_update=for_update)
 
     return None
 
@@ -809,23 +840,29 @@ def upsert_credential(
     identifier: str,
     metadata: dict[str, str | None],
     verified: bool,
+    match_by_subject: bool = False,
 ) -> AuthCredential:
-    """Create or update credential."""
+    """Create or update a credential, optionally keeping provider subjects distinct."""
     raw_identifier = (identifier or "").strip()
     subject_id = _normalize_identifier(provider_name, subject_id)
     identifier = _normalize_identifier(provider_name, identifier)
     lookup_identifiers = [identifier]
     if raw_identifier and raw_identifier not in lookup_identifiers:
         lookup_identifiers.append(raw_identifier)
-    credential = (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid == user_bid,
-            AuthCredential.provider_name == provider_name,
-            AuthCredential.identifier.in_(lookup_identifiers),
+    query = AuthCredential.query.filter(
+        AuthCredential.user_bid == user_bid,
+        AuthCredential.provider_name == provider_name,
+    ).order_by(AuthCredential.deleted.asc(), AuthCredential.id.asc())
+    if match_by_subject:
+        # Exact equality also protects subjects on case-insensitive DB collations.
+        candidates = query.filter(AuthCredential.subject_id == subject_id).all()
+        credential = next(
+            (row for row in candidates if row.subject_id == subject_id), None
         )
-        .order_by(AuthCredential.deleted.asc(), AuthCredential.id.asc())
-        .first()
-    )
+    else:
+        credential = query.filter(
+            AuthCredential.identifier.in_(lookup_identifiers)
+        ).first()
 
     raw_profile = serialize_raw_profile(provider_name, metadata)
     state = CREDENTIAL_STATE_VERIFIED if verified else CREDENTIAL_STATE_UNVERIFIED
@@ -856,7 +893,11 @@ def upsert_credential(
 
 
 def find_credential(
-    *, provider_name: str, identifier: str, user_bid: str | None = None
+    *,
+    provider_name: str,
+    identifier: str,
+    user_bid: str | None = None,
+    for_update: bool = False,
 ) -> AuthCredential | None:
     """Find credential."""
     raw_identifier = (identifier or "").strip()
@@ -871,7 +912,24 @@ def find_credential(
     )
     if user_bid:
         query = query.filter(AuthCredential.user_bid == user_bid)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     return query.order_by(AuthCredential.id.asc()).first()
+
+
+def find_credential_by_subject(
+    *, provider_name: str, subject_id: str
+) -> AuthCredential | None:
+    """Find an active, exact provider subject without treating email as identity."""
+    candidates = (
+        AuthCredential.query.filter_by(
+            provider_name=provider_name, subject_id=subject_id, deleted=0
+        )
+        .order_by(AuthCredential.id.asc())
+        .all()
+    )
+    # Provider subjects are case-sensitive even when the database collation is not.
+    return next((row for row in candidates if row.subject_id == subject_id), None)
 
 
 def list_credentials(
@@ -885,23 +943,6 @@ def list_credentials(
     # order has to be the same on every read rather than whatever the engine
     # happens to return.
     return query.order_by(AuthCredential.id.asc()).all()
-
-
-def get_first_verified_credential_created_at(*, user_bid: str) -> datetime | None:
-    """Return first verified credential created at."""
-    row = (
-        AuthCredential.query.filter(
-            AuthCredential.deleted == 0,
-            AuthCredential.user_bid == user_bid,
-            AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
-        )
-        .order_by(AuthCredential.created_at.asc(), AuthCredential.id.asc())
-        .with_entities(AuthCredential.created_at)
-        .first()
-    )
-    if row is None:
-        return None
-    return row[0]
 
 
 def upsert_wechat_credentials(

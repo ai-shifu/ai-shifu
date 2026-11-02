@@ -37,7 +37,6 @@ def configure_output_language(
         preferred,
         get_current_language(),
         variables.get(SYS_USER_LANGUAGE),
-        variables.get("language"),
         "en-US",
     )
     for candidate in candidates:
@@ -50,4 +49,4 @@ def configure_output_language(
         if name in LANGUAGE_NAME_MAP.values():
             break
     engine.output_language = name
-    return {**variables, SYS_USER_LANGUAGE: locale, "language": locale}
+    return {**variables, SYS_USER_LANGUAGE: locale}

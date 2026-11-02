@@ -96,7 +96,7 @@ jest.mock('@/components/ui/Calendar', () => ({
   Calendar: () => <div />,
 }));
 
-jest.mock('@/components/ui/tooltip', () => ({
+jest.mock('@/components/ui/Tooltip', () => ({
   __esModule: true,
   TooltipProvider: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
@@ -113,7 +113,7 @@ jest.mock('@/components/ui/Badge', () => ({
   Badge: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
 }));
 
-jest.mock('@/components/ui/pagination', () => ({
+jest.mock('@/components/ui/Pagination', () => ({
   __esModule: true,
   Pagination: ({ children }: React.PropsWithChildren) => (
     <nav aria-label='pagination'>{children}</nav>

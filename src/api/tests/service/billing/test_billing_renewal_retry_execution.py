@@ -13,7 +13,6 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
 )
 from flaskr.service.billing.models import (
-    BillingOrder,
     BillingRenewalEvent,
 )
 from flaskr.service.billing.renewal import (
@@ -21,6 +20,7 @@ from flaskr.service.billing.renewal import (
 )
 from flaskr.util.datetime import now_utc
 
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing.renewal_execution_test_helpers import (
     create_renewal_event,
     create_renewal_subscription,
@@ -54,15 +54,13 @@ def test_run_billing_renewal_event_retries_latest_failed_renewal_order(
             current_period_end_at=cycle_start,
         )
         subscription.provider_subscription_id = "sub_provider_retry_1"
-        renewal_order = BillingOrder(
+        renewal_order = make_billing_order(
             bill_order_bid="bill-renewal-retry-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency="CNY",
             payable_amount=9900,
-            paid_amount=0,
             payment_provider="stripe",
             channel="subscription",
             provider_reference_id="sub_provider_retry_1",

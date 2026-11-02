@@ -15,6 +15,7 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import route as shifu_routes
 from flaskr.service.shifu import shifu_draft_funcs
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
+from werkzeug.http import parse_options_header
 
 from tests.common.fixtures.fake_llm import fake_chat_llm
 
@@ -765,22 +766,28 @@ def test_file_upload_requires_a_file(test_client: object) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "course_bid", ["course", "another-course", "..", r"tenant\course"]
+)
 def test_export_download_cleans_temporary_file_after_response(
-    test_client: object, monkeypatch: pytest.MonkeyPatch
+    test_client: object, monkeypatch: pytest.MonkeyPatch, course_bid: str
 ) -> None:
     exported = []
 
     def export(_app: object, shifu_bid: str, target: str) -> None:
-        assert shifu_bid == "course"
+        assert shifu_bid == course_bid
         path = Path(target)
+        assert path.name == "course.json"
+        assert path.parent.name.startswith("shifu_export_")
         path.write_text('{"course":"export"}')
         exported.append(path)
 
     monkeypatch.setattr(shifu_routes, "export_shifu", export)
-    response = test_client.get(f"{COURSE}/export", headers=HEADERS)
+    response = test_client.get(f"{PREFIX}/shifus/{course_bid}/export", headers=HEADERS)
     assert response.status_code == 200
     assert response.get_json(force=True) == {"course": "export"}
-    assert "course.json" in response.headers["Content-Disposition"]
+    _, options = parse_options_header(response.headers["Content-Disposition"])
+    assert options["filename"] == f"{course_bid}.json"
     assert not exported[0].exists()
     assert not exported[0].parent.exists()
 
@@ -881,7 +888,7 @@ def test_publish_origin_prefers_the_verified_first_forwarded_host(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     resolve_owner = Mock(return_value="domain-owner")
-    resolve_origin = Mock(return_value="https://custom.example")
+    resolve_origin = Mock(return_value="https://another-domain.example")
     monkeypatch.setattr(
         "flaskr.service.billing.api.resolve_creator_bid_by_host", resolve_owner
     )
@@ -889,42 +896,82 @@ def test_publish_origin_prefers_the_verified_first_forwarded_host(
         "flaskr.service.billing.api.resolve_effective_custom_origin", resolve_origin
     )
     with app.test_request_context(
-        "/", headers={"X-Forwarded-Host": " custom.example, proxy.example "}
+        "/", headers={"X-Forwarded-Host": " CUSTOM.EXAMPLE.:443, proxy.example "}
     ):
         assert shifu_routes._resolve_publish_base_url(app) == "https://custom.example"
     resolve_owner.assert_called_once_with(app, "custom.example")
-    resolve_origin.assert_called_once_with(app, "domain-owner")
+    resolve_origin.assert_not_called()
 
 
-@pytest.mark.parametrize("owner_lookup_fails", [False, True])
-def test_publish_origin_recovers_from_domain_lookup_failures(
+@pytest.mark.parametrize("domain_lookup_fails", [False, True])
+def test_publish_origin_keeps_official_domain_when_owner_has_custom_domain(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
-    owner_lookup_fails: bool,
+    domain_lookup_fails: bool,
 ) -> None:
+    resolve_owner = (
+        Mock(side_effect=RuntimeError("lookup failed"))
+        if domain_lookup_fails
+        else Mock(return_value=None)
+    )
     monkeypatch.setattr(
         "flaskr.service.billing.api.resolve_creator_bid_by_host",
-        Mock(side_effect=RuntimeError("lookup failed")),
+        resolve_owner,
     )
     monkeypatch.setattr(
         "flaskr.common.shifu_context.get_shifu_creator_bid", lambda: "teacher"
     )
-    resolve_origin = (
-        Mock(side_effect=RuntimeError("owner lookup failed"))
-        if owner_lookup_fails
-        else Mock(return_value="https://owner.example")
-    )
+    resolve_origin = Mock(return_value="https://owner.example")
     monkeypatch.setattr(
         "flaskr.service.billing.api.resolve_effective_custom_origin", resolve_origin
     )
     monkeypatch.setattr(
         shifu_routes, "_get_request_base_url", lambda: "https://default.example"
     )
-    with app.test_request_context("/"):
+    with app.test_request_context("/", base_url="https://default.example"):
         result = shifu_routes._resolve_publish_base_url(app)
-    assert result == (
-        "https://default.example" if owner_lookup_fails else "https://owner.example"
+    assert result == "https://default.example"
+    resolve_owner.assert_called_once_with(app, "default.example")
+    resolve_origin.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "service"),
+    [
+        ("GET", f"{COURSE}/detail", "get_shifu_draft_info"),
+        ("POST", f"{COURSE}/publish", "publish_shifu_draft"),
+        ("POST", f"{COURSE}/preview", "preview_shifu_draft"),
+    ],
+)
+def test_course_links_reject_courses_owned_outside_the_request_domain(
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    path: str,
+    service: str,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
+        Mock(return_value="teacher"),
     )
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._resolve_host_creator_bid",
+        Mock(return_value="other-domain-owner"),
+    )
+    handler = Mock()
+    monkeypatch.setattr(shifu_routes, service, handler)
+
+    response = test_client.open(
+        path,
+        method=method,
+        json={} if method == "POST" else None,
+        headers={**HEADERS, "Host": "other-domain.example"},
+    )
+    assert (
+        response.get_json(force=True)["code"]
+        == ERROR_CODE["server.shifu.shifuNotFound"]
+    )
+    handler.assert_not_called()
 
 
 @pytest.mark.parametrize(

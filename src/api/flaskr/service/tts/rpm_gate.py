@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.common.log import AppLoggerProxy
-from flaskr.util.deprecation import deprecated_alias_getattr
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -215,8 +214,3 @@ def _warn_redis_fallback_once(*, provider: str, scope_key: str, exc: Exception) 
         (provider or "default").strip().lower() or "default",
         exc,
     )
-
-
-__getattr__ = deprecated_alias_getattr(
-    __name__, {"TTSRpmQueueTimeout": "TTSRpmQueueTimeoutError"}, globals()
-)

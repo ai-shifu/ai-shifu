@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store';
 import { PermissionRequestModal } from '@/components/PermissionRequestModal';
-import { resolveErrorDisplayMessage } from '@/lib/errorDisplay';
+import { resolveErrorDisplayMessage } from '@/lib/error-display';
 
 interface ErrorDisplayProps {
   errorCode: number;
