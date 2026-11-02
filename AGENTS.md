@@ -209,6 +209,9 @@ Contributors have one place to check the required commit title and body format.
 - `python scripts/check_uow_commit_sites.py` enforces the backend
   unit-of-work ratchet: no new `db.session.commit()` outside `flaskr/dao/`,
   and `--update` shrinks the baseline after a migration removes sites.
+- `python scripts/check_ruff_policies.py` checks that `ruff.toml` still flags
+  production code for ANN201, D103 and RUF001 and exempts only tests, fixtures
+  and migration history, and that reviewed return annotations stay concrete.
 - `python scripts/check_dev_tools.py` verifies lefthook and its underlying
   tools are installed, so the pre-commit hooks are not silently skipped.
 - `lefthook run pre-commit --all-files` is the repository-wide verification
