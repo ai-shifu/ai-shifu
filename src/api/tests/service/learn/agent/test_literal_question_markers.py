@@ -273,6 +273,59 @@ def test_raw_context_is_joined_only_when_it_can_restart(
     assert joined <= 4 * len(narration)
 
 
+COMPACT_ITEMS = {
+    "bullet": "- step {i} uses `code` and <b>x</b> ~a~ $b$ [c] {{{{v}}}}\n",
+    "nested": "  - step {i} uses `code` <i>x</i>\n",
+    "quoted": "> - step {i} uses `code` $m$\n",
+    "ordered": "{n}. step {i} uses `code` and [c]\n",
+}
+
+
+@pytest.mark.parametrize("items", [200, 800])
+@pytest.mark.parametrize("item", list(COMPACT_ITEMS.values()), ids=list(COMPACT_ITEMS))
+def test_compact_list_with_inline_syntax_keeps_work_linear(
+    item: str, items: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every item of a list without blank lines carries code, HTML or math.
+
+    Each line end used to rescan the whole list, so the work grew with the
+    square of its length. The bound holds at both sizes.
+    """
+    head = "- Topic\n" if item.startswith(" ") else ""
+    body = head + "".join(item.format(i=i, n=i + 1) for i in range(items))
+    syntax, shown, narrated, inspected = _feed_counted(monkeypatch, "", body + HELD)
+    assert narrated
+    assert syntax.spans == [HELD]
+    assert shown == body
+    assert inspected <= 80 * len(body)
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        "- a `x\n  y ?[A|B]` z\n- " + QUESTION,
+        "- a `x\n- y ?[A|B]` z\n- " + QUESTION,
+        "1. a `x\n2. y ?[A|B]` z\n3. " + QUESTION,
+        "- a {{ x\n- y ?[A|B] }}\n- " + QUESTION,
+        "- a <span\n  title='?[A|B]'> z\n- " + QUESTION,
+        "- a [l\n  b](<?[A|B]>) z\n- " + QUESTION,
+        "- a\n  <!--\n  ?[L|M]\n  -->\n- b\n      ?[A|B]\n\n  " + QUESTION,
+        "> - a\n>   b\n>      ```\n>   ?[A|B]\n- " + QUESTION,
+        "- a\n  b\n- c\n  [r]: /u '?[A|B]'\n- " + QUESTION,
+    ],
+)
+def test_compact_list_lines_carry_unfinished_syntax_across_items(
+    source: str, newline: str
+) -> None:
+    """A literal still open at a line end decides the lines after it, item or not."""
+    source = source.replace("\n", newline)
+    spans = [
+        source[start:end] for start, end in find_document_interaction_spans(source)
+    ]
+    _assert_filter(source, spans)
+
+
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 @pytest.mark.parametrize("line", ["#x`", "-x`", "1.x`", "<divx`", "==x`", "``x`"])
 def test_unfinished_interrupt_lookalike_waits_for_its_line(
