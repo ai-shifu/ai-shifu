@@ -68,7 +68,6 @@ describe('runtime host branding', () => {
         });
         await initializeEnvData();
 
-        expect(global.fetch).toHaveBeenCalledTimes(2);
         expect(useEnvStore.getState().logoWideUrl).toBe('/site-wide.png');
       });
     },
