@@ -152,14 +152,13 @@ def migrate_user_study_record(
     db.session.query(LearnProgressRecord).filter(
         LearnProgressRecord.id.in_(record_ids)
     ).update({LearnProgressRecord.user_bid: to_user_id}, synchronize_session=False)
-    db.session.query(LearnGeneratedBlock).filter(
-        LearnGeneratedBlock.user_bid == from_user_id,
-        LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
-    ).update({LearnGeneratedBlock.user_bid: to_user_id}, synchronize_session=False)
-    # Elements and audio carry the same progress record link as their blocks.
-    for model in (LearnGeneratedElement, LearnGeneratedAudio):
+    # Blocks, elements and audio carry the same progress record link. That link is not
+    # unique across courses (legacy rows may share or leave it empty), so the course
+    # bounds every update.
+    for model in (LearnGeneratedBlock, LearnGeneratedElement, LearnGeneratedAudio):
         db.session.query(model).filter(
             model.user_bid == from_user_id,
+            model.shifu_bid == normalized_course_id,
             model.progress_record_bid.in_(progress_record_bids),
         ).update({model.user_bid: to_user_id}, synchronize_session=False)
 

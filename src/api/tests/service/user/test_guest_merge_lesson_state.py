@@ -234,6 +234,76 @@ def test_merge_moves_elements_and_audio_of_migrated_blocks(app: object) -> None:
         assert other_audio.user_bid == GUEST
 
 
+def test_merge_leaves_other_courses_rows_that_share_a_progress_link(
+    app: object,
+) -> None:
+    """Legacy rows can reuse a progress record identifier across courses."""
+    with app.app_context():
+        _add_progress(GUEST, COURSE, "outline-1")
+        shared = f"progress-{GUEST}-outline-1"
+        db.session.add(
+            make_generated_block(
+                generated_block_bid="other-block",
+                progress_record_bid=shared,
+                user_bid=GUEST,
+                block_bid="source-other",
+                outline_item_bid="outline-other",
+                shifu_bid=OTHER_COURSE,
+                type=BLOCK_TYPE_CONTENT_VALUE,
+                generated_content="other",
+                position=1,
+                status=1,
+            )
+        )
+        db.session.add(
+            make_generated_element(
+                element_bid="other-element",
+                progress_record_bid=shared,
+                user_bid=GUEST,
+                generated_block_bid="other-block",
+                outline_item_bid="outline-other",
+                shifu_bid=OTHER_COURSE,
+            )
+        )
+        db.session.add(
+            LearnGeneratedAudio(
+                audio_bid="other-audio",
+                generated_block_bid="other-block",
+                progress_record_bid=shared,
+                user_bid=GUEST,
+                shifu_bid=OTHER_COURSE,
+            )
+        )
+        db.session.commit()
+
+        _merge(app)
+
+        assert (
+            LearnGeneratedBlock.query.filter_by(generated_block_bid="other-block")
+            .one()
+            .user_bid
+            == GUEST
+        )
+        assert (
+            LearnGeneratedElement.query.filter_by(element_bid="other-element")
+            .one()
+            .user_bid
+            == GUEST
+        )
+        assert (
+            LearnGeneratedAudio.query.filter_by(audio_bid="other-audio").one().user_bid
+            == GUEST
+        )
+        assert (
+            LearnGeneratedElement.query.filter_by(
+                element_bid=f"element-{GUEST}-outline-1"
+            )
+            .one()
+            .user_bid
+            == TARGET
+        )
+
+
 def test_merge_carries_guest_course_memory_without_overwriting_target(
     app: object,
 ) -> None:
