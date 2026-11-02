@@ -149,5 +149,6 @@ jobs:
           [ -n "$all" ] && check-symlinks $all
           ruff check .
           ruff format --check .
+          python3 scripts/check_ruff_policies.py
           python3 scripts/check_backend_hardcoded_cn.py
           echo "Lint hard-fail checks passed."

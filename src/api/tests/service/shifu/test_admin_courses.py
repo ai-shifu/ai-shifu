@@ -647,67 +647,8 @@ def test_list_operator_courses_filters_out_builtin_demo_courses_only() -> None:
         "course-1",
         "course-system-custom",
     }
-
-
-def test_list_operator_courses_skips_system_user_lookup() -> None:
-    app = Flask(__name__)
-    system_course = DummyCourse(
-        shifu_bid="course-system-custom",
-        title="Custom System Course",
-        price="39.00",
-        created_user_bid="system",
-        updated_user_bid="system",
-        created_at=datetime(2025, 4, 1, 11, 0, 0),
-        updated_at=datetime(2025, 4, 4, 11, 0, 0),
-    )
-    normal_course = DummyCourse(
-        shifu_bid="course-1",
-        title="Normal Course",
-        price="59.00",
-        created_user_bid="creator-1",
-        updated_user_bid="editor-1",
-        created_at=datetime(2025, 4, 1, 10, 0, 0),
-        updated_at=datetime(2025, 4, 3, 10, 0, 0),
-    )
-
-    with (
-        patch(
-            "flaskr.service.shifu.admin_operations.courses_listing._find_matching_creator_bids"
-        ) as creator_mock,
-        patch(
-            "flaskr.service.shifu.admin_operations.courses_listing._load_latest_shifu_seeds"
-        ) as latest_mock,
-        patch(
-            "flaskr.service.shifu.admin_operations.courses_listing._load_course_activity_map"
-        ) as activity_mock,
-        patch(
-            "flaskr.service.shifu.admin_operations.courses_listing._load_user_map"
-        ) as user_map_mock,
-        patch(
-            "flaskr.service.shifu.admin_operations.courses_listing._build_operator_course_overview",
-            return_value=EMPTY_COURSE_OVERVIEW,
-        ),
-    ):
-        creator_mock.return_value = None
-        latest_mock.side_effect = [[system_course], [normal_course]]
-        activity_mock.return_value = {}
-        user_map_mock.return_value = {
-            "creator-1": {
-                "mobile": "15811112222",
-                "email": "creator@example.com",
-                "nickname": "Creator Mars",
-            },
-            "editor-1": {
-                "mobile": "15833334444",
-                "email": "editor@example.com",
-                "nickname": "Editor Venus",
-            },
-        }
-
-        list_operator_courses(app, 1, 20, {})
-
+    # System-authored courses stay listed but never trigger a user lookup.
     assert set(user_map_mock.call_args.args[0]) == {"creator-1", "editor-1"}
-    assert "system" not in user_map_mock.call_args.args[0]
 
 
 def test_list_operator_courses_filters_by_course_status() -> None:
