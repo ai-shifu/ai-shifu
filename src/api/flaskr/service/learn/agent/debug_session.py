@@ -216,6 +216,11 @@ class DebugSessionStore:
             )
             or {}
         )
+        try:
+            Session.loads(previous["session"])
+        except (KeyError, TypeError, ValueError):
+            # Only request ordering survives expiration of the stored conversation.
+            previous = {"request_generation": previous.get("request_generation")}
         turns = previous.get("turns", [])
         if not isinstance(turns, list) or any(
             not isinstance(turn, dict) or not isinstance(turn.get("block_bid"), str)
