@@ -138,6 +138,7 @@ const ScriptEditor = ({
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
   const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
     useState(false);
+  const isEditorMountedRef = useRef(true);
   const draftSyncToastRef =
     useRef<ReturnType<typeof showBackgroundToast>>(undefined);
   const [draftConflictMode, setDraftConflictMode] =
@@ -670,6 +671,7 @@ const ScriptEditor = ({
           hasKnownBaseRevision &&
           latestRevision > currentBaseRevision;
         if (
+          !isEditorMountedRef.current ||
           currentShifuBidRef.current !== shifuBid ||
           currentLessonBidRef.current !== outlineBid
         ) {
@@ -924,7 +926,9 @@ const ScriptEditor = ({
   }, [hasDraftConflict]);
 
   useEffect(() => {
+    isEditorMountedRef.current = true;
     return () => {
+      isEditorMountedRef.current = false;
       draftSyncToastRef.current?.dismiss();
       draftSyncToastRef.current = undefined;
     };

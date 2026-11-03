@@ -958,6 +958,44 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(showBackgroundToast).not.toHaveBeenCalled();
   });
 
+  test.each(['content load', 'metadata load'])(
+    'does not show delayed sync feedback after unmount during %s',
+    async pendingStage => {
+      setLessonNode();
+      mockShifuState.baseRevision = 1;
+      mockLoadDraftMeta.mockResolvedValue({ revision: 1, updated_user: null });
+      baseActions.loadMdflow.mockResolvedValue(true);
+      const { unmount } = render(<ScriptEditor id='shifu-1' />);
+      await waitFor(() =>
+        expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1),
+      );
+
+      let finishPending!: () => void;
+      const pending = new Promise<void>(resolve => {
+        finishPending = resolve;
+      });
+      const newerMeta = { revision: 2, updated_user: null };
+      baseActions.loadMdflow.mockClear();
+      mockLoadDraftMeta.mockReset();
+      mockLoadDraftMeta.mockResolvedValue(newerMeta);
+      if (pendingStage === 'content load') {
+        baseActions.loadMdflow.mockImplementation(() =>
+          pending.then(() => true),
+        );
+      } else {
+        mockLoadDraftMeta
+          .mockResolvedValueOnce(newerMeta)
+          .mockImplementation(() => pending.then(() => newerMeta));
+      }
+      await act(async () => window.dispatchEvent(new Event('focus')));
+      expect(baseActions.loadMdflow).toHaveBeenCalledTimes(1);
+      unmount();
+      await act(async () => finishPending());
+
+      expect(showBackgroundToast).not.toHaveBeenCalled();
+    },
+  );
+
   test.each(['lesson change', 'course change', 'unmount'])(
     'dismisses chapter sync feedback on %s',
     async transition => {
