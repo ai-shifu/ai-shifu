@@ -28,6 +28,11 @@ const mockTranslations: Record<string, Record<string, string>> = {
   },
 };
 let mockLanguage = 'zh-CN';
+const mockTrackEvent = jest.fn();
+
+jest.mock('@/hooks/use-tracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -44,6 +49,7 @@ jest.mock('react-i18next', () => ({
 describe('DebugVariablesPanel system variable labels', () => {
   beforeEach(() => {
     mockLanguage = 'zh-CN';
+    mockTrackEvent.mockReset();
   });
 
   test('keeps localized labels on hover and exposes no raw system keys', () => {
@@ -321,4 +327,199 @@ describe('DebugVariablesPanel system variable labels', () => {
     expect(screen.queryByText('sys_user_nickname')).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/sys_user_/)).not.toBeInTheDocument();
   });
+});
+
+describe('DebugVariablesPanel multiline editing', () => {
+  beforeEach(() => {
+    mockLanguage = 'en-US';
+    mockTrackEvent.mockReset();
+  });
+
+  const renderEditablePanel = (
+    name = 'private_course_key',
+    initialValue = 'Original answer',
+    systemVariableKeys: string[] = [],
+  ) => {
+    const onVariableChange = jest.fn();
+    const ControlledPanel = () => {
+      const [value, setValue] = React.useState(initialValue);
+      return (
+        <DebugVariablesPanel
+          variableValues={{ [name]: value }}
+          systemVariableKeys={systemVariableKeys}
+          onVariableChange={(key, nextValue) => {
+            onVariableChange(key, nextValue);
+            setValue(nextValue);
+          }}
+        />
+      );
+    };
+    const result = render(<ControlledPanel />);
+    return {
+      input: screen.getByRole('textbox'),
+      onVariableChange,
+      rerenderPanel: () => result.rerender(<ControlledPanel />),
+    };
+  };
+
+  test.each<[string, string[], string]>([
+    ['sys_user_background', ['sys_user_background'], 'personal_info'],
+    ['private_course_key', [], 'course_memory'],
+  ])(
+    'preserves multiline %s edits and tracks only a completed edit',
+    (name, systemVariableKeys, fieldType) => {
+      const { input, onVariableChange, rerenderPanel } = renderEditablePanel(
+        name,
+        'Original answer',
+        systemVariableKeys,
+      );
+      const nextValue = 'Private learner background\nPrivate preference';
+
+      expect(input.tagName).toBe('TEXTAREA');
+      expect(input).toHaveAttribute('rows', '2');
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: nextValue } });
+
+      expect(onVariableChange).toHaveBeenLastCalledWith(name, nextValue);
+      expect(input).toHaveValue(nextValue);
+      rerenderPanel();
+      expect(input).toHaveValue(nextValue);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      fireEvent.blur(input);
+
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['creator_debug_memory_multiline_edit', { field_type: fieldType }],
+      ]);
+      const payload = JSON.stringify(mockTrackEvent.mock.calls);
+      expect(payload).not.toContain(name);
+      expect(payload).not.toContain('Private');
+      fireEvent.blur(input);
+      fireEvent.focus(input);
+      fireEvent.blur(input);
+      rerenderPanel();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test.each([
+    ['Original\nanswer', 'Original\nanswer'],
+    ['Original answer', 'Changed single-line answer'],
+  ])('does not track an unchanged or single-line edit', (initial, next) => {
+    const { input, onVariableChange } = renderEditablePanel(
+      'private_course_key',
+      initial,
+    );
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: next } });
+    fireEvent.blur(input);
+
+    expect(input).toHaveValue(next);
+    if (initial !== next) {
+      expect(onVariableChange).toHaveBeenCalledWith('private_course_key', next);
+    }
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('does not track restored values, rerenders or fields without an edit callback', () => {
+    const onVariableChange = jest.fn();
+    const { rerender } = render(
+      <DebugVariablesPanel
+        variableValues={{ private_course_key: 'Restored\nanswer' }}
+        onVariableChange={onVariableChange}
+      />,
+    );
+    const input = screen.getByRole('textbox');
+    rerender(
+      <DebugVariablesPanel
+        variableValues={{ private_course_key: 'Updated\nrestored answer' }}
+        onVariableChange={onVariableChange}
+      />,
+    );
+    fireEvent.blur(input);
+    fireEvent.focus(input);
+    rerender(
+      <DebugVariablesPanel
+        variableValues={{ private_course_key: 'Read-only\nanswer' }}
+      />,
+    );
+    fireEvent.blur(input);
+
+    expect(input).toHaveValue('Read-only\nanswer');
+    expect(onVariableChange).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test.each([false, true])(
+    'does not track an external value restored while focused (edited=%s)',
+    edited => {
+      const onVariableChange = jest.fn();
+      const { rerender } = render(
+        <DebugVariablesPanel
+          variableValues={{ private_course_key: 'Original answer' }}
+          onVariableChange={onVariableChange}
+        />,
+      );
+      const input = screen.getByRole('textbox');
+      fireEvent.focus(input);
+      if (edited) {
+        fireEvent.change(input, {
+          target: { value: 'Temporary user\nanswer' },
+        });
+      }
+      rerender(
+        <DebugVariablesPanel
+          variableValues={{ private_course_key: 'Externally restored\nanswer' }}
+          onVariableChange={onVariableChange}
+        />,
+      );
+      fireEvent.blur(input);
+
+      expect(input).toHaveValue('Externally restored\nanswer');
+      expect(onVariableChange).toHaveBeenCalledTimes(edited ? 1 : 0);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  test('counts a subsequent distinct multiline edit after a new focus cycle', () => {
+    const { input, onVariableChange } = renderEditablePanel();
+    ['First\nanswer', 'Second\nanswer'].forEach(value => {
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    });
+
+    expect(input).toHaveValue('Second\nanswer');
+    expect(onVariableChange).toHaveBeenCalledTimes(2);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['creator_debug_memory_multiline_edit', { field_type: 'course_memory' }],
+      ['creator_debug_memory_multiline_edit', { field_type: 'course_memory' }],
+    ]);
+  });
+
+  test.each(['throw', 'reject'])(
+    'preserves accepted edits when analytics fails with %s',
+    async failure => {
+      mockTrackEvent.mockImplementation(() => {
+        if (failure === 'throw') {
+          throw new Error('Analytics unavailable');
+        }
+        return Promise.reject(new Error('Analytics unavailable'));
+      });
+      const { input, onVariableChange, rerenderPanel } = renderEditablePanel();
+      const nextValue = 'First line\nSecond line';
+
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: nextValue } });
+      await act(async () => fireEvent.blur(input));
+      rerenderPanel();
+
+      expect(input).toHaveValue(nextValue);
+      expect(onVariableChange).toHaveBeenCalledWith(
+        'private_course_key',
+        nextValue,
+      );
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
 });
