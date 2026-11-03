@@ -47,7 +47,7 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
 from pydantic import BaseModel
-from sqlalchemy import literal, select, tuple_, union_all
+from sqlalchemy import literal, select, union_all
 
 from .models import DraftOutlineItem, LogDraftStruct
 
@@ -291,13 +291,15 @@ def _initialize_outline_content_revisions(shifu_bid: str, history: HistoryItem) 
     ]
     for start in range(0, len(missing), OUTLINE_CONTENT_NODE_BATCH_SIZE):
         nodes = missing[start : start + OUTLINE_CONTENT_NODE_BATCH_SIZE]
+        identities = {(node.id, node.bid) for node in nodes}
+        # SQLite 3.46.1 can return no rows for tuple IN on the composite index.
+        # Load unique physical IDs, then validate the exact lesson identities.
         rows = DraftOutlineItem.query.filter(
             DraftOutlineItem.shifu_bid == shifu_bid,
             DraftOutlineItem.deleted == 0,
-            tuple_(DraftOutlineItem.id, DraftOutlineItem.outline_item_bid).in_(
-                [(node.id, node.bid) for node in nodes]
-            ),
+            DraftOutlineItem.id.in_([node.id for node in nodes]),
         ).all()
+        rows = [row for row in rows if (row.id, row.outline_item_bid) in identities]
         anchor_ids = _outline_content_anchor_ids(rows)
         anchors = {(row.id, row.outline_item_bid): anchor_ids[row.id] for row in rows}
         for node in nodes:
