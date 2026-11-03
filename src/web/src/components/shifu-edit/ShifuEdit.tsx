@@ -29,7 +29,7 @@ import {
   buildUrlWithLessonId,
   replaceCurrentUrlWithLessonId,
 } from '@/lib/url-utils';
-import { showBackgroundToast, toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
@@ -139,8 +139,6 @@ const ScriptEditor = ({
   const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
     useState(false);
   const isEditorMountedRef = useRef(true);
-  const draftSyncToastRef =
-    useRef<ReturnType<typeof showBackgroundToast>>(undefined);
   const [draftConflictMode, setDraftConflictMode] =
     useState<DraftConflictMode>('other-user');
   const [historyItems, setHistoryItems] = useState<MdflowHistoryItem[]>([]);
@@ -627,7 +625,6 @@ const ScriptEditor = ({
       outlineBid: string,
       meta?: DraftMeta | null,
       options?: {
-        showNotice?: boolean;
         mode?: DraftConflictMode;
         forceApply?: boolean;
       },
@@ -700,18 +697,6 @@ const ScriptEditor = ({
         actionsRef.current.setDraftConflict(false);
         actionsRef.current.setAutosavePaused(false);
         setIsDraftConflictDialogOpen(false);
-        if (options?.showNotice) {
-          const phone =
-            latestMeta?.updated_user?.phone ||
-            t('module.shifuSetting.draftConflictUnknownUser');
-          draftSyncToastRef.current?.dismiss();
-          draftSyncToastRef.current = showBackgroundToast({
-            description:
-              mode === 'other-user'
-                ? t('module.shifuSetting.draftConflictSynced', { phone })
-                : t('module.shifuSetting.draftSelfUpdateSynced'),
-          });
-        }
       } catch (error) {
         console.error('Failed to sync remote draft update', error);
         if (typeof window !== 'undefined') {
@@ -721,7 +706,7 @@ const ScriptEditor = ({
         remoteDraftSyncingTargetsRef.current.delete(syncTargetKey);
       }
     },
-    [markDraftConflict, resolveDraftConflictMode, t],
+    [markDraftConflict, resolveDraftConflictMode],
   );
 
   useEffect(() => {
@@ -813,7 +798,6 @@ const ScriptEditor = ({
         return;
       }
       await syncDraftFromRemote(shifuBid, outlineBid, meta, {
-        showNotice: false,
         mode: resolveDraftConflictMode(meta),
       });
     };
@@ -872,7 +856,6 @@ const ScriptEditor = ({
     const hasUnsavedChanges = actionsRef.current.hasUnsavedMdflow(outlineBid);
     if (!hasUnsavedChanges) {
       await syncDraftFromRemote(shifuId, outlineBid, meta, {
-        showNotice: true,
         mode,
       });
       return;
@@ -928,10 +911,8 @@ const ScriptEditor = ({
     isEditorMountedRef.current = true;
     return () => {
       isEditorMountedRef.current = false;
-      draftSyncToastRef.current?.dismiss();
-      draftSyncToastRef.current = undefined;
     };
-  }, [currentNode?.bid, currentShifu?.bid]);
+  }, []);
 
   const handleDraftConflictRefresh = useCallback(() => {
     const shifuBid = currentShifuBidRef.current;

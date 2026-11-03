@@ -1,9 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { ToastAction } from '@/components/ui/Toast';
 import { Toaster } from '@/components/ui/Toaster';
-import { showBackgroundToast, toast, toastOnce } from './use-toast';
-import i18n from 'i18next';
-import { showCreditInsufficientToast } from '@/lib/credit-insufficient-toast';
+import { toast, toastOnce } from './use-toast';
 
 let mockPathname = '/current-page';
 
@@ -102,73 +100,6 @@ describe('toast duration', () => {
     await waitFor(() => {
       expect(screen.queryByText('Credit notice')).not.toBeInTheDocument();
     });
-  });
-
-  it.each(['teacher', 'teacher-collaborator', 'learner'] as const)(
-    'preserves the persistent %s credit notice during background sync',
-    audience => {
-      jest.spyOn(i18n, 't').mockReturnValue('Credit notice');
-      render(<Toaster />);
-
-      act(() => {
-        showCreditInsufficientToast({ audience, code: 7101 });
-        showBackgroundToast({ description: 'Chapter synced' });
-      });
-
-      expect(screen.queryByText('Chapter synced')).not.toBeInTheDocument();
-      if (audience === 'teacher') {
-        expect(
-          screen.getByRole('link', { name: 'Credit notice' }),
-        ).toBeInTheDocument();
-      }
-      act(() => jest.advanceTimersByTime(6000));
-      expect(screen.getAllByText('Credit notice').length).toBeGreaterThan(0);
-    },
-  );
-
-  it.each([5000, 20000])(
-    'preserves a visible error for its %i ms timeout before allowing sync feedback',
-    duration => {
-      render(<Toaster />);
-      act(() => {
-        toast({ title: 'Request failed', variant: 'destructive', duration });
-        showBackgroundToast({ description: 'Chapter synced' });
-      });
-      expect(screen.getByText('Request failed')).toBeInTheDocument();
-      expect(screen.queryByText('Chapter synced')).not.toBeInTheDocument();
-
-      act(() => jest.advanceTimersByTime(duration));
-      expect(screen.queryByText('Request failed')).not.toBeInTheDocument();
-      act(() => showBackgroundToast({ description: 'Chapter synced' }));
-      expect(screen.getByText('Chapter synced')).toBeInTheDocument();
-    },
-  );
-
-  it('shows background sync feedback with the default timeout', () => {
-    render(<Toaster />);
-    act(() => showBackgroundToast({ description: 'Chapter synced' }));
-    expect(screen.getByText('Chapter synced')).toBeInTheDocument();
-    act(() => jest.advanceTimersByTime(5000));
-    expect(screen.queryByText('Chapter synced')).not.toBeInTheDocument();
-  });
-
-  it('allows background feedback after a persistent notice is dismissed', () => {
-    render(<Toaster />);
-    act(() => {
-      toast({ title: 'Persistent notice', duration: 0 }).dismiss();
-      showBackgroundToast({ description: 'Chapter synced' });
-    });
-    expect(screen.getByText('Chapter synced')).toBeInTheDocument();
-  });
-
-  it('allows background feedback to replace an ordinary temporary toast', () => {
-    render(<Toaster />);
-    act(() => {
-      toast({ title: 'Temporary notice' });
-      showBackgroundToast({ description: 'Chapter synced' });
-    });
-    expect(screen.queryByText('Temporary notice')).not.toBeInTheDocument();
-    expect(screen.getByText('Chapter synced')).toBeInTheDocument();
   });
 });
 
