@@ -16,12 +16,10 @@ import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   Columns2,
-  Info,
   ListCollapse,
   Loader2,
   Plus,
   Sparkles,
-  X,
 } from 'lucide-react';
 import { useEnvStore } from '@/store';
 import api from '@/api';
@@ -31,7 +29,7 @@ import {
   buildUrlWithLessonId,
   replaceCurrentUrlWithLessonId,
 } from '@/lib/url-utils';
-import { toast } from '@/hooks/use-toast';
+import { showBackgroundToast, toast } from '@/hooks/use-toast';
 import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
@@ -140,9 +138,11 @@ const ScriptEditor = ({
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
   const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
     useState(false);
+  const isEditorMountedRef = useRef(true);
+  const draftSyncToastRef =
+    useRef<ReturnType<typeof showBackgroundToast>>(undefined);
   const [draftConflictMode, setDraftConflictMode] =
     useState<DraftConflictMode>('other-user');
-  const [remoteSyncNotice, setRemoteSyncNotice] = useState<string | null>(null);
   const [historyItems, setHistoryItems] = useState<MdflowHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isHistoryRestoring, setIsHistoryRestoring] = useState(false);
@@ -567,7 +567,6 @@ const ScriptEditor = ({
       if (shouldSyncEditorContent) {
         setEditorContent(value);
       }
-      setRemoteSyncNotice(null);
       actions.setCurrentMdflow(value);
       // Pass snapshot so autosave persists pre-switch content + chapter id
       actions.autoSaveBlocks({
@@ -601,7 +600,6 @@ const ScriptEditor = ({
     actionsRef.current.setBaseRevision(null);
     actionsRef.current.cancelAutoSaveBlocks();
     setIsDraftConflictDialogOpen(false);
-    setRemoteSyncNotice(null);
   }, []);
 
   const markDraftConflict = useCallback(
@@ -673,6 +671,7 @@ const ScriptEditor = ({
           hasKnownBaseRevision &&
           latestRevision > currentBaseRevision;
         if (
+          !isEditorMountedRef.current ||
           currentShifuBidRef.current !== shifuBid ||
           currentLessonBidRef.current !== outlineBid
         ) {
@@ -706,11 +705,13 @@ const ScriptEditor = ({
           const phone =
             latestMeta?.updated_user?.phone ||
             t('module.shifuSetting.draftConflictUnknownUser');
-          setRemoteSyncNotice(
-            mode === 'other-user'
-              ? t('module.shifuSetting.draftConflictSynced', { phone })
-              : t('module.shifuSetting.draftSelfUpdateSynced'),
-          );
+          draftSyncToastRef.current?.dismiss();
+          draftSyncToastRef.current = showBackgroundToast({
+            description:
+              mode === 'other-user'
+                ? t('module.shifuSetting.draftConflictSynced', { phone })
+                : t('module.shifuSetting.draftSelfUpdateSynced'),
+          });
         }
       } catch (error) {
         console.error('Failed to sync remote draft update', error);
@@ -925,8 +926,13 @@ const ScriptEditor = ({
   }, [hasDraftConflict]);
 
   useEffect(() => {
-    setRemoteSyncNotice(null);
-  }, [currentNode?.bid]);
+    isEditorMountedRef.current = true;
+    return () => {
+      isEditorMountedRef.current = false;
+      draftSyncToastRef.current?.dismiss();
+      draftSyncToastRef.current = undefined;
+    };
+  }, [currentNode?.bid, currentShifu?.bid]);
 
   const handleDraftConflictRefresh = useCallback(() => {
     const shifuBid = currentShifuBidRef.current;
@@ -1861,25 +1867,6 @@ const ScriptEditor = ({
                       </Button>
                     </div>
                   </div>
-                  {remoteSyncNotice ? (
-                    <div className='mb-4 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900'>
-                      <Info className='mt-0.5 h-4 w-4 shrink-0' />
-                      <p className='min-w-0 flex-1 leading-6'>
-                        {remoteSyncNotice}
-                      </p>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='icon'
-                        className='-mr-2 -mt-1 h-7 w-7 shrink-0 rounded-full text-sky-700 hover:bg-sky-100 hover:text-sky-900'
-                        onClick={() => setRemoteSyncNotice(null)}
-                        aria-label={t('common.core.close')}
-                        title={t('common.core.close')}
-                      >
-                        <X className='h-4 w-4' />
-                      </Button>
-                    </div>
-                  ) : null}
                   {!isDebugPanelOpen && (
                     <Button
                       type='button'

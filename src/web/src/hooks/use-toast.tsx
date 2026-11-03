@@ -190,6 +190,25 @@ function toast({ duration = 5000, ...props }: Toast) {
   };
 }
 
+/**
+ * Show background feedback without replacing a visible error or persistent notice.
+ *
+ * @param props Content and display options forwarded to the shared toast helper.
+ * @returns The toast handle, or undefined when an important notice is visible.
+ */
+function showBackgroundToast(props: Toast) {
+  const hasImportantToast = memoryState.toasts.some(
+    currentToast =>
+      currentToast.open !== false &&
+      (currentToast.duration === Number.POSITIVE_INFINITY ||
+        currentToast.variant === 'destructive'),
+  );
+  if (hasImportantToast) {
+    return;
+  }
+  return toast(props);
+}
+
 function toastOnce({
   dedupeKey,
   dedupeWindowMs = 5000,
@@ -291,6 +310,7 @@ const toastApi = {
   toast,
   toastOnce,
   showDefaultToast,
+  showBackgroundToast,
   showErrorToast,
   fail,
   show,
@@ -301,6 +321,7 @@ export {
   toast,
   toastOnce,
   showDefaultToast,
+  showBackgroundToast,
   showErrorToast,
   fail,
   show,
