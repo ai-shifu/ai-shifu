@@ -29,7 +29,7 @@ import {
   buildUrlWithLessonId,
   replaceCurrentUrlWithLessonId,
 } from '@/lib/url-utils';
-import { toast } from '@/hooks/use-toast';
+import { showBackgroundToast, toast } from '@/hooks/use-toast';
 import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
@@ -701,7 +701,7 @@ const ScriptEditor = ({
           const phone =
             latestMeta?.updated_user?.phone ||
             t('module.shifuSetting.draftConflictUnknownUser');
-          toast({
+          showBackgroundToast({
             description:
               mode === 'other-user'
                 ? t('module.shifuSetting.draftConflictSynced', { phone })

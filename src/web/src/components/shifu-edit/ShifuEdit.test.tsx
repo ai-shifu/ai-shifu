@@ -1,5 +1,5 @@
 import React from 'react';
-import { toast } from '@/hooks/use-toast';
+import { showBackgroundToast } from '@/hooks/use-toast';
 import {
   act,
   fireEvent,
@@ -184,7 +184,10 @@ jest.mock('@/components/ui/Tabs', () => ({
 jest.mock('react-rnd', () => ({
   Rnd: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-jest.mock('@/hooks/use-toast', () => ({ toast: jest.fn() }));
+jest.mock('@/hooks/use-toast', () => ({
+  toast: jest.fn(),
+  showBackgroundToast: jest.fn(),
+}));
 jest.mock('@/store', () => ({
   useEnvStore: jest.fn(() => 'https://example.com'),
   __esModule: true,
@@ -390,7 +393,7 @@ describe('ShifuEdit draft conflict checks', () => {
   };
 
   beforeEach(() => {
-    jest.mocked(toast).mockClear();
+    jest.mocked(showBackgroundToast).mockClear();
     mockMarkdownFlowEditor.mockReset();
     mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
@@ -907,7 +910,7 @@ describe('ShifuEdit draft conflict checks', () => {
       await waitFor(() => {
         expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1);
       });
-      expect(toast).not.toHaveBeenCalled();
+      expect(showBackgroundToast).not.toHaveBeenCalled();
 
       mockLoadDraftMeta.mockResolvedValue({
         revision: 2,
@@ -917,8 +920,10 @@ describe('ShifuEdit draft conflict checks', () => {
         window.dispatchEvent(new Event('focus'));
       });
 
-      expect(toast).toHaveBeenCalledTimes(1);
-      expect(toast).toHaveBeenCalledWith({ description: message });
+      expect(showBackgroundToast).toHaveBeenCalledTimes(1);
+      expect(showBackgroundToast).toHaveBeenCalledWith({
+        description: message,
+      });
       expect(screen.queryByText(message)).not.toBeInTheDocument();
       expect(
         screen.queryByTestId('draft-conflict-dialog'),
@@ -962,7 +967,7 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(baseActions.setDraftConflict).toHaveBeenCalledWith(true);
     });
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(true);
-    expect(toast).not.toHaveBeenCalled();
+    expect(showBackgroundToast).not.toHaveBeenCalled();
   });
 
   test('does not open conflict dialog on lesson switch when remote revision is not newer', async () => {

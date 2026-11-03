@@ -190,6 +190,18 @@ function toast({ duration = 5000, ...props }: Toast) {
   };
 }
 
+function showBackgroundToast(props: Toast) {
+  const hasPersistentToast = memoryState.toasts.some(
+    currentToast =>
+      currentToast.open !== false &&
+      currentToast.duration === Number.POSITIVE_INFINITY,
+  );
+  if (hasPersistentToast) {
+    return;
+  }
+  toast(props);
+}
+
 function toastOnce({
   dedupeKey,
   dedupeWindowMs = 5000,
@@ -291,6 +303,7 @@ const toastApi = {
   toast,
   toastOnce,
   showDefaultToast,
+  showBackgroundToast,
   showErrorToast,
   fail,
   show,
@@ -301,6 +314,7 @@ export {
   toast,
   toastOnce,
   showDefaultToast,
+  showBackgroundToast,
   showErrorToast,
   fail,
   show,
