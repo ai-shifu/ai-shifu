@@ -362,6 +362,43 @@ describe('DebugVariablesPanel multiline editing', () => {
     };
   };
 
+  test('caps long memory values without losing text and shrinks after deletion', () => {
+    const { input, onVariableChange } = renderEditablePanel();
+    const textarea = input as HTMLTextAreaElement;
+    Object.assign(textarea.style, {
+      lineHeight: '20px',
+      padding: '8px 12px',
+      border: 'none',
+      borderWidth: '0px',
+    });
+    Object.defineProperty(textarea, 'scrollHeight', {
+      configurable: true,
+      get: () => textarea.value.split('\n').length * 20 + 16,
+    });
+    const longValue = Array.from(
+      { length: 20 },
+      (_, index) => `Memory line ${index + 1}`,
+    ).join('\n');
+
+    fireEvent.input(textarea, { target: { value: longValue } });
+
+    expect(textarea).toHaveValue(longValue);
+    expect(onVariableChange).toHaveBeenLastCalledWith(
+      'private_course_key',
+      longValue,
+    );
+    expect(textarea).toHaveStyle({
+      height: '96px',
+      maxHeight: '96px',
+      overflowY: 'auto',
+    });
+
+    fireEvent.input(textarea, { target: { value: 'Short answer' } });
+
+    expect(textarea).toHaveStyle({ height: '36px', overflowY: 'hidden' });
+    expect(textarea).toHaveValue('Short answer');
+  });
+
   test.each<[string, string[], string]>([
     ['sys_user_background', ['sys_user_background'], 'personal_info'],
     ['private_course_key', [], 'course_memory'],

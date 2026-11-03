@@ -211,7 +211,8 @@
 
     textarea {
       flex: 1 0 auto;
-      min-height: 36px;
+      // Keep the full field editable when its label makes the row taller.
+      min-height: max(36px, 100%);
       resize: none;
       white-space: pre-wrap;
       overflow-wrap: anywhere;

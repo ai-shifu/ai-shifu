@@ -175,6 +175,7 @@ const DebugVariablesPanel: React.FC<DebugVariablesPanelProps> = ({
                 <div className={styles.value}>
                   <Textarea
                     minRows={1}
+                    maxRows={4}
                     value={displayValue}
                     aria-label={displayName}
                     placeholder={
