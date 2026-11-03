@@ -19,6 +19,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       rows,
       value,
       defaultValue,
+      placeholder,
       ...props
     },
     ref,
@@ -66,7 +67,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ? maxRows * lineHeight + padding + border
           : undefined;
 
-      const nextHeight = Math.max(minHeight, textarea.scrollHeight);
+      const nextHeight = Math.max(minHeight, textarea.scrollHeight + border);
       const appliedHeight = maxHeight
         ? Math.min(nextHeight, maxHeight)
         : nextHeight;
@@ -83,7 +84,29 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 
     React.useEffect(() => {
       resizeTextarea();
-    }, [resizeTextarea, value, defaultValue]);
+    }, [resizeTextarea, value, defaultValue, placeholder]);
+
+    React.useEffect(() => {
+      const textarea = innerRef.current;
+      if (
+        !shouldAutoResize ||
+        !textarea ||
+        typeof ResizeObserver === 'undefined'
+      ) {
+        return;
+      }
+
+      let previousWidth: number | undefined;
+      const observer = new ResizeObserver(([entry]) => {
+        const width = entry.contentRect.width;
+        if (width !== previousWidth) {
+          previousWidth = width;
+          resizeTextarea();
+        }
+      });
+      observer.observe(textarea);
+      return () => observer.disconnect();
+    }, [resizeTextarea, shouldAutoResize]);
 
     const handleInput = (event: React.FormEvent<HTMLTextAreaElement>) => {
       if (shouldAutoResize) {
@@ -102,6 +125,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         ref={setRefs}
         value={value}
         defaultValue={defaultValue}
+        placeholder={placeholder}
         onInput={handleInput}
         {...props}
       />

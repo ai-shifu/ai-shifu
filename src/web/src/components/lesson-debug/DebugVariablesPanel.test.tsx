@@ -376,7 +376,7 @@ describe('DebugVariablesPanel multiline editing', () => {
       const nextValue = 'Private learner background\nPrivate preference';
 
       expect(input.tagName).toBe('TEXTAREA');
-      expect(input).toHaveAttribute('rows', '2');
+      expect(input).toHaveAttribute('rows', '1');
       fireEvent.focus(input);
       fireEvent.change(input, { target: { value: nextValue } });
 
