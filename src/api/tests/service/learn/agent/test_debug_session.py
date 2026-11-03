@@ -140,6 +140,71 @@ def test_debug_session_resumes_only_the_same_run_and_script(
     assert other.load(script="Current draft").memory["answer"] == "fresh answer"
 
 
+@pytest.mark.parametrize("stored_session", [None, "{}", "invalid history", "missing"])
+@pytest.mark.parametrize("follow_script_edits", [False, True])
+def test_incompatible_debug_history_is_treated_as_expired(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_session: str | None,
+    follow_script_edits: bool,
+) -> None:
+    """A fresh conversation cannot inherit an expired conversation's checkpoints."""
+    backend = _Cache()
+    monkeypatch.setattr(debug_session, "cache", backend)
+    old = _store(app)
+    old.begin_request(generation=2)
+    expired = Session(
+        script=ScriptBundle(script="Current draft"),
+        memory={"old_answer": "discard"},
+        user_memory={"old_note": "discard"},
+    )
+    old.save(expired, generated_block_bid="old-turn", turn_record=_record(expired))
+    assert old.plan_rewind(script="Current draft", block_bid="old-turn")
+    payload = json.loads(backend.values[old._key])
+    if stored_session == "missing":
+        del payload["session"]
+    else:
+        payload["session"] = stored_session
+    backend.values[old._key] = json.dumps(payload)
+
+    store = debug_session.DebugSessionStore(
+        app,
+        user_bid="teacher",
+        shifu_bid="course",
+        outline_bid="lesson",
+        run_bid="one",
+        follow_script_edits=follow_script_edits,
+    )
+    script = "Edited draft" if follow_script_edits else "Current draft"
+    assert store.load(script=script) is None
+    fresh = Session(script=ScriptBundle(script=script), memory={"new_answer": "keep"})
+    store.save(fresh)
+
+    saved = store._payload(script=script)
+    assert saved["turns"] == []
+    assert store.load(script=script).id == fresh.id
+    assert store.load(script=script).all_memory() == {"new_answer": "keep"}
+    with pytest.raises(RewindUnavailableError):
+        store.plan_rewind(script=script, block_bid="old-turn")
+
+    # Expiring the conversation must not let an older request claim its run.
+    assert saved["request_generation"] == 2
+    del backend.values[f"{store._key}:request"]
+    for generation in (None, 1, 2):
+        with pytest.raises(RewindUnavailableError):
+            store.begin_request(generation=generation)
+    store.begin_request(generation=3)
+    store.save(fresh, generated_block_bid="new-turn", turn_record=_record(fresh))
+    assert [turn["block_bid"] for turn in store._payload(script=script)["turns"]] == [
+        "new-turn"
+    ]
+    assert store.plan_rewind(script=script, block_bid="new-turn").checkpoint[
+        "memory"
+    ] == {"new_answer": "keep"}
+    with pytest.raises(RewindUnavailableError):
+        store.plan_rewind(script=script, block_bid="old-turn")
+
+
 def test_configured_debug_redis_reports_a_deferred_lock_connection_failure(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
