@@ -1,61 +1,22 @@
 version: 2
+# Disable routine version PRs while preserving security updates, including major fixes.
+# Schedules are required by the schema; security updates run independently.
 updates:
-  # Review routine frontend updates monthly; plan major upgrades separately.
   - package-ecosystem: "npm"
     directory: "/src/web"
     schedule:
       interval: "monthly"
-    # Version filters do not restrict security updates, including major fixes.
-    allow:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
-    groups:
-      monthly-minor-and-patch:
-        applies-to: "version-updates"
-        patterns:
-          - "*"
-        # Keep library upgrades in their own PR for cross-repository validation.
-        exclude-patterns:
-          - "markdown-flow-ui"
-        update-types:
-          - "minor"
-          - "patch"
+    open-pull-requests-limit: 0
 
   # This directory includes runtime and CI requirements files.
   - package-ecosystem: "pip"
     directory: "/src/api"
     schedule:
       interval: "monthly"
-    allow:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
-    groups:
-      monthly-minor-and-patch:
-        applies-to: "version-updates"
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
-    allow:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
-    groups:
-      monthly-minor-and-patch:
-        applies-to: "version-updates"
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
+    open-pull-requests-limit: 0
