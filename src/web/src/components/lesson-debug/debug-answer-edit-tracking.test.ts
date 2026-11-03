@@ -1,16 +1,15 @@
-import { startDebugRegenerateTracking } from './debug-regenerate-tracking';
+import { startDebugAnswerEditTracking } from './debug-answer-edit-tracking';
 
-describe.each([false, true])('Debug tracking (answerEdit=%s)', answerEdit => {
+describe('Debug answer-edit tracking', () => {
   const context = {
     anchor: 'private-step-anchor',
-    answerEdit,
     shifuBid: 'course-id',
     outlineBid: 'lesson-id',
   };
 
   it('emits the accepted request before its first terminal result with only allowed fields', () => {
     const trackEvent = jest.fn();
-    const finish = startDebugRegenerateTracking({
+    const finish = startDebugAnswerEditTracking({
       ...context,
       trackEvent,
       // Incidental request fields must not enter the delivered event payload.
@@ -27,7 +26,7 @@ describe.each([false, true])('Debug tracking (answerEdit=%s)', answerEdit => {
 
     expect(trackEvent.mock.calls).toEqual([
       [
-        `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_start`,
+        `teacher_debug_answer_edit_start`,
         { shifu_bid: 'course-id', outline_bid: 'lesson-id' },
       ],
     ]);
@@ -37,11 +36,11 @@ describe.each([false, true])('Debug tracking (answerEdit=%s)', answerEdit => {
 
     expect(trackEvent.mock.calls).toEqual([
       [
-        `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_start`,
+        `teacher_debug_answer_edit_start`,
         { shifu_bid: 'course-id', outline_bid: 'lesson-id' },
       ],
       [
-        `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_result`,
+        `teacher_debug_answer_edit_result`,
         {
           shifu_bid: 'course-id',
           outline_bid: 'lesson-id',
@@ -57,7 +56,7 @@ describe.each([false, true])('Debug tracking (answerEdit=%s)', answerEdit => {
     anchor => {
       const trackEvent = jest.fn();
       expect(
-        startDebugRegenerateTracking({ ...context, anchor, trackEvent }),
+        startDebugAnswerEditTracking({ ...context, anchor, trackEvent }),
       ).toBeUndefined();
       expect(trackEvent).not.toHaveBeenCalled();
     },
@@ -67,29 +66,29 @@ describe.each([false, true])('Debug tracking (answerEdit=%s)', answerEdit => {
     'reports the first terminal outcome %s once',
     result => {
       const trackEvent = jest.fn();
-      const finish = startDebugRegenerateTracking({ ...context, trackEvent });
+      const finish = startDebugAnswerEditTracking({ ...context, trackEvent });
       finish?.(result);
       finish?.('success');
       expect(trackEvent).toHaveBeenCalledTimes(2);
       expect(trackEvent).toHaveBeenLastCalledWith(
-        `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_result`,
+        `teacher_debug_answer_edit_result`,
         { shifu_bid: 'course-id', outline_bid: 'lesson-id', result },
       );
     },
   );
 
-  it('counts later deliberate regenerations as separate attempts', () => {
+  it('counts later deliberate answer edits as separate attempts', () => {
     const trackEvent = jest.fn();
-    const first = startDebugRegenerateTracking({ ...context, trackEvent });
+    const first = startDebugAnswerEditTracking({ ...context, trackEvent });
     first?.('cancelled');
-    const second = startDebugRegenerateTracking({ ...context, trackEvent });
+    const second = startDebugAnswerEditTracking({ ...context, trackEvent });
     second?.('success');
     first?.('failed');
     expect(trackEvent.mock.calls.map(([name]) => name)).toEqual([
-      `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_start`,
-      `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_result`,
-      `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_start`,
-      `${answerEdit ? 'teacher_debug_answer_edit' : 'teacher_debug_regenerate'}_result`,
+      `teacher_debug_answer_edit_start`,
+      `teacher_debug_answer_edit_result`,
+      `teacher_debug_answer_edit_start`,
+      `teacher_debug_answer_edit_result`,
     ]);
     expect(trackEvent.mock.calls[1][1].result).toBe('cancelled');
     expect(trackEvent.mock.calls[3][1].result).toBe('success');
@@ -102,7 +101,7 @@ describe.each([false, true])('Debug tracking (answerEdit=%s)', answerEdit => {
         if (kind === 'sync') throw new Error('Tracking failed');
         return Promise.reject(new Error('Tracking failed'));
       });
-      const finish = startDebugRegenerateTracking({ ...context, trackEvent });
+      const finish = startDebugAnswerEditTracking({ ...context, trackEvent });
       expect(() => finish?.('failed')).not.toThrow();
       expect(() => finish?.('success')).not.toThrow();
       await Promise.resolve();

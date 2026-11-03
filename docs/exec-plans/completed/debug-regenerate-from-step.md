@@ -2,6 +2,12 @@
 
 ## Purpose / Big Picture
 
+Historical implementation record: the current editor Debug frontend retires
+content regeneration and Retry in the
+[removal plan](remove-debug-content-regeneration.md). Dedicated backend regeneration
+retry mappings are removed as well. Shared turn rewind and
+exact interaction answer editing remain; this plan is historical.
+
 The editor Debug regenerate button currently restarts the entire lesson even
 though its callback identifies the selected content element. Preserve completed
 steps before that element's engine turn, restore the turn's conversation and

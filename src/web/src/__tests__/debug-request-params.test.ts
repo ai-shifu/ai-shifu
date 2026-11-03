@@ -1,11 +1,8 @@
 import {
   buildDebugInteractionInput,
   resolveDebugGeneratedBlockBid,
-  resolveDebugRegenerationBlockIndex,
-  resolveDebugRegenerationStartIndex,
   resolveDebugRequestBlockIndex,
 } from '@/components/lesson-debug/debug-request-params';
-import { ChatContentItemType } from '@/types/chat-ui';
 
 jest.mock('remark-flow', () =>
   jest.requireActual('remark-flow/dist/variable-name'),
@@ -63,82 +60,5 @@ describe('preview submission helpers', () => {
         fallbackBid: 'preview-element-1',
       }),
     ).toBe('7');
-  });
-
-  it('resolves regenerate truncation to the first item of the same block', () => {
-    expect(
-      resolveDebugRegenerationStartIndex(
-        [
-          { element_bid: 'block-0-a', generated_block_bid: '0' },
-          { element_bid: 'block-1-a', generated_block_bid: '1' },
-          { element_bid: 'block-1-b', generated_block_bid: '1' },
-          { element_bid: 'block-2-a', generated_block_bid: '2' },
-        ],
-        2,
-      ),
-    ).toBe(1);
-  });
-
-  it('falls back to the target index when the block bid is missing', () => {
-    expect(
-      resolveDebugRegenerationStartIndex(
-        [{ element_bid: 'preview-runtime-1', generated_block_bid: '' }],
-        0,
-      ),
-    ).toBe(0);
-  });
-
-  it('prefers the item element_index when resolving regenerate fallback block index', () => {
-    expect(
-      resolveDebugRegenerationBlockIndex(
-        [
-          { type: ChatContentItemType.CONTENT, element_index: 0 },
-          { type: ChatContentItemType.LIKE_STATUS },
-          { type: ChatContentItemType.CONTENT, element_index: 3 },
-        ],
-        2,
-      ),
-    ).toBe(3);
-  });
-
-  it('counts only actionable items when element_index is missing', () => {
-    expect(
-      resolveDebugRegenerationBlockIndex(
-        [
-          { type: ChatContentItemType.CONTENT },
-          { type: ChatContentItemType.LIKE_STATUS },
-          { type: ChatContentItemType.ASK },
-          { type: ChatContentItemType.INTERACTION },
-          { type: ChatContentItemType.CONTENT },
-        ],
-        4,
-      ),
-    ).toBe(2);
-  });
-
-  it('returns 0 when resolving regenerate fallback block index with empty items', () => {
-    expect(resolveDebugRegenerationBlockIndex([], 0)).toBe(0);
-  });
-
-  it('clamps out-of-range block indexes before resolving regenerate fallback block index', () => {
-    expect(
-      resolveDebugRegenerationBlockIndex(
-        [
-          { type: ChatContentItemType.CONTENT, element_index: 0 },
-          { type: ChatContentItemType.INTERACTION, element_index: 1 },
-        ],
-        99,
-      ),
-    ).toBe(1);
-
-    expect(
-      resolveDebugRegenerationBlockIndex(
-        [
-          { type: ChatContentItemType.LIKE_STATUS },
-          { type: ChatContentItemType.CONTENT, element_index: 4 },
-        ],
-        -2,
-      ),
-    ).toBe(0);
   });
 });

@@ -202,9 +202,8 @@ const ScriptEditor = ({
     startRun: startDebugRun,
     stopRun: stopDebugRun,
     resetSession: resetDebugSession,
-    regenerateContent: regenerateDebugContent,
-    retryRegeneration: retryDebugRegeneration,
-    canRetryRegeneration,
+    retryAnswerEdit: retryDebugAnswerEdit,
+    canRetryAnswerEdit,
     submitInteraction: submitDebugInteraction,
     persistVariableValues: persistDebugVariableValues,
     setVariableValue: setDebugVariableValue,
@@ -1929,9 +1928,8 @@ const ScriptEditor = ({
                   variableValues={mergedDebugVariableValues}
                   hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
-                  onRegenerate={regenerateDebugContent}
-                  onRetryRegeneration={
-                    canRetryRegeneration ? retryDebugRegeneration : undefined
+                  onRetryAnswerEdit={
+                    canRetryAnswerEdit ? retryDebugAnswerEdit : undefined
                   }
                   onSubmitInteraction={submitDebugInteraction}
                   onVariableChange={setDebugVariableValue}
@@ -1955,9 +1953,6 @@ const ScriptEditor = ({
                   isVariableVisibilityActionDisabled={
                     isVariableVisibilityActionDisabled
                   }
-                  showRegenerateAction={Boolean(
-                    currentShifu && !currentShifu.readonly,
-                  )}
                 />
               </div>
             </div>
