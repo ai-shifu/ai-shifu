@@ -744,10 +744,10 @@ def test_debug_rewind_requires_a_current_run_checkpoint(
 
 
 @pytest.mark.parametrize("provider_error", [False, True])
-def test_real_debug_turns_save_the_session_and_preserve_answers(
+def test_real_debug_turns_save_the_session_and_preserve_user_inputs(
     app: object, monkeypatch: object, provider_error: bool
 ) -> None:
-    """Normal and failed continuations preserve answers and answer-edit checkpoints."""
+    """Normal and failed continuations retain the actual free-text input history."""
     from flaskr.service.learn.agent import run_agent
     from markdownflow.engine import Engine
     from markdownflow.engine.events import ErrorEvent
@@ -813,9 +813,15 @@ def test_real_debug_turns_save_the_session_and_preserve_answers(
         any(isinstance(event, ErrorEvent) for event in engine_events) is provider_error
     )
     assert any("Teaching step 3." in message.content for message in events)
-    history = saved.dumps()
-    assert "First answer" in history
-    assert "Next answer" in history
+    user_prompts = [
+        part.content
+        for message in saved.messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, UserPromptPart)
+    ]
+    # The first prompt supplies the script; subsequent prompts are submitted inputs.
+    assert user_prompts[1:] == ["First answer", "Next answer"]
 
 
 def test_new_debug_request_prevents_a_stopped_stream_from_overwriting_its_save(
