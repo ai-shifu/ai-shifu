@@ -191,12 +191,13 @@ function toast({ duration = 5000, ...props }: Toast) {
 }
 
 function showBackgroundToast(props: Toast) {
-  const hasPersistentToast = memoryState.toasts.some(
+  const hasImportantToast = memoryState.toasts.some(
     currentToast =>
       currentToast.open !== false &&
-      currentToast.duration === Number.POSITIVE_INFINITY,
+      (currentToast.duration === Number.POSITIVE_INFINITY ||
+        currentToast.variant === 'destructive'),
   );
-  if (hasPersistentToast) {
+  if (hasImportantToast) {
     return;
   }
   return toast(props);

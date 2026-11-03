@@ -126,6 +126,24 @@ describe('toast duration', () => {
     },
   );
 
+  it.each([5000, 20000])(
+    'preserves a visible error for its %i ms timeout before allowing sync feedback',
+    duration => {
+      render(<Toaster />);
+      act(() => {
+        toast({ title: 'Request failed', variant: 'destructive', duration });
+        showBackgroundToast({ description: 'Chapter synced' });
+      });
+      expect(screen.getByText('Request failed')).toBeInTheDocument();
+      expect(screen.queryByText('Chapter synced')).not.toBeInTheDocument();
+
+      act(() => jest.advanceTimersByTime(duration));
+      expect(screen.queryByText('Request failed')).not.toBeInTheDocument();
+      act(() => showBackgroundToast({ description: 'Chapter synced' }));
+      expect(screen.getByText('Chapter synced')).toBeInTheDocument();
+    },
+  );
+
   it('shows background sync feedback with the default timeout', () => {
     render(<Toaster />);
     act(() => showBackgroundToast({ description: 'Chapter synced' }));
