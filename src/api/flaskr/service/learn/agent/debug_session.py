@@ -277,9 +277,7 @@ class DebugSessionStore:
         answering: bool = False,
         element_bid: str | None = None,
     ) -> RewindPlan:
-        """Restore an exact interaction answer without exposing content regeneration."""
-        if not answering or not element_bid:
-            raise RewindUnavailableError
+        """Resolve storage ownership, then use the shared turn rewind rules."""
         payload = self._payload(script=script) or {}
         # Read session and checkpoints from one cache snapshot: the old stream
         # may still be saving while the replacement request is being admitted.
@@ -295,27 +293,32 @@ class DebugSessionStore:
             for turn in turns
         ):
             raise RewindUnavailableError
-        # Exact element ownership matters when several controls share a block.
-        owner = next(
-            (
-                turn
-                for turn in turns
-                if element_bid in turn.get("interaction_elements", [])
-            ),
-            None,
-        )
-        if owner is None or block_bid not in {owner["block_bid"], element_bid}:
-            raise RewindUnavailableError
-        resolved_block = owner["block_bid"]
-        offset = owner["interaction_elements"].index(element_bid)
-        ids = owner.get("question_ids", [])
-        if (
-            not isinstance(ids, list)
-            or offset >= len(ids)
-            or any(not isinstance(q, str) or not q for q in ids)
-        ):
-            raise RewindUnavailableError
-        question_id = ids[offset]
+        question_id = None
+        resolved_block = block_bid
+        if answering:
+            if not element_bid:
+                raise RewindUnavailableError
+            # Exact element ownership matters when several controls share a block.
+            owner = next(
+                (
+                    turn
+                    for turn in turns
+                    if element_bid in turn.get("interaction_elements", [])
+                ),
+                None,
+            )
+            if owner is None or block_bid not in {owner["block_bid"], element_bid}:
+                raise RewindUnavailableError
+            resolved_block = owner["block_bid"]
+            offset = owner["interaction_elements"].index(element_bid)
+            ids = owner.get("question_ids", [])
+            if (
+                not isinstance(ids, list)
+                or offset >= len(ids)
+                or any(not isinstance(q, str) or not q for q in ids)
+            ):
+                raise RewindUnavailableError
+            question_id = ids[offset]
         plan = plan_turn_rewind(
             turns,
             block_bid=resolved_block,
@@ -361,11 +364,6 @@ def stream_debug_preview(
     anchor = (
         preview_request.reload_element_bid or preview_request.reload_generated_block_bid
     )
-    if anchor and (
-        not preview_request.reload_element_bid
-        or not learner_values(preview_request.user_input)
-    ):
-        raise_error("server.learn.agentRewindUnavailable")
     store = DebugSessionStore(
         app,
         user_bid=user_bid,

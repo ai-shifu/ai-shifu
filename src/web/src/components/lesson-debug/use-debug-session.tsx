@@ -1335,13 +1335,6 @@ export function useDebugSession({
         )
           ? userInput
           : undefined;
-      // Anchored requests only revise an exact interaction with a new answer.
-      if (
-        (reloadGeneratedBlockBid || reloadElementBid) &&
-        (!reloadElementBid || !normalizedUserInput)
-      ) {
-        return;
-      }
       if (
         hasSessionStartedRef.current &&
         mdflow !== runParamsRef.current.mdflow &&

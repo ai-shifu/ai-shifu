@@ -845,7 +845,7 @@ def test_new_debug_request_prevents_a_stopped_stream_from_overwriting_its_save(
     }
 
 
-@pytest.mark.parametrize("answering", [True])
+@pytest.mark.parametrize("answering", [False, True])
 def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
     app: object, monkeypatch: object, answering: bool
 ) -> None:
@@ -1398,18 +1398,3 @@ def test_incompatible_debug_history_is_treated_as_expired(
         Session(script=ScriptBundle(script="Current draft"), memory={"new": "run"})
     )
     assert store.load(script="Current draft").memory == {"new": "run"}
-
-
-@pytest.mark.parametrize("element_bid", [None, "control"])
-def test_debug_store_refuses_content_regeneration(
-    app: object, monkeypatch: pytest.MonkeyPatch, element_bid: str | None
-) -> None:
-    """A checkpoint cannot be used to regenerate content without an answer edit."""
-    monkeypatch.setattr(debug_session, "cache", _Cache())
-    store = _store(app)
-    session = Session(script=ScriptBundle(script="Current draft"))
-    store.save(session, generated_block_bid="selected", turn_record=_record(session))
-    with pytest.raises(RewindUnavailableError):
-        store.plan_rewind(
-            script="Current draft", block_bid="selected", element_bid=element_bid
-        )

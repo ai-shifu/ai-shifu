@@ -5,8 +5,9 @@
 Revise PR #3291 to remove editor Debug content regeneration. Its existing
 checkpoint restores a whole generated turn rather than one rendered element,
 so per-element regeneration controls do not offer the expected local edit.
-Remove the corresponding content-only Debug backend implementation as well as
-the UI. Preserve exact answer editing introduced on main by PR #3285.
+Close the frontend entry points and remove dedicated backend regeneration
+retry mappings. Preserve shared turn rewind and exact answer editing introduced
+on main by PR #3285. Do not add a content-only reload rejection policy.
 
 ## Progress
 
@@ -32,6 +33,13 @@ the UI. Preserve exact answer editing introduced on main by PR #3285.
   prepared the resolved branch for the existing PR. The unchanged literal-marker
   scanner stress module was excluded from the backend run.
 
+- [x] 2026-11-03 09:26 UTC: Recorded the clarified scope: close the frontend
+  entry and remove dedicated backend work, without specially rejecting reloads.
+- [x] 2026-11-03 09:29 UTC: Removed the added rejection policy; 1,852 backend
+  tests, 172 frontend tests, TypeScript and all repository-wide hooks passed.
+  Shared rewind/answer edits work and frontend regeneration controls remain
+  absent. The unchanged literal-marker scanner stress module stays excluded.
+
 ## Surprises & Discoveries
 
 - The November 3 rebase found that main now supports exact earlier-answer
@@ -48,8 +56,9 @@ the UI. Preserve exact answer editing introduced on main by PR #3285.
   and existing TTS behavior.
 - Revert the earlier PR's expanded TTS visibility and new request event.
 - Retain retired regeneration event definitions for historical report queries.
-- Reject content-only reload requests before usage admission or model execution.
-  Retain turn checkpoints and interaction ownership for exact answer edits.
+- The scope clarification supersedes the earlier rejection policy: remove the
+  added DTO/runtime/frontend guards. Retain shared turn rewind, turn checkpoints
+  and interaction ownership for exact answer edits.
 - Preserve strict Redis semantics, request-generation fencing, write ownership,
   draft-edit continuation and the serialized Debug session. Drop only legacy
   content-regeneration retry mappings on the next save.
@@ -58,8 +67,9 @@ the UI. Preserve exact answer editing introduced on main by PR #3285.
 
 The frontend no longer exposes content regeneration or its retry workflow.
 Focused tests cover retained copy/TTS controls, ordinary starts and resets,
-interaction answers, language state and stale-stream isolation. Content-only
-reload planning and retry mappings are removed. Checkpoints, exact question
+interaction answers, language state and stale-stream isolation. Dedicated
+content-regeneration retry mappings are removed; shared reload planning remains
+without a special content-only rejection policy. Checkpoints, exact question
 ownership and answer-edit variable snapshots remain. Shared learner/classroom
 rewind and exact Debug answer editing stay supported.
 
@@ -73,6 +83,9 @@ TypeScript, Ruff, repository harness, architecture checks and all other
 repository-wide hook checks. The backend run covers learning-agent, HTTP route,
 draft classroom history/rewind and lesson routing; only the unchanged
 `test_literal_question_markers.py` scanner stress module is excluded.
+After the scope clarification, 1,852 backend tests and 172 frontend tests pass,
+including shared block rewind and exact answer editing. TypeScript and all
+repository-wide hooks pass. The same unchanged scanner stress module is excluded.
 Lint retains existing fixture and editor warnings. PR #3291 is the delivery
 boundary; no merge, deployment or live-browser acceptance is part of this task.
 
@@ -83,8 +96,8 @@ boundary; no merge, deployment or live-browser acceptance is part of this task.
 `debug-request-params.ts` own frontend request preparation.
 `agent/debug_session.py` owns the transient cache; `agent/run_agent.py` and
 `agent/lesson_entry.py` also serve learner/classroom execution and must retain
-their non-Debug checkpoint contracts. The preview DTO and route own rejection
-of content-only Debug reload combinations.
+their shared checkpoint contracts. The preview DTO and route keep the existing
+reload fields without adding feature-retirement validation.
 
 ## Plan of Work
 
@@ -92,8 +105,9 @@ Remove the content regeneration and retry APIs together with their callers,
 state and dedicated analytics. Replace regeneration-specific tests with
 coverage of removed controls and retained normal Debug, copy and TTS flows.
 Update the canonical Debug and analytics references.
-Remove content-only Debug reload handling and retry mappings while retaining
-answer-edit checkpoints, session ownership and shared learner/classroom rewind.
+Remove dedicated content-regeneration retry mappings while retaining generic
+rewind, answer-edit checkpoints, session ownership and shared learner/classroom
+rewind. Remove tests that enforce the superseded content-only rejection policy.
 
 ## Concrete Steps
 
@@ -102,16 +116,16 @@ request helpers and analytics, regenerate repository knowledge indexes, run
 focused Jest and TypeScript/lint checks, then the required repository gate.
 Commit and push to the existing PR branch and rewrite its title and body.
 Exercise Debug cache ownership, errors, draft edits, old-cache loading and
-the retired HTTP request contract alongside learner/classroom regressions.
+the shared HTTP reload contract alongside learner/classroom regressions.
 
 ## Validation and Acceptance
 
-No Debug content regeneration or its Retry control is rendered, and the public
-hook accepts anchored reloads only for exact interaction answer edits. Ordinary initial runs, answers,
+No Debug content regeneration or its Retry control is rendered. Generic run
+requests retain their shared reload fields. Ordinary initial runs, answers,
 restarts, errors, variable updates, copying and TTS retain regression coverage.
 The repository harness and architecture-boundary checks must pass.
-The backend must reject content-only Debug reload requests before admission or
-a model call, retain answer checkpoints and drop content-only retry mappings.
+The backend must retain shared rewind and answer checkpoints, drop dedicated
+content-regeneration retry mappings, and add no content-only rejection policy.
 Interaction components must retain current and earlier-answer resubmission,
 including confirmation, new answers reaching the model, and preserving output
 before the accepting turn.
@@ -125,5 +139,5 @@ recover the previous UI; no migration or backend data cleanup is required.
 
 Remove regeneration-only panel props, hook returns and event producers together.
 Retain exact answer-edit reload parameters and answer-only Retry callbacks.
-Reject content-only Debug reloads while preserving shared learner/classroom
-regeneration, translations and audio.
+Keep shared Debug/learner/classroom reload contracts, translations and audio
+without dedicated content-only validation or retry mapping.

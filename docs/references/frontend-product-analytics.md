@@ -430,10 +430,10 @@ sends reload anchors only when editing an interaction answer.
 `teacher_debug_regenerate_result` have no new frontend producer or replacement
 family. Historical event names, payloads and meanings remain unchanged for
 downstream reports; the following contract describes those historical events.
-Debug content-only reload and retry handling is removed as well. Old content
-reload requests are rejected rather than producing regeneration events. Exact
-interaction answer edits retain their separate active family below. New runs
-and existing TTS behavior retain their own paths.
+The backend retains shared turn rewind and answer submission without a separate
+content-only rejection policy. Dedicated content-regeneration retry mappings
+are removed. Exact interaction answer edits retain their separate active family
+below. New runs and existing TTS behavior retain their own paths.
 
 Historically, accepted retries after a failed or stopped regeneration used the
 same attempt and terminal-result family. Retry was available only for the

@@ -88,10 +88,11 @@ terminal-result family, as defined in the frontend analytics reference.
 
 Editor Debug supports new runs, interaction answers and its existing TTS
 controls. It does not offer content regeneration or a regeneration Retry action.
-The preview DTO rejects content-only reload requests before usage admission or
-model execution. An anchored request must include an exact `reload_element_bid`
-and a nonempty answer; `reload_generated_block_bid` optionally identifies that
-interaction's owning turn. Direct Debug runtime calls enforce the same boundary.
+The frontend removes the content-regeneration entry points. The backend retains
+the shared reload request and turn-rewind contracts without a content-only
+rejection policy or dedicated regeneration retry compatibility. Exact answer
+edits use `reload_element_bid`, a revised answer and an optional owning
+`reload_generated_block_bid`. Generic rewinds continue to use the shared planner.
 Learner and full-course draft classroom rewind remain separate supported flows.
 
 Starting Debug again creates a fresh session. Answering the current interaction

@@ -542,8 +542,9 @@ def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
     run.assert_not_called()
 
 
+@pytest.mark.parametrize("answering", [False, True])
 def test_preview_route_reads_only_current_fields_and_validates_before_model_call(
-    monkeypatch: object, test_client: object, feedback_course: object
+    monkeypatch: object, test_client: object, feedback_course: object, answering: bool
 ) -> None:
     from flaskr.service.learn.agent import debug_session
 
@@ -556,14 +557,14 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
         json={
             "content": "Lesson text",
             "block_index": 0,
-            "user_input": {"choice": ["answer"]},
+            "user_input": {"choice": ["answer"]} if answering else None,
             # Retired fields no editor bundle sends any more; they are ignored.
             "context": [{"role": "user", "content": "old"}],
             "document_prompt": "old",
             "visual_mode": True,
             "debug_session_id": "editor-run-1",
             "reload_generated_block_bid": "selected-step",
-            "reload_element_bid": "selected-question",
+            "reload_element_bid": "selected-question" if answering else None,
             "request_generation": 7,
         },
         headers={"Token": "test-token"},
@@ -572,9 +573,13 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     args = preview.call_args.kwargs
     assert args["run_bid"] == "editor-run-1"
     assert args["preview_request"].get_document() == "Lesson text"
-    assert args["preview_request"].user_input == {"choice": ["answer"]}
+    assert args["preview_request"].user_input == (
+        {"choice": ["answer"]} if answering else None
+    )
     assert args["preview_request"].reload_generated_block_bid == "selected-step"
-    assert args["preview_request"].reload_element_bid == "selected-question"
+    assert args["preview_request"].reload_element_bid == (
+        "selected-question" if answering else None
+    )
     assert args["preview_request"].request_generation == 7
     for retired in ("context", "document_prompt", "visual_mode"):
         assert not hasattr(args["preview_request"], retired)
@@ -886,52 +891,3 @@ def test_reset_status_reads_recorded_usage_over_http(
     assert blocked["code"] == ERROR_CODE["server.learn.resetLimitReached"]
     with app.app_context(), unit_of_work():
         LearnLessonResetRecord.query.filter_by(shifu_bid=feedback_course.bid).delete()
-
-
-@pytest.mark.parametrize(
-    "reload_fields",
-    [
-        {"reload_generated_block_bid": "turn"},
-        {"reload_generated_block_bid": "turn", "user_input": {"input": ["revised"]}},
-        {"reload_element_bid": "control"},
-        {"reload_element_bid": "control", "user_input": {"input": []}},
-        {"reload_element_bid": "control", "user_input": {"input": ["   "]}},
-        {"reload_generated_block_bid": "turn", "reload_element_bid": "control"},
-    ],
-)
-def test_debug_preview_rejects_content_reload_before_admission(
-    monkeypatch: object,
-    test_client: object,
-    feedback_course: object,
-    reload_fields: dict,
-) -> None:
-    """Content reloads cannot regenerate or silently restart Debug."""
-    from flaskr.service.learn.agent import debug_session
-    from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
-    from pydantic import ValidationError
-
-    preview = Mock()
-    permission = Mock()
-    admission = Mock()
-    monkeypatch.setattr(debug_session, "stream_debug_preview", preview)
-    monkeypatch.setattr(routes, "require_shifu_preview_permission", permission)
-    monkeypatch.setattr(routes, "admit_creator_preview_usage", admission)
-    response = test_client.post(
-        f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
-        json={
-            "content": "Current draft",
-            "block_index": 0,
-            "debug_session_id": "editor-run-1",
-            **reload_fields,
-        },
-        headers={"Token": "test-token"},
-    ).get_json(force=True)
-
-    assert response["code"] == ERROR_CODE["server.common.paramsError"]
-    preview.assert_not_called()
-    permission.assert_not_called()
-    admission.assert_not_called()
-    with pytest.raises(ValidationError):
-        PlaygroundPreviewRequest(
-            content="Current draft", block_index=0, **reload_fields
-        )

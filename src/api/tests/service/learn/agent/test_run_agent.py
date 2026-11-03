@@ -16,8 +16,6 @@ if TYPE_CHECKING:
 
     from pydantic_ai.messages import ModelMessage
 
-from unittest.mock import Mock
-
 import pytest
 from flaskr.service.learn.agent import run_agent
 from flaskr.service.learn.agent.session_store import StoredSessionUnusable
@@ -3614,33 +3612,3 @@ def test_native_uri_autolinks_keep_typed_delivery_and_history(
     expected = lesson.replace("===Before===", "Before").replace("===After===", "After")
     for content in (delivered, saved):
         assert content == expected
-
-
-def test_editor_debug_refuses_a_direct_rewind_before_loading_or_restoring(
-    calls: list,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from flaskr.service.learn.agent.rewind import RewindUnavailableError
-
-    load = Mock()
-    restore = Mock()
-    monkeypatch.setattr(run_agent, "_load_or_start", load)
-    monkeypatch.setattr(run_agent, "restore", restore)
-    with pytest.raises(RewindUnavailableError):
-        list(
-            run_agent.run_agent_lesson(
-                None,
-                engine=object(),
-                script=SCRIPT,
-                user_bid=USER,
-                shifu_bid=SHIFU,
-                outline_bid=OUTLINE,
-                preview_mode=True,
-                debug_store=object(),
-                rewind=object(),
-            )
-        )
-
-    load.assert_not_called()
-    restore.assert_not_called()
-    assert calls == []

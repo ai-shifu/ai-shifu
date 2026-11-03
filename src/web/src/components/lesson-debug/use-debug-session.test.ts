@@ -897,29 +897,6 @@ describe('useDebugSession helpers and business error rendering', () => {
     expect(result.current).not.toHaveProperty('canRetryRegeneration');
   });
 
-  test.each([
-    { reloadGeneratedBlockBid: 'text-turn' },
-    { reloadElementBid: 'question' },
-    { reloadGeneratedBlockBid: 'text-turn', userInput: { input: ['answer'] } },
-  ])(
-    'rejects anchored requests without an exact answered interaction: %j',
-    async anchor => {
-      const { result } = renderHook(() =>
-        useDebugSession({ creditInsufficientAudience: 'teacher' }),
-      );
-      await act(async () =>
-        result.current.startRun({
-          shifuBid: 'course',
-          outlineBid: 'lesson',
-          mdflow: 'Draft',
-          ...anchor,
-        }),
-      );
-      expect(SSE).not.toHaveBeenCalled();
-      expect(mockTrackEvent).not.toHaveBeenCalled();
-    },
-  );
-
   test('does not start a late Debug stream after reset during API URL resolution', async () => {
     let resolveBaseUrl: (value: string) => void = () => {};
     (getDynamicApiBaseUrl as jest.Mock).mockReturnValueOnce(

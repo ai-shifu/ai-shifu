@@ -331,17 +331,10 @@ def agent_lesson_events(
     what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
 
     The reload identifiers take the lesson back to an earlier turn first, as a 1.0 reload does
-    (see `agent.rewind`). Editor Debug limits this to exact interaction answer edits.
-    A lesson that cannot be taken back says so rather than going to 1.0.
+    (see `agent.rewind`). A lesson that cannot be taken back says so rather than going to 1.0.
     """
     rewind = None
     anchor = reload_element_bid or reload_generated_block_bid
-    if (
-        debug_store is not None
-        and anchor
-        and (not reload_element_bid or not learner_values(user_input))
-    ):
-        raise_error("server.learn.agentRewindUnavailable")
     if anchor:
         try:
             with app_context_scope(app):
