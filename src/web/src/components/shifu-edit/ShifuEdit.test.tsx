@@ -1,4 +1,5 @@
 import React from 'react';
+import { toast } from '@/hooks/use-toast';
 import {
   act,
   fireEvent,
@@ -389,6 +390,7 @@ describe('ShifuEdit draft conflict checks', () => {
   };
 
   beforeEach(() => {
+    jest.mocked(toast).mockClear();
     mockMarkdownFlowEditor.mockReset();
     mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
@@ -889,6 +891,41 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(false);
   });
 
+  test.each([
+    ['user-1', 'module.shifuSetting.draftSelfUpdateSynced'],
+    ['other-user', 'module.shifuSetting.draftConflictSynced'],
+  ])(
+    'uses the shared transient toast for updates by %s',
+    async (userBid, message) => {
+      setLessonNode();
+      mockShifuState.baseRevision = 1;
+      mockLoadDraftMeta.mockResolvedValue({ revision: 1, updated_user: null });
+      baseActions.loadMdflow.mockResolvedValue(true);
+
+      render(<ScriptEditor id='shifu-1' />);
+
+      await waitFor(() => {
+        expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1);
+      });
+      expect(toast).not.toHaveBeenCalled();
+
+      mockLoadDraftMeta.mockResolvedValue({
+        revision: 2,
+        updated_user: { user_bid: userBid, phone: '13900139000' },
+      });
+      await act(async () => {
+        window.dispatchEvent(new Event('focus'));
+      });
+
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith({ description: message });
+      expect(screen.queryByText(message)).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('draft-conflict-dialog'),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   test('opens conflict dialog when remote draft is newer and local edits exist', async () => {
     setLessonNode();
     mockShifuState.baseRevision = 1;
@@ -925,6 +962,7 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(baseActions.setDraftConflict).toHaveBeenCalledWith(true);
     });
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(true);
+    expect(toast).not.toHaveBeenCalled();
   });
 
   test('does not open conflict dialog on lesson switch when remote revision is not newer', async () => {
