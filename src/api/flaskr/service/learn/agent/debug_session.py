@@ -6,7 +6,6 @@ import hashlib
 import json
 import uuid
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import Session
@@ -45,13 +44,6 @@ def _debug_cache_access() -> Iterator[None]:
         yield
     except (RedisError, CacheUnavailableError):
         raise_error("server.learn.debugServiceUnavailable")
-
-
-@dataclass
-class DebugRewindPlan(RewindPlan):
-    """Keep the requested anchor retryable after its first replacement is saved."""
-
-    retry_anchor: str = ""
 
 
 class DebugSessionStore:
@@ -217,7 +209,7 @@ class DebugSessionStore:
         question_ids: list[str] | None,
     ) -> None:
         # Following a draft edit migrates the conversation, so its earlier turns keep
-        # their checkpoints and can still be regenerated under the edited draft.
+        # their checkpoints for later answer edits under the edited draft.
         previous = (
             self._payload(
                 script=session.script.script, any_script=self._follow_script_edits
@@ -252,19 +244,6 @@ class DebugSessionStore:
                     "question_ids": list(question_ids or []),
                 }
             )
-        retry = previous.get("regeneration_retry")
-        if rewind is not None:
-            retry = None
-            if (
-                isinstance(rewind, DebugRewindPlan)
-                and rewind.retry_anchor
-                and generated_block_bid
-                and turn_record
-            ):
-                retry = {
-                    "requested_block_bid": rewind.retry_anchor,
-                    "replacement_block_bid": generated_block_bid,
-                }
         payload = {
             "script_hash": hashlib.sha256(session.script.script.encode()).hexdigest(),
             "session": session.dumps(),
@@ -275,16 +254,6 @@ class DebugSessionStore:
             # Retain ordering for as long as the session lives, even if the
             # shorter-lived admission token expires before the saved session.
             payload["request_generation"] = generation
-        if (
-            isinstance(retry, dict)
-            and isinstance(retry.get("requested_block_bid"), str)
-            and retry["requested_block_bid"]
-            and any(
-                turn["block_bid"] == retry.get("replacement_block_bid")
-                for turn in turns
-            )
-        ):
-            payload["regeneration_retry"] = retry
         encoded = json.dumps(payload)
         with _debug_cache_access():
             self._cache.setex(self._key, self.TTL_SECONDS, encoded)
@@ -312,8 +281,8 @@ class DebugSessionStore:
         block_bid: str,
         answering: bool = False,
         element_bid: str | None = None,
-    ) -> DebugRewindPlan:
-        """Resolve storage ownership, then use the learner's shared rewind rules."""
+    ) -> RewindPlan:
+        """Resolve storage ownership, then use the shared turn rewind rules."""
         payload = self._payload(script=script) or {}
         # Read session and checkpoints from one cache snapshot: the old stream
         # may still be saving while the replacement request is being admitted.
@@ -355,13 +324,6 @@ class DebugSessionStore:
             ):
                 raise RewindUnavailableError
             question_id = ids[offset]
-        elif not any(turn["block_bid"] == block_bid for turn in turns):
-            retry = payload.get("regeneration_retry")
-            if (
-                isinstance(retry, dict)
-                and retry.get("requested_block_bid") == block_bid
-            ):
-                resolved_block = retry.get("replacement_block_bid", "")
         plan = plan_turn_rewind(
             turns,
             block_bid=resolved_block,
@@ -384,12 +346,7 @@ class DebugSessionStore:
             restore(session, plan.checkpoint)
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             raise RewindUnavailableError from exc
-        return DebugRewindPlan(
-            checkpoint=plan.checkpoint,
-            replay_values=plan.replay_values,
-            retired_block_bids=plan.retired_block_bids,
-            retry_anchor="" if answering else block_bid,
-        )
+        return plan
 
 
 def stream_debug_preview(

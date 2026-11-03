@@ -39,6 +39,7 @@ import {
   buildVisibleDebugItems,
   normalizeDebugTypewriterContent,
   shouldEnableDebugTypewriter,
+  isDebugTextContentItem,
   syncDebugTypewriterCache,
   type DebugTypewriterCache,
 } from './debug-typewriter-gate';
@@ -50,8 +51,7 @@ interface DebugPanelProps {
   creditInsufficientAudience?: CreditInsufficientAudience;
   variableValues?: DebugVariableValues;
   shifuBid: string;
-  onRegenerate: (elementBid: string) => void;
-  onRetryRegeneration?: () => void;
+  onRetryAnswerEdit?: () => void;
   onSubmitInteraction: (
     content: OnSendContentParams,
     elementBid: string,
@@ -76,43 +76,18 @@ interface DebugPanelProps {
   courseVariableKeys?: string[];
   unusedVariableKeys?: string[];
   onHideVariable?: (name: string) => void;
-  showRegenerateAction?: boolean;
 }
 
-const noop = () => {};
 const ENABLE_DEBUG_TYPEWRITER = false;
-
-const isRegeneratableDebugParent = (
-  item?: ChatContentItem,
-): item is ChatContentItem => {
-  if (!item) {
-    return false;
-  }
-
-  const itemBid = item.element_bid || item.generated_block_bid || '';
-  const generatedBlockBid = item.generated_block_bid || '';
-  if (
-    !itemBid ||
-    !generatedBlockBid ||
-    itemBid === 'loading' ||
-    generatedBlockBid === 'loading'
-  ) {
-    return false;
-  }
-
-  return (
-    item.type === ChatContentItemType.CONTENT && item.element_type === 'text'
-  );
-};
 
 const shouldPreferGeneratedBlockItem = (
   currentItem: ChatContentItem,
   nextItem: ChatContentItem,
 ): boolean => {
-  if (isRegeneratableDebugParent(currentItem)) {
+  if (isDebugTextContentItem(currentItem)) {
     return false;
   }
-  if (isRegeneratableDebugParent(nextItem)) {
+  if (isDebugTextContentItem(nextItem)) {
     return true;
   }
   return false;
@@ -176,8 +151,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
   creditInsufficientAudience = 'teacher-collaborator',
   variableValues,
   shifuBid,
-  onRegenerate,
-  onRetryRegeneration,
+  onRetryAnswerEdit,
   onSubmitInteraction,
   onRequestElementAudio,
   onVariableChange,
@@ -191,7 +165,6 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
   courseVariableKeys,
   unusedVariableKeys,
   onHideVariable,
-  showRegenerateAction = false,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -414,7 +387,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                     <ExclamationTriangleIcon className='h-8 w-8 text-amber-500' />
                     <span>{errorMessage}</span>
                   </div>
-                ) : !onRetryRegeneration ? (
+                ) : !onRetryAnswerEdit ? (
                   <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
                     <Image
                       src={ScrollText.src}
@@ -480,12 +453,6 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                 );
                 const actionBid =
                   item.element_bid || item.generated_block_bid || '';
-                const shouldRenderRegenerateAction = Boolean(
-                  hasActionRow &&
-                  showRegenerateAction &&
-                  isRegeneratableDebugParent(item) &&
-                  actionBid,
-                );
                 const shouldRenderAudioAction = Boolean(
                   hasActionRow &&
                   item.type === ChatContentItemType.CONTENT &&
@@ -537,21 +504,15 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                       );
                     })()}
                     {item.type === ChatContentItemType.CONTENT &&
-                    (item.content ||
-                      shouldRenderRegenerateAction ||
-                      shouldRenderAudioAction) ? (
+                    (item.content || shouldRenderAudioAction) ? (
                       <div className='mt-2 flex items-center justify-between gap-3'>
-                        {shouldRenderRegenerateAction ||
-                        shouldRenderAudioAction ? (
+                        {shouldRenderAudioAction ? (
                           <InteractionBlock
                             className='interaction-block--no-padding-top'
                             shifu_bid={shifuBid}
                             element_bid={actionBid}
-                            onRefresh={onRegenerate}
-                            onToggleAskExpanded={noop}
                             disableAskButton
                             disableInteractionButtons
-                            showGenerateBtn={shouldRenderRegenerateAction}
                             extraActions={
                               onRequestElementAudio &&
                               shouldRenderAudioAction ? (
@@ -584,13 +545,13 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
                   </div>
                 );
               })}
-            {onRetryRegeneration && !isLoading ? (
+            {onRetryAnswerEdit && !isLoading ? (
               <div className='mt-4 flex justify-center'>
                 <Button
                   type='button'
                   size='sm'
                   variant='outline'
-                  onClick={onRetryRegeneration}
+                  onClick={onRetryAnswerEdit}
                 >
                   {t('common.core.retry')}
                 </Button>

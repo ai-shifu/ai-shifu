@@ -1,20 +1,18 @@
-type RegenerateResult = 'success' | 'failed' | 'cancelled';
+type AnswerEditResult = 'success' | 'failed' | 'cancelled';
 type TrackEvent = (name: string, payload: Record<string, unknown>) => unknown;
 
-/** Track one admitted Debug regeneration without collecting the selected step. */
-export function startDebugRegenerateTracking({
+/** Track one admitted Debug answer edit without collecting the selected step. */
+export function startDebugAnswerEditTracking({
   anchor,
-  answerEdit = false,
   shifuBid,
   outlineBid,
   trackEvent,
 }: {
   anchor?: string;
-  answerEdit?: boolean;
   shifuBid: string;
   outlineBid: string;
   trackEvent: TrackEvent;
-}): ((result: RegenerateResult) => void) | undefined {
+}): ((result: AnswerEditResult) => void) | undefined {
   if (!anchor) return;
   const payload = {
     shifu_bid: shifuBid,
@@ -25,9 +23,7 @@ export function startDebugRegenerateTracking({
       void Promise.resolve(trackEvent(name, data)).catch(() => {});
     } catch {}
   };
-  const family = answerEdit
-    ? 'teacher_debug_answer_edit'
-    : 'teacher_debug_regenerate';
+  const family = 'teacher_debug_answer_edit';
   emit(`${family}_start`, payload);
   let finished = false;
   return result => {

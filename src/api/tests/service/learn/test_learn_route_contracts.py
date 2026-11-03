@@ -542,8 +542,9 @@ def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
     run.assert_not_called()
 
 
+@pytest.mark.parametrize("answering", [False, True])
 def test_preview_route_reads_only_current_fields_and_validates_before_model_call(
-    monkeypatch: object, test_client: object, feedback_course: object
+    monkeypatch: object, test_client: object, feedback_course: object, answering: bool
 ) -> None:
     from flaskr.service.learn.agent import debug_session
 
@@ -556,14 +557,14 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
         json={
             "content": "Lesson text",
             "block_index": 0,
-            "user_input": {"choice": ["answer"]},
+            "user_input": {"choice": ["answer"]} if answering else None,
             # Retired fields no editor bundle sends any more; they are ignored.
             "context": [{"role": "user", "content": "old"}],
             "document_prompt": "old",
             "visual_mode": True,
             "debug_session_id": "editor-run-1",
             "reload_generated_block_bid": "selected-step",
-            "reload_element_bid": "selected-question",
+            "reload_element_bid": "selected-question" if answering else None,
             "request_generation": 7,
         },
         headers={"Token": "test-token"},
@@ -572,9 +573,13 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     args = preview.call_args.kwargs
     assert args["run_bid"] == "editor-run-1"
     assert args["preview_request"].get_document() == "Lesson text"
-    assert args["preview_request"].user_input == {"choice": ["answer"]}
+    assert args["preview_request"].user_input == (
+        {"choice": ["answer"]} if answering else None
+    )
     assert args["preview_request"].reload_generated_block_bid == "selected-step"
-    assert args["preview_request"].reload_element_bid == "selected-question"
+    assert args["preview_request"].reload_element_bid == (
+        "selected-question" if answering else None
+    )
     assert args["preview_request"].request_generation == 7
     for retired in ("context", "document_prompt", "visual_mode"):
         assert not hasattr(args["preview_request"], retired)
@@ -607,7 +612,7 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
     preview.assert_not_called()
 
 
-@pytest.mark.parametrize("phase", ["initial", "answer", "regenerate", "answer_edit"])
+@pytest.mark.parametrize("phase", ["initial", "answer", "answer_edit"])
 @pytest.mark.parametrize("language", ["en-US", "zh-CN", "fr-FR"])
 def test_debug_cache_failure_keeps_its_business_code_and_request_language(
     monkeypatch: object,
