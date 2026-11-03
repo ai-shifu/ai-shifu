@@ -188,6 +188,8 @@
 
   .value {
     position: relative;
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-width: 0;
     font-size: 13px;
@@ -208,6 +210,7 @@
       var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
 
     textarea {
+      flex: 1 0 auto;
       min-height: 36px;
       resize: none;
       white-space: pre-wrap;
