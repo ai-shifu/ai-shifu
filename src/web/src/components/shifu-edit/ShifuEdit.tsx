@@ -138,6 +138,8 @@ const ScriptEditor = ({
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
   const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
     useState(false);
+  const draftSyncToastRef =
+    useRef<ReturnType<typeof showBackgroundToast>>(undefined);
   const [draftConflictMode, setDraftConflictMode] =
     useState<DraftConflictMode>('other-user');
   const [historyItems, setHistoryItems] = useState<MdflowHistoryItem[]>([]);
@@ -701,7 +703,8 @@ const ScriptEditor = ({
           const phone =
             latestMeta?.updated_user?.phone ||
             t('module.shifuSetting.draftConflictUnknownUser');
-          showBackgroundToast({
+          draftSyncToastRef.current?.dismiss();
+          draftSyncToastRef.current = showBackgroundToast({
             description:
               mode === 'other-user'
                 ? t('module.shifuSetting.draftConflictSynced', { phone })
@@ -919,6 +922,13 @@ const ScriptEditor = ({
       setIsDraftConflictDialogOpen(true);
     }
   }, [hasDraftConflict]);
+
+  useEffect(() => {
+    return () => {
+      draftSyncToastRef.current?.dismiss();
+      draftSyncToastRef.current = undefined;
+    };
+  }, [currentNode?.bid, currentShifu?.bid]);
 
   const handleDraftConflictRefresh = useCallback(() => {
     const shifuBid = currentShifuBidRef.current;

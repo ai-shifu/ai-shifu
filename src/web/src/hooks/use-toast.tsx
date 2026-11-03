@@ -199,7 +199,7 @@ function showBackgroundToast(props: Toast) {
   if (hasPersistentToast) {
     return;
   }
-  toast(props);
+  return toast(props);
 }
 
 function toastOnce({

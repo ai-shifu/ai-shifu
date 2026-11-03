@@ -20,6 +20,7 @@ const mockUseDebugSession = jest.fn();
 const mockRetryRegeneration = jest.fn();
 let mockCanRetryRegeneration = false;
 const mockRefreshUserInfo = jest.fn();
+const mockDismissSyncToast = jest.fn();
 let mockUserToken = 'token';
 
 // Load the real shared name helpers without the unrelated ESM remark plugins.
@@ -38,7 +39,8 @@ jest.mock('next/dynamic', () => () => {
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, options?: { phone?: string }) =>
+      options?.phone ? `${key}:${options.phone}` : key,
     i18n: jest.requireMock('@/i18n').default,
   }),
 }));
@@ -393,7 +395,13 @@ describe('ShifuEdit draft conflict checks', () => {
   };
 
   beforeEach(() => {
-    jest.mocked(showBackgroundToast).mockClear();
+    mockDismissSyncToast.mockClear();
+    jest.mocked(showBackgroundToast).mockReset();
+    jest.mocked(showBackgroundToast).mockReturnValue({
+      id: 'sync-toast',
+      dismiss: mockDismissSyncToast,
+      update: jest.fn(),
+    });
     mockMarkdownFlowEditor.mockReset();
     mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
@@ -896,7 +904,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
   test.each([
     ['user-1', 'module.shifuSetting.draftSelfUpdateSynced'],
-    ['other-user', 'module.shifuSetting.draftConflictSynced'],
+    ['other-user', 'module.shifuSetting.draftConflictSynced:13900139000'],
   ])(
     'uses the shared transient toast for updates by %s',
     async (userBid, message) => {
@@ -928,6 +936,62 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(
         screen.queryByTestId('draft-conflict-dialog'),
       ).not.toBeInTheDocument();
+    },
+  );
+
+  test('does not announce sync when the remote draft was not applied', async () => {
+    setLessonNode();
+    mockShifuState.baseRevision = 1;
+    mockLoadDraftMeta.mockResolvedValue({ revision: 1, updated_user: null });
+    baseActions.loadMdflow.mockResolvedValue(true);
+    render(<ScriptEditor id='shifu-1' />);
+    await waitFor(() =>
+      expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1),
+    );
+
+    baseActions.loadMdflow.mockClear();
+    baseActions.loadMdflow.mockResolvedValue(false);
+    mockLoadDraftMeta.mockResolvedValue({ revision: 2, updated_user: null });
+    await act(async () => window.dispatchEvent(new Event('focus')));
+
+    expect(baseActions.loadMdflow).toHaveBeenCalledTimes(1);
+    expect(showBackgroundToast).not.toHaveBeenCalled();
+  });
+
+  test.each(['lesson change', 'course change', 'unmount'])(
+    'dismisses chapter sync feedback on %s',
+    async transition => {
+      setLessonNode();
+      mockShifuState.baseRevision = 1;
+      mockLoadDraftMeta.mockResolvedValue({ revision: 1, updated_user: null });
+      baseActions.loadMdflow.mockResolvedValue(true);
+      const { rerender, unmount } = render(<ScriptEditor id='shifu-1' />);
+      await waitFor(() =>
+        expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1),
+      );
+
+      mockLoadDraftMeta.mockResolvedValue({ revision: 2, updated_user: null });
+      await act(async () => window.dispatchEvent(new Event('focus')));
+      expect(showBackgroundToast).toHaveBeenCalledTimes(1);
+      expect(mockDismissSyncToast).not.toHaveBeenCalled();
+
+      if (transition === 'unmount') {
+        unmount();
+      } else {
+        if (transition === 'lesson change') {
+          mockShifuState.currentNode = {
+            ...mockShifuState.currentNode,
+            bid: 'lesson-2',
+          };
+        } else {
+          mockShifuState.currentShifu = {
+            ...mockShifuState.currentShifu,
+            bid: 'shifu-2',
+          };
+        }
+        rerender(<ScriptEditor id='shifu-1' />);
+      }
+      expect(mockDismissSyncToast).toHaveBeenCalledTimes(1);
     },
   );
 
