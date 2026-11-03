@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './DebugVariablesPanel.module.scss';
 import type { DebugVariableValues } from '@/types/debug-session';
-import { Input } from '../ui/Input';
+import { Textarea } from '../ui/Textarea';
+import { useTracking } from '@/hooks/use-tracking';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface DebugVariablesPanelProps {
@@ -51,6 +52,12 @@ const DebugVariablesPanel: React.FC<DebugVariablesPanelProps> = ({
   onHideVariable,
 }) => {
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
+  const focusedValueRef = useRef<{
+    name: string;
+    value: string;
+    editedValue?: string;
+  } | null>(null);
 
   const isHideAction = variableVisibilityAction === 'hide';
   const courseVariableKeySet = useMemo(
@@ -166,8 +173,8 @@ const DebugVariablesPanel: React.FC<DebugVariablesPanelProps> = ({
               >
                 <div className={styles.name}>{displayName}</div>
                 <div className={styles.value}>
-                  <Input
-                    type='text'
+                  <Textarea
+                    rows={2}
                     value={displayValue}
                     aria-label={displayName}
                     placeholder={
@@ -183,6 +190,38 @@ const DebugVariablesPanel: React.FC<DebugVariablesPanelProps> = ({
                     onChange={e => {
                       const nextValue = e.target.value;
                       onVariableChange?.(name, nextValue);
+                      if (focusedValueRef.current?.name === name) {
+                        focusedValueRef.current.editedValue = nextValue;
+                      }
+                    }}
+                    onFocus={event => {
+                      focusedValueRef.current = {
+                        name,
+                        value: event.currentTarget.value,
+                      };
+                    }}
+                    onBlur={event => {
+                      const previous = focusedValueRef.current;
+                      focusedValueRef.current = null;
+                      const nextValue = event.currentTarget.value;
+                      if (
+                        !onVariableChange ||
+                        previous?.name !== name ||
+                        previous.editedValue !== nextValue ||
+                        previous.value === nextValue ||
+                        !nextValue.includes('\n')
+                      ) {
+                        return;
+                      }
+                      try {
+                        void Promise.resolve(
+                          trackEvent('creator_debug_memory_multiline_edit', {
+                            field_type: isSystemField
+                              ? 'personal_info'
+                              : 'course_memory',
+                          }),
+                        ).catch(() => {});
+                      } catch {}
                     }}
                   />
                   {canHide && onHideVariable && (

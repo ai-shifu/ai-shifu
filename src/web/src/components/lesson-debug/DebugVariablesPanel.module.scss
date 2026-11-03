@@ -191,7 +191,6 @@
     min-width: 0;
     font-size: 13px;
     font-weight: 600;
-    white-space: nowrap;
     overflow: visible;
     color: #171717;
 
@@ -199,9 +198,13 @@
     font-style: normal;
     font-weight: var(--font-weight-normal, 400);
     line-height: var(--text-sm-line-height, 20px); /* 142.857% */
-    input {
+    textarea {
       height: 100%;
-      min-height: 32px;
+      min-height: 58px;
+      resize: none;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: inherit;
       border-radius: 0 var(--border-radius-rounded-md, 8px)
         var(--border-radius-rounded-md, 8px) 0;
       border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
