@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-23
+last_reviewed: 2026-11-03
 canonical: true
 ---
 
@@ -77,6 +77,40 @@ serialization, or business-event pageview backfill must migrate. These fields
 are not backfilled under another name.
 
 ## Creator authoring interactions
+
+### Multiline simulation memory edits
+
+- Business question: do teachers use multiple lines when editing simulation
+  memory, and is that use concentrated in personal information or course memory?
+- Metric definition: accepted multiline edits per UTC day, grouped by
+  `field_type`. This is an action count, without an exposure denominator or an
+  exact user funnel.
+- Event: `creator_debug_memory_multiline_edit`.
+- Actor and surface: authenticated teachers in the lesson editor's Learning
+  Simulation memory panel, including editable simulation values on read-only
+  course previews. Learner, guest and full-course classroom previews are excluded.
+- Trigger: a focused value loses focus after its value changed and its final
+  value contains a newline. The existing change callback must be present.
+  Unchanged values, single-line values, render and restored values emit nothing.
+- Count unit and deduplication: one accepted edit per focus-to-blur cycle;
+  repeated blur and re-render emit nothing. A subsequent changed edit counts
+  separately. Focus snapshots are held in component memory, without persistence.
+- Correlation: no resource IDs or variable keys are needed for this aggregate.
+- Consumer: daily multiline-edit adoption queries owned by product analytics.
+- Compatibility: additive event; existing preview events remain unchanged.
+  Historical edits are not backfilled and no checked-in consumer needs migration.
+- Verification: component tests cover timing, both field types, exclusions,
+  deduplication, exact payload, privacy and failure isolation. Tracking failures
+  never change the edited value or its existing storage and simulation path.
+
+| Field        | Type   | Allowed values                   | Cardinality | Privacy class | Why required                                       |
+| ------------ | ------ | -------------------------------- | ----------- | ------------- | -------------------------------------------------- |
+| `field_type` | string | `personal_info`, `course_memory` | low         | non-personal  | Compare adoption between the two memory categories |
+
+The complete application payload contains only `field_type`. Names, variable
+keys, labels, personal information, answers and memory contents are excluded.
+
+### Existing authoring events
 
 - Business question: which successful authoring operations and accepted editor
   actions are used, and which follow-up interaction mode is saved, without
