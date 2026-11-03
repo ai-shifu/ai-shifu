@@ -21,6 +21,7 @@ const mockRetryDebugAnswerEdit = jest.fn();
 const mockRefreshUserInfo = jest.fn();
 const mockDismissSyncToast = jest.fn();
 let mockUserToken = 'token';
+let mockCanRetryAnswerEdit = true;
 
 // Load the real shared name helpers without the unrelated ESM remark plugins.
 jest.mock('remark-flow', () =>
@@ -261,7 +262,7 @@ jest.mock('@/components/lesson-debug/use-debug-session', () => ({
       stopRun: jest.fn(),
       resetSession: jest.fn(),
       retryAnswerEdit: mockRetryDebugAnswerEdit,
-      canRetryAnswerEdit: true,
+      canRetryAnswerEdit: mockCanRetryAnswerEdit,
       submitInteraction: jest.fn(),
       persistVariableValues: jest.fn(),
       setVariableValue: jest.fn(),
@@ -406,6 +407,7 @@ describe('ShifuEdit draft conflict checks', () => {
     mockUseDebugSession.mockReset();
     mockRefreshUserInfo.mockReset();
     mockUserToken = 'token';
+    mockCanRetryAnswerEdit = true;
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
     mockLoadDraftMeta.mockReset();
@@ -1386,6 +1388,15 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(panelProps).not.toHaveProperty('onRetryRegeneration');
     expect(panelProps).not.toHaveProperty('showRegenerateAction');
     expect(panelProps.onRetryAnswerEdit).toBe(mockRetryDebugAnswerEdit);
+  });
+
+  test('omits answer-edit retry when the current Debug run cannot be retried', async () => {
+    setLessonNode();
+    mockCanRetryAnswerEdit = false;
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+    await waitFor(() => expect(mockDebugPanel).toHaveBeenCalled());
+    expect(mockDebugPanel.mock.lastCall?.[0].onRetryAnswerEdit).toBeUndefined();
   });
 
   test('renders the dedicated history layout in history mode', async () => {
