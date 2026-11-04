@@ -14,8 +14,11 @@ def input_budget_bytes_for(max_input_tokens: int | None) -> int:
     A token of real text never encodes fewer than one UTF-8 byte (Chinese runs
     about three bytes per token, English about four), and the JSON envelope this
     budget counts adds more bytes than the chat template adds tokens. So a byte
-    budget equal to the token ceiling cannot admit a request the model would
-    reject for length. Unknown models keep the fixed default.
+    budget equal to the token ceiling cannot admit an input longer than the
+    ceiling, and real lesson text reaches only a quarter to a third of it,
+    leaving the rest of a combined context window for output. Configure the
+    input ceiling (not the whole window) where a provider publishes one.
+    Unknown models keep the fixed default.
     """
     if max_input_tokens is None:
         return INPUT_BUDGET_BYTES

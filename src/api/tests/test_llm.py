@@ -1062,7 +1062,7 @@ def test_max_input_tokens_prefers_configured_routed_id(monkeypatch: object) -> N
     monkeypatch.setattr(
         llm.litellm,
         "get_model_info",
-        lambda _model: pytest.fail("configured limits must not consult LiteLLM"),
+        lambda **_kwargs: pytest.fail("configured limits must not consult LiteLLM"),
         raising=False,
     )
 
@@ -1089,14 +1089,59 @@ def test_max_input_tokens_falls_back_to_litellm_metadata(
         lambda model: ({"api_key": "k"}, model, None),
     )
     monkeypatch.setattr(
-        llm.litellm, "get_model_info", lambda _model: model_info, raising=False
+        llm.litellm, "get_model_info", lambda **_kwargs: model_info, raising=False
     )
 
     assert llm.resolve_llm_max_input_tokens("gpt-6-sol") == expected
 
 
+def test_max_input_tokens_resolves_a_course_slot_first(monkeypatch: object) -> None:
+    metadata = {"model_selection_scope": "course"}
+    seen = []
+
+    def resolve(model: str, values: dict | None) -> tuple[str, dict]:
+        seen.append((model, values))
+        return "qwen/glm-5.3", {}
+
+    monkeypatch.setattr(llm, "resolve_selection", resolve)
+    monkeypatch.setattr(llm, "MODEL_MAX_INPUT_TOKENS", {"qwen/glm-5.3": 1048576})
+
+    assert llm.resolve_llm_max_input_tokens("1", metadata) == 1048576
+    assert seen == [("1", metadata)]
+
+
+def test_max_input_tokens_is_unknown_for_an_unbound_slot(monkeypatch: object) -> None:
+    def unbound(_model: str, _values: dict | None) -> tuple[str, dict]:
+        raise ValueError
+
+    monkeypatch.setattr(llm, "resolve_selection", unbound)
+
+    assert llm.resolve_llm_max_input_tokens("9", {}) is None
+
+
+def test_max_input_tokens_reads_metadata_for_the_serving_provider(
+    monkeypatch: object,
+) -> None:
+    calls = []
+
+    def model_info(**kwargs: object) -> dict:
+        calls.append(kwargs)
+        return {"max_input_tokens": 98304}
+
+    monkeypatch.setattr(llm, "MODEL_MAX_INPUT_TOKENS", {})
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"custom_llm_provider": "dashscope"}, "deepseek-chat", "qwen"),
+    )
+    monkeypatch.setattr(llm.litellm, "get_model_info", model_info, raising=False)
+
+    assert llm.resolve_llm_max_input_tokens("qwen/deepseek-chat") == 98304
+    assert calls == [{"model": "deepseek-chat", "custom_llm_provider": "dashscope"}]
+
+
 def test_max_input_tokens_is_unknown_when_lookup_fails(monkeypatch: object) -> None:
-    def unmapped(_model: str) -> dict:
+    def unmapped(**_kwargs: object) -> dict:
         raise ValueError
 
     monkeypatch.setattr(llm, "MODEL_MAX_INPUT_TOKENS", {})

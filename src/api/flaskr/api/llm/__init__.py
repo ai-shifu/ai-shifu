@@ -320,19 +320,36 @@ def _load_model_max_input_tokens() -> dict[str, int]:
         return {}
 
 
-def resolve_llm_max_input_tokens(model: str) -> int | None:
-    """Return a routed model's input token ceiling, or None when it is unknown.
+def resolve_llm_max_input_tokens(
+    model: str, usage_metadata: dict | None = None
+) -> int | None:
+    """Return a model's input token ceiling, or None when it is unknown.
 
-    The configured value (keyed by the routed id, which names the serving
-    provider) wins over LiteLLM metadata. Unknown, unconfigured or malformed
-    entries return None; callers keep their own default budget.
+    A course selection (a numbered slot, scoped by `usage_metadata`) is first
+    resolved to its routed model id, as the gateway will resolve it. The
+    configured value for that id (which names the serving provider) wins;
+    otherwise LiteLLM metadata is read for the serving provider, never for a
+    bare model name another provider also serves. Unknown, unconfigured or
+    malformed entries return None; callers keep their own default budget.
     """
-    configured = MODEL_MAX_INPUT_TOKENS.get(model)
+    try:
+        routed, _metadata = resolve_selection(model, usage_metadata)
+    except Exception:
+        # An unbound slot fails at request time with its own error; size nothing here.
+        return None
+    configured = MODEL_MAX_INPUT_TOKENS.get(routed)
     if configured is not None:
         return configured
     try:
-        _params, invoke_model, _provider_key = get_litellm_params_and_model(model)
-        limit = litellm.get_model_info(invoke_model).get("max_input_tokens")
+        params, invoke_model, provider_key = get_litellm_params_and_model(routed)
+        scope = (
+            {"custom_llm_provider": _litellm_provider_name(provider_key, params or {})}
+            if provider_key
+            else {}
+        )
+        limit = litellm.get_model_info(model=invoke_model, **scope).get(
+            "max_input_tokens"
+        )
     except Exception:
         # Missing catalogue entries and unconfigured providers are both "unknown".
         return None

@@ -332,8 +332,11 @@ class GatewayModel(Model):
         """
         super().__init__()
         if input_budget_bytes is None:
+            metadata = chat_llm_kwargs.get("usage_metadata")
             input_budget_bytes = input_budget_bytes_for(
-                resolve_llm_max_input_tokens(model)
+                resolve_llm_max_input_tokens(
+                    model, metadata if isinstance(metadata, dict) else None
+                )
             )
         if input_budget_bytes <= 0:
             message = "model input budget must be positive"

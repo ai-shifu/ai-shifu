@@ -416,7 +416,13 @@ def test_gateway_model_defaults_its_budget_from_the_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     limits = {"qwen/glm-5.3": 1_048_576}
-    monkeypatch.setattr(gw, "resolve_llm_max_input_tokens", limits.get)
+    seen = []
+
+    def resolve(model: str, metadata: dict | None) -> int | None:
+        seen.append(metadata)
+        return limits.get(model)
+
+    monkeypatch.setattr(gw, "resolve_llm_max_input_tokens", resolve)
 
     def model(name: str, **kwargs: object) -> gw.GatewayModel:
         return gw.GatewayModel(
@@ -425,6 +431,10 @@ def test_gateway_model_defaults_its_budget_from_the_model(
 
     assert model("qwen/glm-5.3")._input_budget_bytes == 1_048_576
     assert model("unknown")._input_budget_bytes == INPUT_BUDGET_BYTES
+    # A course selection is resolved with the metadata the gateway will use.
+    course = {"model_selection_scope": "course"}
+    model("qwen/glm-5.3", usage_metadata=course)
+    assert seen[-1] == course
     # An explicit budget (a summary request, a private completion) still wins.
     assert (
         model("qwen/glm-5.3", input_budget_bytes=40_960)._input_budget_bytes == 40_960
