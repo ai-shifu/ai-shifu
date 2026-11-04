@@ -27,13 +27,6 @@ export const getLessonTree = async (courseId: string, previewMode: boolean) => {
   );
 };
 
-export const getScriptInfo = async (courseId: string, scriptId: string) => {
-  const preview_mode = useSystemStore.getState().previewMode;
-  return request.get(
-    `/api/learn/shifu/${courseId}/generated-contents/${scriptId}?preview_mode=${preview_mode}`,
-  );
-};
-
 export const resetChapter = async ({ lessonId: outline_bid }) => {
   const { courseId: shifu_bid } = useEnvStore.getState();
   const { previewMode } = useSystemStore.getState();

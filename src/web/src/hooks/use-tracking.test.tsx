@@ -2,17 +2,10 @@ import { renderHook } from '@testing-library/react';
 import { useTracking } from './use-tracking';
 
 const mockTracking = jest.fn();
-const mockGetScriptInfo = jest.fn();
 
 jest.mock('@/lib/tracking', () => ({
-  EVENT_NAMES: {
-    TRIAL_PROGRESS: 'trial_progress',
-  },
+  EVENT_NAMES: {},
   tracking: (...args: unknown[]) => mockTracking(...args),
-}));
-
-jest.mock('@/api/lesson', () => ({
-  getScriptInfo: (...args: unknown[]) => mockGetScriptInfo(...args),
 }));
 
 describe('useTracking', () => {
@@ -55,22 +48,5 @@ describe('useTracking', () => {
       result.current.trackEvent('async_failure'),
     ).resolves.toBeUndefined();
     await Promise.resolve();
-  });
-
-  it('keeps trial progress payload limited to a stable numeric position', async () => {
-    mockGetScriptInfo.mockResolvedValue({
-      data: {
-        is_trial_lesson: true,
-        outline_name: 'Private lesson title',
-        position: 3,
-      },
-    });
-    const { result } = renderHook(() => useTracking());
-
-    await result.current.trackTrailProgress('course-bid', 'script-bid');
-
-    expect(mockTracking).toHaveBeenCalledWith('trial_progress', {
-      progress_no: 3,
-    });
   });
 });

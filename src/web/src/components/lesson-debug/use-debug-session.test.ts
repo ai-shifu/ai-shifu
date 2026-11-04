@@ -295,9 +295,14 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'block',
-          content: 'Visible content',
+          type: 'element',
+          content: {
+            element_bid: 'block',
+            generated_block_bid: 'block',
+            element_type: 'text',
+            content: 'Visible content',
+            is_final: false,
+          },
         }),
       });
     });
@@ -950,9 +955,14 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'recovered',
-          content: 'Recovered',
+          type: 'element',
+          content: {
+            element_bid: 'recovered',
+            generated_block_bid: 'recovered',
+            element_type: 'text',
+            content: 'Recovered',
+            is_final: true,
+          },
         }),
       });
       source.listeners.message?.({

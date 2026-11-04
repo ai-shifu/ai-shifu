@@ -8,10 +8,6 @@ import {
 } from 'react';
 import React from 'react';
 import { useLatest } from 'react-use';
-import {
-  mergeStreamingMarkdownText,
-  maskIncompleteMermaidBlock,
-} from '@/lib/markdown-utils';
 import { useCourseStore } from '@/store/use-course-store';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -67,7 +63,6 @@ import { startPreviewRewindTracking } from './preview-rewind-tracking';
 import { useTranslation } from 'react-i18next';
 import { show as showToast, toast, toastOnce } from '@/hooks/use-toast';
 import { AppContext } from '../app-context';
-import { stripCustomButtonAfterContent } from './chat-ui-utils';
 import {
   buildLessonRunContentCacheKey,
   EMPTY_LESSON_RUN_CONTENT_ENTRY,
@@ -243,7 +238,6 @@ function useLessonConversation({
   listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
-  trackTrailProgress,
   lessonUpdate,
   chapterUpdate,
   updateSelectedLesson,
@@ -815,12 +809,6 @@ function useLessonConversation({
     [sortSlidesByTimeline],
   );
 
-  const upsertListenSlide = useCallback(
-    (slides: ListenSlideData[] = [], incoming: ListenSlideData) =>
-      mergeListenSlides(slides, [incoming]),
-    [mergeListenSlides],
-  );
-
   const resolveListenSlideIdentityBids = useCallback(
     (
       ...sources: Array<
@@ -865,50 +853,6 @@ function useLessonConversation({
     [getLessonRunContentCacheEntry, mergeListenSlides],
   );
 
-  const resolveListenSlidePrimaryIdentityBids = useCallback(
-    (slide: Partial<ListenSlideData>) => {
-      const generatedBlockBid = slide.generated_block_bid?.trim() || '';
-      const slideElementBid = slide.element_bid?.trim() || '';
-      const explicitBids = [
-        slide.target_element_bid,
-        slideElementBid && slideElementBid !== generatedBlockBid
-          ? slideElementBid
-          : undefined,
-      ].filter((bid): bid is string => Boolean(bid?.trim()));
-
-      return explicitBids.length
-        ? Array.from(new Set(explicitBids.map(bid => bid.trim())))
-        : generatedBlockBid
-          ? [generatedBlockBid]
-          : [];
-    },
-    [],
-  );
-
-  const itemMatchesListenSlide = useCallback(
-    (item: ChatContentItem, slide: Partial<ListenSlideData>) => {
-      const generatedBlockBid = slide.generated_block_bid?.trim() || '';
-      const slideElementBid = slide.element_bid?.trim() || '';
-      const explicitBids = [
-        slide.target_element_bid,
-        slideElementBid && slideElementBid !== generatedBlockBid
-          ? slideElementBid
-          : undefined,
-      ].filter((bid): bid is string => Boolean(bid?.trim()));
-
-      if (explicitBids.length > 0) {
-        return explicitBids.some(
-          bid => item.element_bid === bid || item.target_element_bid === bid,
-        );
-      }
-
-      return Boolean(
-        generatedBlockBid && item.generated_block_bid === generatedBlockBid,
-      );
-    },
-    [],
-  );
-
   const clearPendingListenSlides = useCallback(
     (identityBids: string[]) => {
       if (!identityBids.length) {
@@ -923,36 +867,6 @@ function useLessonConversation({
       });
     },
     [lessonRunContentCacheKey, updateLessonRunPendingSlides],
-  );
-
-  const stashPendingListenSlide = useCallback(
-    (identityBids: string[], slide: ListenSlideData) => {
-      if (!identityBids.length) {
-        return;
-      }
-      updateLessonRunPendingSlides(lessonRunContentCacheKey, pendingSlides => {
-        const nextPendingSlides = { ...pendingSlides };
-        identityBids.forEach(bid => {
-          nextPendingSlides[bid] = upsertListenSlide(
-            nextPendingSlides[bid] ?? [],
-            slide,
-          );
-        });
-        return nextPendingSlides;
-      });
-    },
-    [lessonRunContentCacheKey, updateLessonRunPendingSlides, upsertListenSlide],
-  );
-
-  const itemMatchesListenSlideIdentity = useCallback(
-    (item: ChatContentItem, identityBids: Set<string>) =>
-      Boolean(
-        identityBids.has(item.element_bid) ||
-        (item.generated_block_bid &&
-          identityBids.has(item.generated_block_bid)) ||
-        (item.target_element_bid && identityBids.has(item.target_element_bid)),
-      ),
-    [],
   );
 
   const resolveElementCacheIdentityBids = useCallback(
@@ -1679,11 +1593,7 @@ function useLessonConversation({
               response?.element_bid ||
               response?.generated_block_bid ||
               '';
-            if (
-              response.type === SSE_OUTPUT_TYPE.ELEMENT ||
-              response.type === SSE_OUTPUT_TYPE.INTERACTION ||
-              response.type === SSE_OUTPUT_TYPE.CONTENT
-            ) {
+            if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
               if (
                 contentListRef.current?.some(
                   item => item.element_bid === 'loading',
@@ -1701,10 +1611,6 @@ function useLessonConversation({
             }
             const blockId = nid;
             // const blockId = currentBlockIdRef.current;
-
-            if (blockId && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
-              trackTrailProgress(shifuBid, blockId);
-            }
 
             if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
               const elementRecord = response.content as StudyRecordItem;
@@ -1813,159 +1719,6 @@ function useLessonConversation({
                   elementBid: nextItem.element_bid,
                 });
               }
-            } else if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
-              const isLessonFeedbackInteraction = isLessonFeedbackContent(
-                response.content,
-              );
-              const interactionElementType =
-                typeof response.content === 'object' && response.content
-                  ? (response.content as { element_type?: ElementType })
-                      .element_type
-                  : undefined;
-              const previousStreamingElementBid = currentBlockIdRef.current;
-              if (
-                previousStreamingElementBid &&
-                previousStreamingElementBid !== nid
-              ) {
-                setTrackedContentList(prevState =>
-                  finalizeElementOutputInList(
-                    prevState,
-                    previousStreamingElementBid,
-                  ),
-                );
-              }
-              if (nid) {
-                currentBlockIdRef.current = nid;
-                currentContentRef.current = '';
-                setCurrentStreamingElementBid(nid);
-              }
-              setTrackedContentList((prev: ChatContentItem[]) => {
-                // Use markdown-flow-ui default rendering for all interactions
-                const interactionBlock: ChatContentItem = {
-                  element_bid: nid,
-                  content: response.content,
-                  element_type:
-                    interactionElementType || ELEMENT_TYPE.INTERACTION,
-                  customRenderBar: () => null,
-                  user_input: '',
-                  readonly: false,
-                  shouldRenderAsHistoryInReadMode: false,
-                  type: ChatContentItemType.INTERACTION,
-                };
-                const hitIndex = prev.findIndex(
-                  item => item.element_bid === nid,
-                );
-                const nextList =
-                  hitIndex >= 0
-                    ? prev.map((item, index) =>
-                        index === hitIndex
-                          ? { ...item, ...interactionBlock }
-                          : item,
-                      )
-                    : [...prev, interactionBlock];
-
-                if (isLessonFeedbackInteraction && nid) {
-                  return removeLikeStatusByParent(nextList, nid);
-                }
-
-                return nextList;
-              });
-              if (isLessonFeedbackInteraction && nid) {
-                openLessonFeedbackPopup({
-                  elementBid: nid,
-                });
-              }
-            } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-              if (isEnd) {
-                return;
-              }
-
-              const existingItem = blockId
-                ? contentListRef.current.find(
-                    item => item.element_bid === blockId,
-                  )
-                : undefined;
-              const existingText =
-                stripCustomButtonAfterContent(existingItem?.content) || '';
-              const prevText = currentContentRef.current || existingText;
-              const nextText = mergeStreamingMarkdownText(
-                prevText,
-                response.content || '',
-              );
-
-              if (blockId) {
-                currentBlockIdRef.current = blockId;
-                setCurrentStreamingElementBid(blockId);
-                setCurrentTypewriterElementBid(blockId);
-              }
-
-              currentContentRef.current = nextText;
-              const displayText = maskIncompleteMermaidBlock(nextText);
-              if (blockId) {
-                const generatedBlockBid =
-                  response?.generated_block_bid || blockId;
-                const contentIdentityBids = resolveListenSlideIdentityBids(
-                  {
-                    element_bid: blockId,
-                    generated_block_bid: generatedBlockBid,
-                  },
-                  blockId,
-                  generatedBlockBid,
-                );
-                const contentIdentitySet = new Set(contentIdentityBids);
-                const pendingListenSlides =
-                  getPendingListenSlides(contentIdentityBids);
-                setTrackedContentList(prevState => {
-                  let hasItem = false;
-                  const updatedList = prevState.map(item => {
-                    if (
-                      itemMatchesListenSlideIdentity(item, contentIdentitySet)
-                    ) {
-                      hasItem = true;
-                      return {
-                        ...item,
-                        generated_block_bid:
-                          item.generated_block_bid || generatedBlockBid,
-                        isAudioBackfillReady:
-                          item.isAudioBackfillReady ||
-                          isAudioBackfillReadyForBlock(
-                            generatedBlockBid,
-                            blockId,
-                          ),
-                        content: displayText,
-                        is_final: false,
-                        shouldRenderAsHistoryInReadMode: false,
-                        customRenderBar: () => null,
-                        listenSlides: mergeListenSlides(
-                          item.listenSlides,
-                          pendingListenSlides,
-                        ),
-                      };
-                    }
-                    return item;
-                  });
-                  if (!hasItem) {
-                    updatedList.push({
-                      element_bid: blockId,
-                      content: displayText,
-                      user_input: '',
-                      readonly: false,
-                      is_final: false,
-                      shouldRenderAsHistoryInReadMode: false,
-                      shouldUseTypewriter: true,
-                      customRenderBar: () => null,
-                      type: ChatContentItemType.CONTENT,
-                      generated_block_bid: generatedBlockBid,
-                      isAudioBackfillReady: isAudioBackfillReadyForBlock(
-                        generatedBlockBid,
-                        blockId,
-                      ),
-                      listenSlides: pendingListenSlides,
-                    });
-                  }
-                  return updatedList;
-                });
-              }
             } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
               const { status, outline_bid } = response.content;
               if (response.content.has_children) {
@@ -2047,73 +1800,6 @@ function useLessonConversation({
                   name: response.content.variable_value,
                 });
               }
-            } else if (response.type === SSE_OUTPUT_TYPE.NEW_SLIDE) {
-              const incomingSlide = response.content as ListenSlideData;
-              const slideGeneratedBlockBid =
-                incomingSlide?.generated_block_bid ||
-                response?.generated_block_bid ||
-                blockId ||
-                undefined;
-              const nextSlide = {
-                ...incomingSlide,
-                element_bid:
-                  incomingSlide.element_bid ||
-                  incomingSlide.target_element_bid ||
-                  slideGeneratedBlockBid,
-                generated_block_bid: slideGeneratedBlockBid,
-              };
-              const slideIdentityBids =
-                resolveListenSlidePrimaryIdentityBids(nextSlide);
-              const currentStreamingBids = new Set(
-                [currentBlockIdRef.current, blockId].filter(
-                  (bid): bid is string => Boolean(bid),
-                ),
-              );
-              if (!slideIdentityBids.length || !incomingSlide?.slide_id) {
-                return;
-              }
-
-              stashPendingListenSlide(slideIdentityBids, nextSlide);
-
-              setTrackedContentList(prevState => {
-                const hasContentBlock = prevState.some(
-                  item =>
-                    itemMatchesListenSlide(item, nextSlide) ||
-                    Boolean(
-                      nextSlide.generated_block_bid &&
-                      item.generated_block_bid ===
-                        nextSlide.generated_block_bid &&
-                      (currentStreamingBids.has(item.element_bid) ||
-                        (item.type === ChatContentItemType.CONTENT &&
-                          item.is_final !== true)),
-                    ),
-                );
-                if (!hasContentBlock) {
-                  return prevState;
-                }
-
-                return prevState.map(item => {
-                  if (
-                    !itemMatchesListenSlide(item, nextSlide) &&
-                    !(
-                      nextSlide.generated_block_bid &&
-                      item.generated_block_bid ===
-                        nextSlide.generated_block_bid &&
-                      (currentStreamingBids.has(item.element_bid) ||
-                        (item.type === ChatContentItemType.CONTENT &&
-                          item.is_final !== true))
-                    )
-                  ) {
-                    return item;
-                  }
-                  return {
-                    ...item,
-                    listenSlides: mergeListenSlides(item.listenSlides, [
-                      nextSlide,
-                    ]),
-                  };
-                });
-              });
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_BACKFILL_READY) {
               const readyContent = response.content as
                 | {
@@ -2281,7 +1967,6 @@ function useLessonConversation({
       mobileStyle,
       t,
       trackEvent,
-      trackTrailProgress,
       allowTtsStreaming,
       appendRunBusinessError,
       appendRunTimeoutError,
@@ -2289,23 +1974,14 @@ function useLessonConversation({
       clearRunStreamTimeout,
       ensureContentItem,
       finalizeElementOutputInList,
-      getPendingListenSlides,
-      isAudioBackfillReadyForBlock,
       isLessonFeedbackContent,
       itemMatchesElementCacheIdentity,
-      itemMatchesListenSlide,
-      itemMatchesListenSlideIdentity,
       lessonRunContentCacheKey,
       markLessonRunAudioBackfillReady,
-      mergeListenSlides,
       openLessonFeedbackPopup,
-      removeLikeStatusByParent,
       resolveAskAnchorElementBid,
       resolveElementItemBid,
       resolveElementCacheIdentityBids,
-      resolveListenSlideIdentityBids,
-      resolveListenSlidePrimaryIdentityBids,
-      stashPendingListenSlide,
       upsertAskMessageByParent,
       updateUserInfo,
     ],
