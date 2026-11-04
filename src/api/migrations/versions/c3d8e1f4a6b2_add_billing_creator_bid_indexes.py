@@ -21,7 +21,7 @@ The downgrade reverses this revision's schema with plain drops.
 from __future__ import annotations
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 revision = "c3d8e1f4a6b2"
 down_revision = "a7c1e3f5b9d2"
@@ -35,6 +35,9 @@ def _index_exists(table_name: str, index_name: str) -> bool:
     A same-named index with another definition is not a partial run of this
     revision, so it stops the upgrade instead of being accepted.
     """
+    if context.is_offline_mode():
+        # `flask db upgrade --sql` has no database to inspect; emit the plain DDL.
+        return False
     inspector = sa.inspect(op.get_bind())
     for index in inspector.get_indexes(table_name):
         if index.get("name") != index_name:
