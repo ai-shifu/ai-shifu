@@ -2788,14 +2788,14 @@ describe('useLessonConversation stream cleanup', () => {
   });
 
   it.each(['history', 'stream'])(
-    'preserves interaction prompt wire content through %s hydration and mode switches',
+    'preserves interaction question wire content through %s hydration and mode switches',
     async source => {
       const interaction = {
         element_type: 'interaction',
-        element_bid: 'prompt-question',
-        generated_block_bid: 'prompt-question-turn',
+        element_bid: 'native-question',
+        generated_block_bid: 'native-question-turn',
         content: '&#81;&#63;\n\n?[A | B]',
-        payload: { interaction_prompt: 'Q?' },
+        payload: { interaction_question: 'Q?' },
       };
       if (source === 'history') {
         mockGetLessonStudyRecord.mockResolvedValueOnce({
@@ -2820,16 +2820,16 @@ describe('useLessonConversation stream cleanup', () => {
         });
       }
 
-      // ContentBlock hides the prompt in reading mode. Shared items retain the
+      // ContentBlock hides the question in reading mode. Shared items retain the
       // wire content so the existing listening renderer can still show it.
       const expectPreservedWireContent = () => {
         expect(
           result.current.items.find(
-            item => item.element_bid === 'prompt-question',
+            item => item.element_bid === 'native-question',
           ),
         ).toMatchObject({
           content: '&#81;&#63;\n\n?[A | B]',
-          payload: { interaction_prompt: 'Q?' },
+          payload: { interaction_question: 'Q?' },
         });
       };
       expectPreservedWireContent();

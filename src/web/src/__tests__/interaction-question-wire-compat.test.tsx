@@ -44,7 +44,7 @@ it.each(cases)(
   async ({ kind, controls, values }) => {
     const user = userEvent.setup();
     const onSend = jest.fn();
-    const content = encodePrompt('Question?') + controls;
+    const content = encodeQuestion('Question?') + controls;
     render(
       <Slide
         playerEnabled
@@ -88,7 +88,7 @@ it.each(cases)(
 it('keeps the prefixed reading controls and readonly selected answer intact for a legacy bundle', () => {
   render(
     <ContentRender
-      content={encodePrompt('Question?') + '?[%{{answer}} A//a | B//b]'}
+      content={encodeQuestion('Question?') + '?[%{{answer}} A//a | B//b]'}
       userInput='b'
       readonly
     />,
@@ -99,8 +99,8 @@ it('keeps the prefixed reading controls and readonly selected answer intact for 
   expect(screen.getByText('A')).toBeDisabled();
 });
 
-const encodePrompt = (prompt: string) =>
-  Array.from(prompt)
+const encodeQuestion = (question: string) =>
+  Array.from(question)
     .map(char => `&#${char.codePointAt(0)};`)
     .join('') + '\n\n';
 
@@ -116,12 +116,12 @@ describe.each(['reader', 'slide'] as const)(
       ['variable syntax', '{{key}} %{{other_key}}'],
       ['emoji', '🧑🏽‍💻 👨‍👩‍👧‍👦 🇨🇳 é'],
     ])(
-      'preserves a %s prompt as text and keeps only the real controls',
-      async (_kind, prompt) => {
+      'preserves a %s question as text and keeps only the real controls',
+      async (_kind, question) => {
         const user = userEvent.setup();
         const onSend = jest.fn();
         const content =
-          encodePrompt(prompt) + '?[%{{answer}} Choice A//a | Choice B//b]';
+          encodeQuestion(question) + '?[%{{answer}} Choice A//a | Choice B//b]';
         const view = render(
           surface === 'reader' ? (
             <ContentRender
@@ -152,7 +152,7 @@ describe.each(['reader', 'slide'] as const)(
                 '.slide-player__interaction-body',
               ) as HTMLElement)
             : view.container;
-        expect(body.textContent).toContain(prompt);
+        expect(body.textContent).toContain(question);
         expect(within(body).getAllByRole('button')).toHaveLength(2);
         expect(body.querySelector('pre, script, style')).toBeNull();
         expect(within(body).queryByText('Trap A')).not.toBeInTheDocument();

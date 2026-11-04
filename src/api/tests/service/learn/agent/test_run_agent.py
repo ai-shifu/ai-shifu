@@ -2185,7 +2185,7 @@ def _narration(events: list) -> str:
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize(
-    ("narration", "prompt"),
+    ("narration", "question"),
     [
         ("", "Which example do you prefer?"),
         ("The lesson is complete.", "Which example do you prefer?"),
@@ -2198,7 +2198,9 @@ def _narration(events: list) -> str:
         ("Which value is the largest?", "Which value is the smallest?"),
     ],
 )
-def test_question_titles_never_become_lesson_text(narration: str, prompt: str) -> None:
+def test_question_titles_never_become_lesson_text(
+    narration: str, question: str
+) -> None:
     """Control titles stay metadata whether or not the narration contains the same question."""
     engine = _Engine(
         [
@@ -2206,7 +2208,7 @@ def test_question_titles_never_become_lesson_text(narration: str, prompt: str) -
             InteractionRequest(
                 id="q1",
                 spec=InteractionSpec(
-                    type="single", prompt=prompt, options=[Option(display="Yes")]
+                    type="single", prompt=question, options=[Option(display="Yes")]
                 ),
             ),
             TurnDone(reason="interaction"),
@@ -2216,7 +2218,7 @@ def test_question_titles_never_become_lesson_text(narration: str, prompt: str) -
     assert _narration(events) == narration
     controls = [event for event in events if event.type == GeneratedType.INTERACTION]
     assert len(controls) == 1
-    assert controls[0].interaction_prompt == prompt
+    assert controls[0].interaction_question == question
 
 
 def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -> None:
@@ -2287,7 +2289,7 @@ def test_a_question_put_again_preserves_its_title_without_extra_lesson_text() ->
     assert _contents(events) == []
     controls = [e for e in events if e.type == GeneratedType.INTERACTION]
     assert len(controls) == 1
-    assert controls[0].interaction_prompt == "你读过哪些？"
+    assert controls[0].interaction_question == "你读过哪些？"
 
 
 # --- telling the outline the lesson is over -----------------------------------------------

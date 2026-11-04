@@ -83,7 +83,7 @@
 | `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/question-memory-key-compatibility.md` | Define and align MarkdownFlow text variable names | `exec-plan-active` | `active` | `learner` | `2026-10-24` | `true` |
-| `docs/exec-plans/active/reading-interaction-prompts.md` | Hide extra interaction prompts in reading mode | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/reading-interaction-questions.md` | Hide extra interaction questions in reading mode | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |

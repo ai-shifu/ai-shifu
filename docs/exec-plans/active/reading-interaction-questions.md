@@ -1,10 +1,10 @@
-# Hide extra interaction prompts in reading mode
+# Hide extra interaction questions in reading mode
 
 ## Purpose / Big Picture
 
 Reading must show interaction controls without appending their separate native
-prompt to lesson prose. This change supplies the shared transport needed for
-that rule. Moving listen/classroom prompts into panel titles is a dependent,
+question to lesson prose. This change supplies the shared transport needed for
+that rule. Moving listen/classroom questions into panel titles is a dependent,
 separate PR. The durable contract is in
 [`learner-listen-playback.md`](../../product-specs/learner-listen-playback.md).
 
@@ -13,7 +13,7 @@ separate PR. The durable contract is in
 - [x] 2026-11-04 CST: Preserve the combined implementation and split from the
   latest main. Keep listen/classroom rendering and the global learner content
   normalization unchanged in this PR.
-- [x] 2026-11-04 CST: Carry prompts as interaction metadata and an inert wire
+- [x] 2026-11-04 CST: Carry questions as interaction metadata and an inert wire
   fallback, preserving canonical controls, saved answers and older clients.
 - [x] 2026-11-04 CST: Hide only the exact metadata-backed fallback at reading
   and Debug boundaries. Update draft classroom history expectations.
@@ -27,11 +27,17 @@ separate PR. The durable contract is in
   coordinate profile presentation without duplicate questions. Verify the
   complete offline engine suite and affected hosts: 3,505 cases pass using the
   repository-pinned SDK and graph version 2.53.0 in an isolated test overlay.
-- [ ] 2026-11-04 CST: Confirm current-head CI/review and maintainer acceptance.
+- [x] 2026-11-04 CST: Complete original-head CI/review: 16,000 backend tests
+  passed (20 skipped), with the compatibility thread verified and resolved.
+- [x] 2026-11-04 CST: Rename the unreleased presentation contract to
+  `interaction_question`, including producers, consumers, helpers and tests.
+  The renamed reading/frontend coverage passes 314 tests, type checking and lint.
+  Affected backend learning/Profile coverage passes 564 tests with the pinned SDK.
+- [ ] 2026-11-04 CST: Confirm renamed-head CI/review and maintainer acceptance.
 
 ## Surprises & Discoveries
 
-Removing separate prompt CONTENT events also removes their independent audio
+Removing separate question CONTENT events also removes their independent audio
 and marker elements. The transport change is shared: listening still receives
 the question inside the interaction body, while authored narration and its
 audio remain unchanged. Restoring mode-dependent CONTENT would pollute history
@@ -39,7 +45,7 @@ and reintroduce extra questions after a switch back to reading.
 
 Older open bundles ignore new metadata. Their existing ContentRender supports
 question text before controls, but raw concatenation can let unfinished HTML
-or code consume those controls. Encoding every prompt code point as a decimal
+or code consume those controls. Encoding every question code point as a decimal
 HTML entity makes that compatibility prefix inert.
 
 ## Decision Log
@@ -49,10 +55,10 @@ HTML entity makes that compatibility prefix inert.
   its existing interaction body.
 - Modify only serialized interaction content, leaving DTOs, database rows,
   checkpoints and answer matching canonical. Never infer or delete old prose.
-- Reading and Debug remove exactly the prefix encoded from prompt metadata;
+- Reading and Debug remove exactly the prefix encoded from question metadata;
   missing or mismatching metadata does not authorize deleting content.
 - The user explicitly requests the question-first instruction for both course
-  and profile runtimes. A control prompt cannot substitute for a visible
+  and profile runtimes. A control title cannot substitute for a visible
   question. Preserve authored choices, navigation, correction stages and
   pending question identities while updating the shared prompt and consumer.
 - Profile omits its duplicate control-body question only when the current
@@ -61,7 +67,12 @@ HTML entity makes that compatibility prefix inert.
   visuals, pending recovery and queued questions; do not infer visible history
   from raw model messages, cached last events or the presence of any prose.
 - This is existing-content presentation and compatibility work, with no new
-  user action or analytics meaning. Prompts never enter analytics.
+  user action or analytics meaning. Questions never enter analytics.
+
+- Use `question` throughout the new presentation contract. Keep `prompt` for
+  actual model instructions and the pre-existing engine tool/session field;
+  the host maps between those layers. The new presentation field has not been
+  released, so rename it atomically without a redundant compatibility alias.
 
 ## Outcomes & Retrospective
 
@@ -101,10 +112,10 @@ Create the separate listen/classroom branch from this commit.
 
 ## Validation and Acceptance
 
-Reading on desktop, mobile and print shows controls without the extra prompt;
+Reading on desktop, mobile and print shows controls without the extra question;
 streaming, history and mode changes preserve metadata and answers. Debug
 parses canonical controls. Older real renderers display inert questions and
-submit all four control kinds correctly, including prompts with unfinished
+submit all four control kinds correctly, including questions with unfinished
 HTML/code, literal MDF syntax and emoji. Repeated serialization never changes
 stored controls. Listen/classroom title behavior stays with the existing main
 renderer in this PR.
@@ -117,7 +128,7 @@ Older records lacking metadata remain readable without guessed prose edits.
 
 ## Interfaces and Dependencies
 
-Optional `interaction_prompt` metadata carries original prompt text. The wire
+Optional `interaction_question` metadata carries original question text. The wire
 prefix is decimal HTML entities for every Unicode code point plus two actual
 newlines. Python `ord` and JavaScript `Array.from`/`codePointAt` must agree.
 The dependent PR consumes the same metadata for listen/classroom titles.

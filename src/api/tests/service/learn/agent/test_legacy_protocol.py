@@ -207,22 +207,22 @@ def test_an_interaction_carries_its_question_as_control_metadata() -> None:
             ),
         )
     )
-    assert controls.interaction_prompt == "Which one?"
-    assert controls.__json__()["interaction_prompt"] == "Which one?"
+    assert controls.interaction_question == "Which one?"
+    assert controls.__json__()["interaction_question"] == "Which one?"
     assert controls.type == GeneratedType.INTERACTION
     assert controls.content == "?[%{{ pick }} A]"
 
 
 def test_a_question_reaches_the_learner_as_the_model_wrote_it() -> None:
-    """Preserve the original prompt for the frontend's plain-text interaction title."""
-    prompt = "    indented line\nsecond line  "
+    """Preserve the original question for the frontend's plain-text interaction title."""
+    question = "    indented line\nsecond line  "
     (controls,) = _translate(
         InteractionRequest(
             id="i1",
-            spec=_spec(type="single", prompt=prompt, options=[Option(display="A")]),
+            spec=_spec(type="single", prompt=question, options=[Option(display="A")]),
         )
     )
-    assert controls.interaction_prompt == prompt
+    assert controls.interaction_question == question
 
 
 def test_an_interaction_without_a_question_sends_only_its_controls() -> None:
@@ -233,8 +233,8 @@ def test_an_interaction_without_a_question_sends_only_its_controls() -> None:
         )
     )
     assert controls.type == GeneratedType.INTERACTION
-    assert controls.interaction_prompt is None
-    assert "interaction_prompt" not in controls.__json__()
+    assert controls.interaction_question is None
+    assert "interaction_question" not in controls.__json__()
 
 
 def test_a_memory_write_becomes_a_variable_update() -> None:
@@ -624,7 +624,7 @@ def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
     )
     assert [e.type for e in translated] == [GeneratedType.INTERACTION]
     assert translated[0].content == "?[继续//continue]"
-    assert translated[0].interaction_prompt is None
+    assert translated[0].interaction_question is None
 
 
 def test_a_long_confirm_prompt_becomes_a_control_title() -> None:
@@ -638,7 +638,7 @@ def test_a_long_confirm_prompt_becomes_a_control_title() -> None:
         )
     )
     assert [e.type for e in translated] == [GeneratedType.INTERACTION]
-    assert translated[0].interaction_prompt == "看完上面的图，想清楚了再点继续。"
+    assert translated[0].interaction_question == "看完上面的图，想清楚了再点继续。"
     # The host names the button, rather than the engine's default reaching the learner. Asserted
     # through the same lookup, because in English the two words are the same one; that the label
     # really is translated is asserted in a Chinese lesson below.

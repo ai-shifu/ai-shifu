@@ -1,14 +1,14 @@
 /** Remove only the metadata-backed compatibility prefix, leaving authored content intact. */
-export const stripInteractionPromptPrefix = (
+export const stripInteractionQuestionPrefix = (
   content: string,
-  prompt: unknown,
+  question: unknown,
 ): string => {
-  if (typeof prompt !== 'string' || !prompt.trim()) {
+  if (typeof question !== 'string' || !question.trim()) {
     return content;
   }
 
   const prefix =
-    Array.from(prompt)
+    Array.from(question)
       .map(char => `&#${char.codePointAt(0)};`)
       .join('') + '\n\n';
   return content.startsWith(prefix) ? content.slice(prefix.length) : content;

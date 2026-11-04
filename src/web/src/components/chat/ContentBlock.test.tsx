@@ -203,12 +203,12 @@ it.each([
   [true, false],
   [true, true],
 ])(
-  'keeps the interaction prompt out of reading output on mobile=%s print=%s',
+  'keeps the interaction question out of reading output on mobile=%s print=%s',
   (mobileStyle, printMode) => {
     const item: ChatContentItem = {
       ...guideInteraction,
       content: '&#81;&#63;\n\n' + guideInteraction.content,
-      payload: { interaction_prompt: 'Q?' },
+      payload: { interaction_question: 'Q?' },
     };
     render(
       <ContentBlock
@@ -244,7 +244,7 @@ it('rechecks a reading interaction when its compatibility metadata arrives', () 
   view.rerender(
     <ContentBlock
       {...props}
-      item={{ ...item, payload: { interaction_prompt: 'Q?' } }}
+      item={{ ...item, payload: { interaction_question: 'Q?' } }}
     />,
   );
   expect(screen.getByTestId('course-content').textContent).toBe(

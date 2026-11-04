@@ -90,7 +90,7 @@ def _content(result: ProfileTurnResult) -> str:
 
 
 @pytest.mark.parametrize(
-    ("narration", "prompt", "already_asked"),
+    ("narration", "question", "already_asked"),
     [
         ("Your role?", "Your role?", True),
         (
@@ -108,8 +108,8 @@ def _content(result: ProfileTurnResult) -> str:
         ("```text\nYour role?\n```", "Your role?", False),
     ],
 )
-def test_only_the_complete_current_prose_question_removes_the_duplicate_prompt(
-    narration: str, prompt: str, *, already_asked: bool
+def test_only_the_complete_current_prose_question_removes_the_duplicate_question(
+    narration: str, question: str, *, already_asked: bool
 ) -> None:
     session = _session("Ask about the learner, then wait for the answer.")
 
@@ -117,18 +117,18 @@ def test_only_the_complete_current_prose_question_removes_the_duplicate_prompt(
         assert "first ask the complete current question" in (info.instructions or "")
         if narration:
             yield narration
-        yield {0: _question("current", None, prompt=prompt)}
+        yield {0: _question("current", None, prompt=question)}
 
     result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
     interaction = result.chunks[-1]
     assert interaction.interaction_id == "current"
     if already_asked:
         assert interaction.interaction.startswith("?[")
-        assert prompt not in interaction.interaction
+        assert question not in interaction.interaction
     else:
-        assert interaction.interaction.startswith(prompt + "\n\n?[")
+        assert interaction.interaction.startswith(question + "\n\n?[")
     assert session.engine_session["pending"][0]["tool_call_id"] == "current"
-    assert session.engine_session["pending"][0]["spec"]["prompt"] == prompt
+    assert session.engine_session["pending"][0]["spec"]["prompt"] == question
 
 
 def test_pending_queue_does_not_reuse_another_questions_prose() -> None:

@@ -260,7 +260,7 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
     format_environment: Flask, listen: bool
 ) -> None:
     narration = "Compare the examples.\n\n"
-    prompt = (
+    question = (
         '<div class="choices"><p>First or second?</p></div>\n'
         "<style>.choices { color: blue; }</style>\n\n"
         "Which example do you prefer?"
@@ -272,7 +272,7 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
                 id="comparison",
                 spec=InteractionSpec(
                     type="single",
-                    prompt=prompt,
+                    prompt=question,
                     options=[Option(display="First"), Option(display="Second")],
                 ),
             ),
@@ -292,9 +292,9 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
     assert _shape(streamed) == _shape(history)
     for elements in (streamed, history):
         interaction = elements[-1]
-        assert interaction.payload.interaction_prompt == prompt
+        assert interaction.payload.interaction_question == question
         wire = interaction.__json__()
-        assert wire["payload"]["interaction_prompt"] == prompt
+        assert wire["payload"]["interaction_question"] == question
         assert wire["content"].startswith("&#60;&#100;&#105;&#118;")
         assert wire["content"].endswith("\n\n?[First | Second]")
         assert interaction.content == "?[First | Second]"
@@ -324,8 +324,8 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
 def test_question_title_stays_metadata_after_unclosed_visual(
     format_environment: Flask, opening: str, listen: bool, echo_question: bool
 ) -> None:
-    prompt = "Which example do you prefer?"
-    narration = opening + "\n" + (prompt if echo_question else "Unfinished visual")
+    question = "Which example do you prefer?"
+    narration = opening + "\n" + (question if echo_question else "Unfinished visual")
     engine = host_fixture._Engine(
         [
             ContentDelta(text=narration),
@@ -333,7 +333,7 @@ def test_question_title_stays_metadata_after_unclosed_visual(
                 id="comparison",
                 spec=InteractionSpec(
                     type="single",
-                    prompt=prompt,
+                    prompt=question,
                     options=[Option(display="First"), Option(display="Second")],
                 ),
             ),
@@ -347,7 +347,7 @@ def test_question_title_stays_metadata_after_unclosed_visual(
         assert elements[0].content == narration
         interaction = elements[1]
         assert interaction.element_type == ElementType.INTERACTION
-        assert interaction.payload.interaction_prompt == prompt
+        assert interaction.payload.interaction_question == question
         assert interaction.is_speakable is False
         assert interaction.audio_url == ""
         assert interaction.payload.audio is None

@@ -59,14 +59,14 @@ def translate(
         ]
 
     if isinstance(event, InteractionRequest):
-        prompt, controls = render_question(event.spec)
+        question, controls = render_question(event.spec)
         return [
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 type=GeneratedType.INTERACTION,
                 content=controls,
-                interaction_prompt=prompt if prompt.strip() else None,
+                interaction_question=question if question.strip() else None,
             )
         ]
 

@@ -140,7 +140,7 @@ def _interaction_problem(
     return None
 
 
-def _question_in_content(prompt: str, chunks: list[ProfileChunk]) -> bool:
+def _question_in_content(question: str, chunks: list[ProfileChunk]) -> bool:
     """Recognize the complete question at the end of the current published prose."""
     if not chunks or chunks[-1].type != "text":
         return False
@@ -149,7 +149,7 @@ def _question_in_content(prompt: str, chunks: list[ProfileChunk]) -> bool:
         if chunk.type != "text" or chunk.number != chunks[-1].number:
             break
         tail.append(chunk.content)
-    asked = " ".join(prompt.split())
+    asked = " ".join(question.split())
     said = " ".join("".join(reversed(tail)).split())
     if not asked or not said.endswith(asked):
         return False
@@ -166,10 +166,12 @@ def _question_in_content(prompt: str, chunks: list[ProfileChunk]) -> bool:
 def _pending_chunk(
     pending: PendingInteraction, *, preceding: list[ProfileChunk] | None = None
 ) -> ProfileChunk:
-    prompt, controls = render_question(pending.spec)
-    show_prompt = prompt.strip() and not _question_in_content(prompt, preceding or [])
+    question, controls = render_question(pending.spec)
+    show_question = question.strip() and not _question_in_content(
+        question, preceding or []
+    )
     return ProfileChunk(
-        interaction=f"{prompt}\n\n{controls}" if show_prompt else controls,
+        interaction=f"{question}\n\n{controls}" if show_question else controls,
         interaction_id=pending.tool_call_id,
     )
 

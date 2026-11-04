@@ -9,15 +9,15 @@ from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
 
 
-def _interaction_content_for_output(content: str, prompt: str | None) -> str:
+def _interaction_content_for_output(content: str, question: str | None) -> str:
     """Include a literal question for clients that cannot read interaction title metadata."""
-    if not prompt or not prompt.strip():
+    if not question or not question.strip():
         return content
     # Encode every code point, including whitespace, so a title cannot open Markdown, HTML
     # or another interaction around the controls. New clients remove this exact prefix using
-    # the unchanged prompt metadata; the DTO and persisted controls stay canonical.
-    literal_prompt = "".join(f"&#{ord(char)};" for char in prompt)
-    return f"{literal_prompt}\n\n{content}"
+    # the unchanged question metadata; the DTO and persisted controls stay canonical.
+    literal_question = "".join(f"&#{ord(char)};" for char in question)
+    return f"{literal_question}\n\n{content}"
 
 
 @register_schema_to_swagger
@@ -656,7 +656,7 @@ class ElementPayloadDTO(BaseModel):
         default=None,
         description="Interaction user input when available",
     )
-    interaction_prompt: str | None = Field(
+    interaction_question: str | None = Field(
         default=None,
         description="Question title displayed with the interaction controls",
     )
@@ -697,7 +697,7 @@ class ElementPayloadDTO(BaseModel):
         live_session_bid: str | None = None,
         live_turn_index: int | None = None,
         interrupted: bool | None = None,
-        interaction_prompt: str | None = None,
+        interaction_question: str | None = None,
     ) -> None:
         """Build the composite element payload."""
         super().__init__(
@@ -706,7 +706,7 @@ class ElementPayloadDTO(BaseModel):
             anchor_element_bid=anchor_element_bid,
             ask_element_bid=ask_element_bid,
             user_input=user_input,
-            interaction_prompt=interaction_prompt,
+            interaction_question=interaction_question,
             diff_payload=diff_payload,
             asks=asks,
             interaction_mode=interaction_mode,
@@ -732,8 +732,8 @@ class ElementPayloadDTO(BaseModel):
             ret["diff_payload"] = self.diff_payload
         if self.user_input is not None:
             ret["user_input"] = self.user_input
-        if self.interaction_prompt is not None:
-            ret["interaction_prompt"] = self.interaction_prompt
+        if self.interaction_question is not None:
+            ret["interaction_question"] = self.interaction_question
         if self.asks is not None:
             ret["asks"] = self.asks
         if self.interaction_mode is not None:
@@ -852,7 +852,7 @@ class ElementDTO(BaseModel):
         if self.element_type == ElementType.INTERACTION:
             content = _interaction_content_for_output(
                 content,
-                self.payload.interaction_prompt if self.payload is not None else None,
+                self.payload.interaction_question if self.payload is not None else None,
             )
         ret = {
             "event_type": self.event_type,
@@ -975,7 +975,7 @@ class RunMarkdownFlowDTO(BaseModel):
         default="",
         description="Anchor element bid for ASK events",
     )
-    interaction_prompt: str | None = Field(
+    interaction_question: str | None = Field(
         default=None,
         description="Question title carried by an interaction event",
     )
@@ -991,7 +991,7 @@ class RunMarkdownFlowDTO(BaseModel):
         | AudioSegmentDTO
         | AudioCompleteDTO,
         anchor_element_bid: str = "",
-        interaction_prompt: str | None = None,
+        interaction_question: str | None = None,
     ) -> None:
         """Build the MarkdownFlow execution payload."""
         super().__init__(
@@ -1000,7 +1000,7 @@ class RunMarkdownFlowDTO(BaseModel):
             type=type,
             content=content,
             anchor_element_bid=anchor_element_bid,
-            interaction_prompt=interaction_prompt,
+            interaction_question=interaction_question,
         )
 
     def set_mdflow_stream_parts(
@@ -1036,7 +1036,9 @@ class RunMarkdownFlowDTO(BaseModel):
             else self.content
         )
         if self.type == GeneratedType.INTERACTION and isinstance(content, str):
-            content = _interaction_content_for_output(content, self.interaction_prompt)
+            content = _interaction_content_for_output(
+                content, self.interaction_question
+            )
         ret = {
             "outline_bid": self.outline_bid,
             "generated_block_bid": self.generated_block_bid,
@@ -1045,8 +1047,8 @@ class RunMarkdownFlowDTO(BaseModel):
         }
         if self.anchor_element_bid:
             ret["anchor_element_bid"] = self.anchor_element_bid
-        if self.interaction_prompt is not None:
-            ret["interaction_prompt"] = self.interaction_prompt
+        if self.interaction_question is not None:
+            ret["interaction_question"] = self.interaction_question
         return ret
 
 

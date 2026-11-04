@@ -14,7 +14,7 @@ import {
 } from '@/api/learning';
 import { getStringEnv } from '@/lib/env-utils';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
-import { stripInteractionPromptPrefix } from '@/lib/interaction-prompt';
+import { stripInteractionQuestionPrefix } from '@/lib/interaction-question';
 import {
   requiresInteractionRewind,
   updateInteractionItems,
@@ -830,9 +830,9 @@ export function useDebugSession({
         typeof elementRecord?.content === 'string' ? elementRecord.content : '';
       const isInteractionElement = elementType === ELEMENT_TYPE.INTERACTION;
       const elementContent = isInteractionElement
-        ? stripInteractionPromptPrefix(
+        ? stripInteractionQuestionPrefix(
             rawElementContent,
-            elementRecord?.payload?.interaction_prompt,
+            elementRecord?.payload?.interaction_question,
           )
         : rawElementContent;
       const interactionInfo = isInteractionElement

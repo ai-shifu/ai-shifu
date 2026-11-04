@@ -24,7 +24,7 @@ import {
 } from '@/lib/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/ui-constants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
-import { stripInteractionPromptPrefix } from '@/lib/interaction-prompt';
+import { stripInteractionQuestionPrefix } from '@/lib/interaction-question';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -97,9 +97,9 @@ const ContentBlock = memo(
     const shouldShowAudioAction = Boolean(showAudioAction);
     const canonicalContent =
       item.type === ChatContentItemType.INTERACTION
-        ? stripInteractionPromptPrefix(
+        ? stripInteractionQuestionPrefix(
             item.content || '',
-            item.payload?.interaction_prompt,
+            item.payload?.interaction_question,
           )
         : item.content || '';
     const isLessonFeedbackInteraction =
@@ -223,8 +223,8 @@ const ContentBlock = memo(
       prevProps.item.user_input === nextProps.item.user_input &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
-      prevProps.item.payload?.interaction_prompt ===
-        nextProps.item.payload?.interaction_prompt &&
+      prevProps.item.payload?.interaction_question ===
+        nextProps.item.payload?.interaction_question &&
       prevProps.contentLanguage === nextProps.contentLanguage &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&

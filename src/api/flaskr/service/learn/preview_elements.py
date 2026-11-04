@@ -128,7 +128,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         payload = ElementPayloadDTO(
             audio=None,
             previous_visuals=[],
-            interaction_prompt=event.interaction_prompt,
+            interaction_question=event.interaction_question,
         )
         content_text = (
             event.content

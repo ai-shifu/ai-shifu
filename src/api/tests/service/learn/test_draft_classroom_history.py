@@ -243,14 +243,14 @@ def test_reload_restores_teaching_before_pending_interaction_without_learner_pro
     ]
     assert "Teaching before question 1." in records[0].content
     assert "Question 1?" not in records[0].content
-    assert records[1].payload.interaction_prompt == "Question 1?"
+    assert records[1].payload.interaction_question == "Question 1?"
     assert not records[1].payload.user_input
     restored_ids = [item.element_bid for item in records]
     replay = run("")
     replayed_elements = [event.content for event in replay if event.type == "element"]
     assert [item.element_bid for item in replayed_elements] == restored_ids
     assert "Question 1?" not in replayed_elements[0].content
-    assert replayed_elements[1].payload.interaction_prompt == "Question 1?"
+    assert replayed_elements[1].payload.interaction_question == "Question 1?"
     assert replay[-1].is_terminal
     assert len(calls) == 1
     assert [item.element_bid for item in history().elements] == restored_ids
@@ -273,8 +273,8 @@ def test_multiple_requests_keep_order_and_accepted_answers(classroom: tuple) -> 
     assert "question 2" in records[2].content
     assert "Question 1?" not in records[0].content
     assert "Question 2?" not in records[2].content
-    assert records[1].payload.interaction_prompt == "Question 1?"
-    assert records[3].payload.interaction_prompt == "Question 2?"
+    assert records[1].payload.interaction_question == "Question 1?"
+    assert records[3].payload.interaction_question == "Question 2?"
     assert _shown(records[1].payload.user_input) == "My answer"
     assert not records[-1].payload or not records[-1].payload.user_input
     assert len(calls) == 2
@@ -654,7 +654,7 @@ def test_multiple_deferred_questions_keep_controls_and_individual_answers(
         "First answer",
         "Second answer",
     ]
-    assert [e.payload.interaction_prompt for e in controls] == [
+    assert [e.payload.interaction_question for e in controls] == [
         "Question 0?",
         "Question 1?",
     ]

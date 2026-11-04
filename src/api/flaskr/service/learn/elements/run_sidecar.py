@@ -247,7 +247,7 @@ class ListenElementRunSidecarMixin:
         payload = ElementPayloadDTO(
             audio=None,
             previous_visuals=[],
-            interaction_prompt=event.interaction_prompt,
+            interaction_question=event.interaction_question,
         )
         if interaction_user_input:
             payload.user_input = interaction_user_input

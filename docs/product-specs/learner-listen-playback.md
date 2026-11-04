@@ -24,16 +24,16 @@ canonical: true
    a full reload, in which case the restored position remains ready to play.
 6. Existing player-button behavior is unchanged by slide navigation.
 
-## Reading interaction prompts and shared transport
+## Reading interaction questions and shared transport
 
-Native interaction prompts travel with their controls in optional
-`payload.interaction_prompt` metadata. Reading and Debug do not append that
-prompt as lesson prose. Questions already present in authored narration remain
+Native interaction questions travel with their controls in optional
+`payload.interaction_question` metadata. Reading and Debug do not append that
+question as lesson prose. Questions already present in authored narration remain
 unchanged. Short confirmation labels retain their existing button behavior.
 
 For ordinary answer-collecting interactions, the shared course/profile runtime
 must first ask the complete current question in visible teaching content, then
-call the real `interact` tool in the same turn and wait. A control prompt is
+call the real `interact` tool in the same turn and wait. A control title is
 not a replacement for asking the question. Preserve authored questions,
 choices, retries and input boundaries. Do not invent a new teaching question
 for authored navigation or confirmation controls. Structured direction keeps
@@ -42,11 +42,18 @@ unanswered question before the controls.
 
 The canonical DTO and database content remain the original controls. Only
 serialized interaction `content` includes a compatibility prefix: encode every
-Unicode code point of the prompt as a decimal HTML entity, append two literal
+Unicode code point of the question as a decimal HTML entity, append two literal
 newlines, then append the controls. Existing renderers display that question in
 the interaction body without allowing HTML, code fences or MDF notation inside
 it to consume or add controls. HTML character normalization applies in older
-renderers; original prompt metadata remains unchanged.
+renderers; original question metadata remains unchanged.
+
+Use `question` for this presentation concept, distinct from model instructions
+such as a system or course prompt. The existing engine `interact(prompt=...)`
+tool and pending-session schema keep their compatibility contract; the host
+maps that wording to `interaction_question`. This optional presentation field
+is renamed before release, so no deployed-field alias or data migration is
+needed. Older bundles still receive the same safe wire-content fallback.
 
 Reading reconstructs and removes only this exact metadata-backed prefix before
 rendering; Debug also removes it before interaction parsing. Missing or
@@ -55,7 +62,7 @@ print share this display rule. Shared learner items retain wire content so the
 unchanged listen/classroom renderer can still display questions in its body.
 Moving those questions into panel titles is a separate dependent change.
 
-This shared transport stops producing separate prompt CONTENT, audio and
+This shared transport stops producing separate question CONTENT, audio and
 marker elements in every mode. Authored narration and its audio are preserved.
 Previously stored prose is not guessed or rewritten. Older open reading
 bundles retain their earlier display until refreshed; updated reading pages
