@@ -14,20 +14,41 @@ from flaskr.service.order.admin import (
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.funs import send_revoke_feishu
 from flaskr.service.order.models import Order
+from flaskr.service.shifu.models import PublishedShifu
 from flaskr.service.shifu.utils import get_shifu_creator_bid
-from flaskr.service.user.repository import load_user_aggregate_by_identifier
+from flaskr.service.user.repository import (
+    get_user_entity_by_bid,
+    load_user_aggregate_by_identifier,
+)
 
 if TYPE_CHECKING:
     from flask import Flask
 
 
-def verify_course_ownership(app: Flask, owner_bid: str, shifu_bid: str) -> None:
-    """Verify that the API key owner is the creator of the specified course."""
+def verify_course_ownership(
+    app: Flask, owner_bid: str, shifu_bid: str, *, allow_operator: bool = False
+) -> None:
+    """Require course ownership unless this operation permits active operators."""
     creator_bid = get_shifu_creator_bid(app, shifu_bid)
     if not creator_bid:
         raise_error("server.shifu.courseNotFound")
     if creator_bid != owner_bid:
+        if allow_operator:
+            owner = get_user_entity_by_bid(owner_bid)
+            if owner and owner.is_operator:
+                return
         raise_error("server.openapi.courseOwnershipRequired")
+
+
+def _has_published_course(shifu_bid: str) -> bool:
+    """Return whether the course has a live published version."""
+    return (
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid == shifu_bid,
+            PublishedShifu.deleted == 0,
+        ).first()
+        is not None
+    )
 
 
 def _find_active_order(user_bid: str, shifu_bid: str) -> Order | None:
@@ -53,7 +74,7 @@ def open_api_query_order(
 ) -> dict[str, object]:
     """Check if a user (by phone/email) has active order for a course."""
     with app.app_context():
-        verify_course_ownership(app, owner_bid, shifu_bid)
+        verify_course_ownership(app, owner_bid, shifu_bid, allow_operator=True)
         normalized = normalize_contact_identifier(user_identify, user_identify_type)
 
         aggregate = load_user_aggregate_by_identifier(
@@ -81,7 +102,11 @@ def open_api_grant_order(
     returned without creating a duplicate.  If the user does not yet exist,
     a new account is created via import_activation_order.
     """
-    verify_course_ownership(app, owner_bid, shifu_bid)
+    verify_course_ownership(app, owner_bid, shifu_bid, allow_operator=True)
+    # Every grant needs a live published course. The importer also commits the
+    # learner account before it loads the published course, so check first.
+    if not _has_published_course(shifu_bid):
+        raise_error("server.shifu.shifuNotFound")
 
     normalized = normalize_contact_identifier(user_identify, user_identify_type)
     aggregate = load_user_aggregate_by_identifier(
@@ -98,6 +123,7 @@ def open_api_grant_order(
         shifu_bid,
         contact_type=user_identify_type,
         payment_channel="open_api",
+        granted_by_user_bid=owner_bid,
     )
 
 
