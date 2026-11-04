@@ -1,5 +1,8 @@
 # Validate exercise reports after teaching compaction
 
+> Retired, 2026-11-04: teaching history compaction, its semantic summaries and
+> `read_teaching` were removed; the model now receives the complete history.
+
 ## Purpose / Big Picture
 
 The exercise evaluator currently keeps every teaching message below the compaction threshold. Its passing statistics cannot establish correct results after a long correction is summarized. Extend the existing synthetic evaluator to require actual source-bound projection, serialized cache reuse, original evidence reads and correct per-question statistics.

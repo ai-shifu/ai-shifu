@@ -183,8 +183,6 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     else:
         state.pop("answer_hashes", None)
     restored = SessionClass.from_dict(state)
-    # Derivatives may describe discarded future teaching. Rebuild only from restored evidence.
-    session.teaching_summaries.clear()
     session.messages = restored.messages
     session.memory = restored.memory
     session.answer_hashes = restored.answer_hashes

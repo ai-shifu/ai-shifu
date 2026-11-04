@@ -331,15 +331,14 @@
 | `docs/references/index.md` | References | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/references/lesson-content-update-performance.md` | Lesson Content Revision Comparison Performance | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-authored-inputs.md` | MarkdownFlow Authored Input Hints | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
-| `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-10-08` | `true` |
+| `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-11-04` | `true` |
 | `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-11-03` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |
 | `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-11-04` | `true` |
 | `docs/references/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompts | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
-| `docs/references/markdownflow-memory-quality.md` | MarkdownFlow Memory Quality Evaluation | `reference` | `active` | `learner` | `2026-10-12` | `true` |
+| `docs/references/markdownflow-memory-quality.md` | MarkdownFlow Memory Quality Evaluation | `reference` | `active` | `learner` | `2026-11-04` | `true` |
 | `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-runtime-selection.md` | MarkdownFlow Runtime Selection | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
-| `docs/references/markdownflow-teaching-history.md` | MarkdownFlow teaching history projection | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration | `reference` | `reference` | `repo` | `2026-09-27` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/shared-course-answers.md` | Retired shared course answers | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
@@ -379,8 +378,6 @@
 | `src/api/markdownflow/engine/prompts/recall_history_compaction.md` | Recall_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/markdownflow/engine/prompts/teaching_history_compaction.md` | Teaching_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/markdownflow/engine/prompts/teaching_summary.md` | Teaching_Summary | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask.md` | 回答规则 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge.md` | 知识库资料 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge_rule.md` | Ask_Knowledge_Rule | `reference` | `reference` | `backend` | `-` | `false` |

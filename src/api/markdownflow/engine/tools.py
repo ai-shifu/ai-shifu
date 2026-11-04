@@ -98,8 +98,6 @@ class Deps:
     memory_recall_excluded_keys: frozenset[str] = frozenset()
     answer_hashes: dict[str, str] = field(default_factory=dict)
     memory_recall_blocked_keys: frozenset[str] = frozenset()
-    # Exact original teaching available only for this run's request projection.
-    teaching_history: dict[str, str] = field(default_factory=dict)
     # Original messages before request projection.
     exercise_history: tuple[Any, ...] = ()
     exercise_evidence: list[dict[str, Any]] | None = None  # Frozen within this run.

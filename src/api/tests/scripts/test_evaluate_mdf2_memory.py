@@ -16,7 +16,6 @@ from pydantic_ai.messages import (
     ToolCallPart,
     ToolReturnPart,
 )
-from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from scripts import evaluate_mdf2_memory as quality
@@ -39,7 +38,7 @@ def test_list_needs_no_app_or_credentials() -> None:
         timeout=10,
     )
     cases = json.loads(process.stdout)
-    assert len(cases) == 34
+    assert len(cases) == 31
     assert {case["family"] for case in cases} == {
         "admission",
         "recall",
@@ -180,19 +179,6 @@ async def test_plausible_or_stale_answer_cannot_pass_without_current_evidence(
     assert not result["passed"]
 
 
-def _summary_model(
-    text: str = "Earlier teaching explained an original worked example.",
-) -> FunctionModel:
-    def model(messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
-        assert len(messages) == 1
-        source = json.loads(messages[0].parts[0].content)["historical_teaching"]
-        assert quality.OLD_CODE in source
-        assert quality.NEW_CODE not in source
-        return ModelResponse(parts=[TextPart(text)])
-
-    return FunctionModel(model)
-
-
 def _teaching_model(case: dict, behavior: str = "correct") -> FunctionModel:
     phase = 0
 
@@ -204,30 +190,24 @@ def _teaching_model(case: dict, behavior: str = "correct") -> FunctionModel:
         if phase > 2:
             yield " "
             return
-        if phase == 1 and behavior != "omit_tool":
-            if case.get("historical"):
-                markers = [
-                    json.loads(part.content)
-                    for message in messages
-                    if isinstance(message, ModelResponse)
-                    for part in message.parts
-                    if isinstance(part, TextPart)
-                    and part.content.startswith('{"status":"teaching_')
-                ]
-                reference = (
-                    "wrong"
-                    if behavior == "wrong_reference"
-                    else markers[0]["reference"]
-                )
-                name, args = "read_teaching", {"reference": reference}
-            else:
-                name, args = "recall", {"key": "project_code"}
-            yield {
-                0: DeltaToolCall(
-                    name=name, tool_call_id="evidence", json_args=json.dumps(args)
-                )
-            }
-            return
+        if phase == 1:
+            # The complete original teaching reaches the model; nothing is excerpted.
+            assert any(
+                isinstance(part, TextPart) and quality.OLD_CODE in part.content
+                for message in messages
+                if isinstance(message, ModelResponse)
+                for part in message.parts
+            )
+            if not case.get("historical") and behavior != "omit_tool":
+                yield {
+                    0: DeltaToolCall(
+                        name="recall",
+                        tool_call_id="evidence",
+                        json_args=json.dumps({"key": "project_code"}),
+                    )
+                }
+                return
+            phase += 1
         yield (
             quality.NEW_CODE
             if behavior == "stale" and case.get("historical")
@@ -242,95 +222,29 @@ def _teaching_model(case: dict, behavior: str = "correct") -> FunctionModel:
     return FunctionModel(stream_function=model)
 
 
-@pytest.mark.parametrize("status", ["teaching_summary", "teaching_excerpt"])
-@pytest.mark.parametrize(
-    "location", ["source", "later-response", "other-part", "unknown-reference"]
-)
-async def test_projection_evidence_requires_original_message_and_part(
-    status: str, location: str
-) -> None:
-    from copy import deepcopy
-
-    from markdownflow.engine.teaching_history import (
-        project_teaching_history,
-    )
-
-    case = quality.load_cases(["teaching-exact-example"])[0]
-    original = quality.teaching_session(case).messages
-    projected, sources = project_teaching_history(original)
-    assert len(sources) == 1
-    reference = next(iter(sources))
-    _, message_index, part_index, _digest = reference.split("-", 3)
-    message_index, part_index = int(message_index), int(part_index)
-    marker = TextPart(json.dumps({"reference": reference, "status": status}))
-    messages = deepcopy(original)
-    if location == "source":
-        messages = deepcopy(projected)
-        messages[message_index].parts[part_index] = marker
-    elif location == "later-response":
-        messages.append(ModelResponse(parts=[marker]))
-    elif location == "other-part":
-        messages[message_index].parts.append(marker)
-    else:
-        messages[message_index].parts[part_index] = TextPart(
-            json.dumps({"reference": reference + "-unknown", "status": status})
-        )
-    before = deepcopy(messages)
-
-    async def model(sent: list[ModelMessage], _info: AgentInfo) -> AsyncIterator[str]:
-        assert sent == before
-        yield "Unchanged response."
-
-    markers: set[str] = set()
-    observed = quality.observe_teaching_projection(
-        FunctionModel(stream_function=model), sources, markers
-    )
-    async with observed.request_stream(
-        messages, None, ModelRequestParameters()
-    ) as response:
-        async for _event in response:
-            pass
-        assert response.get().parts == [TextPart("Unchanged response.")]
-
-    assert markers == ({status} if location == "source" else set())
-    assert messages == before
-
-
 @pytest.mark.parametrize(
     "case",
     [c for c in quality.load_cases() if c["family"] == "teaching"],
     ids=lambda c: c["id"],
 )
-async def test_teaching_scorer_combines_real_projection_reads_and_cache_reload(
+async def test_teaching_scorer_runs_the_engine_on_complete_history(
     case: dict,
 ) -> None:
-    result = await quality.evaluate_teaching(
-        case, _teaching_model(case), _summary_model()
-    )
+    result = await quality.evaluate_teaching(case, _teaching_model(case))
     assert result["passed"], result
-    assert result["summary_calls"] == 1
 
 
-@pytest.mark.parametrize("behavior", ["omit_tool", "stale", "wrong_reference"])
-async def test_historical_answer_without_matching_original_evidence_fails(
-    behavior: str,
-) -> None:
+async def test_stale_historical_answer_fails() -> None:
     case = quality.load_cases(["teaching-exact-example"])[0]
-    result = await quality.evaluate_teaching(
-        case, _teaching_model(case, behavior), _summary_model()
-    )
+    result = await quality.evaluate_teaching(case, _teaching_model(case, "stale"))
     assert not result["passed"]
 
 
-async def test_missing_real_summary_is_an_error_even_when_the_answer_is_correct() -> (
-    None
-):
+@pytest.mark.parametrize("behavior", ["omit_tool", "stale"])
+async def test_current_answer_without_current_evidence_fails(behavior: str) -> None:
     case = quality.load_cases(["teaching-current-updated"])[0]
-    result = await quality.evaluate_teaching(
-        case, _teaching_model(case), _summary_model("")
-    )
+    result = await quality.evaluate_teaching(case, _teaching_model(case, behavior))
     assert not result["passed"]
-    assert result["error"] == "summary_unavailable_or_invalid"
 
 
 def test_teaching_fixture_preserves_the_matching_host_script_prompt() -> None:
@@ -342,58 +256,6 @@ def test_teaching_fixture_preserves_the_matching_host_script_prompt() -> None:
     assert session.messages[0].parts[0].content == render_first_prompt(
         session.script, {"project_code": quality.OLD_CODE + " " * 500}, memory_limit=100
     )
-
-
-async def test_summary_usage_is_separate_and_not_repeated_after_reload() -> None:
-    from pydantic_ai.usage import RequestUsage
-
-    case = quality.load_cases(["teaching-exact-example"])[0]
-
-    def summary(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
-        return ModelResponse(
-            parts=[TextPart("An earlier worked example used a project code.")],
-            usage=RequestUsage(
-                input_tokens=20,
-                output_tokens=3,
-                cache_read_tokens=10,
-                details={
-                    "mdf2_cache_reported_requests": 1,
-                    "mdf2_cache_reported_input_tokens": 20,
-                    "mdf2_cache_reported_read_tokens": 10,
-                },
-            ),
-        )
-
-    result = await quality.evaluate_teaching(
-        case, _teaching_model(case), FunctionModel(summary)
-    )
-    assert result["passed"], result
-    assert result["summary_usage"] == {
-        "requests": 1,
-        "input_tokens": 20,
-        "output_tokens": 3,
-        "cache_read_tokens": 10,
-        "cache_reported_requests": 1,
-        "cache_reported_input_tokens": 20,
-        "cache_reported_read_tokens": 10,
-    }
-    assert result["usage"]["input_tokens"] != 20
-    assert result["usage"]["requests"] > 0
-    assert "cache_read_tokens" not in result["usage"]
-    assert result["summary_calls"] == 1
-
-
-async def test_injected_summary_failure_cannot_claim_provider_usage() -> None:
-    case = quality.load_cases(["teaching-exact-fallback"])[0]
-
-    def summary(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
-        pytest.fail("injected failure must not call the summary provider")
-
-    result = await quality.evaluate_teaching(
-        case, _teaching_model(case), FunctionModel(summary)
-    )
-    assert result["passed"], result
-    assert result["summary_usage"] == {}
 
 
 def test_partial_or_duplicate_results_cannot_claim_full_completion() -> None:

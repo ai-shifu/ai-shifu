@@ -4712,7 +4712,7 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         "normal",
     ],
 )
-async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retries(
+async def test_retry_deadline_finalizes_real_gateway_accounting_and_stops_retries(
     monkeypatch: pytest.MonkeyPatch, app: object, phase: str
 ) -> None:
     """Exercise shared chat accounting, not a fake chat_llm replacement."""
@@ -4759,8 +4759,8 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
             if phase == "late_chunk":
                 clock[0] = 9
             yield FakeResponse(
-                "summary",
-                content="Partial historical overview",
+                "deadline",
+                content="Partial auxiliary answer",
                 usage=SimpleNamespace(
                     prompt_tokens=7, completion_tokens=3, total_tokens=10
                 ),
@@ -4778,7 +4778,7 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
             span=span,
             model="test",
             messages=[],
-            generation_name="history_summary",
+            generation_name="memory_check",
         )
         next(chunks)
         chunks.close()
@@ -4788,7 +4788,7 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
             "test",
             user_id="internal",
             span=span,
-            generation_name="history_summary",
+            generation_name="memory_check",
             retry_deadline_seconds=8,
             timeout=8,
             num_retries=0,
@@ -4812,7 +4812,7 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
     assert records[0]["total"] == (
         10 if phase in {"late_chunk", "eof", "close", "normal"} else 0
     )
-    assert records[0]["extra"]["generation_name"] == "history_summary"
+    assert records[0]["extra"]["generation_name"] == "memory_check"
     assert span.end_args is not None
     if phase != "normal":
         assert records[0]["error_message"]
@@ -4991,10 +4991,9 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
             == []
         )
         rows = BillUsageRecord.query.filter_by(user_bid=identity).all()
-        assert len(rows) == 3
+        assert len(rows) == 2
         assert {row.extra["generation_name"] for row in rows} == {
             "teaching",
-            "history_summary",
             "memory_check",
         }
         for row in rows:
@@ -5089,7 +5088,7 @@ def test_quality_cli_attributes_every_family_without_fabricating_classroom_recor
             ]
         ),
     )
-    families = ["admission", "recall", "teaching", "exercise", "teaching_summary"]
+    families = ["admission", "recall", "teaching", "exercise"]
 
     async def evaluate(cases: list, factory: object, repeats: int) -> list:
         assert repeats == 1

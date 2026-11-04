@@ -106,8 +106,6 @@ from .script import (
 )
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
-from .teaching_history import project_teaching_history, read_teaching
-from .teaching_summary import TeachingSummarizer, summarize_teaching_history
 from .tools import (
     NO_PAUSE,
     Deps,
@@ -423,8 +421,6 @@ class Engine:
         memory_context_limit: int | None = None,
         memory_recall: bool = False,
         recall_history_compaction: bool = False,
-        teaching_history_compaction: bool = False,
-        teaching_summarizer: TeachingSummarizer | None = None,
         exercise_statistics: bool = False,
         feedback_contract: bool = False,
         buffer_model_responses: bool = False,
@@ -477,12 +473,6 @@ class Engine:
         `buffer_model_responses` withholds each model response's text until its
         tools succeed or defer and discards the text if that response is retried.
         Successful tool steps keep their content. Off preserves immediate streaming.
-
-        `teaching_history_compaction` offers exact paginated reads of older long
-        teaching replaced by excerpts in requests. It preserves two recent turns,
-        all learner input and original stored evidence. `teaching_summarizer` optionally
-        decorates excerpts with bounded session-local semantic summaries; without it
-        projection makes no extra model call.
         """
         self.feedback_contract = feedback_contract
         self.buffer_model_responses = buffer_model_responses
@@ -512,16 +502,6 @@ class Engine:
             message = "recall history compaction requires memory recall"
             raise ValueError(message)
         self.recall_history_compaction = recall_history_compaction
-        if teaching_summarizer is not None and not teaching_history_compaction:
-            message = "teaching summaries require teaching history compaction"
-            raise ValueError(message)
-        self.teaching_summarizer = teaching_summarizer
-        self.teaching_history_compaction = teaching_history_compaction
-        self.history_instructions = (
-            load_prompt("teaching_history_compaction")
-            if teaching_history_compaction
-            else ""
-        )
         if memory_recall:
             self.memory_instructions += "\n\n" + load_prompt("memory_recall")
         if recall_history_compaction:
@@ -592,11 +572,6 @@ class Engine:
                 *(
                     [Tool(recall, args_validator=validate_direction_call)]
                     if memory_recall
-                    else []
-                ),
-                *(
-                    [Tool(read_teaching, args_validator=validate_direction_call)]
-                    if teaching_history_compaction
                     else []
                 ),
             ],
@@ -679,7 +654,6 @@ class Engine:
         parts = [
             self.prompts.base,
             self.memory_instructions,
-            self.history_instructions,
         ]
         if render == "sandbox":
             parts.append(self.prompts.html_display)
@@ -1029,17 +1003,6 @@ class Engine:
                 kwargs["message_history"] = compact_recall_history(
                     kwargs["message_history"]
                 )
-            if self.teaching_history_compaction:
-                kwargs["message_history"], deps.teaching_history = (
-                    project_teaching_history(kwargs["message_history"])
-                )
-                if self.teaching_summarizer is not None:
-                    kwargs["message_history"] = await summarize_teaching_history(
-                        kwargs["message_history"],
-                        deps.teaching_history,
-                        session.teaching_summaries,
-                        self.teaching_summarizer,
-                    )
             if self.prompts.answer_review and resumed:
                 deps.authored_answer_reference = authored_answer_reference(
                     kwargs["message_history"],
@@ -1469,7 +1432,6 @@ class Engine:
                             and (
                                 self.memory_context_limit is not None
                                 or self.recall_history_compaction
-                                or self.teaching_history_compaction
                                 or deps.resuming_interaction
                             )
                             else list(result.all_messages())

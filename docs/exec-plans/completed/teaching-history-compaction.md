@@ -7,12 +7,16 @@ last_reviewed: 2026-10-08
 
 # Compact older long teaching with exact source reads
 
+> Retired, 2026-11-04: teaching history compaction, its semantic summaries and
+> `read_teaching` were removed; the model now receives the complete history.
+
 ## Purpose / Big Picture
 
 Reduce repeated long teaching input while preserving complete original evidence.
 This deterministic increment retains exact excerpts and provides bounded original
 text reads; semantic summaries and persisted-data compaction remain separate work.
-The durable contract is [Teaching history](../../references/markdownflow-teaching-history.md).
+The durable contract was `docs/references/markdownflow-teaching-history.md`,
+removed with the feature.
 
 ## Progress
 

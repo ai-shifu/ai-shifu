@@ -282,10 +282,9 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
         if span.attributes.get("langfuse.observation.type") == "generation"
     ]
     assert len(turns) == 2
-    assert len(generations) == 6
+    assert len(generations) == 4
     assert {generation.name for generation in generations} == {
         "teaching",
-        "history_summary",
         "memory_check",
     }
     ordered_turns = sorted(turns, key=lambda span: span.start_time)
@@ -305,7 +304,7 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     )
     assert all(turn.parent.span_id == root.context.span_id for turn in turns)
     assert all(
-        sum(g.parent.span_id == turn.context.span_id for g in generations) == 3
+        sum(g.parent.span_id == turn.context.span_id for g in generations) == 2
         for turn in turns
     )
     assert len({span.context.trace_id for span in spans}) == 1

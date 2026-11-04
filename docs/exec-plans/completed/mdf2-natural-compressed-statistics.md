@@ -1,5 +1,8 @@
 # Verify natural exercise statistics after teaching compression
 
+> Retired, 2026-11-04: teaching history compaction, its semantic summaries and
+> `read_teaching` were removed; the model now receives the complete history.
+
 ## Purpose / Big Picture
 
 Complete a fresh internal classroom journey on sim, let genuine explanations

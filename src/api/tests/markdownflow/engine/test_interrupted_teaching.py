@@ -67,7 +67,6 @@ async def test_failed_teaching_survives_reload_and_continues(
         memory_recall=projected,
         memory_context_limit=100 if projected else None,
         recall_history_compaction=projected,
-        teaching_history_compaction=projected,
     )
     session = await engine.new_session("Teach the project steps. ?[%{{project}} ...]")
     if resuming:

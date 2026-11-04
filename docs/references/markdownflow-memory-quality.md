@@ -2,20 +2,26 @@
 title: MarkdownFlow Memory Quality Evaluation
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-12
+last_reviewed: 2026-11-04
 canonical: true
 ---
 
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its thirty-four fixed
+repeatable synthetic baseline for the current course model. Its thirty-one fixed
 cases cover fourteen semantic admission decisions, six actual-engine recall
-turns, four long-teaching-history journeys, four exercise-statistics reports and
+turns, three long-teaching-history journeys, two exercise-statistics reports and
 six authored-rubric grading checks.
 This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
+
+Teaching history compaction (opening/ending excerpts, semantic summaries and the
+`read_teaching` tool) was removed on 2026-11-04; the model now always receives
+the complete original history, bounded only by the per-model input budget.
+Dated acceptance records below that mention summaries, excerpts or
+`read_teaching` describe the engine as it was then.
 
 ## State-scoped native feedback schema
 
@@ -700,33 +706,18 @@ new complete natural classroom, other models/languages or human acceptance.
 
 ## Long-history cases
 
-Four teaching cases combine an eligible older long assistant message, two recent
-turns, the production semantic-summary factory, a JSON session round trip and
-actual engine projection. They distinguish changed/deleted current learner memory
-from a precise question about an original classroom example. The exact code is
-inside the source, outside both excerpt edges. Historical answers require a paired
-current-turn original page containing that code before learner output; a plausible
-answer or current memory read alone fails. Current-fact answers retain the exact
-recall-evidence requirement.
-
-Three cases require a real, nonempty bounded semantic summary. A fourth explicitly
-injects a summary failure to exercise cached excerpt fallback; it is not evidence
-of an actual provider outage. Each case records one logical summary attempt and
-requires the same derivative cache after serialization/reload, no additional
-summary attempt, and the expected source-bound excerpt/summary in actual model
-requests. Missing real summaries are evaluation errors even if an answer is correct.
-All cases require unchanged memory, original history and finished teaching.
+Three teaching cases resume a session with an older long assistant message, two
+recent turns and a JSON session round trip. The model receives that complete
+original history. They distinguish changed/deleted current learner memory from a
+precise question about an original classroom example. Current-fact answers
+retain the exact recall-evidence requirement; a historical answer must name the
+original example's code exactly once and no other code. All cases require
+unchanged memory, original history and finished teaching.
 
 Teaching uses the same controlled 512-token/temperature-zero settings as recall.
-Summary generation uses the production prompt and 256-token settings, with an
-eight-second provider timeout/cooperative deadline and complete 40 KiB input
-budget. These settings are reported separately. Teaching `usage` and completed
-summary `summary_usage` are separate. Logical summary attempts remain counts,
-including explicitly injected failure; actual summary generations are billed/traced
-under `agent_memory_quality_teaching_summary`. They are not a cost ledger.
 See [cache usage observations](markdownflow-cache-usage.md) for valid provider
 coverage, unknown metadata, matching token denominators and complete-course testing.
-Synthetic round trips establish cache/tool behavior, not database authorization,
+Synthetic round trips establish tool behavior, not database authorization,
 complete natural teaching quality or long-term cache savings.
 
 ## Exercise-statistics cases
@@ -737,24 +728,8 @@ one correction each. The cases place those corrections on different questions
 while retaining identical totals; correct aggregate counts cannot hide swapped
 first-pass results. The session is serialized and reloaded before the actual
 engine produces its final report. No expected rows or totals are sent to the model.
-Fixture responses stay below the teaching-excerpt threshold and no semantic
-summarizer is configured. These are intentionally full-history statistics cases,
-matching the observed natural failure's absence of teaching summaries. Enabling
-the projection option does not establish that projection happened. The four
-separate long-history cases cover summary/read behavior.
-
-Two additional exercise cases place one older correction and hint in the middle
-of an eligible long teaching part, outside both excerpt edges. One requires a
-real production-factory semantic summary; the other explicitly injects a failure
-and requires cached excerpt fallback, not a real provider-outage claim. Both warm
-the derivative cache, serialize/reload the session, and observe source-bound
-markers in actual engine requests. A projection flag alone is insufficient.
-They require one summary attempt, no additional summary after reload, unchanged
-original history and the same strict original-read/calculation/report checks.
-A missing or invalid required summary is an evaluation error even when the final
-statistics are correct. Summary usage remains separate from exercise usage.
-These are selected synthetic statistics-after-compaction checks, not evidence
-of a complete natural long-course or long-term fee acceptance.
+These are full-history statistics cases: the model receives every original
+submission and feedback message.
 
 The author requests one JSON object (plain or in a single Markdown JSON fence)
 containing per-question first-result booleans,
@@ -848,10 +823,8 @@ The evaluator initially rejected exact original prompt/title labels; their
 normalization plus reference grouping rescores six unchanged captured outputs
 6/6, with a subsequent fresh final-source selected CLI run passing 2/2. Earlier
 failing reports remain retained privately, not relabeled as new passing runs.
-The additional compacted exercise cases now cover summary success and injected
-failure/cache fallback with selected synthetic evidence. Natural-course
-statistics after semantic-summary compaction, other models/languages and
-independent human acceptance remain separate items. Full-catalog repetitions on
+The compacted exercise cases were removed with teaching history compaction.
+Other models/languages and independent human acceptance remain separate items. Full-catalog repetitions on
 the current course model are recorded below; they do not close those other items.
 
 ## Complete current-model baseline: October 10, 2026
@@ -917,8 +890,7 @@ Existing shared-gateway usage, billing and tracing still occur, attributed to th
 provided dedicated learner, validated course and published lesson under
 `agent_memory_quality_admission`,
 `agent_memory_quality_recall`, `agent_memory_quality_teaching`,
-`agent_memory_quality_exercise` and the separate
-`agent_memory_quality_teaching_summary` generation. Shared settlement resolves
+`agent_memory_quality_exercise` and `agent_memory_quality_grading`. Shared settlement resolves
 that course's owner; normal billability and built-in-demo exemptions still apply.
 Generation names distinguish these synthetic costs from natural classroom costs.
 No classroom progress/block IDs or learning mode are fabricated. Earlier rows
@@ -940,8 +912,7 @@ The private, atomically written JSON report records denominators, repetitions,
 per-case assertions, errors, UTC start/end times, elapsed times, usage where
 available, course selection and resolved model, optional checkout source commit and hashes of the evaluator, fixture, judge prompt and runtime.
 It contains no credentials, learner IDs, raw requests, responses or provider errors.
-Usage is the judge/engine's diagnostic counters where available, with completed
-summary responses reported separately. Optional cache coverage distinguishes a
+Usage is the judge/engine's diagnostic counters where available. Optional cache coverage distinguishes a
 valid reported zero from unknown metadata. These counters are not a billing or
 cost ledger; use shared-gateway accounting/traces for those acceptance decisions.
 The runtime image need not include Git: file fingerprints remain available.
@@ -973,10 +944,8 @@ This addresses updates and deletions without rewriting stored teaching history
 or changing the host's authorized snapshot.
 Current-memory revalidation is scoped to current-fact questions. An explicit
 question about what appeared in earlier teaching uses original historical evidence;
-today's memory must not replace an earlier quote or example. Exact historical
-codes, equations, quotations and decisions require `read_teaching` when projected,
-even if a lossy overview appears to contain the answer. Historical reads neither
-restore deleted memory nor authorize writes.
+today's memory must not replace an earlier quote or example. Historical evidence
+neither restores deleted memory nor authorizes writes.
 It requests a relevant read for memory questions, not an exhaustive memory scan.
 This is model guidance, not deterministic output enforcement. Retain intermittent
 violations as failed quality evidence; a passing run cannot erase an earlier failure.

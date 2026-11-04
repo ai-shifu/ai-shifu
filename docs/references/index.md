@@ -24,7 +24,6 @@ Evergreen repository references and operational guides live here.
 - [MarkdownFlow Memory Quality Evaluation](../references/markdownflow-memory-quality.md)
 - [MarkdownFlow Memory Recall](../references/markdownflow-memory-recall.md)
 - [MarkdownFlow Runtime Selection](../references/markdownflow-runtime-selection.md)
-- [MarkdownFlow teaching history projection](../references/markdownflow-teaching-history.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)
 - [Scripts Overview](../references/scripts.md)
 - [Retired shared course answers](../references/shared-course-answers.md)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -61,18 +63,33 @@ def store(
 
 def test_a_session_survives_a_round_trip(app: object) -> None:
     with app.app_context():
-        original = a_session(
-            teaching_summaries={"policy:source": "Historical overview"}
-        )
+        original = a_session()
         store(app, original)
         loaded = session_store.load_agent_session(app, USER, OUTLINE)
 
     assert loaded is not None
-    assert loaded.teaching_summaries == original.teaching_summaries
     assert loaded.id == original.id
     assert loaded.memory["feeling"] == "good"
     assert loaded.turn == 3
     assert loaded.script.script == "Teach lesson one."
+
+
+def test_a_session_saved_with_removed_teaching_summaries_still_loads(
+    app: object,
+) -> None:
+    """Rows written while teaching history compaction existed keep resuming."""
+    with app.app_context():
+        store(app, a_session())
+        row = LearnAgentSession.query.filter_by(deleted=0).first()
+        data = json.loads(row.session_data)
+        data["teaching_summaries"] = {"policy:source": "Historical overview"}
+        row.session_data = json.dumps(data)
+        db.session.commit()
+
+        loaded = session_store.load_agent_session(app, USER, OUTLINE)
+        assert loaded is not None
+        assert loaded.turn == 3
+        assert "teaching_summaries" not in json.loads(loaded.dumps())
 
 
 def test_a_learner_who_has_not_started_has_no_session(app: object) -> None:

@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TEACHING_GENERATION_NAME = "teaching"
-TEACHING_SUMMARY_GENERATION_NAME = "history_summary"
 MEMORY_ADMISSION_GENERATION_NAME = "memory_check"
 
 
