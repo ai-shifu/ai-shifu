@@ -6,6 +6,7 @@ import pytest
 from flaskr.common.config import (
     ENV_VARS,
     EnvVar,
+    parse_llm_model_max_input_tokens,
     parse_llm_model_max_output_tokens,
     parse_nonnegative_cent_amount,
 )
@@ -308,6 +309,30 @@ class TestLLMModelMaxOutputTokensConfig:
             match=r"must be a JSON object|model ids must|maximum output token values",
         ):
             parse_llm_model_max_output_tokens(value)
+
+
+class TestLLMModelMaxInputTokensConfig:
+    """Verify LLM model max input tokens config behavior."""
+
+    def test_parse_valid_routed_model_limits(self) -> None:
+        assert parse_llm_model_max_input_tokens(
+            '{"qwen/glm-5.3":1048576,"gpt-6-sol":922000}'
+        ) == {"qwen/glm-5.3": 1048576, "gpt-6-sol": 922000}
+        assert parse_llm_model_max_input_tokens("") == {}
+
+    @pytest.mark.parametrize(
+        "value",
+        ["not-json", "[]", '{"": 1}', '{"qwen/model": 0}', '{"qwen/model": true}'],
+    )
+    def test_reject_invalid_routed_model_limits(self, value: object) -> None:
+        env_var = ENV_VARS["LLM_MODEL_MAX_INPUT_TOKENS"]
+
+        assert env_var.validate_value(value) is False
+        with pytest.raises(
+            ValueError,
+            match=r"must be a JSON object|model ids must|maximum input token values",
+        ):
+            parse_llm_model_max_input_tokens(value)
 
 
 class TestEnvVarMultilineDescription:
