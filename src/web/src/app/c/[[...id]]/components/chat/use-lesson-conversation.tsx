@@ -8,6 +8,12 @@ import {
 } from 'react';
 import React from 'react';
 import { useLatest } from 'react-use';
+import {
+  isLoadingItem,
+  LOADING_ITEM_BID,
+  matchesElementBid,
+  withoutLoadingItem,
+} from '@/lib/lesson-stream/content-list';
 import { useCourseStore } from '@/store/use-course-store';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -403,14 +409,6 @@ function useLessonConversation({
       '',
     [],
   );
-
-  const matchItemBid = useCallback((item: ChatContentItem, bid: string) => {
-    if (!bid) {
-      return false;
-    }
-
-    return item.element_bid === bid;
-  }, []);
 
   const resolveAudioBlockTarget = useCallback((bid: string) => {
     const item = findAudioTargetItem(contentListRef.current, bid);
@@ -1096,9 +1094,7 @@ function useLessonConversation({
       });
 
       setTrackedContentList(prevState => {
-        const nextList = prevState.filter(
-          item => item.element_bid !== 'loading',
-        );
+        const nextList = withoutLoadingItem(prevState);
         if (
           nextList.some(
             item => item.element_bid === timeoutErrorItem.element_bid,
@@ -1122,9 +1118,7 @@ function useLessonConversation({
 
       const itemBid = `run-business-error-${outlineBid}-${businessCode || 'unknown'}`;
       setTrackedContentList(prevState => {
-        const nextList = prevState.filter(
-          item => item.element_bid !== 'loading',
-        );
+        const nextList = withoutLoadingItem(prevState);
         if (nextList.some(item => item.element_bid === itemBid)) {
           return nextList;
         }
@@ -1181,16 +1175,16 @@ function useLessonConversation({
 
   const ensureContentItem = useCallback(
     (items: ChatContentItem[], blockId: string): ChatContentItem[] => {
-      if (!blockId || blockId === 'loading') {
+      if (!blockId || blockId === LOADING_ITEM_BID) {
         return items;
       }
-      const hit = items.some(item => matchItemBid(item, blockId));
+      const hit = items.some(item => matchesElementBid(item, blockId));
       if (hit) {
         return items;
       }
       return items;
     },
-    [matchItemBid],
+    [],
   );
 
   /**
@@ -1247,7 +1241,7 @@ function useLessonConversation({
 
     const completedElementBid = currentBlockIdRef.current || '';
     setTrackedContentList(prevState => {
-      let nextList = prevState.filter(item => item.element_bid !== 'loading');
+      let nextList = withoutLoadingItem(prevState);
       if (completedElementBid) {
         nextList = finalizeElementOutputInList(nextList, completedElementBid);
       }
@@ -1330,12 +1324,12 @@ function useLessonConversation({
       lastInteractionBlockRef.current = null;
       if (!isListenMode) {
         setTrackedContentList(prev => {
-          const hasLoading = prev.some(item => item.element_bid === 'loading');
+          const hasLoading = prev.some(isLoadingItem);
           if (hasLoading) {
             return prev;
           }
           const placeholderItem: ChatContentItem = {
-            element_bid: 'loading',
+            element_bid: LOADING_ITEM_BID,
             content: '',
             customRenderBar: () => <LoadingBar />,
             type: ChatContentItemType.CONTENT,
@@ -1364,9 +1358,7 @@ function useLessonConversation({
       // must not start another run, or a persistent failure retries forever.
       let didStreamFail = false;
       const clearLoadingPlaceholder = () => {
-        setTrackedContentList(prev =>
-          prev.filter(item => item.element_bid !== 'loading'),
-        );
+        setTrackedContentList(prev => withoutLoadingItem(prev));
       };
 
       let source: ReturnType<typeof getRunMessage> | null = null;
@@ -1523,17 +1515,11 @@ function useLessonConversation({
               response?.generated_block_bid ||
               '';
             if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
-              if (
-                contentListRef.current?.some(
-                  item => item.element_bid === 'loading',
-                )
-              ) {
+              if (contentListRef.current?.some(isLoadingItem)) {
                 // currentBlockIdRef.current = nid;
                 // close loading
                 setTrackedContentList(pre => {
-                  const newList = pre.filter(
-                    item => item.element_bid !== 'loading',
-                  );
+                  const newList = withoutLoadingItem(pre);
                   return newList;
                 });
               }
@@ -1694,7 +1680,7 @@ function useLessonConversation({
               setCurrentStreamingElementBid('');
               setTrackedContentList((prev: ChatContentItem[]) => {
                 let updatedList = [...prev].filter(
-                  item => item.element_bid !== 'loading',
+                  item => !isLoadingItem(item),
                 );
                 updatedList = finalizeElementOutputInList(
                   updatedList,
@@ -2962,7 +2948,7 @@ function useLessonConversation({
       setTrackedContentList(prev =>
         updateNestedAskMessageAudioStreaming(
           prev.map(item => {
-            if (!matchItemBid(item, targetElementBid)) {
+            if (!matchesElementBid(item, targetElementBid)) {
               return item;
             }
 
@@ -3017,7 +3003,7 @@ function useLessonConversation({
                   item.type === ChatContentItemType.CONTENT &&
                   item.generated_block_bid === sourceBlockBid;
                 if (
-                  !matchItemBid(item, targetElementBid) &&
+                  !matchesElementBid(item, targetElementBid) &&
                   !isSourceBlockItem
                 ) {
                   return item;
@@ -3209,7 +3195,6 @@ function useLessonConversation({
       creditInsufficientAudience,
       effectivePreviewMode,
       listenRequestEnabled,
-      matchItemBid,
       resolveAudioBlockTarget,
       setTrackedContentList,
       shifuBid,
