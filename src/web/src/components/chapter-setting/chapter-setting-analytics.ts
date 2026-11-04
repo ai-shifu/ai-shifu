@@ -7,7 +7,6 @@ type BaseOutlineSaveAnalyticsInput = {
 };
 
 type LessonSettingSaveAnalyticsInput = BaseOutlineSaveAnalyticsInput & {
-  variant: 'lesson';
   learningPermission: LearningPermission;
   hideChapter: boolean;
 };
@@ -16,14 +15,13 @@ export const buildLessonSettingSaveAnalytics = ({
   outlineBid,
   shifuBid,
   saveType,
-  variant,
   learningPermission,
   hideChapter,
 }: LessonSettingSaveAnalyticsInput) => ({
   outline_bid: outlineBid,
   shifu_bid: shifuBid || '',
   save_type: saveType,
-  variant,
+  variant: 'lesson',
   learning_permission: learningPermission,
   hide_chapter: hideChapter,
 });

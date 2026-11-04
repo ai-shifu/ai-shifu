@@ -9,7 +9,6 @@ describe('chapter setting analytics', () => {
       outlineBid: 'lesson-1',
       shifuBid: 'course-1',
       saveType: 'manual',
-      variant: 'lesson',
       learningPermission: 'trial',
       hideChapter: false,
     });

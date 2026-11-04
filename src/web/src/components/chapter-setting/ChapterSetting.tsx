@@ -206,7 +206,6 @@ const ChapterSettingsDialog = ({
                 outlineBid,
                 shifuBid: currentShifu?.bid,
                 saveType,
-                variant: 'lesson',
                 learningPermission,
                 hideChapter,
               })
