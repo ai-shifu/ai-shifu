@@ -151,13 +151,19 @@ def retire_unused_block(*, generated_block_bid: str) -> None:
     never records its text, and the row left behind is an empty assistant turn that the 1.0 run
     would read as part of the conversation if the deployment disabled 2.0.
 
-    Only an untouched block is dropped: one that already has text belongs to a turn that finished.
+    Only an untouched block is dropped. One that already has text, or a turn record, belongs to a
+    turn that was saved: a turn that only asks a question teaches no text, and dropping its block
+    after the save would leave the stored session ahead of the rows.
     """
     block = LearnGeneratedBlock.query.filter(
         LearnGeneratedBlock.generated_block_bid == generated_block_bid,
         LearnGeneratedBlock.deleted == 0,
     ).first()
-    if block is not None and not (block.generated_content or "").strip():
+    if (
+        block is not None
+        and not (block.generated_content or "").strip()
+        and not (block.block_content_conf or "").strip()
+    ):
         block.deleted = 1
         block.status = 0
 

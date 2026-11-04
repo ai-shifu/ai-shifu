@@ -397,21 +397,36 @@ def plan_rewind(
     if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
         raise RewindUnavailableError
     blocks = _turn_blocks_from(block, include_it=True)
+    # A turn whose run died before it saved -- a worker killed mid-stream, or a cleanup that
+    # failed -- leaves its block live with neither text nor record. No saved session ever
+    # included it, so it is not a turn to go back to; it is retired with the rewind instead.
+    abandoned = [
+        b.generated_block_bid
+        for b in blocks[1:]
+        if not (b.generated_content or "").strip()
+        and not (b.block_content_conf or "").strip()
+    ]
     turns = [
         {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
         for b in blocks
+        if b.generated_block_bid not in abandoned
     ]
     question_id = (
         _question_for_control(block, anchor, turns)
         if answering and anchor != block.generated_block_bid
         else None
     )
-    return plan_turn_rewind(
+    plan = plan_turn_rewind(
         turns,
         block_bid=block.generated_block_bid,
         answering=answering,
         question_id=question_id,
     )
+    if plan is not None:
+        plan.retired_block_bids.extend(
+            bid for bid in abandoned if bid not in plan.retired_block_bids
+        )
+    return plan
 
 
 def stage_retirement(plan: RewindPlan, *, user_bid: str, outline_bid: str) -> None:
