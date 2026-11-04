@@ -68,6 +68,23 @@ describe('lesson stream run events', () => {
     expect(readDoneIsTerminal({})).toBeNull();
   });
 
+  it('searches content and data separately for the terminal flag', () => {
+    // A content object without the flag must not hide the flag in data.
+    expect(
+      readDoneIsTerminal({
+        content: { message: 'x' },
+        data: { is_terminal: true },
+      }),
+    ).toBe(true);
+    expect(
+      readDoneIsTerminal({
+        content: {},
+        data: JSON.stringify({ is_terminal: false }),
+      }),
+    ).toBe(false);
+    expect(readDoneIsTerminal({ content: {}, data: {} })).toBeNull();
+  });
+
   it('parses only object payloads', () => {
     expect(parseRunEventObject('{"a":1}')).toEqual({ a: 1 });
     expect(parseRunEventObject('not json')).toBeNull();

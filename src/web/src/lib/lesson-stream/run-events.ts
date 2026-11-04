@@ -38,9 +38,6 @@ export const parseRunEventObject = (
   }
 };
 
-const runEventObject = (event: RunStreamEvent) =>
-  parseRunEventObject(event.content) || parseRunEventObject(event.data);
-
 const nonEmptyString = (value: unknown): string =>
   typeof value === 'string' && value ? value : '';
 
@@ -101,7 +98,7 @@ const readBoolean = (value: unknown): boolean | null => {
 
 /**
  * Whether a `done` event ends the request (true), only ends a block (false),
- * or does not say (null). The event's own flag wins over its payload's.
+ * or does not say (null). The event's own flag wins, then `content`, then `data`.
  */
 export const readDoneIsTerminal = (event: RunStreamEvent): boolean | null => {
   if ('is_terminal' in event) {
@@ -110,8 +107,15 @@ export const readDoneIsTerminal = (event: RunStreamEvent): boolean | null => {
       return flag;
     }
   }
-  const payload = runEventObject(event);
-  return payload && 'is_terminal' in payload
-    ? readBoolean(payload.is_terminal)
-    : null;
+  // Each payload is searched on its own: a content object without the flag
+  // must not hide the flag in data.
+  for (const payload of [event.content, event.data].map(parseRunEventObject)) {
+    if (payload && 'is_terminal' in payload) {
+      const flag = readBoolean(payload.is_terminal);
+      if (flag !== null) {
+        return flag;
+      }
+    }
+  }
+  return null;
 };
