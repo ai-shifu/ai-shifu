@@ -6,7 +6,7 @@ from collections.abc import Generator
 from datetime import datetime
 
 from flask import Flask
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     AudioBackfillReadyDTO,
@@ -32,12 +32,28 @@ def _to_sse_chunk(payload: object) -> str:
     )
 
 
+# Model failures reach the learner as a handled error (and a friendly "content
+# generation is unavailable" toast), but they are an outage, not a business rule:
+# they must reach the ERROR stream that alerting watches.
+_LLM_FAILURE_ERROR_NAMES = (
+    "server.llm.requestFailed",
+    "server.llm.modelNotSupported",
+    "server.llm.modelUnavailable",
+    "server.llm.specifiedLlmNotConfigured",
+)
+
+
+def _is_llm_failure(error: AppError) -> bool:
+    return any(error.code == ERROR_CODE.get(name) for name in _LLM_FAILURE_ERROR_NAMES)
+
+
 def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
     """Log a run-script stream error, keeping handled AppErrors off ERROR.
 
     Unexpected errors are logged at ERROR for operational alerting, while a
     handled, user-facing AppError is logged at INFO so it stays out of the
-    alert stream but remains diagnosable.
+    alert stream but remains diagnosable. Model failures are the exception:
+    the learner sees a friendly message, but they are logged at ERROR.
     """
     error_traceback = "".join(
         traceback.format_exception(
@@ -51,6 +67,11 @@ def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
         "description": str(stream_error),
         "traceback": error_traceback,
     }
+
+    if isinstance(stream_error, AppError) and _is_llm_failure(stream_error):
+        app.logger.error("run_script llm failure")
+        app.logger.error(error_info)
+        return
 
     if isinstance(stream_error, AppError):
         # AppError is already a handled, user-facing business error (for example,
