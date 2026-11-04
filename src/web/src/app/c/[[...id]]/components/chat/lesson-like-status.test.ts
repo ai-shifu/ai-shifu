@@ -104,4 +104,12 @@ describe('lesson like-status rows', () => {
       [],
     );
   });
+
+  it('removes a stale row for an element without a type', () => {
+    const untyped = content('u', { element_type: undefined });
+    const withRow = upsertLikeStatusByParent([untyped], {
+      parentElementBid: 'u',
+    });
+    expect(likeRows(finalizeLikeStatusByParent(withRow, 'u'))).toEqual([]);
+  });
 });
