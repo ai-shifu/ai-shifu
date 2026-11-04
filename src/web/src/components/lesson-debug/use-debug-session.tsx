@@ -35,6 +35,10 @@ import {
   matchesElementBid,
   withoutLoadingItem,
 } from '@/lib/lesson-stream/content-list';
+import {
+  readDoneIsTerminal,
+  readRunEventError,
+} from '@/lib/lesson-stream/run-events';
 import { ChatContentItem, ChatContentItemType } from '@/types/chat-ui';
 import { normalizeLegacyBlockCompatList } from '@/lib/chat-ui-compat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
@@ -123,21 +127,6 @@ type DebugStreamEvent = {
   is_terminal?: unknown;
 };
 
-const resolveDebugBusinessCode = (
-  response: DebugStreamEvent,
-): number | undefined => {
-  if (typeof response.code === 'number') {
-    return response.code;
-  }
-  for (const candidate of [response.content, response.data]) {
-    const payload = parseObjectPayload<{ code?: unknown }>(candidate);
-    if (typeof payload?.code === 'number') {
-      return payload.code;
-    }
-  }
-  return undefined;
-};
-
 const DEBUG_BUSINESS_ERROR_ITEM_BID = 'preview-business-error';
 
 const parseObjectPayload = <T extends Record<string, unknown>>(
@@ -176,74 +165,6 @@ const resolveResponsePayload = (
     parseObjectPayload<Record<string, unknown>>(response.content) ||
     parseObjectPayload<Record<string, unknown>>(response.data)
   );
-};
-
-const resolveResponseStringPayload = (response: DebugStreamEvent): string => {
-  const contentPayload =
-    typeof response.content === 'string' ? response.content : '';
-  if (contentPayload) {
-    return contentPayload;
-  }
-  const dataPayload =
-    typeof response.data === 'string' ? response.data : undefined;
-  if (dataPayload) {
-    return dataPayload;
-  }
-  const objectPayload = resolveResponsePayload(response);
-  const mdflow =
-    objectPayload && typeof objectPayload.mdflow === 'string'
-      ? objectPayload.mdflow
-      : '';
-  return mdflow || '';
-};
-
-const resolveDoneIsTerminal = (response: DebugStreamEvent): boolean | null => {
-  const topLevelFlag = readBooleanField(response as Record<string, unknown>, [
-    'is_terminal',
-  ]);
-  if (topLevelFlag !== null) {
-    return topLevelFlag;
-  }
-  const payloadObject = resolveResponsePayload(response);
-  if (!payloadObject) {
-    return null;
-  }
-  return readBooleanField(payloadObject, ['is_terminal']);
-};
-
-const readPayloadField = (
-  payload: Record<string, unknown>,
-  keys: string[],
-): unknown => {
-  for (const key of keys) {
-    if (key in payload) {
-      return payload[key];
-    }
-  }
-  return undefined;
-};
-
-const readBooleanField = (
-  payload: Record<string, unknown>,
-  keys: string[],
-): boolean | null => {
-  const value = readPayloadField(payload, keys);
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  if (typeof value === 'string') {
-    const normalized = value.toLowerCase();
-    if (normalized === 'true') {
-      return true;
-    }
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-  return null;
 };
 
 const resolveElementPayload = (
@@ -1072,7 +993,7 @@ export function useDebugSession({
             });
           }
         } else if (responseType === DebugStreamEventType.DONE) {
-          const doneIsTerminal = resolveDoneIsTerminal(response);
+          const doneIsTerminal = readDoneIsTerminal(response);
           finalizeDebugItems();
           doneTerminalStateRef.current = doneIsTerminal;
           currentContentElementBidRef.current = null;
@@ -1083,12 +1004,10 @@ export function useDebugSession({
             stopRun();
           }
         } else if (responseType === DebugStreamEventType.ERROR) {
-          const errorMessage =
-            resolveResponseStringPayload(response) ||
-            t('module.preview.llmError');
+          const { message, code } = readRunEventError(response);
           handleDebugBusinessError(
-            errorMessage,
-            resolveDebugBusinessCode(response),
+            message || t('module.preview.llmError'),
+            code,
           );
         } else if (responseType === DebugStreamEventType.AUDIO_SEGMENT) {
           const audioSegment = normalizeAudioSegmentPayload(
