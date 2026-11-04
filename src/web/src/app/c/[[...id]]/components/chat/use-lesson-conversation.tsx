@@ -1516,7 +1516,10 @@ function useLessonConversation({
         });
       previewRewindResultRef.current = finishPreviewRewind;
       let isEnd = false;
-      let didReachTerminalSuccess = false;
+      let didReachTerminal = false;
+      // The backend follows an error with a non-terminal block end; that end
+      // must not start another run, or a persistent failure retries forever.
+      let didStreamFail = false;
       const clearLoadingPlaceholder = () => {
         setTrackedContentList(prev =>
           prev.filter(item => item.element_bid !== 'loading'),
@@ -1603,6 +1606,7 @@ function useLessonConversation({
               finishPreviewRewind?.('failed');
               clearRunStreamTimeout();
               setHasRunFailed(true);
+              didStreamFail = true;
               const rawContent = response?.content;
               const errorContent =
                 typeof rawContent === 'string'
@@ -1992,9 +1996,11 @@ function useLessonConversation({
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
               if (response.is_terminal === true) {
-                didReachTerminalSuccess = true;
-                finishPreviewRewind?.('success');
-                setHasRunFailed(false);
+                didReachTerminal = true;
+                if (!didStreamFail) {
+                  finishPreviewRewind?.('success');
+                  setHasRunFailed(false);
+                }
                 cleanupRunStreamState();
                 try {
                   source?.close?.();
@@ -2019,6 +2025,7 @@ function useLessonConversation({
                   .find(item => item.type !== ChatContentItemType.LIKE_STATUS);
                 if (
                   !isEnd &&
+                  !didStreamFail &&
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {
@@ -2200,7 +2207,7 @@ function useLessonConversation({
           }
         },
         error => {
-          if (didReachTerminalSuccess) {
+          if (didReachTerminal) {
             return;
           }
           const isLatestRun = runSerial === sseRunSerialRef.current;

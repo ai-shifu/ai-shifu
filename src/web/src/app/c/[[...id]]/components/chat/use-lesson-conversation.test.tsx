@@ -517,6 +517,48 @@ describe('useLessonConversation stream cleanup', () => {
     },
   );
 
+  it('does not continue automatically after a stream error', async () => {
+    const params = buildBaseParams();
+    const { result } = renderHook(() => useLessonConversation(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const stream = activeRun;
+    await act(async () => {
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'partial',
+          generated_block_bid: 'partial',
+          element_type: 'content',
+          content: 'Partial teaching',
+          like_status: 'none',
+        },
+      });
+    });
+    const runCount = mockGetRunMessage.mock.calls.length;
+    // The backend ends a failed block with error, a non-terminal done, then
+    // the terminal done.
+    await act(async () => {
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.ERROR,
+        content: 'Model unavailable',
+      });
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: false,
+        content: '',
+      });
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
+        content: '',
+      });
+    });
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(runCount);
+    expect(result.current.hasRunFailed).toBe(true);
+  });
+
   it('sends listen=false in the run body when listen requests are disabled', async () => {
     const { result } = renderHook(
       () =>
