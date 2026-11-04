@@ -435,6 +435,8 @@ def plan_rewind(
 # How long an empty, unrecorded block must sit before it counts as abandoned. After a
 # disconnect the request releases the lesson lock while the producer thread may still be
 # finishing the turn (prepared feedback persists its text late); a young block may still fill in.
+# Twice the run lock's lifetime (`host.run.RUN_SCRIPT_TIMEOUT_SECONDS`, 5 minutes): a run older
+# than that has already lost the lock every concurrent-turn guard relies on. Raise both together.
 ABANDONED_TURN_GRACE = timedelta(minutes=10)
 
 
