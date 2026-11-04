@@ -1,4 +1,4 @@
-"""Refresh only initial teaching constraints with independent host provenance."""
+"""Safely refresh the course prompt in saved Agent sessions."""
 
 from __future__ import annotations
 
