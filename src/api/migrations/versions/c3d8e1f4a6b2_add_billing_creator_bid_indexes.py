@@ -42,8 +42,12 @@ def _index_exists(table_name: str, index_name: str) -> bool:
     for index in inspector.get_indexes(table_name):
         if index.get("name") != index_name:
             continue
-        if list(index.get("column_names") or []) == ["creator_bid"] and not bool(
-            index.get("unique")
+        # A prefix index (mysql_length) or other dialect option is a
+        # different definition even when the columns match.
+        if (
+            list(index.get("column_names") or []) == ["creator_bid"]
+            and not bool(index.get("unique"))
+            and not index.get("dialect_options")
         ):
             return True
         raise RuntimeError(
