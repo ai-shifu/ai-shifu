@@ -29,6 +29,12 @@ import {
   upsertAudioSegment,
 } from '@/lib/audio-utils';
 import LoadingBar from '@/components/chat/LoadingBar';
+import {
+  isLoadingItem,
+  LOADING_ITEM_BID,
+  matchesElementBid,
+  withoutLoadingItem,
+} from '@/lib/lesson-stream/content-list';
 import { ChatContentItem, ChatContentItemType } from '@/types/chat-ui';
 import { normalizeLegacyBlockCompatList } from '@/lib/chat-ui-compat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
@@ -132,7 +138,6 @@ const resolveDebugBusinessCode = (
   return undefined;
 };
 
-const DEBUG_LOADING_ITEM_BID = 'loading';
 const DEBUG_BUSINESS_ERROR_ITEM_BID = 'preview-business-error';
 
 const parseObjectPayload = <T extends Record<string, unknown>>(
@@ -334,7 +339,7 @@ const isDebugActionableItem = (
   > | null,
 ): boolean => {
   const resolvedBid = resolveDebugElementBid(item);
-  if (!resolvedBid || resolvedBid === 'loading') {
+  if (!resolvedBid || resolvedBid === LOADING_ITEM_BID) {
     return false;
   }
   return (
@@ -347,14 +352,6 @@ const resolveLatestDebugActionableItem = (
   items: ChatContentItem[],
 ): ChatContentItem | undefined => {
   return [...items].reverse().find(item => isDebugActionableItem(item));
-};
-
-const matchesDebugElementBid = (item: ChatContentItem, bid: string) => {
-  if (!bid) {
-    return false;
-  }
-
-  return item.element_bid === bid;
 };
 
 const syncDebugActionableFinalState = (items: ChatContentItem[]) => {
@@ -420,14 +417,12 @@ export const replaceDebugLoadingWithBusinessError = (
 ): ChatContentItem[] => {
   const normalizedMessage = message.trim();
   if (!normalizedMessage) {
-    return items.filter(
-      item => item.generated_block_bid !== DEBUG_LOADING_ITEM_BID,
-    );
+    return withoutLoadingItem(items);
   }
 
   const nextList = items.filter(
     item =>
-      item.generated_block_bid !== DEBUG_LOADING_ITEM_BID &&
+      !isLoadingItem(item) &&
       item.generated_block_bid !== DEBUG_BUSINESS_ERROR_ITEM_BID,
   );
 
@@ -683,11 +678,7 @@ export function useDebugSession({
     currentStreamingElementBidRef.current = null;
     setIsLoading(false);
     if (wasEditingAnswer) {
-      updateSessionItems(prev =>
-        prev.filter(
-          item => item.generated_block_bid !== DEBUG_LOADING_ITEM_BID,
-        ),
-      );
+      updateSessionItems(prev => withoutLoadingItem(prev));
     }
   }, [
     closeAllTtsStreams,
@@ -795,15 +786,13 @@ export function useDebugSession({
       elementBid: string,
       defaults: Partial<ChatContentItem> = {},
     ) => {
-      const hasTarget = items.some(item =>
-        matchesDebugElementBid(item, elementBid),
-      );
+      const hasTarget = items.some(item => matchesElementBid(item, elementBid));
       if (hasTarget) {
         return items;
       }
 
       return [
-        ...items.filter(item => item.generated_block_bid !== 'loading'),
+        ...withoutLoadingItem(items),
         {
           element_bid: elementBid,
           generated_block_bid: elementBid,
@@ -884,9 +873,7 @@ export function useDebugSession({
   const finalizeDebugItems = useCallback(() => {
     flushSync(() => {
       updateSessionItems((prev: ChatContentItem[]) => {
-        const updatedList = [...prev].filter(
-          item => item.generated_block_bid !== 'loading',
-        );
+        const updatedList = [...prev].filter(item => !isLoadingItem(item));
         const latestActionableBid = resolveDebugElementBid(
           resolveLatestDebugActionableItem(updatedList),
         );
@@ -932,9 +919,7 @@ export function useDebugSession({
       const previousStreamingElementBid = currentStreamingElementBidRef.current;
 
       updateSessionItems(prev => {
-        let nextList = prev.filter(
-          item => item.generated_block_bid !== 'loading',
-        );
+        let nextList = withoutLoadingItem(prev);
         let completedElementBid = '';
         const hasIncomingItem = nextList.some(
           item => item.element_bid === itemBid,
@@ -1061,9 +1046,7 @@ export function useDebugSession({
             ? payloadObject.generated_block_bid
             : '');
         if (responseType === DebugStreamEventType.ELEMENT) {
-          updateSessionItems(prev =>
-            prev.filter(item => item.generated_block_bid !== 'loading'),
-          );
+          updateSessionItems(prev => withoutLoadingItem(prev));
         }
 
         if (responseType === DebugStreamEventType.DEBUG_VARIABLES) {
@@ -1289,10 +1272,10 @@ export function useDebugSession({
       }
       setErrorMessage(null);
       updateSessionItems(prev => [
-        ...prev.filter(item => item.generated_block_bid !== 'loading'),
+        ...withoutLoadingItem(prev),
         {
-          element_bid: DEBUG_LOADING_ITEM_BID,
-          generated_block_bid: DEBUG_LOADING_ITEM_BID,
+          element_bid: LOADING_ITEM_BID,
+          generated_block_bid: LOADING_ITEM_BID,
           content: '',
           customRenderBar: () => <LoadingBar />,
           type: ChatContentItemType.CONTENT,
@@ -1709,7 +1692,7 @@ export function useDebugSession({
       const streamGeneration = streamGenerationRef.current;
 
       const existingItem = sessionItemsRef.current.find(item =>
-        matchesDebugElementBid(item, elementBid),
+        matchesElementBid(item, elementBid),
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
@@ -1734,7 +1717,7 @@ export function useDebugSession({
       updateSessionItems(prevState =>
         ensureAudioItem(
           prevState.map(item => {
-            if (!matchesDebugElementBid(item, elementBid)) {
+            if (!matchesElementBid(item, elementBid)) {
               return item;
             }
             return {
@@ -1777,7 +1760,7 @@ export function useDebugSession({
           updateSessionItems(prevState =>
             ensureAudioItem(
               prevState.map(item =>
-                matchesDebugElementBid(item, elementBid)
+                matchesElementBid(item, elementBid)
                   ? {
                       ...item,
                       isAudioStreaming: false,
