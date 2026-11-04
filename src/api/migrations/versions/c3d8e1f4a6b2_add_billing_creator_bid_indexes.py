@@ -11,8 +11,11 @@ without a leading stat_date or subscription_bid, so they cannot use the existing
 composite indexes. The other undeclared indexes were redundant and were removed
 from the models instead.
 
-Each index is created only when it is missing, so an environment where one was
-added by hand, or a retry after a partial run, still upgrades cleanly.
+MySQL DDL is not transactional: if the upgrade stops after one CREATE INDEX,
+Alembic has not stamped the revision and a retry would fail with a duplicate
+index name. The upgrade therefore creates each index only when it is missing
+(the documented non-transactional DDL recovery case in src/api/AGENTS.md).
+The downgrade reverses this revision's schema with plain drops.
 """
 
 from __future__ import annotations
@@ -62,16 +65,9 @@ def upgrade():
 
 
 def downgrade():
-    if _index_exists("bill_renewal_events", "ix_bill_renewal_events_creator_bid"):
-        with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
-            batch_op.drop_index(batch_op.f("ix_bill_renewal_events_creator_bid"))
-    if _index_exists(
-        "bill_daily_usage_metrics", "ix_bill_daily_usage_metrics_creator_bid"
-    ):
-        with op.batch_alter_table("bill_daily_usage_metrics", schema=None) as batch_op:
-            batch_op.drop_index(batch_op.f("ix_bill_daily_usage_metrics_creator_bid"))
-    if _index_exists(
-        "bill_daily_ledger_summary", "ix_bill_daily_ledger_summary_creator_bid"
-    ):
-        with op.batch_alter_table("bill_daily_ledger_summary", schema=None) as batch_op:
-            batch_op.drop_index(batch_op.f("ix_bill_daily_ledger_summary_creator_bid"))
+    with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_bill_renewal_events_creator_bid"))
+    with op.batch_alter_table("bill_daily_usage_metrics", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_bill_daily_usage_metrics_creator_bid"))
+    with op.batch_alter_table("bill_daily_ledger_summary", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_bill_daily_ledger_summary_creator_bid"))
