@@ -62,6 +62,7 @@
 | `docs/exec-plans/active/interaction-variable-pr-series.md` | Integrate standard interaction bindings | `exec-plan-active` | `active` | `learner` | `2026-10-29` | `true` |
 | `docs/exec-plans/active/json-api-response-safety.md` | Serve shared API envelopes as inert JSON | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/lesson-reset-limit.md` | Lesson reset limit backed by SQL | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/listen-classroom-question-titles.md` | Show interaction titles in listen and classroom modes | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-authored-inputs.md` | Keep Authored Input Hints Out of Choice Buttons | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/markdownflow-total-input-budget.md` | MarkdownFlow total input budget | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |

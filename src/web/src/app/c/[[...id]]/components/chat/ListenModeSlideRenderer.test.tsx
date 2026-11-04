@@ -874,6 +874,114 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps).not.toHaveProperty('playerTexts');
   });
 
+  it.each(['listen', 'classroom'] as const)(
+    'uses each interaction prompt as its title when navigating %s history',
+    variant => {
+      const items: ChatContentItem[] = [
+        {
+          element_bid: 'first-question',
+          type: 'interaction',
+          content: '&#81;&#63;\n\n?[A | B]',
+          isHistory: true,
+          payload: { interaction_prompt: 'Q?' },
+        },
+        {
+          element_bid: 'second-question',
+          type: 'interaction',
+          content: '?[C | D]',
+          isHistory: true,
+          payload: { interaction_prompt: 'Which example comes second?' },
+        },
+        {
+          element_bid: 'legacy-question',
+          type: 'interaction',
+          content: '?[E | F]',
+          isHistory: true,
+        },
+      ];
+      render(
+        <ListenModeSlideRenderer
+          items={items}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+          variant={variant}
+        />,
+      );
+
+      const getProps = () =>
+        getMockSlide().mock.calls.at(-1)?.[0] as {
+          elementList: Array<{
+            blockBid: string;
+            type: string;
+            content: string;
+          }>;
+          interactionTexts: { title: string };
+          onStepChange: (element: unknown, index: number) => void;
+        };
+      expect(
+        getProps().elementList.every(item => item.type === 'interaction'),
+      ).toBe(true);
+      expect(getProps().elementList.map(item => item.content)).toEqual([
+        '?[A | B]',
+        '?[C | D]',
+        '?[E | F]',
+      ]);
+
+      for (const [index, expectedTitle] of [
+        'Q?',
+        'Which example comes second?',
+        'module.chat.listenInteractionHint',
+        'Q?',
+      ].entries()) {
+        const targetIndex = index === 3 ? 0 : index;
+        act(() => {
+          const props = getProps();
+          props.onStepChange(props.elementList[targetIndex], targetIndex);
+        });
+        expect(getProps().interactionTexts.title).toBe(expectedTitle);
+      }
+    },
+  );
+
+  it('updates a title when a streamed interaction keeps its identity and controls', () => {
+    const firstItem: ChatContentItem = {
+      element_bid: 'streamed-question',
+      type: 'interaction',
+      content: '?[A | B]',
+      payload: { interaction_prompt: 'First prompt' },
+    };
+    const chatRef = createChatRef();
+    const view = render(
+      <ListenModeSlideRenderer
+        items={[firstItem]}
+        mobileStyle={false}
+        chatRef={chatRef}
+      />,
+    );
+    const getProps = () =>
+      getMockSlide().mock.calls.at(-1)?.[0] as {
+        elementList: Array<{ blockBid: string; interaction_prompt?: string }>;
+        interactionTexts: { title: string };
+        onStepChange: (element: unknown, index: number) => void;
+      };
+    act(() => getProps().onStepChange(getProps().elementList[0], 0));
+    expect(getProps().interactionTexts.title).toBe('First prompt');
+    const firstElement = getProps().elementList[0];
+
+    view.rerender(
+      <ListenModeSlideRenderer
+        items={[
+          { ...firstItem, payload: { interaction_prompt: 'Updated prompt' } },
+        ]}
+        mobileStyle={false}
+        chatRef={chatRef}
+      />,
+    );
+
+    expect(getProps().elementList[0]).not.toBe(firstElement);
+    expect(getProps().interactionTexts.title).toBe('Updated prompt');
+  });
+
   it.each(['es-ES', 'ur-PK'])(
     'marks the English guide slide as English under a %s UI',
     language => {

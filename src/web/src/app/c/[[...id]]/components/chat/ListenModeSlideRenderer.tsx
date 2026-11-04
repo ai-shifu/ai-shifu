@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/Popover';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+import { stripInteractionPromptPrefix } from '@/lib/interaction-prompt';
 import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
@@ -89,6 +90,7 @@ import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/us
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
+  interaction_prompt?: string;
   page?: number;
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
@@ -522,6 +524,7 @@ const buildListenSlideElementFingerprint = (element: ListenSlideElement) =>
     blockBid: element.blockBid,
     page: element.page,
     user_input: element.user_input,
+    interaction_prompt: element.interaction_prompt,
     readonly: element.readonly,
     audio_url: element.audio_url,
     audio_segments: element.audio_segments,
@@ -720,6 +723,12 @@ const buildSlideElementList = ({
       }),
       type: 'interaction',
       content: localizedContent,
+      interaction_prompt:
+        !isSystemInteraction &&
+        typeof item.payload?.interaction_prompt === 'string' &&
+        item.payload.interaction_prompt.trim()
+          ? item.payload.interaction_prompt
+          : undefined,
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,
       is_new: item.is_new ?? true,
@@ -751,7 +760,7 @@ const buildSlideElementList = ({
 };
 
 const ListenModeSlideRenderer = ({
-  items,
+  items: sourceItems,
   mobileStyle,
   chatRef,
   variant = 'listen',
@@ -776,6 +785,21 @@ const ListenModeSlideRenderer = ({
   followUpMode = 'text',
   pendingAudioBackfillElementBids = EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS,
 }: ListenModeSlideRendererProps) => {
+  const items = useMemo(
+    () =>
+      sourceItems.map(item => {
+        if (item.type !== ChatContentItemType.INTERACTION) {
+          return item;
+        }
+        const originalContent = item.content || '';
+        const content = stripInteractionPromptPrefix(
+          originalContent,
+          item.payload?.interaction_prompt,
+        );
+        return content === originalContent ? item : { ...item, content };
+      }),
+    [sourceItems],
+  );
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
   const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
@@ -2454,7 +2478,9 @@ const ListenModeSlideRenderer = ({
           lang={contentLanguage ?? ''}
           elementList={renderedElementList}
           interactionTexts={{
-            title: t('module.chat.listenInteractionHint'),
+            title:
+              currentMarkerStepElement?.interaction_prompt ??
+              t('module.chat.listenInteractionHint'),
           }}
           bufferingText={{
             waitingForAudio: t('module.chat.thinking'),
