@@ -708,6 +708,73 @@ def test_question_closes_editor_response_without_ending_the_lesson(
     assert [message.is_terminal for message in done_messages] == [False, True]
 
 
+def test_a_shown_control_is_bound_even_if_the_run_stops_before_done(
+    app: object, monkeypatch: object
+) -> None:
+    """Editing that answer must not be refused because "done" never arrived."""
+    from flaskr.service.learn.agent import lesson_entry
+
+    cache = _Cache()
+    monkeypatch.setattr(debug_session, "cache", cache)
+
+    def lesson_events(_app: object, **kwargs: object) -> object:
+        session = Session(script=ScriptBundle(script="Current draft"))
+        record = _record(session)
+        session.pending = [
+            PendingInteraction("q", InteractionSpec(type="text", prompt="Which?"))
+        ]
+        kwargs["debug_store"].save(
+            session,
+            generated_block_bid="question",
+            turn_record=record,
+            question_ids=["q"],
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid="question",
+            type=GeneratedType.INTERACTION,
+            content="Which?",
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid="question",
+            type=GeneratedType.BREAK,
+            content="",
+        )
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
+    with app.test_request_context("/"):
+        stream = debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Current draft", block_index=0
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="stopped-run",
+        )
+        control = None
+        for message in stream:
+            if message.type == "element" and (
+                getattr(message.content, "element_type", None)
+                == ElementType.INTERACTION
+            ):
+                control = message.content.element_bid
+                break
+        # The author stops the run: "done" is never produced.
+        stream.close()
+    assert control
+    store = _store(app, "stopped-run")
+    plan = store.plan_rewind(
+        script="Current draft",
+        block_bid="question",
+        element_bid=control,
+        answering=True,
+    )
+    assert plan.checkpoint["pending"][0]["tool_call_id"] == "q"
+
+
 def test_finished_debug_reopening_closes_the_empty_response(
     app: object, monkeypatch: object
 ) -> None:

@@ -448,8 +448,13 @@ def stream_debug_preview(
             bids = interaction_elements.setdefault(message.generated_block_bid, [])
             if element.element_bid not in bids:
                 bids.append(element.element_bid)
-        if message.type == "done" and interaction_elements:
-            store.bind_interactions(script=script, elements=interaction_elements)
+                # Bind as soon as the control is shown, not at "done": a run stopped after
+                # the turn saved but before "done" would otherwise leave the control
+                # unowned, and editing that answer would be refused.
+                store.bind_interactions(
+                    script=script,
+                    elements={message.generated_block_bid: list(bids)},
+                )
         if anchor and message.type == "done":
             saved = store.load(script=script)
             if saved is not None:
