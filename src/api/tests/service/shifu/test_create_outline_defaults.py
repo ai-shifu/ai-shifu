@@ -149,6 +149,7 @@ def test_direct_creation_defaults_to_free_without_changing_existing_guest(
 
 
 def test_legacy_prompt_inputs_are_ignored_across_outline_authoring_routes(
+    app: object,
     test_client: object,
     course: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -185,6 +186,19 @@ def test_legacy_prompt_inputs_are_ignored_across_outline_authoring_routes(
         json={"name": "Renamed lesson", **legacy},
     ).get_json(force=True)
     assert updated["code"] == 0
+    with app.app_context():
+        versions = (
+            DraftOutlineItem.query.filter_by(shifu_bid=course)
+            .order_by(DraftOutlineItem.id)
+            .all()
+        )
+        assert [
+            (row.outline_item_bid, row.title, row.llm_system_prompt) for row in versions
+        ] == [
+            (chapter, "Chapter", ""),
+            (lesson, "Lesson", ""),
+            (lesson, "Renamed lesson", ""),
+        ]
     for bid in (chapter, lesson):
         response = test_client.get(
             f"/api/shifu/shifus/{course}/outlines/{bid}", headers=HEADERS
