@@ -128,6 +128,10 @@ def test_answers_at_the_learners_position(
     course = revision._seed_course(app)
     _learner(monkeypatch, course.user_bid)
     with app.app_context():
+        with unit_of_work():
+            PublishedOutlineItem.query.filter_by(
+                outline_item_bid=course.outline_bid
+            ).one().llm_system_prompt = "Retired lesson prompt"
         progress_bid = _progress(course, position=1)
         events = _ask(app, course)
 
@@ -141,8 +145,12 @@ def test_answers_at_the_learners_position(
         assert block.generated_content == "Explain this"
         assert ask_runtime.calls.llm, "the follow-up reached the model"
         assert (
-            "<course_prompt>\nOld lesson prompt\n</course_prompt>"
+            "<course_prompt>\nOld course prompt\n</course_prompt>"
             in ask_runtime.calls.llm[-1]["messages"][0]["content"]
+        )
+        assert (
+            "Retired lesson prompt"
+            not in ask_runtime.calls.llm[-1]["messages"][0]["content"]
         )
         trace = ask_runtime.traces[-1]["trace_payload"]
         assert trace["metadata"]["scene"] == "lesson_runtime"

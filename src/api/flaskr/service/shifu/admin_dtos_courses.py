@@ -396,9 +396,11 @@ class AdminOperationCourseChapterDetailDTO(BaseModel):
     outline_item_bid: str = Field(..., description="Outline item business identifier")
     title: str = Field(..., description="Outline item title")
     content: str = Field(..., description="MarkdownFlow content")
-    llm_system_prompt: str = Field(..., description="Outline system prompt")
+    llm_system_prompt: str = Field(
+        ..., description="Course teaching prompt applied to this outline"
+    )
     llm_system_prompt_source: str = Field(
-        ..., description="Resolved outline system prompt source"
+        ..., description="Course prompt source (course or empty)"
     )
 
     def __json__(self) -> dict[str, object]:

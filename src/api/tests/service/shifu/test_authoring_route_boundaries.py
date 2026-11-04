@@ -112,14 +112,14 @@ def preview_model(monkeypatch: pytest.MonkeyPatch) -> Mock:
             f"{COURSE}/outlines",
             "create_outline",
             {"name": "Lesson", "is_hidden": "TRUE"},
-            ("teacher", "course", None, "Lesson", None, None, True),
+            ("teacher", "course", None, "Lesson", None, True),
         ),
         (
             "POST",
             OUTLINE,
             "modify_unit",
             {"name": "Lesson", "is_hidden": "false"},
-            ("teacher", "course", "outline", "Lesson", None, None, False, None),
+            ("teacher", "course", "outline", "Lesson", None, False, None),
         ),
         ("GET", f"{OUTLINE}/mdflow", "get_shifu_mdflow", None, ("course", "outline")),
         (

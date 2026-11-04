@@ -214,7 +214,8 @@ describe('useShifu outline-create analytics producers', () => {
       name: 'Private outline name',
       ...(learningPermission && { learningPermission }),
       isHidden: false,
-      systemPrompt: 'Private system prompt',
+      // A legacy caller's extra prompt field must never reach the API.
+      systemPrompt: 'Private legacy system prompt',
     } as const;
 
     if (path === 'addRootOutline') {
@@ -304,6 +305,9 @@ describe('useShifu outline-create analytics producers', () => {
 
       expect(mockCreateOutline).toHaveBeenCalledTimes(1);
       expect(mockCreateOutline.mock.calls[0][0]).not.toHaveProperty('type');
+      expect(mockCreateOutline.mock.calls[0][0]).not.toHaveProperty(
+        'system_prompt',
+      );
       expect(mockTrackEvent).not.toHaveBeenCalled();
 
       await act(async () => {

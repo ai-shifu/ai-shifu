@@ -258,8 +258,6 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.contentDetailDialog.empty')
  * t('module.operationsCourse.detail.contentDetailDialog.sections.content')
  * t('module.operationsCourse.detail.contentDetailDialog.sections.systemPrompt')
- * t('module.operationsCourse.detail.contentDetailDialog.sources.lesson')
- * t('module.operationsCourse.detail.contentDetailDialog.sources.chapter')
  * t('module.operationsCourse.detail.contentDetailDialog.sources.course')
  * t('module.operationsCourse.detail.users')
  * t('module.operationsCourse.detail.usersCount')
@@ -1026,12 +1024,6 @@ export default function AdminOperationCourseDetailPage() {
 
   const resolvePromptSourceLabel = useCallback(
     (source?: string) => {
-      if (source === 'lesson') {
-        return tOperations('detail.contentDetailDialog.sources.lesson');
-      }
-      if (source === 'chapter') {
-        return tOperations('detail.contentDetailDialog.sources.chapter');
-      }
       if (source === 'course') {
         return tOperations('detail.contentDetailDialog.sources.course');
       }
@@ -1068,7 +1060,10 @@ export default function AdminOperationCourseDetailPage() {
           tOperations('detail.contentDetailDialog.sections.systemPrompt'),
           selectedChapterDetail.llm_system_prompt_source,
         ),
-        value: selectedChapterDetail.llm_system_prompt || '',
+        value:
+          selectedChapterDetail.llm_system_prompt_source === 'course'
+            ? selectedChapterDetail.llm_system_prompt || ''
+            : '',
       },
     ];
   }, [

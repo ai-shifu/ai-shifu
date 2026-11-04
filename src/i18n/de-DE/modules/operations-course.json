@@ -68,9 +68,7 @@
         "systemPrompt": "System-Prompt"
       },
       "sources": {
-        "chapter": "Quelle: Kapitel-Prompt",
-        "course": "Quelle: Kurs-Prompt",
-        "lesson": "Quelle: Lektions-Prompt"
+        "course": "Quelle: Kurs-Prompt"
       },
       "title": "Inhaltsdetails"
     },

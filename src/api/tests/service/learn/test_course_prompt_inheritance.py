@@ -1,4 +1,4 @@
-"""Keep blank outline prompts from masking inherited course instructions."""
+"""Read bound course instructions without consulting retired outline prompts."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -8,37 +8,40 @@ from flask import Flask
 from flaskr.service.learn.ask import context as follow_up_context
 
 
+class _OutlineWithoutPrompt:
+    """Fail if a resolver attempts to read the removed outline setting."""
+
+    def __init__(self, row_id: str) -> None:
+        self.id = row_id
+
+    @property
+    def llm_system_prompt(self) -> str:
+        message = "Outline teaching prompts have been retired"
+        raise AssertionError(message)
+
+
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize(
-    ("lesson_prompt", "chapter_prompt", "course_prompt", "expected"),
+    ("course_prompt", "expected"),
     [
-        (None, None, "COURSE RULE", "COURSE RULE"),
-        ("", "", "COURSE RULE", "COURSE RULE"),
-        ("", " ", "COURSE RULE", "COURSE RULE"),
-        ("", "\n", "COURSE RULE", "COURSE RULE"),
-        (" \t\r\n", "\u3000\u00a0", "COURSE RULE", "COURSE RULE"),
-        (" ", "CHAPTER RULE", "COURSE RULE", "CHAPTER RULE"),
-        ("\n", "  CHAPTER RULE\n", "COURSE RULE", "  CHAPTER RULE\n"),
-        ("  LESSON RULE\n", "CHAPTER RULE", "COURSE RULE", "  LESSON RULE\n"),
-        ("LESSON RULE", "\n", "COURSE RULE", "LESSON RULE"),
-        ("\n", " ", "", None),
-        ("\n", " ", " \t\r\n\u3000\u00a0", None),
-        ("", "", "  COURSE RULE\n", "  COURSE RULE\n"),
+        ("COURSE RULE", "COURSE RULE"),
+        ("", None),
+        (None, None),
+        (" \t\r\n\u3000\u00a0", None),
+        ("  COURSE RULE\n", "  COURSE RULE\n"),
     ],
 )
-def test_blank_outline_prompts_inherit_nearest_substantive_prompt(
+def test_follow_up_reads_only_the_bound_course_prompt(
     monkeypatch: pytest.MonkeyPatch,
     preview_mode: bool,
-    lesson_prompt: str | None,
-    chapter_prompt: str | None,
-    course_prompt: str,
+    course_prompt: str | None,
     expected: str | None,
 ) -> None:
-    """Draft and published lessons skip blank overrides and preserve real prompts."""
+    """Preview and published runs work with no readable outline prompt field."""
     outline_model = MagicMock()
     outline_model.query.filter.return_value.all.return_value = [
-        SimpleNamespace(id="chapter-db", llm_system_prompt=chapter_prompt),
-        SimpleNamespace(id="lesson-db", llm_system_prompt=lesson_prompt),
+        _OutlineWithoutPrompt("chapter-db"),
+        _OutlineWithoutPrompt("lesson-db"),
     ]
     course_model = MagicMock()
     course_model.query.filter.return_value.order_by.return_value.first.return_value = (

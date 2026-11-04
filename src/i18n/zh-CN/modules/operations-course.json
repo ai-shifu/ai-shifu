@@ -68,9 +68,7 @@
         "systemPrompt": "系统提示词"
       },
       "sources": {
-        "chapter": "来源：章提示词",
-        "course": "来源：课程提示词",
-        "lesson": "来源：节提示词"
+        "course": "来源：课程提示词"
       },
       "title": "内容详情"
     },

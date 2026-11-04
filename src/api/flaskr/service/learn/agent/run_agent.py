@@ -82,6 +82,7 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     save_agent_session,
 )
+from flaskr.service.learn.agent.teaching_brief import refresh_teaching_brief
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
@@ -328,6 +329,9 @@ def _load_or_start(
 
     async def make_session() -> Session:
         if stored is not None:
+            # Refresh before memory repair: historical expanded scripts must be
+            # recognized against the original memory envelope and snapshots.
+            refresh_teaching_brief(stored, teaching_brief)
             discard_course_references(stored, teaching_brief=teaching_brief)
             if debug_store is None:
                 refresh_nickname(stored, user_memory)
@@ -356,14 +360,6 @@ def _load_or_start(
                 if debug_store is not None
                 else dict(user_memory)
             )
-            # The brief is re-read too, for the same reason the memory is: a stored session
-            # carries the snapshot taken when it was last saved. A lesson already in progress
-            # when an author writes or edits one would otherwise never see it, and a lesson
-            # begun before this existed would never see one at all.
-            #
-            # Only the brief, not the script. Replacing the script under a conversation that has
-            # already been taught from it would leave the two disagreeing about what was said.
-            stored.script = replace(stored.script, constraints=teaching_brief or None)
             if script_edited:
                 # The model reads the script from the first user message, not from the
                 # bundle, so the edited draft has to replace it there as well.

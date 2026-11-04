@@ -68,9 +68,7 @@
         "systemPrompt": "Prompt système"
       },
       "sources": {
-        "chapter": "Source : prompt de chapitre",
-        "course": "Source : prompt du cours",
-        "lesson": "Source : prompt de leçon"
+        "course": "Source : prompt du cours"
       },
       "title": "Détail du contenu"
     },

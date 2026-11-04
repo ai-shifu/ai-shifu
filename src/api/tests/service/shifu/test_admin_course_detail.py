@@ -729,7 +729,6 @@ def _seed_outline(
     updated_at: datetime,
     updated_user_bid: str = "creator-1",
     content: str = "",
-    llm_system_prompt: str = "",
     deleted: int = 0,
 ) -> None:
     db.session.add(
@@ -741,7 +740,6 @@ def _seed_outline(
             position=position,
             hidden=hidden,
             type=item_type,
-            llm_system_prompt=llm_system_prompt,
             ask_enabled_status=0,
             ask_llm_system_prompt="",
             content=content,
@@ -873,7 +871,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             updated_at=updated_at,
             updated_user_bid="modifier-1",
             content="# Lesson 1 content",
-            llm_system_prompt="lesson system prompt",
         )
         _seed_outline(
             outline_item_bid="lesson-2",
@@ -1140,6 +1137,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
         _seed_course(
             created_at=datetime(2026, 4, 1, 9, 0, 0),
             llm="gpt-test",
+            llm_system_prompt="abcde",
             tts_enabled=0,
             tts_provider="minimax",
             tts_model="speech-test",
@@ -1149,7 +1147,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             title="Chapter",
             position="1",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
-            llm_system_prompt="abcdef",
         )
         _seed_outline(
             outline_item_bid="lesson-1",
@@ -1158,7 +1155,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             position="1.1",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="abcdefghij",
-            llm_system_prompt="abcd",
         )
         _seed_outline(
             outline_item_bid="lesson-2",
@@ -1176,7 +1172,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             hidden=1,
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="this hidden content is ignored",
-            llm_system_prompt="hidden",
         )
         _seed_outline(
             outline_item_bid="chapter-hidden-only",
@@ -1184,7 +1179,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             position="2",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="this visible chapter content is ignored",
-            llm_system_prompt="visible chapter prompt ignored",
         )
         _seed_outline(
             outline_item_bid="hidden-only-child",
@@ -1194,7 +1188,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             hidden=1,
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="hidden child content is ignored",
-            llm_system_prompt="hidden child prompt ignored",
         )
         for billing_metric in (
             BILLING_METRIC_LLM_INPUT_TOKENS,
@@ -1258,16 +1251,18 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
 
     payload = get_ok(test_client, f"{COURSE_URL}/detail")
     estimate = payload["data"]["estimated_credit_cost"]
-    assert estimate["read"]["min"] == 46
-    assert estimate["read"]["max"] == 82
-    assert estimate["classroom"]["min"] == 46
-    assert estimate["classroom"]["max"] == 82
+    # Each visible lesson uses the same five-character course prompt. The cost
+    # calculation rounds each lesson independently before adding their totals.
+    assert estimate["read"]["min"] == 47
+    assert estimate["read"]["max"] == 85
+    assert estimate["classroom"]["min"] == 47
+    assert estimate["classroom"]["max"] == 85
     assert estimate["listen"]["enabled"] is False
-    assert estimate["listen"]["min"] == 73
-    assert estimate["listen"]["max"] == 115
+    assert estimate["listen"]["min"] == 74
+    assert estimate["listen"]["max"] == 118
     assert estimate["listen"]["llm"] == {
-        "min": 46,
-        "max": 82,
+        "min": 47,
+        "max": 85,
         "model": "gpt-test",
         "model_label": "GPT Test",
         "multiplier": "3x",
@@ -1380,48 +1375,23 @@ def test_admin_operation_course_prompt_route_returns_course_prompt(
     }
 
 
+@pytest.mark.parametrize("published", [False, True])
 @pytest.mark.parametrize(
-    ("course_prompt", "published", "chapter_prompt", "lesson_prompt", "expected"),
+    ("course_prompt", "expected"),
     [
-        pytest.param(
-            "",
-            True,
-            None,
-            "lesson system prompt",
-            ("lesson system prompt", "lesson"),
-            id="lesson-prompt",
-        ),
-        pytest.param(
-            "course system prompt",
-            False,
-            "chapter system prompt",
-            "",
-            ("chapter system prompt", "chapter"),
-            id="falls-back-to-chapter",
-        ),
-        pytest.param(
-            "course system prompt",
-            False,
-            "",
-            "",
-            ("course system prompt", "course"),
-            id="falls-back-to-course",
-        ),
+        ("course system prompt", ("course system prompt", "course")),
+        ("  course system prompt\n", ("course system prompt", "course")),
+        (" \n", ("", "")),
     ],
 )
-def test_admin_operation_course_chapter_detail_route_resolves_prompt_source(
+def test_admin_operation_course_chapter_detail_route_returns_course_prompt(
     app: object,
     test_client: object,
     course_prompt: str,
     published: bool,
-    chapter_prompt: str | None,
-    lesson_prompt: str,
     expected: tuple[str, str],
 ) -> None:
-    """The lesson prompt wins, then the parent chapter's, then the course's.
-
-    ``chapter_prompt=None`` leaves the lesson's parent chapter unseeded.
-    """
+    """Every lesson detail exposes the course instructions and their source."""
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
     with app.app_context():
@@ -1429,14 +1399,12 @@ def test_admin_operation_course_chapter_detail_route_resolves_prompt_source(
         _seed_course(
             created_at=updated_at, llm_system_prompt=course_prompt, published=published
         )
-        if chapter_prompt is not None:
-            _seed_outline(
-                outline_item_bid="chapter-1",
-                title="Chapter 1",
-                position="1",
-                updated_at=updated_at,
-                llm_system_prompt=chapter_prompt,
-            )
+        _seed_outline(
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            updated_at=updated_at,
+        )
         _seed_outline(
             outline_item_bid="lesson-1",
             title="Lesson 1",
@@ -1444,7 +1412,6 @@ def test_admin_operation_course_chapter_detail_route_resolves_prompt_source(
             parent_bid="chapter-1",
             updated_at=updated_at,
             content="# Lesson 1 content",
-            llm_system_prompt=lesson_prompt,
         )
         db.session.commit()
 
