@@ -211,6 +211,7 @@ def test_an_interaction_carries_its_question_as_control_metadata() -> None:
     assert controls.__json__()["interaction_question"] == "Which one?"
     assert controls.type == GeneratedType.INTERACTION
     assert controls.content == "?[%{{ pick }} A]"
+    assert controls.__json__()["content"] == controls.content
 
 
 def test_a_question_reaches_the_learner_as_the_model_wrote_it() -> None:

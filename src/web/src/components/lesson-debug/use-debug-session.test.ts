@@ -425,10 +425,6 @@ describe('useDebugSession helpers and business error rendering', () => {
 
   test('stops a failed Debug answer continuation without discarding its answer or question', async () => {
     const question = 'Which answer do you choose?';
-    const encodedQuestion =
-      Array.from(question)
-        .map(char => `&#${char.codePointAt(0)};`)
-        .join('') + '\n\n';
     const message = debugServiceUnavailableMessages.find(
       entry => entry.locale === 'en-US',
     )!.message;
@@ -457,7 +453,7 @@ describe('useDebugSession helpers and business error rendering', () => {
             element_bid: 'question',
             generated_block_bid: 'question-turn',
             element_type: 'interaction',
-            content: encodedQuestion + '?[answer]',
+            content: '?[answer]',
             payload: { interaction_question: question },
           },
         }),

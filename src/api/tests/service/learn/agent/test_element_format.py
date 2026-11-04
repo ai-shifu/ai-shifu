@@ -295,8 +295,7 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
         assert interaction.payload.interaction_question == question
         wire = interaction.__json__()
         assert wire["payload"]["interaction_question"] == question
-        assert wire["content"].startswith("&#60;&#100;&#105;&#118;")
-        assert wire["content"].endswith("\n\n?[First | Second]")
+        assert wire["content"] == "?[First | Second]"
         assert interaction.content == "?[First | Second]"
         assert interaction.is_speakable is False
         assert interaction.audio_url == ""
@@ -309,6 +308,7 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
         _to_sse_data_line(interaction_event).removeprefix("data: ")
     )
     assert serialized_event["content"] == wire["content"]
+    assert serialized_event["interaction_question"] == question
     response = make_common_response(LearnElementRecordDTO(elements=history)).get_json()
     assert response["data"]["elements"][-1]["content"] == wire["content"]
     with format_environment.app_context():

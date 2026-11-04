@@ -2788,13 +2788,13 @@ describe('useLessonConversation stream cleanup', () => {
   });
 
   it.each(['history', 'stream'])(
-    'preserves interaction question wire content through %s hydration and mode switches',
+    'preserves interaction controls and question metadata through %s hydration and mode switches',
     async source => {
       const interaction = {
         element_type: 'interaction',
         element_bid: 'native-question',
         generated_block_bid: 'native-question-turn',
-        content: '&#81;&#63;\n\n?[A | B]',
+        content: '?[A | B]',
         payload: { interaction_question: 'Q?' },
       };
       if (source === 'history') {
@@ -2820,23 +2820,21 @@ describe('useLessonConversation stream cleanup', () => {
         });
       }
 
-      // ContentBlock hides the question in reading mode. Shared items retain the
-      // wire content so the existing listening renderer can still show it.
-      const expectPreservedWireContent = () => {
+      const expectPreservedQuestion = () => {
         expect(
           result.current.items.find(
             item => item.element_bid === 'native-question',
           ),
         ).toMatchObject({
-          content: '&#81;&#63;\n\n?[A | B]',
+          content: '?[A | B]',
           payload: { interaction_question: 'Q?' },
         });
       };
-      expectPreservedWireContent();
+      expectPreservedQuestion();
       rerender({ isListenMode: true });
-      expectPreservedWireContent();
+      expectPreservedQuestion();
       rerender({ isListenMode: false });
-      expectPreservedWireContent();
+      expectPreservedQuestion();
     },
   );
 

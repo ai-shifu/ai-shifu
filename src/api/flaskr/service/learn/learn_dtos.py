@@ -9,17 +9,6 @@ from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
 
 
-def _interaction_content_for_output(content: str, question: str | None) -> str:
-    """Include a literal question for clients that cannot read interaction title metadata."""
-    if not question or not question.strip():
-        return content
-    # Encode every code point, including whitespace, so a title cannot open Markdown, HTML
-    # or another interaction around the controls. New clients remove this exact prefix using
-    # the unchanged question metadata; the DTO and persisted controls stay canonical.
-    literal_question = "".join(f"&#{ord(char)};" for char in question)
-    return f"{literal_question}\n\n{content}"
-
-
 @register_schema_to_swagger
 class LearnStatus(Enum):
     """Enumerate supported learn status values."""
@@ -848,12 +837,6 @@ class ElementDTO(BaseModel):
 
     def __json__(self) -> dict:
         """Return the element as JSON-compatible data."""
-        content = self.content or ""
-        if self.element_type == ElementType.INTERACTION:
-            content = _interaction_content_for_output(
-                content,
-                self.payload.interaction_question if self.payload is not None else None,
-            )
         ret = {
             "event_type": self.event_type,
             "element_bid": self.element_bid,
@@ -871,7 +854,7 @@ class ElementDTO(BaseModel):
             "audio_segments": self._audio_segments_for_output(),
             "is_navigable": int(self.is_navigable or 0),
             "is_final": bool(self.is_final),
-            "content": content,
+            "content": self.content or "",
             "payload": self.payload.__json__() if self.payload is not None else None,
         }
         if self.run_session_bid is not None:
@@ -1035,10 +1018,6 @@ class RunMarkdownFlowDTO(BaseModel):
             if isinstance(self.content, BaseModel)
             else self.content
         )
-        if self.type == GeneratedType.INTERACTION and isinstance(content, str):
-            content = _interaction_content_for_output(
-                content, self.interaction_question
-            )
         ret = {
             "outline_bid": self.outline_bid,
             "generated_block_bid": self.generated_block_bid,

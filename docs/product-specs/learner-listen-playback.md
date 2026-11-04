@@ -49,35 +49,29 @@ Interaction identities, stored answers and published prose remain unchanged.
 Exact request replays retain their saved event payloads; existing cached history
 is not rewritten.
 
-The canonical DTO and database content remain the original controls. Only
-serialized interaction `content` includes a compatibility prefix: encode every
-Unicode code point of the question as a decimal HTML entity, append two literal
-newlines, then append the controls. Existing renderers display that question in
-the interaction body without allowing HTML, code fences or MDF notation inside
-it to consume or add controls. HTML character normalization applies in older
-renderers; original question metadata remains unchanged.
+Interaction `content` contains only the original controls in memory, storage,
+streamed events and serialized history. The question is carried exclusively in
+`interaction_question` metadata. Serialization never prepends question text,
+and frontend consumers parse and render the control content directly.
 
 Use `question` for this presentation concept, distinct from model instructions
 such as a system or course prompt. The existing engine `interact(prompt=...)`
 tool and pending-session schema keep their compatibility contract; the host
 maps that wording to `interaction_question`. This optional presentation field
 is renamed before release, so no deployed-field alias or data migration is
-needed. Older bundles still receive the same safe wire-content fallback.
+needed.
 
-Reading reconstructs and removes only this exact metadata-backed prefix before
-rendering; Debug also removes it before interaction parsing. Missing or
-nonmatching metadata never authorizes deleting content. Desktop, mobile and
-print share this display rule. Shared learner items retain wire content so the
-unchanged listen/classroom renderer can still display questions in its body.
-Moving those questions into panel titles is a separate dependent change.
+Reading and Debug ignore the question metadata when rendering controls.
+Desktop, mobile and print share this display rule. Listen/classroom title
+presentation is a separate dependent change; the metadata never becomes part
+of the interaction body.
 
 This shared transport stops producing separate question CONTENT, audio and
 marker elements in every mode. Authored narration and its audio are preserved.
-Previously stored prose is not guessed or rewritten. Older open reading
-bundles retain their earlier display until refreshed; updated reading pages
-hide the extra question. No migration or library version bump is required.
+Previously stored prose is not guessed or rewritten. No migration or library
+version bump is required.
 
-This changes existing-content placement and compatibility, with no new action
+This changes existing-content placement, with no new action
 or analytics meaning. Question text must never be sent to analytics.
 
 ### `learner_listen_resume_requested`

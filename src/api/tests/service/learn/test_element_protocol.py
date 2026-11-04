@@ -410,8 +410,8 @@ class TestRunMarkdownFlowDTO:
         assert dto.__json__()["anchor_element_bid"] == "elem_abc"
 
 
-class TestInteractionQuestionWireCompatibility:
-    """Preserve legacy question visibility without changing stored or in-memory controls."""
+class TestInteractionQuestionSerialization:
+    """Keep question metadata separate from serialized and stored interaction controls."""
 
     def _make_dto(
         self, kind: str, question: str | None, *, interaction: bool = True
@@ -438,21 +438,16 @@ class TestInteractionQuestionWireCompatibility:
 
     @pytest.mark.parametrize("kind", ["run", "element"])
     @pytest.mark.parametrize(
-        ("question", "encoded"),
-        [
-            ("A?", "&#65;&#63;"),
-            (" 😀\t\n", "&#32;&#128512;&#9;&#10;"),
-            ("<pre>```", "&#60;&#112;&#114;&#101;&#62;&#96;&#96;&#96;"),
-            ("?[%{{x}}]", "&#63;&#91;&#37;&#123;&#123;&#120;&#125;&#125;&#93;"),
-        ],
+        "question",
+        ["A?", " 😀\t\n", "<pre>```", "?[%{{x}}]"],
     )
-    def test_only_wire_content_includes_the_literal_question(
-        self, kind: str, question: str, encoded: str
+    def test_question_metadata_never_changes_control_content(
+        self, kind: str, question: str
     ) -> None:
         dto = self._make_dto(kind, question)
         original = dto.model_dump(mode="json")
         first = dto.__json__()
-        assert first["content"] == encoded + "\n\n?[Yes | No]"
+        assert first["content"] == "?[Yes | No]"
         assert dto.__json__() == first
         assert dto.content == "?[Yes | No]"
         assert dto.model_dump(mode="json") == original
@@ -461,7 +456,7 @@ class TestInteractionQuestionWireCompatibility:
 
     @pytest.mark.parametrize("kind", ["run", "element"])
     @pytest.mark.parametrize("question", [None, "", " \t\n"])
-    def test_empty_question_keeps_the_legacy_control_content(
+    def test_empty_question_does_not_change_control_content(
         self, kind: str, question: str | None
     ) -> None:
         assert self._make_dto(kind, question).__json__()["content"] == "?[Yes | No]"

@@ -207,7 +207,6 @@ it.each([
   (mobileStyle, printMode) => {
     const item: ChatContentItem = {
       ...guideInteraction,
-      content: '&#81;&#63;\n\n' + guideInteraction.content,
       payload: { interaction_question: 'Q?' },
     };
     render(
@@ -227,10 +226,9 @@ it.each([
   },
 );
 
-it('rechecks a reading interaction when its compatibility metadata arrives', () => {
+it('keeps question metadata out of reading output when it arrives later', () => {
   const item: ChatContentItem = {
     ...guideInteraction,
-    content: '&#81;&#63;\n\n' + guideInteraction.content,
   };
   const props = {
     item,
@@ -239,7 +237,9 @@ it('rechecks a reading interaction when its compatibility metadata arrives', () 
     onSend,
   };
   const view = render(<ContentBlock {...props} />);
-  expect(screen.getByTestId('course-content').textContent).toContain('&#81;');
+  expect(screen.getByTestId('course-content').textContent).toBe(
+    guideInteraction.content + 'accept hint',
+  );
 
   view.rerender(
     <ContentBlock
@@ -250,4 +250,5 @@ it('rechecks a reading interaction when its compatibility metadata arrives', () 
   expect(screen.getByTestId('course-content').textContent).toBe(
     guideInteraction.content + 'accept hint',
   );
+  expect(screen.queryByText('Q?')).not.toBeInTheDocument();
 });

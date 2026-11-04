@@ -2,147 +2,103 @@
 
 ## Purpose / Big Picture
 
-Reading must show interaction controls without appending their separate native
-question to lesson prose. This change supplies the shared transport needed for
-that rule. Moving listen/classroom questions into panel titles is a dependent,
-separate PR. The durable contract is in
+Reading and Debug show interaction controls without appending the native
+question as extra prose. The question travels as `interaction_question`
+metadata; interaction `content` contains controls only. Listen/classroom title
+presentation belongs to the dependent PR #3340. The canonical contract is
 [`learner-listen-playback.md`](../../product-specs/learner-listen-playback.md).
 
 ## Progress
 
-- [x] 2026-11-04 CST: Preserve the combined implementation and split from the
-  latest main. Keep listen/classroom rendering and the global learner content
-  normalization unchanged in this PR.
-- [x] 2026-11-04 CST: Carry questions as interaction metadata and an inert wire
-  fallback, preserving canonical controls, saved answers and older clients.
-- [x] 2026-11-04 CST: Hide only the exact metadata-backed fallback at reading
-  and Debug boundaries. Update draft classroom history expectations.
-- [x] 2026-11-04 CST: Pass 314 frontend cases across reading, printing,
-  history, Debug, mode changes and the unchanged main listen renderer; frontend
-  type checking and lint also pass.
-- [x] 2026-11-04 CST: Pass the full learning backend regression on the latest
-  main: 3,601 passed and 90 skipped. All-file repository gates also pass.
-- [x] 2026-11-04 CST: Require the shared runtime prompt to ask ordinary course
-  and profile questions in visible content before calling `interact`, and
-  coordinate profile presentation without duplicate questions. Verify the
-  complete offline engine suite and affected hosts: 3,505 cases pass using the
-  repository-pinned SDK and graph version 2.53.0 in an isolated test overlay.
-- [x] 2026-11-04 CST: Complete original-head CI/review: 16,000 backend tests
-  passed (20 skipped), with the compatibility thread verified and resolved.
-- [x] 2026-11-04 CST: Rename the unreleased presentation contract to
-  `interaction_question`, including producers, consumers, helpers and tests.
-  The renamed reading/frontend coverage passes 314 tests, type checking and lint.
-  Affected backend learning/Profile coverage passes 564 tests with the pinned SDK.
-- [ ] 2026-11-04 CST: Confirm renamed-head CI/review and maintainer acceptance.
-- [x] 2026-11-04 CST: The preceding head passed full remote CI with 16,008
-  backend cases and 20 skips; both actionable review threads were resolved.
-- [x] 2026-11-04 CST: Remove the Profile question fallback at the user's
-  direction. Delete prose matching and emit controls only on every interaction
-  path, with question wording supplied by the shared question-first instruction.
-  All 203 Profile tests pass; the obsolete text-matching matrix is replaced by
-  controls-only presentation coverage, retaining recovery and answer contracts.
-- [x] 2026-11-04 CST: Condense the question-first rule to one instruction
-  covering complete prose questions, same-response `interact` and avoiding
-  repeats. Remove learning-mode explanations and duplicated existing rules.
-  The complete offline engine/Profile run passes 3,478 tests with the pinned SDK.
+- [x] 2026-11-04 CST: Split shared transport and reading behavior from the
+  listen/classroom title renderer; preserve metadata, history and answer IDs.
+- [x] 2026-11-04 CST: Use `interaction_question` consistently for question
+  presentation, keeping the existing engine tool/session schema unchanged.
+- [x] 2026-11-04 CST: Require ordinary course/Profile questions in Markdown
+  prose before `interact` in the same response, with one concise instruction.
+- [x] 2026-11-04 CST: Remove Profile question fallback and prose matching;
+  interactions contain controls only, including recovery and queued questions.
+- [x] 2026-11-04 CST: Complete preceding-head validation: 3,749 local engine,
+  Profile and course-host tests, then 15,995 backend CI tests (20 skipped).
+  Applicable checks passed and both actionable review threads were resolved.
+- [x] 2026-11-04 CST: Remove the old-frontend compatibility prefix producer,
+  all frontend prefix stripping and tests specific to that removed layer.
+  Affected backend coverage passes 259 cases and reading/Debug coverage passes
+  295 frontend cases; type checking, lint and all-file repository gates pass.
+- [ ] 2026-11-04 CST: Verify metadata-only question transport and current-head
+  CI/review, then await maintainer acceptance without automatic merging.
 
 ## Surprises & Discoveries
 
-Removing separate question CONTENT events also removes their independent audio
-and marker elements. The transport change is shared: listening still receives
-the question inside the interaction body, while authored narration and its
-audio remain unchanged. Restoring mode-dependent CONTENT would pollute history
-and reintroduce extra questions after a switch back to reading.
+The earlier compatibility layer placed encoded question text in wire content
+and removed it in updated clients. The user explicitly removed that layer.
+The final contract sends pure controls and keeps the question in metadata.
+The concise question-first instruction supplies visible and spoken questions.
 
-Older open bundles ignore new metadata. Their existing ContentRender supports
-question text before controls, but raw concatenation can let unfinished HTML
-or code consume those controls. Encoding every question code point as a decimal
-HTML entity makes that compatibility prefix inert.
+Removing separate question CONTENT events also removes their independent audio
+and marker elements. Authored narration and its audio remain intact.
 
 ## Decision Log
 
-- Keep the title UI, title cache and global learner normalization in the next
-  PR. The current main listen renderer continues to see the safe question in
-  its existing interaction body.
-- Modify only serialized interaction content, leaving DTOs, database rows,
-  checkpoints and answer matching canonical. Never infer or delete old prose.
-- Reading and Debug remove exactly the prefix encoded from question metadata;
-  missing or mismatching metadata does not authorize deleting content.
-- The user explicitly requests the question-first instruction for both course
-  and profile runtimes. A control title cannot substitute for a visible
-  question. Preserve authored choices, navigation, correction stages and
-  pending question identities while updating the shared prompt and consumer.
-- Profile emits controls only, including ordinary turns, pending restoration,
-  rejected answers and queued interactions. The user explicitly removed the
-  question fallback; the shared system instruction owns asking the question in
-  normal model content. No local prose matching or extra model call is needed.
-- Keep the new question-first instruction concise. Existing authored-input,
-  navigation and correction-direction rules retain their own responsibilities.
-- This is existing-content presentation and compatibility work, with no new
-  user action or analytics meaning. Questions never enter analytics.
-
-- Use `question` throughout the new presentation contract. Keep `prompt` for
-  actual model instructions and the pre-existing engine tool/session field;
-  the host maps between those layers. The new presentation field has not been
-  released, so rename it atomically without a redundant compatibility alias.
+- Keep the listen/classroom title UI and cache in the dependent PR. This PR
+  supplies metadata without placing it in the interaction body in any mode.
+- Serialize canonical controls unchanged. Do not encode or prepend question
+  text and do not strip prefixes in frontend consumers.
+- Keep metadata persistence, answer identity and replay behavior. Do not infer
+  or delete authored or historical prose.
+- Profile emits only controls; the shared system instruction owns asking the
+  question. No local question matching or extra model call is introduced.
+- Keep the question-first instruction concise. Existing authored-input,
+  navigation and structured-direction rules retain their responsibilities.
+- Use `question` for presentation wording. Actual system/course prompts and
+  the existing engine `interact(prompt=...)` schema retain their meaning.
+- This changes existing-content placement, with no new action or analytics
+  meaning. Questions never enter analytics.
 
 ## Outcomes & Retrospective
 
-The original CI failure was an obsolete draft-history prose assertion. The
-replacement covers title metadata, replay, distinct question IDs and answers.
-Split-specific validation and remote checks are in progress. Maintainers own
-merge and deployment; no automatic merge is authorized.
-
-The question-first prompt and Profile composition also pass all offline engine
-and Profile tests. The historical prompt fixture remains intact; its system
-hash gate records this explicitly reviewed runtime change. A stale local SDK
-was isolated and aligned with the existing repository pin without changing
-shared development dependencies or weakening session compatibility checks.
+The reading/shared contract is isolated from title presentation. The removal
+of the compatibility layer is under validation. PR checks are the live source
+for current-head acceptance; maintainers own merge and deployment.
 
 ## Context and Orientation
 
-Course native events are translated by `agent/legacy_protocol.py`, ordered by
-`agent/run_agent.py`, and serialized by `learn_dtos.py`. Formal and preview
-sidecars persist metadata. Reading uses `ContentBlock`; Debug normalizes before
-interaction parsing. Learner shared items deliberately retain wire content so
-the unchanged listen/classroom renderer retains visible questions.
-The shared engine's `prompts/system.md` supplies course and profile
-instructions; `profile_research/engine_runtime.py` projects questionnaire
-content and controls and must not echo a question already presented.
-It projects every interaction as controls only; it never reconstructs question
-wording from pending tool arguments.
+`agent/legacy_protocol.py` creates interaction events with question metadata.
+`learn_dtos.py` serializes them, and formal/preview sidecars persist metadata.
+Reading uses `ContentBlock`; Debug and shared learner consumers parse the
+original control content directly. The engine system prompt supplies the
+question-first rule to both courses and Profile questionnaires. Profile
+interaction projection returns normalized controls without a question fallback.
 
 ## Plan of Work
 
-Keep the shared backend and reading display fix together, independently verify
-the unchanged listening surface, then deliver the title UI as a dependent PR.
+Remove the prefix producer and reading/Debug consumers together, verify the
+shared contract, then rebase and simplify dependent title consumers.
 
 ## Concrete Steps
 
-Run backend learning tests and focused frontend read/history/Debug/real-renderer
-tests, type checking, lint and all-file repository gates. Rewrite the existing
-PR to this focused branch with a lease after preserving its original history.
-Create the separate listen/classroom branch from this commit.
+Run affected learning serializers/history tests and focused reading, print,
+Debug and history frontend tests. Run frontend type checking, lint and all-file
+repository gates. Push the reading change and rebase the title branch with an
+exact remote lease, preserving its separate scope.
 
 ## Validation and Acceptance
 
-Reading on desktop, mobile and print shows controls without the extra question;
-streaming, history and mode changes preserve metadata and answers. Debug
-parses canonical controls. Older real renderers display inert questions and
-submit all four control kinds correctly, including questions with unfinished
-HTML/code, literal MDF syntax and emoji. Repeated serialization never changes
-stored controls. Listen/classroom title behavior stays with the existing main
-renderer in this PR.
+DTO, SSE and refreshed-history interaction content stays exactly the controls;
+question metadata survives serialization, storage and replay. Reading, mobile,
+print and Debug show controls without the metadata question. Authored narration,
+system/payment/feedback classification, answers and IDs remain intact. No
+question encoder or prefix-stripping helper remains. The dependent PR alone
+uses question metadata as the listen/classroom panel title.
 
 ## Idempotence and Recovery
 
-No migration or dependency bump is required. The complete original branch is
-preserved before splitting, and remote history updates use an exact lease.
-Older records lacking metadata remain readable without guessed prose edits.
+No migration or dependency bump is required. Existing stored prose and exact
+request replays remain unchanged. Remote rebases use an exact lease.
 
 ## Interfaces and Dependencies
 
-Optional `interaction_question` metadata carries original question text. The wire
-prefix is decimal HTML entities for every Unicode code point plus two actual
-newlines. Python `ord` and JavaScript `Array.from`/`codePointAt` must agree.
-The dependent PR consumes the same metadata for listen/classroom titles.
+Optional `interaction_question` carries the question separately from control
+content on run events and element payloads. Producers and consumers use that
+same metadata contract. The dependent title PR reuses the existing
+`markdown-flow-ui` title API without a helper or package release.
