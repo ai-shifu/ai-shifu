@@ -39,6 +39,7 @@ _LLM_FAILURE_ERROR_NAMES = (
     "server.llm.requestFailed",
     "server.llm.modelNotSupported",
     "server.llm.modelUnavailable",
+    "server.llm.modelSelectionNotConfigured",
     "server.llm.specifiedLlmNotConfigured",
 )
 
@@ -69,8 +70,14 @@ def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
     }
 
     if isinstance(stream_error, AppError) and _is_llm_failure(stream_error):
-        app.logger.error("run_script llm failure")
-        app.logger.error(error_info)
+        # The ERROR line feeds the alert webhook: name the failure, not the provider's
+        # message, which can carry request details. The full record stays at INFO.
+        app.logger.error(
+            "run_script llm failure: code=%s error=%s",
+            stream_error.code,
+            type(stream_error).__name__,
+        )
+        app.logger.info(error_info)
         return
 
     if isinstance(stream_error, AppError):

@@ -701,6 +701,7 @@ def test_log_run_script_stream_error_does_not_error_for_app_exception() -> None:
         "server.llm.requestFailed",
         "server.llm.modelNotSupported",
         "server.llm.modelUnavailable",
+        "server.llm.modelSelectionNotConfigured",
         "server.llm.specifiedLlmNotConfigured",
     ],
 )
@@ -719,9 +720,12 @@ def test_log_run_script_stream_error_alerts_on_model_failures(error_name: str) -
         AppError("model qwen call failed: timeout", status_code=ERROR_CODE[error_name]),
     )
 
-    assert info_calls == []
-    assert error_calls[0] == ("run_script llm failure",)
-    assert error_calls[1][0]["description"] == "model qwen call failed: timeout"
+    # The alert line names the failure but never carries the provider's message.
+    assert len(error_calls) == 1
+    assert error_calls[0][0] == "run_script llm failure: code=%s error=%s"
+    assert error_calls[0][1:] == (ERROR_CODE[error_name], "AppError")
+    assert "timeout" not in repr(error_calls)
+    assert info_calls[0][0]["description"] == "model qwen call failed: timeout"
 
 
 def test_log_run_script_stream_error_keeps_error_for_unexpected_exception() -> None:

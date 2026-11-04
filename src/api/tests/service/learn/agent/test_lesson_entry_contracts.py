@@ -618,6 +618,57 @@ def test_failed_engine_turn_surfaces_an_error_instead_of_ending_silently(
         )
 
 
+@pytest.mark.parametrize("preview_mode", [False, True], ids=["learner", "preview"])
+def test_a_model_failure_in_a_turn_reaches_the_alert_stream(
+    app: object, monkeypatch: object, preview_mode: bool
+) -> None:
+    """The learner sees the unknown error (shown as "unavailable"); alerting sees ERROR."""
+    runner = _entry_with_runner(monkeypatch)
+
+    def failed_turn(*_args: object, **_kwargs: object) -> object:
+        yield from ()
+        return TurnOutcome(reason=None, taught=False, error_code="provider_error")
+
+    runner.side_effect = failed_turn
+    errors: list[tuple] = []
+    monkeypatch.setattr(app.logger, "error", lambda *args, **_k: errors.append(args))
+    with pytest.raises(AppError) as exc:
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid="learner",
+                shifu_bid="course",
+                outline_bid="lesson",
+                preview_mode=preview_mode,
+            )
+        )
+    assert exc.value.code == ERROR_CODE["server.common.unknownError"]
+    assert len(errors) == 1
+    assert errors[0][0].startswith("lesson turn failed in the engine")
+    assert errors[0][1:] == ("course", "lesson", preview_mode, "provider_error")
+
+
+def test_an_input_budget_stop_is_not_alerted(app: object, monkeypatch: object) -> None:
+    runner = _entry_with_runner(monkeypatch)
+
+    def failed_turn(*_args: object, **_kwargs: object) -> object:
+        yield from ()
+        return TurnOutcome(
+            reason=None, taught=False, error_code="input_budget_exceeded"
+        )
+
+    runner.side_effect = failed_turn
+    errors: list[tuple] = []
+    monkeypatch.setattr(app.logger, "error", lambda *args, **_k: errors.append(args))
+    with pytest.raises(AppError):
+        list(
+            entry.agent_lesson_events(
+                app, user_bid="learner", shifu_bid="course", outline_bid="lesson"
+            )
+        )
+    assert errors == []
+
+
 def test_failed_turn_a_reset_discarded_is_marked_for_the_stream(
     app: object, monkeypatch: object
 ) -> None:
