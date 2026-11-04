@@ -50,6 +50,7 @@ def authorized_partner(monkeypatch: pytest.MonkeyPatch) -> Callable:
     monkeypatch.setattr(
         open_api, "get_shifu_creator_bid", Mock(return_value="owner-test")
     )
+    monkeypatch.setattr(open_api, "_has_published_course", Mock(return_value=True))
 
     def configure_user(user_bid: str | None) -> Mock:
         lookup = Mock(
@@ -142,6 +143,7 @@ def test_partner_grant_creates_activation_when_no_active_order_exists(
         "course-test",
         contact_type="email",
         payment_channel="open_api",
+        granted_by_user_bid="owner-test",
     )
 
 

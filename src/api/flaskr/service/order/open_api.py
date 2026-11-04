@@ -14,6 +14,7 @@ from flaskr.service.order.admin import (
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.funs import send_revoke_feishu
 from flaskr.service.order.models import Order
+from flaskr.service.shifu.models import PublishedShifu
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.repository import (
     get_user_entity_by_bid,
@@ -37,6 +38,17 @@ def verify_course_ownership(
             if owner and owner.is_operator:
                 return
         raise_error("server.openapi.courseOwnershipRequired")
+
+
+def _has_published_course(shifu_bid: str) -> bool:
+    """Return whether the course has a live published version."""
+    return (
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid == shifu_bid,
+            PublishedShifu.deleted == 0,
+        ).first()
+        is not None
+    )
 
 
 def _find_active_order(user_bid: str, shifu_bid: str) -> Order | None:
@@ -101,12 +113,18 @@ def open_api_grant_order(
         if existing_order:
             return {"order_bid": existing_order.order_bid}
 
+    # The importer commits the learner account before it loads the published
+    # course, so reject draft-only courses before any learner writes.
+    if not _has_published_course(shifu_bid):
+        raise_error("server.shifu.shifuNotFound")
+
     return import_activation_order(
         app,
         user_identify,
         shifu_bid,
         contact_type=user_identify_type,
         payment_channel="open_api",
+        granted_by_user_bid=owner_bid,
     )
 
 

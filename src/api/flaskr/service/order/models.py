@@ -75,6 +75,13 @@ class Order(db.Model):
         comment="Payment channel",
         index=True,
     )
+    granted_by_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Open API caller that granted this order; empty otherwise",
+        index=True,
+    )
     status = Column(
         SmallInteger,
         nullable=False,

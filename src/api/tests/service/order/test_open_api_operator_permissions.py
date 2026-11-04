@@ -167,6 +167,7 @@ def test_operator_key_imports_foreign_course_learner_without_repeating_grant(
         assert order.user_bid == learner.user_bid
         assert order.shifu_bid == operator_partner.course_bid
         assert order.creator_bid == operator_partner.creator_bid
+        assert order.granted_by_user_bid == operator_partner.operator_bid
         assert order.status == ORDER_STATUS_SUCCESS
         assert order.payment_channel == "open_api"
         assert order.payable_price == order.paid_price == Decimal("0.00")
@@ -195,6 +196,64 @@ def test_operator_key_imports_foreign_course_learner_without_repeating_grant(
             == 1
         )
     notify.assert_called_once_with(app, order_bid)
+
+
+@pytest.mark.parametrize("use_operator_key", [True, False])
+def test_grant_rejects_draft_only_course_before_learner_writes(
+    app: Flask,
+    operator_partner: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    use_operator_key: bool,
+) -> None:
+    notify = Mock()
+    monkeypatch.setattr(order_funs, "send_order_feishu", notify)
+    with app.app_context():
+        PublishedShifu.query.filter_by(shifu_bid=operator_partner.course_bid).update(
+            {"deleted": 1}
+        )
+        db.session.commit()
+    headers = (
+        operator_partner.headers
+        if use_operator_key
+        else operator_partner.creator_headers
+    )
+    payload = {**operator_partner.payload, "user_identify": operator_partner.new_email}
+    response = operator_partner.client.post(
+        "/api/open-api/v1/order/grant", headers=headers, json=payload
+    ).get_json(force=True)
+    assert response["code"] == ERROR_CODE["server.shifu.shifuNotFound"]
+    with app.app_context():
+        assert (
+            UserInfo.query.filter_by(user_identify=operator_partner.new_email).count()
+            == 0
+        )
+        assert (
+            AuthCredential.query.filter_by(
+                identifier=operator_partner.new_email
+            ).count()
+            == 0
+        )
+        assert Order.query.filter_by(shifu_bid=operator_partner.course_bid).count() == 1
+    notify.assert_not_called()
+
+
+def test_creator_grant_records_creator_as_granting_user(
+    app: Flask,
+    operator_partner: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(order_funs, "send_order_feishu", Mock())
+    payload = {**operator_partner.payload, "user_identify": operator_partner.new_email}
+    granted = operator_partner.client.post(
+        "/api/open-api/v1/order/grant",
+        headers=operator_partner.creator_headers,
+        json=payload,
+    ).get_json(force=True)
+    assert granted["code"] == 0
+    with app.app_context():
+        order = Order.query.filter_by(order_bid=granted["data"]["order_bid"]).one()
+        assert order.creator_bid == operator_partner.creator_bid
+        assert order.granted_by_user_bid == operator_partner.creator_bid
 
 
 @pytest.mark.parametrize("operation", ["query", "grant", "revoke"])
