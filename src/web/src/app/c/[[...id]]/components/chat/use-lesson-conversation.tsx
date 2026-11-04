@@ -67,6 +67,12 @@ import {
   shouldAttachLikeStatusByElement,
   upsertLikeStatusByParent,
 } from './lesson-like-status';
+import {
+  itemMatchesElementCacheIdentity,
+  mergeListenSlides,
+  resolveElementCacheIdentityBids,
+  upsertAskMessageByParent,
+} from './lesson-list-helpers';
 import LoadingBar from './LoadingBar';
 import { startPreviewRewindTracking } from './preview-rewind-tracking';
 import { useTranslation } from 'react-i18next';
@@ -515,160 +521,6 @@ function useLessonConversation({
     [],
   );
 
-  const upsertAskMessageByParent = useCallback(
-    (
-      items: ChatContentItem[],
-      params: {
-        parentElementBid: string;
-        messageType: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
-        messageElementBid?: string;
-        messageGeneratedBlockBid?: string;
-        messageContent: string;
-        messagePayload?: StudyRecordItem['payload'];
-        isHistory?: boolean;
-        insertionMode?: 'anchor' | 'sequence';
-      },
-    ) => {
-      const { parentElementBid, messageType, messageContent } = params;
-      if (!parentElementBid) {
-        return items;
-      }
-      const shouldAutoExpandAskBlock = !mobileStyle;
-
-      const resolvedMessageElementBid =
-        params.messageElementBid ||
-        params.messageGeneratedBlockBid ||
-        `${messageType}-${parentElementBid}`;
-      const nextMessage: ChatContentItem = {
-        element_bid: resolvedMessageElementBid,
-        generated_block_bid:
-          params.messageGeneratedBlockBid || resolvedMessageElementBid,
-        parent_element_bid: parentElementBid,
-        type: messageType,
-        content: messageContent,
-        payload: params.messagePayload,
-        ...(params.messagePayload?.interaction_mode === 'live_voice'
-          ? { interaction_mode: 'live_voice' as const }
-          : {}),
-        readonly: true,
-        customRenderBar: () => null,
-        user_input: '',
-        isHistory: params.isHistory,
-      };
-
-      const nextItems = [...items];
-      const askBlockIndex = nextItems.findIndex(
-        item =>
-          item.type === ChatContentItemType.ASK &&
-          item.parent_element_bid === parentElementBid,
-      );
-
-      if (askBlockIndex >= 0) {
-        const existingAskBlock = nextItems[askBlockIndex];
-        const existingAskList = Array.isArray(existingAskBlock.ask_list)
-          ? [...existingAskBlock.ask_list]
-          : [];
-        const existingMessageIndex = existingAskList.findIndex(
-          message => message.element_bid === resolvedMessageElementBid,
-        );
-        if (existingMessageIndex >= 0) {
-          existingAskList[existingMessageIndex] = {
-            ...existingAskList[existingMessageIndex],
-            ...nextMessage,
-          };
-        } else {
-          existingAskList.push(nextMessage);
-        }
-        nextItems[askBlockIndex] = {
-          ...existingAskBlock,
-          ask_list: existingAskList,
-          isAskExpanded:
-            existingAskBlock.isAskExpanded ?? shouldAutoExpandAskBlock,
-        };
-        return nextItems;
-      }
-
-      const nextAskBlock: ChatContentItem = {
-        element_bid: '',
-        parent_element_bid: parentElementBid,
-        type: ChatContentItemType.ASK,
-        content: '',
-        isAskExpanded: shouldAutoExpandAskBlock,
-        ask_list: [nextMessage],
-        readonly: false,
-        customRenderBar: () => null,
-        user_input: '',
-      };
-      if (params.insertionMode === 'sequence') {
-        nextItems.push(nextAskBlock);
-        return nextItems;
-      }
-      const likeStatusIndex = nextItems.findIndex(
-        item =>
-          item.parent_element_bid === parentElementBid &&
-          item.type === ChatContentItemType.LIKE_STATUS,
-      );
-      const parentContentIndex =
-        likeStatusIndex >= 0
-          ? likeStatusIndex
-          : nextItems.findIndex(item => item.element_bid === parentElementBid);
-
-      if (parentContentIndex < 0) {
-        nextItems.push(nextAskBlock);
-        return nextItems;
-      }
-
-      nextItems.splice(parentContentIndex + 1, 0, nextAskBlock);
-      return nextItems;
-    },
-    [mobileStyle],
-  );
-
-  const sortSlidesByTimeline = useCallback((slides: ListenSlideData[] = []) => {
-    return [...slides].sort(
-      (a, b) =>
-        Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||
-        Number(a.audio_position ?? 0) - Number(b.audio_position ?? 0),
-    );
-  }, []);
-
-  const mergeListenSlides = useCallback(
-    (...slideLists: Array<ListenSlideData[] | undefined>) => {
-      const slideById = new Map<string, ListenSlideData>();
-      slideLists.flat().forEach(slide => {
-        if (!slide?.slide_id) {
-          return;
-        }
-        slideById.set(slide.slide_id, {
-          ...(slideById.get(slide.slide_id) ?? {}),
-          ...slide,
-        });
-      });
-      return sortSlidesByTimeline([...slideById.values()]);
-    },
-    [sortSlidesByTimeline],
-  );
-
-  const resolveElementCacheIdentityBids = useCallback(
-    (record: StudyRecordItem, itemBid: string) => {
-      const primaryBid =
-        record.is_new === false && record.target_element_bid
-          ? record.target_element_bid
-          : itemBid;
-      return primaryBid ? [primaryBid] : [];
-    },
-    [],
-  );
-
-  const itemMatchesElementCacheIdentity = useCallback(
-    (item: ChatContentItem, identityBids: Set<string>) =>
-      Boolean(
-        identityBids.has(item.element_bid) ||
-        (item.target_element_bid && identityBids.has(item.target_element_bid)),
-      ),
-    [],
-  );
-
   const buildContentItem = useCallback(
     (
       record: StudyRecordItem,
@@ -686,7 +538,7 @@ function useLessonConversation({
         mergeListenSlides,
         resolveElementItemBid,
       }),
-    [isAudioBackfillReadyForBlock, mergeListenSlides, resolveElementItemBid],
+    [isAudioBackfillReadyForBlock, resolveElementItemBid],
   );
 
   const parseLessonFeedbackScore = useCallback((raw?: string | null) => {
@@ -1397,6 +1249,7 @@ function useLessonConversation({
                 }
                 setTrackedContentList(prevState =>
                   upsertAskMessageByParent(prevState, {
+                    autoExpandAskBlock: !mobileStyle,
                     parentElementBid,
                     messageType: elementType as
                       | typeof BLOCK_TYPE.ASK
@@ -1732,14 +1585,11 @@ function useLessonConversation({
       clearRunStreamTimeout,
       ensureContentItem,
       finalizeElementOutputInList,
-      itemMatchesElementCacheIdentity,
       lessonRunContentCacheKey,
       markLessonRunAudioBackfillReady,
       openLessonFeedbackPopup,
       resolveAskAnchorElementBid,
       resolveElementItemBid,
-      resolveElementCacheIdentityBids,
-      upsertAskMessageByParent,
       updateUserInfo,
     ],
   );
@@ -1821,6 +1671,7 @@ function useLessonConversation({
             return;
           }
           const nextResult = upsertAskMessageByParent(result, {
+            autoExpandAskBlock: !mobileStyle,
             parentElementBid,
             messageType: elementType as
               | typeof BLOCK_TYPE.ASK
@@ -1875,10 +1726,10 @@ function useLessonConversation({
       return result;
     },
     [
+      mobileStyle,
       buildContentItem,
       resolveAskAnchorElementBid,
       resolveElementItemBid,
-      upsertAskMessageByParent,
     ],
   );
 
