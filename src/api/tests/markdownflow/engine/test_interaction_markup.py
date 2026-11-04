@@ -25,6 +25,7 @@ from pydantic_ai.messages import (
     ModelResponse,
     RetryPromptPart,
     TextPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
@@ -55,6 +56,22 @@ INVALID_MARKUP = [
     MALFORMED_MARKUP,
     '<interact type="text"',
 ]
+NATIVE_MARKUP = [
+    "?[{{answer}} A | B]",
+    "?[{{answer}}] A | B",
+    "?[{{answer}}\nA | B]",
+    "?[...Your answer]",
+    "?[Next]",
+]
+UNEXECUTED_MARKUP = [*INVALID_MARKUP, *NATIVE_MARKUP]
+BOOK_QUESTION = "你想和 AI 讨论这本书，并引用其中的一句话。怎样做更可靠？"
+BOOK_OPTIONS = [
+    "AI 说得很流畅，就直接引用",
+    "请 AI 帮忙理解观点，引用具体原文时提供原文或核对可靠来源",
+    "既然 AI 可能出错，就完全不能和它讨论这本书",
+]
+BOOK_SCRIPT = "?[ {{" + BOOK_QUESTION + "}} " + " | ".join(BOOK_OPTIONS) + "]"
+BOOK_MALFORMED = "?[{{" + BOOK_QUESTION + "}}] " + " | ".join(BOOK_OPTIONS)
 SPEC = {
     "type": "text",
     "prompt": "Explain program control",
@@ -98,7 +115,7 @@ def _said(events: list[object]) -> str:
     return "".join(e.text for e in events if isinstance(e, ContentDelta))
 
 
-@pytest.mark.parametrize("markup", INVALID_MARKUP)
+@pytest.mark.parametrize("markup", UNEXECUTED_MARKUP)
 async def test_markup_is_retried_as_a_real_question_and_answer_survives_reload(
     markup: str,
 ) -> None:
@@ -162,7 +179,7 @@ async def test_markup_is_retried_as_a_real_question_and_answer_survives_reload(
     assert final_events[-1].reason == "finished"
 
 
-@pytest.mark.parametrize("markup", [*INVALID_MARKUP, PAIRED_NAVIGATION])
+@pytest.mark.parametrize("markup", [*UNEXECUTED_MARKUP, PAIRED_NAVIGATION])
 async def test_repeated_markup_has_a_bounded_retry_and_never_finishes(
     markup: str,
 ) -> None:
@@ -196,6 +213,7 @@ async def test_repeated_markup_has_a_bounded_retry_and_never_finishes(
         PAIRED_NAVIGATION,
         PAIRED_NAVIGATION.replace('prompt="Continue"', 'prompt="Is x < y?"'),
         PAIRED_NAVIGATION.replace('prompt="Continue"', "prompt='Is x < y?'"),
+        *NATIVE_MARKUP,
     ],
 )
 async def test_finish_cannot_replace_a_refused_markup_question(markup: str) -> None:
@@ -231,7 +249,7 @@ async def test_finish_cannot_replace_a_refused_markup_question(markup: str) -> N
     assert events[-1].reason == "interaction"
 
 
-@pytest.mark.parametrize("markup", [*INVALID_MARKUP, PAIRED_NAVIGATION])
+@pytest.mark.parametrize("markup", [*UNEXECUTED_MARKUP, PAIRED_NAVIGATION])
 async def test_same_response_markup_and_finish_does_not_complete_the_lesson(
     markup: str,
 ) -> None:
@@ -351,6 +369,16 @@ async def test_paired_navigation_after_an_answer_requires_an_actual_click() -> N
         "<interact-card>\n<parameter>Illustrative content</parameter>\n</interact-card>",
         "<parameter>Ordinary visual content</parameter>",
         "```xml\n" + MULTILINE_MARKUP + "\n```",
+        "```md\n?[{{answer}} A | B]\n```",
+        "    ?[{{answer}} A | B]",
+        "`?[{{answer}} A | B]`",
+        r"\?[{{answer}} A | B]",
+        "<div>\n?[{{answer}} A | B]\n</div>",
+        "<!--\n?[{{answer}} A | B]\n-->",
+        "$example\n?[{{answer}} A | B]\nmath$",
+        "`example\n?[{{answer}} A | B]\ncode`",
+        '[example](https://example.com "title\n?[{{answer}} A | B]\n")',
+        "?[example](https://example.com)",
     ],
 )
 async def test_code_and_ordinary_content_remain_verbatim(text: str) -> None:
@@ -585,7 +613,7 @@ def test_a_rejected_block_survives_a_part_boundary_but_not_a_response() -> None:
     assert filter_.feed("Please explain.") == "Please explain."
 
 
-@pytest.mark.parametrize("markup", INVALID_MARKUP)
+@pytest.mark.parametrize("markup", UNEXECUTED_MARKUP)
 async def test_a_real_interact_in_the_same_response_hides_only_the_textual_copy(
     markup: str,
 ) -> None:
@@ -643,6 +671,144 @@ async def test_invalid_interact_and_finish_cannot_bypass_markup_recovery() -> No
     assert any(isinstance(e, InteractionRequest) for e in events)
     assert not session.finished
     assert events[-1].reason == "interaction"
+
+
+@pytest.mark.parametrize("chunk_size", [1, 17, 1000])
+async def test_book_question_recovers_real_choices_and_persists_the_answer(
+    chunk_size: int,
+) -> None:
+    calls = 0
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            text = "Discuss the book.\n\n" + BOOK_MALFORMED
+            for at in range(0, len(text), chunk_size):
+                yield text[at : at + chunk_size]
+        elif calls == 2:
+            assert any(
+                isinstance(p, RetryPromptPart) for m in messages for p in m.parts
+            )
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "single",
+                            "prompt": BOOK_QUESTION,
+                            "variable": BOOK_QUESTION,
+                            "options": [{"display": o} for o in BOOK_OPTIONS],
+                        }
+                    ),
+                    tool_call_id="book-question",
+                )
+            }
+        else:
+            assert calls == 3
+            assert any(
+                isinstance(p, ToolReturnPart)
+                and p.tool_name == "interact"
+                and BOOK_OPTIONS[1] in str(p.content)
+                for m in messages
+                for p in m.parts
+            )
+            yield {
+                0: DeltaToolCall(
+                    name="finish", json_args="{}", tool_call_id="after-book-answer"
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(BOOK_SCRIPT + "\nThen finish.")
+    events = [e async for e in engine.run_turn(session)]
+    assert calls == 2
+    assert _said(events) == "Discuss the book.\n\n"
+    questions = [e for e in events if isinstance(e, InteractionRequest)]
+    assert len(questions) == 1
+    assert questions[0].spec.variable == BOOK_QUESTION
+    assert [o.display for o in questions[0].spec.options] == BOOK_OPTIONS
+    assert events[-1].reason == "interaction"
+    assert not session.memory
+
+    restored = Session.loads(session.dumps())
+    events = [
+        e
+        async for e in engine.run_turn(
+            restored, InteractionResponseTurn(values=[BOOK_OPTIONS[1]])
+        )
+    ]
+    assert restored.memory[BOOK_QUESTION] == BOOK_OPTIONS[1]
+    assert events[-1].reason == "finished"
+
+
+@pytest.mark.parametrize("markup", NATIVE_MARKUP)
+@pytest.mark.parametrize("line_ending", ["\n", "\r", "\r\n"])
+def test_native_controls_hide_the_response_tail_at_every_chunk_boundary(
+    markup: str,
+    line_ending: str,
+) -> None:
+    source = (
+        "Teaching."
+        + line_ending
+        + markup
+        + line_ending
+        + "Do not advance without an answer."
+    )
+    for cut in range(len(source) + 1):
+        filter_ = InteractionMarkupFilter(authored_interaction_markup(markup))
+        assert (
+            filter_.feed(source[:cut]) + filter_.feed(source[cut:]) + filter_.flush()
+            == "Teaching." + line_ending
+        )
+        assert filter_.invalid
+
+
+def test_native_rejection_survives_tool_and_text_parts_until_a_new_response() -> None:
+    filter_ = InteractionMarkupFilter()
+    assert filter_.feed("Teaching.\n?") == "Teaching.\n"
+    assert filter_.settle() == ""
+    assert filter_.feed("[{{answer}}] A | B") == ""
+    assert filter_.settle() == ""
+    assert filter_.flush(response_end=False) == ""
+    assert filter_.feed("Leaked options or later content.\n") == ""
+    assert filter_.settle() == ""
+    assert filter_.flush() == ""
+    assert filter_.feed("Ask the question correctly.") == "Ask the question correctly."
+
+
+def test_text_parts_preserve_inline_controls_and_split_markdown_links() -> None:
+    filter_ = InteractionMarkupFilter()
+    assert filter_.feed("Inline example: ") == "Inline example: "
+    assert filter_.settle() == ""
+    assert filter_.feed("?[Next]") == ""
+    assert filter_.flush() == "?[Next]"
+    assert not filter_.invalid
+
+
+def test_tool_boundaries_do_not_finalize_native_control_or_link_prefixes() -> None:
+    filter_ = InteractionMarkupFilter()
+    assert filter_.feed("?") == ""
+    assert filter_.flush(response_end=False) == ""
+    assert filter_.feed("[A | B]") == ""
+    assert filter_.flush() == ""
+    assert filter_.invalid
+
+    filter_ = InteractionMarkupFilter()
+    assert filter_.feed("?[Example]") == ""
+    assert filter_.flush(response_end=False) == ""
+    assert filter_.feed("(https://example.com)") == ""
+    assert filter_.flush() == "?[Example](https://example.com)"
+    assert not filter_.invalid
+
+    filter_ = InteractionMarkupFilter()
+    assert filter_.feed("?[Example]") == ""
+    assert filter_.settle() == ""
+    assert filter_.feed("(https://example.com)") == ""
+    assert filter_.flush() == "?[Example](https://example.com)"
+    assert not filter_.invalid
 
 
 async def test_saved_unfinished_markup_cannot_be_completed_by_a_new_finish() -> None:

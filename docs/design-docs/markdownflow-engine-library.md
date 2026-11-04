@@ -2,7 +2,7 @@
 title: MarkdownFlow engine library
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-10-26
+last_reviewed: 2026-11-04
 canonical: true
 ---
 
@@ -64,6 +64,17 @@ results take precedence: a final question emitted before `finish` in the same
 response remains answerable, including after a Session round trip. A rejected
 completion or sibling tool validation still receives its required correction.
 No tool, event or Session schema changes are required.
+
+Standalone model-authored interaction notation is not a tool call. The engine
+withholds `<interact ...>` imitations and standalone native `?[...]` control
+lines, then requests an actual `interact` call through its bounded retry path.
+For native controls it also withholds the rest of that response, including
+options left outside a misplaced closing bracket. Only an accepted tool call
+creates pending state; `finish` cannot skip the unanswered question. The shared
+document scanner preserves native notation inside code, HTML, math and link
+examples. Authored native questions are instructions to execute, not literal
+exceptions. Inline native notation retains the course host's existing
+compatibility handling. No frontend control or Session schema change is needed.
 
 ## Course request completion
 

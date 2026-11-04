@@ -1,8 +1,12 @@
-"""Recognize standalone text imitations of interact, never execute their attributes."""
+"""Require real tool calls for standalone textual interaction controls."""
 
 from __future__ import annotations
 
 import re
+
+from markdownflow.syntax.parser.marker_context import analyze_marker_context
+
+from .stream_marker_context import pending_literal_context
 
 _OPEN = re.compile(r"""[ ]{0,3}<interact(?=$|[ \t\r\n/>"'])""")
 _PARAMETER = re.compile(r"[ \t]*<parameter(?=$|[ \t\r\n/>])")
@@ -15,10 +19,11 @@ _BLOCK_TAG = re.compile(
 _TAG_PREFIX_LIMIT = 32
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})(.*)$")
 INTERACTION_MARKUP_RETRY = (
-    "You wrote an <interact ...> tag as text instead of calling a tool. "
+    "You wrote an <interact ...> tag as text instead of calling a tool, "
+    "or did the same with a ?[...] control. "
     "No question was created and no learner answer was received. "
     "Call the actual `interact` tool for that unanswered question now. "
-    "Do not repeat the tag, assume an answer, advance or call `finish`."
+    "Do not repeat the notation, assume an answer, advance or call `finish`."
 )
 
 
@@ -48,7 +53,7 @@ def authored_interaction_markup(script: str) -> frozenset[str]:
     literals: set[str] = set()
     in_example = False
     for line in script.splitlines():
-        if contains_interaction_markup(line, frozenset()):
+        if _OPEN.match(line) and contains_interaction_markup(line, frozenset()):
             in_example = True
         elif not line.strip():
             in_example = False
@@ -64,6 +69,8 @@ class InteractionMarkupFilter:
     are refused at a Markdown line start. Inline examples, four-space code and
     fenced blocks are untouched. Parameter bodies are discarded through their
     closing tag or the response boundary, never accumulated as a whole.
+    Native control lines use the shared document scanner and retain preceding
+    response text as context; their remaining response is hidden until a retry.
     No attributes are parsed into interactions, variables or memory writes.
     """
 
@@ -78,13 +85,18 @@ class InteractionMarkupFilter:
         self._in_parameter = False
         self._pending_tag = ""
         self._after_literal = False
+        self._source: list[str] = []
+        self._source_length = 0
+        self._native_rejected = False
 
     def feed(self, text: str) -> str:
         """Return display text while retaining a potentially invalid tag line."""
         out: list[str] = []
         for part in text.splitlines(keepends=True):
+            if self._native_rejected:
+                continue
             self._line += part
-            if self._line.endswith("\n"):
+            if self._line.endswith(("\n", "\r")):
                 out.append(self._settle())
             elif self._fence is not None or not self._could_be_control_line():
                 out.append(self._line[self._sent :])
@@ -95,18 +107,22 @@ class InteractionMarkupFilter:
         """Settle the last line at a part boundary; a rejected block stays open."""
         return self._settle()
 
-    def flush(self) -> str:
+    def flush(self, *, response_end: bool = True) -> str:
         """End a response's protocol fragment without losing literal-code fences."""
-        result = self._settle()
+        result = self._settle(final=response_end)
         self._parameter_block = False
         self._in_parameter = False
         self._pending_tag = ""
         self._after_literal = False
+        if response_end:
+            self._source.clear()
+            self._source_length = 0
+            self._native_rejected = False
         return result
 
     def _could_be_control_line(self) -> bool:
         stripped = self._line.lstrip(" ")
-        if self._parameter_block:
+        if self._parameter_block or self._native_rejected:
             return True
         if len(self._line) - len(stripped) > 3:
             return False
@@ -117,6 +133,8 @@ class InteractionMarkupFilter:
         if not stripped:
             return True
         if "<interact".startswith(stripped):
+            return True
+        if "?[".startswith(stripped) or stripped.startswith("?["):
             return True
         if stripped.startswith("<interact"):
             return _OPEN.match(self._line) is not None
@@ -153,8 +171,57 @@ class InteractionMarkupFilter:
             self._pending_tag = text[start:]
         return None
 
-    def _settle(self) -> str:
+    def _settle(self, *, final: bool = False) -> str:
         text, sent = self._line, self._sent
+        if self._native_rejected:
+            self._line = ""
+            self._sent = 0
+            return ""
+        stripped = text.lstrip(" ")
+        indent = len(text) - len(stripped)
+        if indent <= 3 and stripped == "?" and not final:
+            return ""
+        if self._fence is None and indent <= 3 and stripped.startswith("?["):
+            # Classify with the preceding document, not just this line: an HTML,
+            # math, link or code example can have opened on an earlier line.
+            source = "".join(self._source) + text
+            start = self._source_length + indent
+            line_start = (
+                max(source.rfind("\n", 0, start), source.rfind("\r", 0, start)) + 1
+            )
+            line_prefix = source[line_start:start]
+            if line_prefix.strip(" ") or len(line_prefix) > 3:
+                # A text-part boundary alone does not start a Markdown line.
+                self._source.append(text)
+                self._source_length += len(text)
+                self._line = ""
+                self._sent = 0
+                return text[sent:]
+            context = analyze_marker_context(source, final=final)
+            if not final:
+                pending = pending_literal_context(source)
+                if (pending is not None and pending[0] < start) or any(
+                    at < start
+                    for at, _ in (*context.unmatched_backticks, *context.unmatched_math)
+                ):
+                    return ""  # A later delimiter may still make this literal content.
+                if text.endswith("]"):
+                    return ""  # A later text part may complete a Markdown link.
+            if any(at == start for at, _ in context.controls):
+                self.invalid = True
+                self._native_rejected = True
+                self._line = ""
+                self._sent = 0
+                # A misplaced closing bracket leaves options outside the control.
+                # Discard this response's tail rather than displaying those options
+                # or letting the model teach past an unanswered question.
+                return ""
+            if not final and any(
+                at == start for at, _ in analyze_marker_context(source + "]").controls
+            ):
+                return ""  # A multiline control or a later text part may close it.
+        self._source.append(text)
+        self._source_length += len(text)
         self._line = ""
         self._sent = 0
         after_close = False

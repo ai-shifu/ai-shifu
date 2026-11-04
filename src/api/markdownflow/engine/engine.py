@@ -1227,8 +1227,8 @@ class Engine:
             direction_chunks.clear()
             return released
 
-        def _flush_markup() -> list[Event]:
-            return _markup_output(markup.flush())
+        def _flush_markup(*, response_end: bool = True) -> list[Event]:
+            return _markup_output(markup.flush(response_end=response_end))
 
         def _settle_markup() -> list[Event]:
             return _markup_output(markup.settle())
@@ -1353,7 +1353,7 @@ class Engine:
                                 for e in _release_direction_chunks():
                                     yield e
                                 buffer_direction = False
-                        for e in _flush_markup():
+                        for e in _flush_markup(response_end=False):
                             yield e
                         yield ToolCall(
                             id=ev.part.tool_call_id,
