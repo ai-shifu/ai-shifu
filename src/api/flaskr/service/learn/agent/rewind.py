@@ -400,12 +400,28 @@ def plan_rewind(
     # A turn whose run died before it saved -- a worker killed mid-stream, or a cleanup that
     # failed -- leaves its block live with neither text nor record. No saved session ever
     # included it, so it is not a turn to go back to; it is retired with the rewind instead.
-    abandoned = [
+    # A turn saved before checkpoints existed that only asked a question looks the same, but it
+    # showed a control; it stays in planning, where its missing record still refuses the rewind.
+    empty = [
         b.generated_block_bid
         for b in blocks[1:]
         if not (b.generated_content or "").strip()
         and not (b.block_content_conf or "").strip()
     ]
+    asked = (
+        {
+            row.generated_block_bid
+            for row in LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.generated_block_bid.in_(empty),
+                LearnGeneratedElement.user_bid == block.user_bid,
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.element_type == "interaction",
+            ).all()
+        }
+        if empty
+        else set()
+    )
+    abandoned = [bid for bid in empty if bid not in asked]
     turns = [
         {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
         for b in blocks

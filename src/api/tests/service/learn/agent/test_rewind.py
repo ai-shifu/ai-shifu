@@ -456,3 +456,45 @@ def test_a_confirmation_in_the_queue_keeps_the_block_boundary(app: object) -> No
     # answer-1. It cannot be told, so the old block boundary applies.
     assert plan is not None
     assert plan.retired_block_bids == ["answer-0", "answer-1", "answer-2"]
+
+
+def test_a_legacy_question_only_turn_without_a_record_is_not_skipped(
+    app: object,
+) -> None:
+    """A pre-checkpoint turn that only asked a question is a saved turn, not an abandoned one."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("B1", checkpoint=_BEFORE_B1, values=[])
+        # Saved before checkpoints existed: no text (it only asked q2) and no record.
+        db.session.add(
+            make_generated_block(
+                generated_block_bid="B2",
+                progress_record_bid=RECORD,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_item_bid=OUTLINE,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                generated_content="",
+                block_content_conf="",
+                status=1,
+            )
+        )
+        db.session.flush()
+        _element("q2-control", "B2")
+        row = LearnGeneratedElement.query.filter_by(element_bid="q2-control").one()
+        row.element_type = "interaction"
+        _block(
+            "B3",
+            checkpoint={
+                **_WAITING,
+                "pending": [
+                    {"tool_call_id": "q2", "spec": _QUESTION.model_dump(mode="json")}
+                ],
+            },
+            values=["Left"],
+        )
+        db.session.commit()
+        # B2 is not skipped, so the edit of B1's answer does not land on B3 (q2).
+        with pytest.raises(rewind.RewindUnavailableError):
+            _plan("B1", answering=True)
