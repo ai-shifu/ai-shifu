@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from flaskr.service.learn.models import (
@@ -39,6 +40,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
 )
+from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     from flaskr.api.markdownflow import Session
@@ -430,6 +432,12 @@ def plan_rewind(
     return plan
 
 
+# How long an empty, unrecorded block must sit before it counts as abandoned. After a
+# disconnect the request releases the lesson lock while the producer thread may still be
+# finishing the turn (prepared feedback persists its text late); a young block may still fill in.
+ABANDONED_TURN_GRACE = timedelta(minutes=10)
+
+
 def abandoned_turn_block_bids(
     *, user_bid: str, outline_bid: str, progress_record_bid: str
 ) -> list[str]:
@@ -440,8 +448,9 @@ def abandoned_turn_block_bids(
     only asked a question teaches no text), so a block counts only once an earlier block of the
     same attempt carries a record: from then on every saved turn writes one. Before the first
     record, an empty block counts when that record was taken at turn 0, which proves no earlier
-    turn reached the saved session. No saved session ever included an abandoned block, so it is
-    never a turn to go back to.
+    turn reached the saved session. A block younger than `ABANDONED_TURN_GRACE` is left alone: its
+    run may still be finishing after the request that started it went away. No saved session ever
+    included an abandoned block, so it is never a turn to go back to.
     """
     blocks = (
         LearnGeneratedBlock.query.filter(
@@ -455,6 +464,7 @@ def abandoned_turn_block_bids(
         .order_by(LearnGeneratedBlock.id.asc())
         .all()
     )
+    settled_before = now_utc() - ABANDONED_TURN_GRACE
     abandoned: list[str] = []
     # Empty blocks seen before the attempt's first record: abandoned only if that record shows
     # no saved turn came before it (its checkpoint was taken at turn 0).
@@ -465,6 +475,8 @@ def abandoned_turn_block_bids(
         empty = (
             not (block.generated_content or "").strip()
             and not (block.block_content_conf or "").strip()
+            and block.created_at is not None
+            and block.created_at <= settled_before
         )
         if record is not None:
             if not recorded and record["checkpoint"].get("turn") == 0:

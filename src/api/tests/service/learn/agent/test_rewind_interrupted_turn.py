@@ -14,10 +14,12 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
+from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import rewind, run_agent, session_store
 from flaskr.service.learn.agent.models import LearnAgentSession
@@ -27,6 +29,7 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.util.datetime import now_utc
 from markdownflow.engine import ContentDelta, Engine
 from pydantic_ai.messages import ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
@@ -334,6 +337,14 @@ def test_an_unretired_interrupted_block_does_not_block_later_answer_edits(
     assert orphan.block_content_conf == ""
     assert [p.tool_call_id for p in _stored(lesson).pending] == ["q1"]
 
+    # Time passes: the orphan outlives the grace a still-finishing run would have.
+    with lesson.app.app_context():
+        LearnGeneratedBlock.query.filter_by(
+            generated_block_bid=orphan.generated_block_bid
+        ).one().created_at = (
+            now_utc() - rewind.ABANDONED_TURN_GRACE - timedelta(minutes=1)
+        )
+        db.session.commit()
     # Nothing was saved after the question, so there is nothing to take back: q1 is answered now.
     assert _plan_answer_edit(lesson, question_block) is None
 
