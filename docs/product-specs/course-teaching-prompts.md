@@ -19,14 +19,20 @@ version. Existing publication pinning, course boundaries, permissions, and
 outline availability checks remain authoritative. Removing outline instruction
 inheritance must not remove these checks.
 
-Resuming a saved Agent session refreshes its instruction bundle and identifiable
-engine-owned constraints in the initial model message to the course prompt,
-including removal when it is blank. The saved lesson script, extra documents,
-initial learner input, and subsequent conversation remain intact. Historical
-messages whose host constraints cannot be distinguished from learner-authored
-text are preserved rather than guessed at. Before the later schema cleanup,
-these ambiguous legacy sessions need a separate reset or migration policy;
-application field retirement alone cannot safely reinterpret their text.
+Resuming a saved Agent session refreshes its instruction bundle to the course
+prompt. Initial model-message constraints are refreshed, including removal when
+blank, only when independently recorded host-ownership metadata proves their
+boundary. The host records that metadata for a fresh initial prompt before its
+first save; it is preserved by native message serialization and Debug rewind.
+Memory-prefix changes cannot turn learner input into a host-owned region.
+
+The saved lesson script, extra documents, initial learner input, and subsequent
+conversation remain intact. Teaching-constraint refresh preserves every
+unmarked legacy initial document:
+matching the current bundle, known text, or XML-like tags cannot establish its
+source. Before the later schema cleanup, these legacy sessions need a separate
+reset or migration policy; application field retirement alone cannot safely
+reinterpret their text. No ownership metadata is inferred for old messages.
 
 Chapter and lesson settings expose title, permission, and visibility controls
 as appropriate to the outline type. Their APIs and DTOs omit `system_prompt`.

@@ -32,6 +32,10 @@ The durable behavior contract is
 - [x] 2026-11-04 03:14 UTC: Pass the full repository pre-commit gate and prepare
   the task branch for a ready pull request. Merge and deployment are outside
   this implementation plan.
+- [x] 2026-11-04 03:54 UTC: Address review feedback with independent initial
+  prompt ownership metadata and real-engine serialization regressions; 484
+  focused Agent tests passed, with additional DB/Debug assertions verified in
+  a 95-test subset. Strengthen the operator, copy, and authoring-write tests.
 
 ## Surprises & Discoveries
 
@@ -48,6 +52,12 @@ block: the old host could update the bundle alone, and the engine clears
 be a learner's first question. Preserve ambiguous evidence; the later schema
 cleanup must explicitly settle session reset/migration for those cases.
 
+PR review reproduced the same ambiguity even when the message exactly matches
+the bundle's previous constraints. No textual match proves host ownership.
+Fresh initial prompts now receive independent native model-request metadata
+before first persistence. Relative ranges and an owned-prefix digest survive
+memory-prefix edits while rejecting stale or corrupt ownership markers.
+
 ## Decision Log
 
 - Retire outline teaching prompts only. Preserve course-level teaching prompts,
@@ -62,6 +72,10 @@ cleanup must explicitly settle session reset/migration for those cases.
   and source, but return only the course prompt and `course` (or an empty source).
 - Refresh saved initial constraints only when their ownership is identifiable;
   never infer host ownership from an arbitrary learner-authored XML-like tag.
+- Review follow-up: only explicit fresh-prompt/host-rebuild provenance establishes
+  ownership. Unmarked legacy messages remain unchanged even when they match the
+  current bundle. The application records the metadata; native Session message
+  serialization and Debug rewind preserve it without engine or store changes.
 
 ## Outcomes & Retrospective
 
@@ -76,6 +90,11 @@ an initial-learner-input preservation issue. No database DDL is included.
 The follow-up schema cleanup must settle reset/migration of ambiguous historical
 Agent messages as described in the canonical product contract. Those messages
 are deliberately preserved at this stage rather than reinterpreted or erased.
+
+The review follow-up removes all legacy text-based ownership inference and
+adds real-engine serialization regressions for learner text identical to old
+constraints. Operator estimates/details, course copying, and authoring writes
+also seed nonempty retired values to prove that those paths ignore them.
 
 ## Context and Orientation
 

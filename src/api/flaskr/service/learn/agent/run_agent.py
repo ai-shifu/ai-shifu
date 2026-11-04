@@ -82,7 +82,10 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     save_agent_session,
 )
-from flaskr.service.learn.agent.teaching_brief import refresh_teaching_brief
+from flaskr.service.learn.agent.teaching_brief import (
+    record_initial_teaching_brief,
+    refresh_teaching_brief,
+)
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
@@ -329,8 +332,8 @@ def _load_or_start(
 
     async def make_session() -> Session:
         if stored is not None:
-            # Refresh before memory repair: historical expanded scripts must be
-            # recognized against the original memory envelope and snapshots.
+            # Only independently marked initial constraints belong to the host;
+            # unmarked legacy messages remain conversation evidence.
             refresh_teaching_brief(stored, teaching_brief)
             discard_course_references(stored, teaching_brief=teaching_brief)
             if debug_store is None:
@@ -366,6 +369,7 @@ def _load_or_start(
                 rebased = rebase_initial_script(stored.messages, stored.script)
                 if rebased is not None:
                     stored.messages = rebased
+                    record_initial_teaching_brief(stored, stored.script)
             return stored
         # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
         # the engine's own listen mode -- which we do not use, and which a session would keep
@@ -540,9 +544,17 @@ def run_agent_lesson(
                 and rewind.replay_values is not None
             ):
                 deleted_policy["replaying_input"] = True
+            fresh_turn = not session.started
+            initial_bundle = session.script
             async for event in engine.run_turn(
                 session, _turn_input(session, values), **deleted_policy
             ):
+                if fresh_turn:
+                    # This turn generated the initial prompt from the captured
+                    # bundle. Record ownership before any event can save it.
+                    fresh_turn = not record_initial_teaching_brief(
+                        session, initial_bundle
+                    )
                 yield event
 
         return events()

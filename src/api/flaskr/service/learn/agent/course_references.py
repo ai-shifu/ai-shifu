@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
+from flaskr.service.learn.agent.teaching_brief import record_initial_teaching_brief
 from flaskr.service.memory.api import is_course_reference
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
 from markdownflow.engine.script import (
@@ -67,3 +68,4 @@ def discard_course_references(
             parts[part_index], content=render_first_prompt(bundle, values)
         )
         session.messages[index] = replace(message, parts=parts)
+        record_initial_teaching_brief(session, bundle)
