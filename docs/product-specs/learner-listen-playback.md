@@ -31,6 +31,15 @@ Native interaction prompts travel with their controls in optional
 prompt as lesson prose. Questions already present in authored narration remain
 unchanged. Short confirmation labels retain their existing button behavior.
 
+For ordinary answer-collecting interactions, the shared course/profile runtime
+must first ask the complete current question in visible teaching content, then
+call the real `interact` tool in the same turn and wait. A control prompt is
+not a replacement for asking the question. Preserve authored questions,
+choices, retries and input boundaries. Do not invent a new teaching question
+for authored navigation or confirmation controls. Structured direction keeps
+its dedicated tool-only contract: the host presents its feedback and
+unanswered question before the controls.
+
 The canonical DTO and database content remain the original controls. Only
 serialized interaction `content` includes a compatibility prefix: encode every
 Unicode code point of the prompt as a decimal HTML entity, append two literal

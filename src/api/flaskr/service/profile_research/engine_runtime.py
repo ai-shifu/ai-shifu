@@ -140,10 +140,36 @@ def _interaction_problem(
     return None
 
 
-def _pending_chunk(pending: PendingInteraction) -> ProfileChunk:
+def _question_in_content(prompt: str, chunks: list[ProfileChunk]) -> bool:
+    """Recognize the complete question at the end of the current published prose."""
+    if not chunks or chunks[-1].type != "text":
+        return False
+    tail: list[str] = []
+    for chunk in reversed(chunks):
+        if chunk.type != "text" or chunk.number != chunks[-1].number:
+            break
+        tail.append(chunk.content)
+    asked = " ".join(prompt.split())
+    said = " ".join("".join(reversed(tail)).split())
+    if not asked or not said.endswith(asked):
+        return False
+    before = said[: -len(asked)]
+    # A short English title inside a longer word is not evidence of the question.
+    return not (
+        before
+        and asked[0].isascii()
+        and (asked[0].isalnum() or asked[0] == "_")
+        and (before[-1].isalnum() or before[-1] == "_")
+    )
+
+
+def _pending_chunk(
+    pending: PendingInteraction, *, preceding: list[ProfileChunk] | None = None
+) -> ProfileChunk:
     prompt, controls = render_question(pending.spec)
+    show_prompt = prompt.strip() and not _question_in_content(prompt, preceding or [])
     return ProfileChunk(
-        interaction=f"{prompt}\n\n{controls}" if prompt.strip() else controls,
+        interaction=f"{prompt}\n\n{controls}" if show_prompt else controls,
         interaction_id=pending.tool_call_id,
     )
 
@@ -308,7 +334,7 @@ def run_profile_turn(
     if working.pending:
         # Native Engine retains every deferred call. Only the first unanswered one
         # is visible; the next answer resumes it without discarding sibling calls.
-        chunks.append(_pending_chunk(working.pending[0]))
+        chunks.append(_pending_chunk(working.pending[0], preceding=chunks))
     session.engine_session = working.to_dict()
     session.variables.update(_normalize_session_variables(working.memory))
     return ProfileTurnResult(
