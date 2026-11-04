@@ -52,7 +52,6 @@ def sibling_course(app: object) -> Iterator[SimpleNamespace]:
                 position=position,
                 title=item_bid,
                 content=f"Content for {item_bid}",
-                llm_system_prompt="Keep teaching settings",
                 hidden=1,
                 type=401,
                 deleted=0,

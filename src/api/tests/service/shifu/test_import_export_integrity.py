@@ -129,7 +129,9 @@ def test_import_remaps_relationships_and_exports_only_the_persisted_history_tree
         assert bid != "original"
         assert first.parent_bid == second.parent_bid == chapter.outline_item_bid
         assert second.prerequisite_item_bids == first.outline_item_bid
-        assert chapter.llm_system_prompt == "Chapter instruction"
+        assert chapter.llm_system_prompt == ""
+        assert course.llm_system_prompt == "Course prompt"
+        assert float(course.llm_temperature) == 0.7
         history = get_shifu_history(app, bid)
         assert outline_content_revisions(history) == {
             row.outline_item_bid: row.id for row in outlines.values()
@@ -150,6 +152,7 @@ def test_import_remaps_relationships_and_exports_only_the_persisted_history_tree
     assert exported["exported_at"].endswith("Z")
     assert exported["shifu"]["price"] == 12.34
     assert exported["shifu"]["llm_system_prompt"] == "Course prompt"
+    assert all("llm_system_prompt" not in item for item in exported["outline_items"])
     assert {
         item["outline_item_bid"] for item in exported["outline_items"]
     } == active_bids

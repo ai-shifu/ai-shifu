@@ -72,11 +72,6 @@ class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
     """
 
 
-# How far up the outline a brief is looked for. Deeper than any course structure in use, and
-# short enough that malformed data costs a few queries rather than a lesson.
-_ANCESTOR_LIMIT = 12
-
-
 def _models(preview_mode: bool) -> tuple[type, type]:
     """Pick the draft or published tables, the way the 1.0 run context does."""
     if preview_mode:
@@ -128,7 +123,7 @@ def _resolve(
         current.content_revision if current and current.id == outline.id else None
     )
     course_model = selection_model(shifu)
-    brief = _teaching_brief(outline_model, outline=outline, shifu=shifu)
+    brief = _teaching_brief(shifu)
     if on_resolved is not None:
         on_resolved(
             outline_model=outline_model,
@@ -217,40 +212,8 @@ def require_teachable_preview(
     )
 
 
-def _teaching_brief(outline_model: type, *, outline: object, shifu: object) -> str:
-    """Return the author's teaching brief for this lesson, or an empty string.
-
-    A brief says who is being taught, in what voice, with what emphasis: the audience is
-    final-year students, the voice is a reviewer's, keep it brief and do not explain the
-    method. It is not the lesson; the script is. A 1.0 lesson has always been
-    taught with one, and a course moved onto 2.0 without it is taught in a different voice than
-    its author wrote for.
-
-    Nearest wins, and only one: the lesson's own, else the nearest ancestor that has one, else
-    the course's. That is what 1.0 does -- it returns the first it finds rather than joining
-    them -- and matching it is the point. Two engines composing an author's briefs differently
-    would teach the same course differently, which is the thing this whole step is avoiding.
-    """
-    own = (getattr(outline, "llm_system_prompt", "") or "").strip()
-    if own:
-        return own
-    # Up the outline: a chapter's brief covers the lessons inside it. Bounded by the walk always
-    # moving to a parent, and by a limit besides, so a cycle in the data cannot hang a lesson.
-    seen = {outline.outline_item_bid}
-    parent_bid = (getattr(outline, "parent_bid", "") or "").strip()
-    for _ in range(_ANCESTOR_LIMIT):
-        if not parent_bid or parent_bid in seen:
-            break
-        seen.add(parent_bid)
-        parent = _latest(
-            outline_model, outline_item_bid=parent_bid, shifu_bid=outline.shifu_bid
-        )
-        if parent is None:
-            break
-        brief = (getattr(parent, "llm_system_prompt", "") or "").strip()
-        if brief:
-            return brief
-        parent_bid = (getattr(parent, "parent_bid", "") or "").strip()
+def _teaching_brief(shifu: object) -> str:
+    """Return the course's teaching instructions for every lesson."""
     return (getattr(shifu, "llm_system_prompt", "") or "").strip()
 
 

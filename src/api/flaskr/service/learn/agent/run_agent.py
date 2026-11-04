@@ -356,13 +356,8 @@ def _load_or_start(
                 if debug_store is not None
                 else dict(user_memory)
             )
-            # The brief is re-read too, for the same reason the memory is: a stored session
-            # carries the snapshot taken when it was last saved. A lesson already in progress
-            # when an author writes or edits one would otherwise never see it, and a lesson
-            # begun before this existed would never see one at all.
-            #
-            # Only the brief, not the script. Replacing the script under a conversation that has
-            # already been taught from it would leave the two disagreeing about what was said.
+            # Keep engine context current without rewriting the initialized
+            # conversation. Restart the session to apply a changed course prompt.
             stored.script = replace(stored.script, constraints=teaching_brief or None)
             if script_edited:
                 # The model reads the script from the first user message, not from the

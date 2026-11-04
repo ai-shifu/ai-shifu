@@ -103,6 +103,7 @@ def _configure_follow_up(
     }
     with app.app_context(), unit_of_work():
         draft = DraftShifu.query.filter_by(shifu_bid=course.course_bid, deleted=0).one()
+        draft.llm_system_prompt = f"{label} course teaching prompt"
         draft.ask_llm = model
         draft.ask_llm_temperature = Decimal(temperature)
         draft.ask_llm_system_prompt = (
@@ -113,7 +114,6 @@ def _configure_follow_up(
         outline = DraftOutlineItem.query.filter_by(
             outline_item_bid=course.outline_bid, deleted=0
         ).one()
-        outline.llm_system_prompt = f"{label} lesson prompt"
         outline.ask_llm_system_prompt = (
             f"{label} lesson follow-up prompt::{{shifu_system_message}}"
         )
@@ -217,14 +217,21 @@ def test_follow_up_preview_and_publication_use_their_own_bound_rows(
             preview_info.usage_metadata["model_selection_record_id"]
             == preview._struct.id
         )
-        assert "Old lesson" in follow_up_dependencies.llm[0]["messages"][0]["content"]
         assert (
-            "Draft lesson"
+            "Old course teaching prompt"
+            in follow_up_dependencies.llm[0]["messages"][0]["content"]
+        )
+        assert (
+            "Draft course teaching prompt"
             not in follow_up_dependencies.llm[0]["messages"][0]["content"]
         )
-        assert "Draft lesson" in follow_up_dependencies.llm[1]["messages"][0]["content"]
         assert (
-            "Old lesson" not in follow_up_dependencies.llm[1]["messages"][0]["content"]
+            "Draft course teaching prompt"
+            in follow_up_dependencies.llm[1]["messages"][0]["content"]
+        )
+        assert (
+            "Old course teaching prompt"
+            not in follow_up_dependencies.llm[1]["messages"][0]["content"]
         )
 
 

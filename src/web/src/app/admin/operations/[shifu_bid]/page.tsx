@@ -66,7 +66,6 @@ const EMPTY_CHAPTER_DETAIL: AdminOperationCourseChapterDetailResponse = {
   title: '',
   content: '',
   llm_system_prompt: '',
-  llm_system_prompt_source: '',
 };
 
 const CHAPTER_COLUMN_MIN_WIDTH = 80;
@@ -257,10 +256,7 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.contentDetailDialog.copyFailed')
  * t('module.operationsCourse.detail.contentDetailDialog.empty')
  * t('module.operationsCourse.detail.contentDetailDialog.sections.content')
- * t('module.operationsCourse.detail.contentDetailDialog.sections.systemPrompt')
- * t('module.operationsCourse.detail.contentDetailDialog.sources.lesson')
- * t('module.operationsCourse.detail.contentDetailDialog.sources.chapter')
- * t('module.operationsCourse.detail.contentDetailDialog.sources.course')
+ * t('module.operationsCourse.table.coursePrompt')
  * t('module.operationsCourse.detail.users')
  * t('module.operationsCourse.detail.usersCount')
  * t('module.operationsCourse.detail.usersDescription')
@@ -1024,36 +1020,6 @@ export default function AdminOperationCourseDetailPage() {
     [detail.chapters],
   );
 
-  const resolvePromptSourceLabel = useCallback(
-    (source?: string) => {
-      if (source === 'lesson') {
-        return tOperations('detail.contentDetailDialog.sources.lesson');
-      }
-      if (source === 'chapter') {
-        return tOperations('detail.contentDetailDialog.sources.chapter');
-      }
-      if (source === 'course') {
-        return tOperations('detail.contentDetailDialog.sources.course');
-      }
-      return '';
-    },
-    [tOperations],
-  );
-
-  const buildPromptSectionLabel = useCallback(
-    (baseLabel: string, source?: string) => {
-      const sourceLabel = resolvePromptSourceLabel(source);
-      if (!sourceLabel) {
-        return baseLabel;
-      }
-      const wrapper = /[^\x00-\x7F]/.test(`${baseLabel}${sourceLabel}`)
-        ? ['（', '）']
-        : [' (', ')'];
-      return `${baseLabel}${wrapper[0]}${sourceLabel}${wrapper[1]}`;
-    },
-    [resolvePromptSourceLabel],
-  );
-
   const selectedChapterDetailSections = useMemo(() => {
     if (!selectedChapter) {
       return [];
@@ -1064,19 +1030,11 @@ export default function AdminOperationCourseDetailPage() {
         value: selectedChapterDetail.content || '',
       },
       {
-        label: buildPromptSectionLabel(
-          tOperations('detail.contentDetailDialog.sections.systemPrompt'),
-          selectedChapterDetail.llm_system_prompt_source,
-        ),
+        label: tOperations('table.coursePrompt'),
         value: selectedChapterDetail.llm_system_prompt || '',
       },
     ];
-  }, [
-    buildPromptSectionLabel,
-    selectedChapter,
-    selectedChapterDetail,
-    tOperations,
-  ]);
+  }, [selectedChapter, selectedChapterDetail, tOperations]);
 
   const selectedChapterCopyText = useMemo(() => {
     const sections = selectedChapterDetailSections.filter(section =>
