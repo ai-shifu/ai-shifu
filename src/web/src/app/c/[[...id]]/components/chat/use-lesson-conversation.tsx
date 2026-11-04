@@ -19,19 +19,15 @@ import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
 import {
   StudyRecordItem,
-  LikeStatus,
   AudioCompleteData,
   AudioSegmentData,
   type ListenSlideData,
-  type ElementType,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
   SSE_OUTPUT_TYPE,
   SYS_INTERACTION_TYPE,
   LESSON_FEEDBACK_VARIABLE_NAME,
-  LESSON_FEEDBACK_INTERACTION_MARKER,
-  LIKE_STATUS,
   BLOCK_TYPE,
   checkIsRunning,
   streamGeneratedBlockAudio,
@@ -64,6 +60,13 @@ import {
   updateInteractionItems,
 } from '@/lib/chat-interaction-rewind';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import {
+  finalizeLikeStatusByParent,
+  isLessonFeedbackContent,
+  removeLikeStatusByParent,
+  shouldAttachLikeStatusByElement,
+  upsertLikeStatusByParent,
+} from './lesson-like-status';
 import LoadingBar from './LoadingBar';
 import { startPreviewRewindTracking } from './preview-rewind-tracking';
 import { useTranslation } from 'react-i18next';
@@ -438,164 +441,6 @@ function useLessonConversation({
     [getLessonRunContentCacheEntry],
   );
 
-  const isLessonFeedbackContent = useCallback((content?: string | null) => {
-    return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
-  }, []);
-
-  const createLikeStatusItem = useCallback(
-    (
-      parentElementBid: string,
-      likeStatus: LikeStatus = LIKE_STATUS.NONE,
-    ): ChatContentItem => ({
-      parent_element_bid: parentElementBid,
-      element_bid: '',
-      content: '',
-      like_status: likeStatus,
-      type: ChatContentItemType.LIKE_STATUS,
-    }),
-    [],
-  );
-
-  const shouldAttachLikeStatusByElement = useCallback(
-    ({
-      elementBid,
-      elementType,
-      content,
-    }: {
-      elementBid?: string | null;
-      elementType?: ElementType | null;
-      content?: string | null;
-    }) => {
-      if (!elementBid) {
-        return false;
-      }
-
-      if (!elementType) {
-        return false;
-      }
-
-      return !isLessonFeedbackContent(content);
-    },
-    [isLessonFeedbackContent],
-  );
-
-  const upsertLikeStatusByParent = useCallback(
-    (
-      items: ChatContentItem[],
-      params: {
-        parentElementBid: string;
-        likeStatus?: LikeStatus | null;
-        insertAfterElementBid?: string;
-      },
-    ) => {
-      const { parentElementBid, insertAfterElementBid } = params;
-      if (!parentElementBid) {
-        return items;
-      }
-
-      const resolvedLikeStatus = params.likeStatus ?? LIKE_STATUS.NONE;
-      const hitIndex = items.findIndex(
-        item =>
-          item.type === ChatContentItemType.LIKE_STATUS &&
-          item.parent_element_bid === parentElementBid,
-      );
-
-      if (hitIndex >= 0) {
-        if (items[hitIndex].like_status === resolvedLikeStatus) {
-          return items;
-        }
-        const nextItems = [...items];
-        nextItems[hitIndex] = {
-          ...nextItems[hitIndex],
-          like_status: resolvedLikeStatus,
-        };
-        return nextItems;
-      }
-
-      const nextItems = [...items];
-      const anchorElementBid = insertAfterElementBid || parentElementBid;
-      const anchorIndex = nextItems.findIndex(
-        item => item.element_bid === anchorElementBid,
-      );
-      const nextLikeStatusItem = createLikeStatusItem(
-        parentElementBid,
-        resolvedLikeStatus,
-      );
-
-      if (anchorIndex >= 0) {
-        nextItems.splice(anchorIndex + 1, 0, nextLikeStatusItem);
-        return nextItems;
-      }
-
-      nextItems.push(nextLikeStatusItem);
-      return nextItems;
-    },
-    [createLikeStatusItem],
-  );
-
-  const removeLikeStatusByParent = useCallback(
-    (items: ChatContentItem[], parentElementBid: string) => {
-      if (!parentElementBid) {
-        return items;
-      }
-
-      const hitIndex = items.findIndex(
-        item =>
-          item.type === ChatContentItemType.LIKE_STATUS &&
-          item.parent_element_bid === parentElementBid,
-      );
-
-      if (hitIndex < 0) {
-        return items;
-      }
-
-      const nextItems = [...items];
-      nextItems.splice(hitIndex, 1);
-      return nextItems;
-    },
-    [],
-  );
-
-  const finalizeLikeStatusByParent = useCallback(
-    (items: ChatContentItem[], parentElementBid: string) => {
-      if (!parentElementBid) {
-        return items;
-      }
-
-      const targetItem = items.find(
-        item => item.element_bid === parentElementBid,
-      );
-      if (!targetItem) {
-        return items;
-      }
-
-      const elementType =
-        typeof targetItem.element_type === 'string'
-          ? targetItem.element_type
-          : undefined;
-      const shouldAttachLikeStatus = shouldAttachLikeStatusByElement({
-        elementBid: parentElementBid,
-        elementType,
-        content: targetItem.content,
-      });
-
-      if (!shouldAttachLikeStatus) {
-        return removeLikeStatusByParent(items, parentElementBid);
-      }
-
-      return upsertLikeStatusByParent(items, {
-        parentElementBid,
-        likeStatus: targetItem.like_status,
-        insertAfterElementBid: parentElementBid,
-      });
-    },
-    [
-      removeLikeStatusByParent,
-      shouldAttachLikeStatusByElement,
-      upsertLikeStatusByParent,
-    ],
-  );
-
   const finalizeElementOutputInList = useCallback(
     (items: ChatContentItem[], completedElementBid: string) => {
       if (!completedElementBid) {
@@ -622,7 +467,7 @@ function useLessonConversation({
 
       return finalizeLikeStatusByParent(nextItems, completedElementBid);
     },
-    [finalizeLikeStatusByParent, isListenModeLatest],
+    [isListenModeLatest],
   );
 
   const resolveAskAnchorElementBid = useCallback(
@@ -1887,7 +1732,6 @@ function useLessonConversation({
       clearRunStreamTimeout,
       ensureContentItem,
       finalizeElementOutputInList,
-      isLessonFeedbackContent,
       itemMatchesElementCacheIdentity,
       lessonRunContentCacheKey,
       markLessonRunAudioBackfillReady,
@@ -2032,12 +1876,9 @@ function useLessonConversation({
     },
     [
       buildContentItem,
-      removeLikeStatusByParent,
       resolveAskAnchorElementBid,
       resolveElementItemBid,
-      shouldAttachLikeStatusByElement,
       upsertAskMessageByParent,
-      upsertLikeStatusByParent,
     ],
   );
 
@@ -2152,7 +1993,6 @@ function useLessonConversation({
     chapterId,
     creditInsufficientAudience,
     getLessonFeedbackDefaults,
-    isLessonFeedbackContent,
     mapRecordsToContent,
     openLessonFeedbackPopup,
     outlineBid,
@@ -2636,7 +2476,6 @@ function useLessonConversation({
       getNextLessonId,
       isTypeFinishedRef,
       hasActiveRunInProgress,
-      isLessonFeedbackContent,
       isListenMode,
       lessonId,
       lessonFeedbackPopupState.elementBid,
