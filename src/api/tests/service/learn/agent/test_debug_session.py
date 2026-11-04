@@ -1205,6 +1205,7 @@ def test_debug_answer_edit_after_a_draft_edit_rewinds_instead_of_expiring(
 
     def produce(_app: object, **kwargs: object) -> Iterator:
         seen.append(kwargs)
+        assert kwargs["script"] == "Edited draft"
         assert kwargs["debug_store"]._follow_script_edits is True
         assert kwargs["rewind"].retired_block_bids == ["old-answer"]
         assert kwargs["rewind"].checkpoint["pending"][0]["tool_call_id"] == "q"
