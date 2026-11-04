@@ -10,10 +10,14 @@ does not have them. Creator-scoped reads on these tables filter by creator_bid
 without a leading stat_date or subscription_bid, so they cannot use the existing
 composite indexes. The other undeclared indexes were redundant and were removed
 from the models instead.
+
+Each index is created only when it is missing, so an environment where one was
+added by hand, or a retry after a partial run, still upgrades cleanly.
 """
 
 from __future__ import annotations
 
+import sqlalchemy as sa
 from alembic import op
 
 revision = "c3d8e1f4a6b2"
@@ -22,31 +26,52 @@ branch_labels = None
 depends_on = None
 
 
+def _index_exists(table_name: str, index_name: str) -> bool:
+    inspector = sa.inspect(op.get_bind())
+    return any(
+        index.get("name") == index_name for index in inspector.get_indexes(table_name)
+    )
+
+
 def upgrade():
-    with op.batch_alter_table("bill_daily_ledger_summary", schema=None) as batch_op:
-        batch_op.create_index(
-            batch_op.f("ix_bill_daily_ledger_summary_creator_bid"),
-            ["creator_bid"],
-            unique=False,
-        )
-    with op.batch_alter_table("bill_daily_usage_metrics", schema=None) as batch_op:
-        batch_op.create_index(
-            batch_op.f("ix_bill_daily_usage_metrics_creator_bid"),
-            ["creator_bid"],
-            unique=False,
-        )
-    with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
-        batch_op.create_index(
-            batch_op.f("ix_bill_renewal_events_creator_bid"),
-            ["creator_bid"],
-            unique=False,
-        )
+    if not _index_exists(
+        "bill_daily_ledger_summary", "ix_bill_daily_ledger_summary_creator_bid"
+    ):
+        with op.batch_alter_table("bill_daily_ledger_summary", schema=None) as batch_op:
+            batch_op.create_index(
+                batch_op.f("ix_bill_daily_ledger_summary_creator_bid"),
+                ["creator_bid"],
+                unique=False,
+            )
+    if not _index_exists(
+        "bill_daily_usage_metrics", "ix_bill_daily_usage_metrics_creator_bid"
+    ):
+        with op.batch_alter_table("bill_daily_usage_metrics", schema=None) as batch_op:
+            batch_op.create_index(
+                batch_op.f("ix_bill_daily_usage_metrics_creator_bid"),
+                ["creator_bid"],
+                unique=False,
+            )
+    if not _index_exists("bill_renewal_events", "ix_bill_renewal_events_creator_bid"):
+        with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
+            batch_op.create_index(
+                batch_op.f("ix_bill_renewal_events_creator_bid"),
+                ["creator_bid"],
+                unique=False,
+            )
 
 
 def downgrade():
-    with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_bill_renewal_events_creator_bid"))
-    with op.batch_alter_table("bill_daily_usage_metrics", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_bill_daily_usage_metrics_creator_bid"))
-    with op.batch_alter_table("bill_daily_ledger_summary", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_bill_daily_ledger_summary_creator_bid"))
+    if _index_exists("bill_renewal_events", "ix_bill_renewal_events_creator_bid"):
+        with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
+            batch_op.drop_index(batch_op.f("ix_bill_renewal_events_creator_bid"))
+    if _index_exists(
+        "bill_daily_usage_metrics", "ix_bill_daily_usage_metrics_creator_bid"
+    ):
+        with op.batch_alter_table("bill_daily_usage_metrics", schema=None) as batch_op:
+            batch_op.drop_index(batch_op.f("ix_bill_daily_usage_metrics_creator_bid"))
+    if _index_exists(
+        "bill_daily_ledger_summary", "ix_bill_daily_ledger_summary_creator_bid"
+    ):
+        with op.batch_alter_table("bill_daily_ledger_summary", schema=None) as batch_op:
+            batch_op.drop_index(batch_op.f("ix_bill_daily_ledger_summary_creator_bid"))

@@ -225,6 +225,11 @@ class _SchemaReplay:
                     )
                     self._visit(body.body, batch_table)
                 continue
+            if isinstance(statement, ast.If):
+                # Existence guards: like the call walk below, replay both
+                # branches, but keep a nested batch_alter_table's table.
+                self._visit(statement.body + statement.orelse, batch_table)
+                continue
             if isinstance(statement, ast.With):
                 table = batch_table
                 for item in statement.items:
