@@ -126,7 +126,6 @@ def test_metadata_and_tree_rebuild_keep_body_revision(
     outline = DraftOutlineItem.query.filter_by(id=baseline).one()
     renamed = outline.clone()
     renamed.title = "Renamed"
-    renamed.llm_system_prompt = "New prompt"
     renamed.ask_enabled_status = 5102
     db.session.add(renamed)
     db.session.flush()
@@ -458,3 +457,39 @@ def test_batch_initialization_validates_each_node_identity_and_preserves_recorde
     )
     history._initialize_outline_content_revisions("other-course", foreign)
     assert foreign.children[0].content_revision is None
+
+
+def test_publication_ignores_retired_teaching_override_and_preserves_follow_up_context(
+    app: object, revision_course: tuple[str, str, int]
+) -> None:
+    course, lesson, baseline = revision_course
+    draft = DraftShifu.query.filter_by(shifu_bid=course).one()
+    draft.llm_system_prompt = "Course teaching instructions"
+    outline = DraftOutlineItem.query.filter_by(id=baseline).one()
+    outline.llm_system_prompt = "Retired lesson teaching override"
+    outline.ask_llm_system_prompt = "Generated lesson follow-up context"
+    db.session.commit()
+
+    assert _publish(app, course, lesson) == baseline
+
+    published = PublishedOutlineItem.query.filter_by(shifu_bid=course).one()
+    published_course = PublishedShifu.query.filter_by(shifu_bid=course).one()
+    assert published.llm_system_prompt == ""
+    assert published.ask_llm_system_prompt == "Generated lesson follow-up context"
+    assert published_course.llm_system_prompt == "Course teaching instructions"
+
+
+def test_draft_cloning_and_equality_ignore_retired_teaching_override() -> None:
+    outline = DraftOutlineItem(
+        outline_item_bid="legacy-lesson",
+        shifu_bid="legacy-course",
+        title="Lesson",
+        llm_system_prompt="Retired lesson teaching override",
+        ask_llm_system_prompt="Generated follow-up context",
+    )
+    clone = outline.clone()
+
+    assert clone.llm_system_prompt is None
+    assert clone.ask_llm_system_prompt == "Generated follow-up context"
+    assert clone.eq(outline)
+    assert outline.get_str_to_check() == "Lesson Generated follow-up context"

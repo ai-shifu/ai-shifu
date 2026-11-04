@@ -186,8 +186,8 @@ keys, labels, personal information, answers and memory contents are excluded.
 | Event                          | Exact trigger                                                                | Complete payload                                                                                                                                                                                                               |
 | ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language`, `follow_up_mode`, `price_tier`, `main_model_index`, `follow_up_model_index`, `main_model_fallback`, `follow_up_model_fallback` |
-| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`, `prompt_change`                                                                                                                     |
-| `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`, `prompt_change`                                                                                                                                                                       |
+| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`                                                                                                                                      |
+| `creator_chapter_setting_save` | After chapter settings save succeeds                                         | `shifu_bid`, `outline_bid`, `save_type`                                                                                                                                                                                       |
 | `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                                                                                                                                       |
 | `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                                                                                                                                                    |
 | `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`, `has_text_variable_keys`                                                                                                                                                                           |
@@ -200,47 +200,42 @@ Course/chapter/lesson names, descriptions, system prompts, model names, voice
 IDs, provider configuration, URLs, and route text are excluded from these
 contracts.
 
-Chapter and lesson prompt editors are shown only while their current prompt
-contains non-whitespace content. Empty, missing, and whitespace-only prompts
-hide the label, hint, and editor. Clearing an existing prompt hides its editor
-but preserves the pending empty value for the existing automatic or manual
-save. At runtime, empty and whitespace-only chapter and lesson prompts do not
-override inherited instructions: resolution continues to the nearest ancestor
-with content, then the course prompt. A blank course fallback resolves to no
-prompt. Substantive prompts retain their original
-text and precedence, and stored values do not require a migration.
-These saves remain covered by `creator_outline_prompt_save` for chapters
-and `creator_outline_setting_save` for lessons, only after the API succeeds.
-Visibility changes emit no event; their saved outcome is measured through the
-`prompt_change` field on these existing save events.
+Chapter and lesson prompts are retired. Settings panels never display
+their editors, read legacy prompt values, or submit prompt fields. Teaching and
+follow-up instruction resolution use the course prompt exclusively;
+see [Course Prompts](course-prompts.md). Existing chapter and
+lesson settings retain their title, permission, and visibility behavior.
 
-### Outline prompt save outcomes (2026-09-19)
+### Chapter and lesson settings save outcomes (2026-11-04)
 
-- Business question: how often do teachers save prompt edits or clear an
-  existing prompt, returning the outline to inherited instructions?
-- Metric: daily successful outline saves grouped by `prompt_change` and
-  `save_type`, optionally by the existing course/outline IDs. These are outcome
-  counts, not an exposure funnel or an attempt-to-success conversion rate.
+- Business question: how often do teachers successfully update chapter and
+  lesson settings, through manual and automatic saves?
+- Metric: daily successful settings saves grouped by event and `save_type`,
+  optionally by the existing course/outline IDs. These are outcome counts,
+  not prompt-edit counts, an exposure funnel, or an attempt-to-success rate.
 - Population: authenticated teachers editing existing chapters or lessons.
   Read-only viewers, new unsaved outlines, invalid titles, unchanged forms,
   failed saves, and abandoned edits are excluded.
-- Trigger: after `modifyOutline` succeeds. Determine the change against the
-  last loaded or successfully saved prompt before submitting the request.
-- Payload addition: `prompt_change` is a required, non-personal, low-cardinality
-  string enum: `unchanged` when the prompt text did not change, `updated` when
-  it changed to substantive text, and `cleared` when it changed to blank text.
-  It contains no prompt content, hashes, lengths, names, or descriptions.
+- Trigger: after a changed, valid `modifyOutline` request succeeds. Chapters
+  emit `creator_chapter_setting_save`; lessons emit
+  `creator_outline_setting_save`. Complete scalar payloads are listed above.
+  Course and outline IDs are high-cardinality pseudonymous join keys;
+  `save_type` and `variant` are low-cardinality enums, `learning_permission`
+  uses the existing permission enum, and `hide_chapter` is a boolean.
+  No prompt content or prompt-derived metadata is collected.
 - Count unit and deduplication: one event per successful API save. Re-renders,
-  editor hiding, and closing again without further changes emit nothing.
-  Automatic and manual saves use the same classification. Tracking is
-  best-effort; a synchronous throw or rejected tracking promise must not affect
-  saving or closing the settings panel.
-- Consumers and compatibility: product analytics authoring-adoption queries
-  can group by the new field. Existing aggregate counts and event names remain
-  compatible. Missing historical values mean `legacy_unknown`, never inferred
-  as `unchanged`; no backfill or content-based reconstruction is performed.
+  closing again without changes, and loading legacy prompts emit nothing.
+  Automatic and manual saves use the same contract. Tracking is best-effort;
+  a synchronous throw or rejected promise must not affect saving or closing.
+- Consumers and compatibility: product analytics authoring-adoption reports
+  must use the new chapter settings series after deployment. Retire
+  `creator_outline_prompt_save` without dual-writing or reinterpreting its
+  history. Lesson settings keep their existing event name and aggregate-save
+  meaning but drop `prompt_change`. Prompt-edit reports stop at deployment;
+  do not backfill missing values or infer them as `unchanged`. No checked-in
+  query or dashboard consumes the retired name or dimension.
 - Verification: exact event names and allowlisted payloads, manual/automatic
-  clears, substantive edits, non-prompt edits, successful-save timing,
+  title and settings edits, legacy prompt exclusion, successful-save timing,
   unchanged/read-only/failed-save exclusions, duplicate-close prevention, and
   tracking-failure isolation.
 

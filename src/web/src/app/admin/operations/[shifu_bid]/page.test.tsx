@@ -399,8 +399,7 @@ describe('AdminOperationCourseDetailPage', () => {
       outline_item_bid: 'lesson-1',
       title: 'Lesson 1',
       content: 'lesson content',
-      llm_system_prompt: 'lesson system prompt',
-      llm_system_prompt_source: 'chapter',
+      llm_system_prompt: 'course system prompt',
     });
     mockGetAdminOperationCourseUsers.mockResolvedValue({
       items: [
@@ -1165,7 +1164,6 @@ describe('AdminOperationCourseDetailPage', () => {
       title: string;
       content: string;
       llm_system_prompt: string;
-      llm_system_prompt_source: 'chapter';
     }>();
     mockGetAdminOperationCourseChapterDetail.mockReturnValueOnce(
       chapterDetailRequest.promise,
@@ -1204,15 +1202,14 @@ describe('AdminOperationCourseDetailPage', () => {
         outline_item_bid: 'lesson-1',
         title: 'Lesson 1',
         content: 'lesson content',
-        llm_system_prompt: 'lesson system prompt',
-        llm_system_prompt_source: 'chapter',
+        llm_system_prompt: 'course system prompt',
       });
       await chapterDetailRequest.promise;
     });
 
     await waitFor(() => {
       expect(screen.getByText('lesson content')).toBeInTheDocument();
-      expect(screen.getByText('lesson system prompt')).toBeInTheDocument();
+      expect(screen.getByText('course system prompt')).toBeInTheDocument();
       expect(
         screen.getByRole('button', {
           name: 'module.operationsCourse.detail.contentDetailDialog.copy',
@@ -1232,8 +1229,8 @@ describe('AdminOperationCourseDetailPage', () => {
           'module.operationsCourse.detail.contentDetailDialog.sections.content',
           'lesson content',
           '',
-          'module.operationsCourse.detail.contentDetailDialog.sections.systemPrompt (module.operationsCourse.detail.contentDetailDialog.sources.chapter)',
-          'lesson system prompt',
+          'module.operationsCourse.table.coursePrompt',
+          'course system prompt',
         ].join('\n'),
       );
       expect(mockToastShow).toHaveBeenCalledWith(

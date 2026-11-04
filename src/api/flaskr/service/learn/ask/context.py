@@ -65,7 +65,7 @@ def resolve_course_system_prompt(
     outline_model: object | None = None,
     shifu_model: object | None = None,
 ) -> str | None:
-    """Return the nearest inherited Course Prompt, skipping blank outline overrides."""
+    """Return the Course Prompt from the physical course row bound to this run."""
     path = outline_path
     if path is None:
         struct = get_shifu_struct(app, shifu_bid, preview_mode)
@@ -119,13 +119,6 @@ def resolve_course_system_prompt(
         outline_id not in outline_by_id for outline_id in outline_ids
     ):
         raise_error("server.shifu.outlineItemNotFound")
-    for outline_id in outline_ids:
-        prompt = str(
-            getattr(outline_by_id.get(outline_id), "llm_system_prompt", "") or ""
-        )
-        if prompt.strip():
-            return prompt
-
     prompt = str(getattr(shifu_row, "llm_system_prompt", "") or "")
     return prompt if prompt.strip() else None
 

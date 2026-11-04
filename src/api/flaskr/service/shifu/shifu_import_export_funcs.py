@@ -152,7 +152,6 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                     "parent_bid": item.parent_bid,
                     "position": item.position,
                     "prerequisite_item_bids": item.prerequisite_item_bids,
-                    "llm_system_prompt": item.llm_system_prompt,
                     "ask_llm_system_prompt": item.ask_llm_system_prompt,
                     "ask_enabled_status": item.ask_enabled_status,
                     "content": item.content,
@@ -370,7 +369,6 @@ def import_shifu(
                 parent_bid="",  # Will update after all items are created
                 position=item_data.get("position", ""),
                 prerequisite_item_bids="",  # Will update after all items are created
-                llm_system_prompt=item_data.get("llm_system_prompt", ""),
                 ask_llm_system_prompt=item_data.get("ask_llm_system_prompt", ""),
                 ask_enabled_status=item_data.get("ask_enabled_status", 5101),
                 content=item_data.get("content", ""),
@@ -386,7 +384,7 @@ def import_shifu(
                 app,
                 new_bid,
                 user_id,
-                f"{new_outline.title} {new_outline.llm_system_prompt}",
+                new_outline.title,
             )
 
             db.session.add(new_outline)

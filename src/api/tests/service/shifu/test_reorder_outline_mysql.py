@@ -116,7 +116,7 @@ def _seed_course() -> None:
             position=position,
             title=bid,
             content=f"Initial content for {bid}",
-            llm_system_prompt="Initial teaching prompt",
+            ask_llm_system_prompt="Initial follow-up context",
             deleted=0,
         )
         db.session.add(row)
@@ -191,7 +191,7 @@ def test_old_snapshot_merges_other_group_and_latest_content_history(
             other_versions = {bid: _latest_items()[bid].id for bid in ("b1", "b2")}
             content = _latest_items()["a2"].clone()
             content.content = "Latest content from writer B"
-            content.llm_system_prompt = "Latest teaching prompt"
+            content.ask_llm_system_prompt = "Latest follow-up context"
             content.title = "Latest lesson title"
             course = DraftShifu.query.filter_by(shifu_bid=COURSE_BID).first().clone()
             course.title = "Latest course title"
@@ -223,7 +223,7 @@ def test_old_snapshot_merges_other_group_and_latest_content_history(
         assert current["a1"].position == "0102"
         assert current["a2"].content == "Latest content from writer B"
         assert current["a2"].title == "Latest lesson title"
-        assert current["a2"].llm_system_prompt == "Latest teaching prompt"
+        assert current["a2"].ask_llm_system_prompt == "Latest follow-up context"
         assert {bid: current[bid].id for bid in other_versions} == other_versions
         assert current["b2"].position == "0201"
         assert current["b1"].position == "0202"
@@ -254,7 +254,10 @@ def test_locking_reads_refresh_same_id_identity_map_entries(
             db.session.execute(
                 update(DraftOutlineItem.__table__)
                 .where(DraftOutlineItem.id == cached.id)
-                .values(content="Updated same row", llm_system_prompt="Updated prompt")
+                .values(
+                    content="Updated same row",
+                    ask_llm_system_prompt="Updated follow-up context",
+                )
             )
             db.session.execute(
                 update(LogDraftStruct.__table__)
@@ -272,7 +275,7 @@ def test_locking_reads_refresh_same_id_identity_map_entries(
         reorder_outline_siblings(app, "writer-a", COURSE_BID, ["a2", "a1"])
         current = _latest_items()["a2"]
         assert current.content == "Updated same row"
-        assert current.llm_system_prompt == "Updated prompt"
+        assert current.ask_llm_system_prompt == "Updated follow-up context"
         history = get_shifu_history(app, COURSE_BID)
         assert history.id == 1234
         assert _history_nodes(history)["legacy-block"].id == 99
