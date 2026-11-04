@@ -41,10 +41,15 @@ from pydantic_ai.messages import (
 from pydantic_ai.models import Model, ModelRequestParameters, StreamedResponse
 from pydantic_ai.usage import RequestUsage
 
-from flaskr.api.llm import _extract_usage_value, _reported_input_cache, chat_llm
+from flaskr.api.llm import (
+    _extract_usage_value,
+    _reported_input_cache,
+    chat_llm,
+    resolve_llm_max_input_tokens,
+)
 from flaskr.api.llm.markdownflow_budget import (
-    INPUT_BUDGET_BYTES,
     check_input_budget,
+    input_budget_bytes_for,
 )
 from flaskr.util.datetime import now_utc
 
@@ -309,7 +314,7 @@ class GatewayModel(Model):
         user_id: str,
         span: LangfuseObservationHandle,
         generation_name: str = "agent_lesson",
-        input_budget_bytes: int = INPUT_BUDGET_BYTES,
+        input_budget_bytes: int | None = None,
         retry_deadline_seconds: float | None = None,
         **chat_llm_kwargs: object,
     ) -> None:
@@ -319,11 +324,20 @@ class GatewayModel(Model):
         provider, so there is no working call without one.
 
         `input_budget_bytes` bounds the final mapped messages and effective tools as compact
-        UTF-8 JSON on every request. Oversized inputs are refused, never shortened.
+        UTF-8 JSON on every request. Oversized inputs are refused, never shortened. When
+        omitted it follows the model's input token ceiling (configured or LiteLLM), else
+        the fixed 256 KiB default.
         `retry_deadline_seconds` optionally stops retries and streamed reads between
         chunks. Supply a provider `timeout` too: synchronous reads cannot be preempted.
         """
         super().__init__()
+        if input_budget_bytes is None:
+            metadata = chat_llm_kwargs.get("usage_metadata")
+            input_budget_bytes = input_budget_bytes_for(
+                resolve_llm_max_input_tokens(
+                    model, metadata if isinstance(metadata, dict) else None
+                )
+            )
         if input_budget_bytes <= 0:
             message = "model input budget must be positive"
             raise ValueError(message)

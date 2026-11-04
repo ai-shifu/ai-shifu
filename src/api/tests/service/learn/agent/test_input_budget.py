@@ -5,7 +5,10 @@ from collections.abc import Iterator
 
 import pytest
 from flaskr.api.llm import markdownflow_model as gw
-from flaskr.api.llm.markdownflow_budget import INPUT_BUDGET_BYTES
+from flaskr.api.llm.markdownflow_budget import (
+    INPUT_BUDGET_BYTES,
+    input_budget_bytes_for,
+)
 from flaskr.service.learn.agent.memory_admission import make_request_check
 from markdownflow.engine import (
     ContinueTurn,
@@ -401,3 +404,40 @@ async def test_accepted_finish_stands_when_its_followup_request_is_oversized(
     assert events[-1].reason == "finished"
     assert session.finished is True
     assert not any(isinstance(event, ErrorEvent) for event in events)
+
+
+def test_budget_follows_the_model_input_token_ceiling() -> None:
+    assert input_budget_bytes_for(None) == INPUT_BUDGET_BYTES
+    assert input_budget_bytes_for(1_048_576) == 1_048_576
+    # A known small ceiling never lowers the budget below the old default.
+    assert input_budget_bytes_for(32_768) == INPUT_BUDGET_BYTES
+
+
+def test_gateway_model_defaults_its_budget_from_the_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    limits = {"qwen/glm-5.3": 1_048_576}
+    seen = []
+
+    def resolve(model: str, metadata: dict | None) -> int | None:
+        seen.append(metadata)
+        return limits.get(model)
+
+    monkeypatch.setattr(gw, "resolve_llm_max_input_tokens", resolve)
+
+    def model(name: str, **kwargs: object) -> gw.GatewayModel:
+        return gw.GatewayModel(
+            app=None, model=name, user_id="learner", span=FakeSpan(), **kwargs
+        )
+
+    assert model("qwen/glm-5.3")._input_budget_bytes == 1_048_576
+    assert model("unknown")._input_budget_bytes == INPUT_BUDGET_BYTES
+    # A course selection is resolved with the metadata the gateway will use.
+    course = {"model_selection_scope": "course"}
+    course_model = model("qwen/glm-5.3", usage_metadata=course)
+    assert course_model._input_budget_bytes == 1_048_576
+    assert seen[-1] == course
+    # An explicit budget (a summary request, a private completion) still wins.
+    assert (
+        model("qwen/glm-5.3", input_budget_bytes=40_960)._input_budget_bytes == 40_960
+    )
