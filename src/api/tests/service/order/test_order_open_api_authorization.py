@@ -29,14 +29,14 @@ if TYPE_CHECKING:
     ["open_api_query_order", "open_api_grant_order", "open_api_revoke_order"],
 )
 def test_foreign_or_missing_course_rejects_before_account_lookup(
-    creator: str | None, operation: str, monkeypatch: pytest.MonkeyPatch
+    creator: str | None, operation: str, app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(open_api, "get_shifu_creator_bid", Mock(return_value=creator))
     lookup = Mock()
     monkeypatch.setattr(open_api, "load_user_aggregate_by_identifier", lookup)
-    with pytest.raises(AppError):
+    with app.app_context(), pytest.raises(AppError):
         getattr(open_api, operation)(
-            Flask(__name__),
+            app,
             "owner-test",
             "course-test",
             "learner@example.test",
@@ -50,6 +50,7 @@ def authorized_partner(monkeypatch: pytest.MonkeyPatch) -> Callable:
     monkeypatch.setattr(
         open_api, "get_shifu_creator_bid", Mock(return_value="owner-test")
     )
+    monkeypatch.setattr(open_api, "_has_published_course", Mock(return_value=True))
 
     def configure_user(user_bid: str | None) -> Mock:
         lookup = Mock(
@@ -142,6 +143,7 @@ def test_partner_grant_creates_activation_when_no_active_order_exists(
         "course-test",
         contact_type="email",
         payment_channel="open_api",
+        granted_by_user_bid="owner-test",
     )
 
 

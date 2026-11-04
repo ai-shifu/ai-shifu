@@ -709,8 +709,13 @@ def import_activation_order(
     contact_type: str = "phone",
     allow_empty_nickname: bool = False,
     payment_channel: str = "manual",
+    granted_by_user_bid: str = "",
 ) -> dict[str, str]:
-    """Create activation order for a user identified by phone or email."""
+    """Create activation order for a user identified by phone or email.
+
+    ``granted_by_user_bid`` records the account that issued the grant, which
+    can differ from the course creator stored in ``creator_bid``.
+    """
     normalized_identifier = normalize_contact_identifier(mobile, contact_type)
 
     normalized_course_id = str(course_id or "").strip()
@@ -809,6 +814,7 @@ def import_activation_order(
         order.payable_price = Decimal(0)
         order.paid_price = Decimal(0)
         order.payment_channel = payment_channel
+        order.granted_by_user_bid = granted_by_user_bid
         order_bid = order.order_bid
         success_buy_record(app, order_bid)
 
