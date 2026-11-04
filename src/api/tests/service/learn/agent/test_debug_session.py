@@ -52,6 +52,11 @@ class _Cache:
     def get(self, key: str) -> str | None:
         return self.values.get(key)
 
+    def getex(self, key: str, ex: int | None = None) -> str | None:
+        if ex is not None and key in self.values:
+            self.ttls[key] = ex
+        return self.values.get(key)
+
     def setex(self, key: str, ttl: int, value: str) -> None:
         self.values[key] = value
         self.ttls[key] = ttl
@@ -128,13 +133,13 @@ def test_debug_session_resumes_only_the_same_run_and_script(
     assert first.load(script="Current draft").memory["answer"] == "yes"
     assert first.load(script="Edited draft") is None
     assert other.load(script="Current draft") is None
-    assert list(cache.ttls.values()) == [30 * 60]
+    assert list(cache.ttls.values()) == [debug_session.DebugSessionStore.TTL_SECONDS]
     restarted = Session(script=ScriptBundle(script="Current draft"))
     restarted.memory["answer"] = "fresh answer"
     other.save(restarted)
     assert other.load(script="Current draft").memory["answer"] == "fresh answer"
     assert first.load(script="Current draft").memory["answer"] == "yes"
-    assert cache.ttls[other._key] == 30 * 60
+    assert cache.ttls[other._key] == debug_session.DebugSessionStore.TTL_SECONDS
     cache.values[first._key] = "invalid history"
     assert first.load(script="Current draft") is None
     assert other.load(script="Current draft").memory["answer"] == "fresh answer"
@@ -186,7 +191,14 @@ def test_debug_cache_failure_preserves_saved_state_until_redis_recovers(
     store.begin_request()
     session_before = backend.get(store._key)
     token_before = backend.get(f"{store._key}:request")
-    method = "setex" if operation in {"token_write", "session_write"} else "get"
+    method = (
+        "setex"
+        if operation in {"token_write", "session_write"}
+        # The session is read with getex (it refreshes the TTL); the token with get.
+        else "getex"
+        if operation == "read"
+        else "get"
+    )
     failed_key = (
         f"{store._key}:request" if operation.startswith("token_") else store._key
     )
@@ -343,7 +355,7 @@ def test_debug_cache_errors_do_not_hide_invalid_turn_metadata(
             generated_block_bid="invalid",
             turn_record="invalid JSON",
         )
-    configured_debug_cache.strict.get.side_effect = ValueError("Unexpected cache bug")
+    configured_debug_cache.strict.getex.side_effect = ValueError("Unexpected cache bug")
     with pytest.raises(ValueError, match="Unexpected cache bug"):
         store.load(script="Current draft")
     assert configured_debug_cache.local.mock_calls == []
@@ -640,7 +652,7 @@ def test_saving_an_edited_debug_session_drops_content_regeneration_retry(
     assert saved.id == session.id
     assert [pending.tool_call_id for pending in saved.pending] == ["pause", "next"]
     assert saved.answers == session.answers
-    assert cache.ttls[store._key] == 30 * 60
+    assert cache.ttls[store._key] == debug_session.DebugSessionStore.TTL_SECONDS
 
 
 def test_question_closes_editor_response_without_ending_the_lesson(
@@ -1163,6 +1175,79 @@ def test_debug_answer_edit_passes_exact_anchor_and_new_input_through_the_request
     assert messages[0].type == "debug_variables"
     assert json.loads(messages[0].content) == {}
     assert not any(message.type == "error" for message in messages)
+
+
+def test_debug_answer_edit_after_a_draft_edit_rewinds_instead_of_expiring(
+    app: object, monkeypatch: object
+) -> None:
+    """Changing an earlier answer after editing the draft continues from that answer."""
+    from flaskr.service.learn.agent.run_agent import TurnOutcome
+
+    from tests.service.learn.agent.test_lesson_entry_contracts import _entry_with_runner
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    store = _store(app)
+    session = Session(script=ScriptBundle(script="Old draft"))
+    before = _record(session)
+    session.pending = [
+        PendingInteraction("q", InteractionSpec(type="text", prompt="Choose?"))
+    ]
+    store.save(
+        session, generated_block_bid="question", turn_record=before, question_ids=["q"]
+    )
+    store.bind_interactions(script="Old draft", elements={"question": ["control"]})
+    accepting = _record(session, ["old"])
+    session.pending = []
+    session.answers["q"] = "old"
+    store.save(session, generated_block_bid="old-answer", turn_record=accepting)
+    runner = _entry_with_runner(monkeypatch)
+    seen = []
+
+    def produce(_app: object, **kwargs: object) -> Iterator:
+        seen.append(kwargs)
+        assert kwargs["debug_store"]._follow_script_edits is True
+        assert kwargs["rewind"].retired_block_bids == ["old-answer"]
+        assert kwargs["rewind"].checkpoint["pending"][0]["tool_call_id"] == "q"
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            type=GeneratedType.DONE,
+            content="",
+            generated_block_bid="replacement",
+        )
+        return TurnOutcome(reason="interaction", taught=True)
+
+    runner.side_effect = produce
+    messages = _request_messages(
+        app,
+        lambda: debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Edited draft",
+                block_index=0,
+                reload_generated_block_bid="question",
+                reload_element_bid="control",
+                user_input={"input": ["new"]},
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="one",
+        ),
+    )
+    assert len(seen) == 1
+    assert not any(message.type == "error" for message in messages)
+
+
+def test_debug_session_reads_refresh_its_expiry(
+    app: object, monkeypatch: object
+) -> None:
+    cache = _Cache()
+    monkeypatch.setattr(debug_session, "cache", cache)
+    store = _store(app)
+    store.save(Session(script=ScriptBundle(script="Current draft")))
+    cache.ttls[store._key] = 1
+    assert store.load(script="Current draft") is not None
+    assert cache.ttls[store._key] == debug_session.DebugSessionStore.TTL_SECONDS
 
 
 def test_debug_pending_answer_edit_fences_a_running_turn_before_its_first_save(

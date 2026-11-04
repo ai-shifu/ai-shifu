@@ -1448,13 +1448,16 @@ export function useDebugSession({
       updateSessionItems(prefixItems);
       void startRun({
         ...runParamsRef.current,
+        // The server rewinds to the answered question and continues under the
+        // draft as it is now, so an edit does not force a restart.
+        mdflow: resolveLatestMdflow(),
         blockIndex: 0,
         userInput: answer.userInput,
         reloadElementBid: answer.elementBid,
         reloadGeneratedBlockBid: generatedBlockBid,
       });
     },
-    [startRun, updateSessionItems],
+    [resolveLatestMdflow, startRun, updateSessionItems],
   );
 
   const submitInteractionAnswer = useCallback(
@@ -1483,9 +1486,10 @@ export function useDebugSession({
         { isStreaming: isStreamingRef.current, content: listUpdateContent },
       );
       const { values } = resolveInteractionSubmission(content);
-      if (draftEdited && (requiresRegeneration || !values.length)) {
-        // Only an answer to the current question can continue under an edited
-        // draft; anything else starts the edited draft from its beginning.
+      if (draftEdited && !values.length) {
+        // Without an answer there is nothing to continue under the edited draft:
+        // start it from its beginning. An answer, to the current question or an
+        // earlier one, continues the conversation under the edited draft.
         restartSession();
         return true;
       }
@@ -1523,7 +1527,7 @@ export function useDebugSession({
           params: {
             shifuBid: runParamsRef.current.shifuBid,
             outlineBid: runParamsRef.current.outlineBid,
-            mdflow: runParamsRef.current.mdflow,
+            mdflow: resolveLatestMdflow(),
           },
         };
         setHasAnswerEditRetryTarget(true);
@@ -1618,10 +1622,6 @@ export function useDebugSession({
       clearAnswerEditRetryTarget();
       return;
     }
-    if (resolveLatestMdflow() !== target.params.mdflow) {
-      restartSession();
-      return;
-    }
     // A failed connection may already have replaced the server checkpoint.
     // Retry the logical target without restoring its discarded rows or answers.
     startAnswerEdit(target.generatedBlockBid, target.prefixItems, {
@@ -1631,8 +1631,6 @@ export function useDebugSession({
   }, [
     clearAnswerEditRetryTarget,
     creditInsufficientAudience,
-    resolveLatestMdflow,
-    restartSession,
     showOutputInProgressToast,
     startAnswerEdit,
   ]);

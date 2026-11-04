@@ -791,6 +791,38 @@ describe('useDebugSession helpers and business error rendering', () => {
       },
     );
 
+    test('edits an earlier answer under an edited draft without restarting', async () => {
+      const { result, sources } = await prepareAnswers();
+      const firstRequest = JSON.parse(
+        (SSE as jest.Mock).mock.lastCall[1].payload,
+      );
+      const count = sources.length;
+      mockGetCurrentMdflow.mockReturnValue('Edited draft');
+      act(() =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['B'] },
+          'question',
+        ),
+      );
+      // The author is asked to confirm the rewind instead of losing the run.
+      expect(result.current.regenerationConfirmation.open).toBe(true);
+      await act(async () =>
+        result.current.regenerationConfirmation.onConfirm(),
+      );
+      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(request).toMatchObject({
+        content: 'Edited draft',
+        debug_session_id: firstRequest.debug_session_id,
+        reload_generated_block_bid: 'question-turn',
+        reload_element_bid: 'question',
+        user_input: { answer: ['B'] },
+      });
+      expect(sources).toHaveLength(count + 1);
+      expect(
+        result.current.items.some(item => item.element_bid === 'question'),
+      ).toBe(true);
+    });
+
     test('cancelled answer-edit confirmation leaves the active output and answers intact', async () => {
       const { result, sources } = await prepareAnswers(true);
       const before = result.current.items;
