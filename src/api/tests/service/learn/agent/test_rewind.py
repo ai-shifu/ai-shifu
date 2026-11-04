@@ -465,8 +465,9 @@ def test_a_legacy_question_only_turn_without_a_record_is_not_skipped(
     with app.app_context():
         _clean()
         _record()
-        _block("B1", checkpoint=_BEFORE_B1, values=[])
-        # Saved before checkpoints existed: no text (it only asked q2) and no record.
+        # Both saved before checkpoints existed: B1 asked q1, B2 answered it and only
+        # asked q2, so it has no text and no record either.
+        _block("B1", checkpoint=None, values=[])
         db.session.add(
             make_generated_block(
                 generated_block_bid="B2",
@@ -498,3 +499,38 @@ def test_a_legacy_question_only_turn_without_a_record_is_not_skipped(
         # B2 is not skipped, so the edit of B1's answer does not land on B3 (q2).
         with pytest.raises(rewind.RewindUnavailableError):
             _plan("B1", answering=True)
+
+
+def test_an_interrupted_question_turn_after_checkpoints_is_abandoned(
+    app: object,
+) -> None:
+    """A run that streamed a question and died before saving is skipped and retired."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("B1", checkpoint=_BEFORE_B1, values=[])
+        db.session.add(
+            make_generated_block(
+                generated_block_bid="B2",
+                progress_record_bid=RECORD,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_item_bid=OUTLINE,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                generated_content="",
+                block_content_conf="",
+                status=1,
+            )
+        )
+        db.session.flush()
+        _element("interrupted-control", "B2")
+        row = LearnGeneratedElement.query.filter_by(
+            element_bid="interrupted-control"
+        ).one()
+        row.element_type = "interaction"
+        _block("B3", checkpoint=_WAITING, values=["Left"])
+        db.session.commit()
+        plan = _plan("B1", answering=True)
+    assert plan is not None
+    assert plan.checkpoint == _WAITING
+    assert plan.retired_block_bids == ["B3", "B2"]

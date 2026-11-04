@@ -344,13 +344,12 @@ def test_an_unretired_interrupted_block_does_not_block_later_answer_edits(
         rewind.read_turn_record(retry)["checkpoint"]["pending"][0]["tool_call_id"]
         == "q1"
     )
+    # The retry's turn retired the abandoned block, so its streamed rows left history.
+    assert orphan.status == 0
     plan = _plan_answer_edit(lesson, question_block)
     assert plan is not None
     assert plan.checkpoint["pending"][0]["tool_call_id"] == "q1"
-    assert plan.retired_block_bids == [
-        retry.generated_block_bid,
-        orphan.generated_block_bid,
-    ]
+    assert plan.retired_block_bids == [retry.generated_block_bid]
 
 
 # --- variant E: interrupted right after an empty-text turn was saved ------------------------

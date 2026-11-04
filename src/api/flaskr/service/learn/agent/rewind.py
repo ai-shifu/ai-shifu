@@ -397,31 +397,16 @@ def plan_rewind(
     if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
         raise RewindUnavailableError
     blocks = _turn_blocks_from(block, include_it=True)
-    # A turn whose run died before it saved -- a worker killed mid-stream, or a cleanup that
-    # failed -- leaves its block live with neither text nor record. No saved session ever
-    # included it, so it is not a turn to go back to; it is retired with the rewind instead.
-    # A turn saved before checkpoints existed that only asked a question looks the same, but it
-    # showed a control; it stays in planning, where its missing record still refuses the rewind.
-    empty = [
-        b.generated_block_bid
-        for b in blocks[1:]
-        if not (b.generated_content or "").strip()
-        and not (b.block_content_conf or "").strip()
+    after_anchor = {b.generated_block_bid for b in blocks[1:]}
+    abandoned = [
+        bid
+        for bid in abandoned_turn_block_bids(
+            user_bid=block.user_bid,
+            outline_bid=block.outline_item_bid,
+            progress_record_bid=block.progress_record_bid,
+        )
+        if bid in after_anchor
     ]
-    asked = (
-        {
-            row.generated_block_bid
-            for row in LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.generated_block_bid.in_(empty),
-                LearnGeneratedElement.user_bid == block.user_bid,
-                LearnGeneratedElement.deleted == 0,
-                LearnGeneratedElement.element_type == "interaction",
-            ).all()
-        }
-        if empty
-        else set()
-    )
-    abandoned = [bid for bid in empty if bid not in asked]
     turns = [
         {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
         for b in blocks
@@ -443,6 +428,64 @@ def plan_rewind(
             bid for bid in abandoned if bid not in plan.retired_block_bids
         )
     return plan
+
+
+def abandoned_turn_block_bids(
+    *, user_bid: str, outline_bid: str, progress_record_bid: str
+) -> list[str]:
+    """Name the live turn blocks of an attempt whose run died before it saved.
+
+    A run killed mid-stream, or one whose cleanup failed, leaves its block live with neither
+    text nor turn record. A turn saved before checkpoints existed can look the same (one that
+    only asked a question teaches no text), so a block counts only once an earlier block of the
+    same attempt carries a record: from then on every saved turn writes one. No saved session
+    ever included an abandoned block, so it is never a turn to go back to.
+    """
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid == progress_record_bid,
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.outline_item_bid == outline_bid,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+        )
+        .order_by(LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    abandoned: list[str] = []
+    recorded = False
+    for block in blocks:
+        if read_turn_record(block) is not None:
+            recorded = True
+        elif (
+            recorded
+            and not (block.generated_content or "").strip()
+            and not (block.block_content_conf or "").strip()
+        ):
+            abandoned.append(block.generated_block_bid)
+    return abandoned
+
+
+def retire_abandoned_turns(
+    *, user_bid: str, outline_bid: str, progress_record_bid: str
+) -> None:
+    """Retire abandoned turn blocks, and their elements, before the next turn starts.
+
+    A rewind retires them with the turns it supersedes; this covers the learner who simply
+    answers again, which plans no rewind, so the dead turn's streamed rows do not stay in history.
+    """
+    bids = abandoned_turn_block_bids(
+        user_bid=user_bid,
+        outline_bid=outline_bid,
+        progress_record_bid=progress_record_bid,
+    )
+    if bids:
+        stage_retirement(
+            RewindPlan(checkpoint={}, replay_values=None, retired_block_bids=bids),
+            user_bid=user_bid,
+            outline_bid=outline_bid,
+        )
 
 
 def stage_retirement(plan: RewindPlan, *, user_bid: str, outline_bid: str) -> None:
