@@ -900,6 +900,36 @@ describe('useDebugSession helpers and business error rendering', () => {
       },
     );
 
+    test('keeps an answer-edit retry available after retrying under a newer draft', async () => {
+      const { result, sources } = await prepareAnswers();
+      act(() =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['B'] },
+          'question',
+        ),
+      );
+      await act(async () =>
+        result.current.regenerationConfirmation.onConfirm(),
+      );
+      act(() =>
+        emit(sources.at(-1)!, { type: 'error', content: 'Private failure' }),
+      );
+      expect(result.current.canRetryAnswerEdit).toBe(true);
+      mockGetCurrentMdflow.mockReturnValue('Edited draft');
+      await act(async () => result.current.retryAnswerEdit());
+      expect(
+        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload),
+      ).toMatchObject({
+        content: 'Edited draft',
+        reload_element_bid: 'question',
+        user_input: { answer: ['B'] },
+      });
+      act(() =>
+        emit(sources.at(-1)!, { type: 'error', content: 'Private failure' }),
+      );
+      expect(result.current.canRetryAnswerEdit).toBe(true);
+    });
+
     test('answer editing proceeds when analytics throws and counts a new deliberate edit separately', async () => {
       const { result, sources } = await prepareAnswers();
       mockTrackEvent.mockImplementation(() => {

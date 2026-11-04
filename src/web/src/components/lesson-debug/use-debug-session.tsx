@@ -1622,6 +1622,9 @@ export function useDebugSession({
       clearAnswerEditRetryTarget();
       return;
     }
+    // The retry sends the draft as it is now; record that draft on the target so
+    // the retried request still owns it and a second failure can retry again.
+    target.params = { ...target.params, mdflow: resolveLatestMdflow() };
     // A failed connection may already have replaced the server checkpoint.
     // Retry the logical target without restoring its discarded rows or answers.
     startAnswerEdit(target.generatedBlockBid, target.prefixItems, {
@@ -1631,6 +1634,7 @@ export function useDebugSession({
   }, [
     clearAnswerEditRetryTarget,
     creditInsufficientAudience,
+    resolveLatestMdflow,
     showOutputInProgressToast,
     startAnswerEdit,
   ]);
