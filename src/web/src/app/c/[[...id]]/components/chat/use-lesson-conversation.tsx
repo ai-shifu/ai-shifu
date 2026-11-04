@@ -14,6 +14,10 @@ import {
   matchesElementBid,
   withoutLoadingItem,
 } from '@/lib/lesson-stream/content-list';
+import {
+  readDoneIsTerminal,
+  readRunEventError,
+} from '@/lib/lesson-stream/run-events';
 import { useCourseStore } from '@/store/use-course-store';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -1139,23 +1143,8 @@ function useLessonConversation({
               clearRunStreamTimeout();
               setHasRunFailed(true);
               didStreamFail = true;
-              const rawContent = response?.content;
-              const errorContent =
-                typeof rawContent === 'string'
-                  ? rawContent
-                  : typeof rawContent?.content === 'string'
-                    ? rawContent.content
-                    : typeof rawContent?.message === 'string'
-                      ? rawContent.message
-                      : typeof response?.message === 'string'
-                        ? response.message
-                        : '';
-              const businessCode =
-                typeof response?.code === 'number'
-                  ? response.code
-                  : typeof rawContent?.code === 'number'
-                    ? rawContent.code
-                    : undefined;
+              const { message: errorContent, code: businessCode } =
+                readRunEventError(response);
               const isCreditError =
                 isCreditInsufficientBusinessCode(businessCode);
               if (isCreditError && businessCode !== undefined) {
@@ -1360,7 +1349,7 @@ function useLessonConversation({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
-              if (response.is_terminal === true) {
+              if (readDoneIsTerminal(response) === true) {
                 didReachTerminal = true;
                 if (!didStreamFail) {
                   finishPreviewRewind?.('success');
