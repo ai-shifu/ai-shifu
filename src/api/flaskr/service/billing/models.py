@@ -46,6 +46,16 @@ from .consts import (
 CREDIT_NUMERIC = Numeric(20, 10)
 
 
+def _unindexed_deleted_column() -> Column:
+    """Return the shared deleted flag without the mixin's single-column index."""
+    return Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag",
+    )
+
+
 class BillingTableMixin:
     """Provide shared columns for billing persistence models."""
 
@@ -485,7 +495,6 @@ class BillingProviderCatalogSnapshot(BillingTableMixin, db.Model):
         SmallInteger,
         nullable=False,
         default=BILLING_PROVIDER_CATALOG_HEALTH_UNLINKED,
-        index=True,
         comment="Provider catalog health status",
     )
     pending_issue_code = Column(
@@ -2021,6 +2030,9 @@ class CreditUsageRate(BillingTableMixin, db.Model):
         {"comment": "Credit usage rates"},
     )
 
+    # No migration ever created a deleted-flag index for this table.
+    deleted = _unindexed_deleted_column()
+
     rate_bid = Column(
         String(36),
         nullable=False,
@@ -2031,27 +2043,23 @@ class CreditUsageRate(BillingTableMixin, db.Model):
     usage_type = Column(
         SmallInteger,
         nullable=False,
-        index=True,
         comment="Usage type code",
     )
     provider = Column(
         String(32),
         nullable=False,
         default="",
-        index=True,
         comment="Provider name",
     )
     model = Column(
         String(100),
         nullable=False,
         default="",
-        index=True,
         comment="Provider model",
     )
     usage_scene = Column(
         SmallInteger,
         nullable=False,
-        index=True,
         comment="Usage scene code",
     )
     billing_metric = Column(
@@ -2081,20 +2089,17 @@ class CreditUsageRate(BillingTableMixin, db.Model):
     effective_from = Column(
         DateTime,
         nullable=False,
-        index=True,
         comment="Effective from timestamp",
     )
     effective_to = Column(
         DateTime,
         nullable=True,
-        index=True,
         comment="Effective to timestamp",
     )
     status = Column(
         SmallInteger,
         nullable=False,
         default=CREDIT_USAGE_RATE_STATUS_ACTIVE,
-        index=True,
         comment="Credit usage rate status code",
     )
 
@@ -2128,18 +2133,19 @@ class BillingRenewalEvent(BillingTableMixin, db.Model):
         {"comment": "Billing renewal events"},
     )
 
+    # No migration ever created a deleted-flag index for this table.
+    deleted = _unindexed_deleted_column()
+
     renewal_event_bid = Column(
         String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Billing renewal event business identifier",
     )
     subscription_bid = Column(
         String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Billing subscription business identifier",
     )
     creator_bid = Column(
@@ -2152,20 +2158,17 @@ class BillingRenewalEvent(BillingTableMixin, db.Model):
     event_type = Column(
         SmallInteger,
         nullable=False,
-        index=True,
         comment="Renewal event type code",
     )
     scheduled_at = Column(
         DateTime,
         nullable=False,
-        index=True,
         comment="Scheduled timestamp",
     )
     status = Column(
         SmallInteger,
         nullable=False,
         default=BILLING_RENEWAL_EVENT_STATUS_PENDING,
-        index=True,
         comment="Renewal event status code",
     )
     attempt_count = Column(
@@ -2399,18 +2402,19 @@ class BillingDailyUsageMetric(BillingTableMixin, db.Model):
         {"comment": "Billing daily usage metrics"},
     )
 
+    # No migration ever created a deleted-flag index for this table.
+    deleted = _unindexed_deleted_column()
+
     daily_usage_metric_bid = Column(
         String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Daily usage metric business identifier",
     )
     stat_date = Column(
         String(10),
         nullable=False,
         default="",
-        index=True,
         comment="Statistic date",
     )
     creator_bid = Column(
@@ -2424,33 +2428,28 @@ class BillingDailyUsageMetric(BillingTableMixin, db.Model):
         String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Shifu business identifier",
     )
     usage_scene = Column(
         SmallInteger,
         nullable=False,
-        index=True,
         comment="Usage scene code",
     )
     usage_type = Column(
         SmallInteger,
         nullable=False,
-        index=True,
         comment="Usage type code",
     )
     provider = Column(
         String(32),
         nullable=False,
         default="",
-        index=True,
         comment="Provider name",
     )
     model = Column(
         String(100),
         nullable=False,
         default="",
-        index=True,
         comment="Provider model",
     )
     billing_metric = Column(
@@ -2513,18 +2512,19 @@ class BillingDailyLedgerSummary(BillingTableMixin, db.Model):
         {"comment": "Billing daily ledger summary"},
     )
 
+    # No migration ever created a deleted-flag index for this table.
+    deleted = _unindexed_deleted_column()
+
     daily_ledger_summary_bid = Column(
         String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Daily ledger summary business identifier",
     )
     stat_date = Column(
         String(10),
         nullable=False,
         default="",
-        index=True,
         comment="Statistic date",
     )
     creator_bid = Column(
@@ -2537,7 +2537,6 @@ class BillingDailyLedgerSummary(BillingTableMixin, db.Model):
     entry_type = Column(
         SmallInteger,
         nullable=False,
-        index=True,
         comment="Billing ledger entry type code",
     )
     source_type = Column(

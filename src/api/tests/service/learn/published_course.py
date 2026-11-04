@@ -29,7 +29,6 @@ def _seed_course(
     *,
     model: str = "1",
     temperature: Decimal = Decimal(0),
-    outline_prompt: str = "Old lesson prompt",
 ) -> SimpleNamespace:
     course_bid, outline_bid, user_bid = (uuid4().hex for _index in range(3))
     with app.app_context(), unit_of_work():
@@ -47,7 +46,6 @@ def _seed_course(
             position="01",
             type=401,
             content=OLD_DOCUMENT,
-            llm_system_prompt=outline_prompt,
         )
         db.session.add_all([draft, outline])
         db.session.flush()

@@ -172,7 +172,7 @@ def test_export_resolves_default_voice_for_legacy_live_draft(
 
 
 @pytest.mark.parametrize("legacy_model", ["old-text-model", GEMINI_LIVE_MODEL_ID])
-def test_legacy_outline_models_are_ignored_and_not_exported(
+def test_legacy_outline_settings_are_ignored_and_not_exported(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -210,6 +210,7 @@ def test_legacy_outline_models_are_ignored_and_not_exported(
         outline = DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid).one()
         assert not hasattr(outline, "llm")
         assert not hasattr(outline, "ask_llm")
+        assert outline.llm_system_prompt == ""
         assert outline.clone().eq(outline)
         course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
         assert course.ask_provider_config == "{}"
@@ -221,7 +222,9 @@ def test_legacy_outline_models_are_ignored_and_not_exported(
     outline_json = exported["outline_items"][0]
     assert "llm" not in outline_json
     assert "ask_llm" not in outline_json
-    assert outline_json["llm_system_prompt"] == "Keep the teaching prompt"
+    assert "llm_temperature" not in outline_json
+    assert "ask_llm_temperature" not in outline_json
+    assert "llm_system_prompt" not in outline_json
     assert outline_json["ask_llm_system_prompt"] == "Keep the follow-up prompt"
     assert "ask_llm_temperature" not in outline_json
     assert outline_json["ask_enabled_status"] == 5103

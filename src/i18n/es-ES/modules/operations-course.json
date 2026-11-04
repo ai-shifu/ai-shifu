@@ -64,13 +64,7 @@
       "copySuccess": "Detalles del contenido copiados",
       "empty": "No hay contenido",
       "sections": {
-        "content": "Contenido del curso",
-        "systemPrompt": "Prompt del sistema"
-      },
-      "sources": {
-        "chapter": "Origen: prompt del capítulo",
-        "course": "Origen: prompt del curso",
-        "lesson": "Origen: prompt de la lección"
+        "content": "Contenido del curso"
       },
       "title": "Detalles del contenido"
     },

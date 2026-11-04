@@ -214,7 +214,6 @@ def publish_shifu_draft(
             outline_item.type = draft_outline_item.type
             outline_item.hidden = draft_outline_item.hidden
             outline_item.parent_bid = draft_outline_item.parent_bid
-            outline_item.llm_system_prompt = draft_outline_item.llm_system_prompt
             outline_item.ask_enabled_status = draft_outline_item.ask_enabled_status
             outline_item.ask_llm_system_prompt = (
                 draft_outline_item.ask_llm_system_prompt

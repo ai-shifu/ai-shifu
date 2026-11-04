@@ -30,7 +30,6 @@ def _seed_outline(
             parent_bid=parent_bid,
             type=401,
             hidden=0,
-            llm_system_prompt="Protected prompt",
             deleted=0,
         )
     )

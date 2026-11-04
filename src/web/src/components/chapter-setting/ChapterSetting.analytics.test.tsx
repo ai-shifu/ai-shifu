@@ -104,7 +104,6 @@ const variants = [
       shifu_bid: 'course-1',
       outline_bid: 'outline-1',
       save_type: 'manual',
-      prompt_change: 'unchanged',
       variant: 'lesson',
       learning_permission: 'trial',
       hide_chapter: false,
@@ -112,12 +111,11 @@ const variants = [
   },
   {
     variant: 'chapter' as const,
-    eventName: 'creator_outline_prompt_save',
+    eventName: 'creator_chapter_setting_save',
     payload: {
       shifu_bid: 'course-1',
       outline_bid: 'outline-1',
       save_type: 'manual',
-      prompt_change: 'unchanged',
     },
   },
 ];
@@ -169,7 +167,6 @@ describe('ChapterSettingsDialog', () => {
       expect(onFooterAction).toHaveBeenCalledWith({
         name: 'New lesson',
         isHidden: false,
-        systemPrompt: '',
       });
       expect(mockGetOutlineInfo).not.toHaveBeenCalled();
       expect(mockModifyOutline).not.toHaveBeenCalled();
@@ -297,15 +294,15 @@ describe('ChapterSettingsDialog', () => {
     });
   });
 
-  describe.each(variants)('$variant prompt visibility', ({ variant }) => {
-    it.each(['', '   ', '\n\t', null, undefined])(
-      'hides the prompt section for an empty value (%p)',
-      async systemPrompt => {
+  describe.each(variants)('$variant legacy prompts', ({ variant }) => {
+    it.each(['Private system prompt', '', '   ', '\n\t', null, undefined])(
+      'never displays a legacy prompt (%p)',
+      async legacyPrompt => {
         mockGetOutlineInfo.mockResolvedValue({
           name: 'Private outline title',
-          system_prompt: systemPrompt,
+          type: 'trial',
+          system_prompt: legacyPrompt,
         });
-
         const { container } = render(
           <ChapterSettingsDialog
             outlineBid='outline-1'
@@ -313,15 +310,12 @@ describe('ChapterSettingsDialog', () => {
             variant={variant}
           />,
         );
-
         await screen.findByDisplayValue('Private outline title');
         expect(container.querySelector('textarea')).not.toBeInTheDocument();
         expect(
-          screen.queryByText(`module.chapterSetting.${variant}Prompt`),
+          screen.queryByText('Private system prompt'),
         ).not.toBeInTheDocument();
-        expect(
-          screen.queryByText(`module.chapterSetting.${variant}PromptHint`),
-        ).not.toBeInTheDocument();
+        fireEvent.click(screen.getByLabelText('close-settings'));
         expect(mockModifyOutline).not.toHaveBeenCalled();
         expect(mockTrackEvent).not.toHaveBeenCalled();
       },
@@ -330,34 +324,23 @@ describe('ChapterSettingsDialog', () => {
 
   it.each(
     variants.flatMap(item =>
-      (['manual', 'auto'] as const).flatMap(saveType =>
-        [
-          { blankType: 'empty', clearedPrompt: '' },
-          { blankType: 'whitespace', clearedPrompt: ' \n\t' },
-        ].map(blank => ({ ...item, saveType, ...blank })),
-      ),
+      (['manual', 'auto'] as const).map(saveType => ({ ...item, saveType })),
     ),
   )(
-    'tracks a $blankType $variant prompt after a successful $saveType save',
-    async ({ variant, eventName, payload, saveType, clearedPrompt }) => {
+    'tracks a $variant settings change after a successful $saveType save',
+    async ({ variant, eventName, payload, saveType }) => {
       const save = createDeferred<void>();
       mockModifyOutline.mockReturnValue(save.promise);
-
-      const { container } = render(
+      render(
         <ChapterSettingsDialog
           outlineBid='outline-1'
           open
           variant={variant}
         />,
       );
-
-      const prompt = await screen.findByDisplayValue('Private system prompt');
-      expect(prompt).toBeEnabled();
+      const title = await screen.findByDisplayValue('Private outline title');
       jest.useFakeTimers();
-      fireEvent.change(prompt, { target: { value: clearedPrompt } });
-      expect(container.querySelector('textarea')).not.toBeInTheDocument();
-      expect(mockTrackEvent).not.toHaveBeenCalled();
-
+      fireEvent.change(title, { target: { value: 'Changed private title' } });
       if (saveType === 'auto') {
         await act(async () => {
           jest.advanceTimersByTime(3000);
@@ -368,37 +351,36 @@ describe('ChapterSettingsDialog', () => {
       expect(mockModifyOutline).toHaveBeenCalledWith(
         expect.objectContaining({
           outline_bid: 'outline-1',
-          system_prompt: clearedPrompt,
+          name: 'Changed private title',
         }),
       );
+      expect(mockModifyOutline.mock.calls[0][0]).not.toHaveProperty(
+        'system_prompt',
+      );
       expect(mockTrackEvent).not.toHaveBeenCalled();
-
       await act(async () => {
         save.resolve();
         await save.promise;
       });
-
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledWith(eventName, {
         ...payload,
         save_type: saveType,
-        prompt_change: 'cleared',
       });
       expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
-        'system_prompt',
+        'prompt_change',
       );
-      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('name');
-
       fireEvent.click(screen.getByLabelText('close-settings'));
       expect(mockModifyOutline).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     },
   );
 
-  describe.each(variants)(
-    '$variant prompt outcomes',
-    ({ variant, eventName, payload }) => {
-      it('distinguishes substantive prompt edits from clearing', async () => {
+  describe.each(variants)('$variant settings outcomes', ({ variant }) => {
+    it.each(['unchanged', 'readonly', 'invalid_title'])(
+      'excludes %s forms from save analytics',
+      async state => {
+        mockReadonly = state === 'readonly';
         render(
           <ChapterSettingsDialog
             outlineBid='outline-1'
@@ -406,81 +388,50 @@ describe('ChapterSettingsDialog', () => {
             variant={variant}
           />,
         );
-        const prompt = await screen.findByDisplayValue('Private system prompt');
-        fireEvent.change(prompt, {
-          target: { value: 'Updated private prompt' },
+        const title = await screen.findByDisplayValue('Private outline title');
+        if (state === 'invalid_title') {
+          fireEvent.change(title, { target: { value: ' ' } });
+        }
+        fireEvent.click(screen.getByLabelText('close-settings'));
+        expect(mockModifyOutline).not.toHaveBeenCalled();
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['throw', 'reject'])(
+      'still saves and closes when analytics fails by %s',
+      async failure => {
+        const onOpenChange = jest.fn();
+        const onChange = jest.fn();
+        mockTrackEvent.mockImplementation(() => {
+          if (failure === 'throw') {
+            throw new Error('Analytics unavailable');
+          }
+          return Promise.reject(new Error('Analytics unavailable'));
         });
+        render(
+          <ChapterSettingsDialog
+            outlineBid='outline-1'
+            open
+            variant={variant}
+            onOpenChange={onOpenChange}
+            onChange={onChange}
+          />,
+        );
+        const title = await screen.findByDisplayValue('Private outline title');
+        fireEvent.change(title, { target: { value: 'Changed private title' } });
         fireEvent.click(screen.getByLabelText('close-settings'));
 
         await waitFor(() =>
-          expect(mockTrackEvent).toHaveBeenCalledWith(eventName, {
-            ...payload,
-            prompt_change: 'updated',
-          }),
+          expect(onOpenChange).toHaveBeenLastCalledWith(false),
         );
-        expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-      });
-
-      it.each(['unchanged', 'readonly', 'invalid_title'])(
-        'excludes %s forms from save analytics',
-        async state => {
-          mockReadonly = state === 'readonly';
-          render(
-            <ChapterSettingsDialog
-              outlineBid='outline-1'
-              open
-              variant={variant}
-            />,
-          );
-          const title = await screen.findByDisplayValue(
-            'Private outline title',
-          );
-          if (state === 'invalid_title') {
-            fireEvent.change(title, { target: { value: ' ' } });
-          }
-          fireEvent.click(screen.getByLabelText('close-settings'));
-          expect(mockModifyOutline).not.toHaveBeenCalled();
-          expect(mockTrackEvent).not.toHaveBeenCalled();
-        },
-      );
-
-      it.each(['throw', 'reject'])(
-        'still saves and closes when analytics fails by %s',
-        async failure => {
-          const onOpenChange = jest.fn();
-          const onChange = jest.fn();
-          mockTrackEvent.mockImplementation(() => {
-            if (failure === 'throw') {
-              throw new Error('Analytics unavailable');
-            }
-            return Promise.reject(new Error('Analytics unavailable'));
-          });
-          render(
-            <ChapterSettingsDialog
-              outlineBid='outline-1'
-              open
-              variant={variant}
-              onOpenChange={onOpenChange}
-              onChange={onChange}
-            />,
-          );
-          const prompt = await screen.findByDisplayValue(
-            'Private system prompt',
-          );
-          fireEvent.change(prompt, { target: { value: '' } });
-          fireEvent.click(screen.getByLabelText('close-settings'));
-
-          await waitFor(() =>
-            expect(onOpenChange).toHaveBeenLastCalledWith(false),
-          );
-          expect(onChange).toHaveBeenCalledTimes(1);
-          expect(mockModifyOutline).toHaveBeenCalledTimes(1);
-          fireEvent.click(screen.getByLabelText('close-settings'));
-          expect(mockModifyOutline).toHaveBeenCalledTimes(1);
-        },
-      );
-    },
-  );
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(mockModifyOutline).toHaveBeenCalledTimes(1);
+        fireEvent.click(screen.getByLabelText('close-settings'));
+        expect(mockModifyOutline).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
 
   it.each(variants)(
     'emits the exact $variant allowlist only after the save succeeds',
@@ -517,6 +468,12 @@ describe('ChapterSettingsDialog', () => {
         'system_prompt',
       );
       expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('description');
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
+        'prompt_change',
+      );
+      expect(mockModifyOutline.mock.calls[0][0]).not.toHaveProperty(
+        'system_prompt',
+      );
     },
   );
 
@@ -533,8 +490,8 @@ describe('ChapterSettingsDialog', () => {
         />,
       );
 
-      const prompt = await screen.findByDisplayValue('Private system prompt');
-      fireEvent.change(prompt, { target: { value: '' } });
+      const title = await screen.findByDisplayValue('Private outline title');
+      fireEvent.change(title, { target: { value: 'Changed private title' } });
       fireEvent.click(screen.getByLabelText('close-settings'));
 
       await waitFor(() => expect(mockModifyOutline).toHaveBeenCalledTimes(1));

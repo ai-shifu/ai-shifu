@@ -55,7 +55,6 @@ def test_course_settings_drive_lessons_and_follow_up(
         chapter = outline_type(
             shifu_bid=shifu_bid,
             outline_item_bid=chapter_bid,
-            llm_system_prompt="Chapter teaching prompt",
             ask_llm_system_prompt="Chapter follow-up prompt",
             ask_enabled_status=5103,
         )
@@ -99,6 +98,7 @@ def test_course_settings_drive_lessons_and_follow_up(
             outline.ask_llm = "gemini-3.8-live"
             outline.llm_temperature = Decimal("1.8")
             outline.ask_llm_temperature = Decimal("1.9")
+            outline.llm_system_prompt = "Retired outline teaching prompt"
 
         expected_model = course_model
         expected_temperature = float(course.llm_temperature)
@@ -112,9 +112,9 @@ def test_course_settings_drive_lessons_and_follow_up(
                 outline_model=outline_type,
                 shifu_model=shifu_type,
             )
-            == "Chapter teaching prompt"
+            == "Course teaching prompt"
         )
-        script, _brief, agent_settings, _revision, _language = lesson_entry._resolve(
+        script, brief, agent_settings, _revision, _language = lesson_entry._resolve(
             app,
             user_bid="teacher-1",
             shifu_bid=shifu_bid,
@@ -122,6 +122,7 @@ def test_course_settings_drive_lessons_and_follow_up(
             preview_mode=preview,
         )
         assert script == lesson.content
+        assert brief == "Course teaching prompt"
         assert agent_settings.model == expected_model
         assert float(agent_settings.temperature) == expected_temperature
 

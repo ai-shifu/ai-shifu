@@ -116,7 +116,7 @@ def test_batch_nested_under_existing_parent(app: object) -> None:
     shifu_bid = "shifu_batch_parent"
     with app.app_context():
         _seed_shifu(shifu_bid)
-        chapter = create_outline(app, "creator-1", shifu_bid, "", "Chapter A", "", 0)
+        chapter = create_outline(app, "creator-1", shifu_bid, "", "Chapter A")
 
         lessons = create_outlines_batch(
             app,
@@ -134,9 +134,9 @@ def test_sequential_single_creates_still_increment(app: object) -> None:
     shifu_bid = "shifu_single_seq"
     with app.app_context():
         _seed_shifu(shifu_bid)
-        first = create_outline(app, "creator-1", shifu_bid, "", "One", "", 0)
-        second = create_outline(app, "creator-1", shifu_bid, "", "Two", "", 0)
-        third = create_outline(app, "creator-1", shifu_bid, "", "Three", "", 0)
+        first = create_outline(app, "creator-1", shifu_bid, "", "One")
+        second = create_outline(app, "creator-1", shifu_bid, "", "Two")
+        third = create_outline(app, "creator-1", shifu_bid, "", "Three")
 
         assert [first.position, second.position, third.position] == ["01", "02", "03"]
         assert_outline_tree_publishable(app, shifu_bid)

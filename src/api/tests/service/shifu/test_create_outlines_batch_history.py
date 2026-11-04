@@ -140,7 +140,7 @@ def test_batch_under_existing_parent_appends_to_that_parent(app: object) -> None
     """A batch nested under a previously committed outline lands under it."""
     with app.app_context():
         shifu_bid = _new_draft(app)
-        chapter = create_outline(app, USER_BID, shifu_bid, "", "Chapter A", "", 0)
+        chapter = create_outline(app, USER_BID, shifu_bid, "", "Chapter A")
 
         create_outlines_batch(
             app,

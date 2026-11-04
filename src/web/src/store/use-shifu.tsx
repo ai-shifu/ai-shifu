@@ -719,7 +719,6 @@ export const ShifuProvider = ({
         ...(settings.learningPermission && {
           type: settings.learningPermission,
         }),
-        system_prompt: settings.systemPrompt,
         is_hidden: settings.isHidden,
         shifu_bid: shifuBid,
       });
@@ -777,7 +776,6 @@ export const ShifuProvider = ({
         index,
         name: settings.name,
         description: settings.name,
-        system_prompt: settings.systemPrompt,
         is_hidden: false,
         shifu_bid: shifuBid,
       });
@@ -870,7 +868,6 @@ export const ShifuProvider = ({
         ...(settings.learningPermission && {
           type: settings.learningPermission,
         }),
-        system_prompt: settings.systemPrompt,
         is_hidden: settings.isHidden,
         shifu_bid: shifuBid,
       });
@@ -930,7 +927,6 @@ export const ShifuProvider = ({
           index: index,
           name: data.name,
           description: data.name,
-          system_prompt: '',
           is_hidden: false,
           shifu_id: currentShifu?.bid || '',
         });
@@ -1008,7 +1004,6 @@ export const ShifuProvider = ({
           index,
           name: data.name,
           description: data.name,
-          system_prompt: '',
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
         });
@@ -1081,7 +1076,6 @@ export const ShifuProvider = ({
         index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
-        system_prompt: '',
         is_hidden: false,
         shifu_id: currentShifu?.bid || '',
       });
