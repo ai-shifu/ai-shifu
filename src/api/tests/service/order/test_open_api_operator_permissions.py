@@ -205,19 +205,28 @@ def test_operator_key_imports_foreign_course_learner_without_repeating_grant(
 
 
 @pytest.mark.parametrize("use_operator_key", [True, False])
+@pytest.mark.parametrize("publication", ["soft_deleted", "never_published"])
 def test_grant_rejects_draft_only_course_before_learner_writes(
     app: Flask,
     operator_partner: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
     use_operator_key: bool,
+    publication: str,
 ) -> None:
     notify = Mock()
     monkeypatch.setattr(order_funs, "send_order_feishu", notify)
     with app.app_context():
-        PublishedShifu.query.filter_by(shifu_bid=operator_partner.course_bid).update(
-            {"deleted": 1}
+        published = PublishedShifu.query.filter_by(
+            shifu_bid=operator_partner.course_bid
         )
+        if publication == "soft_deleted":
+            published.update({"deleted": 1})
+        else:
+            published.delete()
         db.session.commit()
+        assert DraftShifu.query.filter_by(
+            shifu_bid=operator_partner.course_bid, deleted=0
+        ).count()
     headers = (
         operator_partner.headers
         if use_operator_key

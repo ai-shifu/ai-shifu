@@ -137,8 +137,8 @@ role snapshot or a client-supplied `owner_bid`, `is_operator`, or other role cla
 
 | Key owner | Query learner access | Grant learner access | Revoke learner access |
 | --- | --- | --- | --- |
-| Ordinary account | Own courses only | Own courses only | Own courses only |
-| Operator account | Any existing course | Any existing course | Own courses only |
+| Ordinary account | Own courses only | Own published courses only | Own courses only |
+| Operator account | Any existing course | Any published course | Own courses only |
 
 An operator's own courses retain the existing owner behavior. Removing the
 operator role takes effect on subsequent requests without rotating the key:
