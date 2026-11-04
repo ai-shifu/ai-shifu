@@ -434,7 +434,8 @@ def test_gateway_model_defaults_its_budget_from_the_model(
     assert model("unknown")._input_budget_bytes == INPUT_BUDGET_BYTES
     # A course selection is resolved with the metadata the gateway will use.
     course = {"model_selection_scope": "course"}
-    model("qwen/glm-5.3", usage_metadata=course)
+    course_model = model("qwen/glm-5.3", usage_metadata=course)
+    assert course_model._input_budget_bytes == 1_048_576
     assert seen[-1] == course
     # An explicit budget (a summary request, a private completion) still wins.
     assert (
