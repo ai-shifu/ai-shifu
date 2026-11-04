@@ -338,11 +338,10 @@ def _question_for_control(
             selected = identities.index(identity)
     if selected is None:
         return None
-    following = next(
-        (turn["record"] for turn in turns[1:] if isinstance(turn.get("record"), dict)),
-        None,
-    )
-    checkpoint = following.get("checkpoint") if following else None
+    # Only the turn right after this one received these questions. A later turn's queue
+    # belongs to other questions, so an unrecorded next turn means "cannot tell".
+    following = turns[1].get("record") if len(turns) > 1 else None
+    checkpoint = following.get("checkpoint") if isinstance(following, dict) else None
     pending = checkpoint.get("pending") if isinstance(checkpoint, dict) else None
     if not isinstance(pending, list) or len(identities) > len(pending):
         return None

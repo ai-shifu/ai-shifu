@@ -402,3 +402,28 @@ def test_learner_answer_edit_restores_the_turn_of_the_question_it_changes(
     assert plan.checkpoint["pending"][0]["tool_call_id"] == f"q{selected + 1}"
     assert plan.replay_values is None
     assert plan.retired_block_bids == ["answer-0", "answer-1"][selected:]
+
+
+def test_an_unrecorded_next_turn_does_not_borrow_a_later_turns_question(
+    app: object,
+) -> None:
+    """A lesson straddling the checkpoint rollout keeps the old unavailable answer."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("questions", checkpoint=_BEFORE_B1, values=[])
+        _block("answer-0", checkpoint=None, values=["old-0"])
+        later = {
+            **_WAITING,
+            "pending": [
+                {"tool_call_id": "other", "spec": _QUESTION.model_dump(mode="json")}
+            ],
+        }
+        _block("later", checkpoint=later, values=[])
+        _element("control-0", "questions")
+        row = LearnGeneratedElement.query.filter_by(element_bid="control-0").one()
+        row.element_type = "interaction"
+        row.content_text = "?[Left|Right]"
+        db.session.commit()
+        with pytest.raises(rewind.RewindUnavailableError):
+            _plan("control-0", answering=True)
