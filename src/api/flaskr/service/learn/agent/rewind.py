@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from flaskr.service.learn.models import (
@@ -39,6 +40,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
 )
+from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     from flaskr.api.markdownflow import Session
@@ -297,6 +299,88 @@ def _turn_blocks_from(
     )
 
 
+def _question_for_control(
+    block: LearnGeneratedBlock, element_bid: str, turns: list[dict[str, Any]]
+) -> str | None:
+    """Name the question a control of `block` asked, or None when it cannot be told.
+
+    A turn may ask several questions at once. Its controls, in emission order, match the
+    pending queue of the turn that followed it (as `interaction_history` reads answers).
+    Without that question an answer edit would restore the first question's turn and the
+    new value would answer the first question instead of the one the learner changed.
+    """
+    rows = (
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.generated_block_bid == block.generated_block_bid,
+            LearnGeneratedElement.user_bid == block.user_bid,
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.element_type == "interaction",
+        )
+        .order_by(
+            LearnGeneratedElement.sequence_number.asc(),
+            LearnGeneratedElement.run_event_seq.asc(),
+            LearnGeneratedElement.id.asc(),
+        )
+        .all()
+    )
+    identities: list[str] = []
+    selected = None
+    for row in rows:
+        identity = (
+            row.target_element_bid
+            if not row.is_new and row.target_element_bid
+            else row.element_bid
+        )
+        if not identity:
+            continue
+        if identity not in identities:
+            identities.append(identity)
+        if element_bid in (row.element_bid, identity):
+            selected = identities.index(identity)
+    if selected is None:
+        return None
+    control_text = next(
+        (
+            row.content_text
+            for row in rows
+            if element_bid
+            in (
+                row.element_bid,
+                row.target_element_bid
+                if not row.is_new and row.target_element_bid
+                else row.element_bid,
+            )
+        ),
+        "",
+    )
+    # Only the turn right after this one received these questions. A later turn's queue
+    # belongs to other questions, so an unrecorded next turn means "cannot tell".
+    following = turns[1].get("record") if len(turns) > 1 else None
+    checkpoint = following.get("checkpoint") if isinstance(following, dict) else None
+    pending = checkpoint.get("pending") if isinstance(checkpoint, dict) else None
+    if not isinstance(pending, list) or len(identities) > len(pending):
+        return None
+    question = pending[selected]
+    tool_call_id = question.get("tool_call_id") if isinstance(question, dict) else None
+    if not isinstance(tool_call_id, str) or not tool_call_id:
+        return None
+    # Pairing by position holds only while each control renders its question. A
+    # confirmation shows no control and shifts the queue; any mismatch means "cannot tell".
+    from flaskr.api.markdownflow import InteractionSpec
+    from pydantic import ValidationError
+
+    from .interaction_history import _matches_control
+
+    try:
+        spec = InteractionSpec.model_validate(question.get("spec"))
+        if spec.type == "confirm" or not _matches_control(spec, control_text or ""):
+            return None
+    except (ValidationError, ValueError):
+        return None
+    return tool_call_id
+
+
 def plan_rewind(
     *,
     user_bid: str,
@@ -315,14 +399,115 @@ def plan_rewind(
     if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
         raise RewindUnavailableError
     blocks = _turn_blocks_from(block, include_it=True)
-    return plan_turn_rewind(
-        [
-            {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
-            for b in blocks
-        ],
+    after_anchor = {b.generated_block_bid for b in blocks[1:]}
+    abandoned = [
+        bid
+        for bid in abandoned_turn_block_bids(
+            user_bid=block.user_bid,
+            outline_bid=block.outline_item_bid,
+            progress_record_bid=block.progress_record_bid,
+        )
+        if bid in after_anchor
+    ]
+    turns = [
+        {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
+        for b in blocks
+        if b.generated_block_bid not in abandoned
+    ]
+    question_id = (
+        _question_for_control(block, anchor, turns)
+        if answering and anchor != block.generated_block_bid
+        else None
+    )
+    plan = plan_turn_rewind(
+        turns,
         block_bid=block.generated_block_bid,
         answering=answering,
+        question_id=question_id,
     )
+    if plan is not None:
+        plan.retired_block_bids.extend(
+            bid for bid in abandoned if bid not in plan.retired_block_bids
+        )
+    return plan
+
+
+# How long an empty, unrecorded block must sit before it counts as abandoned. After a
+# disconnect the request releases the lesson lock while the producer thread may still be
+# finishing the turn (prepared feedback persists its text late); a young block may still fill in.
+# Twice the run lock's lifetime (`host.run.RUN_SCRIPT_TIMEOUT_SECONDS`, 5 minutes): a run older
+# than that has already lost the lock every concurrent-turn guard relies on. Raise both together.
+ABANDONED_TURN_GRACE = timedelta(minutes=10)
+
+
+def abandoned_turn_block_bids(
+    *, user_bid: str, outline_bid: str, progress_record_bid: str
+) -> list[str]:
+    """Name the live turn blocks of an attempt whose run died before it saved.
+
+    A run killed mid-stream, or one whose cleanup failed, leaves its block live with neither
+    text nor turn record. A turn saved before checkpoints existed can look the same (one that
+    only asked a question teaches no text), so a block counts only once an earlier block of the
+    same attempt carries a record: from then on every saved turn writes one. Before the first
+    record, an empty block counts when that record was taken at turn 0, which proves no earlier
+    turn reached the saved session. A block younger than `ABANDONED_TURN_GRACE` is left alone: its
+    run may still be finishing after the request that started it went away. No saved session ever
+    included an abandoned block, so it is never a turn to go back to.
+    """
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid == progress_record_bid,
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.outline_item_bid == outline_bid,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+        )
+        .order_by(LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    settled_before = now_utc() - ABANDONED_TURN_GRACE
+    abandoned: list[str] = []
+    # Empty blocks seen before the attempt's first record: abandoned only if that record shows
+    # no saved turn came before it (its checkpoint was taken at turn 0).
+    leading: list[str] = []
+    recorded = False
+    for block in blocks:
+        record = read_turn_record(block)
+        empty = (
+            not (block.generated_content or "").strip()
+            and not (block.block_content_conf or "").strip()
+            and block.created_at is not None
+            and block.created_at <= settled_before
+        )
+        if record is not None:
+            if not recorded and record["checkpoint"].get("turn") == 0:
+                abandoned.extend(leading)
+            recorded = True
+        elif empty:
+            (abandoned if recorded else leading).append(block.generated_block_bid)
+    return abandoned
+
+
+def retire_abandoned_turns(
+    *, user_bid: str, outline_bid: str, progress_record_bid: str
+) -> None:
+    """Retire abandoned turn blocks, and their elements, before the next turn starts.
+
+    A rewind retires them with the turns it supersedes; this covers the learner who simply
+    answers again, which plans no rewind, so the dead turn's streamed rows do not stay in history.
+    """
+    bids = abandoned_turn_block_bids(
+        user_bid=user_bid,
+        outline_bid=outline_bid,
+        progress_record_bid=progress_record_bid,
+    )
+    if bids:
+        stage_retirement(
+            RewindPlan(checkpoint={}, replay_values=None, retired_block_bids=bids),
+            user_bid=user_bid,
+            outline_bid=outline_bid,
+        )
 
 
 def stage_retirement(plan: RewindPlan, *, user_bid: str, outline_bid: str) -> None:

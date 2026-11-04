@@ -183,7 +183,6 @@ jest.mock('./use-lesson-pdf-print', () => ({
 jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockPlaceholderTrackEvent,
-    trackTrailProgress: jest.fn(),
   }),
 }));
 

@@ -18,10 +18,7 @@ import {
   requiresInteractionRewind,
   updateInteractionItems,
 } from '@/lib/chat-interaction-rewind';
-import {
-  mergeStreamingMarkdownText,
-  maskIncompleteMermaidBlock,
-} from '@/lib/markdown-utils';
+import { maskIncompleteMermaidBlock } from '@/lib/markdown-utils';
 import { debugError, debugWarn } from '@/lib/debug-console';
 import {
   getAudioTrackByPosition,
@@ -32,6 +29,12 @@ import {
   upsertAudioSegment,
 } from '@/lib/audio-utils';
 import LoadingBar from '@/components/chat/LoadingBar';
+import {
+  isLoadingItem,
+  LOADING_ITEM_BID,
+  matchesElementBid,
+  withoutLoadingItem,
+} from '@/lib/lesson-stream/content-list';
 import { ChatContentItem, ChatContentItemType } from '@/types/chat-ui';
 import { normalizeLegacyBlockCompatList } from '@/lib/chat-ui-compat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
@@ -104,10 +107,7 @@ enum DebugStreamEventType {
   DEBUG_VARIABLES = 'debug_variables',
   DEBUG_ENGINE = 'preview_engine',
   ELEMENT = 'element',
-  INTERACTION = 'interaction',
-  CONTENT = 'content',
   DONE = 'done',
-  TEXT_END = 'text_end',
   ERROR = 'error',
   AUDIO_SEGMENT = 'audio_segment',
   AUDIO_COMPLETE = 'audio_complete',
@@ -138,7 +138,6 @@ const resolveDebugBusinessCode = (
   return undefined;
 };
 
-const DEBUG_LOADING_ITEM_BID = 'loading';
 const DEBUG_BUSINESS_ERROR_ITEM_BID = 'preview-business-error';
 
 const parseObjectPayload = <T extends Record<string, unknown>>(
@@ -340,7 +339,7 @@ const isDebugActionableItem = (
   > | null,
 ): boolean => {
   const resolvedBid = resolveDebugElementBid(item);
-  if (!resolvedBid || resolvedBid === 'loading') {
+  if (!resolvedBid || resolvedBid === LOADING_ITEM_BID) {
     return false;
   }
   return (
@@ -353,14 +352,6 @@ const resolveLatestDebugActionableItem = (
   items: ChatContentItem[],
 ): ChatContentItem | undefined => {
   return [...items].reverse().find(item => isDebugActionableItem(item));
-};
-
-const matchesDebugElementBid = (item: ChatContentItem, bid: string) => {
-  if (!bid) {
-    return false;
-  }
-
-  return item.element_bid === bid;
 };
 
 const syncDebugActionableFinalState = (items: ChatContentItem[]) => {
@@ -426,14 +417,12 @@ export const replaceDebugLoadingWithBusinessError = (
 ): ChatContentItem[] => {
   const normalizedMessage = message.trim();
   if (!normalizedMessage) {
-    return items.filter(
-      item => item.generated_block_bid !== DEBUG_LOADING_ITEM_BID,
-    );
+    return withoutLoadingItem(items);
   }
 
   const nextList = items.filter(
     item =>
-      item.generated_block_bid !== DEBUG_LOADING_ITEM_BID &&
+      !isLoadingItem(item) &&
       item.generated_block_bid !== DEBUG_BUSINESS_ERROR_ITEM_BID,
   );
 
@@ -689,11 +678,7 @@ export function useDebugSession({
     currentStreamingElementBidRef.current = null;
     setIsLoading(false);
     if (wasEditingAnswer) {
-      updateSessionItems(prev =>
-        prev.filter(
-          item => item.generated_block_bid !== DEBUG_LOADING_ITEM_BID,
-        ),
-      );
+      updateSessionItems(prev => withoutLoadingItem(prev));
     }
   }, [
     closeAllTtsStreams,
@@ -795,42 +780,19 @@ export function useDebugSession({
     [],
   );
 
-  const ensureContentItem = useCallback(
-    (itemBid: string) => {
-      if (currentContentElementBidRef.current === itemBid) {
-        return itemBid;
-      }
-      currentContentElementBidRef.current = itemBid;
-      updateSessionItems(prev => [
-        ...prev.filter(item => item.generated_block_bid !== 'loading'),
-        {
-          element_bid: itemBid,
-          generated_block_bid: itemBid,
-          content: '',
-          readonly: false,
-          type: ChatContentItemType.CONTENT,
-        },
-      ]);
-      return itemBid;
-    },
-    [updateSessionItems],
-  );
-
   const ensureAudioItem = useCallback(
     (
       items: ChatContentItem[],
       elementBid: string,
       defaults: Partial<ChatContentItem> = {},
     ) => {
-      const hasTarget = items.some(item =>
-        matchesDebugElementBid(item, elementBid),
-      );
+      const hasTarget = items.some(item => matchesElementBid(item, elementBid));
       if (hasTarget) {
         return items;
       }
 
       return [
-        ...items.filter(item => item.generated_block_bid !== 'loading'),
+        ...withoutLoadingItem(items),
         {
           element_bid: elementBid,
           generated_block_bid: elementBid,
@@ -911,9 +873,7 @@ export function useDebugSession({
   const finalizeDebugItems = useCallback(() => {
     flushSync(() => {
       updateSessionItems((prev: ChatContentItem[]) => {
-        const updatedList = [...prev].filter(
-          item => item.generated_block_bid !== 'loading',
-        );
+        const updatedList = [...prev].filter(item => !isLoadingItem(item));
         const latestActionableBid = resolveDebugElementBid(
           resolveLatestDebugActionableItem(updatedList),
         );
@@ -959,9 +919,7 @@ export function useDebugSession({
       const previousStreamingElementBid = currentStreamingElementBidRef.current;
 
       updateSessionItems(prev => {
-        let nextList = prev.filter(
-          item => item.generated_block_bid !== 'loading',
-        );
+        let nextList = withoutLoadingItem(prev);
         let completedElementBid = '';
         const hasIncomingItem = nextList.some(
           item => item.element_bid === itemBid,
@@ -1087,14 +1045,8 @@ export function useDebugSession({
           typeof payloadObject.generated_block_bid === 'string'
             ? payloadObject.generated_block_bid
             : '');
-        if (
-          responseType === DebugStreamEventType.ELEMENT ||
-          responseType === DebugStreamEventType.INTERACTION ||
-          responseType === DebugStreamEventType.CONTENT
-        ) {
-          updateSessionItems(prev =>
-            prev.filter(item => item.generated_block_bid !== 'loading'),
-          );
+        if (responseType === DebugStreamEventType.ELEMENT) {
+          updateSessionItems(prev => withoutLoadingItem(prev));
         }
 
         if (responseType === DebugStreamEventType.DEBUG_VARIABLES) {
@@ -1106,111 +1058,6 @@ export function useDebugSession({
           }
         } else if (responseType === DebugStreamEventType.ELEMENT) {
           upsertElementDebugItem(response);
-        } else if (responseType === DebugStreamEventType.INTERACTION) {
-          const interactionContent = resolveResponseStringPayload(response);
-          const interactionInfo = parseInteractionBlock(interactionContent);
-          const variableName = interactionInfo?.variableName;
-          const interactionElementBid =
-            currentStreamingElementBidRef.current ||
-            currentContentElementBidRef.current ||
-            generatedBlockBid ||
-            '';
-          if (interactionElementBid) {
-            clearFreshAgentInteractionAnswer(
-              interactionElementBid,
-              variableName,
-            );
-          }
-
-          updateSessionItems((prev: ChatContentItem[]) => {
-            const currentElementBid =
-              currentStreamingElementBidRef.current ||
-              currentContentElementBidRef.current ||
-              generatedBlockBid ||
-              '';
-            if (!currentElementBid) {
-              return prev;
-            }
-            const interactionBlock: ChatContentItem = {
-              element_bid: currentElementBid,
-              generated_block_bid: currentElementBid,
-              content: interactionContent,
-              readonly: false,
-              user_input: '',
-              type: ChatContentItemType.INTERACTION,
-            };
-            const nextListWithoutLoading = prev.filter(
-              item => item.generated_block_bid !== 'loading',
-            );
-            const lastContent =
-              nextListWithoutLoading[nextListWithoutLoading.length - 1];
-            let nextList = nextListWithoutLoading;
-
-            if (
-              lastContent &&
-              lastContent.type === ChatContentItemType.CONTENT
-            ) {
-              const lastContentBid =
-                lastContent.generated_block_bid || lastContent.element_bid;
-              if (lastContentBid) {
-                nextList = finalizeDebugElementOutputInList(
-                  nextList,
-                  lastContentBid,
-                );
-              }
-            }
-
-            const hitIndex = nextList.findIndex(item =>
-              matchesDebugElementBid(item, currentElementBid),
-            );
-            if (hitIndex > -1) {
-              const updatedList = [...nextList];
-              updatedList[hitIndex] = {
-                ...updatedList[hitIndex],
-                ...interactionBlock,
-                user_input: updatedList[hitIndex].user_input,
-              };
-              return appendLikeStatusIfMissing(updatedList, currentElementBid);
-            }
-
-            nextList = [...nextList, interactionBlock];
-            return appendLikeStatusIfMissing(nextList, currentElementBid);
-          });
-        } else if (responseType === DebugStreamEventType.CONTENT) {
-          const markdownPayload = resolveResponseStringPayload(response);
-          const contentElementBid = ensureContentItem(
-            currentStreamingElementBidRef.current ||
-              currentContentElementBidRef.current ||
-              generatedBlockBid ||
-              'preview-content',
-          );
-          const existingItem = sessionItemsRef.current.find(item =>
-            matchesDebugElementBid(item, contentElementBid),
-          );
-          const prevText =
-            currentContentRef.current ||
-            (typeof existingItem?.content === 'string'
-              ? existingItem.content
-              : '');
-          const nextText = mergeStreamingMarkdownText(
-            prevText,
-            markdownPayload || '',
-          );
-          currentContentRef.current = nextText;
-          const displayText = maskIncompleteMermaidBlock(nextText);
-          updateSessionItems(prev =>
-            prev.map(item =>
-              matchesDebugElementBid(item, contentElementBid)
-                ? {
-                    ...item,
-                    content: displayText,
-                    element_type: item.element_type || ELEMENT_TYPE.TEXT,
-                    is_final: false,
-                    shouldUseTypewriter: true,
-                  }
-                : item,
-            ),
-          );
         } else if (responseType === DebugStreamEventType.DEBUG_ENGINE) {
           hasSessionStartedRef.current = true;
           if (
@@ -1235,13 +1082,6 @@ export function useDebugSession({
             finishDebugAnswerEdit('success');
             stopRun();
           }
-        } else if (responseType === DebugStreamEventType.TEXT_END) {
-          finishDebugAnswerEdit('success');
-          finalizeDebugItems();
-          currentContentElementBidRef.current = null;
-          currentContentRef.current = '';
-          currentStreamingElementBidRef.current = null;
-          stopRun();
         } else if (responseType === DebugStreamEventType.ERROR) {
           const errorMessage =
             resolveResponseStringPayload(response) ||
@@ -1287,15 +1127,10 @@ export function useDebugSession({
       }
     },
     [
-      appendLikeStatusIfMissing,
-      clearFreshAgentInteractionAnswer,
       ensureAudioItem,
-      ensureContentItem,
-      finalizeDebugElementOutputInList,
       finalizeDebugItems,
       finishDebugAnswerEdit,
       handleDebugBusinessError,
-      parseInteractionBlock,
       stopRun,
       trackEvent,
       updateSessionItems,
@@ -1437,10 +1272,10 @@ export function useDebugSession({
       }
       setErrorMessage(null);
       updateSessionItems(prev => [
-        ...prev.filter(item => item.generated_block_bid !== 'loading'),
+        ...withoutLoadingItem(prev),
         {
-          element_bid: DEBUG_LOADING_ITEM_BID,
-          generated_block_bid: DEBUG_LOADING_ITEM_BID,
+          element_bid: LOADING_ITEM_BID,
+          generated_block_bid: LOADING_ITEM_BID,
           content: '',
           customRenderBar: () => <LoadingBar />,
           type: ChatContentItemType.CONTENT,
@@ -1613,13 +1448,16 @@ export function useDebugSession({
       updateSessionItems(prefixItems);
       void startRun({
         ...runParamsRef.current,
+        // The server rewinds to the answered question and continues under the
+        // draft as it is now, so an edit does not force a restart.
+        mdflow: resolveLatestMdflow(),
         blockIndex: 0,
         userInput: answer.userInput,
         reloadElementBid: answer.elementBid,
         reloadGeneratedBlockBid: generatedBlockBid,
       });
     },
-    [startRun, updateSessionItems],
+    [resolveLatestMdflow, startRun, updateSessionItems],
   );
 
   const submitInteractionAnswer = useCallback(
@@ -1648,9 +1486,10 @@ export function useDebugSession({
         { isStreaming: isStreamingRef.current, content: listUpdateContent },
       );
       const { values } = resolveInteractionSubmission(content);
-      if (draftEdited && (requiresRegeneration || !values.length)) {
-        // Only an answer to the current question can continue under an edited
-        // draft; anything else starts the edited draft from its beginning.
+      if (draftEdited && !values.length) {
+        // Without an answer there is nothing to continue under the edited draft:
+        // start it from its beginning. An answer, to the current question or an
+        // earlier one, continues the conversation under the edited draft.
         restartSession();
         return true;
       }
@@ -1688,7 +1527,7 @@ export function useDebugSession({
           params: {
             shifuBid: runParamsRef.current.shifuBid,
             outlineBid: runParamsRef.current.outlineBid,
-            mdflow: runParamsRef.current.mdflow,
+            mdflow: resolveLatestMdflow(),
           },
         };
         setHasAnswerEditRetryTarget(true);
@@ -1783,10 +1622,9 @@ export function useDebugSession({
       clearAnswerEditRetryTarget();
       return;
     }
-    if (resolveLatestMdflow() !== target.params.mdflow) {
-      restartSession();
-      return;
-    }
+    // The retry sends the draft as it is now; record that draft on the target so
+    // the retried request still owns it and a second failure can retry again.
+    target.params = { ...target.params, mdflow: resolveLatestMdflow() };
     // A failed connection may already have replaced the server checkpoint.
     // Retry the logical target without restoring its discarded rows or answers.
     startAnswerEdit(target.generatedBlockBid, target.prefixItems, {
@@ -1797,7 +1635,6 @@ export function useDebugSession({
     clearAnswerEditRetryTarget,
     creditInsufficientAudience,
     resolveLatestMdflow,
-    restartSession,
     showOutputInProgressToast,
     startAnswerEdit,
   ]);
@@ -1857,7 +1694,7 @@ export function useDebugSession({
       const streamGeneration = streamGenerationRef.current;
 
       const existingItem = sessionItemsRef.current.find(item =>
-        matchesDebugElementBid(item, elementBid),
+        matchesElementBid(item, elementBid),
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
@@ -1882,7 +1719,7 @@ export function useDebugSession({
       updateSessionItems(prevState =>
         ensureAudioItem(
           prevState.map(item => {
-            if (!matchesDebugElementBid(item, elementBid)) {
+            if (!matchesElementBid(item, elementBid)) {
               return item;
             }
             return {
@@ -1925,7 +1762,7 @@ export function useDebugSession({
           updateSessionItems(prevState =>
             ensureAudioItem(
               prevState.map(item =>
-                matchesDebugElementBid(item, elementBid)
+                matchesElementBid(item, elementBid)
                   ? {
                       ...item,
                       isAudioStreaming: false,

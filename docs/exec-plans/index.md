@@ -206,6 +206,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Refresh Nicknames in Existing Agent Lessons](./completed/resumed-learner-nickname.md)
 - [Retire the AI Instruction Generator](./completed/retire-ai-instruction-generator.md)
 - [Retire Legacy Default Profiles](./completed/retire-default-profiles.md)
+- [Retire chapter and lesson prompts](./completed/retire-outline-teaching-prompts.md)
 - [Reuse production images in PR runtime checks](./completed/reuse-production-runtime-images.md)
 - [Upgrade Ruff to 0.17.3](./completed/ruff-0-17-upgrade.md)
 - [Display the running frontend version](./completed/running-version-display.md)

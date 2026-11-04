@@ -146,3 +146,72 @@ def test_direct_creation_defaults_to_free_without_changing_existing_guest(
     assert created.type == "trial"
     assert _persisted_type(app, course, created.bid) == UNIT_TYPE_VALUE_TRIAL
     assert _persisted_type(app, course, guest.bid) == UNIT_TYPE_VALUE_GUEST
+
+
+def test_legacy_prompt_inputs_are_ignored_across_outline_authoring_routes(
+    app: object,
+    test_client: object,
+    course: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy clients cannot restore chapter or lesson teaching overrides."""
+    from flaskr.service.shifu.dtos import OutlineDto
+
+    risk_check = Mock()
+    monkeypatch.setattr(shifu_outline_funcs, "check_text_with_risk_control", risk_check)
+    monkeypatch.setattr(shifu_outline_funcs, "save_outline_history", Mock())
+    legacy = {
+        "system_prompt": "Retired teaching override",
+        "temperature": 1.9,
+        "llm_temperature": 1.8,
+        "ask_llm_temperature": 1.7,
+    }
+    created = test_client.put(
+        f"/api/shifu/shifus/{course}/outlines",
+        headers=HEADERS,
+        json={"name": "Chapter", **legacy},
+    ).get_json(force=True)
+    assert created["code"] == 0
+    chapter = created["data"]["bid"]
+    batched = test_client.put(
+        f"/api/shifu/shifus/{course}/outlines/batch",
+        headers=HEADERS,
+        json={"parent_bid": chapter, "outlines": [{"name": "Lesson", **legacy}]},
+    ).get_json(force=True)
+    assert batched["code"] == 0
+    lesson = batched["data"][0]["bid"]
+    updated = test_client.post(
+        f"/api/shifu/shifus/{course}/outlines/{lesson}",
+        headers=HEADERS,
+        json={"name": "Renamed lesson", **legacy},
+    ).get_json(force=True)
+    assert updated["code"] == 0
+    with app.app_context():
+        versions = (
+            DraftOutlineItem.query.filter_by(shifu_bid=course)
+            .order_by(DraftOutlineItem.id)
+            .all()
+        )
+        assert [
+            (row.outline_item_bid, row.title, row.llm_system_prompt) for row in versions
+        ] == [
+            (chapter, "Chapter", ""),
+            (lesson, "Lesson", ""),
+            (lesson, "Renamed lesson", ""),
+        ]
+    for bid in (chapter, lesson):
+        response = test_client.get(
+            f"/api/shifu/shifus/{course}/outlines/{bid}", headers=HEADERS
+        ).get_json(force=True)
+        assert response["code"] == 0
+        assert not legacy.keys() & response["data"].keys()
+    assert "system_prompt" not in OutlineDto.model_fields
+    assert not legacy.keys() & updated["data"].keys()
+    assert [call.args[-1] for call in risk_check.call_args_list[:2]] == [
+        "Chapter",
+        "Lesson",
+    ]
+    assert all(
+        "Retired teaching override" not in str(call)
+        for call in risk_check.call_args_list
+    )

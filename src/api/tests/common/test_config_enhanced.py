@@ -138,6 +138,7 @@ class TestEnhancedConfigValidation:
         assert {name for name in ENV_VARS if name.startswith("LLM_")} == {
             *names,
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS",
+            "LLM_MODEL_MAX_INPUT_TOKENS",
             "LLM_MODEL_MAX_OUTPUT_TOKENS",
         }
 

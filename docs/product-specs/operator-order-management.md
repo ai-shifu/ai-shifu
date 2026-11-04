@@ -117,6 +117,65 @@ Add non-secret payment attribution fields to list and detail DTOs:
 
 Do not return merchant secrets.
 
+### Open API learner access
+
+Partner learner-access APIs are separate from the operator order-management web
+page. This extension adds no web menu, enrollment button, or course-page entry
+point. It does not change shared course-entry checks, course management/editing
+permissions, or token-authenticated admin enrollment routes.
+
+The existing partner endpoints are:
+
+- `POST /api/open-api/v1/order/query`
+- `POST /api/open-api/v1/order/grant`
+- `POST /api/open-api/v1/order/revoke`
+
+Every request must authenticate using the `X-User-Uid` and `X-Api-Key` headers.
+The UID must identify the active, non-deleted account that owns that key. The
+operator role comes from the current server-side user record, not a key-scoped
+role snapshot or a client-supplied `owner_bid`, `is_operator`, or other role claim.
+
+| Key owner | Query learner access | Grant learner access | Revoke learner access |
+| --- | --- | --- | --- |
+| Ordinary account | Own courses only | Own published courses only | Own courses only |
+| Operator account | Any existing course | Any published course | Own courses only |
+
+An operator's own courses retain the existing owner behavior. Removing the
+operator role takes effect on subsequent requests without rotating the key:
+cross-creator query/grant requests are then rejected, while owner permissions
+remain unchanged. Deleting the key owner's account invalidates authentication.
+All roles must pass the course-existence check before learner lookup, account
+creation, order changes, or notifications; an operator cannot grant a missing
+or deleted course.
+
+Requests retain `shifu_bid`, `user_identify`, and `user_identify_type` (`phone` or
+`email`, defaulting to `phone`) in JSON or form data. Clients must check the
+normal JSON response `code`: `0` indicates success; a nonzero code indicates a
+business or authentication error even when the HTTP status is `200`. Successful
+responses retain their existing `data` shapes:
+
+- query: `authorized` and `order_bid` (null when no active authorization exists);
+- grant: `order_bid`;
+- revoke: `order_bid` and `status` set to `revoked`.
+
+Queries match only non-deleted successful orders for the exact learner and
+course; unknown learners are reported as unauthorized without creating an
+account. Grant returns the existing active authorization when one is already
+present. Otherwise, it reuses the existing activation importer, including
+automatic account/credential creation for an unregistered learner, a zero-price
+order with payment channel `open_api`, and any existing notification behavior.
+The order keeps the course creator in `creator_bid` and records the
+authenticated key owner in `granted_by_user_bid`, so an operator grant on
+another creator's course stays attributable. Every grant requires a live
+published course, including a repeat grant for a learner who already has
+access; draft-only courses are rejected before any learner lookup or account
+creation.
+This is not a new notification mechanism or a guarantee of concurrency-safe
+idempotency. Rejected requests do not reach that importer or send notifications.
+
+This specification describes the code contract, not deployment status or
+approval to enroll real learners.
+
 ## Frontend design
 
 ### Route

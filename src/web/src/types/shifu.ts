@@ -62,7 +62,6 @@ export interface Outline {
   shifu_bid?: string;
   is_hidden?: boolean;
   type?: LearningPermission;
-  system_prompt?: string;
   collapsed?: boolean;
 }
 
@@ -70,7 +69,6 @@ export interface LessonCreationSettings {
   name: string;
   learningPermission?: LearningPermission;
   isHidden: boolean;
-  systemPrompt: string;
 }
 
 export interface Block {

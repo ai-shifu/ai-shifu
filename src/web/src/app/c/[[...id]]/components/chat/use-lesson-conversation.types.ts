@@ -60,7 +60,6 @@ export interface UseChatSessionParams {
   listenRequestEnabled?: boolean;
   shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
-  trackTrailProgress: (courseId: string, elementBid: string) => void;
   lessonUpdate?: LessonUpdateHandler;
   chapterUpdate?: ChapterUpdateHandler;
   updateSelectedLesson: LessonSelectionUpdater;

@@ -238,6 +238,7 @@
 | `docs/exec-plans/completed/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/retire-ai-instruction-generator.md` | Retire the AI Instruction Generator | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/retire-default-profiles.md` | Retire Legacy Default Profiles | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/retire-outline-teaching-prompts.md` | Retire chapter and lesson prompts | `exec-plan-completed` | `completed` | `shared` | `2026-11-04` | `false` |
 | `docs/exec-plans/completed/reuse-production-runtime-images.md` | Reuse production images in PR runtime checks | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/ruff-0-17-upgrade.md` | Upgrade Ruff to 0.17.3 | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/running-version-display.md` | Display the running frontend version | `exec-plan-completed` | `completed` | `web` | `2026-10-10` | `false` |
@@ -287,6 +288,7 @@
 | `docs/product-specs/course-action-help.md` | Course action menu help | `product-spec` | `implemented` | `frontend` | `2026-10-26` | `true` |
 | `docs/product-specs/course-activation-import.md` | Course activation import | `product-spec` | `implemented` | `frontend` | `2026-10-27` | `true` |
 | `docs/product-specs/course-memory-management.md` | Course Memory Management | `product-spec` | `implemented` | `learner` | `2026-10-30` | `true` |
+| `docs/product-specs/course-prompts.md` | Course Prompts | `product-spec` | `implemented` | `shared` | `2026-11-04` | `true` |
 | `docs/product-specs/course-temperature-settings.md` | Internal Course Temperature Settings | `product-spec` | `implemented` | `shared` | `2026-10-08` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |
 | `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-16` | `true` |
@@ -332,7 +334,7 @@
 | `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-11-03` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |
-| `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
+| `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-11-04` | `true` |
 | `docs/references/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompts | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-memory-quality.md` | MarkdownFlow Memory Quality Evaluation | `reference` | `active` | `learner` | `2026-10-12` | `true` |
 | `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |

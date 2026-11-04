@@ -64,7 +64,6 @@ def _add_outline(
             position=position,
             parent_bid=parent_bid,
             prerequisite_item_bids="",
-            llm_system_prompt="",
             ask_enabled_status=5101,
             ask_llm_system_prompt="",
             deleted=0,

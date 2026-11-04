@@ -8,10 +8,12 @@ had then, the rows written after it retired, and nothing else touched.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn.agent import rewind
+from flaskr.service.learn.agent.legacy_protocol import render_interaction
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -22,6 +24,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
 )
+from flaskr.util.datetime import now_utc
 from markdownflow.engine.interaction import InteractionSpec, Option
 from markdownflow.engine.script import ScriptBundle
 from markdownflow.engine.session import PendingInteraction, Session
@@ -369,9 +372,10 @@ def test_old_checkpoint_does_not_inherit_a_future_interruption() -> None:
 
 
 @pytest.mark.parametrize("selected", [0, 1])
-def test_learner_answer_edit_preserves_the_existing_block_based_replay_boundary(
+def test_learner_answer_edit_restores_the_turn_of_the_question_it_changes(
     app: object, selected: int
 ) -> None:
+    """Two questions asked in one turn: changing the second keeps the first answer."""
     with app.app_context():
         _clean()
         _record()
@@ -392,10 +396,221 @@ def test_learner_answer_edit_preserves_the_existing_block_based_replay_boundary(
                 element_bid=f"control-{i}"
             ).one()
             row.element_type = "interaction"
-            row.content_text = "?[Left|Right]"
+            row.content_text = render_interaction(_QUESTION)
         db.session.commit()
         plan = _plan(f"control-{selected}", answering=True)
     assert plan is not None
-    assert plan.checkpoint["pending"][0]["tool_call_id"] == "q1"
+    # The restored turn waits on the question the learner changed, so the new value
+    # answers that question and not the first one.
+    assert plan.checkpoint["pending"][0]["tool_call_id"] == f"q{selected + 1}"
     assert plan.replay_values is None
-    assert plan.retired_block_bids == ["answer-0", "answer-1"]
+    assert plan.retired_block_bids == ["answer-0", "answer-1"][selected:]
+
+
+def test_an_unrecorded_next_turn_does_not_borrow_a_later_turns_question(
+    app: object,
+) -> None:
+    """A lesson straddling the checkpoint rollout keeps the old unavailable answer."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("questions", checkpoint=_BEFORE_B1, values=[])
+        _block("answer-0", checkpoint=None, values=["old-0"])
+        later = {
+            **_WAITING,
+            "pending": [
+                {"tool_call_id": "other", "spec": _QUESTION.model_dump(mode="json")}
+            ],
+        }
+        _block("later", checkpoint=later, values=[])
+        _element("control-0", "questions")
+        row = LearnGeneratedElement.query.filter_by(element_bid="control-0").one()
+        row.element_type = "interaction"
+        row.content_text = render_interaction(_QUESTION)
+        db.session.commit()
+        with pytest.raises(rewind.RewindUnavailableError):
+            _plan("control-0", answering=True)
+
+
+def test_a_confirmation_in_the_queue_keeps_the_block_boundary(app: object) -> None:
+    """A confirmation shows no control, so positions cannot name the question."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("questions", checkpoint=_BEFORE_B1, values=[])
+        confirm = InteractionSpec(type="confirm", prompt="Ready?")
+        q1 = {"tool_call_id": "q1", "spec": _QUESTION.model_dump(mode="json")}
+        c = {"tool_call_id": "c", "spec": confirm.model_dump(mode="json")}
+        q2 = {"tool_call_id": "q2", "spec": _QUESTION.model_dump(mode="json")}
+        _block(
+            "answer-0", checkpoint={**_WAITING, "pending": [q1, c, q2]}, values=["Left"]
+        )
+        _block("answer-1", checkpoint={**_WAITING, "pending": [c, q2]}, values=["yes"])
+        _block("answer-2", checkpoint={**_WAITING, "pending": [q2]}, values=["Left"])
+        for bid in ("control-q1", "control-q2"):
+            _element(bid, "questions")
+            row = LearnGeneratedElement.query.filter_by(element_bid=bid).one()
+            row.element_type = "interaction"
+            row.content_text = render_interaction(_QUESTION)
+        db.session.commit()
+        plan = _plan("control-q2", answering=True)
+    # By position the second control would pair with the confirmation and restore
+    # answer-1. It cannot be told, so the old block boundary applies.
+    assert plan is not None
+    assert plan.retired_block_bids == ["answer-0", "answer-1", "answer-2"]
+
+
+def test_a_legacy_question_only_turn_without_a_record_is_not_skipped(
+    app: object,
+) -> None:
+    """A pre-checkpoint turn that only asked a question is a saved turn, not an abandoned one."""
+    with app.app_context():
+        _clean()
+        _record()
+        # Both saved before checkpoints existed: B1 asked q1, B2 answered it and only
+        # asked q2, so it has no text and no record either.
+        _block("B1", checkpoint=None, values=[])
+        db.session.add(
+            make_generated_block(
+                generated_block_bid="B2",
+                progress_record_bid=RECORD,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_item_bid=OUTLINE,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                generated_content="",
+                block_content_conf="",
+                status=1,
+            )
+        )
+        db.session.flush()
+        _element("q2-control", "B2")
+        row = LearnGeneratedElement.query.filter_by(element_bid="q2-control").one()
+        row.element_type = "interaction"
+        _block(
+            "B3",
+            checkpoint={
+                **_WAITING,
+                "pending": [
+                    {"tool_call_id": "q2", "spec": _QUESTION.model_dump(mode="json")}
+                ],
+            },
+            values=["Left"],
+        )
+        db.session.commit()
+        # B2 is not skipped, so the edit of B1's answer does not land on B3 (q2).
+        with pytest.raises(rewind.RewindUnavailableError):
+            _plan("B1", answering=True)
+
+
+def test_an_interrupted_question_turn_after_checkpoints_is_abandoned(
+    app: object,
+) -> None:
+    """A run that streamed a question and died before saving is skipped and retired."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("B1", checkpoint=_BEFORE_B1, values=[])
+        db.session.add(
+            make_generated_block(
+                generated_block_bid="B2",
+                progress_record_bid=RECORD,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_item_bid=OUTLINE,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                generated_content="",
+                block_content_conf="",
+                status=1,
+            )
+        )
+        db.session.flush()
+        _element("interrupted-control", "B2")
+        row = LearnGeneratedElement.query.filter_by(
+            element_bid="interrupted-control"
+        ).one()
+        row.element_type = "interaction"
+        _block("B3", checkpoint=_WAITING, values=["Left"])
+        _age("B2")
+        db.session.commit()
+        plan = _plan("B1", answering=True)
+    assert plan is not None
+    assert plan.checkpoint == _WAITING
+    assert plan.retired_block_bids == ["B3", "B2"]
+
+
+def _age(bid: str) -> None:
+    """Move a block past the abandonment grace, as if its run died a while ago."""
+    LearnGeneratedBlock.query.filter_by(generated_block_bid=bid).one().created_at = (
+        now_utc() - rewind.ABANDONED_TURN_GRACE - timedelta(minutes=1)
+    )
+
+
+def _empty_block(bid: str) -> None:
+    db.session.add(
+        make_generated_block(
+            generated_block_bid=bid,
+            progress_record_bid=RECORD,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_item_bid=OUTLINE,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            generated_content="",
+            block_content_conf="",
+            status=1,
+        )
+    )
+    db.session.flush()
+
+
+@pytest.mark.parametrize(
+    ("first_checkpoint", "abandoned"),
+    [(_BEFORE_B1, ["B0"]), (_WAITING, [])],
+    ids=["first-turn-killed", "legacy-turn-in-session"],
+)
+def test_an_empty_block_before_the_first_record_needs_a_turn_zero_checkpoint(
+    app: object, first_checkpoint: dict, abandoned: list[str]
+) -> None:
+    """Killed on the attempt's first turn, a block has no earlier record to vouch for it."""
+    with app.app_context():
+        _clean()
+        _record()
+        _empty_block("B0")
+        _age("B0")
+        # The first record says how many turns the saved session held: none means B0
+        # never reached it; one means B0 is a saved pre-checkpoint turn.
+        _block("B1", checkpoint=first_checkpoint, values=[])
+        db.session.commit()
+        assert (
+            rewind.abandoned_turn_block_bids(
+                user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+            )
+            == abandoned
+        )
+        rewind.retire_abandoned_turns(
+            user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+        )
+        db.session.commit()
+        status = LearnGeneratedBlock.query.filter_by(generated_block_bid="B0").one()
+        assert status.status == (0 if abandoned else 1)
+
+
+def test_a_young_empty_block_is_not_abandoned_yet(app: object) -> None:
+    """Its run may still be finishing after the request that started it went away."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("B1", checkpoint=_BEFORE_B1, values=[])
+        _empty_block("B2")
+        db.session.commit()
+        assert (
+            rewind.abandoned_turn_block_bids(
+                user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+            )
+            == []
+        )
+        _age("B2")
+        db.session.commit()
+        assert rewind.abandoned_turn_block_bids(
+            user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+        ) == ["B2"]

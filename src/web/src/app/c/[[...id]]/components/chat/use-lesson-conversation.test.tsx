@@ -18,9 +18,7 @@ import { useLessonRunContentStore } from '@/store/use-lesson-run-content-store';
 
 // The lesson API client pulls in the user store, whose transitive SSE import is
 // ESM-only under jest; this suite never calls it.
-jest.mock('@/api/lesson', () => ({
-  getScriptInfo: jest.fn(),
-}));
+jest.mock('@/api/lesson', () => ({}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -516,6 +514,48 @@ describe('useLessonConversation stream cleanup', () => {
       ]);
     },
   );
+
+  it('does not continue automatically after a stream error', async () => {
+    const params = buildBaseParams();
+    const { result } = renderHook(() => useLessonConversation(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const stream = activeRun;
+    await act(async () => {
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'partial',
+          generated_block_bid: 'partial',
+          element_type: 'content',
+          content: 'Partial teaching',
+          like_status: 'none',
+        },
+      });
+    });
+    const runCount = mockGetRunMessage.mock.calls.length;
+    // The backend ends a failed block with error, a non-terminal done, then
+    // the terminal done.
+    await act(async () => {
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.ERROR,
+        content: 'Model unavailable',
+      });
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: false,
+        content: '',
+      });
+      await stream?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
+        content: '',
+      });
+    });
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(runCount);
+    expect(result.current.hasRunFailed).toBe(true);
+  });
 
   it('sends listen=false in the run body when listen requests are disabled', async () => {
     const { result } = renderHook(
@@ -1983,10 +2023,15 @@ describe('useLessonConversation stream cleanup', () => {
 
     await act(async () => {
       await activeRun?.onMessage({
-        element_bid: 'streaming-content-1',
         generated_block_bid: 'streaming-content-1',
-        type: SSE_OUTPUT_TYPE.CONTENT,
-        content: 'Read mode text',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'streaming-content-1',
+          generated_block_bid: 'streaming-content-1',
+          element_type: 'text',
+          content: 'Read mode text',
+          is_final: false,
+        },
       });
     });
 
@@ -2004,10 +2049,15 @@ describe('useLessonConversation stream cleanup', () => {
 
     await act(async () => {
       await activeRun?.onMessage({
-        element_bid: 'streaming-content-1',
         generated_block_bid: 'streaming-content-1',
-        type: SSE_OUTPUT_TYPE.CONTENT,
-        content: ' while listening',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'streaming-content-1',
+          generated_block_bid: 'streaming-content-1',
+          element_type: 'text',
+          content: 'Read mode text while listening',
+          is_final: false,
+        },
       });
     });
 
@@ -2102,8 +2152,13 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'feedback-1',
-        type: SSE_OUTPUT_TYPE.INTERACTION,
-        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'feedback-1',
+          generated_block_bid: 'feedback-1',
+          element_type: 'interaction',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        },
       });
     });
 
@@ -2137,8 +2192,13 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'feedback-1',
-        type: SSE_OUTPUT_TYPE.INTERACTION,
-        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'feedback-1',
+          generated_block_bid: 'feedback-1',
+          element_type: 'interaction',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        },
       });
     });
 
@@ -2174,8 +2234,13 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'feedback-1',
-        type: SSE_OUTPUT_TYPE.INTERACTION,
-        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'feedback-1',
+          generated_block_bid: 'feedback-1',
+          element_type: 'interaction',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        },
       });
     });
 
@@ -2211,8 +2276,13 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'feedback-1',
-        type: SSE_OUTPUT_TYPE.INTERACTION,
-        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'feedback-1',
+          generated_block_bid: 'feedback-1',
+          element_type: 'interaction',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        },
       });
     });
 
@@ -2248,8 +2318,13 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'feedback-1',
-        type: SSE_OUTPUT_TYPE.INTERACTION,
-        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'feedback-1',
+          generated_block_bid: 'feedback-1',
+          element_type: 'interaction',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+        },
       });
     });
 
@@ -2880,107 +2955,6 @@ describe('useLessonConversation stream cleanup', () => {
     ).toBe(true);
   });
 
-  it('carries streamed visual slides from a generated block to its final element', async () => {
-    const { result } = renderHook(
-      () => useLessonConversation(buildBaseParams()),
-      {
-        wrapper,
-      },
-    );
-
-    await waitFor(() => expect(activeRun).toBeDefined());
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        element_bid: 'streaming-block-visual-1',
-        generated_block_bid: 'generated-visual-1',
-        type: SSE_OUTPUT_TYPE.CONTENT,
-        content: 'Generating visual...',
-      });
-    });
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        generated_block_bid: 'generated-visual-1',
-        type: SSE_OUTPUT_TYPE.NEW_SLIDE,
-        content: {
-          slide_id: 'slide-visual-1',
-          target_element_bid: 'element-visual-1',
-          generated_block_bid: 'generated-visual-1',
-          slide_index: 0,
-          audio_position: 0,
-          visual_kind: 'image',
-          segment_type: 'markdown',
-          segment_content: '![diagram](https://example.com/diagram.png)',
-          source_span: [0, 18],
-          is_placeholder: false,
-        },
-      });
-    });
-
-    expect(
-      result.current.items.find(
-        item => item.generated_block_bid === 'generated-visual-1',
-      )?.listenSlides,
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          slide_id: 'slide-visual-1',
-          segment_content: '![diagram](https://example.com/diagram.png)',
-        }),
-      ]),
-    );
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        generated_block_bid: 'generated-visual-1',
-        type: SSE_OUTPUT_TYPE.ELEMENT,
-        content: {
-          element_bid: 'streaming-block-visual-1',
-          generated_block_bid: 'generated-visual-1',
-          element_type: 'text',
-          content: '',
-          is_renderable: false,
-          is_speakable: false,
-          is_new: true,
-          like_status: 'none',
-        },
-      });
-    });
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        generated_block_bid: 'generated-visual-1',
-        type: SSE_OUTPUT_TYPE.ELEMENT,
-        content: {
-          element_bid: 'element-visual-1',
-          generated_block_bid: 'generated-visual-1',
-          element_type: 'text',
-          content: 'Final visual explanation',
-          is_speakable: true,
-          like_status: 'none',
-        },
-      });
-    });
-
-    expect(
-      result.current.items.find(
-        item => item.element_bid === 'streaming-block-visual-1',
-      )?.is_renderable,
-    ).toBe(false);
-    expect(
-      result.current.items.find(item => item.element_bid === 'element-visual-1')
-        ?.listenSlides,
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          slide_id: 'slide-visual-1',
-          generated_block_bid: 'generated-visual-1',
-        }),
-      ]),
-    );
-  });
-
   it('keeps multiple final elements from the same generated block distinct', async () => {
     const { result } = renderHook(
       () => useLessonConversation(buildBaseParams()),
@@ -2990,34 +2964,6 @@ describe('useLessonConversation stream cleanup', () => {
     );
 
     await waitFor(() => expect(activeRun).toBeDefined());
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        element_bid: 'streaming-multi-1',
-        generated_block_bid: 'generated-multi-1',
-        type: SSE_OUTPUT_TYPE.CONTENT,
-        content: 'Generating visual and text...',
-      });
-    });
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        generated_block_bid: 'generated-multi-1',
-        type: SSE_OUTPUT_TYPE.NEW_SLIDE,
-        content: {
-          slide_id: 'slide-multi-visual-1',
-          target_element_bid: 'visual-final-1',
-          generated_block_bid: 'generated-multi-1',
-          slide_index: 0,
-          audio_position: 0,
-          visual_kind: 'image',
-          segment_type: 'markdown',
-          segment_content: '![figure](https://example.com/figure.png)',
-          source_span: [0, 34],
-          is_placeholder: false,
-        },
-      });
-    });
 
     await act(async () => {
       await activeRun?.onMessage({
@@ -3083,16 +3029,6 @@ describe('useLessonConversation stream cleanup', () => {
       '![figure](https://example.com/figure.png)',
     );
     expect(textItem?.content).toBe('Final explanation after the image');
-    expect(visualItem?.listenSlides).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ slide_id: 'slide-multi-visual-1' }),
-      ]),
-    );
-    expect(textItem?.listenSlides ?? []).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ slide_id: 'slide-multi-visual-1' }),
-      ]),
-    );
   });
 
   it('hydrates history visual elements from payload previous visuals', async () => {
@@ -3334,15 +3270,24 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'content-text-1',
-        type: SSE_OUTPUT_TYPE.CONTENT,
-        content: ' and second line',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First line and second line',
+          like_status: 'none',
+          is_final: false,
+        },
       });
     });
 
-    expect(
-      result.current.items.find(item => item.element_bid === 'content-text-1')
-        ?.content,
-    ).not.toContain('<custom-button-after-content>');
+    const content = result.current.items.find(
+      item => item.element_bid === 'content-text-1',
+    )?.content;
+
+    expect(content).toBe('First line and second line');
+    expect(content).not.toContain('<custom-button-after-content>');
   });
 
   it('keeps previously streamed text when a resumed run sends a cumulative content snapshot', async () => {
@@ -3383,8 +3328,14 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'content-text-1',
-        type: SSE_OUTPUT_TYPE.CONTENT,
-        content: 'First line and second line',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First line and second line',
+          like_status: 'none',
+        },
       });
     });
 

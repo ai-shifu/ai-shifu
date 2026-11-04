@@ -150,6 +150,16 @@ def _is_valid_rpm_limits_json(value: object) -> bool:
 
 def parse_llm_model_max_output_tokens(value: object) -> dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
+    return _parse_llm_model_token_limits(value, "maximum output token")
+
+
+def parse_llm_model_max_input_tokens(value: object) -> dict[str, int]:
+    """Parse a routed model id -> maximum input token JSON map."""
+    return _parse_llm_model_token_limits(value, "maximum input token")
+
+
+def _parse_llm_model_token_limits(value: object, label: str) -> dict[str, int]:
+    """Parse a routed model id -> positive token limit JSON map."""
     if value in (None, ""):
         return {}
     if isinstance(value, dict):
@@ -166,7 +176,7 @@ def parse_llm_model_max_output_tokens(value: object) -> dict[str, int]:
         raise ValueError(message)  # noqa: TRY004
 
     parsed: dict[str, int] = {}
-    for model, max_output_tokens in candidate.items():
+    for model, limit in candidate.items():
         if not isinstance(model, str) or not model.strip():
             message = "model ids must be non-empty strings"
             raise ValueError(message)
@@ -174,20 +184,24 @@ def parse_llm_model_max_output_tokens(value: object) -> dict[str, int]:
         if normalized_model in parsed:
             message = "model ids must be unique after trimming whitespace"
             raise ValueError(message)
-        if (
-            isinstance(max_output_tokens, bool)
-            or not isinstance(max_output_tokens, int)
-            or max_output_tokens <= 0
-        ):
-            message = "maximum output token values must be positive integers"
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            message = f"{label} values must be positive integers"
             raise ValueError(message)
-        parsed[normalized_model] = max_output_tokens
+        parsed[normalized_model] = limit
     return parsed
 
 
 def _is_valid_llm_model_max_output_tokens_json(value: object) -> bool:
     try:
         parse_llm_model_max_output_tokens(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_valid_llm_model_max_input_tokens_json(value: object) -> bool:
+    try:
+        parse_llm_model_max_input_tokens(value)
     except ValueError:
         return False
     return True
@@ -953,6 +967,20 @@ Default: "phone".""",
         group="llm",
         required=False,
         validator=_is_valid_llm_model_max_output_tokens_json,
+    ),
+    "LLM_MODEL_MAX_INPUT_TOKENS": EnvVar(
+        name="LLM_MODEL_MAX_INPUT_TOKENS",
+        default="",
+        type=str,
+        description=(
+            "Optional JSON object mapping full routed LLM model ids to positive "
+            "maximum input token limits, as published by the serving provider. "
+            "Values take precedence over LiteLLM model metadata and size lesson "
+            "model input budgets; unknown models keep the 256 KiB default."
+        ),
+        group="llm",
+        required=False,
+        validator=_is_valid_llm_model_max_input_tokens_json,
     ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
         name="DEFAULT_LLM_TEMPERATURE",

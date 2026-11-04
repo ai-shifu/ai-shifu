@@ -246,9 +246,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'turn-1',
-          content: 'The lesson.',
+          type: 'element',
+          content: {
+            element_bid: 'turn-1',
+            generated_block_bid: 'turn-1',
+            element_type: 'text',
+            content: 'The lesson.',
+          },
         }),
       });
       source.listeners.message?.({
@@ -295,9 +299,14 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'block',
-          content: 'Visible content',
+          type: 'element',
+          content: {
+            element_bid: 'block',
+            generated_block_bid: 'block',
+            element_type: 'text',
+            content: 'Visible content',
+            is_final: false,
+          },
         }),
       });
     });
@@ -382,7 +391,15 @@ describe('useDebugSession helpers and business error rendering', () => {
           data: JSON.stringify({ type: 'done', is_terminal: true }),
         });
         source.listeners.message?.({
-          data: JSON.stringify({ type: 'content', content: 'Stale output' }),
+          data: JSON.stringify({
+            type: 'element',
+            content: {
+              element_bid: 'stale',
+              generated_block_bid: 'stale',
+              element_type: 'text',
+              content: 'Stale output',
+            },
+          }),
         });
       });
 
@@ -774,6 +791,38 @@ describe('useDebugSession helpers and business error rendering', () => {
       },
     );
 
+    test('edits an earlier answer under an edited draft without restarting', async () => {
+      const { result, sources } = await prepareAnswers();
+      const firstRequest = JSON.parse(
+        (SSE as jest.Mock).mock.lastCall[1].payload,
+      );
+      const count = sources.length;
+      mockGetCurrentMdflow.mockReturnValue('Edited draft');
+      act(() =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['B'] },
+          'question',
+        ),
+      );
+      // The author is asked to confirm the rewind instead of losing the run.
+      expect(result.current.regenerationConfirmation.open).toBe(true);
+      await act(async () =>
+        result.current.regenerationConfirmation.onConfirm(),
+      );
+      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(request).toMatchObject({
+        content: 'Edited draft',
+        debug_session_id: firstRequest.debug_session_id,
+        reload_generated_block_bid: 'question-turn',
+        reload_element_bid: 'question',
+        user_input: { answer: ['B'] },
+      });
+      expect(sources).toHaveLength(count + 1);
+      expect(
+        result.current.items.some(item => item.element_bid === 'question'),
+      ).toBe(true);
+    });
+
     test('cancelled answer-edit confirmation leaves the active output and answers intact', async () => {
       const { result, sources } = await prepareAnswers(true);
       const before = result.current.items;
@@ -850,6 +899,36 @@ describe('useDebugSession helpers and business error rendering', () => {
         );
       },
     );
+
+    test('keeps an answer-edit retry available after retrying under a newer draft', async () => {
+      const { result, sources } = await prepareAnswers();
+      act(() =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['B'] },
+          'question',
+        ),
+      );
+      await act(async () =>
+        result.current.regenerationConfirmation.onConfirm(),
+      );
+      act(() =>
+        emit(sources.at(-1)!, { type: 'error', content: 'Private failure' }),
+      );
+      expect(result.current.canRetryAnswerEdit).toBe(true);
+      mockGetCurrentMdflow.mockReturnValue('Edited draft');
+      await act(async () => result.current.retryAnswerEdit());
+      expect(
+        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload),
+      ).toMatchObject({
+        content: 'Edited draft',
+        reload_element_bid: 'question',
+        user_input: { answer: ['B'] },
+      });
+      act(() =>
+        emit(sources.at(-1)!, { type: 'error', content: 'Private failure' }),
+      );
+      expect(result.current.canRetryAnswerEdit).toBe(true);
+    });
 
     test('answer editing proceeds when analytics throws and counts a new deliberate edit separately', async () => {
       const { result, sources } = await prepareAnswers();
@@ -950,9 +1029,14 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'recovered',
-          content: 'Recovered',
+          type: 'element',
+          content: {
+            element_bid: 'recovered',
+            generated_block_bid: 'recovered',
+            element_type: 'text',
+            content: 'Recovered',
+            is_final: true,
+          },
         }),
       });
       source.listeners.message?.({
@@ -1418,9 +1502,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       firstSource.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'pause',
-          content: 'Ready to continue?',
+          type: 'element',
+          content: {
+            element_bid: 'pause',
+            generated_block_bid: 'pause',
+            element_type: 'text',
+            content: 'Ready to continue?',
+          },
         }),
       });
       firstSource.listeners.message?.({
@@ -1484,9 +1572,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       sources[1].listeners.message?.({
         data: JSON.stringify({
-          type: 'interaction',
-          generated_block_bid: 'new-question',
-          content: '?[answer]',
+          type: 'element',
+          content: {
+            element_bid: 'new-question',
+            generated_block_bid: 'new-question',
+            element_type: 'interaction',
+            content: '?[answer]',
+          },
         }),
       });
       sources[1].listeners.message?.({
@@ -1649,9 +1741,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'late-block',
-          content: 'late content should be ignored',
+          type: 'element',
+          content: {
+            element_bid: 'late-block',
+            generated_block_bid: 'late-block',
+            element_type: 'text',
+            content: 'late content should be ignored',
+          },
         }),
       });
     });
@@ -1833,9 +1929,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'late-langfuse-block',
-          content: 'late content should be ignored',
+          type: 'element',
+          content: {
+            element_bid: 'late-langfuse-block',
+            generated_block_bid: 'late-langfuse-block',
+            element_type: 'text',
+            content: 'late content should be ignored',
+          },
         }),
       });
     });
@@ -1916,9 +2016,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() =>
       debugSource.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'audio',
-          content: 'Speak this.',
+          type: 'element',
+          content: {
+            element_bid: 'audio',
+            generated_block_bid: 'audio',
+            element_type: 'text',
+            content: 'Speak this.',
+          },
         }),
       }),
     );
@@ -2034,9 +2138,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       act(() =>
         sources[0].listeners.message?.({
           data: JSON.stringify({
-            type: 'content',
-            generated_block_bid: 'audio',
-            content: 'Speak this.',
+            type: 'element',
+            content: {
+              element_bid: 'audio',
+              generated_block_bid: 'audio',
+              element_type: 'text',
+              content: 'Speak this.',
+            },
           }),
         }),
       );
@@ -2099,9 +2207,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       act(() =>
         sources[0].listeners.message?.({
           data: JSON.stringify({
-            type: 'content',
-            generated_block_bid: 'audio',
-            content: 'Speak this.',
+            type: 'element',
+            content: {
+              element_bid: 'audio',
+              generated_block_bid: 'audio',
+              element_type: 'text',
+              content: 'Speak this.',
+            },
           }),
         }),
       );
@@ -2183,9 +2295,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'question',
-          content: 'Continue?',
+          type: 'element',
+          content: {
+            element_bid: 'question',
+            generated_block_bid: 'question',
+            element_type: 'text',
+            content: 'Continue?',
+          },
         }),
       });
       source.listeners.message?.({
@@ -2231,9 +2347,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       debugSource.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'audio-block',
-          content: 'Audio text.',
+          type: 'element',
+          content: {
+            element_bid: 'audio-block',
+            generated_block_bid: 'audio-block',
+            element_type: 'text',
+            content: 'Audio text.',
+          },
         }),
       });
     });

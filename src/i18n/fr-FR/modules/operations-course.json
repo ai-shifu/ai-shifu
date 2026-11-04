@@ -64,13 +64,7 @@
       "copySuccess": "Détail du contenu copié",
       "empty": "Aucun contenu",
       "sections": {
-        "content": "Contenu du cours",
-        "systemPrompt": "Prompt système"
-      },
-      "sources": {
-        "chapter": "Source : prompt de chapitre",
-        "course": "Source : prompt du cours",
-        "lesson": "Source : prompt de leçon"
+        "content": "Contenu du cours"
       },
       "title": "Détail du contenu"
     },

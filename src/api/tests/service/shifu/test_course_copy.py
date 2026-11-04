@@ -148,7 +148,7 @@ def _seed_course_with_outlines(
                 parent_bid="",
                 position="01",
                 prerequisite_item_bids="",
-                llm_system_prompt="chapter prompt",
+                llm_system_prompt="Retired chapter teaching instructions",
                 ask_enabled_status=5103,
                 ask_llm_system_prompt="chapter ask",
                 content="",
@@ -164,7 +164,7 @@ def _seed_course_with_outlines(
                 parent_bid=chapter_bid,
                 position="0101",
                 prerequisite_item_bids="",
-                llm_system_prompt="lesson prompt 1",
+                llm_system_prompt="Retired first lesson teaching instructions",
                 ask_enabled_status=5103,
                 ask_llm_system_prompt="lesson ask 1",
                 content="## Title\n\nLesson A content",
@@ -180,7 +180,7 @@ def _seed_course_with_outlines(
                 parent_bid=chapter_bid,
                 position="0102",
                 prerequisite_item_bids=lesson_a_bid,
-                llm_system_prompt="lesson prompt 2",
+                llm_system_prompt="Retired second lesson teaching instructions",
                 ask_enabled_status=5103,
                 ask_llm_system_prompt="lesson ask 2",
                 content="## Title\n\nLesson B content",
@@ -308,6 +308,10 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app: object) ->
         assert copied_draft.created_user_bid == creator_bid
         assert copied_draft.updated_user_bid == SOURCE_OPERATOR_BID
         assert copied_draft.llm == "gpt-4.1"
+        assert copied_draft.llm_system_prompt == "course prompt"
+        assert copied_draft.ask_llm_system_prompt == "ask prompt"
+        assert copied_draft.llm_temperature == Decimal("0.35")
+        assert copied_draft.ask_llm_temperature == Decimal("0.15")
         assert copied_draft.ask_provider_config == json.dumps(
             {
                 "provider": "llm",
@@ -324,6 +328,16 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app: object) ->
         assert copied_draft.use_learner_language == 1
 
         assert len(copied_outlines) == 3
+        assert all(item.llm_system_prompt == "" for item in copied_outlines)
+        assert [item.ask_llm_system_prompt for item in copied_outlines] == [
+            "chapter ask",
+            "lesson ask 1",
+            "lesson ask 2",
+        ]
+        assert all(
+            item.llm_system_prompt
+            for item in DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+        )
         assert copied_by_title["第一章"].outline_item_bid != source_bids["chapter_bid"]
         assert copied_by_title["第一节"].outline_item_bid != source_bids["lesson_a_bid"]
         assert copied_by_title["第二节"].outline_item_bid != source_bids["lesson_b_bid"]
@@ -497,7 +511,6 @@ def test_copy_course_skips_deleted_outlines_and_copies_course_variables(
                 parent_bid=source_bids["chapter_bid"],
                 position="0102",
                 prerequisite_item_bids=source_bids["lesson_a_bid"],
-                llm_system_prompt="lesson prompt 2",
                 ask_enabled_status=5103,
                 ask_llm_system_prompt="lesson ask 2",
                 content="## Title\n\nLesson B content",
