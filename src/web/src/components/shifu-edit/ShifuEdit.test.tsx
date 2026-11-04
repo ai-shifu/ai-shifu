@@ -1,5 +1,6 @@
 import React from 'react';
-import { showBackgroundToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
+import type { DraftMeta } from '@/types/shifu';
 import {
   act,
   fireEvent,
@@ -11,6 +12,7 @@ import ScriptEditor, {
   resolveEditorOnboardingTriggerSource,
 } from './ShifuEdit';
 
+const mockTranslate = (key: string) => key;
 const refreshLabel = 'refresh';
 const historyLinkText = 'history';
 const mockMarkdownFlowEditor = jest.fn();
@@ -19,7 +21,6 @@ const mockTrackEvent = jest.fn();
 const mockUseDebugSession = jest.fn();
 const mockRetryDebugAnswerEdit = jest.fn();
 const mockRefreshUserInfo = jest.fn();
-const mockDismissSyncToast = jest.fn();
 let mockUserToken = 'token';
 let mockCanRetryAnswerEdit = true;
 
@@ -39,8 +40,7 @@ jest.mock('next/dynamic', () => () => {
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { phone?: string }) =>
-      options?.phone ? `${key}:${options.phone}` : key,
+    t: mockTranslate,
     i18n: jest.requireMock('@/i18n').default,
   }),
 }));
@@ -186,10 +186,7 @@ jest.mock('@/components/ui/Tabs', () => ({
 jest.mock('react-rnd', () => ({
   Rnd: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-jest.mock('@/hooks/use-toast', () => ({
-  toast: jest.fn(),
-  showBackgroundToast: jest.fn(),
-}));
+jest.mock('@/hooks/use-toast', () => ({ toast: jest.fn() }));
 jest.mock('@/store', () => ({
   useEnvStore: jest.fn(() => 'https://example.com'),
   __esModule: true,
@@ -354,7 +351,7 @@ const mockShifuState = {
     children: [],
   },
   baseRevision: null as number | null,
-  latestDraftMeta: null,
+  latestDraftMeta: null as DraftMeta | null,
   lastSaveTime: null as Date | null,
   hasDraftConflict: false,
   autosavePaused: false,
@@ -394,13 +391,7 @@ describe('ShifuEdit draft conflict checks', () => {
   };
 
   beforeEach(() => {
-    mockDismissSyncToast.mockClear();
-    jest.mocked(showBackgroundToast).mockReset();
-    jest.mocked(showBackgroundToast).mockReturnValue({
-      id: 'sync-toast',
-      dismiss: mockDismissSyncToast,
-      update: jest.fn(),
-    });
+    jest.mocked(toast).mockClear();
     mockMarkdownFlowEditor.mockReset();
     mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
@@ -900,37 +891,49 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(false);
   });
 
-  test.each([
-    ['user-1', 'module.shifuSetting.draftSelfUpdateSynced'],
-    ['other-user', 'module.shifuSetting.draftConflictSynced:13900139000'],
-  ])(
-    'uses the shared transient toast for updates by %s',
-    async (userBid, message) => {
+  test.each(['user-1', 'other-user'])(
+    'silently syncs updates by %s and refreshes the header timestamp',
+    async userBid => {
       setLessonNode();
       mockShifuState.baseRevision = 1;
-      mockLoadDraftMeta.mockResolvedValue({ revision: 1, updated_user: null });
+      const initialMeta = {
+        revision: 1,
+        updated_at: '2026-11-03T01:00:00Z',
+        updated_user: null,
+      };
+      mockShifuState.latestDraftMeta = initialMeta;
+      mockLoadDraftMeta.mockResolvedValue(initialMeta);
       baseActions.loadMdflow.mockResolvedValue(true);
-
-      render(<ScriptEditor id='shifu-1' />);
-
-      await waitFor(() => {
-        expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1);
+      baseActions.setLatestDraftMeta.mockImplementation(meta => {
+        mockShifuState.latestDraftMeta = meta;
       });
-      expect(showBackgroundToast).not.toHaveBeenCalled();
+      const { rerender } = render(<ScriptEditor id='shifu-1' />);
+      await waitFor(() =>
+        expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1),
+      );
+      rerender(<ScriptEditor id='shifu-1' />);
+      expect(screen.getByTestId('lesson-history-link')).toHaveAttribute(
+        'data-history-updated-at',
+        '2026-11-03T01:00:00.000Z',
+      );
 
-      mockLoadDraftMeta.mockResolvedValue({
+      baseActions.loadMdflow.mockClear();
+      const newerMeta = {
         revision: 2,
+        updated_at: '2026-11-03T02:00:00Z',
         updated_user: { user_bid: userBid, phone: '13900139000' },
-      });
-      await act(async () => {
-        window.dispatchEvent(new Event('focus'));
-      });
+      };
+      mockLoadDraftMeta.mockResolvedValue(newerMeta);
+      await act(async () => window.dispatchEvent(new Event('focus')));
+      rerender(<ScriptEditor id='shifu-1' />);
 
-      expect(showBackgroundToast).toHaveBeenCalledTimes(1);
-      expect(showBackgroundToast).toHaveBeenCalledWith({
-        description: message,
-      });
-      expect(screen.queryByText(message)).not.toBeInTheDocument();
+      expect(baseActions.loadMdflow).toHaveBeenCalledTimes(1);
+      expect(baseActions.setBaseRevision).toHaveBeenCalledWith(2);
+      expect(screen.getByTestId('lesson-history-link')).toHaveAttribute(
+        'data-history-updated-at',
+        '2026-11-03T02:00:00.000Z',
+      );
+      expect(toast).not.toHaveBeenCalled();
       expect(
         screen.queryByTestId('draft-conflict-dialog'),
       ).not.toBeInTheDocument();
@@ -953,11 +956,11 @@ describe('ShifuEdit draft conflict checks', () => {
     await act(async () => window.dispatchEvent(new Event('focus')));
 
     expect(baseActions.loadMdflow).toHaveBeenCalledTimes(1);
-    expect(showBackgroundToast).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
   });
 
   test.each(['content load', 'metadata load'])(
-    'does not show delayed sync feedback after unmount during %s',
+    'does not apply completed sync state after unmount during %s',
     async pendingStage => {
       setLessonNode();
       mockShifuState.baseRevision = 1;
@@ -988,46 +991,15 @@ describe('ShifuEdit draft conflict checks', () => {
       await act(async () => window.dispatchEvent(new Event('focus')));
       expect(baseActions.loadMdflow).toHaveBeenCalledTimes(1);
       unmount();
+      baseActions.setBaseRevision.mockClear();
+      baseActions.setLatestDraftMeta.mockClear();
+      baseActions.setAutosavePaused.mockClear();
       await act(async () => finishPending());
 
-      expect(showBackgroundToast).not.toHaveBeenCalled();
-    },
-  );
-
-  test.each(['lesson change', 'course change', 'unmount'])(
-    'dismisses chapter sync feedback on %s',
-    async transition => {
-      setLessonNode();
-      mockShifuState.baseRevision = 1;
-      mockLoadDraftMeta.mockResolvedValue({ revision: 1, updated_user: null });
-      baseActions.loadMdflow.mockResolvedValue(true);
-      const { rerender, unmount } = render(<ScriptEditor id='shifu-1' />);
-      await waitFor(() =>
-        expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1),
-      );
-
-      mockLoadDraftMeta.mockResolvedValue({ revision: 2, updated_user: null });
-      await act(async () => window.dispatchEvent(new Event('focus')));
-      expect(showBackgroundToast).toHaveBeenCalledTimes(1);
-      expect(mockDismissSyncToast).not.toHaveBeenCalled();
-
-      if (transition === 'unmount') {
-        unmount();
-      } else {
-        if (transition === 'lesson change') {
-          mockShifuState.currentNode = {
-            ...mockShifuState.currentNode,
-            bid: 'lesson-2',
-          };
-        } else {
-          mockShifuState.currentShifu = {
-            ...mockShifuState.currentShifu,
-            bid: 'shifu-2',
-          };
-        }
-        rerender(<ScriptEditor id='shifu-1' />);
-      }
-      expect(mockDismissSyncToast).toHaveBeenCalledTimes(1);
+      expect(baseActions.setBaseRevision).not.toHaveBeenCalled();
+      expect(baseActions.setLatestDraftMeta).not.toHaveBeenCalled();
+      expect(baseActions.setAutosavePaused).not.toHaveBeenCalled();
+      expect(toast).not.toHaveBeenCalled();
     },
   );
 
@@ -1067,7 +1039,7 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(baseActions.setDraftConflict).toHaveBeenCalledWith(true);
     });
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(true);
-    expect(showBackgroundToast).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
   });
 
   test('does not open conflict dialog on lesson switch when remote revision is not newer', async () => {
