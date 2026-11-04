@@ -5,9 +5,7 @@ import type { LessonTreeCatalog } from '../../hooks/use-lesson-tree';
 
 // The lesson API client pulls in the user store, whose transitive SSE import is
 // ESM-only under jest; this suite never calls it.
-jest.mock('@/api/lesson', () => ({
-  getScriptInfo: jest.fn(),
-}));
+jest.mock('@/api/lesson', () => ({}));
 
 jest.mock('@/api/learning', () => ({
   LEARNING_PERMISSION: {

@@ -178,7 +178,7 @@ export const LessonConversation = ({
   onLessonUpdateNoticeVisibilityChange,
   onLessonPdfActionChange,
 }: LessonConversationProps) => {
-  const { trackEvent, trackTrailProgress } = useTracking();
+  const { trackEvent } = useTracking();
   const { t } = useTranslation();
   const router = useRouter();
   const lessonFeedbackSubmitLabel = t('module.chat.lessonFeedbackSubmit');
@@ -511,7 +511,6 @@ export const LessonConversation = ({
     isListenMode: isListenModeActive,
     learningMode,
     trackEvent,
-    trackTrailProgress,
     lessonUpdate,
     chapterUpdate,
     updateSelectedLesson,

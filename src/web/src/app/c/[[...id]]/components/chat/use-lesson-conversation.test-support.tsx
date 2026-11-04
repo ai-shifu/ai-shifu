@@ -70,7 +70,6 @@ export const buildBaseParams = (): UseChatSessionParams => ({
   outlineBid: 'lesson-1',
   lessonId: 'lesson-1',
   trackEvent: jest.fn(),
-  trackTrailProgress: jest.fn(),
   lessonUpdate: jest.fn(),
   chapterUpdate: jest.fn(),
   updateSelectedLesson: jest.fn(),
