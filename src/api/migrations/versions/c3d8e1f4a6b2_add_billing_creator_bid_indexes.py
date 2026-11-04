@@ -30,10 +30,24 @@ depends_on = None
 
 
 def _index_exists(table_name: str, index_name: str) -> bool:
+    """Return whether this revision's index is already there.
+
+    A same-named index with another definition is not a partial run of this
+    revision, so it stops the upgrade instead of being accepted.
+    """
     inspector = sa.inspect(op.get_bind())
-    return any(
-        index.get("name") == index_name for index in inspector.get_indexes(table_name)
-    )
+    for index in inspector.get_indexes(table_name):
+        if index.get("name") != index_name:
+            continue
+        if list(index.get("column_names") or []) == ["creator_bid"] and not bool(
+            index.get("unique")
+        ):
+            return True
+        raise RuntimeError(
+            f"{table_name}.{index_name} exists with an unexpected definition; "
+            "drop it before upgrading"
+        )
+    return False
 
 
 def upgrade():
