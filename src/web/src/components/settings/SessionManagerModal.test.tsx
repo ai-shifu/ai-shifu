@@ -30,7 +30,7 @@ jest.mock('@/lib/tracking', () => ({
   },
 }));
 
-jest.mock('@/api/lesson', () => ({ getScriptInfo: jest.fn() }));
+jest.mock('@/api/lesson', () => ({}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({

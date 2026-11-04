@@ -1,5 +1,4 @@
 export const EVENT_NAMES = {
-  TRIAL_PROGRESS: 'trial_progress',
   POP_PAY: 'pop_pay',
   POP_LOGIN: 'pop_login',
   PAY_SUCCEED: 'pay_succeed',
