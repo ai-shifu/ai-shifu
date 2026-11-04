@@ -103,6 +103,10 @@ def open_api_grant_order(
     a new account is created via import_activation_order.
     """
     verify_course_ownership(app, owner_bid, shifu_bid, allow_operator=True)
+    # Every grant needs a live published course. The importer also commits the
+    # learner account before it loads the published course, so check first.
+    if not _has_published_course(shifu_bid):
+        raise_error("server.shifu.shifuNotFound")
 
     normalized = normalize_contact_identifier(user_identify, user_identify_type)
     aggregate = load_user_aggregate_by_identifier(
@@ -112,11 +116,6 @@ def open_api_grant_order(
         existing_order = _find_active_order(aggregate.user_bid, shifu_bid)
         if existing_order:
             return {"order_bid": existing_order.order_bid}
-
-    # The importer commits the learner account before it loads the published
-    # course, so reject draft-only courses before any learner writes.
-    if not _has_published_course(shifu_bid):
-        raise_error("server.shifu.shifuNotFound")
 
     return import_activation_order(
         app,

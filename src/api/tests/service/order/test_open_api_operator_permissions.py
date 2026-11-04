@@ -51,6 +51,12 @@ def operator_partner(app: Flask) -> Iterator[SimpleNamespace]:
                     title="Partner course",
                     price=Decimal("100.00"),
                 ),
+                PublishedShifu(
+                    shifu_bid=own_course_bid,
+                    created_user_bid=operator_bid,
+                    title="Operator course",
+                    price=Decimal("100.00"),
+                ),
                 Order(
                     order_bid=order_bid,
                     user_bid=learner_bid,
@@ -235,6 +241,12 @@ def test_grant_rejects_draft_only_course_before_learner_writes(
         )
         assert Order.query.filter_by(shifu_bid=operator_partner.course_bid).count() == 1
     notify.assert_not_called()
+    existing = operator_partner.client.post(
+        "/api/open-api/v1/order/grant",
+        headers=headers,
+        json=operator_partner.payload,
+    ).get_json(force=True)
+    assert existing["code"] == ERROR_CODE["server.shifu.shifuNotFound"]
 
 
 def test_creator_grant_records_creator_as_granting_user(

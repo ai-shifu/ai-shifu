@@ -166,8 +166,10 @@ automatic account/credential creation for an unregistered learner, a zero-price
 order with payment channel `open_api`, and any existing notification behavior.
 The order keeps the course creator in `creator_bid` and records the
 authenticated key owner in `granted_by_user_bid`, so an operator grant on
-another creator's course stays attributable. Grant requires a live published
-course and rejects draft-only courses before any learner account is created.
+another creator's course stays attributable. Every grant requires a live
+published course, including a repeat grant for a learner who already has
+access; draft-only courses are rejected before any learner lookup or account
+creation.
 This is not a new notification mechanism or a guarantee of concurrency-safe
 idempotency. Rejected requests do not reach that importer or send notifications.
 
