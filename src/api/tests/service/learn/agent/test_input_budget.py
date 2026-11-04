@@ -409,7 +409,8 @@ async def test_accepted_finish_stands_when_its_followup_request_is_oversized(
 def test_budget_follows_the_model_input_token_ceiling() -> None:
     assert input_budget_bytes_for(None) == INPUT_BUDGET_BYTES
     assert input_budget_bytes_for(1_048_576) == 1_048_576
-    assert input_budget_bytes_for(32_768) == 32_768
+    # A known small ceiling never lowers the budget below the old default.
+    assert input_budget_bytes_for(32_768) == INPUT_BUDGET_BYTES
 
 
 def test_gateway_model_defaults_its_budget_from_the_model(
