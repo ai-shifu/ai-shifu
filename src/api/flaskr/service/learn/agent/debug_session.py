@@ -49,7 +49,9 @@ def _debug_cache_access() -> Iterator[None]:
 class DebugSessionStore:
     """An expiring session for one editor run of a draft lesson."""
 
-    TTL_SECONDS = 30 * 60
+    # Authors leave the debug panel open while they edit the draft; reads refresh
+    # this too, so only a session nobody touches for this long expires.
+    TTL_SECONDS = 4 * 60 * 60
 
     def __init__(
         self,
@@ -138,7 +140,7 @@ class DebugSessionStore:
 
     def _payload(self, *, script: str, any_script: bool = False) -> dict | None:
         with _debug_cache_access():
-            raw = self._cache.get(self._key)
+            raw = self._cache.getex(self._key, ex=self.TTL_SECONDS)
         if raw is None:
             return None
         try:
@@ -264,7 +266,7 @@ class DebugSessionStore:
             return
         with self._write_lock():
             self._assert_current_request()
-            payload = self._payload(script=script)
+            payload = self._payload(script=script, any_script=self._follow_script_edits)
             if payload is None:
                 raise RewindUnavailableError
             for turn in payload.get("turns", []):
@@ -283,7 +285,9 @@ class DebugSessionStore:
         element_bid: str | None = None,
     ) -> RewindPlan:
         """Resolve storage ownership, then use the shared turn rewind rules."""
-        payload = self._payload(script=script) or {}
+        payload = (
+            self._payload(script=script, any_script=self._follow_script_edits) or {}
+        )
         # Read session and checkpoints from one cache snapshot: the old stream
         # may still be saving while the replacement request is being admitted.
         try:
@@ -375,9 +379,10 @@ def stream_debug_preview(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         run_bid=run_bid,
-        # Authors edit the draft while debugging; their next answer continues the
-        # conversation under the edited script instead of discarding it.
-        follow_script_edits=bool(preview_request.user_input) and not anchor,
+        # Authors edit the draft while debugging. Their next answer, or an edit of
+        # an earlier answer, continues the conversation under the edited script
+        # instead of discarding it.
+        follow_script_edits=bool(preview_request.user_input or anchor),
     )
     session = store.load(script=script)
     if (preview_request.user_input or anchor) and session is None:

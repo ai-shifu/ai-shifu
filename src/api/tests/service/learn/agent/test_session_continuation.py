@@ -106,6 +106,7 @@ def test_debug_user_scope_note_survives_next_request_without_ui_variable_echo(
     values = {}
     cache = SimpleNamespace(
         get=values.get,
+        getex=lambda key, **_kwargs: values.get(key),
         setex=lambda key, _ttl, value: values.__setitem__(key, value),
     )
     monkeypatch.setattr(debug_session, "get_redis_client", lambda: None)
