@@ -520,10 +520,6 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.learn.agent import run_agent
-    from flaskr.service.learn.agent.teaching_brief import (
-        INITIAL_TEACHING_BRIEF_KEY,
-        refresh_teaching_brief,
-    )
 
     monkeypatch.setattr(debug_session, "cache", _Cache())
     from markdownflow import render_first_prompt
@@ -577,13 +573,6 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
     assert "Old draft" not in first_prompt
     assert first_prompt.startswith(
         render_first_prompt(session.script, {"goal": "learn"}).split("\n\n<script>")[0]
-    )
-    assert INITIAL_TEACHING_BRIEF_KEY in resumed.messages[0].metadata
-    refresh_teaching_brief(resumed, "Current course voice")
-    assert "<script>\nEdited draft\n</script>" in resumed.messages[0].parts[0].content
-    assert (
-        "<constraints>\nCurrent course voice\n</constraints>"
-        in resumed.messages[0].parts[0].content
     )
     following.save(resumed)
     # Saved under the edited draft, so the next answer resumes without the flag.

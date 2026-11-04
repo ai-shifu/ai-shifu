@@ -23,9 +23,8 @@ The durable behavior contract is
 - [x] 2026-11-04 02:50 UTC: Confirm application cleanup precedes schema deletion.
 - [x] 2026-11-04 03:00 UTC: Remove runtime, authoring, backup, and frontend
   dependencies; focused backend and frontend checks pass.
-- [x] 2026-11-04 03:10 UTC: Refresh identifiable persisted Agent-session
-  constraints without changing historical scripts or learner conversations;
-  document and test the conservative boundary for ambiguous old messages.
+- [x] 2026-11-04 03:10 UTC: Initially implement saved-session instruction
+  synchronization; superseded by the later decision to preserve initial messages.
 - [x] 2026-11-04 03:14 UTC: Verify legacy column values are ignored and course
   instructions remain effective: 4,812 backend tests passed, 93 skipped;
   88 focused frontend tests and TypeScript checks passed.
@@ -35,7 +34,12 @@ The durable behavior contract is
 - [x] 2026-11-04 03:54 UTC: Address review feedback with independent initial
   prompt ownership metadata and real-engine serialization regressions; 484
   focused Agent tests passed, with additional DB/Debug assertions verified in
-  a 95-test subset. Strengthen the operator, copy, and authoring-write tests.
+  a 95-test subset. The compatibility layer was later removed. Strengthen the
+  operator, copy, and authoring-write tests.
+- [x] 2026-11-04 05:17 UTC: Remove optional saved-session prompt synchronization
+  and ownership metadata at the owner's request; preserve the existing bundle
+  update and Debug script-edit rebuild. Rebase onto main without conflicts;
+  all 1,992 Agent tests pass, including six new session-state regressions.
 
 ## Surprises & Discoveries
 
@@ -44,8 +48,8 @@ different feature from the chapter/lesson teaching prompt (`llm_system_prompt`).
 Keep that context and the outline follow-up enablement inheritance intact.
 
 Updating a resumed session's script bundle alone does not update the initial
-model message. Existing sessions must also discard the retired outline
-constraints in that message, including when the course prompt is empty.
+model message. Saved sessions can retain historical outline constraints even
+when the current course prompt is empty.
 Historical messages do not consistently preserve the source of a constraints
 block: the old host could update the bundle alone, and the engine clears
 `request_inputs` after a turn. Text matching a constraints block may therefore
@@ -54,9 +58,8 @@ cleanup must explicitly settle session reset/migration for those cases.
 
 PR review reproduced the same ambiguity even when the message exactly matches
 the bundle's previous constraints. No textual match proves host ownership.
-Fresh initial prompts now receive independent native model-request metadata
-before first persistence. Relative ranges and an owned-prefix digest survive
-memory-prefix edits while rejecting stale or corrupt ownership markers.
+An optional ownership-metadata compatibility layer was implemented and reviewed,
+then removed at the owner's request to keep this PR focused on field retirement.
 
 ## Decision Log
 
@@ -70,12 +73,10 @@ memory-prefix edits while rejecting stale or corrupt ownership markers.
   exports omit these keys. Existing saved history is not rewritten.
 - Operator details return the course prompt directly. Remove the redundant
   source field, constants, types, labels, and conditional display paths together.
-- Refresh saved initial constraints only when their ownership is identifiable;
-  never infer host ownership from an arbitrary learner-authored XML-like tag.
-- Review follow-up: only explicit fresh-prompt/host-rebuild provenance establishes
-  ownership. Unmarked legacy messages remain unchanged even when they match the
-  current bundle. The application records the metadata; native Session message
-  serialization and Debug rewind preserve it without engine or store changes.
+- Preserve saved initial model messages without ownership metadata or automatic
+  prompt synchronization. Keep the original bundle-constraints update and
+  Debug's explicit script-edit rebuild. A course-prompt-only change or removal
+  requires a new or reset session to affect the initial message.
 
 ## Outcomes & Retrospective
 
@@ -84,23 +85,22 @@ publication, backups, learning, and operator calculations no longer consume
 outline teaching columns. Generated follow-up context remains effective.
 The full authoring/learning regression suite passed (4,812 passed, 93 skipped),
 as did focused frontend tests, type checks, and repository gates. Independent
-review identified and corrected a resumed-session instruction refresh gap and
-an initial-learner-input preservation issue. No database DDL is included.
+review clarified the saved-session instruction boundary. The optional initial
+message refresh and ownership metadata are removed. No database DDL is included.
 
 The follow-up schema cleanup must settle reset/migration of ambiguous historical
 Agent messages as described in the canonical product contract. Those messages
 are deliberately preserved at this stage rather than reinterpreted or erased.
 
-The review follow-up removes all legacy text-based ownership inference and
-adds real-engine serialization regressions for learner text identical to old
-constraints. Operator estimates/details, course copying, and authoring writes
-also seed nonempty retired values to prove that those paths ignore them.
+The review follow-up preserves saved initial messages, including learner text
+identical to old constraints. Operator estimates/details, course copying, and
+authoring writes also seed nonempty retired values to prove those paths ignore
+them.
 
 Manual review removes the remaining single-source discriminator across the
 operator API and UI and standardizes the product term as Course Prompt. The
-internal saved-session helper safely synchronizes that same course prompt;
-it does not introduce another configurable prompt type. Lesson-settings
-analytics still describes permission and visibility saves. Its fixed
+optional saved-session helper is removed following the owner's scope decision.
+Lesson-settings analytics still describes permission and visibility saves. Its fixed
 `variant=lesson` input is removed while the existing delivered payload is kept.
 
 ## Context and Orientation
@@ -127,9 +127,9 @@ harness, architecture checks, formatting, and the full pre-commit gate.
 ## Validation and Acceptance
 
 Legacy chapter/lesson columns are never read for model instructions or cost
-estimates and never appear in authoring responses or new backups. Identifiable
-saved host constraints are refreshed; ambiguous old messages follow the
-documented preservation boundary. Creating,
+estimates and never appear in authoring responses or new backups. New sessions
+use the current course prompt; saved initial messages follow the documented
+preservation boundary. Creating,
 renaming, copying, publishing, and restoring a course still work. Course-level
 instructions and generated follow-up contexts retain their behavior.
 
