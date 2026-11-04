@@ -34,6 +34,11 @@ separate PR. The durable contract is in
   The renamed reading/frontend coverage passes 314 tests, type checking and lint.
   Affected backend learning/Profile coverage passes 564 tests with the pinned SDK.
 - [ ] 2026-11-04 CST: Confirm renamed-head CI/review and maintainer acceptance.
+- [x] 2026-11-04 CST: Fix the review finding that a non-ASCII question suffix
+  can be mistaken for the complete current question; verify Unicode boundaries
+  and ordinary lead-ins before suppressing the Profile question fallback.
+  Four suffix cases reproduced the issue before the fix; all 216 Profile tests
+  pass afterward, including 35 single-session cases.
 
 ## Surprises & Discoveries
 
@@ -73,6 +78,9 @@ HTML entity makes that compatibility prefix inert.
   actual model instructions and the pre-existing engine tool/session field;
   the host maps between those layers. The new presentation field has not been
   released, so rename it atomically without a redundant compatibility alias.
+- Apply the same word-boundary rule to ASCII and Unicode letters/digits when
+  recognizing a question in current prose. A shorter question inside a longer
+  word is not evidence that the shorter question was asked.
 
 ## Outcomes & Retrospective
 

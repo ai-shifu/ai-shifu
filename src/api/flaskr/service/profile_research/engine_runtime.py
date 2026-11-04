@@ -154,10 +154,9 @@ def _question_in_content(question: str, chunks: list[ProfileChunk]) -> bool:
     if not asked or not said.endswith(asked):
         return False
     before = said[: -len(asked)]
-    # A short English title inside a longer word is not evidence of the question.
+    # A question embedded in a longer word is not evidence of the complete question.
     return not (
         before
-        and asked[0].isascii()
         and (asked[0].isalnum() or asked[0] == "_")
         and (before[-1].isalnum() or before[-1] == "_")
     )
