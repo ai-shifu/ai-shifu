@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/Popover';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
-import { stripInteractionPromptPrefix } from '@/lib/interaction-prompt';
+import { stripInteractionQuestionPrefix } from '@/lib/interaction-question';
 import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
@@ -90,7 +90,7 @@ import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/us
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
-  interaction_prompt?: string;
+  interaction_question?: string;
   page?: number;
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
@@ -524,7 +524,7 @@ const buildListenSlideElementFingerprint = (element: ListenSlideElement) =>
     blockBid: element.blockBid,
     page: element.page,
     user_input: element.user_input,
-    interaction_prompt: element.interaction_prompt,
+    interaction_question: element.interaction_question,
     readonly: element.readonly,
     audio_url: element.audio_url,
     audio_segments: element.audio_segments,
@@ -723,11 +723,11 @@ const buildSlideElementList = ({
       }),
       type: 'interaction',
       content: localizedContent,
-      interaction_prompt:
+      interaction_question:
         !isSystemInteraction &&
-        typeof item.payload?.interaction_prompt === 'string' &&
-        item.payload.interaction_prompt.trim()
-          ? item.payload.interaction_prompt
+        typeof item.payload?.interaction_question === 'string' &&
+        item.payload.interaction_question.trim()
+          ? item.payload.interaction_question
           : undefined,
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,
@@ -792,9 +792,9 @@ const ListenModeSlideRenderer = ({
           return item;
         }
         const originalContent = item.content || '';
-        const content = stripInteractionPromptPrefix(
+        const content = stripInteractionQuestionPrefix(
           originalContent,
-          item.payload?.interaction_prompt,
+          item.payload?.interaction_question,
         );
         return content === originalContent ? item : { ...item, content };
       }),
@@ -2479,7 +2479,7 @@ const ListenModeSlideRenderer = ({
           elementList={renderedElementList}
           interactionTexts={{
             title:
-              currentMarkerStepElement?.interaction_prompt ??
+              currentMarkerStepElement?.interaction_question ??
               t('module.chat.listenInteractionHint'),
           }}
           bufferingText={{

@@ -17,13 +17,13 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-it('renders a real Slide prompt title as literal text without interpreting markup', async () => {
-  const prompt =
+it('renders a real Slide question title as literal text without interpreting markup', async () => {
+  const question =
     '**Question?** <img src=x onerror=alert(1)> <script>bad()</script>';
   const view = render(
     <Slide
       playerEnabled
-      interactionTexts={{ title: prompt }}
+      interactionTexts={{ title: question }}
       elementList={[
         {
           type: 'interaction',
@@ -40,7 +40,7 @@ it('renders a real Slide prompt title as literal text without interpreting marku
     const title = view.container.querySelector(
       '.slide-player__interaction-title',
     );
-    expect(title?.textContent).toBe(prompt);
+    expect(title?.textContent).toBe(question);
     expect(title?.querySelector('strong, img, script')).toBeNull();
   });
   expect(screen.getByText('A')).toBeVisible();

@@ -76,19 +76,19 @@ or analytics meaning. Question text must never be sent to analytics.
 
 ## Listen and classroom interaction titles
 
-Listen and classroom modes use a nonblank native `interaction_prompt` as the
+Listen and classroom modes use a nonblank native `interaction_question` as the
 active interaction panel title. Its body shows only the controls. Moving to
 another interaction updates the title; changing only the metadata at the same
 element ID also invalidates the rendered-element cache. Historical questions
 and answered controls retain their corresponding title and answer.
 
-Titles display the original prompt as literal text. HTML and Markdown are not
-executed or rendered as rich content. Missing/blank prompts and system controls
+Titles display the original question as literal text. HTML and Markdown are not
+executed or rendered as rich content. Missing/blank questions and system controls
 retain the existing localized generic title. Short confirmation wording that
 already labels its button keeps that behavior.
 
 The question is not emitted again as a slide, lesson body or independent audio.
-Switching back to reading continues to hide the extra prompt. This consumer
+Switching back to reading continues to hide the extra question. This consumer
 change depends on the reading/shared transport contract and introduces no new
 backend, database, dependency or analytics behavior.
 

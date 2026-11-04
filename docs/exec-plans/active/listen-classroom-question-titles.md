@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Listen and classroom modes must display a native question prompt as its
+Listen and classroom modes must display a native question as its
 interaction panel title. This dependent PR builds on the reading and shared
 transport change in [PR #3336](https://github.com/ai-shifu/ai-shifu/pull/3336).
 It contains no backend or storage changes. The canonical display contract is
@@ -19,7 +19,11 @@ It contains no backend or storage changes. The canonical display contract is
 - [x] 2026-11-04 CST: Pass 305 focused frontend cases across eight suites,
   type checking, lint and formatting; independent split-scope review passes.
 - [x] 2026-11-04 CST: Pass all-file repository gates.
-- [ ] 2026-11-04 CST: Open the dependent PR and verify its final-head CI/review.
+- [x] 2026-11-04 CST: Open PR #3340; original-head applicable CI passed.
+- [x] 2026-11-04 CST: Align all title consumers and tests with the base PR
+  presentation-field name `interaction_question`; 305 frontend tests, type
+  checking and lint pass again on the renamed base.
+- [ ] 2026-11-04 CST: Verify renamed-head CI/review and maintainer acceptance.
 
 ## Surprises & Discoveries
 
@@ -31,15 +35,15 @@ prefix removal, the question could be missing or shown twice.
 
 ## Decision Log
 
-- Consume the existing prompt field and exact-prefix helper from the reading
+- Consume the existing question field and exact-prefix helper from the reading
   PR; do not introduce another protocol, backend change or dependency release.
 - Reuse the existing player's `interactionTexts.title`. Display original
-  prompt text literally, with no HTML execution or Markdown interpretation.
-- Include the prompt in the rendered-element fingerprint so title-only
+  question text literally, with no HTML execution or Markdown interpretation.
+- Include the question in the rendered-element fingerprint so title-only
   updates at an unchanged interaction ID are not hidden by the cache.
-- Preserve the localized generic title for missing/blank and system prompts.
+- Preserve the localized generic title for missing/blank and system controls.
 - This relocates existing text without a new action or analytics meaning;
-  tracking contracts remain unchanged and prompts remain outside analytics.
+  tracking contracts remain unchanged and questions remain outside analytics.
 
 ## Outcomes & Retrospective
 
@@ -73,7 +77,7 @@ both PRs without merging.
 The active question becomes the title in listen and classroom modes. Previous
 questions, streamed title updates at the same ID and mode switches retain the
 correct text and answer. The panel body has controls only, with no duplicate
-compatibility question. Reading/printing still hide the extra prompt. Missing
+compatibility question. Reading/printing still hide the extra question. Missing
 and system questions retain generic titles. The real installed player renders
 HTML/Markdown characters literally, while its controls remain visible.
 
@@ -85,6 +89,6 @@ reverted: questions remain visible in its listen/classroom interaction body.
 
 ## Interfaces and Dependencies
 
-Depends on PR #3336's `StudyRecordPayload.interaction_prompt` and shared
-`stripInteractionPromptPrefix`. Reuses the pinned `markdown-flow-ui` player
+Depends on PR #3336's `StudyRecordPayload.interaction_question` and shared
+`stripInteractionQuestionPrefix`. Reuses the pinned `markdown-flow-ui` player
 API; adds no backend, database, locale or dependency contract.

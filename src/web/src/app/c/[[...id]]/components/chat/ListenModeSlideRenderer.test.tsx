@@ -875,7 +875,7 @@ describe('ListenModeSlideRenderer', () => {
   });
 
   it.each(['listen', 'classroom'] as const)(
-    'uses each interaction prompt as its title when navigating %s history',
+    'uses each interaction question as its title when navigating %s history',
     variant => {
       const items: ChatContentItem[] = [
         {
@@ -883,14 +883,14 @@ describe('ListenModeSlideRenderer', () => {
           type: 'interaction',
           content: '&#81;&#63;\n\n?[A | B]',
           isHistory: true,
-          payload: { interaction_prompt: 'Q?' },
+          payload: { interaction_question: 'Q?' },
         },
         {
           element_bid: 'second-question',
           type: 'interaction',
           content: '?[C | D]',
           isHistory: true,
-          payload: { interaction_prompt: 'Which example comes second?' },
+          payload: { interaction_question: 'Which example comes second?' },
         },
         {
           element_bid: 'legacy-question',
@@ -948,7 +948,7 @@ describe('ListenModeSlideRenderer', () => {
       element_bid: 'streamed-question',
       type: 'interaction',
       content: '?[A | B]',
-      payload: { interaction_prompt: 'First prompt' },
+      payload: { interaction_question: 'First question' },
     };
     const chatRef = createChatRef();
     const view = render(
@@ -960,18 +960,21 @@ describe('ListenModeSlideRenderer', () => {
     );
     const getProps = () =>
       getMockSlide().mock.calls.at(-1)?.[0] as {
-        elementList: Array<{ blockBid: string; interaction_prompt?: string }>;
+        elementList: Array<{ blockBid: string; interaction_question?: string }>;
         interactionTexts: { title: string };
         onStepChange: (element: unknown, index: number) => void;
       };
     act(() => getProps().onStepChange(getProps().elementList[0], 0));
-    expect(getProps().interactionTexts.title).toBe('First prompt');
+    expect(getProps().interactionTexts.title).toBe('First question');
     const firstElement = getProps().elementList[0];
 
     view.rerender(
       <ListenModeSlideRenderer
         items={[
-          { ...firstItem, payload: { interaction_prompt: 'Updated prompt' } },
+          {
+            ...firstItem,
+            payload: { interaction_question: 'Updated question' },
+          },
         ]}
         mobileStyle={false}
         chatRef={chatRef}
@@ -979,7 +982,7 @@ describe('ListenModeSlideRenderer', () => {
     );
 
     expect(getProps().elementList[0]).not.toBe(firstElement);
-    expect(getProps().interactionTexts.title).toBe('Updated prompt');
+    expect(getProps().interactionTexts.title).toBe('Updated question');
   });
 
   it.each(['es-ES', 'ur-PK'])(
