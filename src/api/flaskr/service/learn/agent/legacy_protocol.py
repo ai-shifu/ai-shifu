@@ -43,9 +43,8 @@ def translate(
 ) -> list[RunMarkdownFlowDTO]:
     """Translate one engine event into the 1.0 events it corresponds to.
 
-    Returns a list because the correspondence is not one to one: an interaction arrives as a
-    question plus its controls and leaves as the text event the learner reads followed by the
-    interaction event the frontend renders. Events that 1.0 has no place for return nothing.
+    An interaction carries its question as control metadata rather than lesson text. Events
+    that 1.0 has no place for return nothing.
     """
     if isinstance(event, ContentDelta):
         if not event.text:
@@ -60,26 +59,16 @@ def translate(
         ]
 
     if isinstance(event, InteractionRequest):
-        events = []
         prompt, controls = render_question(event.spec)
-        if prompt.strip():
-            events.append(
-                RunMarkdownFlowDTO(
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                    type=GeneratedType.CONTENT,
-                    content=prompt,
-                )
-            )
-        events.append(
+        return [
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 type=GeneratedType.INTERACTION,
                 content=controls,
+                interaction_prompt=prompt if prompt.strip() else None,
             )
-        )
-        return events
+        ]
 
     if isinstance(event, MemoryUpdated):
         return [

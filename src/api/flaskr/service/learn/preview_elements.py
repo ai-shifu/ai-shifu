@@ -125,7 +125,11 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         self, event: RunMarkdownFlowDTO, generated_block_bid: str
     ) -> tuple[str, ElementPayloadDTO]:
         del generated_block_bid
-        payload = ElementPayloadDTO(audio=None, previous_visuals=[])
+        payload = ElementPayloadDTO(
+            audio=None,
+            previous_visuals=[],
+            interaction_prompt=event.interaction_prompt,
+        )
         content_text = (
             event.content
             if isinstance(event.content, str)

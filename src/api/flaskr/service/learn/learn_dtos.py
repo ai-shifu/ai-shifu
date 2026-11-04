@@ -9,6 +9,17 @@ from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
 
 
+def _interaction_content_for_output(content: str, prompt: str | None) -> str:
+    """Include a literal question for clients that cannot read interaction title metadata."""
+    if not prompt or not prompt.strip():
+        return content
+    # Encode every code point, including whitespace, so a title cannot open Markdown, HTML
+    # or another interaction around the controls. New clients remove this exact prefix using
+    # the unchanged prompt metadata; the DTO and persisted controls stay canonical.
+    literal_prompt = "".join(f"&#{ord(char)};" for char in prompt)
+    return f"{literal_prompt}\n\n{content}"
+
+
 @register_schema_to_swagger
 class LearnStatus(Enum):
     """Enumerate supported learn status values."""
@@ -645,6 +656,10 @@ class ElementPayloadDTO(BaseModel):
         default=None,
         description="Interaction user input when available",
     )
+    interaction_prompt: str | None = Field(
+        default=None,
+        description="Question title displayed with the interaction controls",
+    )
     diff_payload: list[dict[str, Any]] | None = Field(
         default=None, description="Optional diff payload for incremental updates"
     )
@@ -682,6 +697,7 @@ class ElementPayloadDTO(BaseModel):
         live_session_bid: str | None = None,
         live_turn_index: int | None = None,
         interrupted: bool | None = None,
+        interaction_prompt: str | None = None,
     ) -> None:
         """Build the composite element payload."""
         super().__init__(
@@ -690,6 +706,7 @@ class ElementPayloadDTO(BaseModel):
             anchor_element_bid=anchor_element_bid,
             ask_element_bid=ask_element_bid,
             user_input=user_input,
+            interaction_prompt=interaction_prompt,
             diff_payload=diff_payload,
             asks=asks,
             interaction_mode=interaction_mode,
@@ -715,6 +732,8 @@ class ElementPayloadDTO(BaseModel):
             ret["diff_payload"] = self.diff_payload
         if self.user_input is not None:
             ret["user_input"] = self.user_input
+        if self.interaction_prompt is not None:
+            ret["interaction_prompt"] = self.interaction_prompt
         if self.asks is not None:
             ret["asks"] = self.asks
         if self.interaction_mode is not None:
@@ -829,6 +848,12 @@ class ElementDTO(BaseModel):
 
     def __json__(self) -> dict:
         """Return the element as JSON-compatible data."""
+        content = self.content or ""
+        if self.element_type == ElementType.INTERACTION:
+            content = _interaction_content_for_output(
+                content,
+                self.payload.interaction_prompt if self.payload is not None else None,
+            )
         ret = {
             "event_type": self.event_type,
             "element_bid": self.element_bid,
@@ -846,7 +871,7 @@ class ElementDTO(BaseModel):
             "audio_segments": self._audio_segments_for_output(),
             "is_navigable": int(self.is_navigable or 0),
             "is_final": bool(self.is_final),
-            "content": self.content or "",
+            "content": content,
             "payload": self.payload.__json__() if self.payload is not None else None,
         }
         if self.run_session_bid is not None:
@@ -950,6 +975,10 @@ class RunMarkdownFlowDTO(BaseModel):
         default="",
         description="Anchor element bid for ASK events",
     )
+    interaction_prompt: str | None = Field(
+        default=None,
+        description="Question title carried by an interaction event",
+    )
 
     def __init__(
         self,
@@ -962,6 +991,7 @@ class RunMarkdownFlowDTO(BaseModel):
         | AudioSegmentDTO
         | AudioCompleteDTO,
         anchor_element_bid: str = "",
+        interaction_prompt: str | None = None,
     ) -> None:
         """Build the MarkdownFlow execution payload."""
         super().__init__(
@@ -970,6 +1000,7 @@ class RunMarkdownFlowDTO(BaseModel):
             type=type,
             content=content,
             anchor_element_bid=anchor_element_bid,
+            interaction_prompt=interaction_prompt,
         )
 
     def set_mdflow_stream_parts(
@@ -999,16 +1030,23 @@ class RunMarkdownFlowDTO(BaseModel):
 
     def __json__(self) -> dict:
         """Return the MarkdownFlow execution payload as JSON-compatible data."""
+        content = (
+            self.content.__json__()
+            if isinstance(self.content, BaseModel)
+            else self.content
+        )
+        if self.type == GeneratedType.INTERACTION and isinstance(content, str):
+            content = _interaction_content_for_output(content, self.interaction_prompt)
         ret = {
             "outline_bid": self.outline_bid,
             "generated_block_bid": self.generated_block_bid,
             "type": self.type.value,
-            "content": self.content.__json__()
-            if isinstance(self.content, BaseModel)
-            else self.content,
+            "content": content,
         }
         if self.anchor_element_bid:
             ret["anchor_element_bid"] = self.anchor_element_bid
+        if self.interaction_prompt is not None:
+            ret["interaction_prompt"] = self.interaction_prompt
         return ret
 
 

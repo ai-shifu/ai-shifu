@@ -410,6 +410,70 @@ class TestRunMarkdownFlowDTO:
         assert dto.__json__()["anchor_element_bid"] == "elem_abc"
 
 
+class TestInteractionPromptWireCompatibility:
+    """Preserve legacy question visibility without changing stored or in-memory controls."""
+
+    def _make_dto(
+        self, kind: str, prompt: str | None, *, interaction: bool = True
+    ) -> ElementDTO | RunMarkdownFlowDTO:
+        if kind == "run":
+            return RunMarkdownFlowDTO(
+                outline_bid="lesson",
+                generated_block_bid="block",
+                type=GeneratedType.INTERACTION
+                if interaction
+                else GeneratedType.CONTENT,
+                content="?[Yes | No]",
+                interaction_prompt=prompt,
+            )
+        return ElementDTO(
+            element_bid="question",
+            element_index=0,
+            role="ui",
+            element_type=ElementType.INTERACTION if interaction else ElementType.TEXT,
+            element_type_code=205 if interaction else 213,
+            content="?[Yes | No]",
+            payload=ElementPayloadDTO(interaction_prompt=prompt),
+        )
+
+    @pytest.mark.parametrize("kind", ["run", "element"])
+    @pytest.mark.parametrize(
+        ("prompt", "encoded"),
+        [
+            ("A?", "&#65;&#63;"),
+            (" 😀\t\n", "&#32;&#128512;&#9;&#10;"),
+            ("<pre>```", "&#60;&#112;&#114;&#101;&#62;&#96;&#96;&#96;"),
+            ("?[%{{x}}]", "&#63;&#91;&#37;&#123;&#123;&#120;&#125;&#125;&#93;"),
+        ],
+    )
+    def test_only_wire_content_includes_the_literal_question(
+        self, kind: str, prompt: str, encoded: str
+    ) -> None:
+        dto = self._make_dto(kind, prompt)
+        original = dto.model_dump(mode="json")
+        first = dto.__json__()
+        assert first["content"] == encoded + "\n\n?[Yes | No]"
+        assert dto.__json__() == first
+        assert dto.content == "?[Yes | No]"
+        assert dto.model_dump(mode="json") == original
+        metadata = first if kind == "run" else first["payload"]
+        assert metadata["interaction_prompt"] == prompt
+
+    @pytest.mark.parametrize("kind", ["run", "element"])
+    @pytest.mark.parametrize("prompt", [None, "", " \t\n"])
+    def test_empty_question_keeps_the_legacy_control_content(
+        self, kind: str, prompt: str | None
+    ) -> None:
+        assert self._make_dto(kind, prompt).__json__()["content"] == "?[Yes | No]"
+
+    @pytest.mark.parametrize("kind", ["run", "element"])
+    def test_question_metadata_does_not_change_non_interaction_content(
+        self, kind: str
+    ) -> None:
+        dto = self._make_dto(kind, "A question", interaction=False)
+        assert dto.__json__()["content"] == "?[Yes | No]"
+
+
 # ---------------------------------------------------------------------------
 # TypeStateMachine tests
 # ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ import {
 } from '@/api/learning';
 import { getStringEnv } from '@/lib/env-utils';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+import { stripInteractionPromptPrefix } from '@/lib/interaction-prompt';
 import {
   requiresInteractionRewind,
   updateInteractionItems,
@@ -825,9 +826,15 @@ export function useDebugSession({
         fallbackBid: itemBid,
       });
       const elementIndex = resolveElementIndex(elementRecord);
-      const elementContent =
+      const rawElementContent =
         typeof elementRecord?.content === 'string' ? elementRecord.content : '';
       const isInteractionElement = elementType === ELEMENT_TYPE.INTERACTION;
+      const elementContent = isInteractionElement
+        ? stripInteractionPromptPrefix(
+            rawElementContent,
+            elementRecord?.payload?.interaction_prompt,
+          )
+        : rawElementContent;
       const interactionInfo = isInteractionElement
         ? parseInteractionBlock(elementContent)
         : null;
@@ -850,6 +857,7 @@ export function useDebugSession({
           element_bid: itemBid,
           generated_block_bid: generatedBlockBid,
           content: contentToRender,
+          payload: elementRecord?.payload,
           readonly: false,
           type: nextItemType,
           element_type: elementType || undefined,

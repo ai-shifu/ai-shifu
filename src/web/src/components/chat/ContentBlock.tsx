@@ -24,6 +24,7 @@ import {
 } from '@/lib/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/ui-constants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { stripInteractionPromptPrefix } from '@/lib/interaction-prompt';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -94,16 +95,23 @@ const ContentBlock = memo(
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
     const shouldShowAudioAction = Boolean(showAudioAction);
+    const canonicalContent =
+      item.type === ChatContentItemType.INTERACTION
+        ? stripInteractionPromptPrefix(
+            item.content || '',
+            item.payload?.interaction_prompt,
+          )
+        : item.content || '';
     const isLessonFeedbackInteraction =
       item.type === ChatContentItemType.INTERACTION &&
-      isLessonFeedbackInteractionContent(item.content);
+      isLessonFeedbackInteractionContent(canonicalContent);
     const isPayInteraction =
       item.type === ChatContentItemType.INTERACTION &&
-      isPaySystemInteractionContent(item.content);
+      isPaySystemInteractionContent(canonicalContent);
     const usesCourseLanguage =
       item.type === ChatContentItemType.CONTENT ||
       (item.type === ChatContentItemType.INTERACTION &&
-        !isSystemInteractionContent(item.content));
+        !isSystemInteractionContent(canonicalContent));
     const resolvedReadonly = printMode
       ? true
       : isPayInteraction
@@ -118,7 +126,7 @@ const ContentBlock = memo(
     const isRichContentElement =
       item.type === ChatContentItemType.CONTENT && item.element_type !== 'text';
     const localizedContent = localizeSystemInteractionContent(
-      item.content || '',
+      canonicalContent,
       t,
     );
     const shouldRenderExternalCustomButton =
@@ -215,6 +223,8 @@ const ContentBlock = memo(
       prevProps.item.user_input === nextProps.item.user_input &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
+      prevProps.item.payload?.interaction_prompt ===
+        nextProps.item.payload?.interaction_prompt &&
       prevProps.contentLanguage === nextProps.contentLanguage &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&

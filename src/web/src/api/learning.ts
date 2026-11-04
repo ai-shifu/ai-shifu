@@ -109,6 +109,7 @@ export interface StudyRecordAudioPayload {
 
 export interface StudyRecordPayload {
   audio?: StudyRecordAudioPayload;
+  interaction_prompt?: string;
   previous_visuals?: unknown[];
   user_input?: string;
   [key: string]: unknown;

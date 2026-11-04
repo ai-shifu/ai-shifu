@@ -2787,6 +2787,59 @@ describe('useLessonConversation stream cleanup', () => {
     ).not.toContain('<custom-button-after-content>');
   });
 
+  it.each(['history', 'stream'])(
+    'preserves interaction prompt wire content through %s hydration and mode switches',
+    async source => {
+      const interaction = {
+        element_type: 'interaction',
+        element_bid: 'prompt-question',
+        generated_block_bid: 'prompt-question-turn',
+        content: '&#81;&#63;\n\n?[A | B]',
+        payload: { interaction_prompt: 'Q?' },
+      };
+      if (source === 'history') {
+        mockGetLessonStudyRecord.mockResolvedValueOnce({
+          elements: [interaction],
+          records: [],
+          slides: [],
+        });
+      }
+      const { result, rerender } = renderHook(
+        ({ isListenMode }) =>
+          useLessonConversation({ ...buildBaseParams(), isListenMode }),
+        { wrapper, initialProps: { isListenMode: false } },
+      );
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      if (source === 'stream') {
+        await waitFor(() => expect(activeRun).toBeDefined());
+        await act(async () => {
+          await activeRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.ELEMENT,
+            content: interaction,
+          });
+        });
+      }
+
+      // ContentBlock hides the prompt in reading mode. Shared items retain the
+      // wire content so the existing listening renderer can still show it.
+      const expectPreservedWireContent = () => {
+        expect(
+          result.current.items.find(
+            item => item.element_bid === 'prompt-question',
+          ),
+        ).toMatchObject({
+          content: '&#81;&#63;\n\n?[A | B]',
+          payload: { interaction_prompt: 'Q?' },
+        });
+      };
+      expectPreservedWireContent();
+      rerender({ isListenMode: true });
+      expectPreservedWireContent();
+      rerender({ isListenMode: false });
+      expectPreservedWireContent();
+    },
+  );
+
   it('does not inherit history state when run stream updates an existing history element', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

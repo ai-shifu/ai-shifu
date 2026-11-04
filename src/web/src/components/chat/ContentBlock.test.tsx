@@ -196,3 +196,58 @@ it('forwards acceptance, updates memoized observers and excludes readonly/print 
   fireEvent.click(screen.getByText('accept hint'));
   expect(next).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  [false, false],
+  [false, true],
+  [true, false],
+  [true, true],
+])(
+  'keeps the interaction prompt out of reading output on mobile=%s print=%s',
+  (mobileStyle, printMode) => {
+    const item: ChatContentItem = {
+      ...guideInteraction,
+      content: '&#81;&#63;\n\n' + guideInteraction.content,
+      payload: { interaction_prompt: 'Q?' },
+    };
+    render(
+      <ContentBlock
+        item={item}
+        mobileStyle={mobileStyle}
+        printMode={printMode}
+        blockBid={item.element_bid}
+        onSend={onSend}
+      />,
+    );
+
+    expect(screen.getByTestId('course-content').textContent).toBe(
+      guideInteraction.content + 'accept hint',
+    );
+    expect(screen.queryByText('Q?')).not.toBeInTheDocument();
+  },
+);
+
+it('rechecks a reading interaction when its compatibility metadata arrives', () => {
+  const item: ChatContentItem = {
+    ...guideInteraction,
+    content: '&#81;&#63;\n\n' + guideInteraction.content,
+  };
+  const props = {
+    item,
+    mobileStyle: false,
+    blockBid: item.element_bid,
+    onSend,
+  };
+  const view = render(<ContentBlock {...props} />);
+  expect(screen.getByTestId('course-content').textContent).toContain('&#81;');
+
+  view.rerender(
+    <ContentBlock
+      {...props}
+      item={{ ...item, payload: { interaction_prompt: 'Q?' } }}
+    />,
+  );
+  expect(screen.getByTestId('course-content').textContent).toBe(
+    guideInteraction.content + 'accept hint',
+  );
+});

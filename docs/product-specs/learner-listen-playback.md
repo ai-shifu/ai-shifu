@@ -2,7 +2,7 @@
 title: Learner Listen Playback and Timeline
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-09-26
+last_reviewed: 2026-11-04
 canonical: true
 ---
 
@@ -23,6 +23,37 @@ canonical: true
    attempts normal playback. A browser may still reject unmuted autoplay after
    a full reload, in which case the restored position remains ready to play.
 6. Existing player-button behavior is unchanged by slide navigation.
+
+## Reading interaction prompts and shared transport
+
+Native interaction prompts travel with their controls in optional
+`payload.interaction_prompt` metadata. Reading and Debug do not append that
+prompt as lesson prose. Questions already present in authored narration remain
+unchanged. Short confirmation labels retain their existing button behavior.
+
+The canonical DTO and database content remain the original controls. Only
+serialized interaction `content` includes a compatibility prefix: encode every
+Unicode code point of the prompt as a decimal HTML entity, append two literal
+newlines, then append the controls. Existing renderers display that question in
+the interaction body without allowing HTML, code fences or MDF notation inside
+it to consume or add controls. HTML character normalization applies in older
+renderers; original prompt metadata remains unchanged.
+
+Reading reconstructs and removes only this exact metadata-backed prefix before
+rendering; Debug also removes it before interaction parsing. Missing or
+nonmatching metadata never authorizes deleting content. Desktop, mobile and
+print share this display rule. Shared learner items retain wire content so the
+unchanged listen/classroom renderer can still display questions in its body.
+Moving those questions into panel titles is a separate dependent change.
+
+This shared transport stops producing separate prompt CONTENT, audio and
+marker elements in every mode. Authored narration and its audio are preserved.
+Previously stored prose is not guessed or rewritten. Older open reading
+bundles retain their earlier display until refreshed; updated reading pages
+hide the extra question. No migration or library version bump is required.
+
+This changes existing-content placement and compatibility, with no new action
+or analytics meaning. Question text must never be sent to analytics.
 
 ### `learner_listen_resume_requested`
 

@@ -424,6 +424,11 @@ describe('useDebugSession helpers and business error rendering', () => {
   );
 
   test('stops a failed Debug answer continuation without discarding its answer or question', async () => {
+    const questionPrompt = 'Which answer do you choose?';
+    const encodedQuestionPrompt =
+      Array.from(questionPrompt)
+        .map(char => `&#${char.codePointAt(0)};`)
+        .join('') + '\n\n';
     const message = debugServiceUnavailableMessages.find(
       entry => entry.locale === 'en-US',
     )!.message;
@@ -452,7 +457,8 @@ describe('useDebugSession helpers and business error rendering', () => {
             element_bid: 'question',
             generated_block_bid: 'question-turn',
             element_type: 'interaction',
-            content: '?[answer]',
+            content: encodedQuestionPrompt + '?[answer]',
+            payload: { interaction_prompt: questionPrompt },
           },
         }),
       });
@@ -460,6 +466,7 @@ describe('useDebugSession helpers and business error rendering', () => {
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
     });
+    expect(mockParseToRemarkFormat).toHaveBeenCalledWith('?[answer]');
     await act(async () =>
       result.current.submitInteraction(
         { variableName: 'answer', selectedValues: ['Private choice'] },
@@ -483,7 +490,9 @@ describe('useDebugSession helpers and business error rendering', () => {
       expect.arrayContaining([
         expect.objectContaining({
           element_bid: 'question',
+          content: '?[answer]',
           user_input: 'Private choice',
+          payload: { interaction_prompt: questionPrompt },
         }),
       ]),
     );

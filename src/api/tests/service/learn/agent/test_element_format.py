@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import TYPE_CHECKING
 
 import pytest
+from flaskr.common.http import make_common_response
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent
@@ -19,11 +21,13 @@ from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementType,
     GeneratedType,
+    LearnElementRecordDTO,
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.models import (
     LearnGeneratedElement,
 )
+from flaskr.service.learn.routes import _to_sse_data_line
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from markdownflow import StreamFormatter
 from markdownflow.engine.events import (
@@ -252,7 +256,7 @@ def test_all_modes_reuse_formatted_elements_and_persist_visuals(
 
 
 @pytest.mark.parametrize("listen", [False, True])
-def test_html_in_question_prompt_uses_the_same_formatter(
+def test_question_title_survives_stream_and_history_without_becoming_lesson_content(
     format_environment: Flask, listen: bool
 ) -> None:
     narration = "Compare the examples.\n\n"
@@ -282,16 +286,42 @@ def test_html_in_question_prompt_uses_the_same_formatter(
         for element in history
         if element.element_type != ElementType.INTERACTION
     ]
-    assert _shape(content) == _reference_shape(narration + prompt)
+    assert _shape(content) == _reference_shape(narration)
     assert history[-1].element_type == ElementType.INTERACTION
     assert history[-1].content == "?[First | Second]"
     assert _shape(streamed) == _shape(history)
+    for elements in (streamed, history):
+        interaction = elements[-1]
+        assert interaction.payload.interaction_prompt == prompt
+        wire = interaction.__json__()
+        assert wire["payload"]["interaction_prompt"] == prompt
+        assert wire["content"].startswith("&#60;&#100;&#105;&#118;")
+        assert wire["content"].endswith("\n\n?[First | Second]")
+        assert interaction.content == "?[First | Second]"
+        assert interaction.is_speakable is False
+        assert interaction.audio_url == ""
+        assert interaction.payload.audio is None
+        assert bool(elements[0].audio_url) is listen
+    interaction_event = next(e for e in events if e.type == GeneratedType.INTERACTION)
+    assert interaction_event.__json__()["content"] == wire["content"]
+    assert interaction_event.content == "?[First | Second]"
+    serialized_event = json.loads(
+        _to_sse_data_line(interaction_event).removeprefix("data: ")
+    )
+    assert serialized_event["content"] == wire["content"]
+    response = make_common_response(LearnElementRecordDTO(elements=history)).get_json()
+    assert response["data"]["elements"][-1]["content"] == wire["content"]
+    with format_environment.app_context():
+        row = LearnGeneratedElement.query.filter_by(
+            element_bid=history[-1].element_bid, status=1, deleted=0
+        ).one()
+        assert row.content_text == "?[First | Second]"
 
 
 @pytest.mark.parametrize("opening", ["<div>", "<svg>", "```python"])
 @pytest.mark.parametrize("listen", [False, True])
 @pytest.mark.parametrize("echo_question", [False, True])
-def test_question_after_unclosed_visual_is_independently_shown_and_spoken(
+def test_question_title_stays_metadata_after_unclosed_visual(
     format_environment: Flask, opening: str, listen: bool, echo_question: bool
 ) -> None:
     prompt = "Which example do you prefer?"
@@ -313,12 +343,11 @@ def test_question_after_unclosed_visual_is_independently_shown_and_spoken(
     events = host_fixture._run(engine, app=format_environment, listen=listen)
     streamed, history = _adapt_and_reload(format_environment, events)
     for elements in (streamed, history):
-        assert len(elements) == 3
+        assert len(elements) == 2
         assert elements[0].content == narration
-        question = elements[1]
-        assert question.element_type == ElementType.TEXT
-        assert question.content == prompt
-        assert question.is_speakable is True
-        assert bool(question.audio_url) is listen
-        assert elements[2].element_type == ElementType.INTERACTION
-        assert elements[0].element_bid != question.element_bid
+        interaction = elements[1]
+        assert interaction.element_type == ElementType.INTERACTION
+        assert interaction.payload.interaction_prompt == prompt
+        assert interaction.is_speakable is False
+        assert interaction.audio_url == ""
+        assert interaction.payload.audio is None
