@@ -53,6 +53,7 @@ def _question(
     *,
     kind: str = "text",
     prompt: str = "Your answer?",
+    placeholder: str | None = None,
     options: list[dict[str, str]] | None = None,
 ) -> DeltaToolCall:
     args: dict[str, Any] = {"type": kind, "prompt": prompt}
@@ -60,6 +61,8 @@ def _question(
         args["variable"] = variable
     if options:
         args["options"] = options
+    if placeholder is not None:
+        args["placeholder"] = placeholder
     return DeltaToolCall(
         name="interact", tool_call_id=call_id, json_args=json.dumps(args)
     )
@@ -105,15 +108,19 @@ def test_interaction_contains_only_controls_without_question_fallback(
     session = _session("Ask about the learner, then wait for the answer.")
 
     async def script(_messages: list[ModelMessage], info: AgentInfo) -> Stream:
-        assert "first ask the complete current question" in (info.instructions or "")
+        assert "ask the complete question in Markdown prose" in (
+            info.instructions or ""
+        )
         if narration:
             yield narration
-        yield {0: _question("current", None, prompt=question)}
+        yield {
+            0: _question("current", None, prompt=question, placeholder="Your answer")
+        }
 
     result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
     interaction = result.chunks[-1]
     assert interaction.interaction_id == "current"
-    assert interaction.interaction == "?[...server.learn.freeTextPlaceholder]"
+    assert interaction.interaction == "?[...Your answer]"
     assert _content(result).strip() == narration.strip()
     assert session.engine_session["pending"][0]["tool_call_id"] == "current"
     assert session.engine_session["pending"][0]["spec"]["prompt"] == question

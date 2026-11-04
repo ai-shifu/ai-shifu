@@ -24,14 +24,19 @@ async def test_question_first_contract_preserves_prose_then_authored_controls(
         _messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         instructions = info.instructions or ""
-        assert "first ask the complete current question" in instructions
-        assert "learner-facing content in the same turn" in instructions
-        assert "outside HTML, code and other visuals" in instructions
-        assert "not a substitute for asking the question in content" in instructions
-        assert "Call `interact` in the same response" in instructions
-        assert "without inventing an extra teaching question" in instructions
-        assert "its questions are rendered by the host" in instructions
-        assert "write no free prose and keep the tool prompt empty" in instructions
+        assert (
+            "For ordinary answer collection, ask the complete question in Markdown prose, "
+            "then call `interact` in the same response. "
+            "Do not repeat a question already asked in the current turn."
+        ) in instructions
+        assert "Never write the options as plain text" in instructions
+        assert "the tool prompt is a control title" in instructions
+        assert "Preserve every authored input boundary" in instructions
+        assert "Write no free content in that response" in instructions
+        assert (
+            "keep the input prompt empty and retain its authored binding"
+            in instructions
+        )
         yield question
         yield {
             0: DeltaToolCall(

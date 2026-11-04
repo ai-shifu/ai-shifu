@@ -41,6 +41,10 @@ separate PR. The durable contract is in
   path, with question wording supplied by the shared question-first instruction.
   All 203 Profile tests pass; the obsolete text-matching matrix is replaced by
   controls-only presentation coverage, retaining recovery and answer contracts.
+- [x] 2026-11-04 CST: Condense the question-first rule to one instruction
+  covering complete prose questions, same-response `interact` and avoiding
+  repeats. Remove learning-mode explanations and duplicated existing rules.
+  The complete offline engine/Profile run passes 3,478 tests with the pinned SDK.
 
 ## Surprises & Discoveries
 
@@ -72,6 +76,8 @@ HTML entity makes that compatibility prefix inert.
   rejected answers and queued interactions. The user explicitly removed the
   question fallback; the shared system instruction owns asking the question in
   normal model content. No local prose matching or extra model call is needed.
+- Keep the new question-first instruction concise. Existing authored-input,
+  navigation and correction-direction rules retain their own responsibilities.
 - This is existing-content presentation and compatibility work, with no new
   user action or analytics meaning. Questions never enter analytics.
 
