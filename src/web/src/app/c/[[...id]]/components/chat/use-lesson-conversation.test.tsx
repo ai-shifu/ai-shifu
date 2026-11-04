@@ -3270,15 +3270,24 @@ describe('useLessonConversation stream cleanup', () => {
     await act(async () => {
       await activeRun?.onMessage({
         generated_block_bid: 'content-text-1',
-        type: SSE_OUTPUT_TYPE.CONTENT,
-        content: ' and second line',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First line and second line',
+          like_status: 'none',
+          is_final: false,
+        },
       });
     });
 
-    expect(
-      result.current.items.find(item => item.element_bid === 'content-text-1')
-        ?.content,
-    ).not.toContain('<custom-button-after-content>');
+    const content = result.current.items.find(
+      item => item.element_bid === 'content-text-1',
+    )?.content;
+
+    expect(content).toBe('First line and second line');
+    expect(content).not.toContain('<custom-button-after-content>');
   });
 
   it('keeps previously streamed text when a resumed run sends a cumulative content snapshot', async () => {

@@ -1,10 +1,8 @@
 import { create } from 'zustand';
-import type { ListenSlideData } from '@/api/learning';
 import type { ChatContentItem } from '@/types/chat-ui';
 
 export interface LessonRunContentCacheEntry {
   items: ChatContentItem[];
-  pendingSlidesByBid: Record<string, ListenSlideData[]>;
   audioBackfillReadyBids: string[];
   updatedAt: number;
 }
@@ -12,12 +10,6 @@ export interface LessonRunContentCacheEntry {
 interface LessonRunContentStoreState {
   entries: Record<string, LessonRunContentCacheEntry>;
   replaceItems: (cacheKey: string, items: ChatContentItem[]) => void;
-  updatePendingSlides: (
-    cacheKey: string,
-    updater: (
-      pendingSlidesByBid: Record<string, ListenSlideData[]>,
-    ) => Record<string, ListenSlideData[]>,
-  ) => void;
   markAudioBackfillReady: (cacheKey: string, bids: string[]) => void;
   resetLesson: (cacheKey: string) => void;
   clearAll: () => void;
@@ -27,7 +19,6 @@ export const EMPTY_LESSON_RUN_ITEMS: ChatContentItem[] = [];
 
 export const EMPTY_LESSON_RUN_CONTENT_ENTRY: LessonRunContentCacheEntry = {
   items: EMPTY_LESSON_RUN_ITEMS,
-  pendingSlidesByBid: {},
   audioBackfillReadyBids: [],
   updatedAt: 0,
 };
@@ -47,7 +38,6 @@ export const buildLessonRunContentCacheKey = ({
 
 const createEmptyEntry = (): LessonRunContentCacheEntry => ({
   items: EMPTY_LESSON_RUN_ITEMS,
-  pendingSlidesByBid: {},
   audioBackfillReadyBids: [],
   updatedAt: Date.now(),
 });
@@ -72,24 +62,6 @@ export const useLessonRunContentStore = create<LessonRunContentStoreState>(
             [cacheKey]: {
               ...previousEntry,
               items,
-              updatedAt: Date.now(),
-            },
-          },
-        };
-      });
-    },
-    updatePendingSlides: (cacheKey, updater) => {
-      if (!cacheKey) {
-        return;
-      }
-      set(state => {
-        const previousEntry = getExistingEntry(state.entries, cacheKey);
-        return {
-          entries: {
-            ...state.entries,
-            [cacheKey]: {
-              ...previousEntry,
-              pendingSlidesByBid: updater(previousEntry.pendingSlidesByBid),
               updatedAt: Date.now(),
             },
           },
