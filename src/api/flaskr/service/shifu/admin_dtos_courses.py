@@ -382,7 +382,7 @@ class AdminOperationCourseUserDTO(BaseModel):
 class AdminOperationCoursePromptDTO(BaseModel):
     """Operator-facing course prompt payload."""
 
-    course_prompt: str = Field(..., description="Course-level system prompt")
+    course_prompt: str = Field(..., description="Course prompt")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course prompt as JSON-compatible data."""
@@ -396,12 +396,7 @@ class AdminOperationCourseChapterDetailDTO(BaseModel):
     outline_item_bid: str = Field(..., description="Outline item business identifier")
     title: str = Field(..., description="Outline item title")
     content: str = Field(..., description="MarkdownFlow content")
-    llm_system_prompt: str = Field(
-        ..., description="Course teaching prompt applied to this outline"
-    )
-    llm_system_prompt_source: str = Field(
-        ..., description="Course prompt source (course or empty)"
-    )
+    llm_system_prompt: str = Field(..., description="Course prompt")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course chapter detail as JSON-compatible data."""

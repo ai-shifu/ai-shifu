@@ -1,15 +1,15 @@
 ---
-title: Course Teaching Prompts
+title: Course Prompts
 status: implemented
 owner_surface: shared
 last_reviewed: 2026-11-04
 canonical: true
 ---
 
-# Course Teaching Prompts
+# Course Prompts
 
-The course teaching prompt is the only author-configurable teaching instruction.
-Chapter and lesson teaching prompts are retired, including nonempty historical
+The course prompt is the only author-configurable course instruction.
+Chapter and lesson prompts are retired, including nonempty historical
 values. A lesson no longer overrides its course or inherits instructions from
 an ancestor chapter. An empty course prompt resolves to no authored teaching
 instruction. Engine rules and lesson script content retain their separate roles.
@@ -43,10 +43,10 @@ an automatic settings save.
 Publication, draft revision comparison, copying, and backup export do not
 read or copy outline `llm_system_prompt`. Backup import ignores that legacy
 outline field. Course-level prompts still round-trip through backups. Operator
-details show only the course prompt and its `course` source (or an empty source
-when the course prompt is blank); cost estimates count only that prompt.
+details show only the course prompt, and cost estimates count only that prompt.
+The detail response has no prompt-source discriminator: there is only one source.
 
-This application cleanup retains the existing outline teaching columns and
+This application cleanup retains the existing outline prompt columns and
 their empty defaults until a separate schema migration. Historical database
 rows and saved history are not rewritten. Reverting this stage can still
 restore the old application behavior without a database downgrade.

@@ -18,7 +18,7 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-27` | Canonical: `true`
 - [Course Memory Management](../product-specs/course-memory-management.md)
   - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-30` | Canonical: `true`
-- [Course Teaching Prompts](../product-specs/course-teaching-prompts.md)
+- [Course Prompts](../product-specs/course-prompts.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-04` | Canonical: `true`
 - [Internal Course Temperature Settings](../product-specs/course-temperature-settings.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-08` | Canonical: `true`

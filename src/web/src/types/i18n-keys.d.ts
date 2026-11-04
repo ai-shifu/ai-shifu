@@ -1375,8 +1375,6 @@ export type I18nKey =
   | 'module.operationsCourse.detail.contentDetailDialog.copySuccess'
   | 'module.operationsCourse.detail.contentDetailDialog.empty'
   | 'module.operationsCourse.detail.contentDetailDialog.sections.content'
-  | 'module.operationsCourse.detail.contentDetailDialog.sections.systemPrompt'
-  | 'module.operationsCourse.detail.contentDetailDialog.sources.course'
   | 'module.operationsCourse.detail.contentDetailDialog.title'
   | 'module.operationsCourse.detail.contentStatus.empty'
   | 'module.operationsCourse.detail.contentStatus.has'

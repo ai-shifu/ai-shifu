@@ -64,11 +64,7 @@
       "copySuccess": "Kopierte Inhaltsdetails",
       "empty": "Kein Inhalt",
       "sections": {
-        "content": "Inhalt des Kurses",
-        "systemPrompt": "System-Prompt"
-      },
-      "sources": {
-        "course": "Quelle: Kurs-Prompt"
+        "content": "Inhalt des Kurses"
       },
       "title": "Inhaltsdetails"
     },

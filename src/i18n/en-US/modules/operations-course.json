@@ -64,11 +64,7 @@
       "copySuccess": "Copied content detail",
       "empty": "No content",
       "sections": {
-        "content": "Course Content",
-        "systemPrompt": "System Prompt"
-      },
-      "sources": {
-        "course": "Source: course prompt"
+        "content": "Course Content"
       },
       "title": "Content Detail"
     },

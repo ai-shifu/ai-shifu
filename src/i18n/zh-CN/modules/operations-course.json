@@ -64,11 +64,7 @@
       "copySuccess": "已复制内容详情",
       "empty": "暂无内容",
       "sections": {
-        "content": "课程内容",
-        "systemPrompt": "系统提示词"
-      },
-      "sources": {
-        "course": "来源：课程提示词"
+        "content": "课程内容"
       },
       "title": "内容详情"
     },

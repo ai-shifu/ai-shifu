@@ -128,7 +128,6 @@ export type AdminOperationCourseChapterDetailResponse = {
   title: string;
   content: string;
   llm_system_prompt: string;
-  llm_system_prompt_source: 'course' | '';
 };
 
 export type AdminOperationCourseDetailResponse = {

@@ -200,10 +200,10 @@ Course/chapter/lesson names, descriptions, system prompts, model names, voice
 IDs, provider configuration, URLs, and route text are excluded from these
 contracts.
 
-Chapter and lesson teaching prompts are retired. Settings panels never display
+Chapter and lesson prompts are retired. Settings panels never display
 their editors, read legacy prompt values, or submit prompt fields. Teaching and
-follow-up instruction resolution use the course teaching prompt exclusively;
-see [Course Teaching Prompts](course-teaching-prompts.md). Existing chapter and
+follow-up instruction resolution use the course prompt exclusively;
+see [Course Prompts](course-prompts.md). Existing chapter and
 lesson settings retain their title, permission, and visibility behavior.
 
 ### Chapter and lesson settings save outcomes (2026-11-04)

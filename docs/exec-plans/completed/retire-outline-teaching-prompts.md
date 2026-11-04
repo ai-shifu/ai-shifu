@@ -1,20 +1,20 @@
 ---
-title: Retire chapter and lesson teaching prompts
+title: Retire chapter and lesson prompts
 status: completed
 owner_surface: shared
 last_reviewed: 2026-11-04
 ---
 
-# Retire chapter and lesson teaching prompts
+# Retire chapter and lesson prompts
 
 ## Purpose / Big Picture
 
-Teaching and follow-up instruction resolution must use the course teaching
-prompt exclusively. Chapter and lesson teaching prompts are retired across
+Teaching and follow-up instruction resolution must use the course
+prompt exclusively. Chapter and lesson prompts are retired across
 authoring, publication, copying, backups, learning, and operator views. This
 is the application cleanup stage before a separate database-column migration.
 The durable behavior contract is
-[Course Teaching Prompts](../../product-specs/course-teaching-prompts.md).
+[Course Prompts](../../product-specs/course-prompts.md).
 
 ## Progress
 
@@ -60,7 +60,7 @@ memory-prefix edits while rejecting stale or corrupt ownership markers.
 
 ## Decision Log
 
-- Retire outline teaching prompts only. Preserve course-level teaching prompts,
+- Retire outline prompts only. Preserve course-level prompts,
   course temperatures, generated outline follow-up contexts, and permissions.
 - Keep the existing outline teaching columns mapped with empty defaults until
   the subsequent schema migration. Business logic must not read, copy, compare,
@@ -68,8 +68,8 @@ memory-prefix edits while rejecting stale or corrupt ownership markers.
 - Legacy authoring and backup inputs may still contain outline prompt keys;
   ignore them rather than reject otherwise valid requests. New responses and
   exports omit these keys. Existing saved history is not rewritten.
-- Operator details keep their response fields for the resolved teaching prompt
-  and source, but return only the course prompt and `course` (or an empty source).
+- Operator details return the course prompt directly. Remove the redundant
+  source field, constants, types, labels, and conditional display paths together.
 - Refresh saved initial constraints only when their ownership is identifiable;
   never infer host ownership from an arbitrary learner-authored XML-like tag.
 - Review follow-up: only explicit fresh-prompt/host-rebuild provenance establishes
@@ -95,6 +95,13 @@ The review follow-up removes all legacy text-based ownership inference and
 adds real-engine serialization regressions for learner text identical to old
 constraints. Operator estimates/details, course copying, and authoring writes
 also seed nonempty retired values to prove that those paths ignore them.
+
+Manual review removes the remaining single-source discriminator across the
+operator API and UI and standardizes the product term as Course Prompt. The
+internal saved-session helper safely synchronizes that same course prompt;
+it does not introduce another configurable prompt type. Lesson-settings
+analytics still describes permission and visibility saves. Its fixed
+`variant=lesson` input is removed while the existing delivered payload is kept.
 
 ## Context and Orientation
 

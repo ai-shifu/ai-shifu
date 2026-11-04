@@ -39,7 +39,6 @@ from flaskr.service.shifu.admin_operations.courses_credit_usage import (
     _build_operator_course_credit_metrics,
 )
 from flaskr.service.shifu.admin_operations.courses_shared import (
-    PROMPT_SOURCE_COURSE,
     _build_course_order_amount_expr,
     _format_average_score,
     _format_decimal,
@@ -387,11 +386,9 @@ def get_operator_course_chapter_detail(
             raise_error("server.shifu.outlineItemNotFound")
 
         llm_system_prompt = str(getattr(course, "llm_system_prompt", "") or "").strip()
-        llm_system_prompt_source = PROMPT_SOURCE_COURSE if llm_system_prompt else ""
         return AdminOperationCourseChapterDetailDTO(
             outline_item_bid=normalized_outline_item_bid,
             title=outline_item.title or "",
             content=getattr(outline_item, "content", "") or "",
             llm_system_prompt=llm_system_prompt,
-            llm_system_prompt_source=llm_system_prompt_source,
         )

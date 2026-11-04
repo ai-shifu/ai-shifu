@@ -729,7 +729,7 @@ def _seed_outline(
     updated_at: datetime,
     updated_user_bid: str = "creator-1",
     content: str = "",
-    legacy_teaching_prompt: str = "",
+    legacy_prompt: str = "",
     deleted: int = 0,
 ) -> None:
     db.session.add(
@@ -741,7 +741,7 @@ def _seed_outline(
             position=position,
             hidden=hidden,
             type=item_type,
-            llm_system_prompt=legacy_teaching_prompt,
+            llm_system_prompt=legacy_prompt,
             ask_enabled_status=0,
             ask_llm_system_prompt="",
             content=content,
@@ -1148,7 +1148,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             outline_item_bid="chapter-1",
             title="Chapter",
             position="1",
-            legacy_teaching_prompt="Retired chapter teaching instructions",
+            legacy_prompt="Retired chapter teaching instructions",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
         )
         _seed_outline(
@@ -1158,7 +1158,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             position="1.1",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="abcdefghij",
-            legacy_teaching_prompt="Retired first lesson teaching instructions",
+            legacy_prompt="Retired first lesson teaching instructions",
         )
         _seed_outline(
             outline_item_bid="lesson-2",
@@ -1167,7 +1167,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             position="1.2",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="abcdefghijklmnopqrst",
-            legacy_teaching_prompt="Retired second lesson teaching instructions",
+            legacy_prompt="Retired second lesson teaching instructions",
         )
         _seed_outline(
             outline_item_bid="lesson-hidden",
@@ -1384,9 +1384,9 @@ def test_admin_operation_course_prompt_route_returns_course_prompt(
 @pytest.mark.parametrize(
     ("course_prompt", "expected"),
     [
-        ("course system prompt", ("course system prompt", "course")),
-        ("  course system prompt\n", ("course system prompt", "course")),
-        (" \n", ("", "")),
+        ("course system prompt", "course system prompt"),
+        ("  course system prompt\n", "course system prompt"),
+        (" \n", ""),
     ],
 )
 def test_admin_operation_course_chapter_detail_route_returns_course_prompt(
@@ -1394,7 +1394,7 @@ def test_admin_operation_course_chapter_detail_route_returns_course_prompt(
     test_client: object,
     course_prompt: str,
     published: bool,
-    expected: tuple[str, str],
+    expected: str,
 ) -> None:
     """Legacy chapter/lesson overrides never replace even a blank course prompt."""
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1408,7 +1408,7 @@ def test_admin_operation_course_chapter_detail_route_returns_course_prompt(
             outline_item_bid="chapter-1",
             title="Chapter 1",
             position="1",
-            legacy_teaching_prompt="Retired chapter teaching instructions",
+            legacy_prompt="Retired chapter teaching instructions",
             updated_at=updated_at,
         )
         _seed_outline(
@@ -1418,7 +1418,7 @@ def test_admin_operation_course_chapter_detail_route_returns_course_prompt(
             parent_bid="chapter-1",
             updated_at=updated_at,
             content="# Lesson 1 content",
-            legacy_teaching_prompt="Retired lesson teaching instructions",
+            legacy_prompt="Retired lesson teaching instructions",
         )
         db.session.commit()
 
@@ -1427,8 +1427,7 @@ def test_admin_operation_course_chapter_detail_route_returns_course_prompt(
         "outline_item_bid": "lesson-1",
         "title": "Lesson 1",
         "content": "# Lesson 1 content",
-        "llm_system_prompt": expected[0],
-        "llm_system_prompt_source": expected[1],
+        "llm_system_prompt": expected,
     }
 
 
