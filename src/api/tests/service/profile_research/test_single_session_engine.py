@@ -90,34 +90,17 @@ def _content(result: ProfileTurnResult) -> str:
 
 
 @pytest.mark.parametrize(
-    ("narration", "question", "already_asked"),
+    ("narration", "question"),
     [
-        ("Your role?", "Your role?", True),
-        (
-            "Before we start, what do you\nwant to learn?",
-            "what do you want to learn?",
-            True,
-        ),
-        ("先问一个问题：你想学什么？", "你想学什么？", True),
-        ("你想学什么？", "你想学什么？", True),
-        ("先了解一下，你想学什么？", "你想学什么？", True),
-        ("先了解一下\n你想学什么？", "你想学什么？", True),
-        ("Une question, êtes-vous prêt ?", "êtes-vous prêt ?", True),
-        ("", "Your role?", False),
-        ("Welcome to the questionnaire.", "Your role?", False),
-        ("Which value is largest?", "Which value is smallest?", False),
-        ("We will separate", "rate", False),
-        ("为什么？", "什么？", False),
-        ("你希望学到什么？", "什么？", False),
-        ("café ?", "é ?", False),
-        ("Πώς;", "ώς;", False),
-        ("Your role? We will return to that later.", "Your role?", False),
-        ("<div>\nYour role?", "Your role?", False),
-        ("```text\nYour role?\n```", "Your role?", False),
+        ("Your role?", "Your role?"),
+        ("先问一个问题：你想学什么？", "你想学什么？"),
+        ("", "Your role?"),
+        ("Welcome to the questionnaire.", "Your role?"),
+        ("Which value is largest?", "Which value is smallest?"),
     ],
 )
-def test_only_the_complete_current_prose_question_removes_the_duplicate_question(
-    narration: str, question: str, *, already_asked: bool
+def test_interaction_contains_only_controls_without_question_fallback(
+    narration: str, question: str
 ) -> None:
     session = _session("Ask about the learner, then wait for the answer.")
 
@@ -130,16 +113,13 @@ def test_only_the_complete_current_prose_question_removes_the_duplicate_question
     result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
     interaction = result.chunks[-1]
     assert interaction.interaction_id == "current"
-    if already_asked:
-        assert interaction.interaction.startswith("?[")
-        assert question not in interaction.interaction
-    else:
-        assert interaction.interaction.startswith(question + "\n\n?[")
+    assert interaction.interaction == "?[...server.learn.freeTextPlaceholder]"
+    assert _content(result).strip() == narration.strip()
     assert session.engine_session["pending"][0]["tool_call_id"] == "current"
     assert session.engine_session["pending"][0]["spec"]["prompt"] == question
 
 
-def test_pending_queue_does_not_reuse_another_questions_prose() -> None:
+def test_pending_queue_and_reload_return_only_controls_with_answer_identity() -> None:
     session = _session("Ask two questions and retain both answers.")
     calls = 0
 
@@ -166,7 +146,8 @@ def test_pending_queue_does_not_reuse_another_questions_prose() -> None:
     assert first.chunks[-1].interaction.startswith("?[")
     second = run_profile_turn(session, {"input": ["One"]}, model)
     assert second.input_accepted
-    assert second.chunks[-1].interaction.startswith("Second question?\n\n?[")
+    assert second.chunks[-1].interaction == first.chunks[-1].interaction
+    assert "Second question?" not in _content(second)
     assert second.chunks[-1].interaction_id == "second"
     session = _ProfileResearchSession.from_cache_payload(session.to_cache_payload())
     reloaded = run_profile_turn(session, {}, model)
@@ -359,7 +340,8 @@ def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values() -> None
     rejected = run_profile_turn(session, {"unrelated": ["teacher"]}, model)
     assert not rejected.input_accepted
     assert rejected.chunks[-1].interaction_id == "role"
-    assert rejected.chunks[-1].interaction.startswith("Your role?\n\n?[")
+    assert rejected.chunks[-1].interaction == first.chunks[-1].interaction
+    assert _content(rejected) == ""
     assert calls == 1
     assert session.engine_session == original
     assert session.variables == {}

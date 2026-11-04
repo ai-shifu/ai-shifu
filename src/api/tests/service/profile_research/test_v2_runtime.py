@@ -164,7 +164,7 @@ def test_question_first_content_replays_and_pending_reload_keeps_its_identity() 
     reloaded = _run(runtime, view, request_id="reload")
     (pending,) = [event for event in reloaded if event["event_type"] == "interaction"]
     assert pending["interaction_id"] == "goal"
-    assert pending["content"].startswith("Your goal?\n\n?[")
+    assert pending["content"] == interaction["content"]
     assert not any(event["event_type"] == "content" for event in reloaded)
     assert calls == 1
 

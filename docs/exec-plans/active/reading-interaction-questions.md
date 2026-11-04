@@ -34,11 +34,13 @@ separate PR. The durable contract is in
   The renamed reading/frontend coverage passes 314 tests, type checking and lint.
   Affected backend learning/Profile coverage passes 564 tests with the pinned SDK.
 - [ ] 2026-11-04 CST: Confirm renamed-head CI/review and maintainer acceptance.
-- [x] 2026-11-04 CST: Fix the review finding that a non-ASCII question suffix
-  can be mistaken for the complete current question; verify Unicode boundaries
-  and ordinary lead-ins before suppressing the Profile question fallback.
-  Four suffix cases reproduced the issue before the fix; all 216 Profile tests
-  pass afterward, including 35 single-session cases.
+- [x] 2026-11-04 CST: The preceding head passed full remote CI with 16,008
+  backend cases and 20 skips; both actionable review threads were resolved.
+- [x] 2026-11-04 CST: Remove the Profile question fallback at the user's
+  direction. Delete prose matching and emit controls only on every interaction
+  path, with question wording supplied by the shared question-first instruction.
+  All 203 Profile tests pass; the obsolete text-matching matrix is replaced by
+  controls-only presentation coverage, retaining recovery and answer contracts.
 
 ## Surprises & Discoveries
 
@@ -66,11 +68,10 @@ HTML entity makes that compatibility prefix inert.
   and profile runtimes. A control title cannot substitute for a visible
   question. Preserve authored choices, navigation, correction stages and
   pending question identities while updating the shared prompt and consumer.
-- Profile omits its duplicate control-body question only when the current
-  validated ordinary-text tail contains the complete literal question. Keep
-  fallback wording for tool-only responses, earlier/different questions,
-  visuals, pending recovery and queued questions; do not infer visible history
-  from raw model messages, cached last events or the presence of any prose.
+- Profile emits controls only, including ordinary turns, pending restoration,
+  rejected answers and queued interactions. The user explicitly removed the
+  question fallback; the shared system instruction owns asking the question in
+  normal model content. No local prose matching or extra model call is needed.
 - This is existing-content presentation and compatibility work, with no new
   user action or analytics meaning. Questions never enter analytics.
 
@@ -78,9 +79,6 @@ HTML entity makes that compatibility prefix inert.
   actual model instructions and the pre-existing engine tool/session field;
   the host maps between those layers. The new presentation field has not been
   released, so rename it atomically without a redundant compatibility alias.
-- Apply the same word-boundary rule to ASCII and Unicode letters/digits when
-  recognizing a question in current prose. A shorter question inside a longer
-  word is not evidence that the shorter question was asked.
 
 ## Outcomes & Retrospective
 
@@ -105,6 +103,8 @@ the unchanged listen/classroom renderer retains visible questions.
 The shared engine's `prompts/system.md` supplies course and profile
 instructions; `profile_research/engine_runtime.py` projects questionnaire
 content and controls and must not echo a question already presented.
+It projects every interaction as controls only; it never reconstructs question
+wording from pending tool arguments.
 
 ## Plan of Work
 

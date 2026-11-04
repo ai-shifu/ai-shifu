@@ -40,6 +40,15 @@ for authored navigation or confirmation controls. Structured direction keeps
 its dedicated tool-only contract: the host presents its feedback and
 unanswered question before the controls.
 
+Profile questionnaire interaction chunks contain only the rendered controls.
+Question wording comes from the model's ordinary visible content under the
+shared question-first instruction. The host never prepends the tool question,
+including when restoring pending input, rejecting an answer or exposing a queued
+interaction. It does not compare question text with prose to choose presentation.
+Interaction identities, stored answers and published prose remain unchanged.
+Exact request replays retain their saved event payloads; existing cached history
+is not rewritten.
+
 The canonical DTO and database content remain the original controls. Only
 serialized interaction `content` includes a compatibility prefix: encode every
 Unicode code point of the question as a decimal HTML entity, append two literal

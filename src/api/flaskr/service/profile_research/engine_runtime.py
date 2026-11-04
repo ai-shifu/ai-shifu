@@ -140,37 +140,10 @@ def _interaction_problem(
     return None
 
 
-def _question_in_content(question: str, chunks: list[ProfileChunk]) -> bool:
-    """Recognize the complete question at the end of the current published prose."""
-    if not chunks or chunks[-1].type != "text":
-        return False
-    tail: list[str] = []
-    for chunk in reversed(chunks):
-        if chunk.type != "text" or chunk.number != chunks[-1].number:
-            break
-        tail.append(chunk.content)
-    asked = " ".join(question.split())
-    said = " ".join("".join(reversed(tail)).split())
-    if not asked or not said.endswith(asked):
-        return False
-    before = said[: -len(asked)]
-    # A question embedded in a longer word is not evidence of the complete question.
-    return not (
-        before
-        and (asked[0].isalnum() or asked[0] == "_")
-        and (before[-1].isalnum() or before[-1] == "_")
-    )
-
-
-def _pending_chunk(
-    pending: PendingInteraction, *, preceding: list[ProfileChunk] | None = None
-) -> ProfileChunk:
-    question, controls = render_question(pending.spec)
-    show_question = question.strip() and not _question_in_content(
-        question, preceding or []
-    )
+def _pending_chunk(pending: PendingInteraction) -> ProfileChunk:
+    _, controls = render_question(pending.spec)
     return ProfileChunk(
-        interaction=f"{question}\n\n{controls}" if show_question else controls,
+        interaction=controls,
         interaction_id=pending.tool_call_id,
     )
 
@@ -335,7 +308,7 @@ def run_profile_turn(
     if working.pending:
         # Native Engine retains every deferred call. Only the first unanswered one
         # is visible; the next answer resumes it without discarding sibling calls.
-        chunks.append(_pending_chunk(working.pending[0], preceding=chunks))
+        chunks.append(_pending_chunk(working.pending[0]))
     session.engine_session = working.to_dict()
     session.variables.update(_normalize_session_variables(working.memory))
     return ProfileTurnResult(
