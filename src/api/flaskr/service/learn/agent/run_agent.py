@@ -73,6 +73,7 @@ from flaskr.service.learn.agent.rewind import (
     RewindUnavailableError,
     checkpoint_of,
     restore,
+    retire_abandoned_turns,
     stage_retirement,
     turn_record,
 )
@@ -166,6 +167,14 @@ def _open_turn(
         )
         if started:
             record.status = LEARN_STATUS_IN_PROGRESS
+        if record.id is not None:
+            # A previous run of this attempt that died before saving left its block
+            # behind; it never reached the session, so it leaves history now.
+            retire_abandoned_turns(
+                user_bid=user_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=record.progress_record_bid,
+            )
         stage_turn_block(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
