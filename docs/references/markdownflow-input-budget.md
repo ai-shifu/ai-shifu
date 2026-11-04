@@ -2,16 +2,24 @@
 title: MarkdownFlow Input Budget
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-27
+last_reviewed: 2026-11-04
 canonical: true
 ---
 
 # MarkdownFlow Input Budget
 
 Every MarkdownFlow 2.0 `GatewayModel` request is checked immediately before
-`chat_llm`. The application budget is **262144 bytes (256 KiB)** of compact
+`chat_llm`. The application budget is counted in bytes of compact
 UTF-8 JSON containing `messages` and `tools`, with `ensure_ascii=False` and
-separators `(',', ':')`. The empty tools array counts even when no tools are
+separators `(',', ':')`.
+
+The budget follows the selected model's input token ceiling: one byte per
+token, so it can never admit a request the model would reject for length (real
+text encodes at least one byte per token; Chinese about three). The ceiling is
+read from `LLM_MODEL_MAX_INPUT_TOKENS` (routed model id -> tokens, as published
+by the serving provider), then LiteLLM model metadata. A model with neither
+keeps the fixed default of **262144 bytes (256 KiB)**. Callers may still pass an
+explicit budget, as the teaching-summary request (40 KiB) does. The empty tools array counts even when no tools are
 sent. Unicode bytes, JSON escaping, field names and structure all count.
 This is not a provider token limit or a guarantee about the provider's final
 HTTP serialization, model context window or output allowance.

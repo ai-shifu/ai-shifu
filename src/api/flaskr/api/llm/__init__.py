@@ -42,6 +42,7 @@ from flaskr.api.langfuse import (
 )
 from flaskr.api.llm.model_selection import resolve_selection
 from flaskr.common.config import (
+    parse_llm_model_max_input_tokens,
     parse_llm_model_max_output_tokens,
 )
 from flaskr.service.billing.consts import (
@@ -139,6 +140,7 @@ class ProviderState:
 MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
 PROVIDER_STATES: dict[str, ProviderState] = {}
 MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
+MODEL_MAX_INPUT_TOKENS: dict[str, int] = {}
 MODEL_SUPPORTED_GENERATION_METHODS: dict[str, frozenset[str]] = {}
 _GEMINI_CAPABILITY_DISCOVERED_MODELS: set[str] = set()
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
@@ -307,6 +309,36 @@ def _load_and_register_model_max_output_tokens() -> dict[str, int]:
     except Exception as exc:
         _log_warning(f"Registering LiteLLM model metadata failed: {exc}")
     return limits
+
+
+def _load_model_max_input_tokens() -> dict[str, int]:
+    raw_limits = get_config("LLM_MODEL_MAX_INPUT_TOKENS", "")
+    try:
+        return parse_llm_model_max_input_tokens(raw_limits)
+    except ValueError as exc:
+        _log_warning(f"Ignoring invalid LLM_MODEL_MAX_INPUT_TOKENS: {exc}")
+        return {}
+
+
+def resolve_llm_max_input_tokens(model: str) -> int | None:
+    """Return a routed model's input token ceiling, or None when it is unknown.
+
+    The configured value (keyed by the routed id, which names the serving
+    provider) wins over LiteLLM metadata. Unknown, unconfigured or malformed
+    entries return None; callers keep their own default budget.
+    """
+    configured = MODEL_MAX_INPUT_TOKENS.get(model)
+    if configured is not None:
+        return configured
+    try:
+        _params, invoke_model, _provider_key = get_litellm_params_and_model(model)
+        limit = litellm.get_model_info(invoke_model).get("max_input_tokens")
+    except Exception:
+        # Missing catalogue entries and unconfigured providers are both "unknown".
+        return None
+    if isinstance(limit, int) and not isinstance(limit, bool) and limit > 0:
+        return limit
+    return None
 
 
 def _register_provider_models(
@@ -1161,6 +1193,7 @@ for config in LITELLM_PROVIDER_CONFIGS:
     PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
 
 MODEL_MAX_OUTPUT_TOKENS.update(_load_and_register_model_max_output_tokens())
+MODEL_MAX_INPUT_TOKENS.update(_load_model_max_input_tokens())
 
 
 any_litellm_enabled = any(state.enabled for state in PROVIDER_STATES.values())

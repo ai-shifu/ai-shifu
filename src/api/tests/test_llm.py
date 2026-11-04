@@ -1029,6 +1029,87 @@ def test_load_model_max_output_tokens_ignores_invalid_config(
     assert captured == {}
 
 
+def test_load_model_max_input_tokens_ignores_invalid_config(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "get_config",
+        lambda key, default=None: (
+            '{"qwen/model": 0}' if key == "LLM_MODEL_MAX_INPUT_TOKENS" else default
+        ),
+    )
+
+    assert llm._load_model_max_input_tokens() == {}
+
+
+def test_load_model_max_input_tokens_reads_routed_ids(monkeypatch: object) -> None:
+    monkeypatch.setattr(
+        llm,
+        "get_config",
+        lambda key, default=None: (
+            '{"qwen/glm-5.3": 1048576}'
+            if key == "LLM_MODEL_MAX_INPUT_TOKENS"
+            else default
+        ),
+    )
+
+    assert llm._load_model_max_input_tokens() == {"qwen/glm-5.3": 1048576}
+
+
+def test_max_input_tokens_prefers_configured_routed_id(monkeypatch: object) -> None:
+    monkeypatch.setattr(llm, "MODEL_MAX_INPUT_TOKENS", {"qwen/glm-5.3": 1048576})
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_model_info",
+        lambda _model: pytest.fail("configured limits must not consult LiteLLM"),
+        raising=False,
+    )
+
+    assert llm.resolve_llm_max_input_tokens("qwen/glm-5.3") == 1048576
+
+
+@pytest.mark.parametrize(
+    ("model_info", "expected"),
+    [
+        ({"max_input_tokens": 922000}, 922000),
+        ({"max_input_tokens": None}, None),
+        ({"max_input_tokens": 0}, None),
+        ({"max_input_tokens": True}, None),
+        ({}, None),
+    ],
+)
+def test_max_input_tokens_falls_back_to_litellm_metadata(
+    monkeypatch: object, model_info: dict, expected: int | None
+) -> None:
+    monkeypatch.setattr(llm, "MODEL_MAX_INPUT_TOKENS", {})
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda model: ({"api_key": "k"}, model, None),
+    )
+    monkeypatch.setattr(
+        llm.litellm, "get_model_info", lambda _model: model_info, raising=False
+    )
+
+    assert llm.resolve_llm_max_input_tokens("gpt-6-sol") == expected
+
+
+def test_max_input_tokens_is_unknown_when_lookup_fails(monkeypatch: object) -> None:
+    def unmapped(_model: str) -> dict:
+        raise ValueError
+
+    monkeypatch.setattr(llm, "MODEL_MAX_INPUT_TOKENS", {})
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda model: ({"api_key": "k"}, model, None),
+    )
+    monkeypatch.setattr(llm.litellm, "get_model_info", unmapped, raising=False)
+
+    assert llm.resolve_llm_max_input_tokens("ark/unknown") is None
+
+
 @pytest.mark.parametrize(
     ("requested_max_tokens", "expected_max_tokens"),
     [(None, 131072), (4096, 4096), (200000, 131072)],
