@@ -438,8 +438,10 @@ def abandoned_turn_block_bids(
     A run killed mid-stream, or one whose cleanup failed, leaves its block live with neither
     text nor turn record. A turn saved before checkpoints existed can look the same (one that
     only asked a question teaches no text), so a block counts only once an earlier block of the
-    same attempt carries a record: from then on every saved turn writes one. No saved session
-    ever included an abandoned block, so it is never a turn to go back to.
+    same attempt carries a record: from then on every saved turn writes one. Before the first
+    record, an empty block counts when that record was taken at turn 0, which proves no earlier
+    turn reached the saved session. No saved session ever included an abandoned block, so it is
+    never a turn to go back to.
     """
     blocks = (
         LearnGeneratedBlock.query.filter(
@@ -454,16 +456,22 @@ def abandoned_turn_block_bids(
         .all()
     )
     abandoned: list[str] = []
+    # Empty blocks seen before the attempt's first record: abandoned only if that record shows
+    # no saved turn came before it (its checkpoint was taken at turn 0).
+    leading: list[str] = []
     recorded = False
     for block in blocks:
-        if read_turn_record(block) is not None:
-            recorded = True
-        elif (
-            recorded
-            and not (block.generated_content or "").strip()
+        record = read_turn_record(block)
+        empty = (
+            not (block.generated_content or "").strip()
             and not (block.block_content_conf or "").strip()
-        ):
-            abandoned.append(block.generated_block_bid)
+        )
+        if record is not None:
+            if not recorded and record["checkpoint"].get("turn") == 0:
+                abandoned.extend(leading)
+            recorded = True
+        elif empty:
+            (abandoned if recorded else leading).append(block.generated_block_bid)
     return abandoned
 
 

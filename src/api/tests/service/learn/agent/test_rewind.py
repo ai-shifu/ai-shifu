@@ -534,3 +534,51 @@ def test_an_interrupted_question_turn_after_checkpoints_is_abandoned(
     assert plan is not None
     assert plan.checkpoint == _WAITING
     assert plan.retired_block_bids == ["B3", "B2"]
+
+
+def _empty_block(bid: str) -> None:
+    db.session.add(
+        make_generated_block(
+            generated_block_bid=bid,
+            progress_record_bid=RECORD,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_item_bid=OUTLINE,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            generated_content="",
+            block_content_conf="",
+            status=1,
+        )
+    )
+    db.session.flush()
+
+
+@pytest.mark.parametrize(
+    ("first_checkpoint", "abandoned"),
+    [(_BEFORE_B1, ["B0"]), (_WAITING, [])],
+    ids=["first-turn-killed", "legacy-turn-in-session"],
+)
+def test_an_empty_block_before_the_first_record_needs_a_turn_zero_checkpoint(
+    app: object, first_checkpoint: dict, abandoned: list[str]
+) -> None:
+    """Killed on the attempt's first turn, a block has no earlier record to vouch for it."""
+    with app.app_context():
+        _clean()
+        _record()
+        _empty_block("B0")
+        # The first record says how many turns the saved session held: none means B0
+        # never reached it; one means B0 is a saved pre-checkpoint turn.
+        _block("B1", checkpoint=first_checkpoint, values=[])
+        db.session.commit()
+        assert (
+            rewind.abandoned_turn_block_bids(
+                user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+            )
+            == abandoned
+        )
+        rewind.retire_abandoned_turns(
+            user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+        )
+        db.session.commit()
+        status = LearnGeneratedBlock.query.filter_by(generated_block_bid="B0").one()
+        assert status.status == (0 if abandoned else 1)
