@@ -2,19 +2,30 @@
 title: MarkdownFlow Input Budget
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-27
+last_reviewed: 2026-11-04
 canonical: true
 ---
 
 # MarkdownFlow Input Budget
 
 Every MarkdownFlow 2.0 `GatewayModel` request is checked immediately before
-`chat_llm`. The application budget is **262144 bytes (256 KiB)** of compact
-UTF-8 JSON containing `messages` and `tools`, with `ensure_ascii=False` and
-separators `(',', ':')`. The empty tools array counts even when no tools are
-sent. Unicode bytes, JSON escaping, field names and structure all count.
-This is not a provider token limit or a guarantee about the provider's final
-HTTP serialization, model context window or output allowance.
+`chat_llm`. The application budget is counted in bytes of compact UTF-8 JSON
+containing `messages` and `tools`, with `ensure_ascii=False` and separators
+`(',', ':')`. The empty tools array counts even when no tools are sent. Unicode
+bytes, JSON escaping, field names and structure all count. This is not a
+provider token limit or a guarantee about the provider's final HTTP
+serialization, model context window or output allowance.
+
+The budget follows the selected model's input token ceiling: one byte per
+token, never below the 256 KiB default. A course selection (numbered slot) is
+resolved to its routed model first. The ceiling is read from
+`LLM_MODEL_MAX_INPUT_TOKENS` (routed model id -> tokens, as published by the
+serving provider), then LiteLLM metadata for the serving provider. A model with
+neither keeps the fixed default of **262144 bytes (256 KiB)**. Lesson text runs
+about three bytes per token in Chinese and four in English, so a budget at the
+ceiling leaves wide headroom, but chat-template framing and output are not
+counted and the provider remains the final judge of length. Callers may still
+pass an explicit budget, as the teaching-summary request (40 KiB) does.
 
 The check includes the final mapped current system instructions, initial memory,
 complete authored script and brief (or the saved prompt in an existing session),
@@ -45,7 +56,9 @@ write without interrupting the main teaching call.
 A course owner may need to reduce the lesson's inputs. Restarting a lesson is
 not a universal fix: a large script can exceed the budget even without history.
 New prompts do not insert memory values into authored text; existing expanded
-history still counts in full. Retrieval, semantic compression, per-model token
-budgets and automatic recovery are separate follow-ups. The Python constructor
-accepts a positive `input_budget_bytes` for controlled tests; production factories
-use the default. No deployment setting or database migration is introduced.
+history still counts in full. Retrieval, semantic compression and automatic
+recovery are separate follow-ups. The Python constructor accepts a positive
+`input_budget_bytes` for controlled tests and fixed-size auxiliary requests;
+otherwise the budget follows the model as described above, configured
+per deployment with `LLM_MODEL_MAX_INPUT_TOKENS`. No database migration is
+introduced.
