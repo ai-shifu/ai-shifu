@@ -881,7 +881,7 @@ describe('ListenModeSlideRenderer', () => {
         {
           element_bid: 'first-question',
           type: 'interaction',
-          content: '&#81;&#63;\n\n?[A | B]',
+          content: '?[A | B]',
           isHistory: true,
           payload: { interaction_question: 'Q?' },
         },

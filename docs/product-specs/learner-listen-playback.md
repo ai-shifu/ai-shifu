@@ -62,9 +62,9 @@ is renamed before release, so no deployed-field alias or data migration is
 needed.
 
 Reading and Debug ignore the question metadata when rendering controls.
-Desktop, mobile and print share this display rule. Listen/classroom title
-presentation is a separate dependent change; the metadata never becomes part
-of the interaction body.
+Desktop, mobile and print share this display rule. Listen/classroom modes use
+the question metadata for their panel title; it never becomes part of the
+interaction body.
 
 This shared transport stops producing separate question CONTENT, audio and
 marker elements in every mode. Authored narration and its audio are preserved.

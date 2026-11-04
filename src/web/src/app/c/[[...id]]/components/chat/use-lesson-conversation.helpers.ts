@@ -13,7 +13,6 @@ import {
   type AudioTrack,
 } from '@/lib/audio-utils';
 import { type ChatContentItem, ChatContentItemType } from '@/types/chat-ui';
-import { stripInteractionQuestionPrefix } from '@/lib/interaction-question';
 import {
   normalizeLegacyBlockCompatList,
   stripCustomButtonAfterContent,
@@ -297,13 +296,7 @@ export const buildElementContentItem = (
   const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
   const isInteractionElement = record.element_type === ELEMENT_TYPE.INTERACTION;
   const generatedBlockBid = record.generated_block_bid || itemBid;
-  const renderedContent = resolveRenderableRecordContent(record);
-  const content = isInteractionElement
-    ? stripInteractionQuestionPrefix(
-        renderedContent,
-        record.payload?.interaction_question,
-      )
-    : renderedContent;
+  const content = resolveRenderableRecordContent(record);
 
   return {
     ...options.previousItem,

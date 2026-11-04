@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/Popover';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
-import { stripInteractionQuestionPrefix } from '@/lib/interaction-question';
 import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
@@ -760,7 +759,7 @@ const buildSlideElementList = ({
 };
 
 const ListenModeSlideRenderer = ({
-  items: sourceItems,
+  items,
   mobileStyle,
   chatRef,
   variant = 'listen',
@@ -785,21 +784,6 @@ const ListenModeSlideRenderer = ({
   followUpMode = 'text',
   pendingAudioBackfillElementBids = EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS,
 }: ListenModeSlideRendererProps) => {
-  const items = useMemo(
-    () =>
-      sourceItems.map(item => {
-        if (item.type !== ChatContentItemType.INTERACTION) {
-          return item;
-        }
-        const originalContent = item.content || '';
-        const content = stripInteractionQuestionPrefix(
-          originalContent,
-          item.payload?.interaction_question,
-        );
-        return content === originalContent ? item : { ...item, content };
-      }),
-    [sourceItems],
-  );
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
   const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
