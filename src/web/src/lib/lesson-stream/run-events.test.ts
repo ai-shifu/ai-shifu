@@ -33,6 +33,23 @@ describe('lesson stream run events', () => {
     expect(readRunEventError({ content: 'Plain' }).code).toBeUndefined();
   });
 
+  it('searches content and data separately for the business code', () => {
+    // A content object without a code must not hide the code in data.
+    expect(readRunEventError({ content: {}, data: { code: 8 } }).code).toBe(8);
+    expect(
+      readRunEventError({
+        content: { message: 'Unable to continue' },
+        data: { code: 7101 },
+      }),
+    ).toEqual({ message: 'Unable to continue', code: 7101 });
+  });
+
+  it('keeps an unrecognized JSON error text instead of dropping it', () => {
+    const raw = '{"error":"Service quota reached"}';
+    expect(readRunEventError({ content: raw }).message).toBe(raw);
+    expect(readRunEventError({ data: raw }).message).toBe(raw);
+  });
+
   it('tells a terminal done from a block end and from silence', () => {
     expect(readDoneIsTerminal({ is_terminal: true })).toBe(true);
     expect(readDoneIsTerminal({ is_terminal: false })).toBe(false);

@@ -45,31 +45,38 @@ const nonEmptyString = (value: unknown): string =>
   typeof value === 'string' && value ? value : '';
 
 /**
- * The message and business code of an `error` event: a plain string content
- * or data, else `content`/`message`/`mdflow` of an object payload, else the
- * event's own `message`; the code from the event, else from the payload.
+ * The message and business code of an `error` event.
+ *
+ * Message: a plain (non-JSON) string `content` or `data`; else `content`,
+ * `message` or `mdflow` of either object payload; else the event's own
+ * `message`; else the raw string payload, so an unrecognized JSON error text
+ * is still shown. Code: the event's own, else the first numeric `code` in
+ * `content`, then `data` -- each payload is searched on its own.
  */
 export const readRunEventError = (
   event: RunStreamEvent,
 ): { message: string; code: number | undefined } => {
-  const payload = runEventObject(event);
+  const payloads = [event.content, event.data].map(parseRunEventObject);
+  const plainString = (value: unknown) =>
+    typeof value === 'string' && !parseRunEventObject(value) ? value : '';
+  const fromPayloads = (field: string) =>
+    payloads.map(payload => nonEmptyString(payload?.[field])).find(Boolean) ||
+    '';
   const message =
-    (typeof event.content === 'string' && !parseRunEventObject(event.content)
-      ? event.content
-      : '') ||
-    (typeof event.data === 'string' && !parseRunEventObject(event.data)
-      ? event.data
-      : '') ||
-    nonEmptyString(payload?.content) ||
-    nonEmptyString(payload?.message) ||
-    nonEmptyString(payload?.mdflow) ||
-    nonEmptyString(event.message);
+    plainString(event.content) ||
+    plainString(event.data) ||
+    fromPayloads('content') ||
+    fromPayloads('message') ||
+    fromPayloads('mdflow') ||
+    nonEmptyString(event.message) ||
+    nonEmptyString(event.content) ||
+    nonEmptyString(event.data);
   const code =
     typeof event.code === 'number'
       ? event.code
-      : typeof payload?.code === 'number'
-        ? payload.code
-        : undefined;
+      : payloads
+          .map(payload => payload?.code)
+          .find((value): value is number => typeof value === 'number');
   return { message, code };
 };
 
