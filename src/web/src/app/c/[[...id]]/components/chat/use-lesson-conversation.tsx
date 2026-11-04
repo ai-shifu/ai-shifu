@@ -301,9 +301,6 @@ function useLessonConversation({
   const resetLessonRunContent = useLessonRunContentStore(
     state => state.resetLesson,
   );
-  const updateLessonRunPendingSlides = useLessonRunContentStore(
-    state => state.updatePendingSlides,
-  );
   const markLessonRunAudioBackfillReady = useLessonRunContentStore(
     state => state.markAudioBackfillReady,
   );
@@ -809,66 +806,6 @@ function useLessonConversation({
     [sortSlidesByTimeline],
   );
 
-  const resolveListenSlideIdentityBids = useCallback(
-    (
-      ...sources: Array<
-        Partial<StudyRecordItem & ListenSlideData> | string | null | undefined
-      >
-    ) => {
-      const bids = new Set<string>();
-      sources.forEach(source => {
-        if (!source) {
-          return;
-        }
-        if (typeof source === 'string') {
-          if (source.trim()) {
-            bids.add(source.trim());
-          }
-          return;
-        }
-        [
-          source.target_element_bid,
-          source.element_bid,
-          source.generated_block_bid,
-        ].forEach(bid => {
-          if (typeof bid === 'string' && bid.trim()) {
-            bids.add(bid.trim());
-          }
-        });
-      });
-      return Array.from(bids);
-    },
-    [],
-  );
-
-  const getPendingListenSlides = useCallback(
-    (identityBids: string[]) => {
-      const pendingSlidesByBid =
-        getLessonRunContentCacheEntry().pendingSlidesByBid;
-      const slideLists = identityBids
-        .map(bid => pendingSlidesByBid[bid])
-        .filter(Boolean);
-      return mergeListenSlides(...slideLists);
-    },
-    [getLessonRunContentCacheEntry, mergeListenSlides],
-  );
-
-  const clearPendingListenSlides = useCallback(
-    (identityBids: string[]) => {
-      if (!identityBids.length) {
-        return;
-      }
-      updateLessonRunPendingSlides(lessonRunContentCacheKey, pendingSlides => {
-        const nextPendingSlides = { ...pendingSlides };
-        identityBids.forEach(bid => {
-          delete nextPendingSlides[bid];
-        });
-        return nextPendingSlides;
-      });
-    },
-    [lessonRunContentCacheKey, updateLessonRunPendingSlides],
-  );
-
   const resolveElementCacheIdentityBids = useCallback(
     (record: StudyRecordItem, itemBid: string) => {
       const primaryBid =
@@ -902,19 +839,11 @@ function useLessonConversation({
     ): ChatContentItem =>
       buildChatElementContentItem(record, {
         ...options,
-        getPendingListenSlides,
         isAudioBackfillReadyForBlock,
         mergeListenSlides,
         resolveElementItemBid,
-        resolveListenSlideIdentityBids,
       }),
-    [
-      getPendingListenSlides,
-      isAudioBackfillReadyForBlock,
-      mergeListenSlides,
-      resolveElementItemBid,
-      resolveListenSlideIdentityBids,
-    ],
+    [isAudioBackfillReadyForBlock, mergeListenSlides, resolveElementItemBid],
   );
 
   const parseLessonFeedbackScore = useCallback((raw?: string | null) => {
@@ -1712,7 +1641,6 @@ function useLessonConversation({
 
                 return nextList;
               });
-              clearPendingListenSlides(elementCacheIdentityBids);
 
               if (isLessonFeedbackInteraction && nextItem.element_bid) {
                 openLessonFeedbackPopup({
@@ -1970,7 +1898,6 @@ function useLessonConversation({
       allowTtsStreaming,
       appendRunBusinessError,
       appendRunTimeoutError,
-      clearPendingListenSlides,
       clearRunStreamTimeout,
       ensureContentItem,
       finalizeElementOutputInList,

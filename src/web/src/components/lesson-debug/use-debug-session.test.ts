@@ -246,9 +246,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'turn-1',
-          content: 'The lesson.',
+          type: 'element',
+          content: {
+            element_bid: 'turn-1',
+            generated_block_bid: 'turn-1',
+            element_type: 'text',
+            content: 'The lesson.',
+          },
         }),
       });
       source.listeners.message?.({
@@ -387,7 +391,15 @@ describe('useDebugSession helpers and business error rendering', () => {
           data: JSON.stringify({ type: 'done', is_terminal: true }),
         });
         source.listeners.message?.({
-          data: JSON.stringify({ type: 'content', content: 'Stale output' }),
+          data: JSON.stringify({
+            type: 'element',
+            content: {
+              element_bid: 'stale',
+              generated_block_bid: 'stale',
+              element_type: 'text',
+              content: 'Stale output',
+            },
+          }),
         });
       });
 
@@ -1428,9 +1440,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       firstSource.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'pause',
-          content: 'Ready to continue?',
+          type: 'element',
+          content: {
+            element_bid: 'pause',
+            generated_block_bid: 'pause',
+            element_type: 'text',
+            content: 'Ready to continue?',
+          },
         }),
       });
       firstSource.listeners.message?.({
@@ -1494,9 +1510,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       sources[1].listeners.message?.({
         data: JSON.stringify({
-          type: 'interaction',
-          generated_block_bid: 'new-question',
-          content: '?[answer]',
+          type: 'element',
+          content: {
+            element_bid: 'new-question',
+            generated_block_bid: 'new-question',
+            element_type: 'interaction',
+            content: '?[answer]',
+          },
         }),
       });
       sources[1].listeners.message?.({
@@ -1659,9 +1679,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'late-block',
-          content: 'late content should be ignored',
+          type: 'element',
+          content: {
+            element_bid: 'late-block',
+            generated_block_bid: 'late-block',
+            element_type: 'text',
+            content: 'late content should be ignored',
+          },
         }),
       });
     });
@@ -1843,9 +1867,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'late-langfuse-block',
-          content: 'late content should be ignored',
+          type: 'element',
+          content: {
+            element_bid: 'late-langfuse-block',
+            generated_block_bid: 'late-langfuse-block',
+            element_type: 'text',
+            content: 'late content should be ignored',
+          },
         }),
       });
     });
@@ -1926,9 +1954,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() =>
       debugSource.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'audio',
-          content: 'Speak this.',
+          type: 'element',
+          content: {
+            element_bid: 'audio',
+            generated_block_bid: 'audio',
+            element_type: 'text',
+            content: 'Speak this.',
+          },
         }),
       }),
     );
@@ -2044,9 +2076,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       act(() =>
         sources[0].listeners.message?.({
           data: JSON.stringify({
-            type: 'content',
-            generated_block_bid: 'audio',
-            content: 'Speak this.',
+            type: 'element',
+            content: {
+              element_bid: 'audio',
+              generated_block_bid: 'audio',
+              element_type: 'text',
+              content: 'Speak this.',
+            },
           }),
         }),
       );
@@ -2109,9 +2145,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       act(() =>
         sources[0].listeners.message?.({
           data: JSON.stringify({
-            type: 'content',
-            generated_block_bid: 'audio',
-            content: 'Speak this.',
+            type: 'element',
+            content: {
+              element_bid: 'audio',
+              generated_block_bid: 'audio',
+              element_type: 'text',
+              content: 'Speak this.',
+            },
           }),
         }),
       );
@@ -2193,9 +2233,13 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       source.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'question',
-          content: 'Continue?',
+          type: 'element',
+          content: {
+            element_bid: 'question',
+            generated_block_bid: 'question',
+            element_type: 'text',
+            content: 'Continue?',
+          },
         }),
       });
       source.listeners.message?.({
@@ -2241,9 +2285,13 @@ describe('useDebugSession helpers and business error rendering', () => {
     act(() => {
       debugSource.listeners.message?.({
         data: JSON.stringify({
-          type: 'content',
-          generated_block_bid: 'audio-block',
-          content: 'Audio text.',
+          type: 'element',
+          content: {
+            element_bid: 'audio-block',
+            generated_block_bid: 'audio-block',
+            element_type: 'text',
+            content: 'Audio text.',
+          },
         }),
       });
     });

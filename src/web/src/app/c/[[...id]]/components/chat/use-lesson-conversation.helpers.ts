@@ -252,7 +252,6 @@ export const isAskOrAnswerElementType = (elementType?: string | null) => {
 export const buildElementContentItem = (
   record: StudyRecordItem,
   options: {
-    getPendingListenSlides: (identityBids: string[]) => ListenSlideData[];
     isAudioBackfillReadyForBlock: (
       generatedBlockBid?: string | null,
       elementBid?: string | null,
@@ -267,11 +266,6 @@ export const buildElementContentItem = (
         'element_bid' | 'generated_block_bid' | 'target_element_bid'
       > | null,
     ) => string;
-    resolveListenSlideIdentityBids: (
-      ...sources: Array<
-        Partial<StudyRecordItem & ListenSlideData> | string | null | undefined
-      >
-    ) => string[];
     isHistory?: boolean;
     shouldRenderAsHistoryInReadMode?: boolean;
     shouldUseTypewriter?: boolean;
@@ -302,12 +296,6 @@ export const buildElementContentItem = (
   const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
   const isInteractionElement = record.element_type === ELEMENT_TYPE.INTERACTION;
   const generatedBlockBid = record.generated_block_bid || itemBid;
-  const identityBids = options.resolveListenSlideIdentityBids(
-    record,
-    itemBid,
-    generatedBlockBid,
-  );
-  const pendingListenSlides = options.getPendingListenSlides(identityBids);
   const content = resolveRenderableRecordContent(record);
 
   return {
@@ -357,7 +345,6 @@ export const buildElementContentItem = (
     listenSlides: options.mergeListenSlides(
       options.previousItem?.listenSlides,
       options.listenSlides,
-      pendingListenSlides,
     ),
   };
 };
