@@ -369,9 +369,10 @@ def test_old_checkpoint_does_not_inherit_a_future_interruption() -> None:
 
 
 @pytest.mark.parametrize("selected", [0, 1])
-def test_learner_answer_edit_preserves_the_existing_block_based_replay_boundary(
+def test_learner_answer_edit_restores_the_turn_of_the_question_it_changes(
     app: object, selected: int
 ) -> None:
+    """Two questions asked in one turn: changing the second keeps the first answer."""
     with app.app_context():
         _clean()
         _record()
@@ -396,6 +397,8 @@ def test_learner_answer_edit_preserves_the_existing_block_based_replay_boundary(
         db.session.commit()
         plan = _plan(f"control-{selected}", answering=True)
     assert plan is not None
-    assert plan.checkpoint["pending"][0]["tool_call_id"] == "q1"
+    # The restored turn waits on the question the learner changed, so the new value
+    # answers that question and not the first one.
+    assert plan.checkpoint["pending"][0]["tool_call_id"] == f"q{selected + 1}"
     assert plan.replay_values is None
-    assert plan.retired_block_bids == ["answer-0", "answer-1"]
+    assert plan.retired_block_bids == ["answer-0", "answer-1"][selected:]

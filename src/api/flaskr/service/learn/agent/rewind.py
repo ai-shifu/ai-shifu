@@ -297,6 +297,60 @@ def _turn_blocks_from(
     )
 
 
+def _question_for_control(
+    block: LearnGeneratedBlock, element_bid: str, turns: list[dict[str, Any]]
+) -> str | None:
+    """Name the question a control of `block` asked, or None when it cannot be told.
+
+    A turn may ask several questions at once. Its controls, in emission order, match the
+    pending queue of the turn that followed it (as `interaction_history` reads answers).
+    Without that question an answer edit would restore the first question's turn and the
+    new value would answer the first question instead of the one the learner changed.
+    """
+    rows = (
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.generated_block_bid == block.generated_block_bid,
+            LearnGeneratedElement.user_bid == block.user_bid,
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.element_type == "interaction",
+        )
+        .order_by(
+            LearnGeneratedElement.sequence_number.asc(),
+            LearnGeneratedElement.run_event_seq.asc(),
+            LearnGeneratedElement.id.asc(),
+        )
+        .all()
+    )
+    identities: list[str] = []
+    selected = None
+    for row in rows:
+        identity = (
+            row.target_element_bid
+            if not row.is_new and row.target_element_bid
+            else row.element_bid
+        )
+        if not identity:
+            continue
+        if identity not in identities:
+            identities.append(identity)
+        if element_bid in (row.element_bid, identity):
+            selected = identities.index(identity)
+    if selected is None:
+        return None
+    following = next(
+        (turn["record"] for turn in turns[1:] if isinstance(turn.get("record"), dict)),
+        None,
+    )
+    checkpoint = following.get("checkpoint") if following else None
+    pending = checkpoint.get("pending") if isinstance(checkpoint, dict) else None
+    if not isinstance(pending, list) or len(identities) > len(pending):
+        return None
+    question = pending[selected]
+    tool_call_id = question.get("tool_call_id") if isinstance(question, dict) else None
+    return tool_call_id if isinstance(tool_call_id, str) and tool_call_id else None
+
+
 def plan_rewind(
     *,
     user_bid: str,
@@ -315,13 +369,20 @@ def plan_rewind(
     if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
         raise RewindUnavailableError
     blocks = _turn_blocks_from(block, include_it=True)
+    turns = [
+        {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
+        for b in blocks
+    ]
+    question_id = (
+        _question_for_control(block, anchor, turns)
+        if answering and anchor != block.generated_block_bid
+        else None
+    )
     return plan_turn_rewind(
-        [
-            {"block_bid": b.generated_block_bid, "record": read_turn_record(b)}
-            for b in blocks
-        ],
+        turns,
         block_bid=block.generated_block_bid,
         answering=answering,
+        question_id=question_id,
     )
 
 
