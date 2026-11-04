@@ -338,6 +338,20 @@ def _question_for_control(
             selected = identities.index(identity)
     if selected is None:
         return None
+    control_text = next(
+        (
+            row.content_text
+            for row in rows
+            if element_bid
+            in (
+                row.element_bid,
+                row.target_element_bid
+                if not row.is_new and row.target_element_bid
+                else row.element_bid,
+            )
+        ),
+        "",
+    )
     # Only the turn right after this one received these questions. A later turn's queue
     # belongs to other questions, so an unrecorded next turn means "cannot tell".
     following = turns[1].get("record") if len(turns) > 1 else None
@@ -347,7 +361,22 @@ def _question_for_control(
         return None
     question = pending[selected]
     tool_call_id = question.get("tool_call_id") if isinstance(question, dict) else None
-    return tool_call_id if isinstance(tool_call_id, str) and tool_call_id else None
+    if not isinstance(tool_call_id, str) or not tool_call_id:
+        return None
+    # Pairing by position holds only while each control renders its question. A
+    # confirmation shows no control and shifts the queue; any mismatch means "cannot tell".
+    from flaskr.api.markdownflow import InteractionSpec
+    from pydantic import ValidationError
+
+    from .interaction_history import _matches_control
+
+    try:
+        spec = InteractionSpec.model_validate(question.get("spec"))
+        if spec.type == "confirm" or not _matches_control(spec, control_text or ""):
+            return None
+    except (ValidationError, ValueError):
+        return None
+    return tool_call_id
 
 
 def plan_rewind(

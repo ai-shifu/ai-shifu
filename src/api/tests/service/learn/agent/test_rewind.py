@@ -12,6 +12,7 @@ import json
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn.agent import rewind
+from flaskr.service.learn.agent.legacy_protocol import render_interaction
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -393,7 +394,7 @@ def test_learner_answer_edit_restores_the_turn_of_the_question_it_changes(
                 element_bid=f"control-{i}"
             ).one()
             row.element_type = "interaction"
-            row.content_text = "?[Left|Right]"
+            row.content_text = render_interaction(_QUESTION)
         db.session.commit()
         plan = _plan(f"control-{selected}", answering=True)
     assert plan is not None
@@ -423,7 +424,35 @@ def test_an_unrecorded_next_turn_does_not_borrow_a_later_turns_question(
         _element("control-0", "questions")
         row = LearnGeneratedElement.query.filter_by(element_bid="control-0").one()
         row.element_type = "interaction"
-        row.content_text = "?[Left|Right]"
+        row.content_text = render_interaction(_QUESTION)
         db.session.commit()
         with pytest.raises(rewind.RewindUnavailableError):
             _plan("control-0", answering=True)
+
+
+def test_a_confirmation_in_the_queue_keeps_the_block_boundary(app: object) -> None:
+    """A confirmation shows no control, so positions cannot name the question."""
+    with app.app_context():
+        _clean()
+        _record()
+        _block("questions", checkpoint=_BEFORE_B1, values=[])
+        confirm = InteractionSpec(type="confirm", prompt="Ready?")
+        q1 = {"tool_call_id": "q1", "spec": _QUESTION.model_dump(mode="json")}
+        c = {"tool_call_id": "c", "spec": confirm.model_dump(mode="json")}
+        q2 = {"tool_call_id": "q2", "spec": _QUESTION.model_dump(mode="json")}
+        _block(
+            "answer-0", checkpoint={**_WAITING, "pending": [q1, c, q2]}, values=["Left"]
+        )
+        _block("answer-1", checkpoint={**_WAITING, "pending": [c, q2]}, values=["yes"])
+        _block("answer-2", checkpoint={**_WAITING, "pending": [q2]}, values=["Left"])
+        for bid in ("control-q1", "control-q2"):
+            _element(bid, "questions")
+            row = LearnGeneratedElement.query.filter_by(element_bid=bid).one()
+            row.element_type = "interaction"
+            row.content_text = render_interaction(_QUESTION)
+        db.session.commit()
+        plan = _plan("control-q2", answering=True)
+    # By position the second control would pair with the confirmation and restore
+    # answer-1. It cannot be told, so the old block boundary applies.
+    assert plan is not None
+    assert plan.retired_block_bids == ["answer-0", "answer-1", "answer-2"]
