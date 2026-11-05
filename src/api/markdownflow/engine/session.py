@@ -85,8 +85,6 @@ class Session:
     answers: dict[str, Any] = field(default_factory=dict)
     # Accepted free text awaiting a model response; never inferred from choice values/history.
     request_inputs: list[str] = field(default_factory=list)
-    # Derived historical overviews only; never learner memory or instruction authority.
-    teaching_summaries: dict[str, str] = field(default_factory=dict)
     usage: dict[str, int] = field(default_factory=dict)
     turn: int = 0
     finished: bool = False
@@ -232,7 +230,6 @@ class Session:
             ],
             "answers": self.answers,
             "request_inputs": self.request_inputs,
-            "teaching_summaries": self.teaching_summaries,
             "usage": self.usage,
             "turn": self.turn,
             "finished": self.finished,
@@ -243,7 +240,12 @@ class Session:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Session:
-        """Rebuild a session from its JSON form."""
+        """Rebuild a session from its JSON form.
+
+        Sessions saved while teaching history compaction existed may carry a
+        `teaching_summaries` cache and `read_teaching` calls in their messages.
+        The cache was derived data and is dropped; the messages replay unchanged.
+        """
         session = cls(
             script=ScriptBundle.from_dict(d["script"]),
             id=d["id"],
@@ -270,7 +272,6 @@ class Session:
             ],
             answers=dict(d.get("answers") or {}),
             request_inputs=list(d.get("request_inputs") or []),
-            teaching_summaries=dict(d.get("teaching_summaries") or {}),
             usage=dict(d.get("usage") or {}),
             turn=int(d.get("turn", 0)),
             finished=bool(d.get("finished", False)),

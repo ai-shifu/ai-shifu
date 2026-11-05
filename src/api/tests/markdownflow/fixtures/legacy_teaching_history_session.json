@@ -1,0 +1,287 @@
+{
+  "id": "legacy-teaching-history",
+  "user_id": "legacy-user",
+  "listen_mode": false,
+  "script": {
+    "script": "Teach sampling bias, then ask ?[...Your answer]",
+    "constraints": null,
+    "extras": {}
+  },
+  "messages": [
+    {
+      "parts": [
+        {
+          "content": "<memory>\n{}\n</memory>\n\n<script>\nTeach sampling bias, then ask ?[...Your answer]\n</script>",
+          "timestamp": "2026-11-01T00:00:00Z",
+          "part_kind": "user-prompt"
+        }
+      ],
+      "timestamp": "2026-11-01T00:00:00Z",
+      "instructions": "Legacy system instructions omitted from this fixture.",
+      "kind": "request",
+      "run_id": "legacy-run-1",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "content": "Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. ",
+          "id": null,
+          "provider_name": null,
+          "provider_details": null,
+          "part_kind": "text"
+        }
+      ],
+      "usage": {
+        "input_tokens": 50,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "output_tokens": 721,
+        "input_audio_tokens": 0,
+        "cache_audio_read_tokens": 0,
+        "output_audio_tokens": 0,
+        "audio_seconds": 0.0,
+        "details": {},
+        "cost": null
+      },
+      "model_name": "function::stream",
+      "timestamp": "2026-11-01T00:00:01Z",
+      "kind": "response",
+      "provider_name": null,
+      "provider_url": null,
+      "provider_details": null,
+      "provider_response_id": null,
+      "finish_reason": null,
+      "run_id": "legacy-run-1",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "workspace_ref": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "content": "continue\n\nDeliver the next part of the script: the rest of the step you were on if any of it is still to be delivered, otherwise the first step you have not delivered yet. Do not summarise, recap, restate or elaborate on anything you already delivered unless that step of the script asks for it, and do not add a closing wrap-up of your own. If nothing in the script remains to be delivered, write nothing at all -- no note, no summary -- and call `finish`.",
+          "timestamp": "2026-11-01T00:00:02Z",
+          "part_kind": "user-prompt"
+        }
+      ],
+      "timestamp": "2026-11-01T00:00:02Z",
+      "instructions": "Legacy system instructions omitted from this fixture.",
+      "kind": "request",
+      "run_id": "legacy-run-2",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "content": "Short follow-up teaching.",
+          "id": null,
+          "provider_name": null,
+          "provider_details": null,
+          "part_kind": "text"
+        }
+      ],
+      "usage": {
+        "input_tokens": 50,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "output_tokens": 4,
+        "input_audio_tokens": 0,
+        "cache_audio_read_tokens": 0,
+        "output_audio_tokens": 0,
+        "audio_seconds": 0.0,
+        "details": {},
+        "cost": null
+      },
+      "model_name": "function::stream",
+      "timestamp": "2026-11-01T00:00:03Z",
+      "kind": "response",
+      "provider_name": null,
+      "provider_url": null,
+      "provider_details": null,
+      "provider_response_id": null,
+      "finish_reason": null,
+      "run_id": "legacy-run-2",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "workspace_ref": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "content": "continue\n\nDeliver the next part of the script: the rest of the step you were on if any of it is still to be delivered, otherwise the first step you have not delivered yet. Do not summarise, recap, restate or elaborate on anything you already delivered unless that step of the script asks for it, and do not add a closing wrap-up of your own. If nothing in the script remains to be delivered, write nothing at all -- no note, no summary -- and call `finish`.",
+          "timestamp": "2026-11-01T00:00:04Z",
+          "part_kind": "user-prompt"
+        }
+      ],
+      "timestamp": "2026-11-01T00:00:04Z",
+      "instructions": "Legacy system instructions omitted from this fixture.",
+      "kind": "request",
+      "run_id": "legacy-run-3",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "content": "Short follow-up teaching.",
+          "id": null,
+          "provider_name": null,
+          "provider_details": null,
+          "part_kind": "text"
+        }
+      ],
+      "usage": {
+        "input_tokens": 50,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "output_tokens": 4,
+        "input_audio_tokens": 0,
+        "cache_audio_read_tokens": 0,
+        "output_audio_tokens": 0,
+        "audio_seconds": 0.0,
+        "details": {},
+        "cost": null
+      },
+      "model_name": "function::stream",
+      "timestamp": "2026-11-01T00:00:05Z",
+      "kind": "response",
+      "provider_name": null,
+      "provider_url": null,
+      "provider_details": null,
+      "provider_response_id": null,
+      "finish_reason": null,
+      "run_id": "legacy-run-3",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "workspace_ref": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "content": "What did the earlier example say?",
+          "timestamp": "2026-11-01T00:00:06Z",
+          "part_kind": "user-prompt"
+        }
+      ],
+      "timestamp": "2026-11-01T00:00:06Z",
+      "instructions": "Legacy system instructions omitted from this fixture.",
+      "kind": "request",
+      "run_id": "legacy-run-4",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "tool_name": "read_teaching",
+          "args": "{\"reference\": \"teaching-1-0-15f31c9a3ddad5680226ca3d254a3d96a65588a61f2fab6905de1baf01ee0c6a\"}",
+          "tool_call_id": "legacy-read",
+          "tool_kind": null,
+          "id": null,
+          "provider_name": null,
+          "provider_details": null,
+          "part_kind": "tool-call"
+        },
+        {
+          "tool_name": "interact",
+          "args": "{\"type\": \"text\", \"prompt\": \"Which example?\", \"placeholder\": \"Your answer\"}",
+          "tool_call_id": "legacy-ask",
+          "tool_kind": null,
+          "id": null,
+          "provider_name": null,
+          "provider_details": null,
+          "part_kind": "tool-call"
+        }
+      ],
+      "usage": {
+        "input_tokens": 50,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "output_tokens": 14,
+        "input_audio_tokens": 0,
+        "cache_audio_read_tokens": 0,
+        "output_audio_tokens": 0,
+        "audio_seconds": 0.0,
+        "details": {},
+        "cost": null
+      },
+      "model_name": "function::stream",
+      "timestamp": "2026-11-01T00:00:07Z",
+      "kind": "response",
+      "provider_name": null,
+      "provider_url": null,
+      "provider_details": null,
+      "provider_response_id": null,
+      "finish_reason": null,
+      "run_id": "legacy-run-4",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "workspace_ref": null,
+      "state": "complete"
+    },
+    {
+      "parts": [
+        {
+          "tool_name": "read_teaching",
+          "content": "{\"status\":\"found\",\"reference\":\"teaching-1-0-15f31c9a3ddad5680226ca3d254a3d96a65588a61f2fab6905de1baf01ee0c6a\",\"offset\":0,\"text\":\"Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. Exact original teaching about sampling bias. \",\"next_offset\":null}",
+          "tool_call_id": "legacy-read",
+          "tool_kind": null,
+          "metadata": null,
+          "timestamp": "2026-11-01T00:00:08Z",
+          "outcome": "success",
+          "part_kind": "tool-return"
+        }
+      ],
+      "timestamp": "2026-11-01T00:00:08Z",
+      "instructions": null,
+      "kind": "request",
+      "run_id": "legacy-run-4",
+      "conversation_id": "legacy-conversation",
+      "metadata": null,
+      "state": "complete"
+    }
+  ],
+  "memory": {},
+  "answer_hashes": {},
+  "memory_generations": {},
+  "user_memory": {},
+  "initial_variables": {},
+  "pending": [
+    {
+      "tool_call_id": "legacy-ask",
+      "spec": {
+        "type": "text",
+        "prompt": "Which example?",
+        "options": [],
+        "variable": null,
+        "placeholder": "Your answer",
+        "labelled_by_engine": false
+      }
+    }
+  ],
+  "answers": {},
+  "request_inputs": [],
+  "teaching_summaries": {
+    "legacy-v1:teaching-1-0-15f31c9a3ddad5680226ca3d254a3d96a65588a61f2fab6905de1baf01ee0c6a": "Explained sampling bias."
+  },
+  "usage": {
+    "requests": 4,
+    "input_tokens": 200,
+    "output_tokens": 743
+  },
+  "turn": 4,
+  "finished": false,
+  "interrupted": false,
+  "created_at": "2026-11-01T00:00:00+00:00",
+  "updated_at": "2026-11-01T00:00:00+00:00"
+}

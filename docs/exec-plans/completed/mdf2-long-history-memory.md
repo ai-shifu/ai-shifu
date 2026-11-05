@@ -1,5 +1,8 @@
 # Long teaching history and current memory acceptance
 
+> Retired, 2026-11-04: teaching history compaction, its semantic summaries and
+> `read_teaching` were removed; the model now receives the complete history.
+
 ## Purpose / Big Picture
 
 Extend the repeatable memory-quality operator with real-model journeys that

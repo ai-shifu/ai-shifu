@@ -61,7 +61,6 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
         memory_admission=True,
         memory_recall=True,
         recall_history_compaction=True,
-        teaching_history_compaction=True,
         exercise_statistics=True,
         request_limit=12,
         model_settings=dict(GENERATION_SETTINGS),

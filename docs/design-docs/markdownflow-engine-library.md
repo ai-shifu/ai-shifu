@@ -47,7 +47,7 @@ share the same codec. Course DTO translation remains outside the library.
 
 Prompts remain package resources and `markdownflow.load_prompt(name)` reads
 their exact UTF-8 contents. The loader accepts a resource stem, such as
-`teaching_summary`, and rejects paths or file extensions. The engine version
+`memory_recall`, and rejects paths or file extensions. The engine version
 continues to come from `markdownflow/engine/__init__.py`; release tooling reads
 that file without importing the application.
 

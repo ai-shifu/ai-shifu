@@ -49,7 +49,6 @@ def _engine(stream: Callable[[list[ModelMessage], AgentInfo], AsyncIterator]) ->
         FunctionModel(stream_function=stream),
         memory_recall=True,
         exercise_statistics=True,
-        teaching_history_compaction=True,
         request_limit=2,
         feedback_contract=True,
     )
@@ -120,7 +119,6 @@ async def test_later_question_accepts_help_rule_from_the_lesson_header(
         ("remember", {"key": "unseen", "value": "must not write"}),
         ("recall", {}),
         ("read_exercise_history", {}),
-        ("read_teaching", {"reference": "missing"}),
         ("calculate_exercise_statistics", {"questions": [{"question": "fake"}]}),
         ("", {}),
     ],

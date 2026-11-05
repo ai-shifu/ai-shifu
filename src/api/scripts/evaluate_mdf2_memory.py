@@ -17,18 +17,16 @@ import subprocess
 import sys
 import tempfile
 import time
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import Callable
 
     from markdownflow.engine import Session
-    from pydantic_ai import RunContext
     from pydantic_ai.messages import ModelMessage, ModelResponse
-    from pydantic_ai.models import Model, ModelRequestParameters, StreamedResponse
+    from pydantic_ai.models import Model, ModelRequestParameters
     from pydantic_ai.settings import ModelSettings
 
 API_DIR = Path(__file__).resolve().parents[1]
@@ -354,7 +352,7 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
 
 
 def teaching_session(case: dict[str, Any]) -> Session:
-    """Hide an exact older example between excerpt boundaries and two recent turns."""
+    """Place an exact older example before two recent teaching turns."""
     from markdownflow.engine import ScriptBundle
     from markdownflow.engine.script import render_first_prompt
     from pydantic_ai.messages import (
@@ -407,126 +405,8 @@ def teaching_session(case: dict[str, Any]) -> Session:
     return session
 
 
-def teaching_read_evidence(
-    events: list, sources: dict[str, str], expected: str
-) -> bool:
-    """Require an exact original page containing the answer before learner output."""
-    from markdownflow.engine import ContentDelta, ToolCall, ToolResult
-
-    calls = {}
-    verified = False
-    text = ""
-    for event in events:
-        if isinstance(event, ToolCall) and event.name == "read_teaching":
-            calls[event.id] = event.args
-        elif isinstance(event, ToolResult) and event.name == "read_teaching":
-            args = calls.get(event.id, {})
-            value = parse_recall_result(event.content)
-            reference = args.get("reference")
-            if (
-                reference not in sources
-                or value is None
-                or value.get("status") != "found"
-            ):
-                continue
-            offset, end = value.get("offset"), value.get("next_offset")
-            page = value.get("text")
-            if (
-                value.get("reference") == reference
-                and type(offset) is int
-                and offset == args.get("offset", 0)
-                and 0 <= offset <= len(sources[reference])
-                and (
-                    end is None
-                    or (type(end) is int and offset < end < len(sources[reference]))
-                )
-                and isinstance(page, str)
-                and page == sources[reference][offset:end]
-                and expected in page
-            ):
-                verified = True
-        elif isinstance(event, ContentDelta):
-            text += event.text
-            if expected in text:
-                return verified
-    return False
-
-
-def observe_summary_usage(model: Model, totals: dict[str, int]) -> Model:
-    """Record completed summary responses without changing model identity or requests."""
-    from markdownflow.engine.usage import accumulate_usage
-    from pydantic_ai.models.wrapper import WrapperModel
-
-    class ObservedSummaryModel(WrapperModel):
-        """Observe the nonstreamed request path used by the production summary factory."""
-
-        async def request(
-            self,
-            messages: list[ModelMessage],
-            model_settings: ModelSettings | None,
-            model_request_parameters: ModelRequestParameters,
-        ) -> ModelResponse:
-            """Retain the actual completed request usage separately from teaching."""
-            response = await super().request(
-                messages, model_settings, model_request_parameters
-            )
-            totals.update(accumulate_usage(totals, response.usage))
-            return response
-
-    return ObservedSummaryModel(model)
-
-
-def observe_teaching_projection(
-    model: Model, sources: dict[str, str], markers: set[str]
-) -> Model:
-    """Observe source-bound projection markers in requests, without changing them."""
-    from pydantic_ai.messages import ModelResponse, TextPart
-    from pydantic_ai.models.wrapper import WrapperModel
-
-    class ObservedModel(WrapperModel):
-        """Observe the actual request projection without changing model behavior."""
-
-        @asynccontextmanager
-        async def request_stream(
-            self,
-            messages: list[ModelMessage],
-            model_settings: ModelSettings | None,
-            model_request_parameters: ModelRequestParameters,
-            run_context: RunContext[Any] | None = None,
-        ) -> AsyncIterator[StreamedResponse]:
-            """Record source-bound excerpt/summary markers sent to the model."""
-            for message_index, message in enumerate(messages):
-                if not isinstance(message, ModelResponse):
-                    continue
-                for part_index, part in enumerate(message.parts):
-                    if not isinstance(part, TextPart):
-                        continue
-                    try:
-                        marker = json.loads(part.content)
-                    except ValueError:
-                        continue
-                    if (
-                        isinstance(marker, dict)
-                        and isinstance(marker.get("reference"), str)
-                        and marker["reference"] in sources
-                        and marker["reference"].startswith(
-                            f"teaching-{message_index}-{part_index}-"
-                        )
-                    ):
-                        markers.add(marker.get("status"))
-            async with super().request_stream(
-                messages, model_settings, model_request_parameters, run_context
-            ) as response:
-                yield response
-
-    return ObservedModel(model)
-
-
-async def evaluate_teaching(
-    case: dict[str, Any], model: Model, summary_model: Model
-) -> dict[str, Any]:
-    """Combine real summary generation, cache reload and current versus historical reads."""
-    from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
+async def evaluate_teaching(case: dict[str, Any], model: Model) -> dict[str, Any]:
+    """Score current versus historical answers against the complete teaching history."""
     from markdownflow.engine import (
         ContentDelta,
         ContinueTurn,
@@ -537,35 +417,9 @@ async def evaluate_teaching(
         Session,
         TurnDone,
     )
-    from markdownflow.engine.teaching_history import (
-        project_teaching_history,
-    )
-    from markdownflow.engine.teaching_summary import (
-        TeachingSummarizer,
-        summarize_teaching_history,
-    )
     from pydantic_ai.messages import ModelMessagesTypeAdapter
 
-    session = teaching_session(case)
-    projected, sources = project_teaching_history(session.messages)
-    summary_usage: dict[str, int] = {}
-    provider = make_teaching_summarizer(
-        observe_summary_usage(summary_model, summary_usage)
-    )
-    summary_calls = 0
-
-    async def summarize(source: str) -> str | None:
-        """Count one real summary attempt or an explicitly injected failure."""
-        nonlocal summary_calls
-        summary_calls += 1
-        return None if case.get("summary_failure") else await provider.summarize(source)
-
-    summarizer = TeachingSummarizer(policy=provider.policy, summarize=summarize)
-    await summarize_teaching_history(
-        projected, sources, session.teaching_summaries, summarizer
-    )
-    cache = dict(session.teaching_summaries)
-    session = Session.loads(session.dumps())
+    session = Session.loads(teaching_session(case).dumps())
     original = (
         dict(session.memory),
         dict(session.user_memory),
@@ -573,16 +427,13 @@ async def evaluate_teaching(
     )
     history_len = len(session.messages)
     original_history = ModelMessagesTypeAdapter.dump_json(session.messages)
-    markers = set()
 
     engine = Engine(
-        observe_teaching_projection(model, sources, markers),
+        model,
         memory_admission=True,
         memory_recall=True,
         memory_context_limit=100,
         recall_history_compaction=True,
-        teaching_history_compaction=True,
-        teaching_summarizer=summarizer,
         request_limit=6,
         model_settings=dict(RECALL_MODEL_SETTINGS),
     )
@@ -607,22 +458,9 @@ async def evaluate_teaching(
         "expected_answer": text.count(case["expected"]) == 1,
         "exact_code_only": re.findall(r"\bEVAL-PROJ-\d+\b", text)
         == ([] if case["status"] == "unavailable" else [case["expected"]]),
-        "paired_current_evidence": (
-            teaching_read_evidence(events, sources, case["expected"])
-            if case.get("historical")
-            else current_recall_evidence(case, events)
-        ),
-        "expected_summary_outcome": len(cache) == 1
-        and all(
-            (not value) if case.get("summary_failure") else bool(value.strip())
-            for value in cache.values()
-        ),
-        "cache_reused_after_reload": summary_calls == 1
-        and session.teaching_summaries == cache,
-        "history_projected": (
-            "teaching_excerpt" if case.get("summary_failure") else "teaching_summary"
-        )
-        in markers,
+        # Historical answers come from the complete history the model already sees.
+        "paired_current_evidence": case.get("historical")
+        or current_recall_evidence(case, events),
         "memory_unchanged": original
         == (session.memory, session.user_memory, session.answer_hashes),
         "no_memory_events": not any(isinstance(e, MemoryUpdated) for e in events),
@@ -635,19 +473,9 @@ async def evaluate_teaching(
     }
     return {
         "passed": all(checks.values()),
-        "error": "engine_error"
-        if errors
-        else (
-            "summary_unavailable_or_invalid"
-            if not case.get("summary_failure")
-            and not checks["expected_summary_outcome"]
-            else None
-        ),
+        "error": "engine_error" if errors else None,
         "checks": checks,
         "usage": done[-1].usage if done else {},
-        "summary_calls": summary_calls,
-        "summary_usage": summary_usage,
-        "injected_summary_failure": bool(case.get("summary_failure")),
     }
 
 
@@ -662,19 +490,11 @@ async def evaluate(
             try:
                 model = model_factory(case["family"])
                 if case["family"] == "teaching":
-                    result = await evaluate_teaching(
-                        case, model, model_factory("teaching_summary")
-                    )
+                    result = await evaluate_teaching(case, model)
                 elif case["family"] == "exercise":
                     from scripts.mdf2_memory_quality.exercise import evaluate_exercise
 
-                    result = await evaluate_exercise(
-                        case,
-                        model,
-                        model_factory("teaching_summary")
-                        if case.get("compacted_history")
-                        else None,
-                    )
+                    result = await evaluate_exercise(case, model)
                 elif case["family"] == "grading":
                     from scripts.mdf2_memory_quality.grading import evaluate_grading
 
@@ -740,16 +560,11 @@ def report(
         "engine/memory_context.py",
         "engine/history_context.py",
         "engine/usage.py",
-        "engine/teaching_history.py",
-        "engine/teaching_summary.py",
-        "teaching_summary.py",
         "engine/prompts/system.md",
         "engine/prompts/memory_admission.md",
         "engine/prompts/memory_policy.md",
         "engine/prompts/memory_recall.md",
         "engine/prompts/recall_history_compaction.md",
-        "engine/prompts/teaching_history_compaction.md",
-        "engine/prompts/teaching_summary.md",
     ):
         relative = (
             "markdownflow/" + name
@@ -772,8 +587,7 @@ def report(
     return {
         "schema_version": 1,
         "usage_semantics": {
-            "teaching": "SDK diagnostic totals; summary requests are separate",
-            "summary": "Completed summary responses only; partial failures may be billed separately",
+            "teaching": "SDK diagnostic totals",
             "cache": "Provider prefix-cache reads; coverage counts only valid explicit reports, including zero",
             "cache_coverage": "Use matching cache_reported_read_tokens/cache_reported_input_tokens; missing coverage is unknown",
             "billing": "Use the shared gateway ledger/traces for prices and complete lesson cost",
@@ -782,12 +596,6 @@ def report(
         "teaching_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "exercise_generation_settings": dict(GENERATION_SETTINGS),
         "grading_generation_settings": dict(GRADING_GENERATION_SETTINGS),
-        "teaching_summary_generation_settings": {
-            "temperature": 0,
-            "max_tokens": 256,
-            "timeout_seconds": 8,
-            "input_budget_bytes": 40_960,
-        },
         "full_catalog": len(cases) == len(load_cases()),
         "selected_cases": [case["id"] for case in cases],
         "repeats": repeats,
@@ -922,9 +730,9 @@ def main(argv: list[str] | None = None) -> int:
                 generation_name=f"agent_memory_quality_{family}",
                 usage_context=usage_context,
                 usage_metadata=dict(usage_metadata),
-                timeout=8 if family == "teaching_summary" else 15,
-                retry_deadline_seconds=8 if family == "teaching_summary" else 15,
-                input_budget_bytes=40_960 if family == "teaching_summary" else 262_144,
+                timeout=15,
+                retry_deadline_seconds=15,
+                input_budget_bytes=262_144,
                 num_retries=0,
             )
 

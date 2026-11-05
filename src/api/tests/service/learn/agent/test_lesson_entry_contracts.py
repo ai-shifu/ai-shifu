@@ -89,23 +89,22 @@ def test_all_lesson_models_send_the_current_attempt_and_block_to_the_gateway(
                 learning_mode=learning_mode,
             )
         )
-    assert len(requests) == 12
+    assert len(requests) == 8
     for index, request in enumerate(requests):
-        attempt = index // 6 + 1
+        attempt = index // 4 + 1
         assert request["usage_context"] == UsageContext(
             user_bid=f"learner-{attempt}",
             shifu_bid="course",
             outline_item_bid="lesson",
             progress_record_bid=f"attempt-{attempt}",
-            generated_block_bid=f"block-{attempt}-{index % 6 // 3 + 1}",
+            generated_block_bid=f"block-{attempt}-{index % 4 // 2 + 1}",
             usage_scene=BILL_USAGE_SCENE_PREVIEW
             if preview_mode
             else BILL_USAGE_SCENE_PROD,
             learning_mode=learning_mode,
         )
-    assert [r["generation_name"] for r in requests[:3]] == [
+    assert [r["generation_name"] for r in requests[:2]] == [
         "teaching",
-        "history_summary",
         "memory_check",
     ]
 
@@ -383,8 +382,6 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     monkeypatch.setattr(entry, "CourseTrace", Mock(return_value=tracing))
     finalize = tracing.__exit__
     gateway = Mock(return_value=object())
-    summary = Mock(return_value=object())
-    monkeypatch.setattr(entry, "make_teaching_summarizer", summary)
     request_check = Mock(return_value=object())
     monkeypatch.setattr(entry, "make_request_check", request_check)
     engine = Mock(return_value=object())
@@ -451,30 +448,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             learning_mode=learning_mode or ("listen" if listen else "read"),
         ),
     )
-    assert gateway.call_count == 3
-    summary.assert_called_once_with(gateway.return_value)
-    gateway.assert_any_call(
-        app,
-        "2",
-        user_id="learner",
-        span=span,
-        generation_name="history_summary",
-        input_budget_bytes=40_960,
-        retry_deadline_seconds=8,
-        timeout=8,
-        num_retries=0,
-        usage_metadata=settings.usage_metadata,
-        usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
-        usage_context=UsageContext(
-            user_bid="learner",
-            shifu_bid="course",
-            outline_item_bid="lesson",
-            usage_scene=BILL_USAGE_SCENE_PREVIEW
-            if preview_mode
-            else BILL_USAGE_SCENE_PROD,
-            learning_mode=learning_mode or ("listen" if listen else "read"),
-        ),
-    )
+    assert gateway.call_count == 2
     gateway.assert_any_call(
         app,
         "2",
@@ -501,10 +475,8 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         memory_context_limit=32_768,
         memory_recall=True,
         recall_history_compaction=False,
-        teaching_history_compaction=True,
         exercise_statistics=True,
         feedback_contract=True,
-        teaching_summarizer=summary.return_value,
         memory_reserved_keys=entry.get_global_profile_keys(),
         memory_readonly_prefixes=("course:", "share:"),
         memory_request_check=request_check.return_value,
@@ -546,7 +518,6 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     monkeypatch.setattr(entry, "CourseTrace", Mock(return_value=tracing))
     monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_request_check", Mock(return_value=object()))
-    monkeypatch.setattr(entry, "make_teaching_summarizer", Mock(return_value=object()))
     monkeypatch.setattr(entry, "Engine", Mock(return_value=object()))
     runner = Mock(side_effect=lambda *_a, **_kw: iter(()))
     monkeypatch.setattr(entry, "run_agent_lesson", runner)

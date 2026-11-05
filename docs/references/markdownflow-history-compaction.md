@@ -18,8 +18,8 @@ those keys stale, so the revalidation notice in the instructions appears and
 disappears between requests. Because that notice ends the instructions, every
 request that toggles it cannot reuse the provider prefix cache for the history
 that follows. The production cache-hit effect has not been measured yet. The
-model is also nudged into extra recall calls. Long teaching text
-continues to be projected by teaching-history compaction.
+model is also nudged into extra recall calls. Teaching text is never projected:
+the model always receives the complete original history.
 
 ## Request projection
 
@@ -57,6 +57,6 @@ An oversized current answer, script, recent turn or teaching transcript can stil
 be refused with the existing save-before-error behavior.
 
 This is the first deterministic history-compaction increment, covering recall
-payload accumulation. Semantic summaries of teaching text, stored-data compaction,
-cross-course shared writing and full quality/cost acceptance remain separate work.
+payload accumulation. Stored-data compaction, cross-course shared writing and
+full quality/cost acceptance remain separate work.
 No extra provider call, schema migration, environment or frontend change is added.

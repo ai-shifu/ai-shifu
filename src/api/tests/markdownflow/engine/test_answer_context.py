@@ -45,13 +45,13 @@ SCRIPT = (
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
-@pytest.mark.parametrize("compaction", [False, True])
+@pytest.mark.parametrize("projected", [False, True])
 @pytest.mark.parametrize("retry_saved_answer", [False, True])
 @pytest.mark.parametrize("normalized_case", ["exact", "variable", "hint", "both"])
 @pytest.mark.parametrize("direction_rule", ["single", "multiple", "unspecified"])
 async def test_sdk_receives_exact_local_author_rule_without_persisting_projection(
     reload: bool,
-    compaction: bool,
+    projected: bool,
     retry_saved_answer: bool,
     normalized_case: str,
     direction_rule: str,
@@ -160,7 +160,9 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
     engine = Engine(
         FunctionModel(stream_function=model),
         memory_admission=True,
-        teaching_history_compaction=compaction,
+        # A history projection makes the engine append new messages to saved history.
+        memory_recall=projected,
+        recall_history_compaction=projected,
     )
     session = await engine.new_session(script)
     await _events(engine.run_turn(session))

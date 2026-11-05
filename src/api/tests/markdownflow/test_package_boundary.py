@@ -39,6 +39,15 @@ def test_bundled_prompts_only_update_reference_and_binding_guidance() -> None:
     hashes["memory_unrestricted"] = (
         "d36fe24811c5a7488c95011d5827c076519a8efb5cf158f3e4df33dd7cc673e0"
     )
+    # Teaching history compaction was removed: its prompts are gone, and recall
+    # guidance no longer points at the read_teaching tool.
+    del hashes["teaching_history_compaction"], hashes["teaching_summary"]
+    hashes["memory_recall"] = (
+        "e6dd42eaa357670fbb9263df3cdd9988917c47b8a1bec8914c578e8eeb45314b"
+    )
+    hashes["recall_history_compaction"] = (
+        "cd7e579720e5c03511ba93eb51ef6e37d29eac132abdf9f6a303080b7dbf6834"
+    )
     for name, expected in hashes.items():
         # Keep the historical fixture intact while loading the renamed resource.
         current_name = "syntax" if name == "v1_syntax" else name
@@ -139,12 +148,13 @@ async def test_legacy_package_session_resumes_its_remaining_pending_answer() -> 
         if message["kind"] == "response":
             message["workspace_ref"] = None
             message["usage"]["audio_seconds"] = 0.0
+    # The removed teaching summary cache is dropped on load.
+    assert state.pop("teaching_summaries") == {"legacy-summary": "Prior teaching."}
     assert session.to_dict() == {**state, "memory_generations": {}}
     assert session.answers == {"legacy-role": "Learner wrote: Data analyst"}
     assert [item.tool_call_id for item in session.pending] == ["legacy-goal"]
     assert session.answered_memory_keys() == {"role"}
     assert session.user_memory == {"pace": "slow"}
-    assert session.teaching_summaries == {"legacy-summary": "Prior teaching."}
     assert session.usage == {"requests": 2, "input_tokens": 123, "output_tokens": 45}
     calls = 0
 

@@ -153,7 +153,6 @@ The tree uses stable operation names:
 | Effective prompt snapshot          | `prompts`           |
 | Course execution round             | `teaching_round`    |
 | Primary course model               | `teaching`          |
-| Delivered teaching history summary | `history_summary`   |
 | Learner memory request check       | `memory_check`      |
 | Profile questionnaire model        | `questionnaire`     |
 | Delegated answer extraction        | `answer_extraction` |
