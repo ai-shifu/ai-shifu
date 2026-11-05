@@ -494,14 +494,16 @@ def agent_lesson_events(
                     # Otherwise the model failed (a provider error, timeout or exhausted
                     # recovery). The learner sees the friendly "unavailable" message for the
                     # unknown error below; the outage must still reach the alerting stream.
-                    # The engine's code names the failure without provider details.
+                    # The engine names the failure by its code and exception class, both free
+                    # of provider details.
                     app.logger.error(
                         "lesson turn failed in the engine: shifu_bid=%s outline_bid=%s "
-                        "preview=%s engine_code=%s",
+                        "preview=%s engine_code=%s engine_error=%s",
                         shifu_bid,
                         outline_bid,
                         preview_mode,
                         outcome.error_code,
+                        outcome.error_type,
                     )
                     raise_error("server.common.unknownError")
                 # A turn that ran out of content with the lesson not over is followed by the next,

@@ -14,6 +14,7 @@ from markdownflow.engine import (
     Session,
     TurnDone,
 )
+from markdownflow.engine.engine import MARKUP_CONTINUE_PROMPT
 from markdownflow.engine.interaction_markup import (
     InteractionMarkupFilter,
     authored_interaction_markup,
@@ -179,7 +180,8 @@ async def test_repeated_markup_has_a_bounded_retry_and_never_finishes(
     session = await engine.new_session("Ask a question and wait for an answer.")
     events = [e async for e in engine.run_turn(session)]
     assert calls == 2
-    assert any(isinstance(e, ErrorEvent) for e in events)
+    errors = [e for e in events if isinstance(e, ErrorEvent)]
+    assert [e.error_type for e in errors] == ["UnexpectedModelBehavior"]
     assert not any(isinstance(e, TurnDone) for e in events)
     assert not session.finished
     assert not session.pending
@@ -680,6 +682,111 @@ async def test_saved_unfinished_markup_cannot_be_completed_by_a_new_finish() -> 
     assert any(isinstance(e, InteractionRequest) for e in events)
     assert not restored.finished
     assert events[-1].reason == "interaction"
+
+
+def _saved_markup_turn(session: Session) -> Session:
+    """Save a lesson whose last response wrote its question as text."""
+    session.messages = [
+        ModelRequest(parts=[UserPromptPart(content="Ask a question and wait.")]),
+        ModelResponse(parts=[TextPart(content="Some teaching.\n" + MARKUP)]),
+    ]
+    session.turn = 1
+    session.interrupted = True
+    return Session.loads(session.dumps())
+
+
+def _last_prompt(messages: list[ModelMessage]) -> str:
+    return next(
+        part.content
+        for message in reversed(messages)
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, UserPromptPart)
+    )
+
+
+async def test_resuming_an_unasked_question_withholds_finish_until_it_is_asked() -> (
+    None
+):
+    """A model that asks to finish while it may cannot exhaust the turn on refusals.
+
+    This is the production case: the saved history holds a question written as text, and the
+    model, given `finish`, asked for it again and again until the tool's retries ran out, so
+    every "continue" failed the same way.
+    """
+    offered: list[list[str]] = []
+    prompts: list[str] = []
+
+    async def model(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        names = [tool.name for tool in info.function_tools]
+        offered.append(names)
+        prompts.append(_last_prompt(messages))
+        if "finish" in names:
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    json_args='{"summary":"done"}',
+                    tool_call_id=f"wrong-finish-{len(offered)}",
+                )
+            }
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(SPEC), tool_call_id="question"
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    restored = _saved_markup_turn(await engine.new_session("Ask a question and wait."))
+    events = [e async for e in engine.run_turn(restored)]
+    assert not [e for e in events if isinstance(e, ErrorEvent)]
+    assert any(isinstance(e, InteractionRequest) for e in events)
+    assert events[-1].reason == "interaction"
+    assert not restored.finished
+    assert offered
+    assert all("finish" not in names for names in offered)
+    assert prompts[0] == MARKUP_CONTINUE_PROMPT
+
+
+async def test_finish_returns_once_the_unasked_question_is_asked() -> None:
+    offered: list[list[str]] = []
+
+    async def model(
+        _messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        names = [tool.name for tool in info.function_tools]
+        offered.append(names)
+        if "finish" in names:
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    json_args='{"summary":"done"}',
+                    tool_call_id="finish-after-answer",
+                )
+            }
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(SPEC), tool_call_id="question"
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    restored = _saved_markup_turn(await engine.new_session("Ask a question and wait."))
+    asked = [e async for e in engine.run_turn(restored)]
+    request = next(e for e in asked if isinstance(e, InteractionRequest))
+    answered = [
+        e
+        async for e in engine.run_turn(
+            restored, InteractionResponseTurn(id=request.id, text="It decides order.")
+        )
+    ]
+    assert "finish" not in offered[0]
+    assert "finish" in offered[-1]
+    assert restored.finished
+    assert answered[-1].reason == "finished"
 
 
 async def test_an_intervening_read_does_not_discard_the_unanswered_question() -> None:

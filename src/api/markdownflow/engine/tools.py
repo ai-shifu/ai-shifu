@@ -999,6 +999,21 @@ async def memory_admission_error(
     return "the learner's explicit request could not be verified"
 
 
+async def prepare_finish_tool(
+    ctx: RunContext[Deps], definition: ToolDefinition
+) -> ToolDefinition | None:
+    """Withhold `finish` while a question written as text is still unasked.
+
+    `finish` refuses such a turn anyway, but a refusal spends a retry, and a model that keeps
+    asking to finish runs out of them: the turn fails, and every later "continue" fails the
+    same way. Without the tool the model can only ask the question for real; the real
+    `interact` call clears the flag and `finish` comes back.
+    """
+    if ctx.deps.interaction_markup_pending:
+        return None
+    return await prepare_feedback_tool(ctx, definition)
+
+
 async def prepare_feedback_tool(
     ctx: RunContext[Deps], definition: ToolDefinition
 ) -> ToolDefinition:

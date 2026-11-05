@@ -111,6 +111,9 @@ class ErrorEvent(BaseModel):
     message: str
     retryable: bool = False
     code: Literal["input_budget_exceeded"] | None = None
+    # The class of the exception that ended the turn, when one did. A class name carries no
+    # provider detail, so a host can log it where it must not log `message`.
+    error_type: str | None = None
 
 
 Event = (

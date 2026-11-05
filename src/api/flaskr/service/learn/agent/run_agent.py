@@ -1102,6 +1102,7 @@ def _stream_turn(
     echoes = EchoedMemoryFilter()
     asked = False
     error_code = None
+    error_type = None
     kept = True
 
     events = run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval)
@@ -1164,6 +1165,7 @@ def _stream_turn(
 
         if isinstance(event, ErrorEvent):
             error_code = event.code
+            error_type = event.error_type
 
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
@@ -1415,6 +1417,7 @@ def _stream_turn(
         reason=session_holder.get("reason"),
         taught=bool("".join(taught).strip()),
         error_code=error_code,
+        error_type=error_type,
         discarded=discarded,
     )
 
@@ -1431,6 +1434,7 @@ class TurnOutcome:
     reason: str | None
     taught: bool
     error_code: str | None = None
+    error_type: str | None = None
     discarded: bool = False
 
 

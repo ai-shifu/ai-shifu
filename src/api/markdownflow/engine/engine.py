@@ -114,6 +114,7 @@ from .tools import (
     interact,
     normalize_script_text_input,
     prepare_feedback_tool,
+    prepare_finish_tool,
     prepare_memory_tool,
     recall_exclusions,
     remember,
@@ -168,6 +169,11 @@ CONTINUE_PROMPT = (
     "script asks for it, and do not add a closing wrap-up of your own. If nothing in the script "
     "remains to be delivered, write nothing at all -- no note, no summary -- and call `finish`."
 )
+
+# Carrying on a lesson whose last question was written as text rather than asked. The usual
+# prompt would point the model at `finish` once the script looks delivered, and the question it
+# never asked would be skipped; this one says what is still owed before anything else.
+MARKUP_CONTINUE_PROMPT = "continue\n\n" + INTERACTION_MARKUP_RETRY
 
 
 class ContinueTurn(BaseModel):
@@ -553,7 +559,7 @@ class Engine:
                 Tool(
                     finish,
                     args_validator=validate_direction_call,
-                    prepare=prepare_feedback_tool,
+                    prepare=prepare_finish_tool,
                 ),
                 *(
                     [
@@ -917,7 +923,12 @@ class Engine:
             if isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(message="no interaction is pending")
                 return
-            prompt = turn.text if isinstance(turn, MessageTurn) else CONTINUE_PROMPT
+            if isinstance(turn, MessageTurn):
+                prompt = turn.text
+            elif deps.interaction_markup_pending:
+                prompt = MARKUP_CONTINUE_PROMPT
+            else:
+                prompt = CONTINUE_PROMPT
             if self.memory_admission and not (
                 session.interrupted and isinstance(turn, ContinueTurn)
             ):
@@ -1612,6 +1623,7 @@ class Engine:
                 message=f"{type(exc).__name__}: {exc}",
                 retryable=not budget_exceeded,
                 code="input_budget_exceeded" if budget_exceeded else None,
+                error_type=type(exc).__name__,
             )
             return
         finally:
