@@ -3612,3 +3612,22 @@ def test_native_uri_autolinks_keep_typed_delivery_and_history(
     expected = lesson.replace("===Before===", "Before").replace("===After===", "After")
     for content in (delivered, saved):
         assert content == expected
+
+
+@pytest.mark.usefixtures("calls")
+def test_an_engine_failure_hands_back_its_exception_class() -> None:
+    outcome = _outcome(
+        _Engine(
+            [
+                ErrorEvent(
+                    message="UnexpectedModelBehavior: Tool 'finish' exceeded max retries",
+                    retryable=True,
+                    error_type="UnexpectedModelBehavior",
+                )
+            ],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.reason is None
+    assert outcome.error_code is None
+    assert outcome.error_type == "UnexpectedModelBehavior"

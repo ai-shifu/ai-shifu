@@ -873,10 +873,16 @@ async def interact(
             "after that content, and never answer a continue with another confirm."
         )
         raise ModelRetry(msg)
-    if type == "confirm" and ctx.deps.no_pauses:
+    if (
+        type == "confirm"
+        and ctx.deps.no_pauses
+        and not ctx.deps.interaction_markup_pending
+    ):
         # A pause in a lesson whose script has none. The learner is not asked: the lesson simply
         # goes on, as a 1.0 lesson does. Answered rather than refused, so the model carries on in
         # the same turn instead of spending its retries on a call it cannot make.
+        # Not while a question written as text is owed: that pause would leave it owed, with
+        # `finish` withheld and text refused, so the pause is asked for real and settles it.
         return NO_PAUSE
     if ctx.deps.script_options:
         options = [
@@ -997,6 +1003,21 @@ async def memory_admission_error(
             # A failed admission service must not fail teaching or authorize a write.
             return "the learner's explicit request could not be verified"
     return "the learner's explicit request could not be verified"
+
+
+async def prepare_finish_tool(
+    ctx: RunContext[Deps], definition: ToolDefinition
+) -> ToolDefinition | None:
+    """Withhold `finish` while a question written as text is still unasked.
+
+    `finish` refuses such a turn anyway, but a refusal spends a retry, and a model that keeps
+    asking to finish runs out of them: the turn fails, and every later "continue" fails the
+    same way. Without the tool the model can only ask the question for real; the real
+    `interact` call clears the flag and `finish` comes back.
+    """
+    if ctx.deps.interaction_markup_pending:
+        return None
+    return await prepare_feedback_tool(ctx, definition)
 
 
 async def prepare_feedback_tool(

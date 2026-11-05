@@ -598,7 +598,12 @@ def test_a_model_failure_in_a_turn_reaches_the_alert_stream(
 
     def failed_turn(*_args: object, **_kwargs: object) -> object:
         yield from ()
-        return TurnOutcome(reason=None, taught=False, error_code="provider_error")
+        return TurnOutcome(
+            reason=None,
+            taught=False,
+            error_code="provider_error",
+            error_type="UnexpectedModelBehavior",
+        )
 
     runner.side_effect = failed_turn
     errors: list[tuple] = []
@@ -615,8 +620,17 @@ def test_a_model_failure_in_a_turn_reaches_the_alert_stream(
         )
     assert exc.value.code == ERROR_CODE["server.common.unknownError"]
     assert len(errors) == 1
-    assert errors[0][0].startswith("lesson turn failed in the engine")
-    assert errors[0][1:] == ("course", "lesson", preview_mode, "provider_error")
+    rendered = errors[0][0] % errors[0][1:]
+    assert rendered.startswith("lesson turn failed in the engine")
+    assert "engine_code=provider_error" in rendered
+    assert "engine_error=UnexpectedModelBehavior" in rendered
+    assert errors[0][1:] == (
+        "course",
+        "lesson",
+        preview_mode,
+        "provider_error",
+        "UnexpectedModelBehavior",
+    )
 
 
 def test_an_input_budget_stop_is_not_alerted(app: object, monkeypatch: object) -> None:
