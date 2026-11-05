@@ -9,6 +9,7 @@ import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 import {
   itemMatchesElementCacheIdentity,
   mergeListenSlides,
+  resolveAskRecordParentBid,
   resolveElementCacheIdentityBids,
   upsertAskMessageByParent,
 } from './lesson-list-helpers';
@@ -140,5 +141,61 @@ describe('listen slides and element identity', () => {
     expect(itemMatchesElementCacheIdentity(content('other'), identity)).toBe(
       false,
     );
+  });
+});
+
+describe('resolveAskRecordParentBid', () => {
+  const record = (payload: Record<string, unknown>) =>
+    ({ payload }) as unknown as StudyRecordItem;
+  const askBlock: ChatContentItem = {
+    element_bid: 'ask-block',
+    type: ChatContentItemType.ASK,
+    parent_element_bid: 'teaching',
+    ask_list: [{ element_bid: 'q1', content: 'Why?' }],
+  } as ChatContentItem;
+  const interaction: ChatContentItem = {
+    element_bid: 'question',
+    type: ChatContentItemType.INTERACTION,
+    content: '',
+  } as ChatContentItem;
+
+  it('prefers the anchor the record names', () => {
+    expect(
+      resolveAskRecordParentBid(
+        record({ anchor_element_bid: 'named', ask_element_bid: 'q1' }),
+        [askBlock],
+        'question',
+      ),
+    ).toBe('named');
+  });
+
+  it('falls back to the parent of the ask block holding the message', () => {
+    expect(
+      resolveAskRecordParentBid(record({ ask_element_bid: 'q1' }), [askBlock]),
+    ).toBe('teaching');
+  });
+
+  it('falls back to the pending interaction only when it is in the list', () => {
+    expect(
+      resolveAskRecordParentBid(
+        record({ ask_element_bid: 'unknown' }),
+        [askBlock, interaction],
+        'question',
+      ),
+    ).toBe('question');
+    expect(resolveAskRecordParentBid(record({}), [askBlock], 'question')).toBe(
+      '',
+    );
+    expect(
+      resolveAskRecordParentBid(
+        record({}),
+        [{ ...interaction, type: ChatContentItemType.CONTENT }],
+        'question',
+      ),
+    ).toBe('');
+  });
+
+  it('is empty without payload, items or a pending interaction', () => {
+    expect(resolveAskRecordParentBid({} as StudyRecordItem)).toBe('');
   });
 });

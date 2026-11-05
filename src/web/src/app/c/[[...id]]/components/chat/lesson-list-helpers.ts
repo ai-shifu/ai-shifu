@@ -7,7 +7,7 @@ import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 
 /**
  * Pure list helpers of the learner lesson conversation: follow-up (ask)
- * blocks under their anchor element, listen-mode slide merging, and the
+ * blocks under their anchor element and the element they belong to, listen-mode slide merging, and the
  * identity bids an element record is cached under.
  */
 
@@ -161,3 +161,51 @@ export const itemMatchesElementCacheIdentity = (
     identityBids.has(item.element_bid) ||
     (item.target_element_bid && identityBids.has(item.target_element_bid)),
   );
+
+/**
+ * The element an ask/answer record belongs under: the anchor the record
+ * names, else the parent of the ask block holding the asked message, else the
+ * interaction still waiting for the learner when that is in the list. Empty
+ * when none of them applies, so the caller can drop the orphan.
+ */
+export const resolveAskRecordParentBid = (
+  record: StudyRecordItem,
+  items: ChatContentItem[] = [],
+  pendingInteractionAnchorBid = '',
+): string => {
+  const payload = (record.payload ?? {}) as Record<string, unknown>;
+  const payloadAnchorElementBid =
+    typeof payload.anchor_element_bid === 'string'
+      ? payload.anchor_element_bid
+      : '';
+  if (payloadAnchorElementBid) {
+    return payloadAnchorElementBid;
+  }
+
+  const payloadAskElementBid =
+    typeof payload.ask_element_bid === 'string' ? payload.ask_element_bid : '';
+  if (payloadAskElementBid) {
+    const matchedAskBlock = items.find(
+      item =>
+        item.type === ChatContentItemType.ASK &&
+        Array.isArray(item.ask_list) &&
+        item.ask_list.some(
+          askMessage => askMessage.element_bid === payloadAskElementBid,
+        ),
+    );
+    if (matchedAskBlock?.parent_element_bid) {
+      return matchedAskBlock.parent_element_bid;
+    }
+  }
+
+  if (!pendingInteractionAnchorBid) {
+    return '';
+  }
+
+  const pendingInteraction = items.find(
+    item =>
+      item.element_bid === pendingInteractionAnchorBid &&
+      item.type === ChatContentItemType.INTERACTION,
+  );
+  return pendingInteraction?.element_bid || '';
+};
