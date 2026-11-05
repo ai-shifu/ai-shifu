@@ -30,6 +30,7 @@ import {
 } from '@/lib/audio-utils';
 import LoadingBar from '@/components/chat/LoadingBar';
 import {
+  applyElementToList,
   isLoadingItem,
   LOADING_ITEM_BID,
   matchesElementBid,
@@ -840,42 +841,6 @@ export function useDebugSession({
       const previousStreamingElementBid = currentStreamingElementBidRef.current;
 
       updateSessionItems(prev => {
-        let nextList = withoutLoadingItem(prev);
-        let completedElementBid = '';
-        const hasIncomingItem = nextList.some(
-          item => item.element_bid === itemBid,
-        );
-
-        if (
-          previousStreamingElementBid &&
-          previousStreamingElementBid !== itemBid
-        ) {
-          const previousItem = nextList.find(
-            item => item.element_bid === previousStreamingElementBid,
-          );
-          const previousItemBid = resolveDebugElementBid(previousItem);
-          if (isDebugActionableItem(previousItem) && previousItemBid) {
-            completedElementBid = previousItemBid;
-          }
-        }
-
-        if (!completedElementBid && !hasIncomingItem) {
-          const latestActionableItem =
-            resolveLatestDebugActionableItem(nextList);
-          const latestActionableBid =
-            resolveDebugElementBid(latestActionableItem);
-          if (latestActionableBid && latestActionableBid !== itemBid) {
-            completedElementBid = latestActionableBid;
-          }
-        }
-
-        if (completedElementBid) {
-          nextList = finalizeDebugElementOutputInList(
-            nextList,
-            completedElementBid,
-          );
-        }
-
         const contentToRender =
           elementType === ELEMENT_TYPE.HTML
             ? elementContent
@@ -916,21 +881,38 @@ export function useDebugSession({
             elementType === ELEMENT_TYPE.TEXT,
         };
 
-        const hitIndex = nextList.findIndex(
-          item => item.element_bid === itemBid,
-        );
-        if (hitIndex > -1) {
-          const updatedList = [...nextList];
-          const previousItem = updatedList[hitIndex];
-          updatedList[hitIndex] = {
-            ...previousItem,
-            ...nextItem,
-            user_input: previousItem.user_input || '',
-          };
-          return updatedList;
-        }
-
-        return [...nextList, nextItem];
+        return applyElementToList(withoutLoadingItem(prev), nextItem, {
+          completedElementBid: list => {
+            if (
+              previousStreamingElementBid &&
+              previousStreamingElementBid !== itemBid
+            ) {
+              const previousItem = list.find(
+                item => item.element_bid === previousStreamingElementBid,
+              );
+              const previousItemBid = resolveDebugElementBid(previousItem);
+              if (isDebugActionableItem(previousItem) && previousItemBid) {
+                return previousItemBid;
+              }
+            }
+            if (list.some(item => item.element_bid === itemBid)) {
+              return '';
+            }
+            const latestActionableBid = resolveDebugElementBid(
+              resolveLatestDebugActionableItem(list),
+            );
+            return latestActionableBid && latestActionableBid !== itemBid
+              ? latestActionableBid
+              : '';
+          },
+          finalize: finalizeDebugElementOutputInList,
+          matches: item => item.element_bid === itemBid,
+          merge: (previous, next) => ({
+            ...previous,
+            ...next,
+            user_input: previous.user_input || '',
+          }),
+        });
       });
       currentContentElementBidRef.current = itemBid;
       currentStreamingElementBidRef.current = itemBid;
