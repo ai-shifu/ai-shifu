@@ -612,3 +612,48 @@ def test_a_young_empty_block_is_not_abandoned_yet(app: object) -> None:
         assert rewind.abandoned_turn_block_bids(
             user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
         ) == ["B2"]
+
+
+def _set_age(bid: str, minutes: float) -> None:
+    LearnGeneratedBlock.query.filter_by(generated_block_bid=bid).one().created_at = (
+        now_utc() - timedelta(minutes=minutes)
+    )
+
+
+@pytest.mark.parametrize(
+    ("minutes", "live", "abandoned"),
+    [
+        (0.5, False, True),
+        (0.5, True, False),
+        (30, True, False),
+        (2, None, False),
+        (11, None, True),
+    ],
+    ids=[
+        "run-said-it-ended",
+        "run-still-going",
+        "old-run-still-going",
+        "no-word-young",
+        "no-word-past-grace",
+    ],
+)
+def test_an_empty_block_is_abandoned_once_its_run_has_ended(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    minutes: float,
+    live: bool | None,
+    abandoned: bool,
+) -> None:
+    """A run says when it ended; with no word (lost mark, no Redis) the age rule decides."""
+    monkeypatch.setattr(rewind, "turn_is_live", lambda _app, _bid: live)
+    with app.app_context():
+        _clean()
+        _record()
+        _block("B1", checkpoint=_BEFORE_B1, values=[])
+        _empty_block("B2")
+        _set_age("B2", minutes)
+        db.session.commit()
+        result = rewind.abandoned_turn_block_bids(
+            user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+        )
+    assert result == (["B2"] if abandoned else [])
