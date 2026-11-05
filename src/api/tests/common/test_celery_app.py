@@ -77,9 +77,10 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert beat_schedule["billing.expire_pending_orders.schedule"]["task"] == (
         "billing.expire_pending_orders"
     )
-    assert beat_schedule["billing.send_low_balance_alert.schedule"]["task"] == (
-        "billing.send_low_balance_alert"
+    assert beat_schedule["billing.scan_low_balance_notifications.schedule"]["task"] == (
+        "billing.scan_low_balance_notifications"
     )
+    assert "billing.send_low_balance_alert.schedule" not in beat_schedule
     assert (
         beat_schedule["billing.scan_credit_expiring_notifications.schedule"]["task"]
         == "billing.scan_credit_expiring_notifications"
@@ -109,7 +110,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
         hour="*",
     )
     _assert_cron_schedule(
-        beat_schedule["billing.send_low_balance_alert.schedule"]["schedule"],
+        beat_schedule["billing.scan_low_balance_notifications.schedule"]["schedule"],
         minute="30",
         hour="*",
     )
@@ -357,7 +358,7 @@ def test_create_celery_app_uses_default_billing_beat_crons() -> None:
         hour="*",
     )
     _assert_cron_schedule(
-        beat_schedule["billing.send_low_balance_alert.schedule"]["schedule"],
+        beat_schedule["billing.scan_low_balance_notifications.schedule"]["schedule"],
         minute="0",
         hour="*",
     )

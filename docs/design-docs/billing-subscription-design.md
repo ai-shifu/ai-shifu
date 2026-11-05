@@ -811,7 +811,7 @@ v1 的改造要求：
 - 当前实现中，`src/api/flaskr/common/celery_app.py` 已提供共享 Celery app factory，`src/api/celery_app.py` 作为 worker / beat 入口统一复用 `app.py:create_app()`
 - 当前实现中，`src/api/flaskr/common/config.py` 已注册 `CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`、`CELERY_TASK_ALWAYS_EAGER`，并同步刷新 `docker/.env.example.full`
 - 当前实现中，`docker/docker-compose.yml`、`docker/docker-compose.latest.yml`、`docker/docker-compose.dev.yml` 已补 `ai-shifu-redis`、Celery worker、Celery beat 三类服务，并统一为 API / worker / beat 注入容器内 Redis/Celery 地址
-- 当前实现中，`src/api/flaskr/service/billing/tasks.py` 已注册 `billing.settle_usage`、`billing.replay_usage_settlement`、`billing.expire_wallet_buckets`、`billing.reconcile_provider_reference`、`billing.send_low_balance_alert`、`billing.run_renewal_event`、`billing.retry_failed_renewal` 以及 v1.1 的 `billing.aggregate_daily_usage_metrics`、`billing.aggregate_daily_ledger_summary`、`billing.finalize_daily_ledger_summary`、`billing.rebuild_daily_aggregates`、`billing.verify_domain_binding`
+- 当前实现中，`src/api/flaskr/service/billing/tasks.py` 已注册 `billing.settle_usage`、`billing.replay_usage_settlement`、`billing.expire_wallet_buckets`、`billing.reconcile_provider_reference`、`billing.scan_low_balance_notifications`、`billing.run_renewal_event`、`billing.retry_failed_renewal` 以及 v1.1 的 `billing.aggregate_daily_usage_metrics`、`billing.aggregate_daily_ledger_summary`、`billing.finalize_daily_ledger_summary`、`billing.rebuild_daily_aggregates`、`billing.verify_domain_binding`
 - 当前实现中，`billing.expire_wallet_buckets` 会直接复用 `src/api/flaskr/service/billing/wallets.py:expire_credit_wallet_buckets`，扫描到期 bucket 并落 `credit_ledger_entries.entry_type=expire`
 - 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑；其中 `rebuild-wallets` 默认只做 dry-run 审计，必须显式传 `--apply` 才会写回 `credit_wallets` 快照
 - 当前实现中，billing v1.1 的所有表结构已统一收敛到 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py`
@@ -1024,7 +1024,7 @@ v1 冻结低余额阈值、告警与错误码规则：
 | `billing.reconcile_provider_reference` | 对账或补偿同步 provider 状态 | `payment_provider`, `provider_reference_id`, `bill_order_bid` |
 | `billing.replay_usage_settlement` | 重放 usage 结算 | `creator_bid`, `usage_bid` 或 `usage_id_start/usage_id_end` |
 | `billing.expire_wallet_buckets` | 扫描到期积分桶并写入过期账本 | `creator_bid` 或批量扫描窗口 |
-| `billing.send_low_balance_alert` | 扫描并通知低余额 creator | `creator_bid` 或批量扫描窗口 |
+| `billing.scan_low_balance_notifications` | 扫描并通知低余额 creator | `creator_bid` 或批量扫描窗口 |
 
 额外执行约束：
 

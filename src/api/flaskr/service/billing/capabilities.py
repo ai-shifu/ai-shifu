@@ -213,7 +213,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         audience="worker",
         user_visible=False,
         default_enabled=True,
-        task_entries=("billing.send_low_balance_alert",),
+        task_entries=("billing.scan_low_balance_notifications",),
         notes=("Low-balance alert generation remains internal-only.",),
     ),
     BillingCapabilityDefinition(

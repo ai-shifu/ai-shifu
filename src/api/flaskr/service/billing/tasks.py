@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -107,52 +106,6 @@ def _create_task_app() -> Flask:
     from app import create_app
 
     return create_app()
-
-
-@dataclass(slots=True, frozen=True)
-class LowBalanceAlertCandidate:
-    """Represent a candidate for low balance alert."""
-
-    creator_bid: str
-    wallet_available_credits: Any
-    alerts: list[Any]
-
-    def to_task_payload(self) -> dict[str, Any]:
-        """Serialize this result for task processing."""
-        serialized_alerts: list[Any] = []
-        for alert in self.alerts:
-            if hasattr(alert, "__json__"):
-                serialized_alerts.append(alert.__json__())
-            elif isinstance(alert, dict):
-                serialized_alerts.append(dict(alert))
-            else:
-                serialized_alerts.append(alert)
-        return {
-            "creator_bid": self.creator_bid,
-            "wallet_available_credits": self.wallet_available_credits,
-            "alerts": serialized_alerts,
-        }
-
-
-@dataclass(slots=True, frozen=True)
-class LowBalanceAlertTaskResult:
-    """Capture the outcome of low balance alert task."""
-
-    status: str
-    creator_count: int
-    alert_count: int
-    creators: list[LowBalanceAlertCandidate]
-    task_name: str = "billing.send_low_balance_alert"
-
-    def to_task_payload(self) -> dict[str, Any]:
-        """Serialize this result for task processing."""
-        return {
-            "status": self.status,
-            "creator_count": self.creator_count,
-            "alert_count": self.alert_count,
-            "creators": [creator.to_task_payload() for creator in self.creators],
-            "task_name": self.task_name,
-        }
 
 
 def _serialize_task_payload(result: object) -> object:
@@ -517,7 +470,11 @@ def send_low_balance_alert_task(
     *,
     creator_bid: str = "",
 ) -> dict[str, object]:
-    """Scan low-balance notifications while preserving the legacy task name."""
+    """Legacy name of `billing.scan_low_balance_notifications`, kept for one release.
+
+    Beat schedules the new name; this only drains messages a previous beat queued under the
+    old one during a rolling deploy. Remove it in the next release.
+    """
     app = _create_task_app()
     normalized_creator_bid = _normalize_bid(creator_bid)
     payload = _scan_low_balance_notifications(
