@@ -432,16 +432,13 @@ def plan_rewind(
     return plan
 
 
-# How long an empty, unrecorded block must sit before it counts as abandoned. After a
-# disconnect the request releases the lesson lock while the producer thread may still be
-# finishing the turn (prepared feedback persists its text late); a young block may still fill in.
-# A running turn says so itself (`agent.turn_liveness`), so a block whose mark is gone is dead
-# once `ABANDONED_UNMARKED_TURN_AGE` has passed: that minute covers a turn started by a worker
-# that predates the mark and is still draining during a rollout.
-ABANDONED_UNMARKED_TURN_AGE = timedelta(minutes=1)
-# When Redis cannot say whether the turn still runs: twice the run lock's lifetime
-# (`host.run.RUN_SCRIPT_TIMEOUT_SECONDS`, 5 minutes), since a run older than that has already
-# lost the lock every concurrent-turn guard relies on. Raise both together.
+# How long an empty, unrecorded block must sit before it counts as abandoned when its run left
+# no word that it ended. After a disconnect the request releases the lesson lock while the
+# producer thread may still be finishing the turn (prepared feedback persists its text late); a
+# young block may still fill in. A run that ends says so (`agent.turn_liveness`); without that,
+# wait twice the run lock's lifetime (`host.run.RUN_SCRIPT_TIMEOUT_SECONDS`, 5 minutes), since a
+# run older than that has already lost the lock every concurrent-turn guard relies on. Raise both
+# together.
 ABANDONED_TURN_GRACE = timedelta(minutes=10)
 
 
@@ -496,15 +493,13 @@ def abandoned_turn_block_bids(
 
 def _run_has_ended(block: LearnGeneratedBlock, now: datetime) -> bool:
     """Whether the run that wrote this block can no longer fill it in."""
-    if block.created_at is None:
-        return False
-    age = now - block.created_at
-    if age < ABANDONED_UNMARKED_TURN_AGE:
-        return False
     live = turn_is_live(current_app, block.generated_block_bid)
-    if live is None:
-        return age >= ABANDONED_TURN_GRACE
-    return not live
+    if live is not None:
+        return not live
+    # The run left no word: its mark was never written, was lost, or has expired.
+    return (
+        block.created_at is not None and now - block.created_at >= ABANDONED_TURN_GRACE
+    )
 
 
 def retire_abandoned_turns(

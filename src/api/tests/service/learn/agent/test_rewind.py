@@ -623,37 +623,29 @@ def _set_age(bid: str, minutes: float) -> None:
 @pytest.mark.parametrize(
     ("minutes", "live", "abandoned"),
     [
-        (0.5, False, False),
-        (2, False, True),
-        (2, True, False),
+        (0.5, False, True),
+        (0.5, True, False),
         (30, True, False),
         (2, None, False),
         (11, None, True),
     ],
     ids=[
-        "unmarked-but-just-written",
-        "unmarked-run-ended",
-        "marked-run-still-going",
-        "marked-old-run-still-going",
-        "redis-unknown-young",
-        "redis-unknown-past-grace",
+        "run-said-it-ended",
+        "run-still-going",
+        "old-run-still-going",
+        "no-word-young",
+        "no-word-past-grace",
     ],
 )
-def test_an_empty_block_is_abandoned_once_its_run_holds_no_mark(
+def test_an_empty_block_is_abandoned_once_its_run_has_ended(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     minutes: float,
     live: bool | None,
     abandoned: bool,
 ) -> None:
-    """A running turn marks its block; without Redis the age rule still decides."""
-    seen: list[str] = []
-
-    def fake_turn_is_live(_app: object, bid: str) -> bool | None:
-        seen.append(bid)
-        return live
-
-    monkeypatch.setattr(rewind, "turn_is_live", fake_turn_is_live)
+    """A run says when it ended; with no word (lost mark, no Redis) the age rule decides."""
+    monkeypatch.setattr(rewind, "turn_is_live", lambda _app, _bid: live)
     with app.app_context():
         _clean()
         _record()
@@ -665,5 +657,3 @@ def test_an_empty_block_is_abandoned_once_its_run_holds_no_mark(
             user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
         )
     assert result == (["B2"] if abandoned else [])
-    # Only an empty block past the minimum age costs a Redis read.
-    assert seen == ([] if minutes < 1 else ["B2"])
