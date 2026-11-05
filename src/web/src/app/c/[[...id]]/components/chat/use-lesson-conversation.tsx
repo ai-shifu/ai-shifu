@@ -74,6 +74,7 @@ import {
 import {
   itemMatchesElementCacheIdentity,
   mergeListenSlides,
+  resolveAskRecordParentBid,
   resolveElementCacheIdentityBids,
   upsertAskMessageByParent,
 } from './lesson-list-helpers';
@@ -478,51 +479,6 @@ function useLessonConversation({
       return finalizeLikeStatusByParent(nextItems, completedElementBid);
     },
     [isListenModeLatest],
-  );
-
-  const resolveAskAnchorElementBid = useCallback(
-    (record: StudyRecordItem, items: ChatContentItem[] = []) => {
-      const payload = (record.payload ?? {}) as Record<string, unknown>;
-      const payloadAnchorElementBid =
-        typeof payload.anchor_element_bid === 'string'
-          ? payload.anchor_element_bid
-          : '';
-      if (payloadAnchorElementBid) {
-        return payloadAnchorElementBid;
-      }
-
-      const payloadAskElementBid =
-        typeof payload.ask_element_bid === 'string'
-          ? payload.ask_element_bid
-          : '';
-      if (payloadAskElementBid) {
-        const matchedAskBlock = items.find(
-          item =>
-            item.type === ChatContentItemType.ASK &&
-            Array.isArray(item.ask_list) &&
-            item.ask_list.some(
-              askMessage => askMessage.element_bid === payloadAskElementBid,
-            ),
-        );
-        if (matchedAskBlock?.parent_element_bid) {
-          return matchedAskBlock.parent_element_bid;
-        }
-      }
-
-      const pendingInteractionAnchorBid =
-        pendingInteractionAnchorBidRef.current;
-      if (!pendingInteractionAnchorBid) {
-        return '';
-      }
-
-      const pendingInteraction = items.find(
-        item =>
-          item.element_bid === pendingInteractionAnchorBid &&
-          item.type === ChatContentItemType.INTERACTION,
-      );
-      return pendingInteraction?.element_bid || '';
-    },
-    [],
   );
 
   const buildContentItem = useCallback(
@@ -1215,9 +1171,10 @@ function useLessonConversation({
               }
 
               if (isAskOrAnswerElementType(elementType)) {
-                const parentElementBid = resolveAskAnchorElementBid(
+                const parentElementBid = resolveAskRecordParentBid(
                   elementRecord,
                   contentListRef.current,
+                  pendingInteractionAnchorBidRef.current,
                 );
                 if (!parentElementBid) {
                   return;
@@ -1517,7 +1474,6 @@ function useLessonConversation({
       lessonRunContentCacheKey,
       markLessonRunAudioBackfillReady,
       openLessonFeedbackPopup,
-      resolveAskAnchorElementBid,
       resolveElementItemBid,
       updateUserInfo,
     ],
@@ -1589,7 +1545,11 @@ function useLessonConversation({
         }
 
         if (isAskOrAnswerElementType(elementType)) {
-          const parentElementBid = resolveAskAnchorElementBid(item, result);
+          const parentElementBid = resolveAskRecordParentBid(
+            item,
+            result,
+            pendingInteractionAnchorBidRef.current,
+          );
           if (!parentElementBid) {
             return;
           }
@@ -1654,12 +1614,7 @@ function useLessonConversation({
 
       return result;
     },
-    [
-      mobileStyle,
-      buildContentItem,
-      resolveAskAnchorElementBid,
-      resolveElementItemBid,
-    ],
+    [mobileStyle, buildContentItem, resolveElementItemBid],
   );
 
   /**
