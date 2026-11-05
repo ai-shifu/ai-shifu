@@ -26,9 +26,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from flask import current_app
+from flaskr.service.learn.agent.turn_liveness import turn_is_live
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -433,8 +435,13 @@ def plan_rewind(
 # How long an empty, unrecorded block must sit before it counts as abandoned. After a
 # disconnect the request releases the lesson lock while the producer thread may still be
 # finishing the turn (prepared feedback persists its text late); a young block may still fill in.
-# Twice the run lock's lifetime (`host.run.RUN_SCRIPT_TIMEOUT_SECONDS`, 5 minutes): a run older
-# than that has already lost the lock every concurrent-turn guard relies on. Raise both together.
+# A running turn says so itself (`agent.turn_liveness`), so a block whose mark is gone is dead
+# once `ABANDONED_UNMARKED_TURN_AGE` has passed: that minute covers a turn started by a worker
+# that predates the mark and is still draining during a rollout.
+ABANDONED_UNMARKED_TURN_AGE = timedelta(minutes=1)
+# When Redis cannot say whether the turn still runs: twice the run lock's lifetime
+# (`host.run.RUN_SCRIPT_TIMEOUT_SECONDS`, 5 minutes), since a run older than that has already
+# lost the lock every concurrent-turn guard relies on. Raise both together.
 ABANDONED_TURN_GRACE = timedelta(minutes=10)
 
 
@@ -448,9 +455,9 @@ def abandoned_turn_block_bids(
     only asked a question teaches no text), so a block counts only once an earlier block of the
     same attempt carries a record: from then on every saved turn writes one. Before the first
     record, an empty block counts when that record was taken at turn 0, which proves no earlier
-    turn reached the saved session. A block younger than `ABANDONED_TURN_GRACE` is left alone: its
-    run may still be finishing after the request that started it went away. No saved session ever
-    included an abandoned block, so it is never a turn to go back to.
+    turn reached the saved session. A block whose run may still be finishing after the request
+    that started it went away is left alone (`_run_has_ended`). No saved session ever included an
+    abandoned block, so it is never a turn to go back to.
     """
     blocks = (
         LearnGeneratedBlock.query.filter(
@@ -464,7 +471,7 @@ def abandoned_turn_block_bids(
         .order_by(LearnGeneratedBlock.id.asc())
         .all()
     )
-    settled_before = now_utc() - ABANDONED_TURN_GRACE
+    now = now_utc()
     abandoned: list[str] = []
     # Empty blocks seen before the attempt's first record: abandoned only if that record shows
     # no saved turn came before it (its checkpoint was taken at turn 0).
@@ -473,10 +480,10 @@ def abandoned_turn_block_bids(
     for block in blocks:
         record = read_turn_record(block)
         empty = (
-            not (block.generated_content or "").strip()
+            record is None
+            and not (block.generated_content or "").strip()
             and not (block.block_content_conf or "").strip()
-            and block.created_at is not None
-            and block.created_at <= settled_before
+            and _run_has_ended(block, now)
         )
         if record is not None:
             if not recorded and record["checkpoint"].get("turn") == 0:
@@ -485,6 +492,19 @@ def abandoned_turn_block_bids(
         elif empty:
             (abandoned if recorded else leading).append(block.generated_block_bid)
     return abandoned
+
+
+def _run_has_ended(block: LearnGeneratedBlock, now: datetime) -> bool:
+    """Whether the run that wrote this block can no longer fill it in."""
+    if block.created_at is None:
+        return False
+    age = now - block.created_at
+    if age < ABANDONED_UNMARKED_TURN_AGE:
+        return False
+    live = turn_is_live(current_app, block.generated_block_bid)
+    if live is None:
+        return age >= ABANDONED_TURN_GRACE
+    return not live
 
 
 def retire_abandoned_turns(

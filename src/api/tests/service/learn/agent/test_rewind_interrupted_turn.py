@@ -19,9 +19,10 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
+from flaskr.common.cache_provider import InMemoryCacheProvider
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.agent import rewind, run_agent, session_store
+from flaskr.service.learn.agent import rewind, run_agent, session_store, turn_liveness
 from flaskr.service.learn.agent.models import LearnAgentSession
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.models import (
@@ -412,3 +413,41 @@ def test_a_saved_question_only_turn_survives_a_disconnect_and_can_be_taken_back(
     # The edit restores the turn that received q1's answer, so the new value answers q1.
     assert plan.checkpoint["pending"][0]["tool_call_id"] == "q1"
     assert plan.retired_block_bids == [saved.generated_block_bid]
+
+
+# --- liveness: a running turn marks its block until it ends -------------------------------
+
+
+@pytest.mark.parametrize("ending", ["finished", "closed"])
+def test_a_turn_marks_its_block_while_it_runs_and_clears_it_when_it_ends(
+    lesson: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, ending: str
+) -> None:
+    """Another request can tell this turn's empty block from one whose run died."""
+    monkeypatch.setattr(turn_liveness, "redis_cache", InMemoryCacheProvider())
+    model = _Script(_teach)
+    turn = _turn(lesson, model)
+    next(turn)
+    (block,) = _blocks(lesson)
+    bid = block.generated_block_bid
+    assert turn_liveness.turn_is_live(lesson.app, bid) is True
+    with lesson.app.app_context():
+        # Even past the grace, a block whose run still holds it is not abandoned.
+        LearnGeneratedBlock.query.filter_by(
+            generated_block_bid=bid
+        ).one().created_at = (
+            now_utc() - rewind.ABANDONED_TURN_GRACE - timedelta(minutes=1)
+        )
+        db.session.commit()
+        assert (
+            rewind.abandoned_turn_block_bids(
+                user_bid=lesson.user,
+                outline_bid=lesson.outline,
+                progress_record_bid=block.progress_record_bid,
+            )
+            == []
+        )
+    if ending == "finished":
+        list(turn)
+    else:
+        turn.close()
+    assert turn_liveness.turn_is_live(lesson.app, bid) is False

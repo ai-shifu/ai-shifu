@@ -612,3 +612,58 @@ def test_a_young_empty_block_is_not_abandoned_yet(app: object) -> None:
         assert rewind.abandoned_turn_block_bids(
             user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
         ) == ["B2"]
+
+
+def _set_age(bid: str, minutes: float) -> None:
+    LearnGeneratedBlock.query.filter_by(generated_block_bid=bid).one().created_at = (
+        now_utc() - timedelta(minutes=minutes)
+    )
+
+
+@pytest.mark.parametrize(
+    ("minutes", "live", "abandoned"),
+    [
+        (0.5, False, False),
+        (2, False, True),
+        (2, True, False),
+        (30, True, False),
+        (2, None, False),
+        (11, None, True),
+    ],
+    ids=[
+        "unmarked-but-just-written",
+        "unmarked-run-ended",
+        "marked-run-still-going",
+        "marked-old-run-still-going",
+        "redis-unknown-young",
+        "redis-unknown-past-grace",
+    ],
+)
+def test_an_empty_block_is_abandoned_once_its_run_holds_no_mark(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    minutes: float,
+    live: bool | None,
+    abandoned: bool,
+) -> None:
+    """A running turn marks its block; without Redis the age rule still decides."""
+    seen: list[str] = []
+
+    def fake_turn_is_live(_app: object, bid: str) -> bool | None:
+        seen.append(bid)
+        return live
+
+    monkeypatch.setattr(rewind, "turn_is_live", fake_turn_is_live)
+    with app.app_context():
+        _clean()
+        _record()
+        _block("B1", checkpoint=_BEFORE_B1, values=[])
+        _empty_block("B2")
+        _set_age("B2", minutes)
+        db.session.commit()
+        result = rewind.abandoned_turn_block_bids(
+            user_bid=USER, outline_bid=OUTLINE, progress_record_bid=RECORD
+        )
+    assert result == (["B2"] if abandoned else [])
+    # Only an empty block past the minimum age costs a Redis read.
+    assert seen == ([] if minutes < 1 else ["B2"])

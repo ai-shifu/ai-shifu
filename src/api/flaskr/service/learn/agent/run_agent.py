@@ -23,6 +23,7 @@ Nothing calls this yet: routing a lesson to it is the next change.
 
 from __future__ import annotations
 
+import contextlib
 import re
 import uuid
 from dataclasses import dataclass, replace
@@ -83,6 +84,7 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     save_agent_session,
 )
+from flaskr.service.learn.agent.turn_liveness import hold_turn_liveness
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
@@ -501,117 +503,124 @@ def run_agent_lesson(
     # preview, which builds a progress record and never adds it to the session. The spoken track
     # hangs each piece of audio off one, so without it an author previewing a lesson in listening
     # mode heard nothing at all.
-    start_update = None
-    if preview_mode:
-        progress_record_bid = generate_id(app)
-    else:
-        progress_record_bid, start_update = _open_turn(
-            app,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            generated_block_bid=generated_block_bid,
-            position=0,
-        )
-    session_holder: dict[str, Any] = {
-        "rewind": rewind,
-        "preview_generation": preview_generation,
-        "content_revision": content_revision,
-        "memory_generations": memory_generations,
-    }
-
-    def make_events() -> AsyncIterator[Event]:
-        async def events() -> AsyncIterator[Event]:
-            session = await make_session()
-            session_holder["session"] = session
-            # The state this turn starts from, kept on its block so the lesson can be taken back
-            # to it later.
-            checkpoint = checkpoint_of(session)
-            if debug_store is not None:
-                checkpoint["user_memory"] = dict(session.user_memory)
-            session_holder["turn_record"] = turn_record(checkpoint, values)
-            if debug_store is not None:
-                debug_store.save(
-                    session,
-                    generated_block_bid=generated_block_bid,
-                    turn_record=session_holder["turn_record"],
-                    rewind=rewind,
-                )
-            deleted_policy = (
-                {"memory_deleted_keys": frozenset(memory_deleted_keys)}
-                if memory_deleted_keys
-                else {}
-            )
-            if (
-                deleted_policy
-                and rewind is not None
-                and rewind.replay_values is not None
-            ):
-                deleted_policy["replaying_input"] = True
-            async for event in engine.run_turn(
-                session, _turn_input(session, values), **deleted_policy
-            ):
-                yield event
-
-        return events()
-
-    voice = (
-        LessonVoice(
-            app,
-            shifu_model=shifu_model,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            progress_record_bid=progress_record_bid,
-            user_bid=user_bid,
-            generated_block_bid=generated_block_bid,
-            usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else None,
-        )
-        if listen and progress_record_bid
-        else None
-    )
-    # Every mode consumes the same typed elements. Only speech depends on listening; classroom
-    # and reading still need the formatter to distinguish HTML and other visuals from prose.
-    pager = LessonPager(clean_markers=True)
-    try:
-        if tracing is not None:
-            tracing.bind_execution(progress_record_bid, generated_block_bid)
-        if on_turn_opened is not None:
-            on_turn_opened(progress_record_bid, generated_block_bid)
-        if start_update is not None:
-            # The opening step has committed. Tell the directory before teaching so its
-            # first-turn actions do not wait for completion or a page reload.
-            yield RunMarkdownFlowDTO(
-                outline_bid=outline_bid,
-                generated_block_bid="",
-                type=GeneratedType.OUTLINE_ITEM_UPDATE,
-                content=start_update,
-            )
-        return (
-            yield from _stream_turn(
+    # Held from before the block is written until the turn ends, so another request never sees
+    # this block without the mark that says its run is still going (see `agent.turn_liveness`).
+    # A preview writes no block.
+    liveness = contextlib.ExitStack()
+    if not preview_mode:
+        liveness.enter_context(hold_turn_liveness(app, generated_block_bid))
+    with liveness:
+        start_update = None
+        if preview_mode:
+            progress_record_bid = generate_id(app)
+        else:
+            progress_record_bid, start_update = _open_turn(
                 app,
-                run_turn_on_thread=run_turn_on_thread,
-                voice=voice,
-                pager=pager,
-                make_events=make_events,
-                session_holder=session_holder,
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,
-                preview_mode=preview_mode,
-                progress_record_bid=progress_record_bid,
                 generated_block_bid=generated_block_bid,
-                heartbeat_interval=heartbeat_interval,
-                debug_store=debug_store,
-                tracing=tracing,
+                position=0,
             )
+        session_holder: dict[str, Any] = {
+            "rewind": rewind,
+            "preview_generation": preview_generation,
+            "content_revision": content_revision,
+            "memory_generations": memory_generations,
+        }
+
+        def make_events() -> AsyncIterator[Event]:
+            async def events() -> AsyncIterator[Event]:
+                session = await make_session()
+                session_holder["session"] = session
+                # The state this turn starts from, kept on its block so the lesson can be taken back
+                # to it later.
+                checkpoint = checkpoint_of(session)
+                if debug_store is not None:
+                    checkpoint["user_memory"] = dict(session.user_memory)
+                session_holder["turn_record"] = turn_record(checkpoint, values)
+                if debug_store is not None:
+                    debug_store.save(
+                        session,
+                        generated_block_bid=generated_block_bid,
+                        turn_record=session_holder["turn_record"],
+                        rewind=rewind,
+                    )
+                deleted_policy = (
+                    {"memory_deleted_keys": frozenset(memory_deleted_keys)}
+                    if memory_deleted_keys
+                    else {}
+                )
+                if (
+                    deleted_policy
+                    and rewind is not None
+                    and rewind.replay_values is not None
+                ):
+                    deleted_policy["replaying_input"] = True
+                async for event in engine.run_turn(
+                    session, _turn_input(session, values), **deleted_policy
+                ):
+                    yield event
+
+            return events()
+
+        voice = (
+            LessonVoice(
+                app,
+                shifu_model=shifu_model,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=progress_record_bid,
+                user_bid=user_bid,
+                generated_block_bid=generated_block_bid,
+                usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else None,
+            )
+            if listen and progress_record_bid
+            else None
         )
-    except BaseException:
-        # The turn died before it could record what it taught -- an engine error, or the learner
-        # closing the page. The block reserved for it would otherwise stay behind as an empty
-        # assistant turn. GeneratorExit is caught too: a disconnect is the common case.
-        if not preview_mode:
-            _retire_block(app, generated_block_bid=generated_block_bid)
-        raise
+        # Every mode consumes the same typed elements. Only speech depends on listening; classroom
+        # and reading still need the formatter to distinguish HTML and other visuals from prose.
+        pager = LessonPager(clean_markers=True)
+        try:
+            if tracing is not None:
+                tracing.bind_execution(progress_record_bid, generated_block_bid)
+            if on_turn_opened is not None:
+                on_turn_opened(progress_record_bid, generated_block_bid)
+            if start_update is not None:
+                # The opening step has committed. Tell the directory before teaching so its
+                # first-turn actions do not wait for completion or a page reload.
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.OUTLINE_ITEM_UPDATE,
+                    content=start_update,
+                )
+            return (
+                yield from _stream_turn(
+                    app,
+                    run_turn_on_thread=run_turn_on_thread,
+                    voice=voice,
+                    pager=pager,
+                    make_events=make_events,
+                    session_holder=session_holder,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    preview_mode=preview_mode,
+                    progress_record_bid=progress_record_bid,
+                    generated_block_bid=generated_block_bid,
+                    heartbeat_interval=heartbeat_interval,
+                    debug_store=debug_store,
+                    tracing=tracing,
+                )
+            )
+        except BaseException:
+            # The turn died before it could record what it taught -- an engine error, or the learner
+            # closing the page. The block reserved for it would otherwise stay behind as an empty
+            # assistant turn. GeneratorExit is caught too: a disconnect is the common case.
+            if not preview_mode:
+                _retire_block(app, generated_block_bid=generated_block_bid)
+            raise
 
 
 def _retire_block(app: Flask, *, generated_block_bid: str) -> None:
