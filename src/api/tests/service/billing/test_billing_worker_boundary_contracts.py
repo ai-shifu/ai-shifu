@@ -83,42 +83,6 @@ def test_unsupported_worker_result_is_rejected_instead_of_returning_success(
         tasks.reconcile_provider_reference_task()
 
 
-def test_legacy_low_balance_result_preserves_alert_payload_contract() -> None:
-    alert = {"threshold": "3"}
-    result = tasks.LowBalanceAlertTaskResult(
-        status="candidate",
-        creator_count=1,
-        alert_count=3,
-        creators=[
-            tasks.LowBalanceAlertCandidate(
-                creator_bid="teacher",
-                wallet_available_credits="2",
-                alerts=[
-                    SimpleNamespace(__json__=lambda: {"threshold": "1"}),
-                    alert,
-                    "legacy",
-                ],
-            )
-        ],
-    )
-    payload = result.to_task_payload()
-    assert payload == {
-        "status": "candidate",
-        "creator_count": 1,
-        "alert_count": 3,
-        "task_name": "billing.send_low_balance_alert",
-        "creators": [
-            {
-                "creator_bid": "teacher",
-                "wallet_available_credits": "2",
-                "alerts": [{"threshold": "1"}, {"threshold": "3"}, "legacy"],
-            }
-        ],
-    }
-    payload["creators"][0]["alerts"][1]["threshold"] = "changed"
-    assert alert == {"threshold": "3"}
-
-
 def test_expiration_batch_continues_after_provider_failure_and_counts_terminal_outcomes(
     worker_app: Flask,
     monkeypatch: pytest.MonkeyPatch,

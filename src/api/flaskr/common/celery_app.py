@@ -169,8 +169,8 @@ def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, object]:
                 _DEFAULT_BILLING_PENDING_ORDER_EXPIRE_CRON,
             ),
         },
-        "billing.send_low_balance_alert.schedule": {
-            "task": "billing.send_low_balance_alert",
+        "billing.scan_low_balance_notifications.schedule": {
+            "task": "billing.scan_low_balance_notifications",
             "schedule": _resolve_billing_crontab(
                 flask_app,
                 "BILLING_LOW_BALANCE_CRON",
