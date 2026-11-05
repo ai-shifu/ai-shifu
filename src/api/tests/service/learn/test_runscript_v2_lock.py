@@ -695,6 +695,39 @@ def test_log_run_script_stream_error_does_not_error_for_app_exception() -> None:
     assert info_calls[1][0]["description"] == "outline unit does not exist"
 
 
+@pytest.mark.parametrize(
+    "error_name",
+    [
+        "server.llm.requestFailed",
+        "server.llm.modelNotSupported",
+        "server.llm.modelUnavailable",
+        "server.llm.modelSelectionNotConfigured",
+        "server.llm.specifiedLlmNotConfigured",
+    ],
+)
+def test_log_run_script_stream_error_alerts_on_model_failures(error_name: str) -> None:
+    """The learner sees a friendly toast, but a model outage must reach alerting."""
+    from flaskr.service.common.models import ERROR_CODE
+
+    app = Flask(__name__)
+    info_calls = []
+    error_calls = []
+    app.logger.info = lambda *args, **_kwargs: info_calls.append(args)
+    app.logger.error = lambda *args, **_kwargs: error_calls.append(args)
+
+    host_sse._log_run_script_stream_error(
+        app,
+        AppError("model qwen call failed: timeout", status_code=ERROR_CODE[error_name]),
+    )
+
+    # The alert line names the failure but never carries the provider's message.
+    assert len(error_calls) == 1
+    assert error_calls[0][0] == "run_script llm failure: code=%s error=%s"
+    assert error_calls[0][1:] == (ERROR_CODE[error_name], "AppError")
+    assert "timeout" not in repr(error_calls)
+    assert info_calls[0][0]["description"] == "model qwen call failed: timeout"
+
+
 def test_log_run_script_stream_error_keeps_error_for_unexpected_exception() -> None:
     app = Flask(__name__)
     info_calls = []

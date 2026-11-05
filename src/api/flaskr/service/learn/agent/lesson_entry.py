@@ -501,12 +501,21 @@ def agent_lesson_events(
                     # already saved the usable session, but the legacy stream has no error DTO;
                     # raising here lets the outer SSE layer show the failure instead of
                     # silently ending a lesson that remains in progress.
-                    key = (
-                        "server.learn.agentInputBudgetExceeded"
-                        if outcome.error_code == "input_budget_exceeded"
-                        else "server.common.unknownError"
+                    if outcome.error_code == "input_budget_exceeded":
+                        raise_error("server.learn.agentInputBudgetExceeded")
+                    # Otherwise the model failed (a provider error, timeout or exhausted
+                    # recovery). The learner sees the friendly "unavailable" message for the
+                    # unknown error below; the outage must still reach the alerting stream.
+                    # The engine's code names the failure without provider details.
+                    app.logger.error(
+                        "lesson turn failed in the engine: shifu_bid=%s outline_bid=%s "
+                        "preview=%s engine_code=%s",
+                        shifu_bid,
+                        outline_bid,
+                        preview_mode,
+                        outcome.error_code,
                     )
-                    raise_error(key)
+                    raise_error("server.common.unknownError")
                 # A turn that ran out of content with the lesson not over is followed by the next,
                 # as the host's own "continue": the learner's input and the rewind belonged to the
                 # first turn only. The browser is not asked to do this. It never sees the boundary
