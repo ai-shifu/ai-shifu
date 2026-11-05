@@ -873,10 +873,16 @@ async def interact(
             "after that content, and never answer a continue with another confirm."
         )
         raise ModelRetry(msg)
-    if type == "confirm" and ctx.deps.no_pauses:
+    if (
+        type == "confirm"
+        and ctx.deps.no_pauses
+        and not ctx.deps.interaction_markup_pending
+    ):
         # A pause in a lesson whose script has none. The learner is not asked: the lesson simply
         # goes on, as a 1.0 lesson does. Answered rather than refused, so the model carries on in
         # the same turn instead of spending its retries on a call it cannot make.
+        # Not while a question written as text is owed: that pause would leave it owed, with
+        # `finish` withheld and text refused, so the pause is asked for real and settles it.
         return NO_PAUSE
     if ctx.deps.script_options:
         options = [

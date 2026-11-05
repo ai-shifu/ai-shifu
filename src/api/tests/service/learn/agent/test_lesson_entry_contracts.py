@@ -620,7 +620,10 @@ def test_a_model_failure_in_a_turn_reaches_the_alert_stream(
         )
     assert exc.value.code == ERROR_CODE["server.common.unknownError"]
     assert len(errors) == 1
-    assert errors[0][0].startswith("lesson turn failed in the engine")
+    rendered = errors[0][0] % errors[0][1:]
+    assert rendered.startswith("lesson turn failed in the engine")
+    assert "engine_code=provider_error" in rendered
+    assert "engine_error=UnexpectedModelBehavior" in rendered
     assert errors[0][1:] == (
         "course",
         "lesson",

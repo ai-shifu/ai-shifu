@@ -789,6 +789,62 @@ async def test_finish_returns_once_the_unasked_question_is_asked() -> None:
     assert answered[-1].reason == "finished"
 
 
+async def test_an_owed_pause_is_asked_for_real_in_a_lesson_without_pauses() -> None:
+    """A pause in a no-pause lesson is normally skipped, but not one that settles owed markup.
+
+    Skipped, it would leave the textual question owed, with `finish` withheld and text refused.
+    """
+    offered: list[list[str]] = []
+
+    async def model(
+        _messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        names = [tool.name for tool in info.function_tools]
+        offered.append(names)
+        if "finish" in names:
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    json_args='{"summary":"done"}',
+                    tool_call_id="wrong-finish",
+                )
+            }
+            return
+        yield "That is the whole of this part.\n"
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    {"type": "confirm", "prompt": "", "options": [{"display": "Next"}]}
+                ),
+                tool_call_id="pause",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session("Teach this part.")
+    session.messages = [
+        ModelRequest(parts=[UserPromptPart(content="Teach this part.")]),
+        ModelResponse(
+            parts=[
+                TextPart(
+                    content='Some teaching.\n<interact type="confirm" prompt="Next" />'
+                )
+            ]
+        ),
+    ]
+    session.turn = 1
+    session.interrupted = True
+    restored = Session.loads(session.dumps())
+    events = [e async for e in engine.run_turn(restored)]
+    assert not [e for e in events if isinstance(e, ErrorEvent)]
+    request = next(e for e in events if isinstance(e, InteractionRequest))
+    assert request.spec.type == "confirm"
+    assert events[-1].reason == "interaction"
+    assert all("finish" not in names for names in offered)
+    assert not restored.finished
+
+
 async def test_an_intervening_read_does_not_discard_the_unanswered_question() -> None:
     calls = 0
 
