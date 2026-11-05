@@ -9,6 +9,7 @@ import {
 import React from 'react';
 import { useLatest } from 'react-use';
 import {
+  applyElementToList,
   isLoadingItem,
   LOADING_ITEM_BID,
   matchesElementBid,
@@ -1198,17 +1199,6 @@ function useLessonConversation({
               }
 
               const previousStreamingElementBid = currentBlockIdRef.current;
-              if (
-                previousStreamingElementBid &&
-                previousStreamingElementBid !== itemBid
-              ) {
-                setTrackedContentList(prevState =>
-                  finalizeElementOutputInList(
-                    prevState,
-                    previousStreamingElementBid,
-                  ),
-                );
-              }
 
               currentBlockIdRef.current = itemBid;
               currentContentRef.current = '';
@@ -1234,29 +1224,26 @@ function useLessonConversation({
                 nextItem.content,
               );
 
-              setTrackedContentList(prevState => {
-                const hitIndex = prevState.findIndex(item =>
-                  itemMatchesElementCacheIdentity(
-                    item,
-                    elementCacheIdentitySet,
-                  ),
-                );
-                let nextList = prevState;
-
-                if (hitIndex >= 0) {
-                  nextList = [...prevState];
-                  nextList[hitIndex] = {
-                    ...nextList[hitIndex],
-                    ...nextItem,
-                    listenSlides:
-                      nextItem.listenSlides ?? nextList[hitIndex].listenSlides,
-                  };
-                } else {
-                  nextList = [...prevState, nextItem];
-                }
-
-                return nextList;
-              });
+              setTrackedContentList(prevState =>
+                applyElementToList(prevState, nextItem, {
+                  completedElementBid:
+                    previousStreamingElementBid &&
+                    previousStreamingElementBid !== itemBid
+                      ? previousStreamingElementBid
+                      : '',
+                  finalize: finalizeElementOutputInList,
+                  matches: item =>
+                    itemMatchesElementCacheIdentity(
+                      item,
+                      elementCacheIdentitySet,
+                    ),
+                  merge: (previous, next) => ({
+                    ...previous,
+                    ...next,
+                    listenSlides: next.listenSlides ?? previous.listenSlides,
+                  }),
+                }),
+              );
 
               if (isLessonFeedbackInteraction && nextItem.element_bid) {
                 openLessonFeedbackPopup({
