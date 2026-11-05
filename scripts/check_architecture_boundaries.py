@@ -472,55 +472,6 @@ def collect_learn_elements_violations(backend_root: Path) -> list[Violation]:
     return violations
 
 
-# Learner memory moved to flaskr.service.memory; the old paths stay as one-release
-# sys.modules aliases, and nothing but the alias itself may import them.
-MOVED_MEMORY_MODULES = {
-    "flaskr.service.learn.memory": "flaskr.service.memory",
-    "flaskr.service.profile.course_memory": "flaskr.service.memory.course_memory",
-    "flaskr.service.profile.course_references": (
-        "flaskr.service.memory.course_references"
-    ),
-    "flaskr.service.profile.course_values": "flaskr.service.memory.course_values",
-    "flaskr.service.profile.funcs": "flaskr.service.memory.settings_writer",
-}
-
-
-def _moved_memory_target(module: str) -> str | None:
-    for old, new in MOVED_MEMORY_MODULES.items():
-        if module == old or module.startswith(f"{old}."):
-            return new + module[len(old) :]
-    return None
-
-
-def collect_moved_memory_violations(backend_root: Path) -> list[Violation]:
-    """Reject imports of the old memory paths outside their own aliases."""
-    violations: list[Violation] = []
-    for path in iter_backend_python_files(backend_root):
-        source = normalize_posix(path.relative_to(backend_root))
-        own = source.removesuffix(".py").removesuffix("/__init__").replace("/", ".")
-        if own in MOVED_MEMORY_MODULES:
-            continue
-        for module in iter_python_imports(path, backend_root):
-            target = _moved_memory_target(module)
-            if target is None:
-                continue
-            rule_id = "backend.imports_moved_memory_module"
-            violations.append(
-                Violation(
-                    key=make_key(rule_id, source, module),
-                    rule_id=rule_id,
-                    source=source,
-                    target=module,
-                    message=f"{source} imports moved memory module {module}.",
-                    remediation=(
-                        f"Import {target} instead, or flaskr.service.memory.api "
-                        "from another service."
-                    ),
-                )
-            )
-    return violations
-
-
 def collect_backend_violations(backend_root: Path) -> list[Violation]:
     """Collect backend violations."""
     violations = collect_engine_library_violations(backend_root)
@@ -528,7 +479,6 @@ def collect_backend_violations(backend_root: Path) -> list[Violation]:
     violations += collect_learn_elements_violations(backend_root)
     violations += collect_learn_host_violations(backend_root)
     violations += collect_learn_ask_violations(backend_root)
-    violations += collect_moved_memory_violations(backend_root)
     service_root = backend_root / "flaskr" / "service"
 
     for path in sorted(service_root.rglob("*.py")):
