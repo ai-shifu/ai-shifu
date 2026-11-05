@@ -958,14 +958,6 @@ export function useDebugSession({
               ? response.event_type
               : '';
         const payloadObject = resolveResponsePayload(response);
-        const generatedBlockBid =
-          (typeof response.generated_block_bid === 'string'
-            ? response.generated_block_bid
-            : '') ||
-          (payloadObject &&
-          typeof payloadObject.generated_block_bid === 'string'
-            ? payloadObject.generated_block_bid
-            : '');
         if (responseType === DebugStreamEventType.ELEMENT) {
           updateSessionItems(prev => withoutLoadingItem(prev));
         }
@@ -1009,44 +1001,12 @@ export function useDebugSession({
             message || t('module.preview.llmError'),
             code,
           );
-        } else if (responseType === DebugStreamEventType.AUDIO_SEGMENT) {
-          const audioSegment = normalizeAudioSegmentPayload(
-            resolveResponsePayload(response),
-          );
-          if (generatedBlockBid && audioSegment) {
-            updateSessionItems(prevState =>
-              upsertAudioSegment(
-                prevState,
-                generatedBlockBid,
-                toAudioSegmentData(audioSegment),
-                ensureAudioItem,
-              ),
-            );
-          }
-        } else if (responseType === DebugStreamEventType.AUDIO_COMPLETE) {
-          const audioComplete = normalizeAudioCompletePayload(
-            resolveResponsePayload(response),
-          );
-          if (!audioComplete) {
-            return;
-          }
-          if (generatedBlockBid) {
-            updateSessionItems(prevState =>
-              upsertAudioComplete(
-                prevState,
-                generatedBlockBid,
-                audioComplete,
-                ensureAudioItem,
-              ),
-            );
-          }
         }
       } catch (err) {
         debugWarn('[lesson-debug] SSE handling error', err);
       }
     },
     [
-      ensureAudioItem,
       finalizeDebugItems,
       finishDebugAnswerEdit,
       handleDebugBusinessError,

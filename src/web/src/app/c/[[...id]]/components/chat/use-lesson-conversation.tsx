@@ -874,20 +874,6 @@ function useLessonConversation({
     [setTrackedContentList],
   );
 
-  const ensureContentItem = useCallback(
-    (items: ChatContentItem[], blockId: string): ChatContentItem[] => {
-      if (!blockId || blockId === LOADING_ITEM_BID) {
-        return items;
-      }
-      const hit = items.some(item => matchesElementBid(item, blockId));
-      if (hit) {
-        return items;
-      }
-      return items;
-    },
-    [],
-  );
-
   /**
    * Applies stream-driven lesson status updates and triggers follow-up actions.
    */
@@ -1444,50 +1430,6 @@ function useLessonConversation({
                   return item;
                 }),
               );
-            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-              if (!allowTtsStreaming) {
-                return;
-              }
-              // Handle audio segment during TTS streaming
-              const audioSegment = normalizeAudioSegmentPayload(
-                response.content as Parameters<
-                  typeof normalizeAudioSegmentPayload
-                >[0],
-              );
-              if (!audioSegment) {
-                return;
-              }
-              if (blockId) {
-                setTrackedContentList(prevState =>
-                  upsertAudioSegment(
-                    prevState,
-                    blockId,
-                    toAudioSegmentData(audioSegment),
-                    items => ensureContentItem(items, blockId),
-                  ),
-                );
-              }
-            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-              if (!allowTtsStreaming) {
-                return;
-              }
-              // Handle audio completion with OSS URL
-              const audioComplete = normalizeAudioCompletePayload(
-                response.content,
-              );
-              if (!audioComplete) {
-                return;
-              }
-              if (blockId) {
-                setTrackedContentList(prevState =>
-                  upsertAudioComplete(
-                    prevState,
-                    blockId,
-                    audioComplete,
-                    items => ensureContentItem(items, blockId),
-                  ),
-                );
-              }
             }
           } catch (error) {
             debugWarn('[lesson-run] SSE handling error', error);
@@ -1568,11 +1510,9 @@ function useLessonConversation({
       mobileStyle,
       t,
       trackEvent,
-      allowTtsStreaming,
       appendRunBusinessError,
       appendRunTimeoutError,
       clearRunStreamTimeout,
-      ensureContentItem,
       finalizeElementOutputInList,
       lessonRunContentCacheKey,
       markLessonRunAudioBackfillReady,
