@@ -110,6 +110,7 @@ const createDebugSessionId = () => {
 
 enum DebugStreamEventType {
   DEBUG_VARIABLES = 'debug_variables',
+  DEBUG_VARIABLES_COMMITTED = 'debug_variables_committed',
   DEBUG_ENGINE = 'preview_engine',
   ELEMENT = 'element',
   DONE = 'done',
@@ -117,6 +118,10 @@ enum DebugStreamEventType {
   AUDIO_SEGMENT = 'audio_segment',
   AUDIO_COMPLETE = 'audio_complete',
 }
+
+type DebugStreamVariableState = {
+  awaitingLegacyRewindSeed: boolean;
+};
 
 type DebugStreamEvent = {
   type?: string;
@@ -356,8 +361,10 @@ export const replaceDebugLoadingWithBusinessError = (
 
 export function useDebugSession({
   creditInsufficientAudience,
+  onVariableOverridesSuperseded,
 }: {
   creditInsufficientAudience: CreditInsufficientAudience | null;
+  onVariableOverridesSuperseded?: (names: string[]) => void;
 }) {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
@@ -398,6 +405,7 @@ export function useDebugSession({
   // the script only restarts the debug session once a run has started.
   const hasSessionStartedRef = useRef(false);
   const trackedEngineSessionIdRef = useRef<string | null>(null);
+  const trackedCourseMemorySessionIdRef = useRef<string | null>(null);
   const isStreamingRef = useRef(false);
   const debugFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
@@ -433,6 +441,8 @@ export function useDebugSession({
     useState<DebugVariableValues>({});
   const interactionParserRef = useRef(createInteractionParser());
   const freshAgentInteractionBidsRef = useRef<Set<string>>(new Set());
+  const freshQuestionVariableNamesRef = useRef(new Set<string>());
+  const postStartVariableEditsRef = useRef(new Map<string, string>());
   const resolveLatestMdflow = useCallback(() => {
     const latest = getCurrentMdflow?.();
     if (typeof latest === 'string') {
@@ -491,6 +501,9 @@ export function useDebugSession({
       return;
     }
     const update = { [name]: value };
+    if (isStreamingRef.current) {
+      postStartVariableEditsRef.current.set(name, value);
+    }
     if (initialVariableValuesRef.current && name === 'sys_user_language') {
       // Language is a Debug setting, not an answer to discard on restart.
       initialVariableValuesRef.current = {
@@ -503,9 +516,7 @@ export function useDebugSession({
       ...update,
     };
     runParamsRef.current.variableValues = mergedVariableValues;
-    setVariableValuesSnapshot(
-      normalizeDebugVariableValues(mergedVariableValues),
-    );
+    setVariableValuesSnapshot(previous => ({ ...previous, ...update }));
   }, []);
 
   const persistVariableValues = useCallback(
@@ -679,6 +690,7 @@ export function useDebugSession({
     debugSessionIdRef.current = createDebugSessionId();
     hasSessionStartedRef.current = false;
     trackedEngineSessionIdRef.current = null;
+    trackedCourseMemorySessionIdRef.current = null;
   }, [clearAnswerEditRetryTarget, stopRun, updateSessionItems]);
 
   const clearFreshAgentInteractionAnswer = useCallback(
@@ -687,17 +699,23 @@ export function useDebugSession({
         return;
       }
       freshAgentInteractionBidsRef.current.add(itemBid);
-      const currentVariableValues = (runParamsRef.current.variableValues ||
-        {}) as DebugVariableValues;
-      if (!(variableName in currentVariableValues)) {
+      freshQuestionVariableNamesRef.current.add(variableName);
+      if (postStartVariableEditsRef.current.has(variableName)) {
         return;
       }
-      const nextVariableValues = { ...currentVariableValues };
-      delete nextVariableValues[variableName];
-      runParamsRef.current.variableValues = nextVariableValues;
-      setVariableValuesSnapshot(
-        normalizeDebugVariableValues(nextVariableValues),
-      );
+      const currentVariableValues = (runParamsRef.current.variableValues ||
+        {}) as DebugVariableValues;
+      if (Object.hasOwn(currentVariableValues, variableName)) {
+        const nextVariableValues = { ...currentVariableValues };
+        delete nextVariableValues[variableName];
+        runParamsRef.current.variableValues = nextVariableValues;
+      }
+      setVariableValuesSnapshot(previous => {
+        if (!Object.hasOwn(previous, variableName)) return previous;
+        const snapshot = { ...previous };
+        delete snapshot[variableName];
+        return snapshot;
+      });
     },
     [],
   );
@@ -926,7 +944,7 @@ export function useDebugSession({
   );
 
   const handlePayload = useCallback(
-    (payload: string) => {
+    (payload: string, streamVariables: DebugStreamVariableState) => {
       try {
         const normalizedPayload = payload.replace(/^data:\s*/, '').trim();
         if (!normalizedPayload) {
@@ -944,11 +962,95 @@ export function useDebugSession({
           updateSessionItems(prev => withoutLoadingItem(prev));
         }
 
-        if (responseType === DebugStreamEventType.DEBUG_VARIABLES) {
-          if (payloadObject) {
-            runParamsRef.current.variableValues = { ...payloadObject };
+        if (
+          responseType === DebugStreamEventType.DEBUG_VARIABLES ||
+          responseType === DebugStreamEventType.DEBUG_VARIABLES_COMMITTED
+        ) {
+          const committed =
+            responseType === DebugStreamEventType.DEBUG_VARIABLES_COMMITTED;
+          const variables = committed
+            ? parseObjectPayload<Record<string, unknown>>(
+                payloadObject?.variables,
+              )
+            : payloadObject;
+          if (variables) {
+            const snapshot = { ...variables };
+            const postStartEdits = Object.fromEntries(
+              postStartVariableEditsRef.current,
+            );
+            for (const name of freshQuestionVariableNamesRef.current) {
+              delete snapshot[name];
+            }
+            if (committed) {
+              const parsedCourseUpdates =
+                parseObjectPayload<DebugVariableValues>(
+                  payloadObject?.course_updates,
+                );
+              const courseUpdates = Array.isArray(parsedCourseUpdates)
+                ? null
+                : parsedCourseUpdates;
+              const rewindSeed = parseObjectPayload<Record<string, unknown>>(
+                payloadObject?.user_variables,
+              );
+              // Rebase on scoped memory after rewind. A full panel snapshot can
+              // contain lesson-only values that must not become request inputs.
+              const requestVariables = {
+                ...(rewindSeed ?? runParamsRef.current.variableValues),
+                ...courseUpdates,
+              };
+              for (const name of freshQuestionVariableNamesRef.current) {
+                delete requestVariables[name];
+              }
+              if (rewindSeed) streamVariables.awaitingLegacyRewindSeed = false;
+              runParamsRef.current.variableValues = {
+                ...requestVariables,
+                ...postStartEdits,
+              };
+              if (courseUpdates && Object.keys(courseUpdates).length) {
+                mergeStoredDebugVariableValues(
+                  runParamsRef.current.shifuBid,
+                  courseUpdates,
+                  runParamsRef.current.systemVariableKeys || [],
+                );
+                const supersededOverrides = Object.keys(courseUpdates).filter(
+                  name => !postStartVariableEditsRef.current.has(name),
+                );
+                if (supersededOverrides.length) {
+                  onVariableOverridesSuperseded?.(supersededOverrides);
+                }
+                const { shifuBid, outlineBid } = runParamsRef.current;
+                const sessionId = debugSessionIdRef.current;
+                if (
+                  shifuBid &&
+                  outlineBid &&
+                  sessionId &&
+                  trackedCourseMemorySessionIdRef.current !== sessionId
+                ) {
+                  trackedCourseMemorySessionIdRef.current = sessionId;
+                  try {
+                    void Promise.resolve(
+                      trackEvent('teacher_debug_course_memory_committed', {
+                        shifu_bid: shifuBid,
+                        outline_bid: outlineBid,
+                      }),
+                    ).catch(() => {});
+                  } catch {}
+                }
+              }
+            } else if (streamVariables.awaitingLegacyRewindSeed) {
+              // Older servers retain the checkpoint's user memory themselves.
+              // Keep only the language, which the next preview request sets.
+              const language = variables.sys_user_language;
+              runParamsRef.current.variableValues = {
+                ...(typeof language === 'string'
+                  ? { sys_user_language: language }
+                  : {}),
+                ...postStartEdits,
+              };
+              streamVariables.awaitingLegacyRewindSeed = false;
+            }
             setVariableValuesSnapshot(
-              normalizeDebugVariableValues(payloadObject),
+              normalizeDebugVariableValues({ ...snapshot, ...postStartEdits }),
             );
           }
         } else if (responseType === DebugStreamEventType.ELEMENT) {
@@ -992,6 +1094,7 @@ export function useDebugSession({
       finalizeDebugItems,
       finishDebugAnswerEdit,
       handleDebugBusinessError,
+      onVariableOverridesSuperseded,
       stopRun,
       trackEvent,
       updateSessionItems,
@@ -1104,6 +1207,8 @@ export function useDebugSession({
 
       stopRun();
       const streamGeneration = invalidateStreamGeneration();
+      freshQuestionVariableNamesRef.current.clear();
+      postStartVariableEditsRef.current.clear();
       isStreamingRef.current = true;
       setIsStreaming(true);
       debugAnswerEditResultRef.current = startDebugAnswerEditTracking({
@@ -1179,6 +1284,9 @@ export function useDebugSession({
           },
         });
         runStreamRef.current = source;
+        const streamVariables: DebugStreamVariableState = {
+          awaitingLegacyRewindSeed: Boolean(reloadGeneratedBlockBid),
+        };
         onSseData(source, data => {
           if (
             !isCurrentStreamGeneration(streamGeneration) ||
@@ -1187,7 +1295,7 @@ export function useDebugSession({
           ) {
             return;
           }
-          handlePayload(data);
+          handlePayload(data, streamVariables);
           setIsLoading(false);
         });
         source.addEventListener('error', err => {

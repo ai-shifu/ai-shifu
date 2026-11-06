@@ -515,9 +515,9 @@ def agent_lesson_events(
                 # model has nothing to add and did not say so, and asking again would only loop.
                 if outcome is None or outcome.reason != "end" or not outcome.taught:
                     break
-                if debug_store is not None and rewind is not None:
-                    # The browser snapshot belongs to the discarded suffix. Later automatic
-                    # turns resume only memory saved by the replacement teaching.
+                if debug_store is not None:
+                    # The request seed predates the writes this turn just saved.
+                    # Automatic continuation should resume from the saved memory.
                     preview_variables = None
                 user_input, rewind = None, None
         except RewindUnavailableError:

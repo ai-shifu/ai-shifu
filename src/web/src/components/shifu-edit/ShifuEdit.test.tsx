@@ -19,6 +19,12 @@ const mockMarkdownFlowEditor = jest.fn();
 const mockDebugPanel = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockUseDebugSession = jest.fn();
+const mockStartDebugRun = jest.fn();
+const mockStopDebugRun = jest.fn();
+const mockResetDebugSession = jest.fn();
+const mockPersistDebugVariables = jest.fn();
+const mockSetDebugVariableValue = jest.fn();
+let mockDebugVariableValues: Record<string, string> = {};
 const mockRetryDebugAnswerEdit = jest.fn();
 const mockRefreshUserInfo = jest.fn();
 let mockUserToken = 'token';
@@ -255,15 +261,15 @@ jest.mock('@/components/lesson-debug/use-debug-session', () => ({
       items: [],
       isLoading: false,
       errorMessage: null,
-      startRun: jest.fn(),
-      stopRun: jest.fn(),
-      resetSession: jest.fn(),
+      startRun: mockStartDebugRun,
+      stopRun: mockStopDebugRun,
+      resetSession: mockResetDebugSession,
       retryAnswerEdit: mockRetryDebugAnswerEdit,
       canRetryAnswerEdit: mockCanRetryAnswerEdit,
       submitInteraction: jest.fn(),
-      persistVariableValues: jest.fn(),
-      setVariableValue: jest.fn(),
-      variableValues: {},
+      persistVariableValues: mockPersistDebugVariables,
+      setVariableValue: mockSetDebugVariableValue,
+      variableValues: mockDebugVariableValues,
       requestElementAudio: jest.fn(),
       regenerationConfirmation: jest.fn(),
     };
@@ -396,6 +402,10 @@ describe('ShifuEdit draft conflict checks', () => {
     mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
     mockUseDebugSession.mockReset();
+    mockStartDebugRun.mockReset();
+    mockPersistDebugVariables.mockReset();
+    mockSetDebugVariableValue.mockReset();
+    mockDebugVariableValues = {};
     mockRefreshUserInfo.mockReset();
     mockUserToken = 'token';
     mockCanRetryAnswerEdit = true;
@@ -469,9 +479,9 @@ describe('ShifuEdit draft conflict checks', () => {
   test('passes the owner credit audience into lesson preview', () => {
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
-      creditInsufficientAudience: 'teacher',
-    });
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ creditInsufficientAudience: 'teacher' }),
+    );
   });
 
   test('shows explicit input and style keys through ordinary preview variables', async () => {
@@ -551,9 +561,11 @@ describe('ShifuEdit draft conflict checks', () => {
 
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
-      creditInsufficientAudience: 'teacher-collaborator',
-    });
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        creditInsufficientAudience: 'teacher-collaborator',
+      }),
+    );
   });
 
   test.each([
@@ -646,9 +658,9 @@ describe('ShifuEdit draft conflict checks', () => {
 
     render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
-      creditInsufficientAudience: null,
-    });
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ creditInsufficientAudience: null }),
+    );
     expect(
       screen.getByText('module.shifu.previewArea.action').closest('button'),
     ).toBeDisabled();
@@ -689,9 +701,9 @@ describe('ShifuEdit draft conflict checks', () => {
         skipErrorToast: true,
       });
       expect(debugButton).toBeDisabled();
-      expect(mockUseDebugSession).toHaveBeenLastCalledWith({
-        creditInsufficientAudience: null,
-      });
+      expect(mockUseDebugSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ creditInsufficientAudience: null }),
+      );
 
       await act(async () => {
         await jest.advanceTimersByTimeAsync(2000);
@@ -699,9 +711,9 @@ describe('ShifuEdit draft conflict checks', () => {
       rerender(<ScriptEditor id='shifu-1' />);
 
       expect(mockRefreshUserInfo).toHaveBeenCalledTimes(2);
-      expect(mockUseDebugSession).toHaveBeenLastCalledWith({
-        creditInsufficientAudience: audience,
-      });
+      expect(mockUseDebugSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ creditInsufficientAudience: audience }),
+      );
       expect(debugButton).toBeEnabled();
 
       await act(async () => {
@@ -732,9 +744,9 @@ describe('ShifuEdit draft conflict checks', () => {
       await jest.advanceTimersByTimeAsync(60000);
     });
     expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
-    expect(mockUseDebugSession).toHaveBeenLastCalledWith({
-      creditInsufficientAudience: null,
-    });
+    expect(mockUseDebugSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ creditInsufficientAudience: null }),
+    );
   });
 
   test.each(['known-profile', 'guest', 'uninitialized', 'missing-token'])(
@@ -1349,6 +1361,117 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(baseActions.saveMdflow).not.toHaveBeenCalled();
     expect(baseActions.prepareDebugSession).not.toHaveBeenCalled();
   });
+
+  test('seeds a fresh Debug run with prepared values and explicit panel edits', async () => {
+    setLessonNode();
+    mockShifuState.mdflow = 'Teach {{topic}} in {{language}}';
+    mockDebugVariableValues = {
+      topic: 'Session-only topic',
+      language: 'Session language',
+      sessionNote: 'Only this lesson',
+    };
+    baseActions.prepareDebugSession.mockResolvedValue({
+      variableValues: { topic: 'Saved topic', language: 'English' },
+      blockCount: 1,
+      systemVariableKeys: [],
+    });
+    const { rerender } = render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+    await waitFor(() => expect(mockDebugPanel).toHaveBeenCalled());
+    act(() => {
+      mockDebugPanel.mock.lastCall[0].onVariableChange('language', 'French');
+    });
+    expect(mockSetDebugVariableValue).toHaveBeenCalledWith(
+      'language',
+      'French',
+    );
+
+    const start = () =>
+      fireEvent.click(
+        screen.getByText('module.shifu.previewArea.action').closest('button')!,
+      );
+    start();
+    await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(1));
+    const expected = { topic: 'Saved topic', language: 'French' };
+    expect(mockStartDebugRun).toHaveBeenLastCalledWith(
+      expect.objectContaining({ variableValues: expected }),
+    );
+    expect(mockPersistDebugVariables).toHaveBeenLastCalledWith(
+      expect.objectContaining({ variableValues: expected }),
+    );
+
+    act(() => {
+      mockDebugPanel.mock.lastCall[0].onVariableChange(
+        'topic',
+        'Unapplied edit',
+      );
+    });
+    mockShifuState.currentNode = {
+      ...mockShifuState.currentNode,
+      id: 'lesson-2',
+      bid: 'lesson-2',
+    };
+    rerender(<ScriptEditor id='shifu-1' />);
+    start();
+    await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(2));
+    expect(mockStartDebugRun).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        outlineBid: 'lesson-2',
+        variableValues: { topic: 'Saved topic', language: 'English' },
+      }),
+    );
+  });
+
+  test.each([
+    { supersededKeys: ['topic'], expectedTopic: 'Saved topic' },
+    { supersededKeys: ['other'], expectedTopic: 'Manual topic' },
+  ])(
+    'reopens Debug with $expectedTopic after a commit',
+    async ({ supersededKeys, expectedTopic }) => {
+      setLessonNode();
+      mockShifuState.mdflow = 'Teach {{topic}} in {{language}}';
+      const prepared = {
+        variableValues: { topic: 'Initial topic', language: 'English' },
+        blockCount: 1,
+        systemVariableKeys: [],
+      };
+      baseActions.prepareDebugSession.mockResolvedValueOnce(prepared);
+      render(<ScriptEditor id='shifu-1' />);
+      const start = () =>
+        fireEvent.click(
+          screen
+            .getByText('module.shifu.previewArea.action')
+            .closest('button')!,
+        );
+
+      start();
+      await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(1));
+      act(() => {
+        const panel = mockDebugPanel.mock.lastCall[0];
+        panel.onVariableChange('topic', 'Manual topic');
+        panel.onVariableChange('language', 'French');
+        const options = mockUseDebugSession.mock.lastCall[0];
+        options.onVariableOverridesSuperseded(supersededKeys);
+      });
+      baseActions.prepareDebugSession.mockResolvedValueOnce({
+        ...prepared,
+        variableValues: { ...prepared.variableValues, topic: 'Saved topic' },
+      });
+
+      start();
+      await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(2));
+      const expected = { topic: expectedTopic, language: 'French' };
+      expect(mockStartDebugRun).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          outlineBid: 'lesson-1',
+          variableValues: expected,
+        }),
+      );
+      expect(mockPersistDebugVariables).toHaveBeenLastCalledWith(
+        expect.objectContaining({ variableValues: expected }),
+      );
+    },
+  );
 
   test('provides answer-edit retry without content regeneration actions to Debug', async () => {
     setLessonNode();

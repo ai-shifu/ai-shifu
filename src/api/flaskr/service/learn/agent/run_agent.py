@@ -1123,6 +1123,7 @@ def _stream_turn(
                         rewind=session_holder.get("rewind"),
                         question_ids=preview_question_ids
                         or [p.tool_call_id for p in session.pending],
+                        course_updates=_debug_course_updates(pending_memory),
                     )
                     kept = True
                 else:
@@ -1241,6 +1242,7 @@ def _stream_turn(
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
                         question_ids=preview_question_ids,
+                        course_updates=_debug_course_updates(pending_memory),
                     )
                     kept = True
                 else:
@@ -1442,6 +1444,19 @@ class _TurnDiscardedError(Exception):
     """The lesson was reset while this turn ran, so nothing it produced may be written."""
 
 
+def _is_durable_memory_update(update: MemoryUpdated) -> bool:
+    return update.scope == "user" or update.source == "interaction"
+
+
+def _debug_course_updates(memory: list[MemoryUpdated]) -> dict[str, str]:
+    """Keep the last cross-lesson write per key, excluding lesson working notes."""
+    return {
+        update.key: "" if update.value is None else str(update.value)
+        for update in memory
+        if _is_durable_memory_update(update) and not is_course_reference(update.key)
+    }
+
+
 def _persist(
     app: Flask,
     session: Session,
@@ -1524,11 +1539,7 @@ def _persist(
         # answer to the profile. Later lessons read it from there -- a script that asks for
         # `%{{purpose}}` in one lesson uses `{{purpose}}` in the next -- and a lesson whose
         # answer stayed in its own session showed the next one's learner the placeholder itself.
-        durable = [
-            update
-            for update in memory
-            if update.scope == "user" or update.source == "interaction"
-        ]
+        durable = [update for update in memory if _is_durable_memory_update(update)]
         for update in durable:
             if is_course_reference(update.key):
                 session.memory.pop(update.key, None)

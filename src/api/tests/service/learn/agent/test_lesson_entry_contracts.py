@@ -910,10 +910,10 @@ def test_a_turn_that_waits_ends_or_says_nothing_is_not_followed(
     assert len(calls) == 1
 
 
-def test_debug_automatic_continuation_keeps_normal_preview_variables(
+def test_debug_automatic_continuation_keeps_saved_memory(
     app: object, monkeypatch: object
 ) -> None:
-    """Debug continuation retains its ordinary variable input without a rewind branch."""
+    """Use browser variables only for the first turn of a Debug request."""
     runner = _entry_with_runner(monkeypatch)
     calls: list[dict] = []
     runner.side_effect = _turn(
@@ -947,6 +947,6 @@ def test_debug_automatic_continuation_keeps_normal_preview_variables(
     ]
     assert [call["preview_variables"] for call in calls] == [
         browser_variables,
-        browser_variables,
-        browser_variables,
+        None,
+        None,
     ]

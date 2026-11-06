@@ -522,6 +522,48 @@ included in analytics.
   failures. Hook tests assert confirmation timing, prefix preservation, retry
   and late-stream rejection. Tracking is best-effort and cannot affect teaching.
 
+## Editor Debug course memory
+
+- Business question: In which courses and lessons do teachers exercise saved
+  cross-lesson memory while debugging? Use weekly counts to prioritize where
+  to check that later lessons can reuse the values.
+- Metric: Count one `teacher_debug_course_memory_committed` event per eligible
+  Debug run, grouped by course and lesson. There is no denominator. Preview
+  clicks and these events cannot be joined as individual attempts. The event
+  measures a received server commit and does not verify browser storage
+  availability or reuse by a later lesson.
+- Trigger: After processing the first `debug_variables_committed` event from
+  the current stream with a nonempty `course_updates` map. A qualifying map
+  contains at least one server-saved named interaction answer or user-scoped
+  memory write. Automatic continuation and an accepted answer edit can
+  qualify within the same run.
+- Population: Authorized teachers and collaborators using the course editor's
+  Debug panel. Exclude optimistic answers, manual panel edits, rewind
+  checkpoints, empty patches, obsolete streams, guests, published learning,
+  and full-course preview. Delivery follows the shared analytics configuration
+  and account exclusions. Debug introduces no separate analytics opt-in.
+- Deduplication: Once per browser Debug run ID, in memory. Later turns,
+  duplicate frames, and retries in that run do not count again. An explicit
+  restart or opening Debug for another lesson starts a new run. Deduplication
+  state stays in the browser. The Debug run ID is never sent to analytics.
+- Consumers and compatibility: Teacher authoring-quality weekly Umami reports
+  use this additive event. Existing preview click and answer-edit events and
+  historical queries keep their meanings and payloads.
+- Delivery and verification: Emit through `useTracking` without awaiting
+  delivery. Tests cover exact payload, sensitive-field absence, trigger
+  timing, exclusions, per-run deduplication and continued panel and cache
+  updates when tracking throws or rejects.
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `shifu_bid` | string | Stable course identifier | high | pseudonymous | Group eligible runs by course |
+| `outline_bid` | string | Stable lesson identifier | high | pseudonymous | Identify the lessons where memory was committed |
+
+These two fields are the complete application-event data. Do not include
+variable names or values, course or lesson titles, session or interaction IDs,
+inputs, prompts, output, URLs, or errors. Identity and privacy-normalized route
+context are handled separately by the shared transport.
+
 ## About dialog exposure
 
 - Business question and metric: How often do users open About to inspect the

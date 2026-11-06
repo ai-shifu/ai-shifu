@@ -88,6 +88,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Device Authorization Skill Analytics](./completed/device-auth-skill-analytics.md)
 - [Reuse production Web Docker dependencies](./completed/docker-web-dependency-reuse.md)
 - [Domain-Based Site Branding](./completed/domain-based-site-branding.md)
+- [Editor Debug Cross-Lesson Memory](./completed/editor-debug-cross-lesson-memory.md)
 - [Keep editor previews in the selected language](./completed/editor-preview-language.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Environment-wide MarkdownFlow 2.0](./completed/environment-wide-markdownflow-v2.md)

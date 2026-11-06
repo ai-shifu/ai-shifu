@@ -2,7 +2,7 @@
 title: MarkdownFlow Draft Classroom History
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-11-03
+last_reviewed: 2026-11-06
 canonical: true
 ---
 
@@ -115,9 +115,21 @@ An old session without usable answer checkpoints can continue normally, but
 cannot selectively edit an earlier answer until restarted.
 
 Answer edits restore the checkpoint's user-memory snapshot. Echoed frontend
-variables cannot reintroduce discarded future answers. `debug_variables` SSE
-messages replace the variable snapshot before replacement output and at its DONE
-boundary. Old SSE and audio callbacks cannot update a replacement run.
+variables cannot reintroduce discarded future answers. Legacy `debug_variables`
+snapshots restore the current panel around an answer edit. The committed
+replacement turn also sends `user_variables` from its saved user scope so the
+next browser request can replace its seed without copying lesson-only notes
+or values from the discarded suffix. Automatic turns in a single request use
+the memory saved by the preceding turn.
+
+A successful Debug turn emits `debug_variables_committed` before its adapter
+`done` event, including a nonterminal pause for a question. The content contains
+`variables` for the current panel and `course_updates` for the browser's course
+cache. The latter includes accepted named answers and user-scoped writes, with
+the last eligible write for each key winning. A replacement turn updates the
+cache through its own committed writes. Lesson-only notes and restored
+checkpoints are not course writes. Failed or superseded turns do not publish a
+new course update. Old SSE and audio callbacks cannot update a replacement run.
 
 Each Debug store binds its lock, request token and session state to one backend.
 When Redis is configured, every operation uses strict Redis; an outage never
