@@ -195,9 +195,9 @@ const ScriptEditor = ({
   });
 
   const debugVariableOverridesRef = useRef<DebugVariableValues>({});
-  const handleDebugCourseVariablesCommitted = useCallback(
-    (updates: DebugVariableValues) => {
-      for (const name of Object.keys(updates)) {
+  const clearSupersededDebugVariableOverrides = useCallback(
+    (names: string[]) => {
+      for (const name of names) {
         delete debugVariableOverridesRef.current[name];
       }
     },
@@ -220,7 +220,7 @@ const ScriptEditor = ({
     regenerationConfirmation,
   } = useDebugSession({
     creditInsufficientAudience,
-    onCourseVariablesCommitted: handleDebugCourseVariablesCommitted,
+    onVariableOverridesSuperseded: clearSupersededDebugVariableOverrides,
   });
   const handleDebugVariableChange = useCallback(
     (name: string, value: string) => {

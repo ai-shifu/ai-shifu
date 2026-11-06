@@ -571,11 +571,11 @@ describe('useDebugSession helpers and business error rendering', () => {
           buttonTexts: [choice],
           buttonValues: [choice],
         });
-        const onCourseVariablesCommitted = jest.fn();
+        const onVariableOverridesSuperseded = jest.fn();
         const { result } = renderHook(() =>
           useDebugSession({
             creditInsufficientAudience: 'teacher',
-            onCourseVariablesCommitted,
+            onVariableOverridesSuperseded,
           }),
         );
         const initialValues = {
@@ -646,10 +646,8 @@ describe('useDebugSession helpers and business error rendering', () => {
           }
         });
         expect(result.current.variableValues).toEqual(saved);
-        expect(onCourseVariablesCommitted).toHaveBeenCalledTimes(1);
-        expect(onCourseVariablesCommitted).toHaveBeenCalledWith({
-          [variable]: topic,
-        });
+        expect(onVariableOverridesSuperseded).toHaveBeenCalledTimes(1);
+        expect(onVariableOverridesSuperseded).toHaveBeenCalledWith([variable]);
         expect(readStoredDebugVariableValues(shifuBid)).toEqual({
           course: { [variable]: topic, earlier: 'Keep me' },
           system: { sys_user_language: 'zh-CN' },
@@ -761,14 +759,81 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
     });
 
-    test('does not cache a rewind snapshot or a late commit from a reset run', async () => {
-      const source = buildMockSseSource();
-      (SSE as jest.Mock).mockReturnValueOnce(source);
-      const onCourseVariablesCommitted = jest.fn();
+    test('preserves a post-start edit even when it returns to its sent value', async () => {
+      const questionVariable = 'nextAnswer';
+      const sources = [buildMockSseSource(), buildMockSseSource()];
+      sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
+      mockParseToRemarkFormat.mockReturnValue({
+        variableName: questionVariable,
+      });
+      const onVariableOverridesSuperseded = jest.fn();
       const { result } = renderHook(() =>
         useDebugSession({
           creditInsufficientAudience: 'teacher',
-          onCourseVariablesCommitted,
+          onVariableOverridesSuperseded,
+        }),
+      );
+      await act(async () =>
+        result.current.startRun({
+          shifuBid,
+          outlineBid: 'lesson-1',
+          mdflow: 'Continue with ?[{{nextAnswer}} ...Enter your answer]',
+          variableValues: { [variable]: 'Sent value' },
+        }),
+      );
+      act(() => {
+        result.current.setVariableValue(variable, 'Another value');
+        result.current.setVariableValue(variable, 'Sent value');
+        emit(sources[0], {
+          type: 'element',
+          content: {
+            element_bid: 'next-question',
+            generated_block_bid: 'next-turn',
+            element_type: 'interaction',
+            content: '?[{{nextAnswer}} ...Enter your answer]',
+          },
+        });
+        emit(sources[0], {
+          type: 'debug_variables_committed',
+          content: {
+            variables: { [variable]: topic, earlier: 'Saved setting' },
+            course_updates: { [variable]: topic, earlier: 'Saved setting' },
+          },
+        });
+        emit(sources[0], { type: 'done', is_terminal: false });
+        sources[0].listeners.readystatechange?.({ readyState: 2 } as never);
+      });
+      expect(result.current.variableValues).toEqual({
+        [variable]: 'Sent value',
+        earlier: 'Saved setting',
+      });
+      expect(readStoredDebugVariableValues(shifuBid).course[variable]).toBe(
+        topic,
+      );
+      expect(onVariableOverridesSuperseded).toHaveBeenCalledWith(['earlier']);
+
+      await act(async () =>
+        result.current.submitInteraction(
+          { variableName: questionVariable, inputText: 'New answer' },
+          'next-question',
+        ),
+      );
+      const next = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(next.variables).toEqual({
+        [variable]: 'Sent value',
+        [questionVariable]: 'New answer',
+        earlier: 'Saved setting',
+      });
+    });
+
+    test('does not cache a rewind snapshot or a late commit from a reset run', async () => {
+      const source = buildMockSseSource();
+      (SSE as jest.Mock).mockReturnValueOnce(source);
+      const onVariableOverridesSuperseded = jest.fn();
+      const { result } = renderHook(() =>
+        useDebugSession({
+          creditInsufficientAudience: 'teacher',
+          onVariableOverridesSuperseded,
         }),
       );
       const saved = { [variable]: topic };
@@ -804,7 +869,7 @@ describe('useDebugSession helpers and business error rendering', () => {
       });
       expect(result.current.variableValues).toEqual({});
       expect(readStoredDebugVariableValues(shifuBid).course).toEqual(saved);
-      expect(onCourseVariablesCommitted).not.toHaveBeenCalled();
+      expect(onVariableOverridesSuperseded).not.toHaveBeenCalled();
     });
   });
 
@@ -1099,6 +1164,7 @@ describe('useDebugSession helpers and business error rendering', () => {
           answer: 'B',
         };
         act(() => {
+          result.current.setVariableValue('nextAnswer', 'Pending manual edit');
           emit(replacement, { type: 'debug_variables', content: checkpoint });
           emit(replacement, {
             type: 'element',
@@ -1110,6 +1176,12 @@ describe('useDebugSession helpers and business error rendering', () => {
               is_final: true,
             },
           });
+        });
+        expect(result.current.variableValues).toEqual({
+          ...checkpoint,
+          nextAnswer: 'Pending manual edit',
+        });
+        act(() => {
           emit(replacement, { type: 'debug_variables', content: snapshot });
           if (protocol === 'scoped') {
             emit(replacement, {
@@ -1127,7 +1199,10 @@ describe('useDebugSession helpers and business error rendering', () => {
           emit(replacement, { type: 'done', is_terminal: false });
           replacement.listeners.readystatechange?.({ readyState: 2 } as never);
         });
-        expect(result.current.variableValues).toEqual(snapshot);
+        expect(result.current.variableValues).toEqual({
+          ...snapshot,
+          nextAnswer: 'Pending manual edit',
+        });
 
         await act(async () =>
           result.current.submitInteraction(

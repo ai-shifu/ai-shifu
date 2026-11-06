@@ -1422,48 +1422,56 @@ describe('ShifuEdit draft conflict checks', () => {
     );
   });
 
-  test('reopens Debug with the committed topic after a manual edit was superseded', async () => {
-    setLessonNode();
-    mockShifuState.mdflow = 'Teach {{topic}} in {{language}}';
-    const prepared = {
-      variableValues: { topic: 'Initial topic', language: 'English' },
-      blockCount: 1,
-      systemVariableKeys: [],
-    };
-    baseActions.prepareDebugSession.mockResolvedValueOnce(prepared);
-    render(<ScriptEditor id='shifu-1' />);
-    const start = () =>
-      fireEvent.click(
-        screen.getByText('module.shifu.previewArea.action').closest('button')!,
+  test.each([
+    { supersededKeys: ['topic'], expectedTopic: 'Saved topic' },
+    { supersededKeys: ['other'], expectedTopic: 'Manual topic' },
+  ])(
+    'reopens Debug with $expectedTopic after a commit',
+    async ({ supersededKeys, expectedTopic }) => {
+      setLessonNode();
+      mockShifuState.mdflow = 'Teach {{topic}} in {{language}}';
+      const prepared = {
+        variableValues: { topic: 'Initial topic', language: 'English' },
+        blockCount: 1,
+        systemVariableKeys: [],
+      };
+      baseActions.prepareDebugSession.mockResolvedValueOnce(prepared);
+      render(<ScriptEditor id='shifu-1' />);
+      const start = () =>
+        fireEvent.click(
+          screen
+            .getByText('module.shifu.previewArea.action')
+            .closest('button')!,
+        );
+
+      start();
+      await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(1));
+      act(() => {
+        const panel = mockDebugPanel.mock.lastCall[0];
+        panel.onVariableChange('topic', 'Manual topic');
+        panel.onVariableChange('language', 'French');
+        const options = mockUseDebugSession.mock.lastCall[0];
+        options.onVariableOverridesSuperseded(supersededKeys);
+      });
+      baseActions.prepareDebugSession.mockResolvedValueOnce({
+        ...prepared,
+        variableValues: { ...prepared.variableValues, topic: 'Saved topic' },
+      });
+
+      start();
+      await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(2));
+      const expected = { topic: expectedTopic, language: 'French' };
+      expect(mockStartDebugRun).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          outlineBid: 'lesson-1',
+          variableValues: expected,
+        }),
       );
-
-    start();
-    await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(1));
-    act(() => {
-      const panel = mockDebugPanel.mock.lastCall[0];
-      panel.onVariableChange('topic', 'Manual topic');
-      panel.onVariableChange('language', 'French');
-      const options = mockUseDebugSession.mock.lastCall[0];
-      options.onCourseVariablesCommitted({ topic: 'Saved topic' });
-    });
-    baseActions.prepareDebugSession.mockResolvedValueOnce({
-      ...prepared,
-      variableValues: { ...prepared.variableValues, topic: 'Saved topic' },
-    });
-
-    start();
-    await waitFor(() => expect(mockStartDebugRun).toHaveBeenCalledTimes(2));
-    const expected = { topic: 'Saved topic', language: 'French' };
-    expect(mockStartDebugRun).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        outlineBid: 'lesson-1',
-        variableValues: expected,
-      }),
-    );
-    expect(mockPersistDebugVariables).toHaveBeenLastCalledWith(
-      expect.objectContaining({ variableValues: expected }),
-    );
-  });
+      expect(mockPersistDebugVariables).toHaveBeenLastCalledWith(
+        expect.objectContaining({ variableValues: expected }),
+      );
+    },
+  );
 
   test('provides answer-edit retry without content regeneration actions to Debug', async () => {
     setLessonNode();

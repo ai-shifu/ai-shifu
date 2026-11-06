@@ -361,10 +361,10 @@ export const replaceDebugLoadingWithBusinessError = (
 
 export function useDebugSession({
   creditInsufficientAudience,
-  onCourseVariablesCommitted,
+  onVariableOverridesSuperseded,
 }: {
   creditInsufficientAudience: CreditInsufficientAudience | null;
-  onCourseVariablesCommitted?: (updates: DebugVariableValues) => void;
+  onVariableOverridesSuperseded?: (names: string[]) => void;
 }) {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
@@ -441,6 +441,7 @@ export function useDebugSession({
   const interactionParserRef = useRef(createInteractionParser());
   const freshAgentInteractionBidsRef = useRef<Set<string>>(new Set());
   const freshQuestionVariableNamesRef = useRef(new Set<string>());
+  const postStartVariableEditsRef = useRef(new Map<string, string>());
   const resolveLatestMdflow = useCallback(() => {
     const latest = getCurrentMdflow?.();
     if (typeof latest === 'string') {
@@ -499,6 +500,9 @@ export function useDebugSession({
       return;
     }
     const update = { [name]: value };
+    if (isStreamingRef.current) {
+      postStartVariableEditsRef.current.set(name, value);
+    }
     if (initialVariableValuesRef.current && name === 'sys_user_language') {
       // Language is a Debug setting, not an answer to discard on restart.
       initialVariableValuesRef.current = {
@@ -694,17 +698,22 @@ export function useDebugSession({
       }
       freshAgentInteractionBidsRef.current.add(itemBid);
       freshQuestionVariableNamesRef.current.add(variableName);
-      const currentVariableValues = (runParamsRef.current.variableValues ||
-        {}) as DebugVariableValues;
-      if (!(variableName in currentVariableValues)) {
+      if (postStartVariableEditsRef.current.has(variableName)) {
         return;
       }
-      const nextVariableValues = { ...currentVariableValues };
-      delete nextVariableValues[variableName];
-      runParamsRef.current.variableValues = nextVariableValues;
-      setVariableValuesSnapshot(
-        normalizeDebugVariableValues(nextVariableValues),
-      );
+      const currentVariableValues = (runParamsRef.current.variableValues ||
+        {}) as DebugVariableValues;
+      if (Object.hasOwn(currentVariableValues, variableName)) {
+        const nextVariableValues = { ...currentVariableValues };
+        delete nextVariableValues[variableName];
+        runParamsRef.current.variableValues = nextVariableValues;
+      }
+      setVariableValuesSnapshot(previous => {
+        if (!Object.hasOwn(previous, variableName)) return previous;
+        const snapshot = { ...previous };
+        delete snapshot[variableName];
+        return snapshot;
+      });
     },
     [],
   );
@@ -964,6 +973,9 @@ export function useDebugSession({
             : payloadObject;
           if (variables) {
             const snapshot = { ...variables };
+            const postStartEdits = Object.fromEntries(
+              postStartVariableEditsRef.current,
+            );
             for (const name of freshQuestionVariableNamesRef.current) {
               delete snapshot[name];
             }
@@ -984,26 +996,38 @@ export function useDebugSession({
                 delete requestVariables[name];
               }
               if (rewindSeed) streamVariables.awaitingLegacyRewindSeed = false;
-              runParamsRef.current.variableValues = requestVariables;
+              runParamsRef.current.variableValues = {
+                ...requestVariables,
+                ...postStartEdits,
+              };
               if (courseUpdates && Object.keys(courseUpdates).length) {
                 mergeStoredDebugVariableValues(
                   runParamsRef.current.shifuBid,
                   courseUpdates,
                   runParamsRef.current.systemVariableKeys || [],
                 );
-                onCourseVariablesCommitted?.(courseUpdates);
+                const supersededOverrides = Object.keys(courseUpdates).filter(
+                  name => !postStartVariableEditsRef.current.has(name),
+                );
+                if (supersededOverrides.length) {
+                  onVariableOverridesSuperseded?.(supersededOverrides);
+                }
               }
             } else if (streamVariables.awaitingLegacyRewindSeed) {
               // Older servers retain the checkpoint's user memory themselves.
               // Keep only the language, which the next preview request sets.
               const language = variables.sys_user_language;
-              runParamsRef.current.variableValues =
-                typeof language === 'string'
+              runParamsRef.current.variableValues = {
+                ...(typeof language === 'string'
                   ? { sys_user_language: language }
-                  : {};
+                  : {}),
+                ...postStartEdits,
+              };
               streamVariables.awaitingLegacyRewindSeed = false;
             }
-            setVariableValuesSnapshot(normalizeDebugVariableValues(snapshot));
+            setVariableValuesSnapshot(
+              normalizeDebugVariableValues({ ...snapshot, ...postStartEdits }),
+            );
           }
         } else if (responseType === DebugStreamEventType.ELEMENT) {
           upsertElementDebugItem(response);
@@ -1046,7 +1070,7 @@ export function useDebugSession({
       finalizeDebugItems,
       finishDebugAnswerEdit,
       handleDebugBusinessError,
-      onCourseVariablesCommitted,
+      onVariableOverridesSuperseded,
       stopRun,
       trackEvent,
       updateSessionItems,
@@ -1160,6 +1184,7 @@ export function useDebugSession({
       stopRun();
       const streamGeneration = invalidateStreamGeneration();
       freshQuestionVariableNamesRef.current.clear();
+      postStartVariableEditsRef.current.clear();
       isStreamingRef.current = true;
       setIsStreaming(true);
       debugAnswerEditResultRef.current = startDebugAnswerEditTracking({
