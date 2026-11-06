@@ -7,7 +7,7 @@ import pytest
 from markdownflow import LessonPager
 from markdownflow.engine import ContentDelta, Engine, SegmentStart
 from markdownflow.engine.engine import _after_the_repeat
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 pytestmark = pytest.mark.anyio
@@ -27,6 +27,100 @@ _OVERVIEW = (
 _HIGHLIGHTED = _OVERVIEW.replace('class="step"', 'class="step active"', 1)
 _RECAP = "We have now introduced all three steps in the thought-changing process.\n"
 _NEXT = "Now focus on noticing your own thought.\n"
+
+
+@pytest.mark.parametrize("chunk_size", [1, 4096])
+@pytest.mark.parametrize(
+    ("first", "second", "separator"),
+    [
+        ("记住这句话。", _OVERVIEW, "\n"),
+        ("Remember this.", "   " + _OVERVIEW, "\n"),
+        ("Remember this.\n", _OVERVIEW, ""),
+        ("Remember this.", "\r\n" + _OVERVIEW, ""),
+        ("Remember this.\r", "\n" + _OVERVIEW, ""),
+        ("A sentence", " continued.", ""),
+        ("Here is ", "<span>inline HTML</span>.", ""),
+        ("Here is ", "<diversion>an unknown tag</diversion>.", ""),
+        ("Here is ", "<div", ""),
+        ("Here is ", "    <div>an indented example</div>", ""),
+        ("Here is ", "\t<div>an indented example</div>", ""),
+        ("A note.", "<style>.step { padding:1em; }</style>", ""),
+        ("<div>\nOuter", "<div>Inner</div>\n</div>", ""),
+        ("Intro <div>\nOuter", "<div>Inner</div>\n</div>", ""),
+        ("After <div>an example</div>.", _OVERVIEW, "\n"),
+        ("After the literal `<div>`.", _OVERVIEW, "\n"),
+        ("<div", ">\nContent\n</div>", ""),
+        ("<!--\nA literal", "<div>inside a comment</div>\n-->", ""),
+        ("```html\nLiteral", "<div>inside a fence</div>\n```", ""),
+        ("> ~~~html\n> Literal", "<div>inside a quote</div>\n> ~~~", ""),
+        ("    Literal", "<div>in an indented block</div>", ""),
+        ("A multiline `code\nexample", "<div>shown literally</div>`.", ""),
+        (
+            "<div>Finished visual</div>\nA `literal",
+            "<div>shown literally</div>`.",
+            "",
+        ),
+        ("A [link](\n", "<div>\n", ""),
+        ("A [link](", "<div>)", ""),
+        ("An unfinished $formula", "<div>$", ""),
+        ("| Left | Right |", "<div>inside a row</div>", ""),
+    ],
+)
+async def test_html_separator_is_limited_to_safe_response_boundaries(
+    first: str, second: str, separator: str, chunk_size: int
+) -> None:
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        text = first if calls == 1 else second
+        for start in range(0, len(text), chunk_size):
+            yield text[start : start + chunk_size]
+        if calls == 1:
+            # An unknown tool forces a new generation without the NO_PAUSE hold.
+            yield {
+                0: DeltaToolCall(name="unknown", json_args="{}", tool_call_id="retry")
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Teach the lesson.")
+    events = [event async for event in engine.run_turn(session)]
+
+    assert calls == 2
+    assert events[-1].reason == "end"
+    displayed = "".join(
+        event.text for event in events if isinstance(event, ContentDelta)
+    )
+    assert displayed == first + separator + second
+    assert [
+        part.content
+        for message in session.messages
+        if isinstance(message, ModelResponse)
+        for part in message.parts
+        if isinstance(part, TextPart)
+    ] == [first, second]
+
+
+async def test_html_prefix_at_a_chunk_boundary_in_one_response_stays_inline() -> None:
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str]:
+        yield "Remember this."
+        yield "<"
+        yield "div>"
+        yield "Inline HTML</div>"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Teach the lesson.")
+    events = [event async for event in engine.run_turn(session)]
+
+    displayed = "".join(
+        event.text for event in events if isinstance(event, ContentDelta)
+    )
+    assert displayed == "Remember this.<div>Inline HTML</div>"
 
 
 @pytest.mark.parametrize("listen_mode", [False, True])
