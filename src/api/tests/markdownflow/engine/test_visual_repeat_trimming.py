@@ -65,6 +65,11 @@ _NEXT = "Now focus on noticing your own thought.\n"
         ("A [link](\n", "<div>\n", ""),
         ("A [link](", "<div>)", ""),
         ("An unfinished $formula", "<div>$", ""),
+        ("An **example: ", "<div>content</div>**", ""),
+        ("A multiline _example\ncontinues here: ", "<div>content</div>_", ""),
+        ("A **complete** example.", _OVERVIEW, "\n"),
+        ("An old **marker\n\nA new example.", _OVERVIEW, "\n"),
+        ("A literal `**marker`.", _OVERVIEW, "\n"),
         ("| Left | Right |", "<div>inside a row</div>", ""),
     ],
 )

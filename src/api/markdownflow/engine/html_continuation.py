@@ -5,6 +5,10 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from markdown_it import MarkdownIt
+from markdown_it.rules_inline.balance_pairs import link_pairs
+from markdown_it.rules_inline.state_inline import StateInline
+
 from markdownflow.preserve_markers import EnvelopeClassifier
 from markdownflow.syntax.formatter.patterns import block_html_open_re
 from markdownflow.syntax.formatter.types import is_text_family
@@ -13,6 +17,9 @@ from markdownflow.syntax.parser.marker_context import analyze_marker_context
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from markdown_it.token import Token
+
+_MARKDOWN = MarkdownIt("commonmark")
 # A streamed tag name can straddle several chunks. Limit lookahead to a short
 # tag prefix, never its attributes or body.
 _POSSIBLE_OPENER = re.compile(r" {0,3}(?:<[A-Za-z]{0,32})?")
@@ -47,6 +54,27 @@ def _has_open_html(source: str, literals: list[tuple[int, int]], start: int) -> 
         ):
             opened.pop()
     return bool(opened)
+
+
+def _has_open_emphasis(source: str) -> bool:
+    """Look for an unmatched Markdown opener in the final inline block."""
+    if "*" not in source and "_" not in source:
+        return False
+    source = source.replace("\r\n", "\n").replace("\r", "\n")
+    blocks: list[Token] = []
+    environment: dict = {}
+    _MARKDOWN.block.parse(source, _MARKDOWN, environment, blocks)
+    inline = next((token for token in reversed(blocks) if token.type == "inline"), None)
+    if inline is None or not inline.map or inline.map[1] != source.count("\n") + 1:
+        return False
+    state = StateInline(inline.content, _MARKDOWN, environment, [])
+    _MARKDOWN.inline.tokenize(state)
+    link_pairs(state)
+    closed = {delimiter.end for delimiter in state.delimiters if delimiter.end >= 0}
+    return any(
+        delimiter.open and delimiter.end < 0 and index not in closed
+        for index, delimiter in enumerate(state.delimiters)
+    )
 
 
 def _ends_in_prose(source: str) -> bool:
@@ -84,6 +112,7 @@ def _ends_in_prose(source: str) -> bool:
         and not context.unmatched_math
         and not (context.markers and not context.markers[-1].complete)
         and not _has_open_html(source, context.literals, prose_start)
+        and not _has_open_emphasis(source[prose_start:])
     )
 
 
