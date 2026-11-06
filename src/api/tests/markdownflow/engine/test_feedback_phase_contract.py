@@ -325,7 +325,7 @@ async def test_lookup_before_feedback_and_paginated_report_inherit_declared_phas
     events = await _collect(
         engine.run_turn(session, InteractionResponseTurn(text=WRONG))
     )
-    assert _text(events) == "Report part.Report part.Report end."
+    assert _text(events) == "Report part.\nReport part.\nReport end."
     assert calls == 5
     assert session.pending[0].tool_call_id == "next"
 
@@ -523,7 +523,7 @@ async def test_failed_inherited_interaction_preserves_prior_successful_review() 
     events = await _collect(
         engine.run_turn(session, InteractionResponseTurn(text=WRONG))
     )
-    assert _text(events) == "Accepted report page.Valid inherited continuation."
+    assert _text(events) == "Accepted report page.\nValid inherited continuation."
     assert session.pending[0].tool_call_id == "next"
     assert calls == 4
     assert (

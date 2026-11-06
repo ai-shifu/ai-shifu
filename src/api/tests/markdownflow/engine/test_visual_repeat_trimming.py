@@ -7,7 +7,7 @@ import pytest
 from markdownflow import LessonPager
 from markdownflow.engine import ContentDelta, Engine, SegmentStart
 from markdownflow.engine.engine import _after_the_repeat
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 pytestmark = pytest.mark.anyio
@@ -27,6 +27,150 @@ _OVERVIEW = (
 _HIGHLIGHTED = _OVERVIEW.replace('class="step"', 'class="step active"', 1)
 _RECAP = "We have now introduced all three steps in the thought-changing process.\n"
 _NEXT = "Now focus on noticing your own thought.\n"
+
+
+@pytest.mark.parametrize("chunk_size", [1, 4096])
+@pytest.mark.parametrize(
+    ("first", "second", "separator"),
+    [
+        ("记住这句话。", _OVERVIEW, "\n"),
+        ("First explanation.", "Second explanation.", "\n"),
+        ("A sentence", " continued.", "\n"),
+        ("Before a list.", "- First item\n- Second item", "\n"),
+        ("[Reference](https://example.", "com/page)", ""),
+        ("Read <https://example.", "com/page>", ""),
+        ("[Reference]", "(https://example.com/page)", ""),
+        ("A complete [reference](https://example.com).", "Next paragraph.", "\n"),
+        ('Example <span title="hel', 'lo">text</span>.', ""),
+        ('<div title="hel', 'lo">text</div>', ""),
+        ('<div title="</div>hel', 'lo">text</div>', ""),
+        ('<div title="\n</div>hel', 'lo">text</div>', ""),
+        ('<div>\n<span title="hel', 'lo">text</span>\n</div>', ""),
+        ("<div>Finished visual</div>", _OVERVIEW, "\n"),
+        ("<div>Finished visual</div >", _OVERVIEW, "\n"),
+        ("<div>Finished visual</div>\n[Reference](https://example.", "com/page)", ""),
+        ("Use `read_", "file`.", ""),
+        ('A code example:\n```python\nvalue = "hel', 'lo"\n```', ""),
+        ('> ~~~python\n> value = "hel', 'lo"\n> ~~~', ""),
+        ("```python\nprint(1)\n```", "Next paragraph.", "\n"),
+        ("Remember this.\n", _OVERVIEW, ""),
+        ("Remember this.", "\r\n" + _OVERVIEW, ""),
+        ("Remember this.\r", "\n" + _OVERVIEW, ""),
+        ("First explanation.\n", "\nSecond explanation.", ""),
+    ],
+)
+async def test_response_separator_preserves_unfinished_syntax(
+    first: str, second: str, separator: str, chunk_size: int
+) -> None:
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        text = first if calls == 1 else second
+        for start in range(0, len(text), chunk_size):
+            yield text[start : start + chunk_size]
+        if calls == 1:
+            # An unknown tool forces a new generation without the NO_PAUSE hold.
+            yield {
+                0: DeltaToolCall(name="unknown", json_args="{}", tool_call_id="retry")
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Teach the lesson.")
+    events = [event async for event in engine.run_turn(session)]
+
+    assert calls == 2
+    assert events[-1].reason == "end"
+    displayed = "".join(
+        event.text for event in events if isinstance(event, ContentDelta)
+    )
+    assert displayed == first + separator + second
+    assert [
+        part.content
+        for message in session.messages
+        if isinstance(message, ModelResponse)
+        for part in message.parts
+        if isinstance(part, TextPart)
+    ] == [first, second]
+
+
+async def test_html_prefix_at_a_chunk_boundary_in_one_response_stays_inline() -> None:
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str]:
+        yield "Remember this."
+        yield "<"
+        yield "div>"
+        yield "Inline HTML</div>"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Teach the lesson.")
+    events = [event async for event in engine.run_turn(session)]
+
+    displayed = "".join(
+        event.text for event in events if isinstance(event, ContentDelta)
+    )
+    assert displayed == "Remember this.<div>Inline HTML</div>"
+
+
+@pytest.mark.parametrize(
+    ("original", "prefix", "continuation"),
+    [
+        (
+            '<div data-label="A.B">\nPreviously shown example.\n</div>\n',
+            "",
+            '<div data-label="A.B">\nA different exercise to try.\n</div>\n',
+        ),
+        (
+            "[Reference](https://example.com/old)\n",
+            "\n[Reference](https://example.",
+            "com/new)\n",
+        ),
+    ],
+    ids=["slide", "split-link"],
+)
+async def test_repeat_trimming_preserves_content_after_another_model_retry(
+    original: str, prefix: str, continuation: str
+) -> None:
+    """Trim a repeated recap without splitting the new content between held responses."""
+    recap = "Remember the difference between these two kinds of examples"
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield recap + "\n" + original
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args='{"type":"confirm","prompt":"Continue?"}',
+                    tool_call_id="unscripted-pause",
+                )
+            }
+        elif calls == 2:
+            yield recap + prefix
+            yield {
+                0: DeltaToolCall(name="unknown", json_args="{}", tool_call_id="retry")
+            }
+        else:
+            for character in continuation:
+                yield character
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session("Teach both examples without pausing.")
+    events = [event async for event in engine.run_turn(session)]
+    displayed = "".join(
+        event.text for event in events if isinstance(event, ContentDelta)
+    )
+
+    assert calls == 3
+    assert displayed == recap + "\n" + original + prefix.lstrip("\n") + continuation
 
 
 @pytest.mark.parametrize("listen_mode", [False, True])

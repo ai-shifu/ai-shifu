@@ -1577,6 +1577,117 @@ def test_tool_events_do_not_split_formatted_content(
     ]
 
 
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("preview_mode", [False, True], ids=["learner", "simulation"])
+def test_slide_continuations_keep_each_html_root_in_one_lesson_element(
+    calls: list[tuple[str, object]],
+    monkeypatch: pytest.MonkeyPatch,
+    listen: bool,
+    preview_mode: bool,
+) -> None:
+    """Resume after each unscripted pause with a complete visual in the learner's lesson."""
+    from flask import Flask
+    from markdownflow.engine import Engine
+    from markdownflow.engine.tools import NO_PAUSE
+    from pydantic_ai.messages import ToolReturnPart
+    from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+    intro = "这句话你记住，后面全通。"
+    question_intro = "接下来，请做一道思考题。"
+    card = (
+        '<div class="card">\n'
+        "<style>\n.card { border: 1px solid blue; }\n</style>\n"
+        '<div class="body">监督学习</div>\n'
+        "</div>\n"
+    )
+    question = (
+        '<div class="question">\n'
+        "<style>\n.question { border: 1px solid green; }\n</style>\n"
+        '<div class="body">如何辨认监督学习？</div>\n'
+        "</div>\n"
+    )
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        pause = next(
+            (part for part in messages[-1].parts if isinstance(part, ToolReturnPart)),
+            None,
+        )
+        if pause is None:
+            yield intro
+        else:
+            assert pause.tool_name == "interact"
+            assert pause.content == NO_PAUSE
+            slide = card if pause.tool_call_id == "pause-before-card" else question
+            yield "<"
+            yield "di"
+            yield slide[3:]
+            if slide == question:
+                return
+            yield question_intro
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args='{"type":"confirm","prompt":""}',
+                tool_call_id=(
+                    "pause-before-card" if pause is None else "pause-before-question"
+                ),
+            )
+        }
+
+    spoken: dict[int, str] = {}
+
+    class Processor:
+        def __init__(self, number: int) -> None:
+            self.number = number
+
+        def process_chunk(self, text: str) -> list:
+            spoken[self.number] = spoken.get(self.number, "") + text
+            return []
+
+        def finalize(self, *, commit: bool) -> list:
+            assert commit
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda _app, **kwargs: Processor(kwargs["stream_element_number"]),
+    )
+    engine = Engine(FunctionModel(stream_function=stream), pauses_from_notation=True)
+    events = list(
+        run_agent.run_agent_lesson(
+            Flask(__name__),
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            listen=listen,
+            preview_mode=preview_mode,
+            iter_turn=_drive,
+        )
+    )
+    grouped: dict[tuple[str, int], str] = {}
+    for event in events:
+        for content, kind, number in event.get_mdflow_stream_parts():
+            key = kind, number
+            grouped[key] = grouped.get(key, "") + content
+
+    assert list(grouped.items()) == [
+        (("text", 0), intro + "\n"),
+        (("html", 1), card),
+        (("text", 2), question_intro + "\n"),
+        (("html", 3), question),
+    ]
+    recorded = [kwargs for name, kwargs in calls if name == "record_content"]
+    assert [record["content"] for record in recorded] == (
+        [] if preview_mode else ["".join(grouped.values())]
+    )
+    assert spoken == ({0: intro + "\n", 2: question_intro + "\n"} if listen else {})
+    assert not _interactions(events)
+
+
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 def test_verbatim_markers_never_reach_the_learner(

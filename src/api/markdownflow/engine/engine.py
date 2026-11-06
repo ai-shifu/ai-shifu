@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -49,6 +50,10 @@ if TYPE_CHECKING:
 from markdownflow.preserve_markers import EnvelopeClassifier, PreserveMarkerFilter
 from markdownflow.resources import load_prompt
 from markdownflow.syntax.formatter.types import is_text_family
+from markdownflow.syntax.parser.marker_context import (
+    analyze_marker_context,
+    scan_marker_document,
+)
 
 from .answer_context import (
     answer_reference_instructions,
@@ -106,6 +111,7 @@ from .script import (
 )
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
+from .stream_html_context import pending_html_prefix
 from .tools import (
     NO_PAUSE,
     Deps,
@@ -266,6 +272,52 @@ _CONTINUE_HOLD_CHARS = 280
 _BREAKS = "\n\u3002\uff01\uff1f.!?"
 
 
+def _response_separator(previous: Sequence[str], following: str) -> str:
+    """Separate responses unless a line break would split unfinished syntax."""
+    line_ends = ("\n", "\r")
+    if previous[-1].endswith(line_ends) or following.startswith(line_ends):
+        return ""
+
+    source = "".join(previous)
+    context, blocks = scan_marker_document(source, final=False)
+    if context.pending_html_block and context.pending_block_start is not None:
+        if pending_html_prefix(source, context.pending_block_start) is not None:
+            return ""
+        # CommonMark may keep a closed visual and following prose in one
+        # HTML block. Check that prose using the display formatter's boundary.
+        classifier = EnvelopeClassifier()
+        offset = prose_start = 0
+        for line in source.splitlines(keepends=True):
+            offset += len(line)
+            if not is_text_family(classifier.classify_line(line.rstrip("\r\n")).type):
+                prose_start = offset
+        if 0 < prose_start < len(source):
+            source = source[prose_start:]
+            context, blocks = scan_marker_document(source, final=False)
+    if context.literals and (last := context.literals[-1])[1] == len(source):
+        fence = blocks.fence(last[0], final=False)
+        if fence is not None and not fence.closed:
+            return ""
+    if (
+        context.pending_resource_start is not None
+        or context.pending_autolink_start is not None
+        or context.pending_label_starts
+        or (context.pending_resource_opener and following.startswith(("(", "[")))
+        or context.unmatched_backticks
+        or context.pending_indented_block
+        or (
+            context.pending_html_start is not None
+            and pending_html_prefix(source, context.pending_html_start) is not None
+        )
+        or (
+            context.pending_raw_html_tag is not None
+            and not context.pending_raw_html_closed
+        )
+    ):
+        return ""
+    return "\n"
+
+
 def _after_the_repeat(held: Sequence[str], said: str) -> str:
     """Return what of the held text to show once it stops reading as what was `said`.
 
@@ -291,10 +343,30 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
             break
         prose_end += len(line)
     cut, seen = 0, ""
-    for i, ch in enumerate(text[:prose_end]):
+    prose = text[:prose_end]
+    protected = bytearray(prose_end)
+    if any(marker in prose for marker in ("[", "<", "`", "$")):
+        context = analyze_marker_context(prose, final=False)
+        pending = min(
+            (
+                start
+                for start in (
+                    context.pending_resource_start,
+                    context.pending_autolink_start,
+                    context.pending_html_start,
+                    *(at for at, _ in context.unmatched_backticks),
+                )
+                if start is not None
+            ),
+            default=prose_end,
+        )
+        # Punctuation inside a URL, tag or inline code is not a sentence break.
+        for start, end in (*context.literals, (pending, prose_end)):
+            protected[start:end] = b"\1" * (end - start)
+    for i, ch in enumerate(prose):
         if not ch.isspace():
             seen += ch
-        if ch in _BREAKS:
+        if ch in _BREAKS and not protected[i]:
             # A prefix that was not said cannot become said by growing, so the first one
             # that was not ends the search.
             if seen not in said:
@@ -1093,7 +1165,7 @@ class Engine:
             if carried_on
             else ""
         )
-        held: list[str] = []
+        held: list[tuple[int, str]] = []
         held_text = ""
         holding = carried_on
         hold_floor = _CONTINUE_HOLD_CHARS if carried_on else 0
@@ -1103,6 +1175,8 @@ class Engine:
         # back while it reads as something this turn already said.
         said: list[str] = []
         shown: list[str] = []
+        response_index = 0
+        shown_response = 0
         after_pause = False
         history_saved = False
         was_interrupted = session.interrupted
@@ -1129,7 +1203,8 @@ class Engine:
             """Hide only a single displayed closing line that was already shown."""
             # Every held-text release uses the same display comparison, including an
             # unscripted pause. Hiding a repeat never changes completion state.
-            text = "".join(held)
+            chunks = [chunk for _, chunk in held]
+            text = "".join(chunks)
             if _closing_was_shown():
                 lines = [
                     line for line in _display_text(text).splitlines() if line.strip()
@@ -1138,11 +1213,14 @@ class Engine:
                     # The generic repeat trimmer also removes whitespace. Keep changed
                     # line boundaries here so it cannot erase a multiline closing.
                     return "" if len(lines) == 1 else text
-            return _after_the_repeat(held, previous) if trim_repeat else text
+            return _after_the_repeat(chunks, previous) if trim_repeat else text
 
-        def _out(text: str) -> list[Event]:
+        def _out(text: str, response: int) -> list[Event]:
             """Deliver text and track what this turn has sent to the learner."""
-            nonlocal delivered
+            nonlocal delivered, shown_response
+            if shown and response != shown_response:
+                text = _response_separator(shown, text) + text
+            shown_response = response
             delivered += _visible_length(text)
             said.append("".join(text.split()))
             shown.append(text)
@@ -1151,15 +1229,35 @@ class Engine:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
 
+        def _release_held(remaining: str) -> list[Event]:
+            """Release the retained suffix without losing its response boundaries."""
+            skip = sum(len(chunk) for _, chunk in held) - len(remaining)
+            out: list[Event] = []
+            for response, group in groupby(held, key=lambda item: item[0]):
+                text = "".join(chunk for _, chunk in group)
+                if len(text) > skip:
+                    out.extend(_out(text[skip:], response))
+                skip = max(0, skip - len(text))
+            held.clear()
+            return out
+
         def _display(text: str) -> list[Event]:
             """Hold potential repeats until they are known or diverge into new content."""
             nonlocal holding, held_text
             if not holding:
-                return _out(text)
-            held.append(text)
+                return _out(text, response_index)
+            if held and held[-1][0] != response_index:
+                # Repeat trimming reads the same line boundaries as delivery.
+                prior_response, prior_chunk = held[-1]
+                previous_chunks = [*shown, *(chunk for _, chunk in held)]
+                held[-1] = (
+                    prior_response,
+                    prior_chunk + _response_separator(previous_chunks, text),
+                )
+            held.append((response_index, text))
             held_text += "".join(text.split())
             if _closing_was_shown():
-                candidate = "".join(held)
+                candidate = "".join(chunk for _, chunk in held)
                 compared = "".join(_display_text(candidate, complete=False).split())
                 # An unfinished inline construct can change its display when completed.
                 # The author's exact source prefix still identifies that closing safely.
@@ -1176,8 +1274,7 @@ class Engine:
             if len(held_text) < hold_floor or held_text in previous:
                 return []
             holding = False
-            released, held[:] = _held_output(trim_repeat=True), []
-            return _out(released) if released else []
+            return _release_held(_held_output(trim_repeat=True))
 
         def _markup_output(displayed: str) -> list[Event]:
             """Keep the first suppressed question pending across intervening tools."""
@@ -1259,10 +1356,10 @@ class Engine:
                             if len(held_text) < _REPEAT_FLOOR_CHARS and (
                                 released := _held_output()
                             ):
-                                for e in _out(released):
+                                for e in _release_held(released):
                                     yield e
-                            held.clear()
                             holding = False
+                            held.clear()
                         elif carried_on:
                             held.clear()
                     silent = deps.finished is not None and not speak_after_finish
@@ -1271,6 +1368,7 @@ class Engine:
                         # including one rejected by output validation with no tool event.
                         for e in _flush_markup():
                             yield e
+                        response_index += 1
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
                         # A later text part of the same response can still carry that
                         # block's parameter body, so it is only settled here.
@@ -1369,11 +1467,8 @@ class Engine:
                             # on from it: it is shown, unless it was a repeat -- the lesson written
                             # again after one untaken pause, and then a second pause.
                             if held:
-                                released = _held_output(trim_repeat=True)
-                                if released:
-                                    for e in _out(released):
-                                        yield e
-                                held.clear()
+                                for e in _release_held(_held_output(trim_repeat=True)):
+                                    yield e
                             previous = (previous if carried_on else "") + "".join(said)
                             held_text = ""
                             holding = after_pause = True
@@ -1489,10 +1584,8 @@ class Engine:
                             # paused before the script's end, and a repeat says only that this
                             # response added nothing. The host carries the lesson on, and a
                             # model with nothing left calls `finish` then.
-                            released = _held_output(trim_repeat=True)
-                            if released:
-                                for e in _out(released):
-                                    yield e
+                            for e in _release_held(_held_output(trim_repeat=True)):
+                                yield e
                         elif held and not repeated:
                             # Still reading as the previous turn when the turn ended, but too
                             # little of it to be taken as a repeat: it is the model's text, and
@@ -1502,9 +1595,8 @@ class Engine:
                             released = _held_output(
                                 trim_repeat=held_text not in previous
                             )
-                            if released:
-                                for e in _out(released):
-                                    yield e
+                            for e in _release_held(released):
+                                yield e
                         held.clear()
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.
