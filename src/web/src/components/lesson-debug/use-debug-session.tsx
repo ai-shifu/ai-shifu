@@ -511,9 +511,7 @@ export function useDebugSession({
       ...update,
     };
     runParamsRef.current.variableValues = mergedVariableValues;
-    setVariableValuesSnapshot(
-      normalizeDebugVariableValues(mergedVariableValues),
-    );
+    setVariableValuesSnapshot(previous => ({ ...previous, ...update }));
   }, []);
 
   const persistVariableValues = useCallback(

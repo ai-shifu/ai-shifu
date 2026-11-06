@@ -739,6 +739,13 @@ describe('useDebugSession helpers and business error rendering', () => {
         result.current.items.find(item => item.element_bid === 'new-question')
           ?.user_input,
       ).toBe('');
+      act(() => result.current.setVariableValue('teacherNote', 'New setting'));
+      expect(result.current.variableValues).toEqual({
+        [variable]: topic,
+        existing: 'Session override',
+        sessionNote: 'Only this lesson',
+        teacherNote: 'New setting',
+      });
       await act(async () =>
         result.current.submitInteraction(
           { variableName: questionVariable, inputText: 'New answer' },
@@ -750,6 +757,7 @@ describe('useDebugSession helpers and business error rendering', () => {
         [variable]: topic,
         [questionVariable]: 'New answer',
         existing: 'Course value',
+        teacherNote: 'New setting',
       });
     });
 
