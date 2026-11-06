@@ -50,6 +50,10 @@ if TYPE_CHECKING:
 from markdownflow.preserve_markers import EnvelopeClassifier, PreserveMarkerFilter
 from markdownflow.resources import load_prompt
 from markdownflow.syntax.formatter.types import is_text_family
+from markdownflow.syntax.parser.marker_context import (
+    analyze_marker_context,
+    scan_marker_document,
+)
 
 from .answer_context import (
     answer_reference_instructions,
@@ -107,6 +111,7 @@ from .script import (
 )
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
+from .stream_html_context import pending_html_prefix
 from .tools import (
     NO_PAUSE,
     Deps,
@@ -267,12 +272,50 @@ _CONTINUE_HOLD_CHARS = 280
 _BREAKS = "\n\u3002\uff01\uff1f.!?"
 
 
-def _response_separator(previous: str, following: str) -> str:
-    """Supply a line break when neither side already has one at the join."""
+def _response_separator(previous: Sequence[str], following: str) -> str:
+    """Separate responses unless a line break would split unfinished syntax."""
     line_ends = ("\n", "\r")
-    return (
-        "" if previous.endswith(line_ends) or following.startswith(line_ends) else "\n"
-    )
+    if previous[-1].endswith(line_ends) or following.startswith(line_ends):
+        return ""
+
+    source = "".join(previous)
+    context, blocks = scan_marker_document(source, final=False)
+    if context.pending_html_block and context.pending_block_start is not None:
+        if pending_html_prefix(source, context.pending_block_start) is not None:
+            return ""
+        # CommonMark may keep a closed visual and following prose in one
+        # HTML block. Check that prose using the display formatter's boundary.
+        classifier = EnvelopeClassifier()
+        offset = prose_start = 0
+        for line in source.splitlines(keepends=True):
+            offset += len(line)
+            if not is_text_family(classifier.classify_line(line.rstrip("\r\n")).type):
+                prose_start = offset
+        if 0 < prose_start < len(source):
+            source = source[prose_start:]
+            context, blocks = scan_marker_document(source, final=False)
+    if context.literals and (last := context.literals[-1])[1] == len(source):
+        fence = blocks.fence(last[0], final=False)
+        if fence is not None and not fence.closed:
+            return ""
+    if (
+        context.pending_resource_start is not None
+        or context.pending_autolink_start is not None
+        or context.pending_label_starts
+        or (context.pending_resource_opener and following.startswith(("(", "[")))
+        or context.unmatched_backticks
+        or context.pending_indented_block
+        or (
+            context.pending_html_start is not None
+            and pending_html_prefix(source, context.pending_html_start) is not None
+        )
+        or (
+            context.pending_raw_html_tag is not None
+            and not context.pending_raw_html_closed
+        )
+    ):
+        return ""
+    return "\n"
 
 
 def _after_the_repeat(held: Sequence[str], said: str) -> str:
@@ -300,10 +343,30 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
             break
         prose_end += len(line)
     cut, seen = 0, ""
-    for i, ch in enumerate(text[:prose_end]):
+    prose = text[:prose_end]
+    protected = bytearray(prose_end)
+    if any(marker in prose for marker in ("[", "<", "`", "$")):
+        context = analyze_marker_context(prose, final=False)
+        pending = min(
+            (
+                start
+                for start in (
+                    context.pending_resource_start,
+                    context.pending_autolink_start,
+                    context.pending_html_start,
+                    *(at for at, _ in context.unmatched_backticks),
+                )
+                if start is not None
+            ),
+            default=prose_end,
+        )
+        # Punctuation inside a URL, tag or inline code is not a sentence break.
+        for start, end in (*context.literals, (pending, prose_end)):
+            protected[start:end] = b"\1" * (end - start)
+    for i, ch in enumerate(prose):
         if not ch.isspace():
             seen += ch
-        if ch in _BREAKS:
+        if ch in _BREAKS and not protected[i]:
             # A prefix that was not said cannot become said by growing, so the first one
             # that was not ends the search.
             if seen not in said:
@@ -1156,7 +1219,7 @@ class Engine:
             """Deliver text and track what this turn has sent to the learner."""
             nonlocal delivered, shown_response
             if shown and response != shown_response:
-                text = _response_separator(shown[-1], text) + text
+                text = _response_separator(shown, text) + text
             shown_response = response
             delivered += _visible_length(text)
             said.append("".join(text.split()))
@@ -1186,9 +1249,10 @@ class Engine:
             if held and held[-1][0] != response_index:
                 # Repeat trimming reads the same line boundaries as delivery.
                 prior_response, prior_chunk = held[-1]
+                previous_chunks = [*shown, *(chunk for _, chunk in held)]
                 held[-1] = (
                     prior_response,
-                    prior_chunk + _response_separator(prior_chunk, text),
+                    prior_chunk + _response_separator(previous_chunks, text),
                 )
             held.append((response_index, text))
             held_text += "".join(text.split())

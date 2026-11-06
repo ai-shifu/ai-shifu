@@ -37,14 +37,29 @@ _NEXT = "Now focus on noticing your own thought.\n"
         ("First explanation.", "Second explanation.", "\n"),
         ("A sentence", " continued.", "\n"),
         ("Before a list.", "- First item\n- Second item", "\n"),
-        ("A code example:\n```python\nvalue = 1", "print(value)\n```", "\n"),
+        ("[Reference](https://example.", "com/page)", ""),
+        ("Read <https://example.", "com/page>", ""),
+        ("[Reference]", "(https://example.com/page)", ""),
+        ("A complete [reference](https://example.com).", "Next paragraph.", "\n"),
+        ('Example <span title="hel', 'lo">text</span>.', ""),
+        ('<div title="hel', 'lo">text</div>', ""),
+        ('<div title="</div>hel', 'lo">text</div>', ""),
+        ('<div title="\n</div>hel', 'lo">text</div>', ""),
+        ('<div>\n<span title="hel', 'lo">text</span>\n</div>', ""),
+        ("<div>Finished visual</div>", _OVERVIEW, "\n"),
+        ("<div>Finished visual</div >", _OVERVIEW, "\n"),
+        ("<div>Finished visual</div>\n[Reference](https://example.", "com/page)", ""),
+        ("Use `read_", "file`.", ""),
+        ('A code example:\n```python\nvalue = "hel', 'lo"\n```', ""),
+        ('> ~~~python\n> value = "hel', 'lo"\n> ~~~', ""),
+        ("```python\nprint(1)\n```", "Next paragraph.", "\n"),
         ("Remember this.\n", _OVERVIEW, ""),
         ("Remember this.", "\r\n" + _OVERVIEW, ""),
         ("Remember this.\r", "\n" + _OVERVIEW, ""),
         ("First explanation.\n", "\nSecond explanation.", ""),
     ],
 )
-async def test_responses_are_joined_with_a_newline(
+async def test_response_separator_preserves_unfinished_syntax(
     first: str, second: str, separator: str, chunk_size: int
 ) -> None:
     calls = 0
@@ -101,12 +116,27 @@ async def test_html_prefix_at_a_chunk_boundary_in_one_response_stays_inline() ->
     assert displayed == "Remember this.<div>Inline HTML</div>"
 
 
-async def test_repeat_trimming_preserves_html_after_another_model_retry() -> None:
-    """The repeated prose and the new HTML arrive in separate held responses."""
+@pytest.mark.parametrize(
+    ("original", "prefix", "continuation"),
+    [
+        (
+            '<div data-label="A.B">\nPreviously shown example.\n</div>\n',
+            "",
+            '<div data-label="A.B">\nA different exercise to try.\n</div>\n',
+        ),
+        (
+            "[Reference](https://example.com/old)\n",
+            "\n[Reference](https://example.",
+            "com/new)\n",
+        ),
+    ],
+    ids=["slide", "split-link"],
+)
+async def test_repeat_trimming_preserves_content_after_another_model_retry(
+    original: str, prefix: str, continuation: str
+) -> None:
+    """Trim a repeated recap without splitting the new content between held responses."""
     recap = "Remember the difference between these two kinds of examples"
-    opening = '<div data-label="A.B">\n'
-    original = opening + "Previously shown example.\n</div>\n"
-    updated = opening + "A different exercise to try.\n</div>\n"
     calls = 0
 
     async def model(
@@ -124,13 +154,13 @@ async def test_repeat_trimming_preserves_html_after_another_model_retry() -> Non
                 )
             }
         elif calls == 2:
-            yield recap
+            yield recap + prefix
             yield {
                 0: DeltaToolCall(name="unknown", json_args="{}", tool_call_id="retry")
             }
         else:
-            yield "<di"
-            yield updated[3:]
+            for character in continuation:
+                yield character
 
     engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
     session = await engine.new_session("Teach both examples without pausing.")
@@ -140,7 +170,7 @@ async def test_repeat_trimming_preserves_html_after_another_model_retry() -> Non
     )
 
     assert calls == 3
-    assert displayed == recap + "\n" + original + updated
+    assert displayed == recap + "\n" + original + prefix.lstrip("\n") + continuation
 
 
 @pytest.mark.parametrize("listen_mode", [False, True])
