@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING
 
 from markdownflow.preserve_markers import EnvelopeClassifier
-from markdownflow.syntax.formatter.patterns import block_html_open_re, html_close_tag_re
+from markdownflow.syntax.formatter.patterns import block_html_open_re
 from markdownflow.syntax.formatter.types import is_text_family
 from markdownflow.syntax.parser.marker_context import analyze_marker_context
 
@@ -40,9 +40,10 @@ def _has_open_html(source: str, literals: list[tuple[int, int]], start: int) -> 
         if (opening := block_html_open_re.match(token)) and not token.endswith("/>"):
             opened.append(opening[1].lower())
         elif (
-            (closing := html_close_tag_re.fullmatch(token))
-            and opened
-            and opened[-1] == closing[1].lower()
+            opened
+            and token.startswith("</")
+            and token.endswith(">")
+            and token[2:-1].rstrip().lower() == opened[-1]
         ):
             opened.pop()
     return bool(opened)

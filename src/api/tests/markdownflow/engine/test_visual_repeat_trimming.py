@@ -49,6 +49,7 @@ _NEXT = "Now focus on noticing your own thought.\n"
         ("<div>\nOuter", "<div>Inner</div>\n</div>", ""),
         ("Intro <div>\nOuter", "<div>Inner</div>\n</div>", ""),
         ("After <div>an example</div>.", _OVERVIEW, "\n"),
+        ("After <div>an example</div >.", _OVERVIEW, "\n"),
         ("After the literal `<div>`.", _OVERVIEW, "\n"),
         ("<div", ">\nContent\n</div>", ""),
         ("<!--\nA literal", "<div>inside a comment</div>\n-->", ""),
