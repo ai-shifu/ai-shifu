@@ -35,6 +35,7 @@ _NEXT = "Now focus on noticing your own thought.\n"
     [
         ("记住这句话。", _OVERVIEW, "\n"),
         ("Remember this.", "   " + _OVERVIEW, "\n"),
+        ("## Next example", _OVERVIEW, "\n"),
         ("Remember this.\n", _OVERVIEW, ""),
         ("Remember this.", "\r\n" + _OVERVIEW, ""),
         ("Remember this.\r", "\n" + _OVERVIEW, ""),

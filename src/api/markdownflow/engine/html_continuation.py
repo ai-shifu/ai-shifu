@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from markdownflow.preserve_markers import EnvelopeClassifier
 from markdownflow.syntax.formatter.patterns import block_html_open_re, html_close_tag_re
-from markdownflow.syntax.formatter.types import ElementType
+from markdownflow.syntax.formatter.types import is_text_family
 from markdownflow.syntax.parser.marker_context import analyze_marker_context
 
 if TYPE_CHECKING:
@@ -56,7 +56,7 @@ def _ends_in_prose(source: str) -> bool:
     offset = prose_start = 0
     for line in source.split("\n"):
         offset += len(line) + 1
-        if classifier.classify_line(line).type != ElementType.TEXT:
+        if not is_text_family(classifier.classify_line(line).type):
             prose_start = offset
     if prose_start == offset:
         return False
