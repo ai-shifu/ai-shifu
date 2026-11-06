@@ -545,6 +545,7 @@ def test_editor_debug_exports_only_committed_cross_lesson_memory(
         if message.type == "debug_variables_committed"
     ]
     assert len(committed) == (2 if boundary == "continue" else 1)
+    assert all("user_variables" not in snapshot for _, snapshot in committed)
     index, payload = committed[0]
     assert messages[index + 1].type == "done"
     assert messages[index + 1].is_terminal == (boundary == "finished")
@@ -1481,6 +1482,7 @@ def test_debug_pending_answer_edit_fences_a_running_turn_before_its_first_save(
 def test_real_debug_answer_edit_uses_new_input_and_keeps_only_the_original_prefix(
     app: object, monkeypatch: object, question_count: int
 ) -> None:
+    """Send the restored user scope separately from replacement lesson memory."""
     from flaskr.service.learn.agent import lesson_entry, run_agent
     from markdownflow.engine import Engine
     from pydantic_ai.models.function import DeltaToolCall
@@ -1505,7 +1507,7 @@ def test_real_debug_answer_edit_uses_new_input_and_keeps_only_the_original_prefi
                 str(part) for message in messages for part in message.parts
             )
         yield f"Teaching {calls}."
-        yield {
+        tools = {
             i: DeltaToolCall(
                 name="interact",
                 tool_call_id=f"q{calls}-{i}",
@@ -1519,6 +1521,15 @@ def test_real_debug_answer_edit_uses_new_input_and_keeps_only_the_original_prefi
             )
             for i in range(question_count if calls == 1 else 1)
         }
+        if calls == 4:
+            tools[len(tools)] = DeltaToolCall(
+                name="remember",
+                tool_call_id="replacement-note",
+                json_args=json.dumps(
+                    {"key": "scratch", "value": "New working note", "scope": "session"}
+                ),
+            )
+        yield tools
 
     engine = Engine(FunctionModel(stream_function=model))
     monkeypatch.setattr(lesson_entry, "GatewayModel", Mock(return_value=Mock()))
@@ -1579,6 +1590,16 @@ def test_real_debug_answer_edit_uses_new_input_and_keeps_only_the_original_prefi
     assert "OLD ANSWER" not in " ".join(replacement_history)
     assert "FUTURE ANSWER" not in " ".join(replacement_history)
     assert any(message.type == "debug_variables" for message in result)
+    committed = next(
+        message for message in result if message.type == "debug_variables_committed"
+    )
+    assert json.loads(committed.content) == {
+        "variables": {"seed": "keep", "scratch": "New working note"},
+        "user_variables": {"seed": "keep"},
+        "course_updates": {},
+    }
+    assert result[-2] is committed
+    assert result[-1].type == "done"
 
 
 @pytest.mark.parametrize("expired_fence", [False, True])

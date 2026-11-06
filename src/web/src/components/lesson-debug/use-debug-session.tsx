@@ -119,6 +119,10 @@ enum DebugStreamEventType {
   AUDIO_COMPLETE = 'audio_complete',
 }
 
+type DebugStreamVariableState = {
+  awaitingLegacyRewindSeed: boolean;
+};
+
 type DebugStreamEvent = {
   type?: string;
   event_type?: string;
@@ -931,7 +935,7 @@ export function useDebugSession({
   );
 
   const handlePayload = useCallback(
-    (payload: string) => {
+    (payload: string, streamVariables: DebugStreamVariableState) => {
       try {
         const normalizedPayload = payload.replace(/^data:\s*/, '').trim();
         if (!normalizedPayload) {
@@ -962,20 +966,26 @@ export function useDebugSession({
             : payloadObject;
           if (variables) {
             const snapshot = { ...variables };
+            for (const name of freshQuestionVariableNamesRef.current) {
+              delete snapshot[name];
+            }
             if (committed) {
               const courseUpdates = parseObjectPayload<DebugVariableValues>(
                 payloadObject?.course_updates,
               );
-              // The full snapshot is for the panel. Echoing session-only memory
-              // in the next request would seed it as user memory.
+              const rewindSeed = parseObjectPayload<Record<string, unknown>>(
+                payloadObject?.user_variables,
+              );
+              // Rebase on scoped memory after rewind. A full panel snapshot can
+              // contain lesson-only values that must not become request inputs.
               const requestVariables = {
-                ...runParamsRef.current.variableValues,
+                ...(rewindSeed ?? runParamsRef.current.variableValues),
                 ...courseUpdates,
               };
               for (const name of freshQuestionVariableNamesRef.current) {
-                delete snapshot[name];
                 delete requestVariables[name];
               }
+              if (rewindSeed) streamVariables.awaitingLegacyRewindSeed = false;
               runParamsRef.current.variableValues = requestVariables;
               if (courseUpdates && Object.keys(courseUpdates).length) {
                 mergeStoredDebugVariableValues(
@@ -985,8 +995,15 @@ export function useDebugSession({
                 );
                 onCourseVariablesCommitted?.(courseUpdates);
               }
-            } else {
-              runParamsRef.current.variableValues = snapshot;
+            } else if (streamVariables.awaitingLegacyRewindSeed) {
+              // Older servers retain the checkpoint's user memory themselves.
+              // Keep only the language, which the next preview request sets.
+              const language = variables.sys_user_language;
+              runParamsRef.current.variableValues =
+                typeof language === 'string'
+                  ? { sys_user_language: language }
+                  : {};
+              streamVariables.awaitingLegacyRewindSeed = false;
             }
             setVariableValuesSnapshot(normalizeDebugVariableValues(snapshot));
           }
@@ -1220,6 +1237,9 @@ export function useDebugSession({
           },
         });
         runStreamRef.current = source;
+        const streamVariables: DebugStreamVariableState = {
+          awaitingLegacyRewindSeed: Boolean(reloadGeneratedBlockBid),
+        };
         onSseData(source, data => {
           if (
             !isCurrentStreamGeneration(streamGeneration) ||
@@ -1228,7 +1248,7 @@ export function useDebugSession({
           ) {
             return;
           }
-          handlePayload(data);
+          handlePayload(data, streamVariables);
           setIsLoading(false);
         });
         source.addEventListener('error', err => {

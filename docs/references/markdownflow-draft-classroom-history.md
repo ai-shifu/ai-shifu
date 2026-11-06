@@ -116,8 +116,11 @@ cannot selectively edit an earlier answer until restarted.
 
 Answer edits restore the checkpoint's user-memory snapshot. Echoed frontend
 variables cannot reintroduce discarded future answers. Legacy `debug_variables`
-snapshots restore the current panel around an answer edit. Automatic turns in a
-single request use the memory saved by the preceding turn.
+snapshots restore the current panel around an answer edit. The committed
+replacement turn also sends `user_variables` from its saved user scope so the
+next browser request can replace its seed without copying lesson-only notes
+or values from the discarded suffix. Automatic turns in a single request use
+the memory saved by the preceding turn.
 
 A successful Debug turn emits `debug_variables_committed` before its adapter
 `done` event, including a nonterminal pause for a question. The content contains

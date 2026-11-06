@@ -197,10 +197,13 @@ class DebugSessionStore:
         if course_updates is not None:
             # Publish the session this request saved, even if a later request replaces
             # the cache entry before this turn's boundary reaches the adapter.
-            self._committed_variables = json.dumps(
-                {"variables": session.all_memory(), "course_updates": course_updates},
-                ensure_ascii=False,
-            )
+            snapshot = {
+                "variables": session.all_memory(),
+                "course_updates": course_updates,
+            }
+            if rewind is not None:
+                snapshot["user_variables"] = session.user_memory
+            self._committed_variables = json.dumps(snapshot, ensure_ascii=False)
 
     def take_committed_variables(self) -> str | None:
         """Consume this request's saved memory once, before its turn boundary."""

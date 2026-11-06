@@ -1059,6 +1059,87 @@ describe('useDebugSession helpers and business error rendering', () => {
       },
     );
 
+    test.each(['scoped', 'legacy'])(
+      'keeps lesson-only memory out of the next answer after a %s rewind',
+      async protocol => {
+        mockParseToRemarkFormat.mockImplementation((content: string) => ({
+          variableName: content.includes('nextAnswer')
+            ? 'nextAnswer'
+            : 'answer',
+        }));
+        const { result, sources } = await prepareAnswers();
+        act(() => {
+          result.current.setVariableValue('discarded', 'Old suffix');
+          result.current.submitInteraction(
+            { variableName: 'answer', selectedValues: ['B'] },
+            'question',
+          );
+        });
+        expect(result.current.regenerationConfirmation.open).toBe(true);
+        await act(async () =>
+          result.current.regenerationConfirmation.onConfirm(),
+        );
+        const replacement = sources.at(-1)!;
+        const checkpoint = {
+          earlierAnswer: 'Session shadow',
+          lessonNote: 'Checkpoint note',
+          sys_user_language: 'fr-FR',
+        };
+        const snapshot = {
+          ...checkpoint,
+          lessonNote: 'Revised note',
+          answer: 'B',
+        };
+        act(() => {
+          emit(replacement, { type: 'debug_variables', content: checkpoint });
+          emit(replacement, {
+            type: 'element',
+            content: {
+              element_bid: 'next-question',
+              generated_block_bid: 'next-turn',
+              element_type: 'interaction',
+              content: '?[{{nextAnswer}} ...Enter the next answer]',
+              is_final: true,
+            },
+          });
+          emit(replacement, { type: 'debug_variables', content: snapshot });
+          if (protocol === 'scoped') {
+            emit(replacement, {
+              type: 'debug_variables_committed',
+              content: {
+                variables: snapshot,
+                user_variables: {
+                  earlierAnswer: 'Keep me',
+                  sys_user_language: 'fr-FR',
+                },
+                course_updates: { answer: 'B' },
+              },
+            });
+          }
+          emit(replacement, { type: 'done', is_terminal: false });
+          replacement.listeners.readystatechange?.({ readyState: 2 } as never);
+        });
+        expect(result.current.variableValues).toEqual(snapshot);
+
+        await act(async () =>
+          result.current.submitInteraction(
+            { variableName: 'nextAnswer', inputText: 'Next response' },
+            'next-question',
+          ),
+        );
+        const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+        expect(request.reload_generated_block_bid).toBeUndefined();
+        expect(request.user_input).toEqual({ nextAnswer: ['Next response'] });
+        expect(request.variables).toEqual({
+          ...(protocol === 'scoped'
+            ? { earlierAnswer: 'Keep me', answer: 'B' }
+            : {}),
+          sys_user_language: 'fr-FR',
+          nextAnswer: 'Next response',
+        });
+      },
+    );
+
     test('edits an earlier answer under an edited draft without restarting', async () => {
       const { result, sources } = await prepareAnswers();
       const firstRequest = JSON.parse(
