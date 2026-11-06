@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from itertools import groupby
+from itertools import groupby, pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -79,7 +79,7 @@ from .exercise_statistics import (
 )
 from .finish_run import FinishAfterTools
 from .history_context import compact_recall_history, current_recall_notice
-from .html_continuation import HtmlContinuation
+from .html_continuation import HtmlContinuation, starts_html_root
 from .interaction import (
     InteractionAnswer,
     InteractionSpec,
@@ -268,7 +268,9 @@ _CONTINUE_HOLD_CHARS = 280
 _BREAKS = "\n\u3002\uff01\uff1f.!?"
 
 
-def _after_the_repeat(held: Sequence[str], said: str) -> str:
+def _after_the_repeat(
+    held: Sequence[str], said: str, *, separate_responses: bool = False
+) -> str:
     """Return what of the held text to show once it stops reading as what was `said`.
 
     A repeat long enough to be one (`_REPEAT_FLOOR_CHARS`) at its start is left out, up to the
@@ -281,9 +283,19 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     visible = "".join(text.split())
     if visible in said:
         return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
+    prose = text
+    if separate_responses:
+        offset = 0
+        for earlier, later in pairwise(held):
+            offset += len(earlier)
+            if starts_html_root(later):
+                # The missing line break may hide this visual from the line
+                # classifier. Bound the scan without changing source offsets.
+                prose = text[:offset]
+                break
     classifier = EnvelopeClassifier()
     prose_end = 0
-    for line in text.splitlines(keepends=True):
+    for line in prose.splitlines(keepends=True):
         source = line.rstrip("\r\n")
         # An unfinished table row is still text to the classifier, whose row pattern
         # needs the closing bar; it is the start of a visual all the same.
@@ -1133,8 +1145,11 @@ class Engine:
             """Hide only a single displayed closing line that was already shown."""
             # Every held-text release uses the same display comparison, including an
             # unscripted pause. Hiding a repeat never changes completion state.
-            chunks = [chunk for _, chunk in held]
-            text = "".join(chunks)
+            responses = [
+                "".join(chunk for _, chunk in group)
+                for _, group in groupby(held, key=lambda item: item[0])
+            ]
+            text = "".join(responses)
             if _closing_was_shown():
                 lines = [
                     line for line in _display_text(text).splitlines() if line.strip()
@@ -1143,7 +1158,11 @@ class Engine:
                     # The generic repeat trimmer also removes whitespace. Keep changed
                     # line boundaries here so it cannot erase a multiline closing.
                     return "" if len(lines) == 1 else text
-            return _after_the_repeat(chunks, previous) if trim_repeat else text
+            return (
+                _after_the_repeat(responses, previous, separate_responses=True)
+                if trim_repeat
+                else text
+            )
 
         def _deliver(text: str) -> list[Event]:
             """Deliver text and track what this turn has sent to the learner."""

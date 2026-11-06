@@ -18,6 +18,18 @@ if TYPE_CHECKING:
 _POSSIBLE_OPENER = re.compile(r" {0,3}(?:<[A-Za-z]{0,32})?")
 
 
+def starts_html_root(text: str) -> bool:
+    """Recognize a standalone opener shared by repeat trimming and display."""
+    tag = text.lstrip(" ")
+    opening = block_html_open_re.match(tag)
+    return (
+        opening is not None
+        and len(text) - len(tag) <= 3
+        and tag.startswith("<")
+        and opening[1].lower() not in {"style", "script"}
+    )
+
+
 def _has_open_html(source: str, literals: list[tuple[int, int]], start: int) -> bool:
     """Catch block tags opened inline, where the pager still sees a prose line."""
     opened: list[str] = []
@@ -99,15 +111,7 @@ class HtmlContinuation:
             return preceding
 
         self._prefix = None
-        tag = candidate.lstrip(" ")
-        opening = block_html_open_re.match(tag)
-        if (
-            opening
-            and len(candidate) - len(tag) <= 3
-            and tag.startswith("<")
-            and opening[1].lower() not in {"style", "script"}
-            and _ends_in_prose("".join(shown) + preceding)
-        ):
+        if starts_html_root(candidate) and _ends_in_prose("".join(shown) + preceding):
             return preceding + "\n" + candidate
         return preceding + candidate
 

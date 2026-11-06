@@ -123,6 +123,48 @@ async def test_html_prefix_at_a_chunk_boundary_in_one_response_stays_inline() ->
     assert displayed == "Remember this.<div>Inline HTML</div>"
 
 
+async def test_repeat_trimming_preserves_html_after_another_model_retry() -> None:
+    """The repeated prose and the new HTML arrive in separate held responses."""
+    recap = "Remember the difference between these two kinds of examples."
+    opening = '<div data-label="A.B">\n'
+    original = opening + "Previously shown example.\n</div>\n"
+    updated = opening + "A different exercise to try.\n</div>\n"
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield recap + "\n" + original
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args='{"type":"confirm","prompt":"Continue?"}',
+                    tool_call_id="unscripted-pause",
+                )
+            }
+        elif calls == 2:
+            yield recap
+            yield {
+                0: DeltaToolCall(name="unknown", json_args="{}", tool_call_id="retry")
+            }
+        else:
+            yield "<di"
+            yield updated[3:]
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session("Teach both examples without pausing.")
+    events = [event async for event in engine.run_turn(session)]
+    displayed = "".join(
+        event.text for event in events if isinstance(event, ContentDelta)
+    )
+
+    assert calls == 3
+    assert displayed == recap + "\n" + original + updated
+
+
 @pytest.mark.parametrize("listen_mode", [False, True])
 @pytest.mark.parametrize("chunk_size", [1, 37, 4096])
 @pytest.mark.parametrize("recap", ["", _RECAP], ids=["no-recap", "prose-recap"])
