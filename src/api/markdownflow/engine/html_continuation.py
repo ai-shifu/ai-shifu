@@ -56,10 +56,14 @@ def _has_open_html(source: str, literals: list[tuple[int, int]], start: int) -> 
     return bool(opened)
 
 
-def _has_open_emphasis(source: str) -> bool:
+def _has_open_emphasis(source: str, following: str) -> bool:
     """Look for an unmatched Markdown opener in the final inline block."""
     if "*" not in source and "_" not in source:
         return False
+    if source.endswith(("*", "_")) and following == "<":
+        # A delimiter at the end needs the opener's first character to
+        # determine whether it can open emphasis in the combined text.
+        source += following
     source = source.replace("\r\n", "\n").replace("\r", "\n")
     blocks: list[Token] = []
     environment: dict = {}
@@ -77,7 +81,7 @@ def _has_open_emphasis(source: str) -> bool:
     )
 
 
-def _ends_in_prose(source: str) -> bool:
+def _ends_in_prose(source: str, following: str) -> bool:
     line = source.rsplit("\n", 1)[-1]
     if not line.strip() or line.endswith(("\r", "\\")):
         return False
@@ -112,7 +116,7 @@ def _ends_in_prose(source: str) -> bool:
         and not context.unmatched_math
         and not (context.markers and not context.markers[-1].complete)
         and not _has_open_html(source, context.literals, prose_start)
-        and not _has_open_emphasis(source[prose_start:])
+        and not _has_open_emphasis(source[prose_start:], following)
     )
 
 
@@ -141,7 +145,9 @@ class HtmlContinuation:
             return preceding
 
         self._prefix = None
-        if starts_html_root(candidate) and _ends_in_prose("".join(shown) + preceding):
+        if starts_html_root(candidate) and _ends_in_prose(
+            "".join(shown) + preceding, candidate[0]
+        ):
             return preceding + "\n" + candidate
         return preceding + candidate
 
