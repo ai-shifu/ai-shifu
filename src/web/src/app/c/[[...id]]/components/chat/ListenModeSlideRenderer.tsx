@@ -106,6 +106,12 @@ type ListenSlideElementCacheEntry = {
   fingerprint: string;
 };
 
+const SYSTEM_PROFILE_VARIABLE_NAMES = new Set([
+  'sys_user_nickname',
+  'sys_user_language',
+  'sys_user_background',
+]);
+
 const CLASSROOM_PAGE_SHORTCUT_KEY_MAP: Record<
   string,
   'ArrowLeft' | 'ArrowRight'
@@ -708,6 +714,8 @@ const buildSlideElementList = ({
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
     const hasResolvedUserInput = Boolean(currentUserInput.trim());
     const isSystemInteraction = isSystemInteractionContent(item.content);
+    const question = item.payload?.interaction_question;
+    const trimmedQuestion = typeof question === 'string' ? question.trim() : '';
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
     const askList = askListByAnchorElementBid.get(item.element_bid);
@@ -724,9 +732,9 @@ const buildSlideElementList = ({
       content: localizedContent,
       interaction_question:
         !isSystemInteraction &&
-        typeof item.payload?.interaction_question === 'string' &&
-        item.payload.interaction_question.trim()
-          ? item.payload.interaction_question
+        trimmedQuestion &&
+        !SYSTEM_PROFILE_VARIABLE_NAMES.has(trimmedQuestion)
+          ? question
           : undefined,
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,

@@ -83,9 +83,10 @@ element ID also invalidates the rendered-element cache. Historical questions
 and answered controls retain their corresponding title and answer.
 
 Titles display the original question as literal text. HTML and Markdown are not
-executed or rendered as rich content. Missing/blank questions and system controls
-retain the existing localized generic title. Short confirmation wording that
-already labels its button keeps that behavior.
+executed or rendered as rich content. Missing or blank questions, system
+controls, and questions whose trimmed value is `sys_user_nickname`,
+`sys_user_language` or `sys_user_background` use the localized generic title.
+Short confirmation wording that already labels its button keeps that behavior.
 
 The question is not emitted again as a slide, lesson body or independent audio.
 Switching back to reading continues to hide the extra question. This consumer
