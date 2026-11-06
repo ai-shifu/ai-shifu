@@ -62,9 +62,9 @@ is renamed before release, so no deployed-field alias or data migration is
 needed.
 
 Reading and Debug ignore the question metadata when rendering controls.
-Desktop, mobile and print share this display rule. Listen/classroom title
-presentation is a separate dependent change; the metadata never becomes part
-of the interaction body.
+Desktop, mobile and print share this display rule. Listen/classroom modes use
+the question metadata for their panel title; it never becomes part of the
+interaction body.
 
 This shared transport stops producing separate question CONTENT, audio and
 marker elements in every mode. Authored narration and its audio are preserved.
@@ -73,6 +73,25 @@ version bump is required.
 
 This changes existing-content placement, with no new action
 or analytics meaning. Question text must never be sent to analytics.
+
+## Listen and classroom interaction titles
+
+Listen and classroom modes use a nonblank native `interaction_question` as the
+active interaction panel title. Its body shows only the controls. Moving to
+another interaction updates the title; changing only the metadata at the same
+element ID also invalidates the rendered-element cache. Historical questions
+and answered controls retain their corresponding title and answer.
+
+Titles display the original question as literal text. HTML and Markdown are not
+executed or rendered as rich content. Missing or blank questions, system
+controls, and questions whose trimmed value is `sys_user_nickname`,
+`sys_user_language` or `sys_user_background` use the localized generic title.
+Short confirmation wording that already labels its button keeps that behavior.
+
+The question is not emitted again as a slide, lesson body or independent audio.
+Switching back to reading continues to hide the extra question. This consumer
+change depends on the reading/shared transport contract and introduces no new
+backend, database, dependency or analytics behavior.
 
 ### `learner_listen_resume_requested`
 

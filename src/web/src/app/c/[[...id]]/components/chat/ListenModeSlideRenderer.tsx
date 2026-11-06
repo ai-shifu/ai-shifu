@@ -89,6 +89,7 @@ import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/us
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
+  interaction_question?: string;
   page?: number;
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
@@ -104,6 +105,12 @@ type ListenSlideElementCacheEntry = {
   element: ListenSlideElement;
   fingerprint: string;
 };
+
+const SYSTEM_PROFILE_VARIABLE_NAMES = new Set([
+  'sys_user_nickname',
+  'sys_user_language',
+  'sys_user_background',
+]);
 
 const CLASSROOM_PAGE_SHORTCUT_KEY_MAP: Record<
   string,
@@ -522,6 +529,7 @@ const buildListenSlideElementFingerprint = (element: ListenSlideElement) =>
     blockBid: element.blockBid,
     page: element.page,
     user_input: element.user_input,
+    interaction_question: element.interaction_question,
     readonly: element.readonly,
     audio_url: element.audio_url,
     audio_segments: element.audio_segments,
@@ -706,6 +714,8 @@ const buildSlideElementList = ({
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
     const hasResolvedUserInput = Boolean(currentUserInput.trim());
     const isSystemInteraction = isSystemInteractionContent(item.content);
+    const question = item.payload?.interaction_question;
+    const trimmedQuestion = typeof question === 'string' ? question.trim() : '';
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
     const askList = askListByAnchorElementBid.get(item.element_bid);
@@ -720,6 +730,12 @@ const buildSlideElementList = ({
       }),
       type: 'interaction',
       content: localizedContent,
+      interaction_question:
+        !isSystemInteraction &&
+        trimmedQuestion &&
+        !SYSTEM_PROFILE_VARIABLE_NAMES.has(trimmedQuestion)
+          ? question
+          : undefined,
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,
       is_new: item.is_new ?? true,
@@ -2454,7 +2470,9 @@ const ListenModeSlideRenderer = ({
           lang={contentLanguage ?? ''}
           elementList={renderedElementList}
           interactionTexts={{
-            title: t('module.chat.listenInteractionHint'),
+            title:
+              currentMarkerStepElement?.interaction_question ??
+              t('module.chat.listenInteractionHint'),
           }}
           bufferingText={{
             waitingForAudio: t('module.chat.thinking'),
