@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from itertools import groupby, pairwise
+from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -79,7 +79,6 @@ from .exercise_statistics import (
 )
 from .finish_run import FinishAfterTools
 from .history_context import compact_recall_history, current_recall_notice
-from .html_continuation import HtmlContinuation, starts_html_root
 from .interaction import (
     InteractionAnswer,
     InteractionSpec,
@@ -268,9 +267,15 @@ _CONTINUE_HOLD_CHARS = 280
 _BREAKS = "\n\u3002\uff01\uff1f.!?"
 
 
-def _after_the_repeat(
-    held: Sequence[str], said: str, *, separate_responses: bool = False
-) -> str:
+def _response_separator(previous: str, following: str) -> str:
+    """Supply a line break when neither side already has one at the join."""
+    line_ends = ("\n", "\r")
+    return (
+        "" if previous.endswith(line_ends) or following.startswith(line_ends) else "\n"
+    )
+
+
+def _after_the_repeat(held: Sequence[str], said: str) -> str:
     """Return what of the held text to show once it stops reading as what was `said`.
 
     A repeat long enough to be one (`_REPEAT_FLOOR_CHARS`) at its start is left out, up to the
@@ -283,19 +288,9 @@ def _after_the_repeat(
     visible = "".join(text.split())
     if visible in said:
         return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
-    prose = text
-    if separate_responses:
-        offset = 0
-        for earlier, later in pairwise(held):
-            offset += len(earlier)
-            if starts_html_root(later):
-                # The missing line break may hide this visual from the line
-                # classifier. Bound the scan without changing source offsets.
-                prose = text[:offset]
-                break
     classifier = EnvelopeClassifier()
     prose_end = 0
-    for line in prose.splitlines(keepends=True):
+    for line in text.splitlines(keepends=True):
         source = line.rstrip("\r\n")
         # An unfinished table row is still text to the classifier, whose row pattern
         # needs the closing bar; it is the start of a visual all the same.
@@ -1118,7 +1113,7 @@ class Engine:
         said: list[str] = []
         shown: list[str] = []
         response_index = 0
-        html_continuation = HtmlContinuation()
+        shown_response = 0
         after_pause = False
         history_saved = False
         was_interrupted = session.interrupted
@@ -1145,11 +1140,8 @@ class Engine:
             """Hide only a single displayed closing line that was already shown."""
             # Every held-text release uses the same display comparison, including an
             # unscripted pause. Hiding a repeat never changes completion state.
-            responses = [
-                "".join(chunk for _, chunk in group)
-                for _, group in groupby(held, key=lambda item: item[0])
-            ]
-            text = "".join(responses)
+            chunks = [chunk for _, chunk in held]
+            text = "".join(chunks)
             if _closing_was_shown():
                 lines = [
                     line for line in _display_text(text).splitlines() if line.strip()
@@ -1158,17 +1150,14 @@ class Engine:
                     # The generic repeat trimmer also removes whitespace. Keep changed
                     # line boundaries here so it cannot erase a multiline closing.
                     return "" if len(lines) == 1 else text
-            return (
-                _after_the_repeat(responses, previous, separate_responses=True)
-                if trim_repeat
-                else text
-            )
+            return _after_the_repeat(chunks, previous) if trim_repeat else text
 
-        def _deliver(text: str) -> list[Event]:
+        def _out(text: str, response: int) -> list[Event]:
             """Deliver text and track what this turn has sent to the learner."""
-            nonlocal delivered
-            if not text:
-                return []
+            nonlocal delivered, shown_response
+            if shown and response != shown_response:
+                text = _response_separator(shown[-1], text) + text
+            shown_response = response
             delivered += _visible_length(text)
             said.append("".join(text.split()))
             shown.append(text)
@@ -1176,9 +1165,6 @@ class Engine:
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
-
-        def _out(text: str, response: int) -> list[Event]:
-            return _deliver(html_continuation.feed(text, response, shown))
 
         def _release_held(remaining: str) -> list[Event]:
             """Release the retained suffix without losing its response boundaries."""
@@ -1197,6 +1183,13 @@ class Engine:
             nonlocal holding, held_text
             if not holding:
                 return _out(text, response_index)
+            if held and held[-1][0] != response_index:
+                # Repeat trimming reads the same line boundaries as delivery.
+                prior_response, prior_chunk = held[-1]
+                held[-1] = (
+                    prior_response,
+                    prior_chunk + _response_separator(prior_chunk, text),
+                )
             held.append((response_index, text))
             held_text += "".join(text.split())
             if _closing_was_shown():
@@ -1553,7 +1546,6 @@ class Engine:
                                 _text(deps.direction_rendered[call_id])
                             )
                         prepared_events.extend(_flush_markup())
-                        prepared_events.extend(_deliver(html_continuation.flush()))
                         prepared_content = "".join(shown)
                         for event in prepared_events:
                             if direction_pending and isinstance(event, ContentDelta):
@@ -1609,8 +1601,6 @@ class Engine:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.
         except Exception as exc:
-            for e in _deliver(html_continuation.flush()):
-                yield e
             if buffer_direction and direction_chunks:
                 # Earlier pages may already be visible. Preserve their recovery
                 # history without including the current undisplayed response.

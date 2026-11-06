@@ -34,48 +34,17 @@ _NEXT = "Now focus on noticing your own thought.\n"
     ("first", "second", "separator"),
     [
         ("记住这句话。", _OVERVIEW, "\n"),
-        ("Remember this.", "   " + _OVERVIEW, "\n"),
-        ("## Next example", _OVERVIEW, "\n"),
+        ("First explanation.", "Second explanation.", "\n"),
+        ("A sentence", " continued.", "\n"),
+        ("Before a list.", "- First item\n- Second item", "\n"),
+        ("A code example:\n```python\nvalue = 1", "print(value)\n```", "\n"),
         ("Remember this.\n", _OVERVIEW, ""),
         ("Remember this.", "\r\n" + _OVERVIEW, ""),
         ("Remember this.\r", "\n" + _OVERVIEW, ""),
-        ("A sentence", " continued.", ""),
-        ("Here is ", "<span>inline HTML</span>.", ""),
-        ("Here is ", "<diversion>an unknown tag</diversion>.", ""),
-        ("Here is ", "<div", ""),
-        ("Here is ", "    <div>an indented example</div>", ""),
-        ("Here is ", "\t<div>an indented example</div>", ""),
-        ("A note.", "<style>.step { padding:1em; }</style>", ""),
-        ("<div>\nOuter", "<div>Inner</div>\n</div>", ""),
-        ("Intro <div>\nOuter", "<div>Inner</div>\n</div>", ""),
-        ("After <div>an example</div>.", _OVERVIEW, "\n"),
-        ("After <div>an example</div >.", _OVERVIEW, "\n"),
-        ("After the literal `<div>`.", _OVERVIEW, "\n"),
-        ("<div", ">\nContent\n</div>", ""),
-        ("<!--\nA literal", "<div>inside a comment</div>\n-->", ""),
-        ("```html\nLiteral", "<div>inside a fence</div>\n```", ""),
-        ("> ~~~html\n> Literal", "<div>inside a quote</div>\n> ~~~", ""),
-        ("    Literal", "<div>in an indented block</div>", ""),
-        ("A multiline `code\nexample", "<div>shown literally</div>`.", ""),
-        (
-            "<div>Finished visual</div>\nA `literal",
-            "<div>shown literally</div>`.",
-            "",
-        ),
-        ("A [link](\n", "<div>\n", ""),
-        ("A [link](", "<div>)", ""),
-        ("An unfinished $formula", "<div>$", ""),
-        ("An **example: ", "<div>content</div>**", ""),
-        ("An **", "<div>content</div>**", ""),
-        ("A multiline _example\ncontinues here: ", "<div>content</div>_", ""),
-        ("A **complete** example.", _OVERVIEW, "\n"),
-        ("A **complete example**", _OVERVIEW, "\n"),
-        ("An old **marker\n\nA new example.", _OVERVIEW, "\n"),
-        ("A literal `**marker`.", _OVERVIEW, "\n"),
-        ("| Left | Right |", "<div>inside a row</div>", ""),
+        ("First explanation.\n", "\nSecond explanation.", ""),
     ],
 )
-async def test_html_separator_is_limited_to_safe_response_boundaries(
+async def test_responses_are_joined_with_a_newline(
     first: str, second: str, separator: str, chunk_size: int
 ) -> None:
     calls = 0
@@ -134,7 +103,7 @@ async def test_html_prefix_at_a_chunk_boundary_in_one_response_stays_inline() ->
 
 async def test_repeat_trimming_preserves_html_after_another_model_retry() -> None:
     """The repeated prose and the new HTML arrive in separate held responses."""
-    recap = "Remember the difference between these two kinds of examples."
+    recap = "Remember the difference between these two kinds of examples"
     opening = '<div data-label="A.B">\n'
     original = opening + "Previously shown example.\n</div>\n"
     updated = opening + "A different exercise to try.\n</div>\n"
