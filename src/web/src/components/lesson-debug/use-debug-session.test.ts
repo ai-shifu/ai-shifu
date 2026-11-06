@@ -555,6 +555,87 @@ describe('useDebugSession helpers and business error rendering', () => {
       mockParseToRemarkFormat.mockReset();
     });
 
+    test.each(['throws', 'rejects'])(
+      'tracks only the first committed course update per run when tracking %s',
+      async failure => {
+        const sources = [buildMockSseSource(), buildMockSseSource()];
+        sources.forEach(source =>
+          (SSE as jest.Mock).mockReturnValueOnce(source),
+        );
+        mockTrackEvent.mockImplementation(() => {
+          const error = new Error('Tracking unavailable');
+          if (failure === 'throws') {
+            throw error;
+          }
+          return Promise.reject(error);
+        });
+        const { result } = renderHook(() =>
+          useDebugSession({ creditInsufficientAudience: 'teacher' }),
+        );
+        const start = () =>
+          act(async () =>
+            result.current.startRun({
+              shifuBid,
+              outlineBid: 'lesson-1',
+              mdflow: 'Private teaching script',
+            }),
+          );
+        const commit = (source: (typeof sources)[number], value: string) =>
+          emit(source, {
+            type: 'debug_variables_committed',
+            content: {
+              variables: { [variable]: value, lessonOnly: 'Private note' },
+              course_updates: { [variable]: value },
+            },
+          });
+        await start();
+        act(() => {
+          emit(sources[0], {
+            type: 'debug_variables',
+            content: { [variable]: 'Checkpoint value' },
+          });
+          emit(sources[0], {
+            type: 'debug_variables_committed',
+            content: {
+              variables: { lessonOnly: 'Private note' },
+              course_updates: {},
+            },
+          });
+          emit(sources[0], {
+            type: 'debug_variables_committed',
+            content: { variables: {}, course_updates: ['Invalid patch'] },
+          });
+        });
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+        await act(async () => {
+          commit(sources[0], 'Private selected topic');
+          commit(sources[0], 'Latest private topic');
+        });
+        expect(mockTrackEvent.mock.calls).toEqual([
+          [
+            'teacher_debug_course_memory_committed',
+            { shifu_bid: shifuBid, outline_bid: 'lesson-1' },
+          ],
+        ]);
+        expect(result.current.variableValues[variable]).toBe(
+          'Latest private topic',
+        );
+        expect(readStoredDebugVariableValues(shifuBid).course[variable]).toBe(
+          'Latest private topic',
+        );
+
+        act(() => result.current.resetSession());
+        act(() => commit(sources[0], 'Stale private topic'));
+        expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+        await start();
+        await act(async () => commit(sources[1], 'Fresh private topic'));
+        expect(mockTrackEvent).toHaveBeenCalledTimes(2);
+        expect(readStoredDebugVariableValues(shifuBid).course[variable]).toBe(
+          'Fresh private topic',
+        );
+      },
+    );
+
     test.each([true, false])(
       'carries the saved topic into the next lesson when done is_terminal=%s',
       async isTerminal => {

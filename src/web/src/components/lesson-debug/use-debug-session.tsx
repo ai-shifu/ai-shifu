@@ -405,6 +405,7 @@ export function useDebugSession({
   // the script only restarts the debug session once a run has started.
   const hasSessionStartedRef = useRef(false);
   const trackedEngineSessionIdRef = useRef<string | null>(null);
+  const trackedCourseMemorySessionIdRef = useRef<string | null>(null);
   const isStreamingRef = useRef(false);
   const debugFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
@@ -689,6 +690,7 @@ export function useDebugSession({
     debugSessionIdRef.current = createDebugSessionId();
     hasSessionStartedRef.current = false;
     trackedEngineSessionIdRef.current = null;
+    trackedCourseMemorySessionIdRef.current = null;
   }, [clearAnswerEditRetryTarget, stopRun, updateSessionItems]);
 
   const clearFreshAgentInteractionAnswer = useCallback(
@@ -980,9 +982,13 @@ export function useDebugSession({
               delete snapshot[name];
             }
             if (committed) {
-              const courseUpdates = parseObjectPayload<DebugVariableValues>(
-                payloadObject?.course_updates,
-              );
+              const parsedCourseUpdates =
+                parseObjectPayload<DebugVariableValues>(
+                  payloadObject?.course_updates,
+                );
+              const courseUpdates = Array.isArray(parsedCourseUpdates)
+                ? null
+                : parsedCourseUpdates;
               const rewindSeed = parseObjectPayload<Record<string, unknown>>(
                 payloadObject?.user_variables,
               );
@@ -1011,6 +1017,24 @@ export function useDebugSession({
                 );
                 if (supersededOverrides.length) {
                   onVariableOverridesSuperseded?.(supersededOverrides);
+                }
+                const { shifuBid, outlineBid } = runParamsRef.current;
+                const sessionId = debugSessionIdRef.current;
+                if (
+                  shifuBid &&
+                  outlineBid &&
+                  sessionId &&
+                  trackedCourseMemorySessionIdRef.current !== sessionId
+                ) {
+                  trackedCourseMemorySessionIdRef.current = sessionId;
+                  try {
+                    void Promise.resolve(
+                      trackEvent('teacher_debug_course_memory_committed', {
+                        shifu_bid: shifuBid,
+                        outline_bid: outlineBid,
+                      }),
+                    ).catch(() => {});
+                  } catch {}
                 }
               }
             } else if (streamVariables.awaitingLegacyRewindSeed) {
