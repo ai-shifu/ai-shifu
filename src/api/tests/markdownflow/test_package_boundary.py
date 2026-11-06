@@ -25,11 +25,15 @@ _API_ROOT = Path(__file__).resolve().parents[2]
 _LEGACY_SESSION = Path(__file__).parent / "fixtures" / "legacy_session.json"
 
 
-def test_bundled_prompts_only_update_reference_and_binding_guidance() -> None:
+def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Only reference/binding guidance changes; retain every other copied prompt byte.
+    # Reference/binding and question-presentation guidance are reviewed changes;
+    # retain every other copied prompt byte and keep the historical fixture intact.
+    hashes["system"] = (
+        "67af95255c32d891b66d9f612119f92f453104eef29eeefd84e27d98a4a802fb"
+    )
     hashes["v1_syntax"] = (
         "32e6598f3aae15be8216b84833255b482cd52d640874d40922ac2d66851e7ddb"
     )

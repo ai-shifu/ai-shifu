@@ -53,6 +53,7 @@ def _question(
     *,
     kind: str = "text",
     prompt: str = "Your answer?",
+    placeholder: str | None = None,
     options: list[dict[str, str]] | None = None,
 ) -> DeltaToolCall:
     args: dict[str, Any] = {"type": kind, "prompt": prompt}
@@ -60,6 +61,8 @@ def _question(
         args["variable"] = variable
     if options:
         args["options"] = options
+    if placeholder is not None:
+        args["placeholder"] = placeholder
     return DeltaToolCall(
         name="interact", tool_call_id=call_id, json_args=json.dumps(args)
     )
@@ -87,6 +90,84 @@ def _returns(
 
 def _content(result: ProfileTurnResult) -> str:
     return "".join(chunk.content for chunk in result.chunks)
+
+
+@pytest.mark.parametrize(
+    ("narration", "question"),
+    [
+        ("Your role?", "Your role?"),
+        ("先问一个问题：你想学什么？", "你想学什么？"),
+        ("", "Your role?"),
+        ("Welcome to the questionnaire.", "Your role?"),
+        ("Which value is largest?", "Which value is smallest?"),
+    ],
+)
+def test_interaction_contains_only_controls_without_question_fallback(
+    narration: str, question: str
+) -> None:
+    session = _session("Ask about the learner, then wait for the answer.")
+
+    async def script(_messages: list[ModelMessage], info: AgentInfo) -> Stream:
+        assert "ask the complete question in Markdown prose" in (
+            info.instructions or ""
+        )
+        if narration:
+            yield narration
+        yield {
+            0: _question("current", None, prompt=question, placeholder="Your answer")
+        }
+
+    result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
+    interaction = result.chunks[-1]
+    assert interaction.interaction_id == "current"
+    assert interaction.interaction == "?[...Your answer]"
+    assert _content(result).strip() == narration.strip()
+    assert session.engine_session["pending"][0]["tool_call_id"] == "current"
+    assert session.engine_session["pending"][0]["spec"]["prompt"] == question
+
+
+def test_pending_queue_and_reload_return_only_controls_with_answer_identity() -> None:
+    session = _session("Ask two questions and retain both answers.")
+    calls = 0
+
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+        nonlocal calls
+        calls += 1
+        if _returns(messages, "finish"):
+            yield " "
+        elif answers := _returns(messages):
+            assert [(answer.tool_call_id, answer.content) for answer in answers] == [
+                ("first", "Learner wrote: One"),
+                ("second", "Learner wrote: Two"),
+            ]
+            yield _finish()
+        else:
+            yield "First question?"
+            yield {
+                0: _question("first", None, prompt="First question?"),
+                1: _question("second", None, prompt="Second question?"),
+            }
+
+    model = FunctionModel(stream_function=script)
+    first = run_profile_turn(session, {}, model)
+    assert first.chunks[-1].interaction.startswith("?[")
+    second = run_profile_turn(session, {"input": ["One"]}, model)
+    assert second.input_accepted
+    assert second.chunks[-1].interaction == first.chunks[-1].interaction
+    assert "Second question?" not in _content(second)
+    assert second.chunks[-1].interaction_id == "second"
+    session = _ProfileResearchSession.from_cache_payload(session.to_cache_payload())
+    reloaded = run_profile_turn(session, {}, model)
+    assert reloaded.chunks[-1].interaction == second.chunks[-1].interaction
+    assert reloaded.chunks[-1].interaction_id == "second"
+    assert calls == 1
+    final = run_profile_turn(session, {"input": ["Two"]}, model)
+    assert final.input_accepted
+    assert final.finished
+    assert [item["answer"] for item in profile_answer_evidence(session)] == [
+        "Learner wrote: One",
+        "Learner wrote: Two",
+    ]
 
 
 def test_complete_source_and_history_survive_sequential_questions_and_finish() -> None:
@@ -245,11 +326,13 @@ def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values() -> None
             yield "Done."
             yield _finish()
         else:
+            yield "Your role?"
             yield {
                 0: _question(
                     "role",
                     "role",
                     kind="single",
+                    prompt="Your role?",
                     options=[
                         {"display": "Teacher", "value": "teacher"},
                         {"display": "Engineer", "value": "engineer"},
@@ -258,16 +341,20 @@ def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values() -> None
             }
 
     model = FunctionModel(stream_function=script)
-    run_profile_turn(session, {}, model)
+    first = run_profile_turn(session, {}, model)
+    assert first.chunks[-1].interaction.startswith("?[")
     original = copy.deepcopy(session.engine_session)
     rejected = run_profile_turn(session, {"unrelated": ["teacher"]}, model)
     assert not rejected.input_accepted
     assert rejected.chunks[-1].interaction_id == "role"
+    assert rejected.chunks[-1].interaction == first.chunks[-1].interaction
+    assert _content(rejected) == ""
     assert calls == 1
     assert session.engine_session == original
     assert session.variables == {}
     assert profile_answer_evidence(session) == []
-    run_profile_turn(session, {}, model)
+    reloaded = run_profile_turn(session, {}, model)
+    assert reloaded.chunks[-1].interaction == rejected.chunks[-1].interaction
     assert calls == 1
     accepted = run_profile_turn(
         session, {"role": ["Teacher"], "unrelated": ["Engineer"]}, model

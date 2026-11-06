@@ -68,7 +68,7 @@ async def _questionnaire(
     elif _tool_returns(messages):
         yield _finish()
     else:
-        yield "Welcome.\n"
+        yield "Welcome. Your goal?\n"
         yield {0: _interact(call_id="goal", variable="goal", prompt="Your goal?")}
 
 

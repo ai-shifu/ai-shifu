@@ -244,7 +244,11 @@ class ListenElementRunSidecarMixin:
         self, event: RunMarkdownFlowDTO, generated_block_bid: str
     ) -> tuple[str, ElementPayloadDTO]:
         interaction_user_input = _load_interaction_user_input(generated_block_bid)
-        payload = ElementPayloadDTO(audio=None, previous_visuals=[])
+        payload = ElementPayloadDTO(
+            audio=None,
+            previous_visuals=[],
+            interaction_question=event.interaction_question,
+        )
         if interaction_user_input:
             payload.user_input = interaction_user_input
         return str(event.content or ""), payload

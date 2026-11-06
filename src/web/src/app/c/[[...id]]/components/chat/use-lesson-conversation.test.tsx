@@ -2787,6 +2787,57 @@ describe('useLessonConversation stream cleanup', () => {
     ).not.toContain('<custom-button-after-content>');
   });
 
+  it.each(['history', 'stream'])(
+    'preserves interaction controls and question metadata through %s hydration and mode switches',
+    async source => {
+      const interaction = {
+        element_type: 'interaction',
+        element_bid: 'native-question',
+        generated_block_bid: 'native-question-turn',
+        content: '?[A | B]',
+        payload: { interaction_question: 'Q?' },
+      };
+      if (source === 'history') {
+        mockGetLessonStudyRecord.mockResolvedValueOnce({
+          elements: [interaction],
+          records: [],
+          slides: [],
+        });
+      }
+      const { result, rerender } = renderHook(
+        ({ isListenMode }) =>
+          useLessonConversation({ ...buildBaseParams(), isListenMode }),
+        { wrapper, initialProps: { isListenMode: false } },
+      );
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      if (source === 'stream') {
+        await waitFor(() => expect(activeRun).toBeDefined());
+        await act(async () => {
+          await activeRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.ELEMENT,
+            content: interaction,
+          });
+        });
+      }
+
+      const expectPreservedQuestion = () => {
+        expect(
+          result.current.items.find(
+            item => item.element_bid === 'native-question',
+          ),
+        ).toMatchObject({
+          content: '?[A | B]',
+          payload: { interaction_question: 'Q?' },
+        });
+      };
+      expectPreservedQuestion();
+      rerender({ isListenMode: true });
+      expectPreservedQuestion();
+      rerender({ isListenMode: false });
+      expectPreservedQuestion();
+    },
+  );
+
   it('does not inherit history state when run stream updates an existing history element', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

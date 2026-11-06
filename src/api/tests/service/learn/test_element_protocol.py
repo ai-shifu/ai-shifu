@@ -410,6 +410,65 @@ class TestRunMarkdownFlowDTO:
         assert dto.__json__()["anchor_element_bid"] == "elem_abc"
 
 
+class TestInteractionQuestionSerialization:
+    """Keep question metadata separate from serialized and stored interaction controls."""
+
+    def _make_dto(
+        self, kind: str, question: str | None, *, interaction: bool = True
+    ) -> ElementDTO | RunMarkdownFlowDTO:
+        if kind == "run":
+            return RunMarkdownFlowDTO(
+                outline_bid="lesson",
+                generated_block_bid="block",
+                type=GeneratedType.INTERACTION
+                if interaction
+                else GeneratedType.CONTENT,
+                content="?[Yes | No]",
+                interaction_question=question,
+            )
+        return ElementDTO(
+            element_bid="question",
+            element_index=0,
+            role="ui",
+            element_type=ElementType.INTERACTION if interaction else ElementType.TEXT,
+            element_type_code=205 if interaction else 213,
+            content="?[Yes | No]",
+            payload=ElementPayloadDTO(interaction_question=question),
+        )
+
+    @pytest.mark.parametrize("kind", ["run", "element"])
+    @pytest.mark.parametrize(
+        "question",
+        ["A?", " 😀\t\n", "<pre>```", "?[%{{x}}]"],
+    )
+    def test_question_metadata_never_changes_control_content(
+        self, kind: str, question: str
+    ) -> None:
+        dto = self._make_dto(kind, question)
+        original = dto.model_dump(mode="json")
+        first = dto.__json__()
+        assert first["content"] == "?[Yes | No]"
+        assert dto.__json__() == first
+        assert dto.content == "?[Yes | No]"
+        assert dto.model_dump(mode="json") == original
+        metadata = first if kind == "run" else first["payload"]
+        assert metadata["interaction_question"] == question
+
+    @pytest.mark.parametrize("kind", ["run", "element"])
+    @pytest.mark.parametrize("question", [None, "", " \t\n"])
+    def test_empty_question_does_not_change_control_content(
+        self, kind: str, question: str | None
+    ) -> None:
+        assert self._make_dto(kind, question).__json__()["content"] == "?[Yes | No]"
+
+    @pytest.mark.parametrize("kind", ["run", "element"])
+    def test_question_metadata_does_not_change_non_interaction_content(
+        self, kind: str
+    ) -> None:
+        dto = self._make_dto(kind, "A question", interaction=False)
+        assert dto.__json__()["content"] == "?[Yes | No]"
+
+
 # ---------------------------------------------------------------------------
 # TypeStateMachine tests
 # ---------------------------------------------------------------------------

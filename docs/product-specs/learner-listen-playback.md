@@ -2,7 +2,7 @@
 title: Learner Listen Playback and Timeline
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-09-26
+last_reviewed: 2026-11-04
 canonical: true
 ---
 
@@ -23,6 +23,56 @@ canonical: true
    attempts normal playback. A browser may still reject unmuted autoplay after
    a full reload, in which case the restored position remains ready to play.
 6. Existing player-button behavior is unchanged by slide navigation.
+
+## Reading interaction questions and shared transport
+
+Native interaction questions travel with their controls in optional
+`payload.interaction_question` metadata. Reading and Debug do not append that
+question as lesson prose. Questions already present in authored narration remain
+unchanged. Short confirmation labels retain their existing button behavior.
+
+For ordinary answer-collecting interactions, the shared course/profile runtime
+must first ask the complete current question in visible teaching content, then
+call the real `interact` tool in the same turn and wait. A control title is
+not a replacement for asking the question. Preserve authored questions,
+choices, retries and input boundaries. Do not invent a new teaching question
+for authored navigation or confirmation controls. Structured direction keeps
+its dedicated tool-only contract: the host presents its feedback and
+unanswered question before the controls.
+
+Profile questionnaire interaction chunks contain only the rendered controls.
+Question wording comes from the model's ordinary visible content under the
+shared question-first instruction. The host never prepends the tool question,
+including when restoring pending input, rejecting an answer or exposing a queued
+interaction. It does not compare question text with prose to choose presentation.
+Interaction identities, stored answers and published prose remain unchanged.
+Exact request replays retain their saved event payloads; existing cached history
+is not rewritten.
+
+Interaction `content` contains only the original controls in memory, storage,
+streamed events and serialized history. The question is carried exclusively in
+`interaction_question` metadata. Serialization never prepends question text,
+and frontend consumers parse and render the control content directly.
+
+Use `question` for this presentation concept, distinct from model instructions
+such as a system or course prompt. The existing engine `interact(prompt=...)`
+tool and pending-session schema keep their compatibility contract; the host
+maps that wording to `interaction_question`. This optional presentation field
+is renamed before release, so no deployed-field alias or data migration is
+needed.
+
+Reading and Debug ignore the question metadata when rendering controls.
+Desktop, mobile and print share this display rule. Listen/classroom title
+presentation is a separate dependent change; the metadata never becomes part
+of the interaction body.
+
+This shared transport stops producing separate question CONTENT, audio and
+marker elements in every mode. Authored narration and its audio are preserved.
+Previously stored prose is not guessed or rewritten. No migration or library
+version bump is required.
+
+This changes existing-content placement, with no new action
+or analytics meaning. Question text must never be sent to analytics.
 
 ### `learner_listen_resume_requested`
 

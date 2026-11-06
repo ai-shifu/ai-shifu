@@ -242,12 +242,15 @@ def test_reload_restores_teaching_before_pending_interaction_without_learner_pro
         ElementType.INTERACTION,
     ]
     assert "Teaching before question 1." in records[0].content
-    assert "Question 1?" in records[0].content
+    assert "Question 1?" not in records[0].content
+    assert records[1].payload.interaction_question == "Question 1?"
+    assert not records[1].payload.user_input
     restored_ids = [item.element_bid for item in records]
     replay = run("")
-    assert [
-        event.content.element_bid for event in replay if event.type == "element"
-    ] == restored_ids
+    replayed_elements = [event.content for event in replay if event.type == "element"]
+    assert [item.element_bid for item in replayed_elements] == restored_ids
+    assert "Question 1?" not in replayed_elements[0].content
+    assert replayed_elements[1].payload.interaction_question == "Question 1?"
     assert replay[-1].is_terminal
     assert len(calls) == 1
     assert [item.element_bid for item in history().elements] == restored_ids
@@ -255,7 +258,9 @@ def test_reload_restores_teaching_before_pending_interaction_without_learner_pro
 
 def test_multiple_requests_keep_order_and_accepted_answers(classroom: tuple) -> None:
     _identity, run, history, calls = classroom
-    run()
+    for event in run():
+        event.__json__()
+    history().__json__()
     run("My answer")
     records = history().elements
     assert [item.element_type for item in records] == [
@@ -266,6 +271,10 @@ def test_multiple_requests_keep_order_and_accepted_answers(classroom: tuple) -> 
     ]
     assert "question 1" in records[0].content
     assert "question 2" in records[2].content
+    assert "Question 1?" not in records[0].content
+    assert "Question 2?" not in records[2].content
+    assert records[1].payload.interaction_question == "Question 1?"
+    assert records[3].payload.interaction_question == "Question 2?"
     assert _shown(records[1].payload.user_input) == "My answer"
     assert not records[-1].payload or not records[-1].payload.user_input
     assert len(calls) == 2
@@ -644,6 +653,10 @@ def test_multiple_deferred_questions_keep_controls_and_individual_answers(
     assert [_shown(e.payload.user_input) for e in controls] == [
         "First answer",
         "Second answer",
+    ]
+    assert [e.payload.interaction_question for e in controls] == [
+        "Question 0?",
+        "Question 1?",
     ]
     assert load_agent_session(app, identity, identity, preview_mode=True).finished
 

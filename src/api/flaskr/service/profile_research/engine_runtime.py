@@ -141,9 +141,9 @@ def _interaction_problem(
 
 
 def _pending_chunk(pending: PendingInteraction) -> ProfileChunk:
-    prompt, controls = render_question(pending.spec)
+    _, controls = render_question(pending.spec)
     return ProfileChunk(
-        interaction=f"{prompt}\n\n{controls}" if prompt.strip() else controls,
+        interaction=controls,
         interaction_id=pending.tool_call_id,
     )
 

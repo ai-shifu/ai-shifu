@@ -595,12 +595,10 @@ class _App:
 
 
 @pytest.mark.usefixtures("calls")
-def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> None:
-    """The rest of the turn still stands; the learner loses the controls, not the lesson.
-
-    The delimiters are escapable now, so what is left are shapes the grammar cannot carry at
-    all: an option with a newline in it is read as far as the end of its first line.
-    """
+def test_an_unrenderable_interaction_fails_without_turning_its_title_into_text() -> (
+    None
+):
+    """The existing error path remains recoverable without leaking a title as lesson text."""
     engine = _Engine(
         [
             ContentDelta(text="before"),
@@ -616,15 +614,20 @@ def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> Non
             TurnDone(reason="end"),
         ]
     )
-    events = _run(engine, app=_App())
-    # The prompt joins the text and stands in for the controls; the text's block closes after it.
-    assert [e.type for e in events] == [
-        GeneratedType.CONTENT,
-        GeneratedType.CONTENT,
-        GeneratedType.BREAK,
-        GeneratedType.BREAK,
-    ]
-    assert [e.content for e in events[:2]] == ["before", "pick"]
+    events = run_agent.run_agent_lesson(
+        _App(),
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    delivered = []
+    with pytest.raises(run_agent.UnrepresentableInteractionError):
+        delivered.extend(events)
+    assert _narration(delivered) == "before"
+    assert not _interactions(delivered)
 
 
 # --- when things are written -------------------------------------------------------------
@@ -2291,183 +2294,42 @@ def _narration(events: list) -> str:
     return "".join(_contents(events))
 
 
-def _window_narration() -> str:
-    """Size a narration so the echo window opens exactly on the `r` of `separate`."""
-    lead = "Intro separate "
-    padding = len("rate") + run_agent._ECHO_WINDOW_CHARS + lead.index("rate")
-    return lead + "x" * (padding - len(lead))
-
-
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize(
-    ("narration", "prompt", "option", "asked"),
+    ("narration", "question"),
     [
-        # The model writes the question into the lesson and passes it to `interact` as well;
-        # both reached the learner, the same sentence again on its own line above the buttons.
-        pytest.param(
-            ["第一个问题：你会编程吗？"], "你会编程吗？", "会", False, id="just-asked"
+        ("", "Which example do you prefer?"),
+        ("The lesson is complete.", "Which example do you prefer?"),
+        ("First question: can you code?", "can you code?"),
+        ("第一个问题：你会编程吗？", "你会编程吗？"),
+        (
+            "你平时主要在做哪一类事情？挑一件你觉得最费时间的说说。",
+            "你平时主要在做哪一类事情？挑一件最费时间的说说。",
         ),
-        # Chinese does not separate words with spaces, so there is no boundary to require:
-        # demanding one refused the repetition on exactly the content it was reported on.
-        pytest.param(
-            ["第一个问题是你会编程吗？"],
-            "你会编程吗？",
-            "会",
-            False,
-            id="chinese-needs-no-space-before-it",
-        ),
-        # A space between words must not hide the repetition it separates.
-        pytest.param(
-            ["So, can you code?"], "can you code?", "yes", False, id="english-too"
-        ),
-        # The narration wraps the question across two lines; the prompt has it on one.
-        pytest.param(
-            ["One last thing. Can you\ncode?"],
-            "Can you code?",
-            "yes",
-            False,
-            id="line-break-inside-the-question",
-        ),
-        # Often the prompt is the only place the model asks; suppressing it leaves nothing.
-        pytest.param(
-            ["一人公司的第一课讲完了。"],
-            "你会编程吗？",
-            "会",
-            True,
-            id="not-asked-before",
-        ),
-        # The check looks only at the end of the narration: matching anywhere would silence a
-        # question whose words the lesson used a paragraph ago.
-        pytest.param(
-            [
-                "你会编程吗？这个问题我们稍后再谈。",
-                "先说说我自己的经历，我做过很多年的研发工作，" * 6,
-            ],
-            "你会编程吗？",
-            "会",
-            True,
-            id="same-words-earlier-in-the-turn",
-        ),
-        # `rate` sits inside `separate`: matching characters is not matching what was said.
-        pytest.param(
-            ["We will separate the examples."],
-            "rate",
-            "good",
-            True,
-            id="short-prompt-inside-a-longer-word",
-        ),
-        # `rate` at the start of `rated` is not the word `rate`; the character after decides.
-        pytest.param(
-            ["Here is how the examples were rated."],
-            "rate",
-            "good",
-            True,
-            id="prompt-starts-a-longer-word",
-        ),
-        # The character before a match decides it, and a slice would have thrown it away:
-        # handed only the window, the check sees nothing left of `rate` and drops the question.
-        pytest.param(
-            [_window_narration()],
-            "rate",
-            "good",
-            True,
-            id="window-opening-inside-a-word",
-        ),
+        ("Which value is the largest?", "Which value is the smallest?"),
     ],
 )
-def test_a_question_the_narration_ended_on_is_not_asked_again(
-    narration: list[str], prompt: str, option: str, *, asked: bool
+def test_question_titles_never_become_lesson_text(
+    narration: str, question: str
 ) -> None:
-    """Only a repetition at the end of the narration is dropped; the controls always remain."""
-    engine = _Engine(
-        [
-            *[ContentDelta(text=chunk) for chunk in narration],
-            InteractionRequest(
-                id="q1",
-                spec=InteractionSpec(
-                    type="single",
-                    prompt=prompt,
-                    options=[Option(display=option, value=option)],
-                ),
-            ),
-            TurnDone(reason="interaction"),
-        ]
-    )
-    events = _run(engine)
-    said = "".join(narration)
-    if asked:
-        assert _contents(events)[-1] == prompt
-        assert _narration(events) == said + prompt
-    else:
-        assert _narration(events) == said
-    assert any(e.type == GeneratedType.INTERACTION for e in events)
-
-
-def _asked_after(narration: str, prompt: str) -> list[str]:
+    """Control titles stay metadata whether or not the narration contains the same question."""
     engine = _Engine(
         [
             ContentDelta(text=narration),
             InteractionRequest(
                 id="q1",
                 spec=InteractionSpec(
-                    type="text", prompt=prompt, placeholder="写下来", options=[]
+                    type="single", prompt=question, options=[Option(display="Yes")]
                 ),
             ),
             TurnDone(reason="interaction"),
         ]
     )
-    return _contents(_run(engine))
-
-
-@pytest.mark.usefixtures("calls")
-@pytest.mark.parametrize(
-    ("narration", "prompt", "asked"),
-    [
-        # General-education course (2026-09-24): the learner read the question the narration
-        # ended on and, right under it, the prompt asking it again with three characters
-        # dropped -- missed because the two were not character for character the same.
-        pytest.param(
-            "任何一项复杂工作，都能拆成一条工作流。\n\n"
-            "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。",
-            "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。",
-            False,
-            id="same-question-in-other-words",
-        ),
-        # Only a near copy of the question the narration ends on is dropped.
-        pytest.param(
-            "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。",
-            "这件事里，哪一步最适合交给 AI？",
-            True,
-            id="a-different-question",
-        ),
-        # Review of #2958: "largest" and "smallest" are alike by character, not by meaning;
-        # dropped, the controls would sit under the wrong question.
-        pytest.param(
-            "我们看这组数：3、9、4。这组数里最大的数是哪一个？请从下面选。",
-            "这组数里最小的数是哪一个？请从下面选。",
-            True,
-            id="one-word-changed",
-        ),
-        # The narration asks, adds a line of encouragement, and the prompt asks again.
-        pytest.param(
-            "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。别担心，随便说说就行。",
-            "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。",
-            False,
-            id="followed-by-a-short-aside",
-        ),
-        # A two-word prompt can resemble any ending; only an exact repeat of it is dropped.
-        pytest.param("准备好了吗？我们继续。", "准备好了？", True, id="short-prompt"),
-    ],
-)
-def test_a_question_just_asked_in_other_words_is_not_asked_again(
-    narration: str, prompt: str, *, asked: bool
-) -> None:
-    """The narration ends on the question; the prompt may say it with a word or two changed."""
-    contents = _asked_after(narration, prompt)
-    if asked:
-        assert contents == [narration, prompt]
-    else:
-        assert "".join(contents) == narration
+    events = _run(engine)
+    assert _narration(events) == narration
+    controls = [event for event in events if event.type == GeneratedType.INTERACTION]
+    assert len(controls) == 1
+    assert controls[0].interaction_question == question
 
 
 def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -> None:
@@ -2513,7 +2375,7 @@ def test_a_memory_block_interrupted_by_a_tool_call_is_still_removed(
 
 
 @pytest.mark.usefixtures("calls")
-def test_a_question_put_again_sends_its_controls_but_not_its_text_again() -> None:
+def test_a_question_put_again_preserves_its_title_without_extra_lesson_text() -> None:
     """An unusable answer puts the same question again; its text is already on the screen.
 
     Sent again, the question's text appeared as a second line under the first each time the
@@ -2536,7 +2398,9 @@ def test_a_question_put_again_sends_its_controls_but_not_its_text_again() -> Non
     )
     events = _run(engine)
     assert _contents(events) == []
-    assert any(e.type == GeneratedType.INTERACTION for e in events)
+    controls = [e for e in events if e.type == GeneratedType.INTERACTION]
+    assert len(controls) == 1
+    assert controls[0].interaction_question == "你读过哪些？"
 
 
 # --- telling the outline the lesson is over -----------------------------------------------

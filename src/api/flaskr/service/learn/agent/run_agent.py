@@ -24,10 +24,8 @@ Nothing calls this yet: routing a lesson to it is the next change.
 from __future__ import annotations
 
 import contextlib
-import re
 import uuid
 from dataclasses import dataclass, replace
-from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from flaskr.api.markdownflow import (
@@ -640,11 +638,7 @@ def _on_this_page(
     pager: LessonPager,
     voice: LessonVoice | None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Classify translated lesson text, including a question's prompt, before sending it.
-
-    A prompt can contain visuals too. Flush it before the following controls or block boundary
-    so the last buffered line is shown and spoken in the same order as the rest of the lesson.
-    """
+    """Classify translated lesson text before sending the following controls or boundary."""
     for event in events:
         if (
             getattr(event, "type", None) == GeneratedType.CONTENT
@@ -662,135 +656,6 @@ def _on_this_page(
         yield event
 
 
-# How far back from the end of the narration a question may sit and still count as just asked.
-# Long enough for a closing fragment after it, short enough that the same words earlier in the
-# lesson are not mistaken for the question now standing in front of the learner.
-_ECHO_WINDOW_CHARS = 80
-
-
-def _condensed(text: str) -> str:
-    """Text with each run of whitespace reduced to one space.
-
-    Reduced rather than removed: a space is what separates one word from the next in a written
-    language that uses them, and dropping it runs words together, so a match could straddle two
-    of them or land inside a third.
-    """
-    return re.sub(r"\s+", " ", text).strip()
-
-
-# Scripts that do not put spaces between words: Chinese, Japanese and Korean. A question in one
-# of them routinely follows the phrase introducing it with nothing in between, so there is no
-# boundary to find, and demanding one would refuse every repetition this was written to catch --
-# on exactly the content the duplicate was reported on.
-_UNSPACED_SCRIPT = re.compile(
-    r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]"
-)
-
-
-def _joins_a_word(char: str) -> bool:
-    """Whether this character would be part of a word written in a space-delimited script."""
-    if not char or _UNSPACED_SCRIPT.match(char):
-        return False
-    return re.match(r"\w", char) is not None
-
-
-def _stands_alone(asked: str, said: str, start: int) -> bool:
-    """Whether `asked` occurs at or after `start` as itself, not buried inside a longer word.
-
-    Matching characters is not the same as matching what was said: a prompt reading `rate` is
-    contained in `separate`, and a lesson that had only mentioned separating examples would lose
-    the question it meant to ask, leaving the controls with nothing above them.
-
-    The whole of `said` is passed rather than the part being searched, because the character
-    before a match is what decides whether it stands alone, and where the search begins mid-word
-    that character is still there to be read. Given only the slice, a window opening inside
-    `separate` would see nothing to its left and call `rate` a word of its own.
-    """
-    for match in re.finditer(re.escape(asked), said[start:]):
-        at = start + match.start()
-        end = at + len(asked)
-        before = said[at - 1] if at else ""
-        after = said[end] if end < len(said) else ""
-        if not _joins_a_word(before) and not _joins_a_word(after):
-            return True
-    return False
-
-
-def _already_asked(taught: str, prompt: str) -> bool:
-    """Whether the lesson just asked this, in the words it is about to ask it again.
-
-    The model writes the question into the lesson text and then passes it to `interact` as well,
-    and both reach the learner: a lesson that had just asked "the first question: can you code?"
-    asked "can you code?" again, on its own line above the buttons.
-
-    Two things narrow it, and both exist to protect the question rather than to catch the
-    repetition. Only the end of the narration counts, so words used earlier in the turn are not
-    mistaken for the question now in front of the learner. And the words must stand on their own,
-    so a short prompt is not swallowed by a longer word that happens to contain it.
-    """
-    asked = _condensed(prompt)
-    if not asked:
-        return False
-    said = _condensed(taught)
-    start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
-    return _stands_alone(asked, said, start) or _ends_asking(said, asked)
-
-
-# How much of the narration's closing words a prompt must account for to count as the same
-# question, and how long a prompt must be before anything short of an exact repeat is enough. A
-# model asking in the narration and again in the prompt drops a few words -- "挑一件你觉得最费时间"
-# became "挑一件最费时间" on the general-education course -- while a short prompt resembles too
-# many endings to be judged this way at all.
-_REWORDED_RATIO = 0.85
-_REWORDED_MIN_CHARS = 8
-_PUNCTUATION = re.compile(r"[\s\W_]+")
-# Where a sentence ends, so a question followed by a short aside is still found.
-# Full stop, exclamation and question marks (full-width and ASCII) and an ellipsis, then any
-# closing quote or bracket.
-_SENTENCE_END = re.compile(
-    r"[\u3002\uff01\uff1f!?\u2026]+[\u300d\u300f\u201d\"')\uff09]*"
-)
-
-
-def _ends_asking(said: str, asked: str) -> bool:
-    """Whether the narration just asked this question, with at most a few words left out.
-
-    Only words dropped, never changed: every word of the prompt must appear, in order, in the
-    stretch of narration it is compared with. A changed word can turn the question around --
-    "largest" for "smallest", "最大" for "最小" -- and a prompt dropped as a repeat of a different
-    question would leave its controls under the wrong one (review of #2958).
-
-    Compared with the narration's last sentence or two: its very end, or the end of a sentence
-    followed by a short aside, within `_ECHO_WINDOW_CHARS`. Never earlier, so a question the lesson
-    asked and has since moved on from does not stand in for the one now being put.
-    """
-    if len(asked) < _REWORDED_MIN_CHARS or not said:
-        return False
-    window_start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
-    ends = {len(said)} | {
-        m.end() for m in _SENTENCE_END.finditer(said) if m.end() > window_start
-    }
-    longest = int(len(asked) / _REWORDED_RATIO) + 1
-    for end in ends:
-        for length in range(len(asked), min(longest, end) + 1):
-            if _only_words_added(asked, said[end - length : end]):
-                return True
-    return False
-
-
-def _only_words_added(asked: str, stretch: str) -> bool:
-    """Whether `stretch` is `asked` with a few words added and none changed.
-
-    Punctuation and spacing may differ; a model ends the same sentence with a full-width question
-    mark in one place and an ASCII one in the other.
-    """
-    matcher = SequenceMatcher(None, asked, stretch, autojunk=False)
-    for tag, a_start, a_end, _b_start, _b_end in matcher.get_opcodes():
-        if tag in ("replace", "delete") and _PUNCTUATION.sub("", asked[a_start:a_end]):
-            return False
-    return matcher.ratio() >= _REWORDED_RATIO
-
-
 def _question(
     event: InteractionRequest,
     *,
@@ -800,64 +665,29 @@ def _question(
     generated_block_bid: str,
     app: Flask,
     user_bid: str,
-    taught: str,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Deliver a question as a 1.0 lesson does: its prompt with the text, then its controls."""
+    """Finish the preceding narration and deliver the question with its controls."""
     try:
         translated = translate(
             event, outline_bid=outline_bid, generated_block_bid=generated_block_bid
         )
     except UnrepresentableInteractionError:
-        # The controls would ask something other than the model did, so they are not sent. The
-        # question still is, as text, so the learner has something to answer.
+        # The engine checks representability before asking. A saved question that no longer
+        # renders must fail visibly rather than become unrelated lesson text.
         app.logger.warning(
             "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
             user_bid,
             outline_bid,
             exc_info=True,
         )
-        prompt = (
-            event.spec.prompt if event.spec.prompt and event.spec.prompt.strip() else ""
-        )
-        translated = (
-            [
-                RunMarkdownFlowDTO(
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                    type=GeneratedType.CONTENT,
-                    content=prompt,
-                )
-            ]
-            if prompt
-            else []
-        )
-    # A question put again after an unusable answer is already on the learner's screen; sending
-    # its text again added the same line under it each time.
-    # Only prose counts as having asked it aloud. A copy inside an unfinished visual or code
-    # block was not spoken and must not suppress the independent question prompt.
-    dedup_pager = LessonPager()
-    asked_prose = "".join(
-        text
-        for text, stream_type, _ in dedup_pager.add(taught) + dedup_pager.flush()
-        if stream_type == "text"
-    )
-    prompts = [
-        d
-        for d in translated
-        if d.type == GeneratedType.CONTENT
-        and not event.asked_before
-        and not _already_asked(asked_prose, str(d.content or ""))
-    ]
-    controls = [d for d in translated if d.type != GeneratedType.CONTENT]
-    # Flush releases a buffered line but keeps the classifier inside unfinished HTML or code.
-    # The prompt is a separate block, so it must not inherit the narration's syntax state.
+        raise
+    # Complete any buffered narration before finalising its audio and showing the controls.
     yield from _pieces(
         pager.start_block(),
         voice=voice,
         outline_bid=outline_bid,
         generated_block_bid=generated_block_bid,
     )
-    yield from _on_this_page(prompts, pager=pager, voice=voice)
     if voice is not None:
         yield from voice.finish()
     yield RunMarkdownFlowDTO(
@@ -866,7 +696,7 @@ def _question(
         type=GeneratedType.BREAK,
         content="",
     )
-    yield from controls
+    yield from translated
 
 
 def _narrated_question(
@@ -1199,12 +1029,8 @@ def _stream_turn(
                 generated_block_bid=generated_block_bid,
             )
         if isinstance(event, InteractionRequest):
-            # The question comes after the lesson text as its own block, the way a 1.0 lesson
-            # delivers it: the question's own prompt joins the text, then the text's audio is
-            # finished and its block finalised, so every row of it is written before the
-            # question's controls. History is ordered by the moment of writing, and a history
-            # whose last row was not the question read to the browser as a lesson to continue --
-            # which it did, with nothing, on every reload.
+            # Finalise the narration before its interaction, so history ends with the pending
+            # controls. The question title belongs to those controls rather than lesson text.
             asked = True
             for question_payload in _question(
                 event,
@@ -1213,7 +1039,6 @@ def _stream_turn(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 app=app,
-                taught="".join(taught),
                 user_bid=user_bid,
             ):
                 if question_payload.type == GeneratedType.INTERACTION:
@@ -1334,29 +1159,13 @@ def _stream_turn(
                 voice=voice,
             )
         except UnrepresentableInteractionError:
-            # The controls would ask something other than the model did, so they are not sent. The
-            # question still is: `translate` builds it first and loses it with the raise, and a
-            # learner shown neither has nothing to answer while the session keeps waiting for one.
             app.logger.warning(
                 "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
                 user_bid,
                 outline_bid,
                 exc_info=True,
             )
-            prompt = getattr(event, "spec", None) and event.spec.prompt
-            if prompt and prompt.strip():
-                yield from _on_this_page(
-                    [
-                        RunMarkdownFlowDTO(
-                            outline_bid=outline_bid,
-                            generated_block_bid=generated_block_bid,
-                            type=GeneratedType.CONTENT,
-                            content=prompt,
-                        )
-                    ],
-                    pager=pager,
-                    voice=voice,
-                )
+            raise
 
     # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
     # the failures it cannot continue past. What the turn produced still has to be written, or the

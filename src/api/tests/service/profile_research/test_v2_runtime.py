@@ -137,6 +137,40 @@ def _run(
     )
 
 
+def test_question_first_content_replays_and_pending_reload_keeps_its_identity() -> None:
+    calls = 0
+
+    async def script(_messages: list[ModelMessage], info: AgentInfo) -> StreamChunks:
+        nonlocal calls
+        calls += 1
+        assert "ask the complete question in Markdown prose" in (
+            info.instructions or ""
+        )
+        yield "Your goal?"
+        yield {0: _interact(call_id="goal", variable="goal", prompt="Your goal?")}
+
+    _app, runtime, _factories = _runtime(script)
+    view = _start(runtime, "Ask about learning goals.")
+    opening = _run(runtime, view)
+    (interaction,) = [
+        event for event in opening if event["event_type"] == "interaction"
+    ]
+    assert interaction["interaction_id"] == "goal"
+    assert interaction["content"].startswith("?[")
+    assert any(
+        event["event_type"] == "content" and event["content"] == "Your goal?"
+        for event in opening
+    )
+    assert _run(runtime, view, index=0) == opening
+    assert calls == 1
+    reloaded = _run(runtime, view, request_id="reload")
+    (pending,) = [event for event in reloaded if event["event_type"] == "interaction"]
+    assert pending["interaction_id"] == "goal"
+    assert pending["content"] == interaction["content"]
+    assert not any(event["event_type"] == "content" for event in reloaded)
+    assert calls == 1
+
+
 def _terminal(events: list[dict[str, Any]]) -> dict[str, Any]:
     return next(
         event["content"] for event in reversed(events) if event.get("is_terminal")

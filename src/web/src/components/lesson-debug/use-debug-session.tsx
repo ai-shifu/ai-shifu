@@ -868,6 +868,7 @@ export function useDebugSession({
           element_bid: itemBid,
           generated_block_bid: generatedBlockBid,
           content: contentToRender,
+          payload: elementRecord?.payload,
           readonly: false,
           type: nextItemType,
           element_type: elementType || undefined,
