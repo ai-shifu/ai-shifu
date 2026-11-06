@@ -110,6 +110,7 @@ const createDebugSessionId = () => {
 
 enum DebugStreamEventType {
   DEBUG_VARIABLES = 'debug_variables',
+  DEBUG_VARIABLES_COMMITTED = 'debug_variables_committed',
   DEBUG_ENGINE = 'preview_engine',
   ELEMENT = 'element',
   DONE = 'done',
@@ -356,8 +357,10 @@ export const replaceDebugLoadingWithBusinessError = (
 
 export function useDebugSession({
   creditInsufficientAudience,
+  onCourseVariablesCommitted,
 }: {
   creditInsufficientAudience: CreditInsufficientAudience | null;
+  onCourseVariablesCommitted?: (updates: DebugVariableValues) => void;
 }) {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
@@ -433,6 +436,7 @@ export function useDebugSession({
     useState<DebugVariableValues>({});
   const interactionParserRef = useRef(createInteractionParser());
   const freshAgentInteractionBidsRef = useRef<Set<string>>(new Set());
+  const freshQuestionVariableNamesRef = useRef(new Set<string>());
   const resolveLatestMdflow = useCallback(() => {
     const latest = getCurrentMdflow?.();
     if (typeof latest === 'string') {
@@ -687,6 +691,7 @@ export function useDebugSession({
         return;
       }
       freshAgentInteractionBidsRef.current.add(itemBid);
+      freshQuestionVariableNamesRef.current.add(variableName);
       const currentVariableValues = (runParamsRef.current.variableValues ||
         {}) as DebugVariableValues;
       if (!(variableName in currentVariableValues)) {
@@ -944,12 +949,46 @@ export function useDebugSession({
           updateSessionItems(prev => withoutLoadingItem(prev));
         }
 
-        if (responseType === DebugStreamEventType.DEBUG_VARIABLES) {
-          if (payloadObject) {
-            runParamsRef.current.variableValues = { ...payloadObject };
-            setVariableValuesSnapshot(
-              normalizeDebugVariableValues(payloadObject),
-            );
+        if (
+          responseType === DebugStreamEventType.DEBUG_VARIABLES ||
+          responseType === DebugStreamEventType.DEBUG_VARIABLES_COMMITTED
+        ) {
+          const committed =
+            responseType === DebugStreamEventType.DEBUG_VARIABLES_COMMITTED;
+          const variables = committed
+            ? parseObjectPayload<Record<string, unknown>>(
+                payloadObject?.variables,
+              )
+            : payloadObject;
+          if (variables) {
+            const snapshot = { ...variables };
+            if (committed) {
+              const courseUpdates = parseObjectPayload<DebugVariableValues>(
+                payloadObject?.course_updates,
+              );
+              // The full snapshot is for the panel. Echoing session-only memory
+              // in the next request would seed it as user memory.
+              const requestVariables = {
+                ...runParamsRef.current.variableValues,
+                ...courseUpdates,
+              };
+              for (const name of freshQuestionVariableNamesRef.current) {
+                delete snapshot[name];
+                delete requestVariables[name];
+              }
+              runParamsRef.current.variableValues = requestVariables;
+              if (courseUpdates && Object.keys(courseUpdates).length) {
+                mergeStoredDebugVariableValues(
+                  runParamsRef.current.shifuBid,
+                  courseUpdates,
+                  runParamsRef.current.systemVariableKeys || [],
+                );
+                onCourseVariablesCommitted?.(courseUpdates);
+              }
+            } else {
+              runParamsRef.current.variableValues = snapshot;
+            }
+            setVariableValuesSnapshot(normalizeDebugVariableValues(snapshot));
           }
         } else if (responseType === DebugStreamEventType.ELEMENT) {
           upsertElementDebugItem(response);
@@ -992,6 +1031,7 @@ export function useDebugSession({
       finalizeDebugItems,
       finishDebugAnswerEdit,
       handleDebugBusinessError,
+      onCourseVariablesCommitted,
       stopRun,
       trackEvent,
       updateSessionItems,
@@ -1104,6 +1144,7 @@ export function useDebugSession({
 
       stopRun();
       const streamGeneration = invalidateStreamGeneration();
+      freshQuestionVariableNamesRef.current.clear();
       isStreamingRef.current = true;
       setIsStreaming(true);
       debugAnswerEditResultRef.current = startDebugAnswerEditTracking({

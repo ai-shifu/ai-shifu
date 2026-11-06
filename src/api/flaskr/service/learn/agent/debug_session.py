@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager, nullcontext, suppress
 from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import Session
@@ -74,6 +74,7 @@ class DebugSessionStore:
         self._key = f"{prefix}:agent_debug:{digest}"
         self._request_bid: str | None = None
         self._request_generation: int | None = None
+        self._committed_variables: str | None = None
         self._cache = redis_cache if get_redis_client() is not None else cache
         self._follow_script_edits = follow_script_edits
 
@@ -180,18 +181,11 @@ class DebugSessionStore:
         turn_record: str = "",
         rewind: RewindPlan | None = None,
         question_ids: list[str] | None = None,
+        course_updates: dict[str, str] | None = None,
     ) -> None:
         """Save before the runner emits the turn's terminal event."""
-        if self._request_bid is None:
-            self._save(
-                session,
-                generated_block_bid=generated_block_bid,
-                turn_record=turn_record,
-                rewind=rewind,
-                question_ids=question_ids,
-            )
-            return
-        with self._write_lock():
+        lock = self._write_lock() if self._request_bid is not None else nullcontext()
+        with lock:
             self._assert_current_request()
             self._save(
                 session,
@@ -200,6 +194,19 @@ class DebugSessionStore:
                 rewind=rewind,
                 question_ids=question_ids,
             )
+        if course_updates is not None:
+            # Publish the session this request saved, even if a later request replaces
+            # the cache entry before this turn's boundary reaches the adapter.
+            self._committed_variables = json.dumps(
+                {"variables": session.all_memory(), "course_updates": course_updates},
+                ensure_ascii=False,
+            )
+
+    def take_committed_variables(self) -> str | None:
+        """Consume this request's saved memory once, before its turn boundary."""
+        snapshot = self._committed_variables
+        self._committed_variables = None
+        return snapshot
 
     def _save(
         self,
@@ -462,6 +469,15 @@ def stream_debug_preview(
                     type="debug_variables",
                     event_type="debug_variables",
                     content=json.dumps(saved.all_memory(), ensure_ascii=False),
+                    is_terminal=False,
+                )
+        if message.type == "done":
+            committed = store.take_committed_variables()
+            if committed is not None:
+                yield RunElementSSEMessageDTO(
+                    type="debug_variables_committed",
+                    event_type="debug_variables_committed",
+                    content=committed,
                     is_terminal=False,
                 )
         yield message

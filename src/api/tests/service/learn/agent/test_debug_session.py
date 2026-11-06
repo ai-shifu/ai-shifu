@@ -440,6 +440,128 @@ def test_editor_debug_uses_the_existing_lesson_and_element_pipeline(
     assert isinstance(calls[0]["debug_store"], debug_session.DebugSessionStore)
 
 
+@pytest.mark.parametrize(
+    ("scope", "boundary"),
+    [
+        ("user", "finished"),
+        ("user", "interaction"),
+        ("user", "continue"),
+        ("session", "interaction"),
+        ("user", "failure"),
+    ],
+)
+def test_editor_debug_exports_only_committed_cross_lesson_memory(
+    app: object, monkeypatch: pytest.MonkeyPatch, scope: str, boundary: str
+) -> None:
+    """Exercise the named answer, model overwrite, saved session and wire boundary."""
+    from flaskr.service.learn.agent import lesson_entry, run_agent
+    from markdownflow.engine import Engine
+    from pydantic_ai.models.function import DeltaToolCall
+
+    from tests.service.learn.agent.test_lesson_entry_contracts import _entry_with_runner
+    from tests.service.learn.agent.test_memory_integration import _drive
+
+    label, topic = "Choose a topic for me", "Cache coherence"
+    script = f"?[ {{{{topic}}}} {label} | ...Enter a topic]\n%{{{{pace}}}}"
+    phase = 0
+
+    def call(name: str, **args: object) -> dict[int, DeltaToolCall]:
+        return {
+            0: DeltaToolCall(
+                name=name, tool_call_id=f"call-{phase}", json_args=json.dumps(args)
+            )
+        }
+
+    async def model(_messages: list, _info: object) -> object:
+        nonlocal phase
+        phase += 1
+        if phase == 1:
+            yield call(
+                "interact",
+                type="single_or_text",
+                variable="topic",
+                prompt="Which topic?",
+                options=[{"display": label}],
+            )
+        elif phase == 2:
+            yield call("remember", key="topic", value=topic, scope=scope)
+        elif phase == 3:
+            yield call("remember", key="pace", value="slow", scope="user")
+        elif phase == 4 and boundary == "interaction":
+            yield call("interact", type="text", prompt="What should we try next?")
+        elif phase == 4 and boundary == "continue":
+            yield "Let us look at cache coherence."
+        elif phase == 4 and boundary == "failure":
+            message = "Synthetic provider failure after remembering the topic"
+            raise RuntimeError(message)
+        else:
+            yield call("finish", summary="Topic selected")
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    _entry_with_runner(monkeypatch)
+    lesson_entry.CourseTrace.return_value.observe.side_effect = lambda events: events
+    monkeypatch.setattr(lesson_entry, "GatewayModel", Mock(return_value=Mock()))
+    engine = Engine(FunctionModel(stream_function=model), memory_admission=True)
+    monkeypatch.setattr(lesson_entry, "Engine", lambda *_a, **_kw: engine)
+    monkeypatch.setattr(
+        lesson_entry,
+        "run_agent_lesson",
+        lambda *args, **kwargs: run_agent.run_agent_lesson(
+            *args, **kwargs, iter_turn=_drive
+        ),
+    )
+
+    def debug(**kwargs: object) -> Iterator[RunElementSSEMessageDTO]:
+        return debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content=script, block_index=0, **kwargs
+            ),
+            user_bid="teacher",
+            shifu_bid="course",
+            outline_bid="lesson",
+            run_bid="one",
+        )
+
+    _request_messages(app, lambda: debug(variables={"pace": "fast"}))
+    seed = {"topic": label, "pace": "fast"}
+    if boundary == "failure":
+        seen = []
+        with app.test_request_context("/"), pytest.raises(AppError):
+            seen.extend(
+                message.type
+                for message in debug(user_input={"topic": [label]}, variables=seed)
+            )
+        assert "debug_variables_committed" not in seen
+        assert _store(app).load(script=script).all_memory()["topic"] == topic
+        return
+
+    messages = _request_messages(
+        app, lambda: debug(user_input={"topic": [label]}, variables=seed)
+    )
+    committed = [
+        (index, json.loads(message.content))
+        for index, message in enumerate(messages)
+        if message.type == "debug_variables_committed"
+    ]
+    assert len(committed) == (2 if boundary == "continue" else 1)
+    index, payload = committed[0]
+    assert messages[index + 1].type == "done"
+    assert messages[index + 1].is_terminal == (boundary == "finished")
+    assert (
+        payload["variables"] | {"topic": topic, "pace": "slow"} == payload["variables"]
+    )
+    assert payload["course_updates"] == {
+        "topic": topic if scope == "user" else label,
+        "pace": "slow",
+    }
+    saved = _store(app).load(script=script)
+    assert saved.all_memory() == committed[-1][1]["variables"]
+    assert saved.user_memory["pace"] == "slow"
+    if boundary == "continue":
+        assert committed[-1][1]["course_updates"] == {}
+
+
 def test_expired_debug_answer_does_not_start_a_new_lesson(
     app: object, monkeypatch: object
 ) -> None:

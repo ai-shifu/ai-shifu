@@ -1,4 +1,8 @@
 import { buildDebugContinuationParams } from './debug-request-params';
+import {
+  readStoredDebugVariableValues,
+  selectDebugVariableValues,
+} from './debug-variable-storage';
 import { createElement, StrictMode } from 'react';
 import {
   act,
@@ -530,6 +534,270 @@ describe('useDebugSession helpers and business error rendering', () => {
     expect(retry.reload_element_bid).toBeUndefined();
     expect(retry.reload_generated_block_bid).toBeUndefined();
     expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  describe('Debug variables across lessons', () => {
+    const shifuBid = 'course-with-saved-topic';
+    const variable = '示范知识点';
+    const choice = '按我的背景选一个知识点';
+    const topic = '对照实验';
+    const systemVariableKeys = ['sys_user_language'];
+
+    const emit = (source: MockSseSource, data: Record<string, unknown>) =>
+      source.listeners.message?.({ data: JSON.stringify(data) });
+
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    afterEach(() => {
+      window.localStorage.clear();
+      mockParseToRemarkFormat.mockReset();
+    });
+
+    test.each([true, false])(
+      'carries the saved topic into the next lesson when done is_terminal=%s',
+      async isTerminal => {
+        const sources = [
+          buildMockSseSource(),
+          buildMockSseSource(),
+          buildMockSseSource(),
+        ];
+        sources.forEach(source =>
+          (SSE as jest.Mock).mockReturnValueOnce(source),
+        );
+        mockParseToRemarkFormat.mockReturnValue({
+          variableName: variable,
+          buttonTexts: [choice],
+          buttonValues: [choice],
+        });
+        const onCourseVariablesCommitted = jest.fn();
+        const { result } = renderHook(() =>
+          useDebugSession({
+            creditInsufficientAudience: 'teacher',
+            onCourseVariablesCommitted,
+          }),
+        );
+        const initialValues = {
+          sys_user_language: 'zh-CN',
+          earlier: 'Keep me',
+        };
+        result.current.persistVariableValues({
+          shifuBid,
+          systemVariableKeys,
+          variableValues: initialValues,
+        });
+        const interaction =
+          '?[ {{示范知识点}} 按我的背景选一个知识点 | ...指定任意知识点]';
+        await act(async () =>
+          result.current.startRun({
+            shifuBid,
+            outlineBid: 'lesson-1',
+            mdflow: interaction,
+            variableValues: initialValues,
+            systemVariableKeys,
+          }),
+        );
+        act(() => {
+          emit(sources[0], { type: 'preview_engine', content: '2.0' });
+          emit(sources[0], {
+            type: 'element',
+            content: {
+              element_bid: 'question',
+              generated_block_bid: 'question-turn',
+              element_type: 'interaction',
+              content: interaction,
+            },
+          });
+          emit(sources[0], { type: 'done', is_terminal: true });
+        });
+
+        await act(async () =>
+          result.current.submitInteraction(
+            { variableName: variable, selectedValues: [choice] },
+            'question',
+          ),
+        );
+        const answerRequest = JSON.parse(
+          (SSE as jest.Mock).mock.calls[1][1].payload,
+        );
+        expect(answerRequest.user_input).toEqual({ [variable]: [choice] });
+        expect(readStoredDebugVariableValues(shifuBid).course[variable]).toBe(
+          choice,
+        );
+
+        const saved = {
+          [variable]: topic,
+          sys_user_language: 'en-US',
+          sessionNote: 'Only this lesson',
+          earlier: 'Keep me',
+        };
+        act(() => {
+          emit(sources[1], {
+            type: 'debug_variables_committed',
+            content: JSON.stringify({
+              variables: saved,
+              course_updates: { [variable]: topic },
+            }),
+          });
+          emit(sources[1], { type: 'done', is_terminal: isTerminal });
+          if (!isTerminal) {
+            sources[1].listeners.readystatechange?.({ readyState: 2 } as never);
+          }
+        });
+        expect(result.current.variableValues).toEqual(saved);
+        expect(onCourseVariablesCommitted).toHaveBeenCalledTimes(1);
+        expect(onCourseVariablesCommitted).toHaveBeenCalledWith({
+          [variable]: topic,
+        });
+        expect(readStoredDebugVariableValues(shifuBid)).toEqual({
+          course: { [variable]: topic, earlier: 'Keep me' },
+          system: { sys_user_language: 'zh-CN' },
+        });
+
+        act(() => result.current.resetSession());
+        const prepared = selectDebugVariableValues(
+          [variable, 'sessionNote', 'sys_user_language'],
+          readStoredDebugVariableValues(shifuBid),
+          systemVariableKeys,
+        );
+        await act(async () =>
+          result.current.startRun({
+            shifuBid,
+            outlineBid: 'lesson-2',
+            mdflow: '继续讲解 {{示范知识点}}',
+            variableValues: prepared,
+            systemVariableKeys,
+          }),
+        );
+        const [url, options] = (SSE as jest.Mock).mock.lastCall;
+        const next = JSON.parse(options.payload);
+        expect(url).toContain('/preview/lesson-2');
+        expect(next.debug_session_id).not.toBe(answerRequest.debug_session_id);
+        expect(next.variables).toEqual({
+          [variable]: topic,
+          sessionNote: '',
+          sys_user_language: 'zh-CN',
+        });
+      },
+    );
+
+    test('keeps a fresh question empty and session memory out of the next request', async () => {
+      const questionVariable = 'nextAnswer';
+      const sources = [buildMockSseSource(), buildMockSseSource()];
+      sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
+      mockParseToRemarkFormat.mockReturnValue({
+        variableName: questionVariable,
+      });
+      const { result } = renderHook(() =>
+        useDebugSession({ creditInsufficientAudience: 'teacher' }),
+      );
+      await act(async () =>
+        result.current.startRun({
+          shifuBid,
+          outlineBid: 'lesson-1',
+          mdflow: 'Continue with ?[{{nextAnswer}} ...Enter your answer]',
+          variableValues: {
+            [variable]: choice,
+            [questionVariable]: 'Old answer',
+            existing: 'Course value',
+          },
+        }),
+      );
+      act(() => {
+        emit(sources[0], {
+          type: 'element',
+          content: {
+            element_bid: 'new-question',
+            generated_block_bid: 'new-question-turn',
+            element_type: 'interaction',
+            content: '?[{{nextAnswer}} ...Enter your answer]',
+          },
+        });
+        emit(sources[0], {
+          type: 'debug_variables_committed',
+          content: JSON.stringify({
+            variables: {
+              [variable]: topic,
+              [questionVariable]: 'Old answer',
+              existing: 'Session override',
+              sessionNote: 'Only this lesson',
+            },
+            course_updates: { [variable]: topic },
+          }),
+        });
+        emit(sources[0], { type: 'done', is_terminal: false });
+        sources[0].listeners.readystatechange?.({ readyState: 2 } as never);
+      });
+
+      expect(result.current.variableValues).toEqual({
+        [variable]: topic,
+        existing: 'Session override',
+        sessionNote: 'Only this lesson',
+      });
+      expect(
+        result.current.items.find(item => item.element_bid === 'new-question')
+          ?.user_input,
+      ).toBe('');
+      await act(async () =>
+        result.current.submitInteraction(
+          { variableName: questionVariable, inputText: 'New answer' },
+          'new-question',
+        ),
+      );
+      const next = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(next.variables).toEqual({
+        [variable]: topic,
+        [questionVariable]: 'New answer',
+        existing: 'Course value',
+      });
+    });
+
+    test('does not cache a rewind snapshot or a late commit from a reset run', async () => {
+      const source = buildMockSseSource();
+      (SSE as jest.Mock).mockReturnValueOnce(source);
+      const onCourseVariablesCommitted = jest.fn();
+      const { result } = renderHook(() =>
+        useDebugSession({
+          creditInsufficientAudience: 'teacher',
+          onCourseVariablesCommitted,
+        }),
+      );
+      const saved = { [variable]: topic };
+      result.current.persistVariableValues({ shifuBid, variableValues: saved });
+      await act(async () =>
+        result.current.startRun({
+          shifuBid,
+          outlineBid: 'lesson-1',
+          mdflow: '继续讲解 {{示范知识点}}',
+          variableValues: saved,
+        }),
+      );
+
+      const checkpoint = { [variable]: choice };
+      act(() =>
+        emit(source, {
+          type: 'debug_variables',
+          content: JSON.stringify(checkpoint),
+        }),
+      );
+      expect(result.current.variableValues).toEqual(checkpoint);
+      expect(readStoredDebugVariableValues(shifuBid).course).toEqual(saved);
+
+      act(() => {
+        result.current.resetSession();
+        emit(source, {
+          type: 'debug_variables_committed',
+          content: JSON.stringify({
+            variables: checkpoint,
+            course_updates: checkpoint,
+          }),
+        });
+      });
+      expect(result.current.variableValues).toEqual({});
+      expect(readStoredDebugVariableValues(shifuBid).course).toEqual(saved);
+      expect(onCourseVariablesCommitted).not.toHaveBeenCalled();
+    });
   });
 
   describe('Debug answer editing', () => {

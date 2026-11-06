@@ -25,6 +25,7 @@ import { useEnvStore } from '@/store';
 import api from '@/api';
 import { useTracking } from '@/hooks/use-tracking';
 import { EnvStoreState } from '@/types/store';
+import type { DebugVariableValues } from '@/types/debug-session';
 import {
   buildUrlWithLessonId,
   replaceCurrentUrlWithLessonId,
@@ -193,6 +194,15 @@ const ScriptEditor = ({
     isCurrentUserCourseOwner: isCourseOwner,
   });
 
+  const debugVariableOverridesRef = useRef<DebugVariableValues>({});
+  const handleDebugCourseVariablesCommitted = useCallback(
+    (updates: DebugVariableValues) => {
+      for (const name of Object.keys(updates)) {
+        delete debugVariableOverridesRef.current[name];
+      }
+    },
+    [],
+  );
   const {
     items: debugItems,
     isLoading: debugLoading,
@@ -208,7 +218,20 @@ const ScriptEditor = ({
     variableValues: debugVariableValues,
     requestElementAudio: requestDebugElementAudio,
     regenerationConfirmation,
-  } = useDebugSession({ creditInsufficientAudience });
+  } = useDebugSession({
+    creditInsufficientAudience,
+    onCourseVariablesCommitted: handleDebugCourseVariablesCommitted,
+  });
+  const handleDebugVariableChange = useCallback(
+    (name: string, value: string) => {
+      debugVariableOverridesRef.current = {
+        ...debugVariableOverridesRef.current,
+        [name]: value,
+      };
+      setDebugVariableValue(name, value);
+    },
+    [setDebugVariableValue],
+  );
   const editorScopeKey = useMemo(
     () => `${currentShifu?.bid || ''}:${currentNode?.bid || ''}`,
     [currentNode?.bid, currentShifu?.bid],
@@ -717,12 +740,13 @@ const ScriptEditor = ({
   }, [resetDebugSession, stopDebugRun]);
 
   useEffect(() => {
+    debugVariableOverridesRef.current = {};
     if (!currentNode?.bid) {
       return;
     }
     stopDebugRun();
     resetDebugSession();
-  }, [currentNode?.bid, resetDebugSession, stopDebugRun]);
+  }, [currentNode?.bid, currentShifu?.bid, resetDebugSession, stopDebugRun]);
 
   const handleAddChapterClick = () => {
     if (currentShifu?.readonly) {
@@ -1070,8 +1094,9 @@ const ScriptEditor = ({
       }
       const debugRunVariableValues = {
         ...preparedVariableValues,
-        ...debugVariableValues,
+        ...debugVariableOverridesRef.current,
       };
+      debugVariableOverridesRef.current = {};
       persistDebugVariableValues({
         shifuBid: targetShifu,
         systemVariableKeys,
@@ -1913,7 +1938,7 @@ const ScriptEditor = ({
                     canRetryAnswerEdit ? retryDebugAnswerEdit : undefined
                   }
                   onSubmitInteraction={submitDebugInteraction}
-                  onVariableChange={setDebugVariableValue}
+                  onVariableChange={handleDebugVariableChange}
                   variableOrder={variableOrder}
                   systemVariableKeys={visibleSystemVariableKeys}
                   onRequestElementAudio={
