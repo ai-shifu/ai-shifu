@@ -117,6 +117,7 @@ export const useLearnerProfileDialogController = ({
     collection: 0,
   });
   const collectionCompletionRef = React.useRef(false);
+  const activeCollectionSessionIdRef = React.useRef('');
   const collectionShownAtRef = React.useRef<number | null>(null);
   const autoCollectionStartedRef = React.useRef(false);
   const deferSucceededRef = React.useRef(false);
@@ -223,6 +224,7 @@ export const useLearnerProfileDialogController = ({
     bumpEpoch('load');
     bumpEpoch('optimize');
     bumpEpoch('collection');
+    activeCollectionSessionIdRef.current = '';
   }, [bumpEpoch]);
 
   const isCurrent = React.useCallback((dialog: number, scope: string) => {
@@ -285,6 +287,7 @@ export const useLearnerProfileDialogController = ({
     ) => {
       const journey = bumpEpoch('collection');
       collectionCompletionRef.current = false;
+      activeCollectionSessionIdRef.current = '';
       collectionShownAtRef.current = Date.now();
       bumpEpoch('optimize');
       dispatch({
@@ -848,6 +851,7 @@ export const useLearnerProfileDialogController = ({
       if (
         collection !== requestEpochRef.current.collection ||
         !isCurrent(requestEpochRef.current.dialog, scopeRef.current) ||
+        result.completion.sessionId !== activeCollectionSessionIdRef.current ||
         collectionCompletionRef.current
       ) {
         return false;
@@ -881,13 +885,32 @@ export const useLearnerProfileDialogController = ({
   );
 
   const handleSessionStarted = React.useCallback((sessionId: string) => {
-    if (stateRef.current.collectionKey !== requestEpochRef.current.collection) {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) {
       return;
+    }
+    const previousSessionId = activeCollectionSessionIdRef.current;
+    activeCollectionSessionIdRef.current = sessionId;
+    if (previousSessionId && previousSessionId !== sessionId) {
+      collectionCompletionRef.current = false;
+      if (
+        current.collectionResult?.completion.sessionId === previousSessionId
+      ) {
+        dispatch({ type: 'patch', patch: { collectionResult: null } });
+        dispatch({
+          type: 'patch_form',
+          patch: {
+            profile: current.form.initialProfile,
+            nickname: current.form.initialNickname,
+          },
+        });
+      }
     }
     dispatch({
       type: 'patch',
       patch: {
         activeCollectionSessionId: sessionId,
+        collectionError: '',
         collectionStatus: 'running',
       },
     });

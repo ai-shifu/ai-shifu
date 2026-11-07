@@ -47,6 +47,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Generate and persist installation secret keys](./active/persistent-secret-key.md)
 - [PR-first product release workflow](./active/pr-first-release-workflow.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
+- [Restart Profile collection after rejected edits](./active/profile-edit-restart.md)
 - [Progressive HTML alongside typed lesson text](./active/progressive-html-typewriter.md)
 - [Define and align MarkdownFlow text variable names](./active/question-memory-key-compatibility.md)
 - [Hide extra interaction questions in reading mode](./active/reading-interaction-questions.md)
