@@ -228,17 +228,8 @@ class Classifier:
 
             self._state = _State.HTML_BLOCK
             self._html_tag = tag_name
-            self._html_depth = 1
-
-            # Check if close tag is on the same line
-            for cm in html_close_tag_re.finditer(line):
-                if cm.group(1).lower() == tag_name:
-                    self._html_depth -= 1
-                    self._html_depth = max(self._html_depth, 0)
-            if self._html_depth <= 0:
-                self._state = _State.TEXT
-                self._html_tag = ""
-                self._html_depth = 0
+            self._html_depth = 0
+            self._handle_html_block(line)
 
             return ClassifyResult(type=ElementType.HTML, is_append=is_append)
 
