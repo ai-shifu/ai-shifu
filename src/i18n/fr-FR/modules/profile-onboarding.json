@@ -49,7 +49,8 @@
       "title": "Configuration du guide de personnalisation non enregistrée"
     },
     "updatedAt": "Enregistré le",
-    "updatedBy": "Enregistré par"
+    "updatedBy": "Enregistré par",
+    "useDefaultPrompt": "Insérer la consigne par défaut"
   },
   "assistant": {
     "back": "Je préfère répondre moi-même",

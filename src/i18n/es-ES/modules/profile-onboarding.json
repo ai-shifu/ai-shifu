@@ -49,7 +49,8 @@
       "title": "Hay cambios sin guardar en la configuración de la personalización"
     },
     "updatedAt": "Fecha de guardado",
-    "updatedBy": "Guardado por"
+    "updatedBy": "Guardado por",
+    "useDefaultPrompt": "Insertar instrucciones predeterminadas"
   },
   "assistant": {
     "back": "Prefiero responder yo",

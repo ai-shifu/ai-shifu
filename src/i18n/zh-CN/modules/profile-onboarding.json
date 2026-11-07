@@ -49,7 +49,8 @@
       "title": "有未保存的个性化引导配置"
     },
     "updatedAt": "保存时间",
-    "updatedBy": "保存人"
+    "updatedBy": "保存人",
+    "useDefaultPrompt": "填入默认提示词"
   },
   "assistant": {
     "back": "还是自己答吧",

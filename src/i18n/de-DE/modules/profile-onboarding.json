@@ -49,7 +49,8 @@
       "title": "Nicht gespeicherte Änderungen an der Personalisierung"
     },
     "updatedAt": "Gespeichert am",
-    "updatedBy": "Gespeichert von"
+    "updatedBy": "Gespeichert von",
+    "useDefaultPrompt": "Standardprompt einfügen"
   },
   "assistant": {
     "back": "Ich antworte lieber selbst",

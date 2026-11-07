@@ -3224,6 +3224,7 @@ export type I18nKey =
   | 'module.profileOnboarding.admin.unsavedDialog.title'
   | 'module.profileOnboarding.admin.updatedAt'
   | 'module.profileOnboarding.admin.updatedBy'
+  | 'module.profileOnboarding.admin.useDefaultPrompt'
   | 'module.profileOnboarding.assistant.back'
   | 'module.profileOnboarding.assistant.copied'
   | 'module.profileOnboarding.assistant.copy'
