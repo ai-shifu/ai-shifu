@@ -37,11 +37,13 @@ table_row_re = re.compile(r"^\s*\|.*\|\s*$")
 # Standalone markdown image line: ![alt](url)
 image_line_re = re.compile(r"^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$")
 
-# HTML open tag name extraction (for nesting depth tracking)
+# HTML opening tag names for depth tracking. Skip complete self-closing tags,
+# allowing quoted attributes to contain `>` without ending the tag.
 html_open_tag_re = re.compile(
     r"(?i)<(div|style|script|iframe|section|article|header|footer|nav|main|aside|"
     r"figure|details|summary|form|table|canvas|video|audio|pre|blockquote|ul|ol|dl|"
-    r"fieldset|address|hgroup|center)[\s>/]"
+    r"fieldset|address|hgroup|center)(?=[\s>/])"
+    r"""(?!(?:[^<>"']|"[^"]*"|'[^']*')*/>)"""
 )
 # HTML close tag name extraction (for nesting depth tracking)
 html_close_tag_re = re.compile(
