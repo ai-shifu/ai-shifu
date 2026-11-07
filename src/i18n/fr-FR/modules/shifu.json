@@ -27,7 +27,7 @@
     "close": "Réduire la simulation d’apprentissage",
     "copied": "Extrait copié",
     "copy": "Copier l’extrait",
-    "copyTooltip": "Collez l’extrait dans les prompts pédagogiques pour l’afficher tel quel à cet endroit de la leçon",
+    "copyTooltip": "Collez l’extrait à l’endroit voulu dans les prompts pédagogiques. Il s’affichera tel quel pendant la leçon",
     "description": "Découvrez l’expérience apprenant et voyez comment les prompts personnalisent les cours",
     "disabled": "Sélectionnez une leçon avant de déboguer.",
     "empty": "Saisissez les prompts pédagogiques à gauche, puis cliquez sur « Déboguer » pour tester la simulation d’apprentissage",
