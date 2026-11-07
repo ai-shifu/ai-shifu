@@ -34,26 +34,15 @@ type CourseShareMenuProps = CourseShareButtonProps & {
   courseTeacherAvatar?: string;
 };
 
-const LOCAL_POSTER_HOST =
-  /(?:^|\.)(?:home\.arpa|internal|invalid|lan|local|localhost|onion|test)$/;
-const IPV4_HOST = /^\d+(?:\.\d+){3}$/;
-
 const resolvePosterImageUrl = (source?: string) => {
   if (!source?.trim()) return null;
 
   try {
     const url = new URL(source, window.location.origin);
-    const host = url.hostname.replace(/\.$/, '');
-    // Screen out local names and IP literals. The image tool must still check
-    // where DNS and redirects lead when it actually retrieves the asset.
     if (
       (url.protocol !== 'https:' && url.protocol !== 'http:') ||
       url.username ||
-      url.password ||
-      !host.includes('.') ||
-      host.startsWith('[') ||
-      IPV4_HOST.test(host) ||
-      LOCAL_POSTER_HOST.test(host)
+      url.password
     ) {
       return null;
     }

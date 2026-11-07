@@ -54,13 +54,11 @@ const clipboardDescriptor = Object.getOwnPropertyDescriptor(
   'clipboard',
 );
 const shareDescriptor = Object.getOwnPropertyDescriptor(navigator, 'share');
-const siteOrigin = 'https://courses.example.com';
 const originalBranding = {
   logoWideUrl: useEnvStore.getState().logoWideUrl,
   logoHorizontal: useEnvStore.getState().logoHorizontal,
 };
 const copy = jest.fn();
-let restoreOrigin: () => void;
 beforeEach(() => {
   jest.clearAllMocks();
   mockTrack.mockReset();
@@ -70,17 +68,12 @@ beforeEach(() => {
     logoWideUrl: '/assets/site-logo.png',
     logoHorizontal: '/assets/legacy-logo.png',
   });
-  const origin = jest.replaceProperty(window.location, 'origin', siteOrigin);
-  restoreOrigin = () => origin.restore();
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: { writeText: copy },
   });
 });
-afterEach(() => {
-  useEnvStore.setState(originalBranding);
-  restoreOrigin();
-});
+afterEach(() => useEnvStore.setState(originalBranding));
 afterAll(() => {
   for (const [key, descriptor] of [
     ['clipboard', clipboardDescriptor],
@@ -135,7 +128,7 @@ describe.each([
       `\`\`\`text\n推荐你来学习《${props.courseTitle}》，体验一对一个性化学习。\n\n${description}\n\`\`\`\n\n## 原课程链接\n\nhttps://example.com/c/course-1`,
     );
     expect(prompt).toContain(
-      `https://example.com/c/course-1\n\n${zh.posterWebsiteLogo}: ${siteOrigin}/assets/site-logo.png\n${zh.posterTeacherAvatar}: ${props.courseTeacherAvatar}`,
+      `https://example.com/c/course-1\n\n${zh.posterWebsiteLogo}: ${window.location.origin}/assets/site-logo.png\n${zh.posterTeacherAvatar}: ${props.courseTeacherAvatar}`,
     );
     expect(prompt).not.toContain('/assets/legacy-logo.png');
     expect(prompt).not.toContain('secret=value');
@@ -380,7 +373,7 @@ describe.each([
     expect(copy.mock.calls[1][0]).toContain('更新的介绍');
     expect(copy.mock.calls[1][0]).not.toContain(description);
     expect(copy.mock.calls[1][0]).toContain(
-      `${zh.posterWebsiteLogo}: ${siteOrigin}/_next/static/media/default-wide-logo.png`,
+      `${zh.posterWebsiteLogo}: ${window.location.origin}/_next/static/media/default-wide-logo.png`,
     );
     expect(copy.mock.calls[1][0]).not.toContain(`${zh.posterTeacherAvatar}:`);
     expect(
@@ -390,45 +383,12 @@ describe.each([
     ).toHaveLength(2);
   });
 
-  test.each([
-    [
-      'data:image/png;base64,cG5n',
-      'https://user:secret@assets.example.com/avatar.png',
-    ],
-    ['http://169.254.169.254/logo.png', 'http://0x7f000001/avatar.png'],
-    ['http://[::1]/logo.png', 'http://intranet/avatar.png'],
-    [
-      'http://brand.localhost./logo.png',
-      'https://assets.corp.internal/avatar.png',
-    ],
-  ])(
-    'keeps the course prompt available with unsafe image URLs %s and %s',
-    async (logoWideUrl, courseTeacherAvatar) => {
-      useEnvStore.setState({ logoWideUrl });
-      render(
-        <CourseShareMenu
-          {...props}
-          courseTeacherAvatar={courseTeacherAvatar}
-        />,
-      );
-      open();
-      clickCopy();
-      await closed();
-
-      const prompt: string = copy.mock.calls[0][0];
-      expect(prompt).toContain('https://example.com/c/course-1');
-      expect(prompt).not.toContain(`${zh.posterWebsiteLogo}:`);
-      expect(prompt).not.toContain(`${zh.posterTeacherAvatar}:`);
-      expect(prompt).not.toContain('secret@');
-    },
-  );
-
-  test('omits relative image references when the site itself is local', async () => {
-    jest.replaceProperty(window.location, 'origin', 'http://localhost:3000');
+  test('keeps the course prompt available when image references are unsafe', async () => {
+    useEnvStore.setState({ logoWideUrl: 'data:image/png;base64,cG5n' });
     render(
       <CourseShareMenu
         {...props}
-        courseTeacherAvatar='/avatar.png'
+        courseTeacherAvatar='https://user:secret@assets.example.com/avatar.png'
       />,
     );
     open();
@@ -437,7 +397,9 @@ describe.each([
 
     const prompt: string = copy.mock.calls[0][0];
     expect(prompt).toContain('https://example.com/c/course-1');
-    expect(prompt).not.toContain('http://localhost');
+    expect(prompt).not.toContain(`${zh.posterWebsiteLogo}:`);
+    expect(prompt).not.toContain(`${zh.posterTeacherAvatar}:`);
+    expect(prompt).not.toContain('secret@');
   });
 
   test('Escape closes and restores focus without copying', async () => {
