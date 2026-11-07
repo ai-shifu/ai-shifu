@@ -142,6 +142,9 @@ def validate_locale_files(locale_dirs: Iterable[Path]) -> None:
     for namespace in sorted(reference_files):
         ref_map = flattened_per_locale[reference_locale][namespace]
         for key in sorted(ref_map.keys()):
+            # This raw MarkdownFlow document uses locale-specific binding names.
+            if key == "modules.profile-onboarding.admin.defaultMarkdownflow":
+                continue
             ref_placeholders = extract_placeholders(ref_map[key])
             for locale in locales[1:]:
                 locale_map = flattened_per_locale[locale].get(namespace)
