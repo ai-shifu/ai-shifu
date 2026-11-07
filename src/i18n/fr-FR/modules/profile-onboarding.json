@@ -29,7 +29,7 @@
     "preview": "Prévisualiser les questions interactives",
     "previewDraft": "Aperçu du parcours et des préférences",
     "previewFailed": "Échec de l’aperçu. Vérifiez le questionnaire interactif et réessayez.",
-    "previewProfileNotice": "L’aperçu utilise le questionnaire interactif actuel non enregistré et ne lit ni ne modifie vos Paramètres de personnalisation.",
+    "previewProfileNotice": "L’aperçu utilise le brouillon du questionnaire interactif tel qu’il était au démarrage de l’aperçu. Si vous modifiez le document ou insérez la consigne par défaut, sélectionnez « Recommencer l’aperçu » pour voir les changements. L’aperçu ne lit ni ne modifie vos Paramètres de personnalisation.",
     "promptRequiresDocument": "Ajoutez un questionnaire interactif avant d’enregistrer une consigne de réponse de mon IA. Pour effacer la configuration, effacez les deux champs.",
     "publishState": "Version actuellement enregistrée",
     "regenerateAssistantPrompt": "Régénérer la consigne de réponse de mon IA",

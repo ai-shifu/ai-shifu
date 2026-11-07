@@ -29,7 +29,7 @@
     "preview": "Preview interactive questions",
     "previewDraft": "Background and preferences from this preview",
     "previewFailed": "Preview failed. Check the interactive question flow and try again.",
-    "previewProfileNotice": "The preview uses the current unsaved interactive question flow and does not read or change your Personalization settings.",
+    "previewProfileNotice": "The preview uses the draft of the interactive question flow as it was when you started the preview. If you edit the document or insert the default prompt, select “Restart preview” to see the changes. The preview does not read or change your Personalization settings.",
     "promptRequiresDocument": "Add an interactive question flow before saving a My AI answer prompt. To clear the configuration, clear both fields.",
     "publishState": "Currently saved version",
     "regenerateAssistantPrompt": "Regenerate My AI answer prompt",

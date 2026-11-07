@@ -1581,7 +1581,7 @@ describe('ProfileOnboardingAdminPage', () => {
     anchor.remove();
   });
 
-  test('creates an isolated preview from the current unsaved document', async () => {
+  test('previews the unsaved document and uses the inserted default on restart', async () => {
     const editor = await renderLoadedPage();
     fireEvent.change(editor, {
       target: { value: '?[%{{unsaved_topic}}...未保存的问题？]' },
@@ -1613,6 +1613,29 @@ describe('ProfileOnboardingAdminPage', () => {
       }),
     );
     expect(await screen.findByDisplayValue('预览个人介绍')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: USE_DEFAULT_PROMPT_LABEL }),
+    );
+    expect(editor).toHaveValue(mockDefaultDocument);
+    expect(screen.getByDisplayValue('预览个人介绍')).toBeInTheDocument();
+    expect(mockCreatePreview).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.restartPreview',
+      }),
+    );
+    expect(screen.queryByDisplayValue('预览个人介绍')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: RUN_MOCKED_PREVIEW_LABEL }),
+    );
+    await waitFor(() =>
+      expect(mockCreatePreview).toHaveBeenNthCalledWith(2, {
+        markdownflow: mockDefaultDocument,
+        language: 'zh-CN',
+      }),
+    );
     expect(mockUpdateConfig).not.toHaveBeenCalled();
     expect(mockGeneratePrompt).not.toHaveBeenCalled();
   });

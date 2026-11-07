@@ -29,7 +29,7 @@
     "preview": "Vista previa de las preguntas interactivas",
     "previewDraft": "Vista previa de la trayectoria y las preferencias",
     "previewFailed": "No se ha podido mostrar la vista previa. Revisa las preguntas interactivas e inténtalo de nuevo.",
-    "previewProfileNotice": "La vista previa utiliza el documento de preguntas interactivas actual, aunque no esté guardado. No lee ni modifica tus ajustes de personalización.",
+    "previewProfileNotice": "La vista previa utiliza el borrador del documento de preguntas interactivas tal como estaba al iniciarla. Si editas el documento o insertas la instrucción predeterminada, selecciona «Reiniciar vista previa» para ver los cambios. La vista previa no lee ni modifica tus ajustes de personalización.",
     "promptRequiresDocument": "Escribe las preguntas interactivas antes de guardar las instrucciones para la IA. Si quieres borrar la configuración, borra ambos campos.",
     "publishState": "Versión guardada actualmente",
     "regenerateAssistantPrompt": "Volver a generar las instrucciones para la IA",

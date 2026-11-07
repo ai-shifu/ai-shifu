@@ -16,6 +16,10 @@ prompt stays in the draft. The editor shows its existing document-change notice
 if that prompt was prepared for a different questionnaire. Changes take effect
 when the operator saves the configuration.
 
+An open preview uses the questionnaire draft from the start of that session.
+After editing the document or inserting the default, use **Restart preview**
+to preview the updated draft.
+
 ### Default prompt analytics
 
 This follows the [frontend product analytics contract](../references/frontend-product-analytics.md).
