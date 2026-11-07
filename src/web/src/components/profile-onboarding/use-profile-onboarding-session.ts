@@ -15,16 +15,22 @@ import {
   resolveProfileRunState,
   resolveProfileOnboardingElement,
   resolveProfileOnboardingSubmission,
+  resolveProfileRewindTarget,
   resolveRuntimeErrorCode,
   resolveRunDone,
   SESSION_NOT_FOUND_RUNTIME_ERROR_CODE,
+  upsertConversationItem,
 } from './profile-onboarding-conversation-model';
 import type {
   ProfileOnboardingRunSession,
   ProfileOnboardingAssistantAnswers,
   ProfileOnboardingSessionInfo,
+  ProfileOnboardingConversationItem,
 } from './profile-onboarding-conversation-model';
-import type { ProfileAssistantFailureCategory } from './profile-onboarding-analytics';
+import type {
+  ProfileAnswerEditOutcome,
+  ProfileAssistantFailureCategory,
+} from './profile-onboarding-analytics';
 
 type StreamHandle = { close?: () => void };
 
@@ -35,6 +41,13 @@ type ProfileOnboardingRunRequest = {
   userInput?: Record<string, string[]>;
   displayInput?: string;
   rawText?: string;
+  rewind?: boolean;
+};
+
+type ProfileAnswerEdit = {
+  interactionId: string;
+  userInput: Record<string, string[]>;
+  displayInput: string;
 };
 
 type PendingAssistantRequest = { rawText: string; requestId: string };
@@ -67,6 +80,10 @@ type UseProfileOnboardingSessionParams = {
   onError: (error: unknown) => void;
   onSessionCreateRejected?: (error: unknown) => void;
   onRetry?: () => void;
+  onRewindAccepted?: () => void;
+  onRewindRejected?: (error: unknown) => void;
+  onRewindRestart?: () => void;
+  onRewindAnalytics?: (outcome: ProfileAnswerEditOutcome) => void;
   onAssistantAttempt?: () => void;
   onAssistantResult?: (
     outcome: 'success' | 'failed',
@@ -87,6 +104,10 @@ export const useProfileOnboardingSession = ({
   onError,
   onSessionCreateRejected,
   onRetry,
+  onRewindAccepted,
+  onRewindRejected,
+  onRewindRestart,
+  onRewindAnalytics,
   onAssistantAttempt,
   onAssistantResult,
 }: UseProfileOnboardingSessionParams) => {
@@ -95,6 +116,17 @@ export const useProfileOnboardingSession = ({
     initialProfileOnboardingConversationState,
   );
   const [assistantPrompt, setAssistantPrompt] = React.useState('');
+  const [rewindableInteractionIds, setRewindableInteractionIds] =
+    React.useState<ReadonlySet<string>>(() => new Set());
+  const rewindableIdsRef = React.useRef(rewindableInteractionIds);
+  rewindableIdsRef.current = rewindableInteractionIds;
+  const [pendingAnswerEdit, setPendingAnswerEdit] =
+    React.useState<ProfileAnswerEdit | null>(null);
+  const editBufferRef = React.useRef<{
+    acknowledged: boolean;
+    items: ProfileOnboardingConversationItem[];
+  } | null>(null);
+  const editAttemptRef = React.useRef(false);
   const [pendingAssistantRequest, setPendingAssistantRequest] =
     React.useState<PendingAssistantRequest | null>(null);
   const pendingAssistantRequestRef =
@@ -133,9 +165,11 @@ export const useProfileOnboardingSession = ({
       userInput?: Record<string, string[]>,
       expectedInteractionId?: string,
       displayInput?: string,
+      rewind?: boolean,
     ) => void
   >(() => {});
   const flushAssistantRequestRef = React.useRef<() => void>(() => {});
+  const startSessionRef = React.useRef<() => void>(() => {});
   const createSessionRef = React.useRef(createSession);
   const runSessionRef = React.useRef(runSession);
   const onSessionStartedRef = React.useRef(onSessionStarted);
@@ -144,6 +178,10 @@ export const useProfileOnboardingSession = ({
   const onErrorRef = React.useRef(onError);
   const onSessionCreateRejectedRef = React.useRef(onSessionCreateRejected);
   const onRetryRef = React.useRef(onRetry);
+  const onRewindAcceptedRef = React.useRef(onRewindAccepted);
+  const onRewindRejectedRef = React.useRef(onRewindRejected);
+  const onRewindRestartRef = React.useRef(onRewindRestart);
+  const onRewindAnalyticsRef = React.useRef(onRewindAnalytics);
   const onAssistantAttemptRef = React.useRef(onAssistantAttempt);
   const onAssistantResultRef = React.useRef(onAssistantResult);
   const disabledRef = React.useRef(disabled);
@@ -157,6 +195,10 @@ export const useProfileOnboardingSession = ({
   onErrorRef.current = onError;
   onSessionCreateRejectedRef.current = onSessionCreateRejected;
   onRetryRef.current = onRetry;
+  onRewindAcceptedRef.current = onRewindAccepted;
+  onRewindRejectedRef.current = onRewindRejected;
+  onRewindRestartRef.current = onRewindRestart;
+  onRewindAnalyticsRef.current = onRewindAnalytics;
   onAssistantAttemptRef.current = onAssistantAttempt;
   onAssistantResultRef.current = onAssistantResult;
   disabledRef.current = disabled;
@@ -201,6 +243,17 @@ export const useProfileOnboardingSession = ({
     [],
   );
 
+  const reportEditOutcome = React.useCallback(
+    (outcome: ProfileAnswerEditOutcome) => {
+      if (outcome !== 'attempt' && !editAttemptRef.current) return;
+      editAttemptRef.current = outcome === 'attempt';
+      try {
+        onRewindAnalyticsRef.current?.(outcome);
+      } catch {}
+    },
+    [],
+  );
+
   const handleStreamError = React.useCallback(() => {
     if (streamCompletedRef.current || !mountedRef.current) {
       return;
@@ -211,12 +264,36 @@ export const useProfileOnboardingSession = ({
     stopStream();
     setRunInFlight(false);
     setRunningOperation(null);
+    editBufferRef.current = null;
+    reportEditOutcome('failed');
     dispatch({ type: 'fail', retryable: true });
     if (lastRunRequestRef.current?.rawText !== undefined) {
       reportAssistantResult('failed', 'stream_failed');
     }
     onErrorRef.current(new Error(messagesRef.current.retryableError));
-  }, [reportAssistantResult, setRunInFlight, stopStream]);
+  }, [reportAssistantResult, reportEditOutcome, setRunInFlight, stopStream]);
+
+  const resumeSettledWork = React.useCallback(
+    (settledAttempt = runAttemptRef.current) => {
+      if (
+        !mountedRef.current ||
+        disabledRef.current ||
+        settledAttempt !== runAttemptRef.current ||
+        !streamCompletedRef.current ||
+        runtimeFailedRef.current ||
+        uncertainRequestRef.current ||
+        sessionDoneRef.current
+      )
+        return;
+      // A clicked import uses the first confirmed native session turn.
+      if (pendingAssistantRequestRef.current) {
+        flushAssistantRequestRef.current();
+      } else if (!awaitingInteractionRef.current) {
+        runNextRef.current();
+      }
+    },
+    [],
+  );
 
   const handleEvent = React.useCallback(
     (event: ProfileOnboardingStreamEvent) => {
@@ -228,6 +305,14 @@ export const useProfileOnboardingSession = ({
         return;
       }
       const type = event.event_type || event.type || '';
+      const submittedRequest = lastRunRequestRef.current;
+      const editBuffer = editBufferRef.current;
+      if (editBuffer && type === 'rewind') {
+        editBuffer.acknowledged =
+          resolveProfileRewindTarget(event) ===
+          submittedRequest?.expectedInteractionId;
+        return;
+      }
       if (isProfileSummaryPhase(event)) {
         setRunningOperation(
           lastRunRequestRef.current?.rawText !== undefined
@@ -237,15 +322,34 @@ export const useProfileOnboardingSession = ({
       }
       const element = resolveProfileOnboardingElement(event);
       if (element && lastRunRequestRef.current?.rawText === undefined) {
-        if (element.interaction) {
-          awaitingInteractionRef.current = true;
-          activeInteractionIdRef.current =
-            element.interactionId || element.elementBid;
+        if (editBuffer) {
+          editBuffer.items = upsertConversationItem(editBuffer.items, element);
+        } else {
+          if (element.interaction) {
+            awaitingInteractionRef.current = true;
+            activeInteractionIdRef.current =
+              element.interactionId || element.elementBid;
+          }
+          dispatch({ type: 'receive_item', item: element });
         }
-        dispatch({ type: 'receive_item', item: element });
       }
       if (type === 'error') {
         const runtimeErrorCode = resolveRuntimeErrorCode(event.content);
+        if (
+          submittedRequest?.rewind === true &&
+          runtimeErrorCode === 'transient_markdownflow_invalid'
+        ) {
+          ++runAttemptRef.current;
+          runtimeFailedRef.current = true;
+          streamCompletedRef.current = true;
+          stopStream();
+          reportEditOutcome('failed');
+          try {
+            onRewindRestartRef.current?.();
+          } catch {}
+          startSessionRef.current();
+          return;
+        }
         uncertainRequestRef.current =
           runtimeErrorCode === 'transient_markdownflow_session_busy';
         // Import validation runs on temporary session state, so the learner
@@ -262,6 +366,8 @@ export const useProfileOnboardingSession = ({
         stopStream();
         setRunInFlight(false);
         setRunningOperation(null);
+        editBufferRef.current = null;
+        reportEditOutcome('failed');
         if (!retryable || requiresFreshSession) holdAssistantRequest(null);
         dispatch({ type: 'fail', retryable });
         if (lastRunRequestRef.current?.rawText !== undefined) {
@@ -293,8 +399,25 @@ export const useProfileOnboardingSession = ({
 
       uncertainRequestRef.current = false;
       const runState = resolveProfileRunState(event);
-      const submittedRequest = lastRunRequestRef.current;
+      if (editBuffer && runState.inputAccepted) {
+        if (
+          !editBuffer.acknowledged ||
+          !submittedRequest?.expectedInteractionId ||
+          submittedRequest.displayInput === undefined
+        ) {
+          handleStreamError();
+          return;
+        }
+        dispatch({
+          type: 'accept_edit',
+          interactionId: submittedRequest.expectedInteractionId,
+          userInput: submittedRequest.displayInput,
+          replacement: editBuffer.items,
+        });
+        onRewindAcceptedRef.current?.();
+      }
       if (
+        !editBuffer &&
         runState.inputAccepted &&
         submittedRequest?.displayInput !== undefined
       ) {
@@ -313,6 +436,9 @@ export const useProfileOnboardingSession = ({
         awaitingInteractionRef.current = runState.awaitingInput;
         if (!runState.awaitingInput) activeInteractionIdRef.current = null;
       }
+      setRewindableInteractionIds(
+        new Set(runState.rewindableInteractionIds ?? []),
+      );
       const nextTurnIndex = resolveNextTurnIndex(event);
       if (nextTurnIndex !== null) {
         turnIndexRef.current = nextTurnIndex;
@@ -321,10 +447,27 @@ export const useProfileOnboardingSession = ({
       stopStream();
       setRunInFlight(false);
       setRunningOperation(null);
+      editBufferRef.current = null;
+      if (editBuffer) {
+        reportEditOutcome(runState.inputAccepted ? 'success' : 'failed');
+        if (!runState.inputAccepted) {
+          dispatch({
+            type: 'restore_rejected_edit',
+            completed: sessionDoneRef.current,
+            interactionId: activeInteractionIdRef.current,
+          });
+          const reportRejection =
+            onRewindRejectedRef.current ?? onErrorRef.current;
+          reportRejection(new Error(messagesRef.current.streamError));
+          const settledAttempt = runAttemptRef.current;
+          queueMicrotask(() => resumeSettledWork(settledAttempt));
+          return;
+        }
+      }
       const draft = resolveProfileDraftFromRunEvent(event);
       const nickname = resolveProfileNicknameFromRunEvent(event);
-      if (resolveRunDone(event)) {
-        sessionDoneRef.current = true;
+      sessionDoneRef.current = resolveRunDone(event);
+      if (sessionDoneRef.current) {
         holdAssistantRequest(null);
         const assistantResult =
           lastRunRequestRef.current?.rawText !== undefined;
@@ -374,23 +517,17 @@ export const useProfileOnboardingSession = ({
         });
       }
       const settledAttempt = runAttemptRef.current;
-      queueMicrotask(() => {
-        if (
-          !mountedRef.current ||
-          settledAttempt !== runAttemptRef.current ||
-          !streamCompletedRef.current ||
-          runtimeFailedRef.current
-        )
-          return;
-        // A clicked import uses the first confirmed native session turn.
-        if (pendingAssistantRequestRef.current) {
-          flushAssistantRequestRef.current();
-        } else if (!awaitingInteractionRef.current) {
-          runNextRef.current();
-        }
-      });
+      queueMicrotask(() => resumeSettledWork(settledAttempt));
     },
-    [holdAssistantRequest, reportAssistantResult, setRunInFlight, stopStream],
+    [
+      handleStreamError,
+      holdAssistantRequest,
+      reportAssistantResult,
+      reportEditOutcome,
+      resumeSettledWork,
+      setRunInFlight,
+      stopStream,
+    ],
   );
 
   const runRequest = React.useCallback(
@@ -412,6 +549,9 @@ export const useProfileOnboardingSession = ({
           activeInteractionIdRef.current;
       }
       lastRunRequestRef.current = request;
+      editBufferRef.current = request.rewind
+        ? { acknowledged: false, items: [] }
+        : null;
       streamCompletedRef.current = false;
       runtimeFailedRef.current = false;
       awaitingInteractionRef.current = false;
@@ -420,7 +560,8 @@ export const useProfileOnboardingSession = ({
       setRunningOperation(
         request.rawText !== undefined ? 'assistant' : 'questions',
       );
-      dispatch({ type: 'start_run' });
+      dispatch({ type: 'start_run', rewind: request.rewind });
+      if (request.rewind) reportEditOutcome('attempt');
       if (request.rawText !== undefined) {
         reportAssistantAttempt();
       }
@@ -450,6 +591,7 @@ export const useProfileOnboardingSession = ({
             : runSessionRef.current({
                 ...callbacks,
                 userInput: request.userInput,
+                ...(request.rewind ? { rewind: true } : {}),
                 ...(request.expectedInteractionId !== undefined
                   ? { expectedInteractionId: request.expectedInteractionId }
                   : {}),
@@ -470,6 +612,7 @@ export const useProfileOnboardingSession = ({
       handleEvent,
       handleStreamError,
       reportAssistantAttempt,
+      reportEditOutcome,
       setRunInFlight,
       stopStream,
     ],
@@ -499,12 +642,14 @@ export const useProfileOnboardingSession = ({
       userInput?: Record<string, string[]>,
       expectedInteractionId?: string,
       displayInput?: string,
+      rewind?: boolean,
     ) => {
       runRequest({
         expectedTurnIndex: turnIndexRef.current,
         requestId: `profile-onboarding-run-${++requestSequenceRef.current}`,
         userInput,
         displayInput,
+        rewind,
         ...(expectedInteractionId !== undefined
           ? { expectedInteractionId }
           : {}),
@@ -519,6 +664,10 @@ export const useProfileOnboardingSession = ({
     ++runAttemptRef.current;
     stopStream();
     setRunInFlight(false);
+    reportEditOutcome('cancelled');
+    editBufferRef.current = null;
+    setPendingAnswerEdit(null);
+    setRewindableInteractionIds(new Set());
     dispatch({ type: 'start_session' });
     sessionIdRef.current = '';
     setAssistantPrompt('');
@@ -571,11 +720,12 @@ export const useProfileOnboardingSession = ({
           retryable ? new Error(messagesRef.current.streamError) : error,
         );
       });
-  }, [holdAssistantRequest, setRunInFlight, stopStream]);
+  }, [holdAssistantRequest, reportEditOutcome, setRunInFlight, stopStream]);
+  startSessionRef.current = startSession;
 
   React.useEffect(() => {
-    if (!disabled) flushAssistantRequest();
-  }, [disabled, flushAssistantRequest]);
+    if (!disabled) resumeSettledWork();
+  }, [disabled, resumeSettledWork]);
 
   React.useEffect(() => {
     if (disabled || !initialRunPendingRef.current || !sessionIdRef.current) {
@@ -599,9 +749,16 @@ export const useProfileOnboardingSession = ({
       pendingAssistantRequestRef.current = null;
       invalidatePendingAttempts();
       stopStream();
+      reportEditOutcome('cancelled');
       setRunInFlight(false);
     };
-  }, [invalidatePendingAttempts, setRunInFlight, startSession, stopStream]);
+  }, [
+    invalidatePendingAttempts,
+    reportEditOutcome,
+    setRunInFlight,
+    startSession,
+    stopStream,
+  ]);
 
   const send = React.useCallback(
     (content: OnSendContentParams, expectedInteractionId?: string) => {
@@ -610,7 +767,7 @@ export const useProfileOnboardingSession = ({
         !streamCompletedRef.current ||
         runInFlightRef.current ||
         pendingAssistantRequestRef.current ||
-        statusRef.current !== 'awaiting_input'
+        !['awaiting_input', 'completed'].includes(statusRef.current)
       ) {
         return;
       }
@@ -627,8 +784,21 @@ export const useProfileOnboardingSession = ({
       const interactionId =
         expectedInteractionId ?? activeInteractionIdRef.current;
       if (
-        activeInteractionIdRef.current &&
-        interactionId !== activeInteractionIdRef.current
+        interactionId &&
+        interactionId !== activeInteractionIdRef.current &&
+        rewindableIdsRef.current.has(interactionId)
+      ) {
+        setPendingAnswerEdit({
+          interactionId,
+          userInput: { [variableName]: values },
+          displayInput: userInput,
+        });
+        return;
+      }
+      if (
+        statusRef.current !== 'awaiting_input' ||
+        (activeInteractionIdRef.current &&
+          interactionId !== activeInteractionIdRef.current)
       )
         return;
       runNextRef.current(
@@ -639,6 +809,27 @@ export const useProfileOnboardingSession = ({
     },
     [],
   );
+
+  const confirmAnswerEdit = React.useCallback(() => {
+    setPendingAnswerEdit(null);
+    if (
+      !pendingAnswerEdit ||
+      disabledRef.current ||
+      runInFlightRef.current ||
+      pendingAssistantRequestRef.current
+    )
+      return;
+    runNextRef.current(
+      pendingAnswerEdit.userInput,
+      pendingAnswerEdit.interactionId,
+      pendingAnswerEdit.displayInput,
+      true,
+    );
+  }, [pendingAnswerEdit]);
+
+  const cancelAnswerEdit = React.useCallback(() => {
+    setPendingAnswerEdit(null);
+  }, []);
 
   const retry = React.useCallback(() => {
     const lastRunRequest = lastRunRequestRef.current;
@@ -747,6 +938,13 @@ export const useProfileOnboardingSession = ({
       uncertainRequestRef.current || pendingAssistantRequest !== null,
     loading,
     runInFlight,
+    summaryProcessing: runningOperation === 'summary',
+    rewindableInteractionIds,
+    reGenerateConfirm: {
+      open: pendingAnswerEdit !== null,
+      onCancel: cancelAnswerEdit,
+      onConfirm: confirmAnswerEdit,
+    },
     assistantProcessing:
       runningOperation === 'assistant' ||
       (pendingAssistantRequest !== null && state.status !== 'retryable_error'),

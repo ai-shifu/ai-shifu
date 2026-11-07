@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 from collections.abc import Generator, Mapping
 from dataclasses import dataclass, field
@@ -206,6 +205,8 @@ class _ProfileResearchSession:
     last_events: list[dict[str, Any]] = field(default_factory=list)
     # The complete questionnaire owns one native session for its entire lifetime.
     engine_session: dict[str, Any] | None = None
+    # Ordered by acceptance. Each checkpoint precedes its question's answer.
+    answer_checkpoints: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def to_cache_payload(self) -> dict[str, Any]:
         return {
@@ -233,6 +234,7 @@ class _ProfileResearchSession:
             "last_user_input": self.last_user_input,
             "last_events": self.last_events,
             "engine_session": self.engine_session,
+            "answer_checkpoints": self.answer_checkpoints,
         }
 
     @classmethod
@@ -264,6 +266,13 @@ class _ProfileResearchSession:
             if engine_session is not None and not isinstance(engine_session, dict):
                 msg = "invalid engine session"
                 raise ProfileResearchSessionNotFound(msg)
+            answer_checkpoints = payload.get("answer_checkpoints", {})
+            if not isinstance(answer_checkpoints, dict) or any(
+                not isinstance(question_id, str) or not isinstance(checkpoint, dict)
+                for question_id, checkpoint in answer_checkpoints.items()
+            ):
+                msg = "invalid answer checkpoints"
+                raise ProfileResearchSessionNotFound(msg)
             return cls(
                 session_id=str(payload["session_id"]),
                 user_bid=str(payload["user_bid"]),
@@ -294,6 +303,7 @@ class _ProfileResearchSession:
                 ),
                 last_events=events,
                 engine_session=engine_session,
+                answer_checkpoints=answer_checkpoints,
             )
         except ProfileResearchError as exc:
             if isinstance(exc, ProfileResearchSessionNotFound):
@@ -333,18 +343,12 @@ class _ProfileResearchSessionStore:
     def _key(self, session_id: str) -> str:
         return f"{self._key_prefix}{session_id}"
 
-    def _active_key(self, user_bid: str, purpose: str) -> str:
-        owner = str(user_bid or "").strip().encode("utf-8")
-        owner_digest = hashlib.sha256(owner).hexdigest()
-        return f"{self._key_prefix}active:{str(purpose).strip()}:{owner_digest}"
-
     def save(self, session: _ProfileResearchSession) -> None:
         self._cache.setex(
             self._key(session.session_id),
             self._ttl_seconds,
             json.dumps(session.to_cache_payload(), ensure_ascii=False),
         )
-        self.refresh_active(session)
 
     def load(self, session_id: str) -> _ProfileResearchSession:
         raw = self._cache.get(self._key(session_id))
@@ -366,40 +370,9 @@ class _ProfileResearchSessionStore:
     def delete(self, session_id: str) -> None:
         self._cache.delete(self._key(session_id))
 
-    def active_session_id(self, *, user_bid: str, purpose: str) -> str | None:
-        raw = self._cache.get(self._active_key(user_bid, purpose))
-        if raw is None:
-            return None
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8")
-        normalized = str(raw).strip()
-        return normalized or None
-
-    def refresh_active(self, session: _ProfileResearchSession) -> None:
-        self._cache.setex(
-            self._active_key(session.user_bid, session.purpose),
-            self._ttl_seconds,
-            session.session_id,
-        )
-
-    def clear_active(self, session: _ProfileResearchSession) -> None:
-        active_session_id = self.active_session_id(
-            user_bid=session.user_bid,
-            purpose=session.purpose,
-        )
-        if active_session_id == session.session_id:
-            self._cache.delete(self._active_key(session.user_bid, session.purpose))
-
     def lock(self, session_id: str) -> CacheLock:
         return self._cache.lock(
             f"{self._key(session_id)}:lock",
-            timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
-            blocking_timeout=0,
-        )
-
-    def owner_lock(self, *, user_bid: str, purpose: str) -> CacheLock:
-        return self._cache.lock(
-            f"{self._active_key(user_bid, purpose)}:lock",
             timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
             blocking_timeout=0,
         )

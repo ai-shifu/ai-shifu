@@ -591,7 +591,9 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                   type='button'
                   variant='outline'
                   className='ms-auto h-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
-                  disabled={busy}
+                  disabled={
+                    busy || (collectionRunInFlight && !!state.collectionResult)
+                  }
                   onClick={cancelCollection}
                 >
                   {t('module.profileOnboarding.dialog.cancelResearch')}

@@ -1,5 +1,5 @@
 import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
-import { stripCustomButtonAfterContent } from './chat-ui-utils';
+import { stripCustomButtonAfterContent } from '@/lib/custom-button-after-content';
 
 export interface ReadModeTypewriterCacheEntry {
   content: string;

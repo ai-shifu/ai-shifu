@@ -9,7 +9,7 @@ import {
   shouldEnableReadModeTypewriter,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
-} from './read-mode-typewriter-gate';
+} from '@/lib/read-mode-typewriter-gate';
 
 const createTextItem = (
   overrides: Partial<ChatContentItem> = {},

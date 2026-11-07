@@ -10,10 +10,19 @@ from typing import TYPE_CHECKING, Any
 
 from flask import Flask, Response, stream_with_context
 from flaskr.api.llm.model_selection import get_default_llm_model
+from flaskr.api.markdownflow import Session
 from flaskr.dao import (
     invalidate_session,
     is_protocol_interrupt_error,
     release_session_classified,
+)
+from flaskr.service.learn.api import (
+    ElementDTO,
+    GeneratedType,
+    PreviewElementRunAdapter,
+    RunMarkdownFlowDTO,
+    checkpoint_of,
+    restore_turn_checkpoint,
 )
 from flaskr.service.profile.api import (
     LEARNER_PROFILE_MAX_LENGTH,
@@ -84,7 +93,6 @@ __all__ = [
     "ProfileResearchSessionNotFoundError",
     "ProfileResearchValidationError",
     "build_profile_research_sse_response",
-    "delete_active_profile_research_session",
     "delete_profile_research_session",
     "start_profile_research_session",
     "stream_profile_research_assistant_answers",
@@ -113,6 +121,28 @@ def _collected_nickname(session: _ProfileResearchSession) -> str | None:
         if normalized_values:
             return ", ".join(normalized_values)
     return None
+
+
+def _restore_profile_answer_checkpoint(
+    session: _ProfileResearchSession, native: Session, question_id: str
+) -> dict[str, Any]:
+    """Restore the target and retire its later evidence on the detached session."""
+    checkpoint = session.answer_checkpoints[question_id]
+    restore_turn_checkpoint(native, checkpoint)
+    if not native.pending or native.pending[0].tool_call_id != question_id:
+        msg = "answer checkpoint does not match the target interaction"
+        raise ProfileResearchValidationError(msg)
+    session.engine_session = native.to_dict()
+    session.variables = checkpoint["profile_variables"].copy()
+    del session.context[checkpoint["profile_context_length"] :]
+    session.done = False
+    session.profile_draft = ""
+    # Redis JSON preserves insertion order, which is answer order even when
+    # several deferred calls originally came from the same model response.
+    keys = list(session.answer_checkpoints)
+    for retired_id in keys[keys.index(question_id) :]:
+        del session.answer_checkpoints[retired_id]
+    return checkpoint
 
 
 class ProfileResearchRuntime:
@@ -146,7 +176,7 @@ class ProfileResearchRuntime:
         output_language: str | None,
         assistant_prompt: str = "",
     ) -> dict[str, Any]:
-        """Validate the document and create one owner-purpose session."""
+        """Create an independent session bound to its owner and purpose."""
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = str(purpose or "").strip()
         if not normalized_user_bid:
@@ -184,31 +214,7 @@ class ProfileResearchRuntime:
             config_revision=revision,
             turn_index=0,
         )
-        owner_lock = self.store.owner_lock(
-            user_bid=session.user_bid,
-            purpose=session.purpose,
-        )
-        with _hold_profile_research_lock(owner_lock):
-            previous_session_id = self.store.active_session_id(
-                user_bid=session.user_bid,
-                purpose=session.purpose,
-            )
-            previous_lock = (
-                self.store.lock(previous_session_id) if previous_session_id else None
-            )
-            with _hold_profile_research_lock(previous_lock):
-                previous_session = None
-                if previous_session_id:
-                    with contextlib.suppress(ProfileResearchSessionNotFound):
-                        previous_session = self.store.load(previous_session_id)
-                self.store.save(session)
-                if (
-                    previous_session
-                    and previous_session.session_id != session.session_id
-                    and (previous_session.user_bid, previous_session.purpose)
-                    == (session.user_bid, session.purpose)
-                ):
-                    self.store.delete(previous_session.session_id)
+        self.store.save(session)
         return session.to_view()
 
     def _resolve_existing_session_purpose(
@@ -256,7 +262,7 @@ class ProfileResearchRuntime:
         session_id: str,
         expected_purpose: str | None,
     ) -> None:
-        """Delete an authorized session and its matching active pointer."""
+        """Delete only the authorized session identified by its caller."""
         normalized_session_id = str(session_id or "").strip()
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = self._resolve_existing_session_purpose(
@@ -264,48 +270,13 @@ class ProfileResearchRuntime:
             session_id=normalized_session_id,
             expected_purpose=expected_purpose,
         )
-        owner_lock = self.store.owner_lock(
-            user_bid=normalized_user_bid,
-            purpose=normalized_purpose,
-        )
-        with _hold_profile_research_lock(owner_lock):
-            session_lock = self.store.lock(normalized_session_id)
-            with _hold_profile_research_lock(session_lock):
-                session = self._load_authorized_session(
-                    user_bid=normalized_user_bid,
-                    session_id=normalized_session_id,
-                    expected_purpose=normalized_purpose,
-                )
-                self.store.delete(session.session_id)
-                self.store.clear_active(session)
-
-    def delete_active_session(self, *, user_bid: str, purpose: str) -> None:
-        """Delete the current owner-purpose session when one exists."""
-        normalized_user_bid = str(user_bid or "").strip()
-        normalized_purpose = str(purpose or "").strip()
-        if not normalized_user_bid or normalized_purpose not in _ALLOWED_PURPOSES:
-            msg = "session not found"
-            raise ProfileResearchSessionNotFound(msg)
-        owner_lock = self.store.owner_lock(
-            user_bid=normalized_user_bid,
-            purpose=normalized_purpose,
-        )
-        with _hold_profile_research_lock(owner_lock):
-            session_id = self.store.active_session_id(
+        with _hold_profile_research_lock(self.store.lock(normalized_session_id)):
+            session = self._load_authorized_session(
                 user_bid=normalized_user_bid,
-                purpose=normalized_purpose,
+                session_id=normalized_session_id,
+                expected_purpose=normalized_purpose,
             )
-            if session_id is None:
-                return
-            session_lock = self.store.lock(session_id)
-            with _hold_profile_research_lock(session_lock):
-                session = self._load_authorized_session(
-                    user_bid=normalized_user_bid,
-                    session_id=session_id,
-                    expected_purpose=normalized_purpose,
-                )
-                self.store.delete(session.session_id)
-                self.store.clear_active(session)
+            self.store.delete(session.session_id)
 
     def _summary(
         self,
@@ -319,6 +290,7 @@ class ProfileResearchRuntime:
             "turn_index": processed_turn_index,
             "next_turn_index": session.turn_index,
             "input_accepted": input_accepted,
+            "rewindable_interaction_ids": list(session.answer_checkpoints),
             "pending_interaction_ids": [
                 pending["tool_call_id"]
                 for pending in (session.engine_session or {}).get("pending", [])
@@ -399,30 +371,25 @@ class ProfileResearchRuntime:
         expected_turn_index: int | None,
         request_id: str | None,
         expected_interaction_id: str | None = None,
+        rewind: bool = False,
     ) -> _RunAdmission:
         session = self._load_authorized_session(
             user_bid=user_bid,
             session_id=session_id,
             expected_purpose=purpose,
         )
-        active_session_id = self.store.active_session_id(
-            user_bid=session.user_bid,
-            purpose=session.purpose,
-        )
-        if active_session_id is None:
-            # Sessions created by old workers do not have an active pointer.
-            # Claim them on first run while holding the owner-purpose lock.
-            self.store.refresh_active(session)
-        elif active_session_id != session.session_id:
-            msg = "session not found"
-            raise ProfileResearchSessionNotFound(msg)
-
         normalized_user_input = _normalize_user_input(user_input)
+        if rewind and (
+            not normalized_user_input or not expected_interaction_id or not request_id
+        ):
+            msg = "rewind requires a submitted answer and a request identity"
+            raise ProfileResearchValidationError(msg)
         replay = self._replay_or_validate_request(
             session,
             request_id=request_id,
             expected_turn_index=expected_turn_index,
             user_input=normalized_user_input,
+            operation="rewind" if rewind else "run",
             expected_interaction_id=expected_interaction_id,
         )
         if replay is not None:
@@ -432,6 +399,14 @@ class ProfileResearchRuntime:
                 immediate_events=replay,
                 refresh_session=True,
             )
+        if rewind:
+            if (
+                session.engine_session is None
+                or expected_interaction_id not in session.answer_checkpoints
+            ):
+                msg = "answered interaction cannot be rewound"
+                raise ProfileResearchValidationError(msg)
+            return _RunAdmission(session=session, user_input=normalized_user_input)
         pending = (session.engine_session or {}).get("pending") or []
         if normalized_user_input:
             actual_id = pending[0].get("tool_call_id") if pending else None
@@ -474,49 +449,65 @@ class ProfileResearchRuntime:
             model=self._model_factory(self.app, session, trace.model_parent),
             observer=trace.event,
         )
-        element_content: dict[tuple[int, str, int], str] = {}
-        segments: dict[int, int] = {}
-        html_segments: dict[int, int] = {}
-        previous_identity: tuple[int, str] | None = None
-        segment = 0
         bid = f"profile-research:{session.session_id}:{session.turn_index}"
-        for chunk in result.chunks:
-            if chunk.interaction is not None:
-                events.append(
-                    _event(
-                        "interaction",
-                        chunk.interaction,
-                        element_type="interaction",
-                        generated_block_bid=f"{bid}:interaction",
-                        run_session_bid=session.session_id,
-                        is_terminal=False,
-                        interaction_id=chunk.interaction_id,
-                    )
+        interaction = next(
+            (chunk for chunk in result.chunks if chunk.interaction is not None), None
+        )
+
+        def block_events() -> Generator[RunMarkdownFlowDTO, None, None]:
+            for chunk in result.chunks:
+                if not chunk.content:
+                    continue
+                yield RunMarkdownFlowDTO(
+                    outline_bid="",
+                    generated_block_bid=bid,
+                    type=GeneratedType.CONTENT,
+                    content=chunk.content,
+                ).set_mdflow_stream_parts([(chunk.content, chunk.type, chunk.number)])
+            yield RunMarkdownFlowDTO(
+                outline_bid="",
+                generated_block_bid=bid,
+                type=GeneratedType.BREAK,
+                content="",
+            )
+            if interaction is not None and interaction.interaction is not None:
+                yield RunMarkdownFlowDTO(
+                    outline_bid="",
+                    generated_block_bid=bid,
+                    type=GeneratedType.INTERACTION,
+                    content=interaction.interaction,
                 )
+
+        adapter = PreviewElementRunAdapter(
+            self.app,
+            shifu_bid="",
+            outline_bid="",
+            user_bid=session.user_bid,
+            run_session_bid=session.session_id,
+        )
+        for message in adapter.process(block_events()):
+            element = message.content
+            if not isinstance(element, ElementDTO):
                 continue
-            if not chunk.content:
-                continue
-            identity = (chunk.number, chunk.type)
-            if identity != previous_identity:
-                previous_identity = identity
-                if chunk.type == "html" and chunk.number in html_segments:
-                    segment = html_segments[chunk.number]
-                else:
-                    segment = segments.get(chunk.number, 0)
-                    segments[chunk.number] = segment + 1
-                    if chunk.type == "html":
-                        html_segments[chunk.number] = segment
-            key = (*identity, segment)
-            content = element_content.get(key, "") + chunk.content
-            element_content[key] = content
+            element_type = element.element_type.value
+            is_interaction = element_type == "interaction"
+            # The preview adapter uses request-local random IDs. The element order
+            # gives Profile a deterministic display slot for an uncommitted retry.
+            slot = "interaction" if is_interaction else str(element.element_index)
             events.append(
                 _event(
-                    "content",
-                    content,
-                    element_type=chunk.type,
-                    generated_block_bid=f"{bid}:{chunk.number}:{segment}",
+                    "interaction" if is_interaction else "content",
+                    element.content,
+                    element_type=element_type,
+                    generated_block_bid=f"{bid}:{slot}",
                     run_session_bid=session.session_id,
+                    is_final=element.is_final,
                     is_terminal=False,
+                    interaction_id=(
+                        interaction.interaction_id
+                        if is_interaction and interaction is not None
+                        else None
+                    ),
                 )
             )
         return events, result.input_accepted, result.finished
@@ -587,6 +578,7 @@ class ProfileResearchRuntime:
         expected_turn_index: int | None = None,
         request_id: str | None = None,
         expected_interaction_id: str | None = None,
+        rewind: bool = False,
     ) -> Generator[dict[str, Any], None, None]:
         """Run a native questionnaire turn and atomically persist its public result."""
         if expected_interaction_id is not None:
@@ -605,20 +597,8 @@ class ProfileResearchRuntime:
             session_id=normalized_session_id,
             expected_purpose=expected_purpose,
         )
-        owner_lock = self.store.owner_lock(
-            user_bid=normalized_user_bid,
-            purpose=normalized_purpose,
-        )
-        if not bool(owner_lock.acquire(blocking=False)):
-            msg = "session is busy"
-            raise ProfileResearchSessionBusy(msg)
-        try:
-            lock = self.store.lock(normalized_session_id)
-            _acquire_profile_research_lock(lock)
-        except BaseException:
-            with contextlib.suppress(Exception):
-                owner_lock.release()
-            raise
+        lock = self.store.lock(normalized_session_id)
+        _acquire_profile_research_lock(lock)
         try:
             admission = self._admit_run(
                 user_bid=normalized_user_bid,
@@ -628,22 +608,86 @@ class ProfileResearchRuntime:
                 expected_turn_index=expected_turn_index,
                 request_id=request_id,
                 expected_interaction_id=expected_interaction_id,
+                rewind=rewind,
             )
             if admission.immediate_events is not None:
-                if admission.refresh_session:
+                immediate_events = admission.immediate_events
+                if admission.refresh_session and rewind:
+                    immediate_events = self._save_replayable_result(
+                        admission.session, immediate_events
+                    )
+                elif admission.refresh_session:
                     self.store.save(admission.session)
-                yield from admission.immediate_events
+                yield from immediate_events
                 return
 
             # A failed turn or private transformation leaves the stored native Session
             # untouched, including its pending calls and exact-request replay data.
             staged = deepcopy(admission.session)
-            with ProfileTrace(staged, admission.user_input) as trace:
+            operation = "rewind" if rewind else "run"
+            checkpoint = None
+            if (
+                expected_interaction_id is not None
+                and staged.engine_session is not None
+            ):
+                native = Session.from_dict(staged.engine_session)
+                if rewind:
+                    checkpoint = _restore_profile_answer_checkpoint(
+                        staged, native, expected_interaction_id
+                    )
+                else:
+                    checkpoint = checkpoint_of(native)
+                    checkpoint["profile_variables"] = staged.variables.copy()
+                    checkpoint["profile_context_length"] = len(staged.context)
+            with ProfileTrace(
+                staged, admission.user_input, operation=operation
+            ) as trace:
                 events, input_accepted, finished = self._execute_turn(
                     session=staged,
                     user_input=admission.user_input,
                     trace=trace,
                 )
+                if rewind and not input_accepted:
+                    # Keep the old branch, including any finished draft. The
+                    # rejected native response was run against a detached copy.
+                    original = admission.session
+                    rejected = _event(
+                        "done",
+                        self._summary(
+                            original, processed_turn_index=original.turn_index
+                        ),
+                        run_session_bid=original.session_id,
+                        is_terminal=True,
+                    )
+                    self._remember_request(
+                        original,
+                        request_id=request_id,
+                        expected_turn_index=expected_turn_index,
+                        user_input=admission.user_input,
+                        events=[rejected],
+                        operation=operation,
+                        expected_interaction_id=expected_interaction_id,
+                    )
+                    published = self._save_replayable_result(original, [rejected])
+                    trace.complete_turn("rejected")
+                    yield from published
+                    return
+                if (
+                    input_accepted
+                    and checkpoint is not None
+                    and expected_interaction_id
+                ):
+                    staged.answer_checkpoints[expected_interaction_id] = checkpoint
+                if rewind:
+                    events.insert(
+                        0,
+                        _event(
+                            "rewind",
+                            {"interaction_id": expected_interaction_id},
+                            run_session_bid=staged.session_id,
+                            is_terminal=False,
+                        ),
+                    )
                 if finished:
                     phase = self._summary_phase(staged)
                     yield phase
@@ -674,17 +718,21 @@ class ProfileResearchRuntime:
                     expected_turn_index=expected_turn_index,
                     user_input=admission.user_input,
                     events=all_events,
+                    operation=operation,
                     expected_interaction_id=expected_interaction_id,
                 )
-                self.store.save(staged)
+                published = [
+                    event for event in all_events if event.get("type") != "phase"
+                ]
+                if rewind:
+                    published = self._save_replayable_result(staged, published)
+                else:
+                    self.store.save(staged)
                 trace.publish(staged, events)
-                yield from [event for event in events if event.get("type") != "phase"]
-                yield terminal
+                yield from published
         finally:
             with contextlib.suppress(Exception):
                 lock.release()
-            with contextlib.suppress(Exception):
-                owner_lock.release()
 
     def _extract_assistant_answers(
         self,
@@ -723,24 +771,12 @@ class ProfileResearchRuntime:
             session_id=normalized_session_id,
             expected_purpose=PROFILE_ONBOARDING_PURPOSE,
         )
-        owner_lock = self.store.owner_lock(
-            user_bid=normalized_user_bid, purpose=purpose
-        )
-        with (
-            _hold_profile_research_lock(owner_lock),
-            _hold_profile_research_lock(self.store.lock(normalized_session_id)),
-        ):
+        with _hold_profile_research_lock(self.store.lock(normalized_session_id)):
             session = self._load_authorized_session(
                 user_bid=normalized_user_bid,
                 session_id=normalized_session_id,
                 expected_purpose=purpose,
             )
-            active = self.store.active_session_id(
-                user_bid=session.user_bid, purpose=purpose
-            )
-            if active is not None and active != session.session_id:
-                msg = "session not found"
-                raise ProfileResearchSessionNotFound(msg)
             replay = self._replay_or_validate_request(
                 session,
                 request_id=request_id,
@@ -817,40 +853,42 @@ class ProfileResearchRuntime:
                     raw_text=raw_text,
                     events=[phase, event],
                 )
-                published = self._save_assistant_result(staged, event)
+                published = self._save_replayable_result(staged, [event])
                 trace.publish(staged, published)
                 yield from published
 
-    def _save_assistant_result(
-        self, session: _ProfileResearchSession, event: dict[str, Any]
+    def _save_replayable_result(
+        self, session: _ProfileResearchSession, events: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
         """Resolve a session-write outcome before permitting another operation."""
         try:
             self.store.save(session)
         except Exception:
-            # save() writes the replay payload before refreshing its active
-            # pointer. A refresh failure does not undo a committed result.
-            # Keep the owner/session locks while reading back that outcome.
+            # A lost write acknowledgement can follow a committed result.
+            # Keep the session lock while reading back that outcome.
             try:
                 persisted = self.store.load(session.session_id)
                 replay = self._replay_or_validate_request(
                     persisted,
                     request_id=session.last_request_id,
                     expected_turn_index=session.last_expected_turn_index,
-                    user_input={},
-                    operation="delegate",
+                    user_input=session.last_user_input,
+                    operation=session.last_operation,
                     raw_text=session.last_raw_text,
+                    expected_interaction_id=session.last_expected_interaction_id,
                 )
             except Exception as exc:
                 # Busy means retry the same request, not edit the draft or
                 # switch back to manual while the write outcome is unknown.
-                msg = "assistant result persistence is uncertain"
+                msg = "profile result persistence is uncertain"
                 raise ProfileResearchSessionBusy(msg) from exc
             if replay is not None:
-                return [item for item in replay if item.get("type") != "phase"]
+                # The stored request matches. Use the intended event slice, which
+                # includes the phase on a replay and omits it after a live phase.
+                return events
             # A readable unchanged cursor confirms failure before publication.
             raise
-        return [event]
+        return events
 
 
 def start_profile_research_session(
@@ -884,6 +922,7 @@ def stream_profile_research_session(
     expected_turn_index: int | None = None,
     request_id: str | None = None,
     expected_interaction_id: str | None = None,
+    rewind: bool = False,
 ) -> Generator[dict[str, Any], None, None]:
     """Stream one native turn of the complete profile questionnaire."""
     yield from ProfileResearchRuntime(app).stream_session(
@@ -894,6 +933,7 @@ def stream_profile_research_session(
         expected_turn_index=expected_turn_index,
         request_id=request_id,
         expected_interaction_id=expected_interaction_id,
+        rewind=rewind,
     )
 
 
@@ -928,19 +968,6 @@ def delete_profile_research_session(
         user_bid=user_bid,
         session_id=session_id,
         expected_purpose=expected_purpose,
-    )
-
-
-def delete_active_profile_research_session(
-    app: Flask,
-    *,
-    user_bid: str,
-    purpose: str,
-) -> None:
-    """Delete the active session for one owner and purpose."""
-    ProfileResearchRuntime(app).delete_active_session(
-        user_bid=user_bid,
-        purpose=purpose,
     )
 
 

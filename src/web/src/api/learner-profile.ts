@@ -131,6 +131,7 @@ export const runProfileOnboardingSession = ({
   expectedInteractionId,
   requestId,
   userInput,
+  rewind,
   language,
   onMessage,
   onError,
@@ -140,6 +141,7 @@ export const runProfileOnboardingSession = ({
   expectedInteractionId?: string;
   requestId: string;
   userInput?: Record<string, string[]>;
+  rewind?: boolean;
   language?: string;
   onMessage: (event: ProfileOnboardingRunEvent) => void;
   onError: (error: unknown) => void;
@@ -153,6 +155,7 @@ export const runProfileOnboardingSession = ({
         ? { expected_interaction_id: expectedInteractionId }
         : {}),
       ...(userInput ? { user_input: userInput } : {}),
+      ...(rewind ? { rewind: true } : {}),
     },
     language,
     onMessage,

@@ -13,6 +13,7 @@ from flaskr.service.profile_research.runtime import (
     PROFILE_ONBOARDING_PURPOSE,
     ProfileResearchRuntime,
     ProfileResearchSessionNotFound,
+    ProfileResearchValidationError,
     _ProfileResearchSessionStore,
 )
 from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
@@ -121,6 +122,7 @@ def _run(
     index: int | None = None,
     request_id: str = "render",
     expected_interaction_id: str | None = None,
+    rewind: bool = False,
 ) -> list[dict[str, Any]]:
     if index is None:
         index = runtime.store.load(view["session_id"]).turn_index
@@ -133,6 +135,7 @@ def _run(
             expected_turn_index=index,
             request_id=request_id,
             expected_interaction_id=expected_interaction_id,
+            rewind=rewind,
         )
     )
 
@@ -237,6 +240,227 @@ def test_full_script_and_native_session_survive_between_questions() -> None:
     assert _terminal(final)["profile_draft"] == "Private learner profile."
     assert saved.document in str(calls[0])
     assert resumed.store.load(view["session_id"]).engine_session["id"] == engine_id
+
+
+def test_two_browser_sessions_keep_answers_revisions_and_replays_independent() -> None:
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _finished(messages):
+            yield " "
+        elif _tool_returns(messages):
+            yield _finish()
+        else:
+            yield {0: _interact()}
+
+    _app, runtime, _factories = _runtime(script)
+    first = _start(runtime, "Collect %{{learning_goal}} and finish.")
+    second = _start(runtime, "Collect %{{learning_goal}} and finish.")
+    _run(runtime, first)
+    _run(runtime, second)
+    before_second = runtime.store.load(second["session_id"]).to_cache_payload()
+    first_result = _run(
+        runtime,
+        first,
+        values={"learning_goal": ["First browser answer"]},
+        request_id="answer",
+        expected_interaction_id="question",
+    )
+    assert _terminal(first_result)["done"] is True
+    assert runtime.store.load(second["session_id"]).to_cache_payload() == before_second
+    second_result = _run(
+        runtime,
+        second,
+        values={"learning_goal": ["Second browser answer"]},
+        request_id="answer",
+        expected_interaction_id="question",
+    )
+    assert _terminal(second_result)["done"] is True
+    assert runtime.store.load(first["session_id"]).variables == {
+        "learning_goal": "First browser answer"
+    }
+    assert runtime.store.load(second["session_id"]).variables == {
+        "learning_goal": "Second browser answer"
+    }
+    for view, answer, expected in (
+        (first, "First browser answer", first_result),
+        (second, "Second browser answer", second_result),
+    ):
+        assert (
+            _run(
+                runtime,
+                view,
+                values={"learning_goal": [answer]},
+                index=1,
+                request_id="answer",
+                expected_interaction_id="question",
+            )
+            == expected
+        )
+
+
+def test_rewind_replaces_a_completed_answer_branch_and_replays_the_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        answers = _tool_returns(messages)
+        if _finished(messages):
+            yield " "
+        elif not answers:
+            yield {0: _interact(call_id="goal", variable="goal")}
+        elif len(answers) == 1:
+            if "Revised goal" in str(answers[0].content):
+                yield "New guidance.\n"
+            yield {0: _interact(call_id="pace", variable="pace")}
+        else:
+            yield _finish()
+
+    _app, runtime, factories = _runtime(script)
+    view = _start(runtime, "Collect %{{goal}} and %{{pace}}, then finish.")
+    _run(runtime, view)
+    _run(
+        runtime,
+        view,
+        values={"goal": ["Original goal"]},
+        request_id="goal",
+        expected_interaction_id="goal",
+    )
+    completed = _run(
+        runtime,
+        view,
+        values={"pace": ["Old pace"]},
+        request_id="pace",
+        expected_interaction_id="pace",
+    )
+    assert _terminal(completed)["rewindable_interaction_ids"] == ["goal", "pace"]
+    assert _terminal(completed)["done"] is True
+
+    save = runtime.store.save
+
+    def save_then_fail(session: object) -> None:
+        save(session)
+        message = "write acknowledgement failed after session write"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(runtime.store, "save", save_then_fail)
+    request = {
+        "values": {"goal": ["Revised goal"]},
+        "index": 3,
+        "request_id": "revise-goal",
+        "expected_interaction_id": "goal",
+        "rewind": True,
+    }
+    updated = _run(runtime, view, **request)
+    assert updated[0]["type"] == "rewind"
+    assert updated[0]["content"] == {"interaction_id": "goal"}
+    assert any("New guidance" in event["content"] for event in updated[1:-1])
+    terminal = _terminal(updated)
+    assert terminal["next_turn_index"] == 4
+    assert terminal["input_accepted"] is True
+    assert terminal["pending_interaction_ids"] == ["pace"]
+    assert terminal["rewindable_interaction_ids"] == ["goal"]
+    assert terminal["profile_draft"] is None
+
+    saved = runtime.store.load(view["session_id"])
+    assert saved.variables == {"goal": "Revised goal"}
+    assert saved.profile_draft == ""
+    assert "Old pace" not in str(saved.engine_session["messages"])
+    assert "Original goal" not in str(saved.engine_session["messages"])
+    calls = len(factories)
+    assert _run(runtime, view, **request) == updated
+    with pytest.raises(ProfileResearchValidationError, match="reused"):
+        _run(runtime, view, **{**request, "rewind": False})
+    with pytest.raises(ProfileResearchValidationError, match="request revision"):
+        _run(runtime, view, **{**request, "request_id": "stale-edit"})
+    assert len(factories) == calls
+
+
+def test_rejected_rewind_preserves_the_finished_profile_and_request_revision() -> None:
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _finished(messages):
+            yield " "
+        elif _tool_returns(messages):
+            yield _finish()
+        else:
+            yield {0: _interact()}
+
+    _app, runtime, factories = _runtime(script)
+    view = _start(runtime, "Collect %{{learning_goal}} and finish.")
+    _run(runtime, view)
+    _run(
+        runtime,
+        view,
+        values={"learning_goal": ["Original answer"]},
+        request_id="answer",
+        expected_interaction_id="question",
+    )
+    previous = runtime.store.load(view["session_id"])
+    request = {
+        "values": {"wrong_variable": ["Rejected answer"]},
+        "index": 2,
+        "request_id": "rejected-edit",
+        "expected_interaction_id": "question",
+        "rewind": True,
+    }
+    rejected = _run(runtime, view, **request)
+    assert [event["type"] for event in rejected] == ["done"]
+    terminal = _terminal(rejected)
+    assert terminal["input_accepted"] is False
+    assert terminal["next_turn_index"] == 2
+    assert terminal["done"] is True
+    assert terminal["profile_draft"] == previous.profile_draft
+    saved = runtime.store.load(view["session_id"])
+    assert saved.engine_session == previous.engine_session
+    assert saved.variables == previous.variables
+    assert saved.answer_checkpoints == previous.answer_checkpoints
+    calls = len(factories)
+    assert _run(runtime, view, **request) == rejected
+    assert len(factories) == calls
+
+
+def test_rewind_summary_failure_keeps_the_previous_draft_and_evidence() -> None:
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _finished(messages):
+            yield " "
+        elif _tool_returns(messages):
+            yield _finish()
+        else:
+            yield {0: _interact()}
+
+    _app, runtime, _factories = _runtime(script)
+    view = _start(runtime, "Collect %{{learning_goal}} and finish.")
+    _run(runtime, view)
+    _run(
+        runtime,
+        view,
+        values={"learning_goal": ["Original answer"]},
+        request_id="answer",
+        expected_interaction_id="question",
+    )
+    previous = runtime.store.load(view["session_id"]).to_cache_payload()
+    request = {
+        "values": {"learning_goal": ["Revised answer"]},
+        "index": 2,
+        "request_id": "revise-answer",
+        "expected_interaction_id": "question",
+        "rewind": True,
+    }
+
+    class UnavailableSummary:
+        def complete(self, **_kwargs: object) -> str:
+            message = "private summary unavailable"
+            raise RuntimeError(message)
+
+    runtime._provider_factory = lambda *_args: UnavailableSummary()
+    with pytest.raises(RuntimeError, match="private summary unavailable"):
+        _run(runtime, view, **request)
+    assert runtime.store.load(view["session_id"]).to_cache_payload() == previous
+
+    summary = _SummaryProvider("Revised private draft.")
+    runtime._provider_factory = lambda *_args: summary
+    updated = _run(runtime, view, **request)
+    assert [event["type"] for event in updated] == ["phase", "rewind", "done"]
+    assert _terminal(updated)["profile_draft"] == "Revised private draft."
+    assert "Revised answer" in str(_evidence(summary.messages[0]))
+    assert "Original answer" not in str(_evidence(summary.messages[0]))
 
 
 def test_private_summary_has_only_accepted_personal_answers_and_never_streams_text() -> (
@@ -368,12 +592,7 @@ def test_old_questionnaire_cache_expires_and_a_new_session_can_replace_it(
     assert factories == []
     replacement = _start(runtime, "Ask what the learner wants to learn.")
     assert replacement["session_id"] != first["session_id"]
-    assert (
-        runtime.store.active_session_id(
-            user_bid="v2-learner", purpose=PROFILE_ONBOARDING_PURPOSE
-        )
-        == replacement["session_id"]
-    )
+    assert runtime.store.load(replacement["session_id"]).turn_index == 0
 
 
 def test_native_batch_answers_persist_independently_and_exact_replay_keeps_the_same_turn() -> (
@@ -439,8 +658,6 @@ def test_native_batch_answers_persist_independently_and_exact_replay_keeps_the_s
     )
     assert len(calls) == 1
     before = resumed.store.load(view["session_id"]).to_cache_payload()
-    from flaskr.service.profile_research.runtime import ProfileResearchValidationError
-
     with pytest.raises(ProfileResearchValidationError):
         _run(
             resumed,

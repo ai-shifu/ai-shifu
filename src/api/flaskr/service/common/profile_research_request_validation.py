@@ -18,6 +18,7 @@ class ProfileResearchRunRequest:
     expected_turn_index: int | None
     request_id: str | None
     expected_interaction_id: str | None = None
+    rewind: bool = False
 
 
 def normalize_profile_research_session_id(value: object) -> str:
@@ -92,6 +93,7 @@ def parse_profile_research_run_request(
         "expected_turn_index",
         "request_id",
         "expected_interaction_id",
+        "rewind",
     }:
         raise_param_error(parameter_name)
     expected_interaction_id = payload.get("expected_interaction_id")
@@ -109,11 +111,17 @@ def parse_profile_research_run_request(
         payload,
         parameter_name=parameter_name,
     )
+    rewind = payload.get("rewind", False)
+    if not isinstance(rewind, bool) or (
+        rewind and (not user_input or not expected_interaction_id or not request_id)
+    ):
+        raise_param_error("rewind")
     return ProfileResearchRunRequest(
         user_input=user_input,
         expected_turn_index=expected_turn_index,
         request_id=request_id,
         expected_interaction_id=expected_interaction_id,
+        rewind=rewind,
     )
 
 

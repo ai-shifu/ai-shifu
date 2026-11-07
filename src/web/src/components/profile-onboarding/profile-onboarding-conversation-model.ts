@@ -16,6 +16,7 @@ export type ProfileOnboardingRunSession = (params: {
   expectedInteractionId?: string;
   requestId: string;
   userInput?: Record<string, string[]>;
+  rewind?: boolean;
   onMessage: (event: ProfileOnboardingStreamEvent) => void;
   onError: (error: unknown) => void;
 }) => { close?: () => void };
@@ -37,45 +38,8 @@ export type ProfileOnboardingConversationItem = {
   interactionId?: string;
   userInput?: string;
   finished: boolean;
+  isFinal?: boolean;
 };
-
-export type ProfileOnboardingTypewriterCache = Record<
-  string,
-  { content: string; isFinished: boolean; isSuppressed: boolean }
->;
-
-export const isProfileOnboardingTypewriterCandidate = (
-  item: ProfileOnboardingConversationItem,
-) => item.elementType === 'text';
-
-export const syncProfileOnboardingTypewriterCache = (
-  items: ProfileOnboardingConversationItem[],
-  previousCache: ProfileOnboardingTypewriterCache,
-  suppressTypewriter: boolean,
-): ProfileOnboardingTypewriterCache => {
-  const nextCache: ProfileOnboardingTypewriterCache = {};
-  for (const item of items) {
-    if (!isProfileOnboardingTypewriterCandidate(item)) continue;
-    const previousEntry = previousCache[item.elementBid];
-    nextCache[item.elementBid] = {
-      content: item.content,
-      isFinished:
-        suppressTypewriter ||
-        previousEntry?.isSuppressed === true ||
-        (previousEntry?.isFinished === true &&
-          previousEntry.content === item.content),
-      isSuppressed: previousEntry?.isSuppressed || suppressTypewriter,
-    };
-  }
-  return nextCache;
-};
-
-export const shouldEnableProfileOnboardingTypewriter = (
-  item: ProfileOnboardingConversationItem,
-  cacheEntry?: { content: string; isSuppressed: boolean },
-) =>
-  isProfileOnboardingTypewriterCandidate(item) &&
-  cacheEntry?.isSuppressed !== true;
 
 export type ProfileOnboardingConversationStatus =
   | 'creating'
@@ -96,12 +60,23 @@ export type ProfileOnboardingConversationState = {
 export type ProfileOnboardingConversationAction =
   | { type: 'resume_input' }
   | { type: 'start_session' }
-  | { type: 'start_run' }
+  | { type: 'start_run'; rewind?: boolean }
   | { type: 'receive_item'; item: ProfileOnboardingConversationItem }
   | { type: 'await_input'; interactionId?: string | null }
   | { type: 'complete' }
   | { type: 'fail'; retryable: boolean }
   | { type: 'reject_submission' }
+  | {
+      type: 'restore_rejected_edit';
+      completed: boolean;
+      interactionId: string | null;
+    }
+  | {
+      type: 'accept_edit';
+      interactionId: string;
+      userInput: string;
+      replacement: ProfileOnboardingConversationItem[];
+    }
   | { type: 'accept_submission'; userInput: string; interactionId?: string };
 
 export const initialProfileOnboardingConversationState: ProfileOnboardingConversationState =
@@ -128,7 +103,8 @@ export const profileOnboardingConversationReducer = (
       if (
         state.status !== 'creating' &&
         state.status !== 'awaiting_input' &&
-        state.status !== 'retryable_error'
+        state.status !== 'retryable_error' &&
+        !(action.rewind && state.status === 'completed')
       ) {
         return state;
       }
@@ -170,10 +146,30 @@ export const profileOnboardingConversationReducer = (
         status: action.retryable ? 'retryable_error' : 'fatal_error',
       };
     case 'reject_submission':
-      if (state.status !== 'awaiting_input') {
+      if (state.status !== 'awaiting_input' && state.status !== 'completed') {
         return state;
       }
       return { ...state, submissionLimitError: true };
+    case 'restore_rejected_edit':
+      return {
+        ...state,
+        status: action.completed ? 'completed' : 'awaiting_input',
+        activeInteractionId: action.interactionId,
+      };
+    case 'accept_edit': {
+      const index = state.items.findIndex(
+        item => item.interactionId === action.interactionId && item.finished,
+      );
+      if (index < 0) return state;
+      const items = state.items.slice(0, index + 1);
+      items[index] = { ...items[index], userInput: action.userInput };
+      return {
+        ...state,
+        items: action.replacement.reduce(upsertConversationItem, items),
+        runHasContent: action.replacement.length > 0,
+        submissionLimitError: false,
+      };
+    }
     case 'accept_submission': {
       if (state.status !== 'awaiting_input' && state.status !== 'streaming') {
         return state;
@@ -388,9 +384,15 @@ export const resolveNextTurnIndex = (
 export const resolveProfileRunState = (event: ProfileOnboardingStreamEvent) => {
   const payload = asObject(event.content);
   const pendingIds = payload?.pending_interaction_ids;
+  const rewindableIds = payload?.rewindable_interaction_ids;
   return {
     pendingInteractionIds: Array.isArray(pendingIds)
       ? pendingIds.filter((id): id is string => typeof id === 'string' && !!id)
+      : null,
+    rewindableInteractionIds: Array.isArray(rewindableIds)
+      ? rewindableIds.filter(
+          (id): id is string => typeof id === 'string' && !!id,
+        )
       : null,
     awaitingInput:
       typeof payload?.awaiting_input === 'boolean'
@@ -399,6 +401,13 @@ export const resolveProfileRunState = (event: ProfileOnboardingStreamEvent) => {
     inputAccepted: payload?.input_accepted === true,
   };
 };
+
+export const resolveProfileRewindTarget = (
+  event: ProfileOnboardingStreamEvent,
+) =>
+  (event.event_type || event.type) === 'rewind'
+    ? asObject(event.content)?.interaction_id
+    : undefined;
 
 export const isProfileSummaryPhase = (event: ProfileOnboardingStreamEvent) =>
   (event.event_type || event.type) === 'phase' &&
@@ -460,6 +469,7 @@ export const resolveProfileOnboardingElement = (
       userInput:
         typeof payload.user_input === 'string' ? payload.user_input : undefined,
       finished: elementType !== 'interaction',
+      isFinal: (payload.is_final ?? event.is_final) !== false,
     };
   }
   if (
@@ -483,6 +493,7 @@ export const resolveProfileOnboardingElement = (
         : {}),
       elementType,
       finished: !interaction,
+      isFinal: event.is_final !== false,
     };
   }
   return null;

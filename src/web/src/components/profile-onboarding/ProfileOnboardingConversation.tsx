@@ -1,23 +1,37 @@
 'use client';
 
 import React from 'react';
-import { ContentRender } from 'markdown-flow-ui/renderer';
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { ElementType } from '@/api/learning';
+import ContentBlock from '@/components/chat/ContentBlock';
+import LoadingBar from '@/components/chat/LoadingBar';
+import StreamingLoadingDotsBar from '@/components/chat/StreamingLoadingDotsBar';
 import { Button } from '@/components/ui/Button';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/ui-constants';
-import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import {
+  buildVisibleReadModeItems,
+  isReadModeTextContentItemReady,
+  shouldEnableReadModeTypewriter,
+  syncReadModeTypewriterCache,
+  type ReadModeTypewriterCache,
+} from '@/lib/read-mode-typewriter-gate';
 import { cn } from '@/lib/utils';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 import type {
   ProfileOnboardingAssistantAnswers,
   ProfileOnboardingRunSession,
   ProfileOnboardingSessionInfo,
-  ProfileOnboardingTypewriterCache,
-} from './profile-onboarding-conversation-model';
-import {
-  shouldEnableProfileOnboardingTypewriter,
-  syncProfileOnboardingTypewriterCache,
 } from './profile-onboarding-conversation-model';
 import { ProfileAssistantAnswersView } from './ProfileAssistantAnswersView';
 import { useProfileOnboardingSession } from './use-profile-onboarding-session';
@@ -26,9 +40,7 @@ import type {
   ProfileCollectionRoute,
 } from './profile-onboarding-analytics';
 
-// ContentRender recreates its custom interaction component on every render.
-// Isolate it from sibling view/copy/paste state to preserve unsent input.
-const StableProfileContentRender = React.memo(ContentRender);
+const EMPTY_REWINDABLE_IDS: ReadonlySet<string> = new Set();
 
 export {
   isProfileOnboardingSubmissionWithinLimits,
@@ -63,6 +75,12 @@ export type ProfileOnboardingConversationProps = {
   onError: (error: unknown) => void;
   onSessionCreateRejected?: (error: unknown) => void;
   onRetry?: () => void;
+  onRewindAccepted?: () => void;
+  onRewindRejected?: (error: unknown) => void;
+  onRewindRestart?: () => void;
+  onRewindAnalytics?: (
+    outcome: 'attempt' | 'success' | 'failed' | 'cancelled',
+  ) => void;
   questionScrollFooter?: React.ReactNode;
   onCollectionRouteChosen?: (route: ProfileCollectionRoute) => void;
   onPlaceholderAccepted?: () => void;
@@ -97,6 +115,10 @@ export default function ProfileOnboardingConversation({
   onError,
   onSessionCreateRejected,
   onRetry,
+  onRewindAccepted,
+  onRewindRejected,
+  onRewindRestart,
+  onRewindAnalytics,
   questionScrollFooter,
   onCollectionRouteChosen,
   onPlaceholderAccepted,
@@ -106,7 +128,8 @@ export default function ProfileOnboardingConversation({
   onAssistantAttempt,
   onAssistantResult,
 }: ProfileOnboardingConversationProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { toast } = useToast();
   const [assistantVisible, setAssistantVisible] = React.useState(false);
   const assistantView =
     assistantAnswers &&
@@ -124,7 +147,7 @@ export default function ProfileOnboardingConversation({
       typeof document === 'undefined' || document.visibilityState !== 'hidden',
   );
   const [typewriterCache, setTypewriterCache] =
-    React.useState<ProfileOnboardingTypewriterCache>({});
+    React.useState<ReadModeTypewriterCache>({});
   const [pendingProfileDraft, setPendingProfileDraft] =
     React.useState<PendingProfileDraft | null>(null);
   const holdProfileDraft = React.useCallback(
@@ -133,6 +156,27 @@ export default function ProfileOnboardingConversation({
     },
     [],
   );
+  const invalidateProfileDraft = React.useCallback(() => {
+    setPendingProfileDraft(null);
+    onRewindAccepted?.();
+  }, [onRewindAccepted]);
+  const handleSessionStarted = React.useCallback(
+    (sessionId: string) => {
+      setPendingProfileDraft(null);
+      onSessionStarted?.(sessionId);
+    },
+    [onSessionStarted],
+  );
+  const handleRewindRestart = React.useCallback(() => {
+    setPendingProfileDraft(null);
+    setAssistantVisible(false);
+    try {
+      toast({
+        title: t('module.profileOnboarding.guided.restartingAfterEditError'),
+      });
+    } catch {}
+    onRewindRestart?.();
+  }, [onRewindRestart, t, toast]);
 
   React.useEffect(() => {
     const syncVisibility = () =>
@@ -160,10 +204,13 @@ export default function ProfileOnboardingConversation({
     uncertainRequest,
     loading,
     runInFlight,
+    summaryProcessing,
     assistantProcessing,
     retryAvailable,
     submissionLimitError,
     activeInteractionId,
+    rewindableInteractionIds = EMPTY_REWINDABLE_IDS,
+    reGenerateConfirm,
     send,
     retry,
   } = useProfileOnboardingSession({
@@ -178,20 +225,22 @@ export default function ProfileOnboardingConversation({
       missingDraft: t('module.profileOnboarding.guided.missingDraft'),
       assistantError: t('module.profileOnboarding.assistant.error'),
     },
-    onSessionStarted,
+    onSessionStarted: handleSessionStarted,
     onRunInFlightChange,
     onDraftReady: holdProfileDraft,
     onError,
     onSessionCreateRejected,
     onRetry,
+    onRewindAccepted: invalidateProfileDraft,
+    onRewindRejected,
+    onRewindRestart: handleRewindRestart,
+    onRewindAnalytics,
     onAssistantAttempt,
     onAssistantResult,
   });
   const itemsRef = React.useRef(items);
   itemsRef.current = items;
 
-  const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
-  const locale = resolveMarkdownFlowLocale(hostLanguage);
   const visibleErrorMessage = submissionLimitError
     ? t('module.profileOnboarding.guided.inputLimitError')
     : errorMessage;
@@ -212,7 +261,12 @@ export default function ProfileOnboardingConversation({
   // while an import runs or fails. The session hook also rejects manual sends.
   const questionReadonly =
     !showAssistant && (disabled || runInFlight || status !== 'awaiting_input');
-  const contentList = React.useMemo(
+  const rewindReadonly =
+    !showAssistant &&
+    (disabled ||
+      runInFlight ||
+      (status !== 'awaiting_input' && status !== 'completed'));
+  const readModeItems = React.useMemo<ChatContentItem[]>(
     () =>
       items
         .filter(
@@ -223,47 +277,52 @@ export default function ProfileOnboardingConversation({
             (item.interactionId || item.elementBid) === activeInteractionId,
         )
         .map(item => ({
-          elementBid: item.elementBid,
+          element_bid: item.elementBid,
+          element_type: item.elementType as ElementType,
+          type: item.interaction
+            ? ChatContentItemType.INTERACTION
+            : ChatContentItemType.CONTENT,
           content: item.content,
-          isFinished: item.finished,
-          finished: item.finished,
-          interaction: item.interaction,
-          interactionId: item.interactionId,
-          readonly:
-            questionReadonly ||
-            item.finished ||
-            !item.interaction ||
-            Boolean(
-              activeInteractionId &&
-              (item.interactionId || item.elementBid) !== activeInteractionId,
-            ),
-          userInput: item.userInput,
-          elementType: item.elementType,
+          is_final: item.isFinal ?? true,
+          shouldUseTypewriter: !item.interaction && item.elementType === 'text',
+          readonly: !item.interaction
+            ? true
+            : item.finished
+              ? rewindReadonly ||
+                !item.interactionId ||
+                !rewindableInteractionIds.has(item.interactionId)
+              : questionReadonly ||
+                Boolean(
+                  activeInteractionId &&
+                  (item.interactionId || item.elementBid) !==
+                    activeInteractionId,
+                ),
+          user_input: item.userInput,
         })),
-    [activeInteractionId, items, questionReadonly],
+    [
+      activeInteractionId,
+      items,
+      questionReadonly,
+      rewindReadonly,
+      rewindableInteractionIds,
+    ],
   );
 
   React.useEffect(() => {
     setTypewriterCache(previousCache =>
-      syncProfileOnboardingTypewriterCache(
-        items,
-        previousCache,
-        !isDocumentVisible,
-      ),
+      syncReadModeTypewriterCache(readModeItems, previousCache, {
+        suppressTypewriter: !isDocumentVisible,
+      }),
     );
-  }, [isDocumentVisible, items]);
+  }, [isDocumentVisible, readModeItems]);
 
   React.useEffect(() => {
-    if (!pendingProfileDraft) return;
+    if (!pendingProfileDraft || runInFlight) return;
     const hasUnfinishedGuidance =
       isDocumentVisible &&
-      items.some(item => {
-        if (item.elementType !== 'text') return false;
-        const cacheEntry = typewriterCache[item.elementBid];
-        return (
-          cacheEntry?.isFinished !== true || cacheEntry.content !== item.content
-        );
-      });
+      readModeItems.some(
+        item => !isReadModeTextContentItemReady(item, typewriterCache),
+      );
     if (hasUnfinishedGuidance) return;
     setPendingProfileDraft(null);
     if (pendingProfileDraft.nickname) {
@@ -280,71 +339,46 @@ export default function ProfileOnboardingConversation({
     }
   }, [
     isDocumentVisible,
-    items,
     onDraftReady,
     pendingProfileDraft,
+    readModeItems,
+    runInFlight,
     typewriterCache,
   ]);
 
-  const visibleContentList = React.useMemo(() => {
-    if (!isDocumentVisible) return contentList;
-    const visibleItems: typeof contentList = [];
-    for (const item of contentList) {
-      visibleItems.push(item);
-      const cacheEntry = typewriterCache[item.elementBid];
-      if (
-        item.elementType === 'text' &&
-        (!cacheEntry?.isFinished || cacheEntry.content !== item.content)
-      ) {
-        break;
-      }
-    }
-    return visibleItems;
-  }, [contentList, isDocumentVisible, typewriterCache]);
+  const visibleContentList = React.useMemo(
+    () =>
+      isDocumentVisible
+        ? buildVisibleReadModeItems(readModeItems, typewriterCache)
+        : readModeItems,
+    [isDocumentVisible, readModeItems, typewriterCache],
+  );
 
-  const handleTypeFinished = React.useCallback((elementBid: string) => {
-    setTypewriterCache(previousCache => {
-      const entry = previousCache[elementBid];
-      const item = itemsRef.current.find(
-        candidate => candidate.elementBid === elementBid,
-      );
-      if (!entry && !item) return previousCache;
-      return {
-        ...previousCache,
-        [elementBid]: {
-          content: entry?.content ?? item?.content ?? '',
-          isFinished: true,
-          isSuppressed: entry?.isSuppressed ?? false,
-        },
-      };
-    });
-  }, []);
-  const typeFinishedCallbacksRef = React.useRef(new Map<string, () => void>());
-  const getTypeFinishedCallback = React.useCallback(
-    (elementBid: string) => {
-      const existingCallback = typeFinishedCallbacksRef.current.get(elementBid);
-      if (existingCallback) return existingCallback;
-      const callback = () => handleTypeFinished(elementBid);
-      typeFinishedCallbacksRef.current.set(elementBid, callback);
-      return callback;
+  const handleTypeFinished = React.useCallback(
+    (elementBid: string, content: string) => {
+      setTypewriterCache(previousCache => {
+        const entry = previousCache[elementBid];
+        if (entry?.content === content && entry.isFinished)
+          return previousCache;
+        return {
+          ...previousCache,
+          [elementBid]: { ...entry, content, isFinished: true },
+        };
+      });
     },
-    [handleTypeFinished],
+    [],
   );
-  const sendCallbacksRef = React.useRef(
-    new Map<string, (content: Parameters<typeof send>[0]) => void>(),
-  );
-  const getSendCallback = React.useCallback(
-    (elementBid: string, interactionId?: string) => {
-      const key = JSON.stringify([elementBid, interactionId]);
-      const existingCallback = sendCallbacksRef.current.get(key);
-      if (existingCallback) return existingCallback;
-      const callback = (content: Parameters<typeof send>[0]) =>
-        send(content, interactionId);
-      sendCallbacksRef.current.set(key, callback);
-      return callback;
+  const handleSend = React.useCallback(
+    (content: OnSendContentParams, elementBid: string) => {
+      const item = itemsRef.current.find(
+        candidate =>
+          candidate.elementBid === elementBid && candidate.interaction,
+      );
+      if (item) send(content, item.interactionId || item.elementBid);
     },
     [send],
   );
+  const showQuestionProgress = runInFlight && !assistantProcessing;
 
   return (
     <div
@@ -365,50 +399,48 @@ export default function ProfileOnboardingConversation({
           )}
         >
           <div className='markdown-flow'>
-            {visibleContentList.length ? (
-              visibleContentList.map(item => (
-                <StableProfileContentRender
-                  key={item.elementBid}
-                  locale={locale}
-                  lang=''
-                  content={item.content}
-                  userInput={item.userInput}
-                  readonly={item.readonly}
-                  onPlaceholderAccepted={
-                    item.readonly ? undefined : onPlaceholderAccepted
-                  }
-                  onSend={
-                    item.isFinished
-                      ? undefined
-                      : getSendCallback(item.elementBid, item.interactionId)
-                  }
-                  enableTypewriter={
-                    isDocumentVisible &&
-                    shouldEnableProfileOnboardingTypewriter(
-                      item,
-                      typewriterCache[item.elementBid],
-                    )
-                  }
-                  typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
-                  typewriterPacing='content-aware'
-                  onTypeFinished={
-                    item.elementType === 'text'
-                      ? getTypeFinishedCallback(item.elementBid)
-                      : undefined
-                  }
-                />
-              ))
-            ) : (
-              <StableProfileContentRender
-                locale={locale}
-                lang=''
-                content=''
-                readonly
-                enableTypewriter={isDocumentVisible}
-                typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
-                typewriterPacing='content-aware'
+            {visibleContentList.map(item => (
+              <ContentBlock
+                key={item.element_bid}
+                item={item}
+                blockBid={item.element_bid}
+                mobileStyle={false}
+                showAudioAction={false}
+                onPlaceholderAccepted={onPlaceholderAccepted}
+                onSend={handleSend}
+                enableStreamingTypewriter={
+                  isDocumentVisible &&
+                  shouldEnableReadModeTypewriter(
+                    item,
+                    typewriterCache[item.element_bid],
+                  )
+                }
+                onTypeFinished={
+                  item.shouldUseTypewriter ? handleTypeFinished : undefined
+                }
               />
-            )}
+            ))}
+            {summaryProcessing ? (
+              <div
+                className='mt-4 flex items-center gap-2 text-sm text-muted-foreground'
+                role='status'
+              >
+                <StreamingLoadingDotsBar />
+                {t('module.profileOnboarding.guided.summarizing')}
+              </div>
+            ) : showQuestionProgress ? (
+              <div
+                className='mt-4'
+                role='status'
+              >
+                <StreamingLoadingDotsBar />
+                <span className='sr-only'>{t('module.chat.thinking')}</span>
+              </div>
+            ) : loading && !assistantProcessing ? (
+              <div role='status'>
+                <LoadingBar />
+              </div>
+            ) : null}
           </div>
           {questionScrollFooter}
         </div>
@@ -465,6 +497,40 @@ export default function ProfileOnboardingConversation({
             }
           }}
         />
+      ) : null}
+      {reGenerateConfirm?.open ? (
+        <Dialog
+          open
+          onOpenChange={open => {
+            if (!open) reGenerateConfirm.onCancel();
+          }}
+        >
+          <DialogContent className='sm:max-w-md'>
+            <DialogHeader>
+              <DialogTitle>
+                {t('module.chat.regenerateConfirmTitle')}
+              </DialogTitle>
+              <DialogDescription>
+                {t('module.chat.regenerateConfirmDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className='flex gap-2 sm:gap-2'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={reGenerateConfirm.onCancel}
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={reGenerateConfirm.onConfirm}
+              >
+                {t('common.core.ok')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
       {hasVisibleStatus ? (
         <div

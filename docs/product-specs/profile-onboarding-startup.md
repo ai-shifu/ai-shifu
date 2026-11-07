@@ -2,7 +2,7 @@
 title: Profile onboarding startup
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-23
+last_reviewed: 2026-11-07
 canonical: true
 ---
 
@@ -31,8 +31,11 @@ unnamed questions combine the submitted values. Choice-plus-text controls retain
 both selected values and free text. Invalid answers leave their native question
 pending. Cached controls must remain renderable before redisplay or submission.
 Responses rejected by native tool validation contribute no public text or
-accepted learner evidence. Public content is adapted through the existing
-pager, element SSE shape and frontend renderer.
+accepted learner evidence. Public content is classified through the shared
+pager and course element adapter, then delivered in the Profile SSE envelope.
+The Profile host buffers the validated turn until its Redis write succeeds.
+Clients use each element's `is_final` signal to sequence text and rich content
+with the same reading-mode renderer as the course.
 
 The private learner profile is a separate transformation of native accepted
 interaction answers, including unnamed answers, plus validated supplemental
@@ -63,7 +66,82 @@ request identity, including this question token. Only an accepted answer marks
 its corresponding frontend control as answered. Content and question display
 identities are separate, and a retry replaces uncommitted controls.
 
-Owner locks, exact-request replay, thirty-minute expiration, frozen
+The terminal response lists the accepted answers available for editing in
+`rewindable_interaction_ids`. An edit posts to the same run endpoint with
+`rewind: true`, replacement `user_input`, the answered question's
+`expected_interaction_id`, and the current request revision and request ID.
+The host restores the checkpoint before that answer, then runs the replacement
+on a detached session. A successful save replaces later answers and any stale
+draft, advances the request revision, and emits a `rewind` event naming the
+target before its replacement content. A rejected answer keeps the old branch
+and returns its unchanged revision with `input_accepted: false`. Exact retries
+include the edit operation in the request identity. Existing Redis sessions
+remain usable, and only answers with stored checkpoints are offered for editing.
+Older terminal responses without capability metadata keep answered controls
+read-only. Roll out rewind support to the API workers before the web client
+starts sending edits.
+
+An SSE validation error (`transient_markdownflow_invalid`) on an answer edit
+shows a localized toast and automatically starts a new session from the first
+question. The client discards the retired session's unsaved questions, answers,
+draft, queued work and completion guard, and ignores its late callbacks. The
+replacement draft becomes reviewable and saveable. Fresh-session creation
+failure uses the existing creation retry instead of looping automatically.
+This restart does not save or alter the account's current Profile. Ordinary
+answer validation, assistant-import validation, native answer rejection,
+transport failures, busy sessions, model/summary failures and uncertain writes
+retain their existing handling and exact-request retries where applicable.
+Expired sessions still restart only when the learner selects Retry; that path
+also resets completed-draft state so its new result can be reviewed and saved.
+
+### Answer-edit restart analytics
+
+- Decision and metric: monitor daily raw
+  `learner_profile_answer_edit_restarted` counts divided by existing
+  `learner_profile_answer_edit` attempt counts, grouped by source and
+  presentation, to decide whether edit compatibility needs investigation.
+  This is an aggregate ratio rather than a matched-request funnel.
+- Trigger and population: once when an active learner onboarding/settings
+  edit receives the validation error and starts fresh-session creation, after
+  the existing failed edit outcome. Operator preview, ordinary answers,
+  imports, network/busy errors and explicit retries are excluded.
+- Count unit and deduplication: one automatic restart per edit attempt. The
+  retired attempt token rejects duplicate and late events before notification
+  or analytics. Creation failure remains an attempted restart.
+- Payload: exactly `source=guided|settings` and
+  `presentation=blocking|hidden`. No answer, prompt, question/session ID,
+  Profile text, nickname or raw error is collected.
+- Consumer: Profile product owner reviewing Umami daily restart counts and
+  existing answer-edit attempt totals; no repository dashboard/query exists.
+- Compatibility: additive event; existing attempt and terminal outcomes retain
+  their meanings. No rename, dual writing or backfill is needed.
+- Verification: hook and full-dialog regressions cover trigger timing,
+  deduplication, exclusions, exact payload/privacy, toast/analytics failure
+  isolation, and the replacement result's explicit review and save.
+
+### Independent browser sessions
+
+Each browser dialog creates an independent owner- and purpose-bound session.
+Several sessions for the same account can run concurrently. Creating, running,
+importing answers into, or deleting one session affects only that session ID.
+Per-session locks prevent concurrent operations inside one questionnaire, and
+its revision and exact-request replay remain local to that questionnaire.
+Existing Redis session payloads continue to load. Retired owner-wide active
+pointers and locks are ignored and expire with their original TTL. Roll out the
+independent-session API workers together so an older worker cannot retire
+another browser's questionnaire.
+
+Questionnaire completion prepares a draft for explicit review and save. The
+last successful explicit profile save becomes the account's current profile,
+regardless of which questionnaire started or finished first. Saving or skipping
+cleans up only the supplied session ID. A request without a session ID leaves
+questionnaires to expire through their existing TTL.
+
+Concurrent dialogs count as separate existing collection journeys. The existing
+analytics event names, payloads, and per-request terminal scopes keep their
+meaning, so this change requires no new event family.
+
+Session locks, exact-request replay, thirty-minute expiration, frozen
 configuration, nonbillable metering and existing product analytics remain in
 the Profile host. Schema 3 stores the full native Session. Schema 1 and 2 cached
 per-block sessions expire as incompatible: callers receive the existing

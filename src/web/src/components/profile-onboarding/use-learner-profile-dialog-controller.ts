@@ -35,8 +35,10 @@ import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConv
 import {
   buildProfileAssistantAttemptAnalytics,
   buildProfileAssistantResultAnalytics,
+  buildProfileCollectionContext,
   buildProfileCollectionRouteAnalytics,
   isCurrentProfileAnalyticsScope,
+  type ProfileAnswerEditOutcome,
   type ProfileAssistantFailureCategory,
   type ProfileCollectionRoute,
 } from './profile-onboarding-analytics';
@@ -115,6 +117,7 @@ export const useLearnerProfileDialogController = ({
     collection: 0,
   });
   const collectionCompletionRef = React.useRef(false);
+  const activeCollectionSessionIdRef = React.useRef('');
   const collectionShownAtRef = React.useRef<number | null>(null);
   const autoCollectionStartedRef = React.useRef(false);
   const deferSucceededRef = React.useRef(false);
@@ -221,6 +224,7 @@ export const useLearnerProfileDialogController = ({
     bumpEpoch('load');
     bumpEpoch('optimize');
     bumpEpoch('collection');
+    activeCollectionSessionIdRef.current = '';
   }, [bumpEpoch]);
 
   const isCurrent = React.useCallback((dialog: number, scope: string) => {
@@ -283,6 +287,7 @@ export const useLearnerProfileDialogController = ({
     ) => {
       const journey = bumpEpoch('collection');
       collectionCompletionRef.current = false;
+      activeCollectionSessionIdRef.current = '';
       collectionShownAtRef.current = Date.now();
       bumpEpoch('optimize');
       dispatch({
@@ -821,6 +826,7 @@ export const useLearnerProfileDialogController = ({
       expectedInteractionId,
       requestId,
       userInput,
+      rewind,
       onMessage,
       onError,
     }) =>
@@ -832,6 +838,7 @@ export const useLearnerProfileDialogController = ({
           : {}),
         requestId,
         userInput,
+        ...(rewind ? { rewind: true } : {}),
         language: i18n.resolvedLanguage ?? i18n.language,
         onMessage,
         onError,
@@ -844,6 +851,7 @@ export const useLearnerProfileDialogController = ({
       if (
         collection !== requestEpochRef.current.collection ||
         !isCurrent(requestEpochRef.current.dialog, scopeRef.current) ||
+        result.completion.sessionId !== activeCollectionSessionIdRef.current ||
         collectionCompletionRef.current
       ) {
         return false;
@@ -877,13 +885,32 @@ export const useLearnerProfileDialogController = ({
   );
 
   const handleSessionStarted = React.useCallback((sessionId: string) => {
-    if (stateRef.current.collectionKey !== requestEpochRef.current.collection) {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) {
       return;
+    }
+    const previousSessionId = activeCollectionSessionIdRef.current;
+    activeCollectionSessionIdRef.current = sessionId;
+    if (previousSessionId && previousSessionId !== sessionId) {
+      collectionCompletionRef.current = false;
+      if (
+        current.collectionResult?.completion.sessionId === previousSessionId
+      ) {
+        dispatch({ type: 'patch', patch: { collectionResult: null } });
+        dispatch({
+          type: 'patch_form',
+          patch: {
+            profile: current.form.initialProfile,
+            nickname: current.form.initialNickname,
+          },
+        });
+      }
     }
     dispatch({
       type: 'patch',
       patch: {
         activeCollectionSessionId: sessionId,
+        collectionError: '',
         collectionStatus: 'running',
       },
     });
@@ -900,6 +927,72 @@ export const useLearnerProfileDialogController = ({
       });
     },
     [],
+  );
+
+  const handleRewindAccepted = React.useCallback(() => {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) return;
+    collectionCompletionRef.current = false;
+    dispatch({
+      type: 'patch',
+      patch: {
+        collectionResult: null,
+        collectionError: '',
+        collectionStatus: 'running',
+      },
+    });
+    if (current.collectionResult) {
+      dispatch({
+        type: 'patch_form',
+        patch: {
+          profile: current.form.initialProfile,
+          nickname: current.form.initialNickname,
+        },
+      });
+    }
+  }, []);
+
+  const handleRewindRejected = React.useCallback((caughtError: unknown) => {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) return;
+    dispatch({
+      type: 'patch',
+      patch: {
+        collectionError: errorMessage(
+          caughtError,
+          translationRef.current('module.profileOnboarding.guided.streamError'),
+        ),
+        collectionStatus: current.collectionResult ? 'ready' : 'running',
+      },
+    });
+  }, []);
+
+  const handleRewindRestart = React.useCallback(() => {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) return;
+    handleRewindAccepted();
+    activeCollectionSessionIdRef.current = '';
+    dispatch({ type: 'patch', patch: { activeCollectionSessionId: '' } });
+    sendProfileAnalytics(
+      PROFILE_ONBOARDING_EVENTS.ANSWER_EDIT_RESTARTED,
+      buildProfileCollectionContext({
+        intent: current.collectionIntent,
+        presentation: presentationRef.current,
+      }),
+    );
+  }, [handleRewindAccepted, sendProfileAnalytics]);
+
+  const handleRewindAnalytics = React.useCallback(
+    (outcome: ProfileAnswerEditOutcome) => {
+      sendProfileAnalytics(PROFILE_ONBOARDING_EVENTS.ANSWER_EDIT, {
+        ...buildProfileCollectionContext({
+          intent: stateRef.current.collectionIntent,
+          presentation: presentationRef.current,
+        }),
+        outcome,
+      });
+    },
+    [sendProfileAnalytics],
   );
 
   const handleCollectionDraftReady = React.useCallback(
@@ -1015,6 +1108,7 @@ export const useLearnerProfileDialogController = ({
     if (
       current.collectionStatus !== 'ready' ||
       !current.collectionResult ||
+      current.collectionRunInFlight ||
       values.busy
     ) {
       return;
@@ -1030,10 +1124,12 @@ export const useLearnerProfileDialogController = ({
   }, [exitPolicy, externalSubmitting]);
 
   const cancelCollection = React.useCallback(() => {
+    const current = stateRef.current;
+    if (current.collectionRunInFlight && current.collectionResult) return;
     bumpEpoch('collection');
     bumpEpoch('optimize');
     collectionCompletionRef.current = false;
-    const completion = stateRef.current.collectionResult?.completion;
+    const completion = current.collectionResult?.completion;
     dispatch({
       type: 'patch',
       patch: {
@@ -1289,7 +1385,8 @@ export const useLearnerProfileDialogController = ({
     state,
     derived,
     textareaRef,
-    collectionReady: state.collectionStatus === 'ready',
+    collectionReady:
+      state.collectionStatus === 'ready' && !state.collectionRunInFlight,
     confirmation: state.confirmation === 'none' ? null : state.confirmation,
     optimizeDisabled,
     optimizationDescription,
@@ -1308,6 +1405,10 @@ export const useLearnerProfileDialogController = ({
       onSessionStarted: handleSessionStarted,
       onRunInFlightChange: handleCollectionRunInFlightChange,
       onDraftReady: handleCollectionDraftReady,
+      onRewindAccepted: handleRewindAccepted,
+      onRewindRejected: handleRewindRejected,
+      onRewindRestart: handleRewindRestart,
+      onRewindAnalytics: handleRewindAnalytics,
       onRetry: handleCollectionRetry,
       onError: handleCollectionError,
       onSessionCreateRejected: handleSessionCreateRejected,

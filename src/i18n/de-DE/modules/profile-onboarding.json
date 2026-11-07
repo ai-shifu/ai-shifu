@@ -120,10 +120,12 @@
     "collectionComplete": "Ihre Angaben sind bereit zur Überprüfung.",
     "inputLimitError": "Diese Antwort ist zu lang oder enthält zu viele Auswahlmöglichkeiten. Kürzen Sie sie und senden Sie sie erneut. Sie können sie weiterhin bearbeiten.",
     "missingDraft": "Ihre persönliche Beschreibung konnte nicht erstellt werden. Bitte beantworten Sie die Fragen erneut.",
+    "restartingAfterEditError": "Diese Änderung konnte nicht abgeschlossen werden. Wir erfassen Ihre Angaben zur Personalisierung noch einmal von Anfang an.",
     "retry": "Erneut versuchen",
     "retryableError": "Die Verbindung wurde unterbrochen. Ihre Antwort ist noch vorhanden. Bitte versuchen Sie es erneut.",
     "reviewCollection": "Überprüfen und bestätigen",
-    "streamError": "Die Fragen wurden unerwartet unterbrochen. Bitte versuchen Sie es erneut."
+    "streamError": "Die Fragen wurden unerwartet unterbrochen. Bitte versuchen Sie es erneut.",
+    "summarizing": "Dein Hintergrund wird analysiert"
   },
   "loadFailed": "Ihre Personalisierungseinstellungen konnten nicht geladen werden. Der Kurs wurde trotzdem geöffnet. Bitte versuchen Sie es später erneut.",
   "profilePlaceholder": "Zum Beispiel Ihr beruflicher oder akademischer Hintergrund, Erfahrungen, bevorzugte Erklärungen und Folienstile sowie aktuelle Interessen.",

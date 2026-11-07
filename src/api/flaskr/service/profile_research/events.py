@@ -17,6 +17,7 @@ def _profile_research_event(
     element_type: str | None = None,
     generated_block_bid: str | None = None,
     run_session_bid: str | None = None,
+    is_final: bool | None = None,
     is_terminal: bool | None = None,
     interaction_id: str | None = None,
 ) -> dict[str, Any]:
@@ -33,6 +34,8 @@ def _profile_research_event(
         event["element_type"] = element_type
     if run_session_bid is not None:
         event["run_session_bid"] = run_session_bid
+    if is_final is not None:
+        event["is_final"] = is_final
     if is_terminal is not None:
         event["is_terminal"] = is_terminal
     return event

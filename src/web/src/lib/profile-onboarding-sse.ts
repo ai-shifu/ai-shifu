@@ -11,6 +11,7 @@ export type ProfileOnboardingStreamEvent = {
   element_type?: string;
   content?: unknown;
   is_terminal?: boolean;
+  is_final?: boolean;
   generated_block_bid?: string | null;
   interaction_id?: string;
 };

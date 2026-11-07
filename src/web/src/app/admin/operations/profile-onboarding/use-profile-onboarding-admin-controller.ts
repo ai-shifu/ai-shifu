@@ -620,6 +620,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       expectedInteractionId,
       requestId,
       userInput,
+      rewind,
       onMessage,
       onError,
     }) =>
@@ -632,6 +633,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
             ? { expected_interaction_id: expectedInteractionId }
             : {}),
           ...(userInput ? { user_input: userInput } : {}),
+          ...(rewind ? { rewind: true } : {}),
         },
         language: i18n.resolvedLanguage ?? i18n.language,
         onMessage,
@@ -702,6 +704,10 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       createSession: createPreviewSession,
       runSession: runPreviewSession,
       onDraftReady: setPreviewDraft,
+      onRewindAccepted: () => {
+        setPreviewDraft('');
+        setError('');
+      },
       onRetry: () => setError(''),
       onError: handlePreviewError,
     },

@@ -4,6 +4,11 @@ import type {
 } from '@/api/learner-profile';
 
 export type ProfileCollectionRoute = 'guided_questions' | 'ai_assistant';
+export type ProfileAnswerEditOutcome =
+  | 'attempt'
+  | 'success'
+  | 'failed'
+  | 'cancelled';
 export type ProfileAssistantFailureCategory =
   | 'stream_failed'
   | 'runtime_failed'
@@ -15,7 +20,7 @@ export const isCurrentProfileAnalyticsScope = (
   activeScope: string,
 ) => originScope === activeScope;
 
-const buildProfileCollectionContext = ({
+export const buildProfileCollectionContext = ({
   intent,
   presentation,
 }: {

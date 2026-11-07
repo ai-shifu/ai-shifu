@@ -21,6 +21,7 @@ import { PROFILE_ONBOARDING_EVENTS } from './events';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConversation';
 import type {
+  ProfileAnswerEditOutcome,
   ProfileAssistantFailureCategory,
   ProfileCollectionRoute,
 } from './profile-onboarding-analytics';
@@ -104,6 +105,8 @@ type ConversationControl = {
     outcome: 'success' | 'failed',
     failureCategory?: ProfileAssistantFailureCategory,
   ) => void;
+  acceptAnswerEdit: () => void;
+  trackAnswerEdit: (outcome: ProfileAnswerEditOutcome) => void;
 };
 
 const mockConversationControls: ConversationControl[] = [];
@@ -163,6 +166,8 @@ function MockProfileOnboardingConversation(
       copyAssistantPrompt: originScope =>
         propsRef.current.onAssistantPromptCopied?.(originScope),
       startAssistant: () => propsRef.current.onAssistantAttempt?.(),
+      acceptAnswerEdit: () => propsRef.current.onRewindAccepted?.(),
+      trackAnswerEdit: outcome => propsRef.current.onRewindAnalytics?.(outcome),
       finishAssistant: (outcome, failureCategory) =>
         propsRef.current.onAssistantResult?.(outcome, failureCategory),
     };
@@ -1461,6 +1466,49 @@ describe('LearnerProfileDialog', () => {
         ),
       ).toBeNull(),
     );
+  });
+
+  test('a confirmed replacement invalidates the earlier draft and reports only edit outcome context', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    const conversation = mockConversationControls.at(-1)!;
+    act(() => conversation.deliverDraft('Original draft'));
+    const review = () =>
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.guided.reviewCollection',
+      });
+    expect(review()).toBeEnabled();
+    act(() => {
+      conversation.trackAnswerEdit('attempt');
+      conversation.setRunInFlight(true);
+    });
+    expect(review()).not.toBeInTheDocument();
+    act(() => {
+      conversation.acceptAnswerEdit();
+      conversation.setRunInFlight(false);
+      conversation.trackAnswerEdit('success');
+    });
+    expect(review()).not.toBeInTheDocument();
+    act(() => conversation.deliverDraft('Replacement draft'));
+    await continueCollectionToSave();
+    expect(profileInput()).toHaveValue('Replacement draft');
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === 'learner_profile_answer_edit',
+      ),
+    ).toEqual([
+      [
+        'learner_profile_answer_edit',
+        { source: 'guided', presentation: 'hidden', outcome: 'attempt' },
+      ],
+      [
+        'learner_profile_answer_edit',
+        { source: 'guided', presentation: 'hidden', outcome: 'success' },
+      ],
+    ]);
   });
 
   test('reviews and saves a manual nickname-only result through the existing guided completion path', async () => {

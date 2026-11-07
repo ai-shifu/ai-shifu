@@ -279,34 +279,39 @@ describe('learner profile api', () => {
     );
   });
 
-  test('sends a stable run identity and cursor through shared SSE transport', () => {
-    const onMessage = jest.fn();
-    const onError = jest.fn();
+  test.each([false, true])(
+    'sends a stable run identity and cursor through shared SSE transport (rewind=%s)',
+    rewind => {
+      const onMessage = jest.fn();
+      const onError = jest.fn();
 
-    runProfileOnboardingSession({
-      sessionId: 'session/with-special-character',
-      expectedTurnIndex: 3,
-      requestId: 'profile-onboarding-run-2',
-      expectedInteractionId: 'question-tool-call-2',
-      userInput: { profile_goal: ['学会 AI'] },
-      language: 'zh-CN',
-      onMessage,
-      onError,
-    });
+      runProfileOnboardingSession({
+        sessionId: 'session/with-special-character',
+        expectedTurnIndex: 3,
+        requestId: 'profile-onboarding-run-2',
+        expectedInteractionId: 'question-tool-call-2',
+        userInput: { profile_goal: ['学会 AI'] },
+        rewind,
+        language: 'zh-CN',
+        onMessage,
+        onError,
+      });
 
-    expect(streamProfileOnboardingRuntime).toHaveBeenCalledWith({
-      path: '/api/user/profile-onboarding/session/session%2Fwith-special-character/run',
-      payload: {
-        expected_turn_index: 3,
-        request_id: 'profile-onboarding-run-2',
-        expected_interaction_id: 'question-tool-call-2',
-        user_input: { profile_goal: ['学会 AI'] },
-      },
-      language: 'zh-CN',
-      onMessage,
-      onError,
-    });
-  });
+      expect(streamProfileOnboardingRuntime).toHaveBeenCalledWith({
+        path: '/api/user/profile-onboarding/session/session%2Fwith-special-character/run',
+        payload: {
+          expected_turn_index: 3,
+          request_id: 'profile-onboarding-run-2',
+          expected_interaction_id: 'question-tool-call-2',
+          user_input: { profile_goal: ['学会 AI'] },
+          ...(rewind ? { rewind: true } : {}),
+        },
+        language: 'zh-CN',
+        onMessage,
+        onError,
+      });
+    },
+  );
 });
 
 test('imports raw assistant answers through the existing SSE transport without changing the public prompt', () => {
