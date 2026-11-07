@@ -34,6 +34,7 @@ export type I18nKey =
   | 'common.core.pageResourcesUpdatedRefreshing'
   | 'common.core.posterCopy'
   | 'common.core.posterCopyFailed'
+  | 'common.core.posterCourseUrl'
   | 'common.core.posterNextStep'
   | 'common.core.posterPrompt'
   | 'common.core.posterPromptLabel'

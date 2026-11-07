@@ -221,13 +221,11 @@ means a closed-to-open transition of the anchored choices, not a modal view.
 The teacher and eligible learner headers open the same share popover with the
 existing ordinary share action and a poster prompt containing the exact full
 recommendation and description inside the untrusted course-material fence.
-The app supplies the canonical URL once in its separate original-course-URL
-section, without appending it to the course material. Links authored in the
+The app lists the canonical course URL once alongside the available website
+logo and teacher avatar URLs in a labeled links section. Links authored in the
 description remain verbatim inside the fence, even when they match the canonical
 URL; deleting matching substrings could corrupt Markdown links or other URLs.
-The poster prompt supplies the current site's wide logo and the course's
-configured teacher avatar as separate image references when available. The
-prompt uses teacher credits explicitly provided in the course material.
+The prompt uses teacher credits explicitly provided in the course material.
 The prompt is assembled locally
 and copied only on an explicit click. The learner wrapper always uses the shared
 menu; learner preview remains excluded. The `surface` value identifies the analytics

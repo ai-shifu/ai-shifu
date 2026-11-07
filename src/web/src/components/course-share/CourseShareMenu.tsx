@@ -115,18 +115,16 @@ export function CourseShareMenu(props: CourseShareMenuProps) {
         const teacherAvatarUrl = resolvePosterImageUrl(
           props.courseTeacherAvatar,
         );
-        const references = [
-          logoUrl && `${t('common.core.posterWebsiteLogo')}: ${logoUrl}`,
+        const links = [
+          `- ${t('common.core.posterCourseUrl')}: ${url}`,
+          logoUrl && `- ${t('common.core.posterWebsiteLogo')}: ${logoUrl}`,
           teacherAvatarUrl &&
-            `${t('common.core.posterTeacherAvatar')}: ${teacherAvatarUrl}`,
-        ].filter(Boolean);
+            `- ${t('common.core.posterTeacherAvatar')}: ${teacherAvatarUrl}`,
+        ];
         setPrompt(
           t('common.core.posterPrompt', {
             courseContent: fenceCoursePosterMaterial(content.payload.text),
-            courseUrl: url,
-            posterReferences: references.length
-              ? `\n\n${references.join('\n')}`
-              : '',
+            posterLinks: links.filter(Boolean).join('\n'),
           }),
         );
         setStatus('idle');
