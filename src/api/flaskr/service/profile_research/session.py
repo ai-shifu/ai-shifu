@@ -206,6 +206,8 @@ class _ProfileResearchSession:
     last_events: list[dict[str, Any]] = field(default_factory=list)
     # The complete questionnaire owns one native session for its entire lifetime.
     engine_session: dict[str, Any] | None = None
+    # Ordered by acceptance. Each checkpoint precedes its question's answer.
+    answer_checkpoints: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def to_cache_payload(self) -> dict[str, Any]:
         return {
@@ -233,6 +235,7 @@ class _ProfileResearchSession:
             "last_user_input": self.last_user_input,
             "last_events": self.last_events,
             "engine_session": self.engine_session,
+            "answer_checkpoints": self.answer_checkpoints,
         }
 
     @classmethod
@@ -264,6 +267,13 @@ class _ProfileResearchSession:
             if engine_session is not None and not isinstance(engine_session, dict):
                 msg = "invalid engine session"
                 raise ProfileResearchSessionNotFound(msg)
+            answer_checkpoints = payload.get("answer_checkpoints", {})
+            if not isinstance(answer_checkpoints, dict) or any(
+                not isinstance(question_id, str) or not isinstance(checkpoint, dict)
+                for question_id, checkpoint in answer_checkpoints.items()
+            ):
+                msg = "invalid answer checkpoints"
+                raise ProfileResearchSessionNotFound(msg)
             return cls(
                 session_id=str(payload["session_id"]),
                 user_bid=str(payload["user_bid"]),
@@ -294,6 +304,7 @@ class _ProfileResearchSession:
                 ),
                 last_events=events,
                 engine_session=engine_session,
+                answer_checkpoints=answer_checkpoints,
             )
         except ProfileResearchError as exc:
             if isinstance(exc, ProfileResearchSessionNotFound):

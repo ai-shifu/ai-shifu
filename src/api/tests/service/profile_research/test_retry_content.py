@@ -32,6 +32,32 @@ def _public_content(events: list[dict[str, Any]]) -> str:
     return "".join(parts.values())
 
 
+def test_rendered_elements_finish_in_order_and_replay_with_stable_ids() -> None:
+    card = '<div class="card">Card</div>\n'
+    style = "<style>.card { color: blue; }</style>\n"
+
+    async def script(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield card + "---\nYour goal?\n" + style
+        yield {0: _interact(call_id="goal", variable="goal")}
+
+    _app, runtime, _factories = _runtime(script)
+    view = _start(runtime, "Ask about learning needs.")
+    events = _run(runtime, view)
+    final = [event for event in events if event.get("is_final")]
+    assert [event["element_type"] for event in final] == ["html", "text", "interaction"]
+    assert final[0]["content"] == card + style
+    assert final[1]["content"] == "---\nYour goal?\n"
+    assert final[2]["interaction_id"] == "goal"
+    assert all(event["is_terminal"] is False for event in final)
+    html_updates = [event for event in events if event.get("element_type") == "html"]
+    assert html_updates[0]["content"] == card
+    assert html_updates[0]["is_final"] is False
+    assert {event["generated_block_bid"] for event in html_updates} == {
+        final[0]["generated_block_bid"]
+    }
+    assert _run(runtime, view, index=0) == events
+
+
 def test_malformed_question_retry_releases_only_the_corrected_response() -> None:
     attempts = 0
 

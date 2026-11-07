@@ -1,12 +1,10 @@
 import {
   initialProfileOnboardingConversationState,
-  isProfileOnboardingTypewriterCandidate,
   profileOnboardingConversationReducer,
   resolveProfileOnboardingElement,
   resolveProfileRunState,
   resolveNextTurnIndex,
   isProfileSummaryPhase,
-  syncProfileOnboardingTypewriterCache,
   type ProfileOnboardingConversationItem,
   upsertConversationItem,
 } from './profile-onboarding-conversation-model';
@@ -135,6 +133,7 @@ describe('native session turn state', () => {
         awaiting_input: true,
         input_accepted: false,
         pending_interaction_ids: ['first', 'second'],
+        rewindable_interaction_ids: ['answered'],
       }),
     };
     expect(resolveNextTurnIndex(event)).toBe(8);
@@ -142,36 +141,11 @@ describe('native session turn state', () => {
       awaitingInput: true,
       inputAccepted: false,
       pendingInteractionIds: ['first', 'second'],
+      rewindableInteractionIds: ['answered'],
     });
     expect(
       isProfileSummaryPhase({ type: 'phase', content: { phase: 'summary' } }),
     ).toBe(true);
-  });
-});
-
-describe('syncProfileOnboardingTypewriterCache', () => {
-  it('keeps suppressed text finished when its content changes on restore', () => {
-    const textItem: ProfileOnboardingConversationItem = {
-      content: 'Longer guidance',
-      elementBid: 'text-1',
-      elementType: 'text',
-      interaction: false,
-      finished: true,
-    };
-
-    expect(
-      syncProfileOnboardingTypewriterCache(
-        [textItem],
-        {
-          'text-1': {
-            content: 'Guidance',
-            isFinished: true,
-            isSuppressed: true,
-          },
-        },
-        false,
-      )['text-1'],
-    ).toMatchObject({ isFinished: true, isSuppressed: true });
   });
 });
 
@@ -197,12 +171,13 @@ describe('resolveProfileOnboardingElement', () => {
     ).not.toHaveProperty('interactionId');
   });
 
-  it('preserves HTML element types from legacy content events', () => {
+  it('preserves HTML type and finality from content events', () => {
     const element = resolveProfileOnboardingElement({
       type: 'content',
       element_type: 'html',
       generated_block_bid: 'html-1',
       content: '<div>Visual card</div>',
+      is_final: false,
     });
 
     expect(element).toMatchObject({
@@ -210,10 +185,8 @@ describe('resolveProfileOnboardingElement', () => {
       elementBid: 'html-1',
       elementType: 'html',
       interaction: false,
+      isFinal: false,
     });
-    expect(element && isProfileOnboardingTypewriterCandidate(element)).toBe(
-      false,
-    );
   });
 });
 

@@ -35,8 +35,10 @@ import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConv
 import {
   buildProfileAssistantAttemptAnalytics,
   buildProfileAssistantResultAnalytics,
+  buildProfileCollectionContext,
   buildProfileCollectionRouteAnalytics,
   isCurrentProfileAnalyticsScope,
+  type ProfileAnswerEditOutcome,
   type ProfileAssistantFailureCategory,
   type ProfileCollectionRoute,
 } from './profile-onboarding-analytics';
@@ -821,6 +823,7 @@ export const useLearnerProfileDialogController = ({
       expectedInteractionId,
       requestId,
       userInput,
+      rewind,
       onMessage,
       onError,
     }) =>
@@ -832,6 +835,7 @@ export const useLearnerProfileDialogController = ({
           : {}),
         requestId,
         userInput,
+        ...(rewind ? { rewind: true } : {}),
         language: i18n.resolvedLanguage ?? i18n.language,
         onMessage,
         onError,
@@ -900,6 +904,57 @@ export const useLearnerProfileDialogController = ({
       });
     },
     [],
+  );
+
+  const handleRewindAccepted = React.useCallback(() => {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) return;
+    collectionCompletionRef.current = false;
+    dispatch({
+      type: 'patch',
+      patch: {
+        collectionResult: null,
+        collectionError: '',
+        collectionStatus: 'running',
+      },
+    });
+    if (current.collectionResult) {
+      dispatch({
+        type: 'patch_form',
+        patch: {
+          profile: current.form.initialProfile,
+          nickname: current.form.initialNickname,
+        },
+      });
+    }
+  }, []);
+
+  const handleRewindRejected = React.useCallback((caughtError: unknown) => {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) return;
+    dispatch({
+      type: 'patch',
+      patch: {
+        collectionError: errorMessage(
+          caughtError,
+          translationRef.current('module.profileOnboarding.guided.streamError'),
+        ),
+        collectionStatus: current.collectionResult ? 'ready' : 'running',
+      },
+    });
+  }, []);
+
+  const handleRewindAnalytics = React.useCallback(
+    (outcome: ProfileAnswerEditOutcome) => {
+      sendProfileAnalytics(PROFILE_ONBOARDING_EVENTS.ANSWER_EDIT, {
+        ...buildProfileCollectionContext({
+          intent: stateRef.current.collectionIntent,
+          presentation: presentationRef.current,
+        }),
+        outcome,
+      });
+    },
+    [sendProfileAnalytics],
   );
 
   const handleCollectionDraftReady = React.useCallback(
@@ -1015,6 +1070,7 @@ export const useLearnerProfileDialogController = ({
     if (
       current.collectionStatus !== 'ready' ||
       !current.collectionResult ||
+      current.collectionRunInFlight ||
       values.busy
     ) {
       return;
@@ -1030,10 +1086,12 @@ export const useLearnerProfileDialogController = ({
   }, [exitPolicy, externalSubmitting]);
 
   const cancelCollection = React.useCallback(() => {
+    const current = stateRef.current;
+    if (current.collectionRunInFlight && current.collectionResult) return;
     bumpEpoch('collection');
     bumpEpoch('optimize');
     collectionCompletionRef.current = false;
-    const completion = stateRef.current.collectionResult?.completion;
+    const completion = current.collectionResult?.completion;
     dispatch({
       type: 'patch',
       patch: {
@@ -1289,7 +1347,8 @@ export const useLearnerProfileDialogController = ({
     state,
     derived,
     textareaRef,
-    collectionReady: state.collectionStatus === 'ready',
+    collectionReady:
+      state.collectionStatus === 'ready' && !state.collectionRunInFlight,
     confirmation: state.confirmation === 'none' ? null : state.confirmation,
     optimizeDisabled,
     optimizationDescription,
@@ -1308,6 +1367,9 @@ export const useLearnerProfileDialogController = ({
       onSessionStarted: handleSessionStarted,
       onRunInFlightChange: handleCollectionRunInFlightChange,
       onDraftReady: handleCollectionDraftReady,
+      onRewindAccepted: handleRewindAccepted,
+      onRewindRejected: handleRewindRejected,
+      onRewindAnalytics: handleRewindAnalytics,
       onRetry: handleCollectionRetry,
       onError: handleCollectionError,
       onSessionCreateRejected: handleSessionCreateRejected,

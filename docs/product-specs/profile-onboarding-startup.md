@@ -31,8 +31,11 @@ unnamed questions combine the submitted values. Choice-plus-text controls retain
 both selected values and free text. Invalid answers leave their native question
 pending. Cached controls must remain renderable before redisplay or submission.
 Responses rejected by native tool validation contribute no public text or
-accepted learner evidence. Public content is adapted through the existing
-pager, element SSE shape and frontend renderer.
+accepted learner evidence. Public content is classified through the shared
+pager and course element adapter, then delivered in the Profile SSE envelope.
+The Profile host buffers the validated turn until its Redis write succeeds.
+Clients use each element's `is_final` signal to sequence text and rich content
+with the same reading-mode renderer as the course.
 
 The private learner profile is a separate transformation of native accepted
 interaction answers, including unnamed answers, plus validated supplemental
@@ -62,6 +65,21 @@ that value as `expected_interaction_id`. Exact retries preserve the complete
 request identity, including this question token. Only an accepted answer marks
 its corresponding frontend control as answered. Content and question display
 identities are separate, and a retry replaces uncommitted controls.
+
+The terminal response lists the accepted answers available for editing in
+`rewindable_interaction_ids`. An edit posts to the same run endpoint with
+`rewind: true`, replacement `user_input`, the answered question's
+`expected_interaction_id`, and the current request revision and request ID.
+The host restores the checkpoint before that answer, then runs the replacement
+on a detached session. A successful save replaces later answers and any stale
+draft, advances the request revision, and emits a `rewind` event naming the
+target before its replacement content. A rejected answer keeps the old branch
+and returns its unchanged revision with `input_accepted: false`. Exact retries
+include the edit operation in the request identity. Existing Redis sessions
+remain usable, and only answers with stored checkpoints are offered for editing.
+Older terminal responses without capability metadata keep answered controls
+read-only. Roll out rewind support to the API workers before the web client
+starts sending edits.
 
 Owner locks, exact-request replay, thirty-minute expiration, frozen
 configuration, nonbillable metering and existing product analytics remain in

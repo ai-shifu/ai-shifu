@@ -200,7 +200,11 @@ def test_service_uses_the_shared_application_markdownflow_binding() -> None:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imports.append(node.module)
 
-    assert not any(name.startswith("flaskr.service.learn") for name in imports)
+    assert all(
+        name == "flaskr.service.learn.api"
+        for name in imports
+        if name.startswith("flaskr.service.learn")
+    )
     assert "flaskr.api.markdownflow" in imports
 
 

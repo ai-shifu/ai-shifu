@@ -230,6 +230,7 @@ def register_profile_routes(
                 expected_turn_index=run_request.expected_turn_index,
                 request_id=run_request.request_id,
                 expected_interaction_id=run_request.expected_interaction_id,
+                rewind=run_request.rewind,
             ),
             log_context="learner profile onboarding",
         )

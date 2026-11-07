@@ -16,6 +16,7 @@ import ProfileOnboardingConversation, {
 import type { ProfileOnboardingAssistantAnswers } from './profile-onboarding-conversation-model';
 
 const ANSWER_GUIDED_QUESTION_LABEL = 'answer guided question';
+const ASSISTANT_TEST_QUESTION = '?[...Question one]';
 const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
   variableName: 'profile_goal',
   inputText: '学会 AI',
@@ -62,6 +63,15 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/api/learning', () => ({
+  LESSON_FEEDBACK_INTERACTION_MARKER: 'sys_lesson_feedback_score',
+  SYS_INTERACTION_TYPE: {
+    NEXT_CHAPTER: '_sys_next_chapter',
+    PAY: '_sys_pay',
+    LOGIN: '_sys_login',
+  },
+}));
+
 jest.mock('remark-flow', () =>
   jest.requireActual('remark-flow/dist/variable-name'),
 );
@@ -96,9 +106,11 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     mockRenderedContents.push(content);
     if (onSend) mockSendCallbacks.set(content, onSend);
     React.useEffect(() => {
+      if (!enableTypewriter) return;
       mockLatestTypeFinished = onTypeFinished;
       if (mockAutoFinishTypewriter) onTypeFinished?.();
-    }, [onTypeFinished]);
+    }, [enableTypewriter, onTypeFinished]);
+    const showQuestion = content.startsWith('?[') && (!userInput || !readonly);
     // Match the library's inline custom-variable renderer: an unnecessary
     // MarkdownFlow re-render remounts the input and loses unsent local state.
     const UnsentAnswer = () => (
@@ -113,7 +125,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
         data-locale={locale}
         lang={lang}
       >
-        <UnsentAnswer />
+        {showQuestion ? <UnsentAnswer /> : null}
         <span>{content}</span>
         {userInput ? <span>{userInput}</span> : null}
         <span
@@ -122,7 +134,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
           data-pacing={typewriterPacing}
           data-speed={String(typingSpeed)}
         />
-        {onSend ? (
+        {showQuestion && onSend ? (
           <button
             type='button'
             disabled={readonly}
@@ -252,6 +264,7 @@ describe('ProfileOnboardingConversation', () => {
             element_bid: 'profile-typewriter-content',
             element_type: 'text',
             content: '欢迎，先一起确认你的学习偏好。',
+            is_final: false,
           },
         });
       });
@@ -659,7 +672,7 @@ describe('ProfileOnboardingConversation', () => {
     ).toBeInTheDocument();
   });
 
-  test('waits without progress indicators and keeps input read-only until its cursor arrives', async () => {
+  test('shows progress and keeps input read-only until its cursor arrives', async () => {
     let firstOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onRunInFlightChange = jest.fn();
     const runSession = jest.fn(({ onMessage }) => {
@@ -676,8 +689,9 @@ describe('ProfileOnboardingConversation', () => {
         onError={jest.fn()}
       />,
     );
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.chat.thinking',
+    );
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
     expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
 
@@ -692,8 +706,9 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
     expect(screen.getByText('Let us get to know you.')).toBeInTheDocument();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.chat.thinking',
+    );
     expect(
       container.querySelector('.profile-onboarding-markdownflow'),
     ).toHaveAttribute('aria-busy', 'true');
@@ -712,7 +727,9 @@ describe('ProfileOnboardingConversation', () => {
       name: ANSWER_GUIDED_QUESTION_LABEL,
     });
     expect(answerButton).toBeDisabled();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.chat.thinking',
+    );
     fireEvent.click(answerButton);
     expect(runSession).toHaveBeenCalledTimes(1);
     expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
@@ -725,6 +742,7 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
     await waitFor(() => expect(answerButton).toBeEnabled());
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(onRunInFlightChange).toHaveBeenLastCalledWith(false);
     fireEvent.click(answerButton);
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
@@ -737,7 +755,7 @@ describe('ProfileOnboardingConversation', () => {
     );
   });
 
-  test('waits without progress indicators after the final response until the draft is ready', async () => {
+  test('shows the summary phase and waits for the final text before exposing the draft', async () => {
     mockAutoFinishTypewriter = false;
     let finalOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onDraftReady = jest.fn();
@@ -784,6 +802,10 @@ describe('ProfileOnboardingConversation', () => {
 
     act(() => {
       finalOnMessage?.({
+        type: 'phase',
+        content: { phase: 'summary' },
+      });
+      finalOnMessage?.({
         type: 'element',
         content: {
           element_bid: 'final-feedback',
@@ -793,8 +815,9 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.profileOnboarding.guided.summarizing',
+    );
     expect(
       container.querySelector('.profile-onboarding-markdownflow'),
     ).toHaveAttribute('aria-busy', 'true');
@@ -1032,9 +1055,12 @@ describe('ProfileOnboardingConversation', () => {
     });
   });
 
-  test('updates scroll content version when a gated question becomes visible', async () => {
+  test('updates scroll content version only after the preceding text is final and typed', async () => {
     mockAutoFinishTypewriter = false;
+    let emitMessage: Parameters<ProfileOnboardingRunSession>[0]['onMessage'] =
+      () => undefined;
     const runSession = jest.fn(({ onMessage }) => {
+      emitMessage = onMessage;
       queueMicrotask(() => {
         onMessage({
           type: 'element',
@@ -1042,6 +1068,7 @@ describe('ProfileOnboardingConversation', () => {
             element_bid: 'scroll-guidance',
             element_type: 'text',
             content: 'Read this first',
+            is_final: false,
           },
         });
         onMessage({
@@ -1070,6 +1097,20 @@ describe('ProfileOnboardingConversation', () => {
     expect(getLatestScrollControlProps().contentVersion).toBe(1);
 
     act(() => mockLatestTypeFinished?.());
+    expect(screen.queryByText('?[%{{goal}}...Then answer]')).toBeNull();
+    expect(getLatestScrollControlProps().contentVersion).toBe(1);
+
+    act(() => {
+      emitMessage({
+        type: 'element',
+        content: {
+          element_bid: 'scroll-guidance',
+          element_type: 'text',
+          content: 'Read this first',
+          is_final: true,
+        },
+      });
+    });
 
     await screen.findByText('?[%{{goal}}...Then answer]');
     expect(getLatestScrollControlProps().contentVersion).toBe(2);
@@ -2220,7 +2261,7 @@ describe('assistant answers in the existing session', () => {
         if (questionPending) return { close: jest.fn() };
         onMessage({
           event_type: 'interaction',
-          content: 'Question one',
+          content: ASSISTANT_TEST_QUESTION,
           generated_block_bid: 'one',
         });
         onMessage({
@@ -2373,10 +2414,8 @@ describe('assistant answers in the existing session', () => {
     expect(
       screen.getByTestId('profile-onboarding-conversation'),
     ).toHaveAttribute('aria-busy', 'false');
-    expect(screen.queryByText('Question one')).not.toBeInTheDocument();
-    expect(entry.parentElement).toContainElement(
-      screen.getByLabelText('unsent question answer'),
-    );
+    expect(screen.queryByText(ASSISTANT_TEST_QUESTION)).not.toBeInTheDocument();
+    expect(entry.parentElement).toContainElement(screen.getByRole('status'));
     expect(entry.closest('[aria-busy="true"]')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'common.core.scrollToBottom' }),
@@ -2427,7 +2466,7 @@ describe('assistant answers in the existing session', () => {
     act(() => {
       result.runSession.mock.calls[0][0].onMessage({
         event_type: 'interaction',
-        content: 'Question one',
+        content: ASSISTANT_TEST_QUESTION,
         generated_block_bid: 'one',
       });
       result.runSession.mock.calls[0][0].onMessage({
@@ -2436,7 +2475,7 @@ describe('assistant answers in the existing session', () => {
         content: { done: false, next_turn_index: 2 },
       });
     });
-    expect(screen.getByText('Question one')).not.toBeVisible();
+    expect(screen.getByText(ASSISTANT_TEST_QUESTION)).not.toBeVisible();
     expect(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.assistant.process',
@@ -2834,7 +2873,7 @@ describe('assistant answers in the existing session', () => {
           name: 'module.profileOnboarding.assistant.entry',
         }),
       ).not.toBeInTheDocument();
-      expect(screen.getByText('Question one')).toBeVisible();
+      expect(screen.getByText(ASSISTANT_TEST_QUESTION)).toBeVisible();
       result.rerender(result.renderConversation());
       enter();
       expect(
@@ -2887,7 +2926,7 @@ describe('assistant answers in the existing session', () => {
 
   test('keeps the original renderer mounted when switching views and accepts nickname-only completion', async () => {
     const result = await begin();
-    const question = screen.getByText('Question one');
+    const question = screen.getByText(ASSISTANT_TEST_QUESTION);
     fireEvent.change(screen.getByLabelText('unsent question answer'), {
       target: { value: 'Unsubmitted answer' },
     });
@@ -2899,7 +2938,7 @@ describe('assistant answers in the existing session', () => {
         name: 'module.profileOnboarding.assistant.back',
       }),
     );
-    expect(screen.getByText('Question one')).toBe(question);
+    expect(screen.getByText(ASSISTANT_TEST_QUESTION)).toBe(question);
     expect(question).toBeVisible();
     expect(screen.getByLabelText('unsent question answer')).toHaveValue(
       'Unsubmitted answer',

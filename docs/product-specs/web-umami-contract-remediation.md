@@ -561,6 +561,27 @@ analytics.
 Prompts, answers, learner profile content, nickname, generated drafts, session
 IDs, and raw errors are excluded.
 
+## Learner Profile answer edits
+
+- Business question: how often do learners submit edits to previous Profile
+  answers, and how often does the replacement succeed?
+- Trigger: emit `learner_profile_answer_edit` with `outcome=attempt` when a
+  confirmed edit or its explicit retry starts. Emit one terminal result per
+  started attempt. A committed replacement is `success`, a rejected answer
+  or failed stream is `failed`, and leaving during a run is `cancelled`.
+  Dismissing the confirmation before a request starts does not count.
+- Population: learner Profile collection in onboarding and settings. The
+  operator preview is excluded.
+- Count unit: one client request attempt, with one terminal outcome guarded by
+  that attempt's stream lifecycle. Retrying starts a distinct attempt.
+- Consumer: Profile collection adoption and answer-edit reliability. Ratios
+  are aggregate counts grouped by source and presentation.
+- Payload: `source` is `guided` or `settings`; `presentation` is `blocking` or
+  `hidden`; `outcome` is `attempt`, `success`, `failed` or `cancelled`.
+  The event excludes question IDs, session IDs, answers, content and errors.
+- Compatibility: new additive event. Existing collection and assistant
+  events retain their contracts.
+
 ## Learning-mode selection
 
 - Business question: which real learner mode transitions are accepted and from

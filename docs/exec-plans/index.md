@@ -194,6 +194,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Keep WeChat OpenID preparation ahead of Profile onboarding](./completed/profile-onboarding-wechat-rebinding.md)
+- [Profile collection uses course reading rendering](./completed/profile-reading-runtime.md)
 - [Publish Web images without the Cook name](./completed/public-web-image-name.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
 - [Compact completed memory recall history](./completed/recall-history-compaction.md)

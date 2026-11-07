@@ -822,9 +822,12 @@ def test_profile_onboarding_session_start_removes_a_late_ineligible_session(
     ]
 
 
-@pytest.mark.parametrize("interaction_id", [None, "learner-question-2"])
+@pytest.mark.parametrize(
+    ("interaction_id", "rewind"),
+    [(None, False), ("learner-question-2", False), ("learner-question-2", True)],
+)
 def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
-    monkeypatch: object, test_client: object, interaction_id: str | None
+    monkeypatch: object, test_client: object, interaction_id: str | None, rewind: bool
 ) -> None:
     from flaskr.route.common import make_common_response
 
@@ -856,6 +859,7 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
             "user_input": {"preferred_name": ["小明"]},
             "expected_turn_index": 2,
             "request_id": "learner-step-2",
+            **({"rewind": True} if rewind else {}),
             **(
                 {"expected_interaction_id": interaction_id}
                 if interaction_id is not None
@@ -877,6 +881,7 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
             "expected_turn_index": 2,
             "request_id": "learner-step-2",
             "expected_interaction_id": interaction_id,
+            "rewind": rewind,
         }
     ]
 
@@ -903,6 +908,19 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
         (
             f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
             {"unexpected": True},
+        ),
+        (
+            f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
+            {"rewind": "true"},
+        ),
+        (
+            f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
+            {
+                "rewind": True,
+                "expected_turn_index": 2,
+                "request_id": "edit-without-target",
+                "user_input": {"name": ["Revised name"]},
+            },
         ),
         (
             f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
@@ -1388,9 +1406,12 @@ def test_operator_profile_onboarding_preview_rejects_removed_document_prompt_fie
     assert calls == []
 
 
-@pytest.mark.parametrize("interaction_id", [None, "operator-question-4"])
+@pytest.mark.parametrize(
+    ("interaction_id", "rewind"),
+    [(None, False), ("operator-question-4", False), ("operator-question-4", True)],
+)
 def test_operator_profile_onboarding_preview_run_enforces_owner_and_purpose(
-    monkeypatch: object, test_client: object, interaction_id: str | None
+    monkeypatch: object, test_client: object, interaction_id: str | None, rewind: bool
 ) -> None:
     from flaskr.route.common import make_common_response
 
@@ -1422,6 +1443,7 @@ def test_operator_profile_onboarding_preview_run_enforces_owner_and_purpose(
             "user_input": {"experience": ["三年"]},
             "expected_turn_index": 4,
             "request_id": "operator-step-4",
+            **({"rewind": True} if rewind else {}),
             **(
                 {"expected_interaction_id": interaction_id}
                 if interaction_id is not None
@@ -1443,6 +1465,7 @@ def test_operator_profile_onboarding_preview_run_enforces_owner_and_purpose(
             "expected_turn_index": 4,
             "request_id": "operator-step-4",
             "expected_interaction_id": interaction_id,
+            "rewind": rewind,
         }
     ]
 

@@ -11,6 +11,7 @@ export const PROFILE_ONBOARDING_EVENTS = {
   SETTINGS_CLEARED: 'learner_profile_settings_cleared',
   SETTINGS_RERUN_STARTED: 'learner_profile_settings_rerun_started',
   COLLECTION_ROUTE_CHOSEN: 'learner_profile_collection_route_chosen',
+  ANSWER_EDIT: 'learner_profile_answer_edit',
   // AI-help funnel contract (Umami): OPENED counts each successful view entry;
   // PROMPT_COPIED counts each successful clipboard write. Report raw events and
   // distinct identified learners separately; the client does not deduplicate.
