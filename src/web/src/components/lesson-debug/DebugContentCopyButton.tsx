@@ -50,7 +50,7 @@ const DebugContentCopyButton: React.FC<DebugContentCopyButtonProps> = ({
 
   const handleCopy = React.useCallback(async () => {
     if (!content) return;
-    const wrapped = `${MARKDOWNFLOW_FENCE}\n${content.trim()}\n${MARKDOWNFLOW_FENCE}`;
+    const wrapped = `${MARKDOWNFLOW_FENCE}\n${content}\n${MARKDOWNFLOW_FENCE}`;
     await copyText(wrapped);
     setCopied(true);
     if (resetTimerRef.current) {
