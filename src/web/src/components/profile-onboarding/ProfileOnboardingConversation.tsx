@@ -81,6 +81,7 @@ export type ProfileOnboardingConversationProps = {
   onRewindAnalytics?: (
     outcome: 'attempt' | 'success' | 'failed' | 'cancelled',
   ) => void;
+  collectionReady?: boolean;
   questionScrollFooter?: React.ReactNode;
   onCollectionRouteChosen?: (route: ProfileCollectionRoute) => void;
   onPlaceholderAccepted?: () => void;
@@ -119,6 +120,7 @@ export default function ProfileOnboardingConversation({
   onRewindRejected,
   onRewindRestart,
   onRewindAnalytics,
+  collectionReady = false,
   questionScrollFooter,
   onCollectionRouteChosen,
   onPlaceholderAccepted,
@@ -139,6 +141,7 @@ export default function ProfileOnboardingConversation({
       : null;
   const showAssistant = assistantVisible && assistantView !== null;
   const questionViewportRef = React.useRef<HTMLDivElement>(null);
+  const questionCompletionRef = React.useRef<HTMLParagraphElement>(null);
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
   const previousAssistantVisibleRef = React.useRef(false);
@@ -380,6 +383,25 @@ export default function ProfileOnboardingConversation({
   );
   const showQuestionProgress = runInFlight && !assistantProcessing;
 
+  React.useLayoutEffect(() => {
+    if (collectionReady && !showAssistant) {
+      questionCompletionRef.current?.scrollIntoView?.({
+        block: 'nearest',
+        behavior: 'instant',
+      });
+    }
+  }, [collectionReady, showAssistant]);
+
+  const collectionCompletion = collectionReady ? (
+    <p
+      ref={showAssistant ? undefined : questionCompletionRef}
+      role='status'
+      className='mb-2 mt-3 scroll-mb-8 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
+    >
+      {t('module.profileOnboarding.guided.collectionComplete')}
+    </p>
+  ) : null;
+
   return (
     <div
       data-testid='profile-onboarding-conversation'
@@ -442,6 +464,7 @@ export default function ProfileOnboardingConversation({
               </div>
             ) : null}
           </div>
+          {!showAssistant && collectionCompletion}
           {questionScrollFooter}
         </div>
         <ScrollToBottomControl
@@ -478,6 +501,9 @@ export default function ProfileOnboardingConversation({
           </Button>
         ) : null}
       </div>
+      {showAssistant && collectionCompletion ? (
+        <div className='shrink-0 pt-6'>{collectionCompletion}</div>
+      ) : null}
       {showAssistant && assistantView ? (
         <ProfileAssistantAnswersView
           headingRef={assistantHeadingRef}

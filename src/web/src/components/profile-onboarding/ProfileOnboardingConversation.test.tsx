@@ -968,6 +968,49 @@ describe('ProfileOnboardingConversation', () => {
     expect(container.querySelector('.overflow-y-auto')).toBe(markdownFlow);
   });
 
+  test('reveals the completion status in the guided scroller when the result is ready', () => {
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'scrollIntoView',
+    );
+    const scrollIntoView = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    const props = {
+      createSession: () => new Promise<never>(() => {}),
+      runSession: jest.fn(),
+      onDraftReady: jest.fn(),
+      onError: jest.fn(),
+    };
+    try {
+      const view = render(<ProfileOnboardingConversation {...props} />);
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      view.rerender(
+        <ProfileOnboardingConversation
+          {...props}
+          collectionReady
+        />,
+      );
+      const completion = screen.getByText(
+        'module.profileOnboarding.guided.collectionComplete',
+      );
+      expect(completion).toHaveAttribute('role', 'status');
+      expect(scrollIntoView.mock.contexts).toContain(completion);
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'scrollIntoView',
+          originalScrollIntoView,
+        );
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+      }
+    }
+  });
+
   test('delegates guided-question scrolling to the library control', async () => {
     const runSession = jest
       .fn()
@@ -2802,6 +2845,56 @@ describe('assistant answers in the existing session', () => {
       }),
     ).not.toBeInTheDocument();
     expect(result.assistantAnswers).not.toHaveBeenCalled();
+  });
+
+  test('shows guided completion while the assistant is open', async () => {
+    const result = await begin();
+    result.runSession.mockImplementationOnce(() => ({ close: jest.fn() }));
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    const finalRun = result.runSession.mock.calls[1][0];
+    enter();
+
+    act(() => {
+      finalRun.onMessage({ type: 'phase', content: { phase: 'summary' } });
+      finalRun.onMessage({
+        type: 'done',
+        is_terminal: true,
+        content: { done: true, profile_draft: 'Guided background draft' },
+      });
+    });
+    await waitFor(() =>
+      expect(result.onDraftReady).toHaveBeenCalledWith(
+        'Guided background draft',
+        'shared-session',
+      ),
+    );
+    result.rerender(
+      React.cloneElement(result.renderConversation(), {
+        collectionReady: true,
+      }),
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.profileOnboarding.guided.collectionComplete',
+    );
+    expect(screen.getByRole('status')).toBeVisible();
+    expect(
+      screen.getAllByText('module.profileOnboarding.guided.collectionComplete'),
+    ).toHaveLength(1);
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toHaveValue('External answer');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    );
+    expect(
+      result.container.querySelector('.profile-onboarding-markdownflow'),
+    ).toContainElement(screen.getByRole('status'));
   });
 
   test('requires replay of a disconnected initial run before importing early answers', async () => {

@@ -247,6 +247,9 @@ function MockProfileOnboardingConversation(
         {RETRY_CONVERSATION_LABEL}
       </button>
       {props.errorMessage ? <p>{props.errorMessage}</p> : null}
+      {props.collectionReady ? (
+        <p role='status'>module.profileOnboarding.guided.collectionComplete</p>
+      ) : null}
       {props.questionScrollFooter}
     </div>
   );
