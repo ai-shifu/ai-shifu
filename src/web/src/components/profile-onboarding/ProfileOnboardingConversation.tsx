@@ -141,6 +141,7 @@ export default function ProfileOnboardingConversation({
       : null;
   const showAssistant = assistantVisible && assistantView !== null;
   const questionViewportRef = React.useRef<HTMLDivElement>(null);
+  const questionContentRef = React.useRef<HTMLDivElement>(null);
   const questionCompletionRef = React.useRef<HTMLParagraphElement>(null);
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
@@ -384,12 +385,45 @@ export default function ProfileOnboardingConversation({
   const showQuestionProgress = runInFlight && !assistantProcessing;
 
   React.useLayoutEffect(() => {
-    if (collectionReady && !showAssistant) {
-      questionCompletionRef.current?.scrollIntoView?.({
-        block: 'nearest',
-        behavior: 'instant',
-      });
-    }
+    const viewport = questionViewportRef.current;
+    const content = questionContentRef.current;
+    const completion = questionCompletionRef.current;
+    if (
+      !collectionReady ||
+      showAssistant ||
+      !viewport ||
+      !content ||
+      !completion
+    )
+      return;
+
+    let revealedScrollTop = viewport.scrollTop;
+    const revealCompletion = () => {
+      completion.scrollIntoView?.({ block: 'nearest', behavior: 'instant' });
+      revealedScrollTop = viewport.scrollTop;
+    };
+    revealCompletion();
+    if (typeof ResizeObserver === 'undefined') return;
+
+    // A rendered image or HTML block can grow after the run has completed.
+    const observer = new ResizeObserver(revealCompletion);
+    const stopFollowing = () => observer.disconnect();
+    const handleScroll = () => {
+      if (Math.abs(viewport.scrollTop - revealedScrollTop) > 1) stopFollowing();
+    };
+    observer.observe(content);
+    observer.observe(viewport);
+    observer.observe(completion);
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+    viewport.addEventListener('wheel', stopFollowing, { passive: true });
+    viewport.addEventListener('touchmove', stopFollowing, { passive: true });
+
+    return () => {
+      stopFollowing();
+      viewport.removeEventListener('scroll', handleScroll);
+      viewport.removeEventListener('wheel', stopFollowing);
+      viewport.removeEventListener('touchmove', stopFollowing);
+    };
   }, [collectionReady, showAssistant]);
 
   const collectionCompletion = collectionReady ? (
@@ -420,7 +454,10 @@ export default function ProfileOnboardingConversation({
             canUseAssistant && 'sm:scroll-pb-20 sm:pb-20',
           )}
         >
-          <div className='markdown-flow'>
+          <div
+            ref={questionContentRef}
+            className='markdown-flow'
+          >
             {visibleContentList.map(item => (
               <ContentBlock
                 key={item.element_bid}
