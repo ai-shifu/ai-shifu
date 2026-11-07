@@ -247,6 +247,9 @@ function MockProfileOnboardingConversation(
         {RETRY_CONVERSATION_LABEL}
       </button>
       {props.errorMessage ? <p>{props.errorMessage}</p> : null}
+      {props.collectionReady ? (
+        <p role='status'>module.profileOnboarding.guided.collectionComplete</p>
+      ) : null}
       {props.questionScrollFooter}
     </div>
   );
@@ -1315,11 +1318,13 @@ describe('LearnerProfileDialog', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
 
+    const collectionComplete = await screen.findByText(
+      'module.profileOnboarding.guided.collectionComplete',
+    );
+    expect(collectionComplete).toHaveAttribute('role', 'status');
     expect(
-      await screen.findByText(
-        'module.profileOnboarding.guided.collectionComplete',
-      ),
-    ).toHaveClass('shrink-0');
+      screen.getByTestId('mock-profile-onboarding-conversation'),
+    ).toContainElement(collectionComplete);
     const reviewButton = screen.getByRole('button', {
       name: 'module.profileOnboarding.guided.reviewCollection',
     });

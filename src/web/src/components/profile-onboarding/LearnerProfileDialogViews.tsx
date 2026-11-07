@@ -263,6 +263,7 @@ export function ProfileCollectionView({
         <ProfileOnboardingConversation
           key={conversationKey}
           {...conversationProps}
+          collectionReady={collectionReady}
           questionScrollFooter={
             <ProfileInformationUsageControl
               variant='inline'
@@ -271,14 +272,6 @@ export function ProfileCollectionView({
           }
         />
       </div>
-      {collectionReady ? (
-        <div
-          role='status'
-          className='mt-3 shrink-0 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
-        >
-          {t('module.profileOnboarding.guided.collectionComplete')}
-        </div>
-      ) : null}
     </section>
   );
 }
