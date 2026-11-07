@@ -1,5 +1,6 @@
 """Coordinate Flask plugin registration and lifecycle."""
 
+import os
 from collections.abc import Callable
 from functools import wraps
 from typing import ParamSpec, TypeVar
@@ -25,8 +26,10 @@ class PluginManager:
         self.is_enabled = True
 
     def enable_hot_reload(self) -> None:
-        """Enable the hot reload."""
-        if not self.is_enabled:
+        """Start file watching in the process that will serve the app."""
+        # Do not create observer threads or file descriptors in a preloaded
+        # master: workers must construct and own their watchers after fork.
+        if not self.is_enabled or os.environ.get("AI_SHIFU_PRELOAD_MASTER") == "1":
             return
         if not self.hot_reloader:
             self.hot_reloader = PluginHotReloader(self.app)
