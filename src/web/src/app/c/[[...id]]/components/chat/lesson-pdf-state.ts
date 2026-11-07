@@ -5,7 +5,7 @@ import { isSystemInteractionContent } from '@/lib/system-interaction';
 import {
   isReadModeTextContentItemReady,
   type ReadModeTypewriterCache,
-} from './read-mode-typewriter-gate';
+} from '@/lib/read-mode-typewriter-gate';
 
 interface LessonPdfContentReadyOptions {
   courseName: string;

@@ -42,7 +42,7 @@ import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
 import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import LoadingBar from './LoadingBar';
-import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
+import StreamingLoadingDotsBar from '@/components/chat/StreamingLoadingDotsBar';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
@@ -81,7 +81,7 @@ import {
   shouldEnableReadModeTypewriter,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
-} from './read-mode-typewriter-gate';
+} from '@/lib/read-mode-typewriter-gate';
 import { BILLING_PACKAGES_HREF } from '@/lib/billing-navigation';
 import {
   isCreditInsufficientBusinessCode,

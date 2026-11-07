@@ -363,7 +363,7 @@ jest.mock(
     },
 );
 jest.mock(
-  './StreamingLoadingDotsBar',
+  '@/components/chat/StreamingLoadingDotsBar',
   () =>
     function MockStreamingLoadingDotsBar() {
       return <div />;

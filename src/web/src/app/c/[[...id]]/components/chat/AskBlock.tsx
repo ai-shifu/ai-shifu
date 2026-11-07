@@ -13,7 +13,7 @@ import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
 import { getRunMessage, SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/learning';
 import { fixMarkdownStream } from '@/lib/markdown-utils';
 import LoadingBar from './LoadingBar';
-import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
+import StreamingLoadingDotsBar from '@/components/chat/StreamingLoadingDotsBar';
 import styles from './AskBlock.module.scss';
 import { toast, toastOnce } from '@/hooks/use-toast';
 import { AppContext } from '../app-context';
