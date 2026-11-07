@@ -422,7 +422,7 @@ export default function ProfileOnboardingConversation({
             ))}
             {summaryProcessing ? (
               <div
-                className='mt-4 flex items-center gap-2 text-sm text-muted-foreground'
+                className='mt-4 flex items-center gap-2 ps-[2px] text-sm text-muted-foreground'
                 role='status'
               >
                 <StreamingLoadingDotsBar />
@@ -430,7 +430,7 @@ export default function ProfileOnboardingConversation({
               </div>
             ) : showQuestionProgress ? (
               <div
-                className='mt-4'
+                className='mt-4 ps-[2px]'
                 role='status'
               >
                 <StreamingLoadingDotsBar />
