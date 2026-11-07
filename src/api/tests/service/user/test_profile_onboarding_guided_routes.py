@@ -173,8 +173,9 @@ def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
     ]
 
 
-def test_profile_onboarding_skip_without_session_cleans_the_active_owner_session(
-    monkeypatch: object, test_client: object
+@pytest.mark.parametrize("action", ["skip", "complete"])
+def test_profile_onboarding_without_session_never_cleans_another_session(
+    monkeypatch: object, test_client: object, action: str
 ) -> None:
     user = _authenticate(monkeypatch)
     calls = []
@@ -183,27 +184,90 @@ def test_profile_onboarding_skip_without_session_cleans_the_active_owner_session
         lambda **kwargs: calls.append(("skip", kwargs)) or {"skipped": True},
     )
     monkeypatch.setattr(
-        "flaskr.service.profile_research.api.delete_active_profile_research_session",
-        lambda _app, **kwargs: calls.append(("delete-active", kwargs)),
-    )
-
-    response = test_client.post(
-        "/api/user/profile-onboarding/skip",
-        headers={"Token": "token"},
-        json={},
-    )
-
-    assert _data(response) == {"skipped": True}
-    assert calls == [
-        ("skip", {"user_id": user.user_id}),
-        (
-            "delete-active",
-            {
-                "user_bid": user.user_id,
-                "purpose": "profile-onboarding",
-            },
+        "flaskr.route.profile.complete_profile_onboarding",
+        lambda _app, **kwargs: (
+            calls.append(("complete", kwargs)) or {"completed": True}
         ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.delete_profile_research_session",
+        lambda _app, **kwargs: calls.append(("delete", kwargs)),
+    )
+
+    payload = (
+        {}
+        if action == "skip"
+        else {"learner_profile": "Reviewed draft", "trigger_source": "guided"}
+    )
+    response = test_client.post(
+        f"/api/user/profile-onboarding/{action}",
+        headers={"Token": "token"},
+        json=payload,
+    )
+
+    assert _data(response) == {"skipped" if action == "skip" else "completed": True}
+    assert calls == [(action, {"user_id": user.user_id, **payload})]
+
+
+@pytest.mark.parametrize("action", ["skip", "complete"])
+@pytest.mark.parametrize("with_session_id", [True, False])
+def test_profile_cleanup_preserves_another_browser_questionnaire(
+    monkeypatch: pytest.MonkeyPatch,
+    test_client: object,
+    action: str,
+    with_session_id: bool,
+) -> None:
+    from flaskr.service.profile_research.api import (
+        PROFILE_ONBOARDING_PURPOSE,
+        ProfileResearchSessionNotFound,
+    )
+
+    from tests.service.profile_research.test_runtime import _make_runtime
+
+    user = _authenticate(monkeypatch)
+    _app, runtime, _providers = _make_runtime()
+    sessions = [
+        runtime.start_session(
+            user_bid=user.user_id,
+            document="?[Continue]",
+            purpose=PROFILE_ONBOARDING_PURPOSE,
+            config_revision=1,
+            output_language="en-US",
+        )
+        for _ in range(2)
     ]
+    other = runtime.store.load(sessions[1]["session_id"]).to_cache_payload()
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.delete_profile_research_session",
+        lambda _app, **kwargs: runtime.delete_session(**kwargs),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.profile.skip_profile_onboarding",
+        lambda **_kwargs: {"skipped": True},
+    )
+    monkeypatch.setattr(
+        "flaskr.route.profile.complete_profile_onboarding",
+        lambda _app, **_kwargs: {"completed": True},
+    )
+    payload = (
+        {}
+        if action == "skip"
+        else {"learner_profile": "Reviewed draft", "trigger_source": "guided"}
+    )
+    if with_session_id:
+        payload["session_id"] = sessions[0]["session_id"]
+    response = test_client.post(
+        f"/api/user/profile-onboarding/{action}",
+        headers={"Token": "token"},
+        json=payload,
+    )
+    assert _data(response) == {"skipped" if action == "skip" else "completed": True}
+    assert runtime.store.load(sessions[1]["session_id"]).to_cache_payload() == other
+    if with_session_id:
+        with pytest.raises(ProfileResearchSessionNotFound):
+            runtime.store.load(sessions[0]["session_id"])
+    else:
+        assert runtime.store.load(sessions[0]["session_id"]).turn_index == 0
 
 
 @pytest.mark.parametrize("nickname", ["小明", ""])

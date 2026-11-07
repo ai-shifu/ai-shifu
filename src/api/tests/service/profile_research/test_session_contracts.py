@@ -12,7 +12,6 @@ from tests.service.profile_research.test_runtime import (
     _assistant_runtime,
     _import_answers,
     _make_runtime,
-    _save_session_without_active_pointer,
     _start_test_session,
 )
 
@@ -109,7 +108,7 @@ def test_invalid_learner_input_is_rejected_before_any_provider_work(
     "overrides",
     [{"user_bid": " "}, {"purpose": "invalid"}, {"config_revision": "bad"}],
 )
-def test_invalid_start_identity_or_revision_creates_no_active_session(
+def test_invalid_start_identity_or_revision_creates_no_session(
     overrides: dict,
 ) -> None:
     _app, runtime, providers = _make_runtime()
@@ -124,12 +123,7 @@ def test_invalid_start_identity_or_revision_creates_no_active_session(
     with pytest.raises(sessions.ProfileResearchValidationError):
         runtime.start_session(**kwargs)
     assert providers == []
-    assert (
-        runtime.store.active_session_id(
-            user_bid="user-1", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
-        )
-        is None
-    )
+    assert runtime.store._cache._store == {}
 
 
 @pytest.mark.parametrize(
@@ -141,20 +135,16 @@ def test_invalid_start_identity_or_revision_creates_no_active_session(
         ("DEFAULT_LLM_TEMPERATURE", 2.1),
     ],
 )
-def test_invalid_runtime_configuration_cannot_replace_active_session(
+def test_invalid_runtime_configuration_preserves_existing_session(
     config_key: str, value: object
 ) -> None:
     app, runtime, _providers = _make_runtime()
     original = _start_test_session(runtime)
+    before = runtime.store.load(original["session_id"]).to_cache_payload()
     app.config[config_key] = value
     with pytest.raises(sessions.ProfileResearchValidationError):
         _start_test_session(runtime)
-    assert (
-        runtime.store.active_session_id(
-            user_bid="user-1", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
-        )
-        == original["session_id"]
-    )
+    assert runtime.store.load(original["session_id"]).to_cache_payload() == before
 
 
 @pytest.mark.parametrize(
@@ -176,7 +166,7 @@ def test_replay_requires_valid_request_identity_pair(
         )
 
 
-def test_busy_session_lock_releases_owner_admission_for_a_later_run() -> None:
+def test_busy_session_lock_permits_a_later_run_after_release() -> None:
     _app, runtime, _providers = _make_runtime()
     view = _start_test_session(runtime)
     lock = runtime.store.lock(view["session_id"])
@@ -215,21 +205,20 @@ def test_lock_release_failure_does_not_mask_the_original_run_error() -> None:
     lock.release.assert_called_once()
 
 
-def test_implicit_purpose_delete_and_absent_active_session_are_idempotent() -> None:
+def test_implicit_purpose_delete_removes_only_the_requested_owned_session() -> None:
     _app, runtime, _providers = _make_runtime()
     view = _start_test_session(runtime)
+    other = _start_test_session(runtime)
     runtime.delete_session(
         user_bid="user-1", session_id=view["session_id"], expected_purpose=None
-    )
-    runtime.delete_active_session(
-        user_bid="user-1", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
     )
     with pytest.raises(sessions.ProfileResearchSessionNotFound):
         runtime.store.load(view["session_id"])
     with pytest.raises(sessions.ProfileResearchSessionNotFound):
-        runtime.delete_active_session(
-            user_bid="", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
+        runtime.delete_session(
+            user_bid="", session_id=other["session_id"], expected_purpose=None
         )
+    assert runtime.store.load(other["session_id"]).config_revision == 1
 
 
 def test_corrupt_cached_purpose_cannot_be_resolved_implicitly() -> None:
@@ -266,22 +255,17 @@ def test_answer_without_a_pending_native_question_is_rejected() -> None:
     assert runtime.store.load(view["session_id"]).turn_index == 0
 
 
-def test_assistant_import_cannot_write_a_session_replaced_by_a_new_owner_session() -> (
+def test_assistant_import_keeps_running_after_another_owner_session_is_created() -> (
     None
 ):
     app, runtime, view, providers = _assistant_runtime()
-    previous = runtime.store.load(view["session_id"])
     current = _start_test_session(runtime)
-    _save_session_without_active_pointer(runtime, previous)
-    with app.app_context(), pytest.raises(sessions.ProfileResearchSessionNotFound):
-        _import_answers(runtime, view)
-    assert providers == []
-    assert (
-        runtime.store.active_session_id(
-            user_bid="user-1", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
-        )
-        == current["session_id"]
-    )
+    before = runtime.store.load(current["session_id"]).to_cache_payload()
+    with app.app_context():
+        completed = _import_answers(runtime, view)
+    assert completed[-1]["content"]["done"] is True
+    assert len(providers) == 2
+    assert runtime.store.load(current["session_id"]).to_cache_payload() == before
 
 
 def test_assistant_import_rejects_oversized_collected_nickname_without_staging_answers() -> (
@@ -361,12 +345,6 @@ def test_corrupt_replay_input_is_reported_as_missing_session_and_does_not_preven
     assert runtime.store._cache.get(key) == raw.encode("utf-8")
     replacement = _start_test_session(runtime)
     assert replacement["session_id"] != previous["session_id"]
-    assert (
-        runtime.store.active_session_id(
-            user_bid="user-1", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
-        )
-        == replacement["session_id"]
-    )
     assert runtime.store.load(replacement["session_id"]).last_user_input == {}
     assert providers == []
 

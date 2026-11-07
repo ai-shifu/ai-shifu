@@ -242,6 +242,61 @@ def test_full_script_and_native_session_survive_between_questions() -> None:
     assert resumed.store.load(view["session_id"]).engine_session["id"] == engine_id
 
 
+def test_two_browser_sessions_keep_answers_revisions_and_replays_independent() -> None:
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _finished(messages):
+            yield " "
+        elif _tool_returns(messages):
+            yield _finish()
+        else:
+            yield {0: _interact()}
+
+    _app, runtime, _factories = _runtime(script)
+    first = _start(runtime, "Collect %{{learning_goal}} and finish.")
+    second = _start(runtime, "Collect %{{learning_goal}} and finish.")
+    _run(runtime, first)
+    _run(runtime, second)
+    before_second = runtime.store.load(second["session_id"]).to_cache_payload()
+    first_result = _run(
+        runtime,
+        first,
+        values={"learning_goal": ["First browser answer"]},
+        request_id="answer",
+        expected_interaction_id="question",
+    )
+    assert _terminal(first_result)["done"] is True
+    assert runtime.store.load(second["session_id"]).to_cache_payload() == before_second
+    second_result = _run(
+        runtime,
+        second,
+        values={"learning_goal": ["Second browser answer"]},
+        request_id="answer",
+        expected_interaction_id="question",
+    )
+    assert _terminal(second_result)["done"] is True
+    assert runtime.store.load(first["session_id"]).variables == {
+        "learning_goal": "First browser answer"
+    }
+    assert runtime.store.load(second["session_id"]).variables == {
+        "learning_goal": "Second browser answer"
+    }
+    for view, answer, expected in (
+        (first, "First browser answer", first_result),
+        (second, "Second browser answer", second_result),
+    ):
+        assert (
+            _run(
+                runtime,
+                view,
+                values={"learning_goal": [answer]},
+                index=1,
+                request_id="answer",
+                expected_interaction_id="question",
+            )
+            == expected
+        )
+
+
 def test_rewind_replaces_a_completed_answer_branch_and_replays_the_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -278,11 +333,14 @@ def test_rewind_replaces_a_completed_answer_branch_and_replays_the_result(
     assert _terminal(completed)["rewindable_interaction_ids"] == ["goal", "pace"]
     assert _terminal(completed)["done"] is True
 
-    def fail_active_pointer_refresh(_session: object) -> None:
-        message = "active pointer refresh failed after session write"
+    save = runtime.store.save
+
+    def save_then_fail(session: object) -> None:
+        save(session)
+        message = "write acknowledgement failed after session write"
         raise RuntimeError(message)
 
-    monkeypatch.setattr(runtime.store, "refresh_active", fail_active_pointer_refresh)
+    monkeypatch.setattr(runtime.store, "save", save_then_fail)
     request = {
         "values": {"goal": ["Revised goal"]},
         "index": 3,
@@ -534,12 +592,7 @@ def test_old_questionnaire_cache_expires_and_a_new_session_can_replace_it(
     assert factories == []
     replacement = _start(runtime, "Ask what the learner wants to learn.")
     assert replacement["session_id"] != first["session_id"]
-    assert (
-        runtime.store.active_session_id(
-            user_bid="v2-learner", purpose=PROFILE_ONBOARDING_PURPOSE
-        )
-        == replacement["session_id"]
-    )
+    assert runtime.store.load(replacement["session_id"]).turn_index == 0
 
 
 def test_native_batch_answers_persist_independently_and_exact_replay_keeps_the_same_turn() -> (

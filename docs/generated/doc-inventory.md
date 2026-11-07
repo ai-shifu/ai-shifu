@@ -140,6 +140,7 @@
 | `docs/exec-plans/completed/harness-health-local-report.md` | Keep harness health reports out of pull request conflicts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/independent-profile-sessions.md` | Independent Profile collection sessions | `exec-plan-completed` | `completed` | `backend` | `2026-11-07` | `false` |
 | `docs/exec-plans/completed/internal-course-temperature.md` | Keep course temperatures internal | `exec-plan-completed` | `completed` | `shared` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/learn-run-decomposition.md` | ExecPlan: Learn /run Chain Decomposition (B6) | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/learner-listen-playback-stability.md` | Learner listen playback stability | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -316,7 +317,7 @@
 | `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/product-specs/outline-learning-permission-default.md` | Backend-owned outline learning permission default | `product-spec` | `implemented` | `shared` | `2026-10-11` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-10-31` | `true` |
-| `docs/product-specs/profile-onboarding-startup.md` | Profile onboarding startup | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
+| `docs/product-specs/profile-onboarding-startup.md` | Profile onboarding startup | `product-spec` | `implemented` | `frontend` | `2026-11-07` | `true` |
 | `docs/product-specs/shared-interaction-rewind.md` | Shared Interaction Rewind | `product-spec` | `implemented` | `shared` | `2026-11-01` | `true` |
 | `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-23` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |

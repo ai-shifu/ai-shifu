@@ -87,26 +87,20 @@ def _delete_profile_onboarding_session(
     app: Flask, *, user_bid: str, session_id: str | None
 ) -> None:
     """Best-effort cleanup must not roll back a durable completion state."""
+    if not session_id:
+        return
     from flaskr.service.profile_research.api import (
         PROFILE_ONBOARDING_PURPOSE,
-        delete_active_profile_research_session,
         delete_profile_research_session,
     )
 
     with contextlib.suppress(Exception):
-        if session_id:
-            delete_profile_research_session(
-                app,
-                user_bid=user_bid,
-                session_id=session_id,
-                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-            )
-        else:
-            delete_active_profile_research_session(
-                app,
-                user_bid=user_bid,
-                purpose=PROFILE_ONBOARDING_PURPOSE,
-            )
+        delete_profile_research_session(
+            app,
+            user_bid=user_bid,
+            session_id=session_id,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
 
 
 def register_profile_routes(

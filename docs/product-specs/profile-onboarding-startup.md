@@ -2,7 +2,7 @@
 title: Profile onboarding startup
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-23
+last_reviewed: 2026-11-07
 canonical: true
 ---
 
@@ -81,7 +81,27 @@ Older terminal responses without capability metadata keep answered controls
 read-only. Roll out rewind support to the API workers before the web client
 starts sending edits.
 
-Owner locks, exact-request replay, thirty-minute expiration, frozen
+Each browser dialog creates an independent owner- and purpose-bound session.
+Several sessions for the same account can run concurrently. Creating, running,
+importing answers into, or deleting one session affects only that session ID.
+Per-session locks prevent concurrent operations inside one questionnaire, and
+its revision and exact-request replay remain local to that questionnaire.
+Existing Redis session payloads continue to load. Retired owner-wide active
+pointers and locks are ignored and expire with their original TTL. Roll out the
+independent-session API workers together so an older worker cannot retire
+another browser's questionnaire.
+
+Questionnaire completion prepares a draft for explicit review and save. The
+last successful explicit profile save becomes the account's current profile,
+regardless of which questionnaire started or finished first. Saving or skipping
+cleans up only the supplied session ID. A request without a session ID leaves
+questionnaires to expire through their existing TTL.
+
+Concurrent dialogs count as separate existing collection journeys. The existing
+analytics event names, payloads, and per-request terminal scopes keep their
+meaning, so this change requires no new event family.
+
+Session locks, exact-request replay, thirty-minute expiration, frozen
 configuration, nonbillable metering and existing product analytics remain in
 the Profile host. Schema 3 stores the full native Session. Schema 1 and 2 cached
 per-block sessions expire as incompatible: callers receive the existing
