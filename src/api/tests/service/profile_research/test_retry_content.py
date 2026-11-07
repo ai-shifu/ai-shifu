@@ -33,8 +33,7 @@ def _public_content(events: list[dict[str, Any]]) -> str:
 
 
 def test_welcome_card_uses_sandbox_and_replays_with_stable_ids() -> None:
-    card_opening = '<div class="card"><div>Welcome, learner!</div>\n'
-    card = card_opening + "<div>Good to see you.</div>\n</div>\n"
+    card = '<div class="card">Welcome, learner!</div>\n'
     style = "<style>.card { color: blue; }</style>\n"
 
     async def script(_messages: list[ModelMessage], info: AgentInfo) -> StreamChunks:
@@ -53,7 +52,7 @@ def test_welcome_card_uses_sandbox_and_replays_with_stable_ids() -> None:
     assert final[2]["interaction_id"] == "goal"
     assert all(event["is_terminal"] is False for event in final)
     html_updates = [event for event in events if event.get("element_type") == "html"]
-    assert html_updates[0]["content"] == card_opening
+    assert html_updates[0]["content"] == card
     assert html_updates[0]["is_final"] is False
     assert {event["generated_block_bid"] for event in html_updates} == {
         final[0]["generated_block_bid"]

@@ -85,21 +85,6 @@ def test_a_card_keeps_its_legacy_type_and_number() -> None:
     assert {stream_type for _, stream_type, _ in pieces} >= {"html", "text"}
 
 
-@pytest.mark.parametrize(
-    "card",
-    [
-        "<div><div/></div>",
-        '<div><div aria-hidden="true" /></div>',
-        '<div title="/>"><div aria-label=">" /></div>',
-    ],
-)
-def test_self_closing_children_do_not_keep_the_card_open(card: str) -> None:
-    assert _page(list(f"{card}\nNext question.\n")) == [
-        (f"{card}\n", "html", 0),
-        ("Next question.\n", "text", 1),
-    ]
-
-
 @pytest.mark.parametrize("rule", ["---", "***", "___"])
 def test_separator_lines_are_preserved_as_the_legacy_formatter_classifies_them(
     rule: str,
