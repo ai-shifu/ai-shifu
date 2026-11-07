@@ -27,7 +27,7 @@
     "close": "Collapse learning simulation",
     "copied": "Snippet copied",
     "copy": "Copy snippet",
-    "copyTooltip": "Paste it into the teaching prompt on the left, and next time it will teach with this snippet",
+    "copyTooltip": "Paste into Teaching Prompts where you want the snippet to appear. It will be shown as is during the lesson",
     "description": "Feel the learner’s experience and see how prompts personalize courses",
     "disabled": "Select a specific lesson before debugging.",
     "empty": "Enter teaching prompts on the left, then click \"Debug\" to experience learning simulation",

@@ -337,13 +337,13 @@ describe('DebugPanel billing action', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('copies preview content with hover guidance and copied button feedback', async () => {
+  test('copies preview content with its indentation and shows copy feedback', async () => {
     mockCopyText.mockResolvedValue(undefined);
     const items: ChatContentItem[] = [
       {
         element_bid: 'text-1',
         generated_block_bid: '0',
-        content: 'First paragraph content',
+        content: '    print("hello")\n\nFirst paragraph content',
         type: ChatContentItemType.CONTENT,
         element_type: 'text',
         is_final: true,
@@ -371,7 +371,7 @@ describe('DebugPanel billing action', () => {
 
     await waitFor(() => {
       expect(mockCopyText).toHaveBeenCalledWith(
-        '!===' + '\nFirst paragraph content\n' + '!===',
+        '!===' + '\n    print("hello")\n\nFirst paragraph content\n' + '!===',
       );
     });
     expect(

@@ -27,7 +27,7 @@
     "close": "Contraer simulación de aprendizaje",
     "copied": "Fragmento copiado",
     "copy": "Copiar fragmento",
-    "copyTooltip": "Pégalo en las instrucciones de enseñanza de la izquierda para que la próxima vez la IA enseñe con este fragmento",
+    "copyTooltip": "Pega el fragmento en el punto de las instrucciones de enseñanza donde quieras que aparezca. Se mostrará tal cual durante la lección",
     "description": "Experimenta lo que verá el alumno y descubre cómo las instrucciones personalizan el curso",
     "disabled": "Selecciona una lección antes de iniciar la prueba.",
     "empty": "Escribe las instrucciones de enseñanza a la izquierda y haz clic en «Probar» para experimentar la simulación de aprendizaje",
