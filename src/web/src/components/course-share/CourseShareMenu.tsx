@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { resolveWideLogoSource } from '@/components/logo/logo-source';
 import { useTracking } from '@/hooks/use-tracking';
+import { useEnvStore } from '@/store/env-store';
 import { Button } from '@/components/ui/Button';
 import {
   Popover,
@@ -28,7 +30,29 @@ import {
   type CourseShareButtonProps,
 } from './CourseShareButton';
 
-export function CourseShareMenu(props: CourseShareButtonProps) {
+type CourseShareMenuProps = CourseShareButtonProps & {
+  courseTeacherAvatar?: string;
+};
+
+const resolvePosterImageUrl = (source?: string) => {
+  if (!source?.trim()) return null;
+
+  try {
+    const url = new URL(source, window.location.origin);
+    if (
+      (url.protocol !== 'https:' && url.protocol !== 'http:') ||
+      url.username ||
+      url.password
+    ) {
+      return null;
+    }
+    return url.href;
+  } catch {
+    return null;
+  }
+};
+
+export function CourseShareMenu(props: CourseShareMenuProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { trackEvent } = useTracking();
@@ -83,10 +107,24 @@ export function CourseShareMenu(props: CourseShareButtonProps) {
           }),
           url,
         });
+        const { logoWideUrl, logoHorizontal } = useEnvStore.getState();
+        const logoSource = resolveWideLogoSource(logoWideUrl, logoHorizontal);
+        const logoUrl = resolvePosterImageUrl(
+          typeof logoSource === 'string' ? logoSource : logoSource.src,
+        );
+        const teacherAvatarUrl = resolvePosterImageUrl(
+          props.courseTeacherAvatar,
+        );
+        const links = [
+          `- ${t('common.core.posterCourseUrl')}: ${url}`,
+          logoUrl && `- ${t('common.core.posterWebsiteLogo')}: ${logoUrl}`,
+          teacherAvatarUrl &&
+            `- ${t('common.core.posterTeacherAvatar')}: ${teacherAvatarUrl}`,
+        ];
         setPrompt(
           t('common.core.posterPrompt', {
             courseContent: fenceCoursePosterMaterial(content.payload.text),
-            courseUrl: url,
+            posterLinks: links.filter(Boolean).join('\n'),
           }),
         );
         setStatus('idle');

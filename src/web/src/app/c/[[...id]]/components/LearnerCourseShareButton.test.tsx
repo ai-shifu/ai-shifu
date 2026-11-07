@@ -12,6 +12,7 @@ let mockRouteParams: { id?: string[] } = { id: ['course-1'] };
 type MockCourseShareMenuProps = {
   courseTitle: string;
   courseDescription?: string;
+  courseTeacherAvatar?: string;
   shifuBid: string;
   resolveShareUrl: () => string | null;
   surface: string;
@@ -77,6 +78,7 @@ describe('LearnerCourseShareButton', () => {
       useCourseStore.setState({
         courseName: 'Course one',
         courseDescription: 'Course description',
+        courseAvatar: '/api/storage/courses/course-1/teacher.png',
         courseSettingsCourseId: 'course-1',
       });
     });
@@ -89,6 +91,7 @@ describe('LearnerCourseShareButton', () => {
       useCourseStore.setState({
         courseName: '',
         courseDescription: '',
+        courseAvatar: '',
         courseSettingsCourseId: null,
       });
     });
@@ -111,6 +114,7 @@ describe('LearnerCourseShareButton', () => {
         expect.objectContaining({
           courseTitle: 'Course one',
           courseDescription: 'Course description',
+          courseTeacherAvatar: '/api/storage/courses/course-1/teacher.png',
           shifuBid: 'course-1',
           surface,
         }),

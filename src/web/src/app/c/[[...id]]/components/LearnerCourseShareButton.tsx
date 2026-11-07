@@ -35,14 +35,19 @@ export default function LearnerCourseShareButton({
   const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
   const shifuBid = useEnvStore(state => state.courseId);
   const previewMode = useSystemStore(state => state.previewMode);
-  const { courseName, courseDescription, courseSettingsCourseId } =
-    useCourseStore(
-      useShallow(state => ({
-        courseName: state.courseName,
-        courseDescription: state.courseDescription,
-        courseSettingsCourseId: state.courseSettingsCourseId,
-      })),
-    );
+  const {
+    courseName,
+    courseDescription,
+    courseAvatar,
+    courseSettingsCourseId,
+  } = useCourseStore(
+    useShallow(state => ({
+      courseName: state.courseName,
+      courseDescription: state.courseDescription,
+      courseAvatar: state.courseAvatar,
+      courseSettingsCourseId: state.courseSettingsCourseId,
+    })),
+  );
   const resolveShareUrl = useCallback(() => {
     if (typeof window === 'undefined') {
       return null;
@@ -64,6 +69,7 @@ export default function LearnerCourseShareButton({
     <CourseShareMenu
       courseTitle={courseName}
       courseDescription={courseDescription}
+      courseTeacherAvatar={courseAvatar}
       shifuBid={shifuBid}
       resolveShareUrl={resolveShareUrl}
       surface={surface}
