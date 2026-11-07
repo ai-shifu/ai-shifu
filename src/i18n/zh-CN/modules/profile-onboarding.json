@@ -29,7 +29,7 @@
     "preview": "预览互动问答",
     "previewDraft": "预览整理出的背景与偏好",
     "previewFailed": "预览失败，请检查互动问答文档后重试。",
-    "previewProfileNotice": "预览使用当前未保存的互动问答文档，不会读取或更改你的个性化设置。",
+    "previewProfileNotice": "预览使用开始时的互动问答草稿。修改文档或填入默认提示词后，点击「重新开始预览」查看更新。预览不会读取或更改你的个性化设置。",
     "promptRequiresDocument": "保存 AI 代答提示词前，请先填写互动问答文档；如需清空配置，请同时清空两项。",
     "publishState": "当前已保存版本",
     "regenerateAssistantPrompt": "重新生成 AI 代答提示词",
@@ -49,7 +49,8 @@
       "title": "有未保存的个性化引导配置"
     },
     "updatedAt": "保存时间",
-    "updatedBy": "保存人"
+    "updatedBy": "保存人",
+    "useDefaultPrompt": "填入默认提示词"
   },
   "assistant": {
     "back": "还是自己答吧",

@@ -51,6 +51,8 @@ export const PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT =
   'operator_profile_prompt_generate_attempt';
 export const PROFILE_PROMPT_GENERATE_RESULT_EVENT =
   'operator_profile_prompt_generate_result';
+const PROFILE_DEFAULT_PROMPT_APPLIED_EVENT =
+  'operator_profile_default_prompt_applied';
 export const PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT =
   'operator_profile_config_load_retry_attempt';
 export const PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT =
@@ -191,6 +193,25 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     },
     [trackEvent],
   );
+
+  const canApplyDefaultPrompt =
+    configLoaded &&
+    !saving &&
+    !generating &&
+    markdownflow !== defaultMarkdownflow;
+
+  const applyDefaultPrompt = () => {
+    if (
+      !configLoaded ||
+      savingRef.current ||
+      generatingRef.current ||
+      markdownflowRef.current === defaultMarkdownflow
+    ) {
+      return;
+    }
+    setMarkdownflow(defaultMarkdownflow);
+    trackEventSafely(PROFILE_DEFAULT_PROMPT_APPLIED_EVENT, {});
+  };
 
   const loadConfig = React.useCallback(
     async (mode: ConfigLoadMode = 'initial') => {
@@ -672,6 +693,8 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     setEnabled,
     markdownflow,
     setMarkdownflow,
+    canApplyDefaultPrompt,
+    applyDefaultPrompt,
     assistantPrompt,
     setAssistantPrompt,
     configRevision,

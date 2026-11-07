@@ -30,6 +30,8 @@ export default function ProfileOnboardingAdminPage() {
     setEnabled,
     markdownflow,
     setMarkdownflow,
+    canApplyDefaultPrompt,
+    applyDefaultPrompt,
     assistantPrompt,
     setAssistantPrompt,
     configRevision,
@@ -123,9 +125,20 @@ export default function ProfileOnboardingAdminPage() {
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='profile-onboarding-markdownflow'>
-              {t('module.profileOnboarding.admin.markdownflow')}
-            </Label>
+            <div className='flex flex-wrap items-center justify-between gap-2'>
+              <Label htmlFor='profile-onboarding-markdownflow'>
+                {t('module.profileOnboarding.admin.markdownflow')}
+              </Label>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                disabled={!canApplyDefaultPrompt}
+                onClick={applyDefaultPrompt}
+              >
+                {t('module.profileOnboarding.admin.useDefaultPrompt')}
+              </Button>
+            </div>
             <p className='text-sm text-muted-foreground'>
               {t('module.profileOnboarding.admin.markdownflowHint')}
             </p>

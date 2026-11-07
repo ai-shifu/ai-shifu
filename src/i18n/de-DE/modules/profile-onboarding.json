@@ -29,7 +29,7 @@
     "preview": "Interaktive Fragen in der Vorschau ansehen",
     "previewDraft": "Vorschau der Angaben zu Hintergrund und Vorlieben",
     "previewFailed": "Vorschau fehlgeschlagen. Überprüfen Sie den interaktiven Fragefluss und versuchen Sie es erneut.",
-    "previewProfileNotice": "Die Vorschau verwendet den aktuellen nicht gespeicherten interaktiven Fragefluss und liest oder ändert Ihre Personalisierungseinstellungen nicht.",
+    "previewProfileNotice": "Die Vorschau verwendet den Entwurf des interaktiven Frageflusses vom Beginn der Vorschau. Wenn Sie das Dokument bearbeiten oder den Standardprompt einfügen, wählen Sie „Vorschau neu starten“, um die Änderungen zu sehen. Die Vorschau liest oder ändert Ihre Personalisierungseinstellungen nicht.",
     "promptRequiresDocument": "Füllen Sie zuerst das Dokument mit den interaktiven Fragen aus, bevor Sie den KI-Antwortprompt speichern. Um die Konfiguration zu löschen, leeren Sie beide Felder.",
     "publishState": "Derzeit gespeicherte Version",
     "regenerateAssistantPrompt": "KI-Antwortprompt erneut erstellen",
@@ -49,7 +49,8 @@
       "title": "Nicht gespeicherte Änderungen an der Personalisierung"
     },
     "updatedAt": "Gespeichert am",
-    "updatedBy": "Gespeichert von"
+    "updatedBy": "Gespeichert von",
+    "useDefaultPrompt": "Standardprompt einfügen"
   },
   "assistant": {
     "back": "Ich antworte lieber selbst",

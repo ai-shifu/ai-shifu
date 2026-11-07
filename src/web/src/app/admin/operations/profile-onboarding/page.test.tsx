@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import api from '@/api';
 import { streamProfileOnboardingRuntime } from '@/lib/profile-onboarding-sse';
+import profileOnboarding from '../../../../../../i18n/zh-CN/modules/profile-onboarding.json';
 import ProfileOnboardingAdminPage from './page';
 import {
   PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT,
@@ -23,8 +24,12 @@ import {
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockPush = jest.fn();
+const mockDefaultDocument = profileOnboarding.admin.defaultMarkdownflow;
 const RUN_MOCKED_PREVIEW_LABEL = 'run mocked preview';
 const DOCUMENT = '?[%{{research_topic}}...最近在关注什么？]';
+const USE_DEFAULT_PROMPT_LABEL =
+  'module.profileOnboarding.admin.useDefaultPrompt';
+const DEFAULT_PROMPT_APPLIED_EVENT = 'operator_profile_default_prompt_applied';
 const PROMPT = 'Answer only what you know about the learner.';
 const SILENT_ERROR_CONFIG = { skipErrorToast: true };
 
@@ -72,8 +77,12 @@ jest.mock('@/hooks/use-tracking', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: Record<string, string>) =>
-      params?.keys ? `${key}:${params.keys}` : key,
+    t: (key: string, params?: Record<string, string>) => {
+      if (key === 'module.profileOnboarding.admin.defaultMarkdownflow') {
+        return mockDefaultDocument;
+      }
+      return params?.keys ? `${key}:${params.keys}` : key;
+    },
     i18n: { language: 'zh-CN', resolvedLanguage: 'zh-CN' },
   }),
 }));
@@ -207,6 +216,81 @@ describe('ProfileOnboardingAdminPage', () => {
     ).toBeTruthy();
   });
 
+  test('fills the built-in prompt as an editable draft and tracks each accepted application', async () => {
+    mockUpdateConfig.mockResolvedValueOnce({ config_revision: 3 });
+    const editor = await renderLoadedPage();
+    const button = screen.getByRole('button', {
+      name: USE_DEFAULT_PROMPT_LABEL,
+    });
+
+    expect(editor).toHaveValue(DOCUMENT);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.click(button);
+
+    expect(editor).toHaveValue(mockDefaultDocument);
+    expect(
+      screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
+    ).toHaveValue(PROMPT);
+    expect(
+      screen.getByText('module.profileOnboarding.admin.documentChanged'),
+    ).toBeInTheDocument();
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [DEFAULT_PROMPT_APPLIED_EVENT, {}],
+    ]);
+    expect(mockGeneratePrompt).not.toHaveBeenCalled();
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+
+    fireEvent.change(editor, { target: { value: 'Edited draft' } });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [DEFAULT_PROMPT_APPLIED_EVENT, {}],
+      [DEFAULT_PROMPT_APPLIED_EVENT, {}],
+    ]);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        {
+          enabled: true,
+          markdownflow: mockDefaultDocument,
+          assistant_prompt: PROMPT,
+          config_revision: 2,
+        },
+        SILENT_ERROR_CONFIG,
+      ),
+    );
+  });
+
+  test.each(['throw', 'reject'])(
+    'fills the built-in prompt when analytics fails (%s)',
+    async failure => {
+      mockTrackEvent.mockImplementationOnce(() => {
+        const error = new Error('analytics unavailable');
+        if (failure === 'throw') {
+          throw error;
+        }
+        return Promise.reject(error);
+      });
+      const editor = await renderLoadedPage();
+      fireEvent.click(
+        screen.getByRole('button', { name: USE_DEFAULT_PROMPT_LABEL }),
+      );
+
+      expect(editor).toHaveValue(mockDefaultDocument);
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        DEFAULT_PROMPT_APPLIED_EVENT,
+        {},
+      );
+    },
+  );
+
   test('generates a draft without saving and records one accepted attempt and result', async () => {
     mockGetConfig.mockResolvedValue({
       enabled: false,
@@ -278,6 +362,9 @@ describe('ProfileOnboardingAdminPage', () => {
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
       }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: USE_DEFAULT_PROMPT_LABEL }),
     ).toBeDisabled();
     expect(documentEditor).toBeEnabled();
     expect(promptEditor).toBeEnabled();
@@ -815,6 +902,12 @@ describe('ProfileOnboardingAdminPage', () => {
     expect(
       screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
     ).toBeDisabled();
+    const defaultPromptButton = screen.getByRole('button', {
+      name: USE_DEFAULT_PROMPT_LABEL,
+    });
+    expect(defaultPromptButton).toBeDisabled();
+    fireEvent.click(defaultPromptButton);
+    expect(getTrackingCalls(DEFAULT_PROMPT_APPLIED_EVENT)).toHaveLength(0);
     expect(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.generateAssistantPrompt',
@@ -1488,7 +1581,7 @@ describe('ProfileOnboardingAdminPage', () => {
     anchor.remove();
   });
 
-  test('creates an isolated preview from the current unsaved document', async () => {
+  test('previews the unsaved document and uses the inserted default on restart', async () => {
     const editor = await renderLoadedPage();
     fireEvent.change(editor, {
       target: { value: '?[%{{unsaved_topic}}...未保存的问题？]' },
@@ -1520,6 +1613,29 @@ describe('ProfileOnboardingAdminPage', () => {
       }),
     );
     expect(await screen.findByDisplayValue('预览个人介绍')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: USE_DEFAULT_PROMPT_LABEL }),
+    );
+    expect(editor).toHaveValue(mockDefaultDocument);
+    expect(screen.getByDisplayValue('预览个人介绍')).toBeInTheDocument();
+    expect(mockCreatePreview).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.restartPreview',
+      }),
+    );
+    expect(screen.queryByDisplayValue('预览个人介绍')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: RUN_MOCKED_PREVIEW_LABEL }),
+    );
+    await waitFor(() =>
+      expect(mockCreatePreview).toHaveBeenNthCalledWith(2, {
+        markdownflow: mockDefaultDocument,
+        language: 'zh-CN',
+      }),
+    );
     expect(mockUpdateConfig).not.toHaveBeenCalled();
     expect(mockGeneratePrompt).not.toHaveBeenCalled();
   });

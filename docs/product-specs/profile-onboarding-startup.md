@@ -8,6 +8,40 @@ canonical: true
 
 # Profile onboarding startup
 
+## Operator questionnaire configuration
+
+Insert default prompt replaces the editable questionnaire with the built-in
+MarkdownFlow for the current admin language. The existing AI-assisted answer
+prompt stays in the draft. The editor shows its existing document-change notice
+if that prompt was prepared for a different questionnaire. Changes take effect
+when the operator saves the configuration.
+
+An open preview uses the questionnaire draft from the start of that session.
+After editing the document or inserting the default, use **Restart preview**
+to preview the updated draft.
+
+### Default prompt analytics
+
+This follows the [frontend product analytics contract](../references/frontend-product-analytics.md).
+
+- Decision and metric. The operations product team reviews weekly raw Umami
+  counts of `operator_profile_default_prompt_applied` to assess how often
+  operators use the built-in questionnaire to replace their drafts. The metric
+  counts accepted uses without a denominator.
+- Trigger and population. Emit after an authorized operator applies the
+  default in the configuration editor. The configuration must be loaded, the
+  editor must be idle for saving and prompt generation, and the questionnaire
+  must differ from the default. Automatic initialization, guest and learner
+  views, preview sessions, and no-op clicks are excluded.
+- Deduplication. The current draft value prevents repeated clicks from
+  counting once it matches the default. Applying the default again after a
+  subsequent edit counts as another use.
+- Payload and correlation. The payload is exactly `{}`. It contains no prompt
+  text, identifiers, or join keys.
+- Compatibility and verification. This event is additive. Regression tests
+  verify the trigger, exclusions, exact payload, and that a tracking failure
+  does not affect the draft edit.
+
 ## Questionnaire execution
 
 Profile onboarding and operator questionnaire previews use the shared
