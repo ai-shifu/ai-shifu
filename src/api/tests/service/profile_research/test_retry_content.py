@@ -32,16 +32,18 @@ def _public_content(events: list[dict[str, Any]]) -> str:
     return "".join(parts.values())
 
 
-def test_rendered_elements_finish_in_order_and_replay_with_stable_ids() -> None:
-    card = '<div class="card">Card</div>\n'
+def test_welcome_card_uses_sandbox_and_replays_with_stable_ids() -> None:
+    card = '<div class="card">Welcome, learner!</div>\n'
     style = "<style>.card { color: blue; }</style>\n"
 
-    async def script(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+    async def script(_messages: list[ModelMessage], info: AgentInfo) -> StreamChunks:
+        assert "# Screens (HTML visuals)" in (info.instructions or "")
+        assert "The stage preloads Tailwind CSS" in (info.instructions or "")
         yield card + "---\nYour goal?\n" + style
         yield {0: _interact(call_id="goal", variable="goal")}
 
     _app, runtime, _factories = _runtime(script)
-    view = _start(runtime, "Ask about learning needs.")
+    view = _start(runtime, "Draw a welcome card, then ask about learning needs.")
     events = _run(runtime, view)
     final = [event for event in events if event.get("is_final")]
     assert [event["element_type"] for event in final] == ["html", "text", "interaction"]

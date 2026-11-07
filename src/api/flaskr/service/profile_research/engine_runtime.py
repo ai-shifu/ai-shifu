@@ -241,7 +241,6 @@ def run_profile_turn(
     async def events() -> AsyncIterator[Event]:
         engine = Engine(
             model,
-            render="none",
             extra_instructions=_PROFILE_INSTRUCTIONS,
             output_language=session.output_language or None,
             model_settings={"temperature": session.temperature},
