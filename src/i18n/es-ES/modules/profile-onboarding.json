@@ -124,7 +124,7 @@
     "retryableError": "Se ha interrumpido la conexión, pero tus respuestas siguen disponibles. Inténtalo de nuevo.",
     "reviewCollection": "Revisar y confirmar",
     "streamError": "Las preguntas se han interrumpido inesperadamente. Inténtalo de nuevo.",
-    "summarizing": "Organizando la información de personalización"
+    "summarizing": "Analizando tu trayectoria"
   },
   "loadFailed": "No se han podido cargar los ajustes de personalización. Hemos abierto el curso directamente; inténtalo de nuevo más tarde.",
   "profilePlaceholder": "Por ejemplo, tu experiencia laboral o académica, otros conocimientos, cómo prefieres las explicaciones y las diapositivas, o tus intereses actuales",

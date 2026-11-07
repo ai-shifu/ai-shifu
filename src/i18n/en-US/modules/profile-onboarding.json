@@ -124,7 +124,7 @@
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
     "reviewCollection": "Review and confirm",
     "streamError": "The questions stopped unexpectedly. Try again.",
-    "summarizing": "Organizing your personalization information"
+    "summarizing": "Learning about your background"
   },
   "loadFailed": "Your personalization settings could not be loaded, so the course was opened. Please try again later.",
   "profilePlaceholder": "For example: your work or study background, relevant experience, preferred explanation and slide styles, and current interests",

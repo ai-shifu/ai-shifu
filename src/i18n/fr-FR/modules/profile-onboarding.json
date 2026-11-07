@@ -124,7 +124,7 @@
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
     "reviewCollection": "Vérifier et confirmer",
     "streamError": "Les questions se sont interrompues. Réessayez.",
-    "summarizing": "Préparation de vos informations de personnalisation"
+    "summarizing": "Analyse de votre parcours"
   },
   "loadFailed": "Vos paramètres de personnalisation n’ont pas pu être chargés ; le cours a donc été ouvert. Réessayez plus tard.",
   "profilePlaceholder": "Par exemple : votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
