@@ -418,7 +418,7 @@ def test_optimize_missing_model_one_does_not_call_llm_or_change_state(
         after = _snapshot_profile_state(user_bid)
 
     assert raised.value.code == 1024
-    assert "No model is configured to improve" in raised.value.message
+    assert "No model is configured to optimize" in raised.value.message
     assert invoked is False
     assert after == before
 
@@ -527,7 +527,7 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(
         (
             AppError("model route unavailable", 8002),
             1024,
-            "No model is configured to improve",
+            "No model is configured to optimize",
         ),
     ],
 )
