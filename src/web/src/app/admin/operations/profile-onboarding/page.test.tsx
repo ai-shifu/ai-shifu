@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import api from '@/api';
 import { streamProfileOnboardingRuntime } from '@/lib/profile-onboarding-sse';
+import profileOnboarding from '../../../../../../i18n/zh-CN/modules/profile-onboarding.json';
 import ProfileOnboardingAdminPage from './page';
 import {
   PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT,
@@ -23,9 +24,9 @@ import {
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockPush = jest.fn();
+const mockDefaultDocument = profileOnboarding.admin.defaultMarkdownflow;
 const RUN_MOCKED_PREVIEW_LABEL = 'run mocked preview';
 const DOCUMENT = '?[%{{research_topic}}...最近在关注什么？]';
-const DEFAULT_DOCUMENT = 'module.profileOnboarding.admin.defaultMarkdownflow';
 const USE_DEFAULT_PROMPT_LABEL =
   'module.profileOnboarding.admin.useDefaultPrompt';
 const DEFAULT_PROMPT_APPLIED_EVENT = 'operator_profile_default_prompt_applied';
@@ -76,8 +77,12 @@ jest.mock('@/hooks/use-tracking', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: Record<string, string>) =>
-      params?.keys ? `${key}:${params.keys}` : key,
+    t: (key: string, params?: Record<string, string>) => {
+      if (key === 'module.profileOnboarding.admin.defaultMarkdownflow') {
+        return mockDefaultDocument;
+      }
+      return params?.keys ? `${key}:${params.keys}` : key;
+    },
     i18n: { language: 'zh-CN', resolvedLanguage: 'zh-CN' },
   }),
 }));
@@ -222,7 +227,7 @@ describe('ProfileOnboardingAdminPage', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
     fireEvent.click(button);
 
-    expect(editor).toHaveValue(DEFAULT_DOCUMENT);
+    expect(editor).toHaveValue(mockDefaultDocument);
     expect(
       screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
     ).toHaveValue(PROMPT);
@@ -254,7 +259,7 @@ describe('ProfileOnboardingAdminPage', () => {
       expect(mockUpdateConfig).toHaveBeenCalledWith(
         {
           enabled: true,
-          markdownflow: DEFAULT_DOCUMENT,
+          markdownflow: mockDefaultDocument,
           assistant_prompt: PROMPT,
           config_revision: 2,
         },
@@ -278,7 +283,7 @@ describe('ProfileOnboardingAdminPage', () => {
         screen.getByRole('button', { name: USE_DEFAULT_PROMPT_LABEL }),
       );
 
-      expect(editor).toHaveValue(DEFAULT_DOCUMENT);
+      expect(editor).toHaveValue(mockDefaultDocument);
       expect(mockTrackEvent).toHaveBeenCalledWith(
         DEFAULT_PROMPT_APPLIED_EVENT,
         {},
