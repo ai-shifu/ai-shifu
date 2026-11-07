@@ -225,3 +225,38 @@ test('leaving during a confirmed edit emits one cancellation', async () => {
     ['cancelled'],
   ]);
 });
+
+test('a terminal response without edit capabilities clears previously advertised questions', async () => {
+  const session = renderSession();
+  await finishOriginalDraft(session);
+  expect(
+    session.result.current.rewindableInteractionIds.has('original-question'),
+  ).toBe(true);
+  act(() => {
+    session.result.current.send(
+      { inputText: 'New answer' },
+      'original-question',
+    );
+  });
+  act(session.result.current.reGenerateConfirm.onConfirm);
+  act(() => {
+    const { onMessage } = session.currentRequest();
+    onMessage({
+      type: 'rewind',
+      content: { interaction_id: 'original-question' },
+    });
+    onMessage(question('new-question'));
+    onMessage({
+      type: 'done',
+      is_terminal: true,
+      content: {
+        done: false,
+        input_accepted: true,
+        next_turn_index: 3,
+        pending_interaction_ids: ['new-question'],
+      },
+    });
+  });
+  expect(session.result.current.rewindableInteractionIds.size).toBe(0);
+  expect(session.result.current.status).toBe('awaiting_input');
+});

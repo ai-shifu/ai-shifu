@@ -394,9 +394,9 @@ export const useProfileOnboardingSession = ({
         awaitingInteractionRef.current = runState.awaitingInput;
         if (!runState.awaitingInput) activeInteractionIdRef.current = null;
       }
-      if (runState.rewindableInteractionIds !== null) {
-        setRewindableInteractionIds(new Set(runState.rewindableInteractionIds));
-      }
+      setRewindableInteractionIds(
+        new Set(runState.rewindableInteractionIds ?? []),
+      );
       const nextTurnIndex = resolveNextTurnIndex(event);
       if (nextTurnIndex !== null) {
         turnIndexRef.current = nextTurnIndex;
