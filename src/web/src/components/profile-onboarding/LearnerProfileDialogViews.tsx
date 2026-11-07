@@ -251,6 +251,14 @@ export function ProfileCollectionView({
   ...conversationProps
 }: ProfileCollectionViewProps) {
   const { t } = useTranslation();
+  const completionRef = React.useRef<HTMLParagraphElement>(null);
+
+  // Reveal the new message without placing it under the footer's fade.
+  React.useLayoutEffect(() => {
+    if (collectionReady) {
+      completionRef.current?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [collectionReady]);
 
   return (
     <section
@@ -267,8 +275,9 @@ export function ProfileCollectionView({
             <>
               {collectionReady ? (
                 <p
+                  ref={completionRef}
                   role='status'
-                  className='mt-3 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
+                  className='mb-2 mt-3 scroll-mb-8 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
                 >
                   {t('module.profileOnboarding.guided.collectionComplete')}
                 </p>
