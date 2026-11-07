@@ -123,8 +123,7 @@
     "restartingAfterEditError": "Diese Änderung konnte nicht abgeschlossen werden. Wir erfassen Ihre Angaben zur Personalisierung noch einmal von Anfang an.",
     "retry": "Erneut versuchen",
     "retryableError": "Die Verbindung wurde unterbrochen. Ihre Antwort ist noch vorhanden. Bitte versuchen Sie es erneut.",
-    "reviewCollection": "Hintergrund und Vorlieben ansehen",
-    "reviewNickname": "Anrede ansehen",
+    "reviewCollection": "Angaben prüfen",
     "streamError": "Die Fragen wurden unerwartet unterbrochen. Bitte versuchen Sie es erneut.",
     "summarizing": "Dein Hintergrund wird analysiert"
   },

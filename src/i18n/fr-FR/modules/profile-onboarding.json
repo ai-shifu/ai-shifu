@@ -123,8 +123,7 @@
     "restartingAfterEditError": "Cette modification n’a pas pu être effectuée. Nous reprenons la collecte de vos informations de personnalisation depuis le début.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
-    "reviewCollection": "Voir le parcours et les préférences",
-    "reviewNickname": "Voir le nom choisi",
+    "reviewCollection": "Vérifier les informations",
     "streamError": "Les questions se sont interrompues. Réessayez.",
     "summarizing": "Analyse de votre parcours"
   },

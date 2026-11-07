@@ -123,8 +123,7 @@
     "restartingAfterEditError": "No se ha podido completar este cambio. Vamos a recopilar de nuevo tu información de personalización desde el principio.",
     "retry": "Intentar de nuevo",
     "retryableError": "Se ha interrumpido la conexión, pero tus respuestas siguen disponibles. Inténtalo de nuevo.",
-    "reviewCollection": "Ver trayectoria y preferencias",
-    "reviewNickname": "Ver el nombre elegido",
+    "reviewCollection": "Revisar los datos",
     "streamError": "Las preguntas se han interrumpido inesperadamente. Inténtalo de nuevo.",
     "summarizing": "Analizando tu trayectoria"
   },

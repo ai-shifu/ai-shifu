@@ -123,8 +123,7 @@
     "restartingAfterEditError": "本次修改未能完成，正在从头重新收集个性化信息。",
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
-    "reviewCollection": "查看背景与偏好",
-    "reviewNickname": "查看昵称",
+    "reviewCollection": "核对资料",
     "streamError": "提问意外中断了，请再试一次。",
     "summarizing": "正在研究你的背景"
   },

@@ -123,8 +123,7 @@
     "restartingAfterEditError": "This change could not be completed. We're starting over to collect your personalization information.",
     "retry": "Try again",
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
-    "reviewCollection": "Review background and preferences",
-    "reviewNickname": "Review chosen name",
+    "reviewCollection": "Review details",
     "streamError": "The questions stopped unexpectedly. Try again.",
     "summarizing": "Learning about your background"
   },
