@@ -86,9 +86,9 @@
     "discardTitle": "Abandonner ces modifications ?",
     "dismissFailed": "Impossible de terminer cette action. Réessayez.",
     "informationUsageEditable": "Vous pouvez les modifier à tout moment dans les paramètres de personnalisation.",
-    "informationUsagePurpose": "Elles servent uniquement à aider votre enseignant IA à adapter le contenu et la manière d’enseigner.",
+    "informationUsagePurpose": "Votre enseignant IA vous appelle par le nom que vous indiquez. Votre parcours et vos préférences dans la présentation personnelle l’aident à adapter le contenu des cours et sa façon d’enseigner.",
     "informationUsageSensitive": "N’indiquez pas d’informations sensibles comme vos coordonnées, votre adresse, vos pièces d’identité, vos données de santé ou financières.",
-    "informationUsageTitle": "Utilisation des informations ?",
+    "informationUsageTitle": "Comment mon profil est-il utilisé ?",
     "interactiveCollection": "Répondre aux questions",
     "keepEditing": "Continuer à modifier",
     "loadFailed": "Impossible de charger ces informations. Réessayez.",
@@ -117,13 +117,13 @@
     "unifiedTitle": "Paramètres de personnalisation"
   },
   "guided": {
-    "collectionComplete": "Vos informations sont prêtes à être vérifiées.",
+    "collectionComplete": "Votre enseignant IA a préparé une présentation personnelle à partir de vos réponses. Vous pouvez la relire et la modifier avant de l’enregistrer.",
     "inputLimitError": "Cette réponse est trop longue ou comporte trop de choix. Raccourcissez-la, puis renvoyez-la ; vous pouvez continuer à la modifier.",
     "missingDraft": "Nous n’avons pas pu générer votre présentation personnelle. Répondez de nouveau aux questions.",
     "restartingAfterEditError": "Cette modification n’a pas pu être effectuée. Nous reprenons la collecte de vos informations de personnalisation depuis le début.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
-    "reviewCollection": "Vérifier et confirmer",
+    "reviewCollection": "Voir la présentation personnelle",
     "streamError": "Les questions se sont interrompues. Réessayez.",
     "summarizing": "Analyse de votre parcours"
   },

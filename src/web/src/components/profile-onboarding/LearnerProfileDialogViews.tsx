@@ -264,21 +264,23 @@ export function ProfileCollectionView({
           key={conversationKey}
           {...conversationProps}
           questionScrollFooter={
-            <ProfileInformationUsageControl
-              variant='inline'
-              className='mt-4 sm:hidden [@media(max-height:620px)]:block'
-            />
+            <>
+              {collectionReady ? (
+                <p
+                  role='status'
+                  className='mt-3 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
+                >
+                  {t('module.profileOnboarding.guided.collectionComplete')}
+                </p>
+              ) : null}
+              <ProfileInformationUsageControl
+                variant='inline'
+                className='mt-4 sm:hidden [@media(max-height:620px)]:block'
+              />
+            </>
           }
         />
       </div>
-      {collectionReady ? (
-        <div
-          role='status'
-          className='mt-3 shrink-0 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
-        >
-          {t('module.profileOnboarding.guided.collectionComplete')}
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -86,9 +86,9 @@
     "discardTitle": "Änderungen verwerfen?",
     "dismissFailed": "Die Aktion konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
     "informationUsageEditable": "Sie können dies jederzeit in den Personalisierungseinstellungen ändern.",
-    "informationUsagePurpose": "Diese Angaben helfen der KI-Lehrkraft nur dabei, Inhalt und Stil des Unterrichts anzupassen.",
+    "informationUsagePurpose": "Ihre KI-Lehrkraft spricht Sie mit dem von Ihnen angegebenen Namen an. Anhand des Hintergrunds und der Vorlieben in Ihrer persönlichen Beschreibung passt sie Inhalt und Stil des Unterrichts an.",
     "informationUsageSensitive": "Geben Sie keine sensiblen Daten wie Kontaktdaten, Adresse, Ausweisnummern sowie Gesundheits- oder Finanzinformationen ein.",
-    "informationUsageTitle": "Wie werden diese Informationen verwendet?",
+    "informationUsageTitle": "Wie wird mein Profil verwendet?",
     "interactiveCollection": "Fragen beantworten",
     "keepEditing": "Bearbeiten fortsetzen",
     "loadFailed": "Diese Angaben konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
@@ -117,13 +117,13 @@
     "unifiedTitle": "Personalisierungseinstellungen"
   },
   "guided": {
-    "collectionComplete": "Ihre Angaben sind bereit zur Überprüfung.",
+    "collectionComplete": "Ihre KI-Lehrkraft hat aus Ihren Antworten eine persönliche Beschreibung erstellt. Sie können sie vor dem Speichern ansehen und bearbeiten.",
     "inputLimitError": "Diese Antwort ist zu lang oder enthält zu viele Auswahlmöglichkeiten. Kürzen Sie sie und senden Sie sie erneut. Sie können sie weiterhin bearbeiten.",
     "missingDraft": "Ihre persönliche Beschreibung konnte nicht erstellt werden. Bitte beantworten Sie die Fragen erneut.",
     "restartingAfterEditError": "Diese Änderung konnte nicht abgeschlossen werden. Wir erfassen Ihre Angaben zur Personalisierung noch einmal von Anfang an.",
     "retry": "Erneut versuchen",
     "retryableError": "Die Verbindung wurde unterbrochen. Ihre Antwort ist noch vorhanden. Bitte versuchen Sie es erneut.",
-    "reviewCollection": "Überprüfen und bestätigen",
+    "reviewCollection": "Persönliche Beschreibung ansehen",
     "streamError": "Die Fragen wurden unerwartet unterbrochen. Bitte versuchen Sie es erneut.",
     "summarizing": "Dein Hintergrund wird analysiert"
   },

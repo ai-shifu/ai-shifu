@@ -86,9 +86,9 @@
     "discardTitle": "¿Descartar estos cambios?",
     "dismissFailed": "No se ha podido completar la operación. Inténtalo de nuevo.",
     "informationUsageEditable": "Puedes modificarla en cualquier momento desde los ajustes de personalización.",
-    "informationUsagePurpose": "Solo se utiliza para ayudar al profesor de IA a adaptar el contenido y la forma de explicar las lecciones.",
+    "informationUsagePurpose": "El profesor de IA se dirige a ti con el nombre que indiques y usa tu trayectoria y tus preferencias de la presentación personal para adaptar el contenido y la forma de explicar las lecciones.",
     "informationUsageSensitive": "No incluyas datos sensibles como información de contacto, domicilio, documentos de identidad, datos de salud o financieros.",
-    "informationUsageTitle": "¿Cómo se utilizará esta información?",
+    "informationUsageTitle": "¿Cómo se usa mi perfil?",
     "interactiveCollection": "Preguntas interactivas",
     "keepEditing": "Seguir editando",
     "loadFailed": "No se ha podido cargar esta información. Inténtalo de nuevo.",
@@ -117,13 +117,13 @@
     "unifiedTitle": "Ajustes de personalización"
   },
   "guided": {
-    "collectionComplete": "Ya hemos recopilado la información.",
+    "collectionComplete": "El profesor de IA ha preparado una presentación personal a partir de tus respuestas. Puedes revisarla y editarla antes de guardarla.",
     "inputLimitError": "La respuesta es demasiado larga o has seleccionado demasiadas opciones. Acórtala y vuelve a enviarla. Tus respuestas seguirán disponibles para editarlas.",
     "missingDraft": "No se ha podido generar tu presentación personal. Vuelve a responder las preguntas.",
     "restartingAfterEditError": "No se ha podido completar este cambio. Vamos a recopilar de nuevo tu información de personalización desde el principio.",
     "retry": "Intentar de nuevo",
     "retryableError": "Se ha interrumpido la conexión, pero tus respuestas siguen disponibles. Inténtalo de nuevo.",
-    "reviewCollection": "Revisar y confirmar",
+    "reviewCollection": "Ver presentación personal",
     "streamError": "Las preguntas se han interrumpido inesperadamente. Inténtalo de nuevo.",
     "summarizing": "Analizando tu trayectoria"
   },

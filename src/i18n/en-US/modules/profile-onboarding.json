@@ -86,9 +86,9 @@
     "discardTitle": "Discard these changes?",
     "dismissFailed": "Could not complete that action. Try again.",
     "informationUsageEditable": "You can change this anytime in Personalization settings.",
-    "informationUsagePurpose": "Used only to help your AI teacher adapt lesson content and teaching style.",
+    "informationUsagePurpose": "Your AI teacher uses the name you enter to address you, and the background and preferences in your personal introduction to adapt lesson content and teaching style.",
     "informationUsageSensitive": "Do not include sensitive details such as contact information, addresses, IDs, health information, or financial information.",
-    "informationUsageTitle": "How is this information used?",
+    "informationUsageTitle": "How is my profile used?",
     "interactiveCollection": "Answer questions",
     "keepEditing": "Keep editing",
     "loadFailed": "Could not load these details. Try again.",
@@ -117,13 +117,13 @@
     "unifiedTitle": "Personalization settings"
   },
   "guided": {
-    "collectionComplete": "Your information is ready to review.",
+    "collectionComplete": "Your AI teacher has prepared a personal introduction based on your answers. You can review and edit it before saving.",
     "inputLimitError": "This answer is too long or has too many selections. Shorten it, then submit again; you can keep editing it.",
     "missingDraft": "We could not generate your personal introduction. Please answer the questions again.",
     "restartingAfterEditError": "This change could not be completed. We're starting over to collect your personalization information.",
     "retry": "Try again",
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
-    "reviewCollection": "Review and confirm",
+    "reviewCollection": "Review personal introduction",
     "streamError": "The questions stopped unexpectedly. Try again.",
     "summarizing": "Learning about your background"
   },

@@ -86,9 +86,9 @@
     "discardTitle": "放弃这次修改吗？",
     "dismissFailed": "暂时无法完成操作，请重试。",
     "informationUsageEditable": "随时可以在个性化设置里修改。",
-    "informationUsagePurpose": "只用于帮助 AI 老师调整讲课内容和方式。",
+    "informationUsagePurpose": "你填写的昵称用于称呼你，个人介绍里的背景和偏好用于帮助 AI 老师调整讲课内容和方式。",
     "informationUsageSensitive": "请不要填写联系方式、住址、证件、健康或财务等敏感信息。",
-    "informationUsageTitle": "信息会被如何使用？",
+    "informationUsageTitle": "个人资料会怎么用？",
     "interactiveCollection": "互动收集",
     "keepEditing": "继续编辑",
     "loadFailed": "暂时无法加载这些信息，请重试。",
@@ -117,13 +117,13 @@
     "unifiedTitle": "个性化设置"
   },
   "guided": {
-    "collectionComplete": "信息已经收集好了。",
+    "collectionComplete": "AI 老师已根据你的回答整理好个人介绍。你可以先查看和修改，再确认保存。",
     "inputLimitError": "回答太长或选择太多，请精简后再提交。你的回答仍可继续修改。",
     "missingDraft": "没能生成个人介绍，请重新回答问题。",
     "restartingAfterEditError": "本次修改未能完成，正在从头重新收集个性化信息。",
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
-    "reviewCollection": "查看并确认",
+    "reviewCollection": "查看个人介绍",
     "streamError": "提问意外中断了，请再试一次。",
     "summarizing": "正在研究你的背景"
   },
