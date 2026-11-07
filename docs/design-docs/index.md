@@ -36,5 +36,7 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-27` | Canonical: `true`
 - [Operator Course/User Request Optimization](../design-docs/operator-course-user-request-optimization.md)
   - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Reading follow-up entry](../design-docs/reading-follow-up-entry.md)
+  - Status: `implemented` | Owner: `learner-web` | Last reviewed: `2026-11-02` | Canonical: `true`
 - [老带新邀请奖励](../design-docs/referral-invitation-rewards.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-06-11` | Canonical: `true`
