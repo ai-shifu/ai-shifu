@@ -492,6 +492,7 @@ const Header = ({
             key={currentShifu.bid}
             courseTitle={currentShifu.name || ''}
             courseDescription={currentShifu.description}
+            courseTeacherAvatar={currentShifu.avatar}
             shifuBid={currentShifu.bid}
             resolveShareUrl={getCourseShareUrl}
             surface='teacher_header'

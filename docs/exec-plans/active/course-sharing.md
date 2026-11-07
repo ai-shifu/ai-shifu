@@ -225,6 +225,9 @@ The app supplies the canonical URL once in its separate original-course-URL
 section, without appending it to the course material. Links authored in the
 description remain verbatim inside the fence, even when they match the canonical
 URL; deleting matching substrings could corrupt Markdown links or other URLs.
+The poster prompt supplies the current site's wide logo and the course's
+configured teacher avatar as separate image references when available. The
+prompt uses teacher credits explicitly provided in the course material.
 The prompt is assembled locally
 and copied only on an explicit click. The learner wrapper always uses the shared
 menu; learner preview remains excluded. The `surface` value identifies the analytics

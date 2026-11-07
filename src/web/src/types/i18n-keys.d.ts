@@ -37,6 +37,8 @@ export type I18nKey =
   | 'common.core.posterNextStep'
   | 'common.core.posterPrompt'
   | 'common.core.posterPromptLabel'
+  | 'common.core.posterTeacherAvatar'
+  | 'common.core.posterWebsiteLogo'
   | 'common.core.profileOnboardingManagement'
   | 'common.core.promotionManagement'
   | 'common.core.rateManagement'

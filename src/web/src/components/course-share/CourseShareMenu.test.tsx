@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { CourseShareMenu } from './CourseShareMenu';
+import { useEnvStore } from '@/store/env-store';
 import zh from '../../../../i18n/zh-CN/common/core.json';
 
 const mockTrack = jest.fn();
@@ -17,6 +18,9 @@ jest.mock('@/hooks/use-tracking', () => ({
 jest.mock('@/hooks/use-toast', () => ({
   showDefaultToast: (description: string) => mockToast({ description }),
   useToast: () => ({ toast: mockToast }),
+}));
+jest.mock('@/assets/logos/ai-shifu-logo-horizontal.png', () => ({
+  src: '/_next/static/media/default-wide-logo.png',
 }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -40,6 +44,7 @@ const description =
 const baseProps = {
   courseTitle: 'AI 业务操盘手',
   courseDescription: description,
+  courseTeacherAvatar: 'https://assets.example.com/course-teacher.png',
   shifuBid: 'course-1',
   resolveShareUrl: () => 'https://example.com/c/course-1?secret=value#outline',
   showLabel: true,
@@ -49,17 +54,26 @@ const clipboardDescriptor = Object.getOwnPropertyDescriptor(
   'clipboard',
 );
 const shareDescriptor = Object.getOwnPropertyDescriptor(navigator, 'share');
+const originalBranding = {
+  logoWideUrl: useEnvStore.getState().logoWideUrl,
+  logoHorizontal: useEnvStore.getState().logoHorizontal,
+};
 const copy = jest.fn();
 beforeEach(() => {
   jest.clearAllMocks();
   mockTrack.mockReset();
   copy.mockReset();
   copy.mockResolvedValue(undefined);
+  useEnvStore.setState({
+    logoWideUrl: '/assets/site-logo.png',
+    logoHorizontal: '/assets/legacy-logo.png',
+  });
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: { writeText: copy },
   });
 });
+afterEach(() => useEnvStore.setState(originalBranding));
 afterAll(() => {
   for (const [key, descriptor] of [
     ['clipboard', clipboardDescriptor],
@@ -113,9 +127,14 @@ describe.each([
     expect(prompt).toContain(
       `\`\`\`text\n推荐你来学习《${props.courseTitle}》，体验一对一个性化学习。\n\n${description}\n\`\`\`\n\n## 原课程链接\n\nhttps://example.com/c/course-1`,
     );
+    expect(prompt).toContain(
+      `https://example.com/c/course-1\n\n${zh.posterWebsiteLogo}: ${window.location.origin}/assets/site-logo.png\n${zh.posterTeacherAvatar}: ${props.courseTeacherAvatar}`,
+    );
+    expect(prompt).not.toContain('/assets/legacy-logo.png');
     expect(prompt).not.toContain('secret=value');
     expect(prompt).not.toContain('{courseContent}');
     expect(prompt).not.toContain('{courseUrl}');
+    expect(prompt).not.toContain('{posterReferences}');
     expect(mockToast).toHaveBeenCalledWith({ description: zh.posterNextStep });
     expect(mockTrack.mock.calls).toEqual([
       [`${actor}_course_share_open`, { shifu_bid: 'course-1', surface }],
@@ -344,18 +363,43 @@ describe.each([
       <CourseShareMenu
         {...props}
         courseDescription='更新的介绍'
+        courseTeacherAvatar=''
       />,
     );
+    useEnvStore.setState({ logoWideUrl: '', logoHorizontal: '' });
     open();
     clickCopy();
     await closed();
     expect(copy.mock.calls[1][0]).toContain('更新的介绍');
     expect(copy.mock.calls[1][0]).not.toContain(description);
+    expect(copy.mock.calls[1][0]).toContain(
+      `${zh.posterWebsiteLogo}: ${window.location.origin}/_next/static/media/default-wide-logo.png`,
+    );
+    expect(copy.mock.calls[1][0]).not.toContain(`${zh.posterTeacherAvatar}:`);
     expect(
       mockTrack.mock.calls.filter(
         ([event]) => event === `${actor}_course_share_open`,
       ),
     ).toHaveLength(2);
+  });
+
+  test('keeps the course prompt available when image references are unsafe', async () => {
+    useEnvStore.setState({ logoWideUrl: 'data:image/png;base64,cG5n' });
+    render(
+      <CourseShareMenu
+        {...props}
+        courseTeacherAvatar='https://user:secret@assets.example.com/avatar.png'
+      />,
+    );
+    open();
+    clickCopy();
+    await closed();
+
+    const prompt: string = copy.mock.calls[0][0];
+    expect(prompt).toContain('https://example.com/c/course-1');
+    expect(prompt).not.toContain(`${zh.posterWebsiteLogo}:`);
+    expect(prompt).not.toContain(`${zh.posterTeacherAvatar}:`);
+    expect(prompt).not.toContain('secret@');
   });
 
   test('Escape closes and restores focus without copying', async () => {
