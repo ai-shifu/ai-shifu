@@ -1,6 +1,6 @@
 ---
 title: Restart Profile collection after rejected edits
-status: active
+status: completed
 owner_surface: frontend
 last_reviewed: 2026-11-07
 ---
@@ -20,8 +20,9 @@ unchanged, as do explicit review and save.
 - [x] 2026-11-07 13:16 CST: Verify PR #3357, its head and the approved scope.
 - [x] 2026-11-07 13:21 CST: Reset completed collection state for a new session;
   full-dialog recovery, late-result and duplicate-result regressions pass.
-- [ ] 2026-11-07 13:16 CST: Restart rejected edits with toast and analytics.
-- [ ] 2026-11-07 13:16 CST: Verify regressions and update the PR and review.
+- [x] 2026-11-07 13:24 CST: Restart rejected edits with toast and analytics.
+- [x] 2026-11-07 13:24 CST: Verify 222 domain regressions, TypeScript and lint;
+  prepare the implementation for PR and review follow-up.
 
 ## Surprises & Discoveries
 
@@ -29,6 +30,8 @@ The conversation hook already rebuilds expired sessions, but the dialog's
 completion guard is not reset when that happens after a completed draft. The
 edit validation error also uses the ordinary fatal-error handler. A new session
 can reuse the existing creation path; no backend readback endpoint is needed.
+The old review action must be retired before fresh-session creation resolves,
+since ending the failed stream releases its in-flight guard immediately.
 
 ## Decision Log
 
@@ -40,7 +43,11 @@ account Profile until the learner explicitly reviews and saves a new result.
 
 ## Outcomes & Retrospective
 
-Implementation and verification are in progress.
+Implementation and local verification are complete. Full-dialog tests cover
+completed drafts, expiry, edit validation errors, deferred session creation,
+fresh draft review/save and analytics failure. Hook tests cover duplicates,
+late callbacks, queued work, disabled state and unchanged retries. Independent
+review found no remaining issues. CI and review closure are tracked in PR #3357.
 
 ## Context and Orientation
 
@@ -83,24 +90,6 @@ restart loop. Retired server sessions expire through their existing TTL.
 Use the existing toast, translations and shared tracking paths. Add an optional
 `onRewindRestart` notification callback to the shared conversation and hook.
 
-### Edit restart analytics contract
-
-- Decision: determine whether edit validation failures often force learners to
-  restart collection and merit further compatibility investigation.
-- Metric: daily raw `learner_profile_answer_edit_restarted` counts divided by
-  existing `learner_profile_answer_edit` attempt counts, grouped by source and
-  presentation. This is an aggregate ratio, not a matched-request funnel.
-- Trigger: once when an active edit validation failure initiates fresh-session
-  creation, after reporting the existing edit's failed terminal outcome.
-- Population: learner onboarding/settings collection; operator preview,
-  ordinary answers, imports, network/busy errors and explicit retries excluded.
-- Count unit and deduplication: one automatic restart per active edit attempt;
-  advancing the attempt token rejects duplicate and late stream callbacks.
-- Schema: exactly `source=guided|settings` and
-  `presentation=blocking|hidden`; no content, question/session IDs or errors.
-- Consumer: Profile product owner reviewing Umami daily counts alongside the
-  existing answer-edit reliability metric; no repository dashboard/query exists.
-- Compatibility: additive event. Existing attempt/terminal events and their
-  outcomes keep their meanings, with no rename, dual write or backfill.
-- Failure isolation: toast and analytics failures cannot prevent fresh-session
-  creation. Tests assert exact payload, privacy, exclusions and deduplication.
+The canonical additive restart analytics contract, including its metric,
+trigger, eligibility, deduplication, exact payload, consumer and compatibility,
+is in [Profile onboarding startup](../../product-specs/profile-onboarding-startup.md#answer-edit-restart-analytics).

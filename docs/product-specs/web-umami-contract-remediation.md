@@ -582,6 +582,14 @@ IDs, and raw errors are excluded.
 - Compatibility: new additive event. Existing collection and assistant
   events retain their contracts.
 
+Validation failures during an active edit also emit the additive
+`learner_profile_answer_edit_restarted` event when a fresh collection session
+is initiated. Its exact two-field payload, deduplication, eligible population,
+consumer and aggregate metric are defined in the canonical
+[Profile restart contract](profile-onboarding-startup.md#answer-edit-restart-analytics).
+The original edit still reports one `failed` outcome. Operator preview is
+excluded, and notification/tracking failure never blocks the restart.
+
 ## Learning-mode selection
 
 - Business question: which real learner mode transitions are accepted and from

@@ -120,6 +120,7 @@
     "collectionComplete": "信息已经收集好了。",
     "inputLimitError": "回答太长或选择太多，请精简后再提交。你的回答仍可继续修改。",
     "missingDraft": "没能生成个人介绍，请重新回答问题。",
+    "restartingAfterEditError": "本次修改未能完成，正在从头重新收集个性化信息。",
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
     "reviewCollection": "查看并确认",

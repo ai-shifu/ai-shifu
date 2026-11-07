@@ -120,6 +120,7 @@
     "collectionComplete": "Ya hemos recopilado la información.",
     "inputLimitError": "La respuesta es demasiado larga o has seleccionado demasiadas opciones. Acórtala y vuelve a enviarla. Tus respuestas seguirán disponibles para editarlas.",
     "missingDraft": "No se ha podido generar tu presentación personal. Vuelve a responder las preguntas.",
+    "restartingAfterEditError": "No se ha podido completar este cambio. Vamos a recopilar de nuevo tu información de personalización desde el principio.",
     "retry": "Intentar de nuevo",
     "retryableError": "Se ha interrumpido la conexión, pero tus respuestas siguen disponibles. Inténtalo de nuevo.",
     "reviewCollection": "Revisar y confirmar",

@@ -120,6 +120,7 @@
     "collectionComplete": "Ihre Angaben sind bereit zur Überprüfung.",
     "inputLimitError": "Diese Antwort ist zu lang oder enthält zu viele Auswahlmöglichkeiten. Kürzen Sie sie und senden Sie sie erneut. Sie können sie weiterhin bearbeiten.",
     "missingDraft": "Ihre persönliche Beschreibung konnte nicht erstellt werden. Bitte beantworten Sie die Fragen erneut.",
+    "restartingAfterEditError": "Diese Änderung konnte nicht abgeschlossen werden. Wir erfassen Ihre Angaben zur Personalisierung noch einmal von Anfang an.",
     "retry": "Erneut versuchen",
     "retryableError": "Die Verbindung wurde unterbrochen. Ihre Antwort ist noch vorhanden. Bitte versuchen Sie es erneut.",
     "reviewCollection": "Überprüfen und bestätigen",

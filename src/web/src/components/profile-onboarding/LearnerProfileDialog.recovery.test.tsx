@@ -73,11 +73,12 @@ jest.mock('react-i18next', () => ({
 }));
 
 const mockTrackEvent = jest.fn();
+const mockToast = jest.fn();
 jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 jest.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: jest.fn() }),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 const savedProfile = {
@@ -99,6 +100,7 @@ const dialogProps = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockTrackEvent.mockReset();
   jest.mocked(getLearnerProfile).mockResolvedValue(savedProfile);
   jest.mocked(getProfileOnboarding).mockResolvedValue({
     ...savedProfile,
@@ -110,7 +112,32 @@ beforeEach(() => {
   });
 });
 
-it('reviews and explicitly saves a fresh result after an expired edit restarts collection', async () => {
+it.each([
+  'transient_markdownflow_session_not_found',
+  'transient_markdownflow_invalid',
+])('reviews and saves a fresh result after edit error %s', async errorCode => {
+  const automaticRestart = errorCode === 'transient_markdownflow_invalid';
+  if (automaticRestart) {
+    mockTrackEvent.mockImplementation((event: string) => {
+      if (event === 'learner_profile_answer_edit_restarted') {
+        throw new Error('Analytics unavailable');
+      }
+    });
+  }
+  let resolveFreshSession!: (session: {
+    session_id: string;
+    turn_index: number;
+    done: boolean;
+    expires_in: number;
+  }) => void;
+  const freshSession = new Promise<{
+    session_id: string;
+    turn_index: number;
+    done: boolean;
+    expires_in: number;
+  }>(resolve => {
+    resolveFreshSession = resolve;
+  });
   jest
     .mocked(createProfileOnboardingSession)
     .mockResolvedValueOnce({
@@ -119,12 +146,7 @@ it('reviews and explicitly saves a fresh result after an expired edit restarts c
       done: false,
       expires_in: 1800,
     })
-    .mockResolvedValueOnce({
-      session_id: freshSessionId,
-      turn_index: 0,
-      done: false,
-      expires_in: 1800,
-    });
+    .mockImplementationOnce(() => freshSession);
   jest
     .mocked(completeGuidedProfileOnboarding)
     .mockResolvedValue({ ...savedProfile, learner_profile: 'Fresh draft' });
@@ -134,7 +156,7 @@ it('reviews and explicitly saves a fresh result after an expired edit restarts c
       if (request.rewind) {
         request.onMessage({
           type: 'error',
-          content: 'transient_markdownflow_session_not_found',
+          content: errorCode,
         });
       } else if (!request.userInput) {
         request.onMessage({
@@ -189,11 +211,59 @@ it('reviews and explicitly saves a fresh result after an expired edit restarts c
   fireEvent.click(
     within(confirmation).getByRole('button', { name: 'common.core.ok' }),
   );
-  fireEvent.click(
-    await screen.findByRole('button', {
-      name: 'module.profileOnboarding.guided.retry',
-    }),
+  if (!automaticRestart) {
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+  }
+  await waitFor(() =>
+    expect(createProfileOnboardingSession).toHaveBeenCalledTimes(2),
   );
+  expect(
+    screen.queryByRole('button', {
+      name: 'module.profileOnboarding.guided.reviewCollection',
+    }),
+  ).not.toBeInTheDocument();
+  if (automaticRestart) {
+    expect(mockToast).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.profileOnboarding.guided.restartingAfterEditError',
+    });
+    const restarts = mockTrackEvent.mock.calls.filter(
+      ([name]) => name === 'learner_profile_answer_edit_restarted',
+    );
+    expect(restarts).toEqual([
+      [
+        'learner_profile_answer_edit_restarted',
+        { source: 'settings', presentation: 'hidden' },
+      ],
+    ]);
+    for (const key of [
+      'answer',
+      'question_id',
+      'session_id',
+      'learner_profile',
+      'nickname',
+      'error',
+    ]) {
+      expect(restarts[0][1]).not.toHaveProperty(key);
+    }
+  } else {
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_profile_answer_edit_restarted',
+      expect.anything(),
+    );
+  }
+  await act(async () => {
+    resolveFreshSession({
+      session_id: freshSessionId,
+      turn_index: 0,
+      done: false,
+      expires_in: 1800,
+    });
+  });
   const freshQuestion = await screen.findByRole('button', {
     name: 'Fresh question',
   });

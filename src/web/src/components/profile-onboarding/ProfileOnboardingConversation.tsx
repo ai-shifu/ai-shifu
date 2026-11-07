@@ -10,6 +10,7 @@ import ContentBlock from '@/components/chat/ContentBlock';
 import LoadingBar from '@/components/chat/LoadingBar';
 import StreamingLoadingDotsBar from '@/components/chat/StreamingLoadingDotsBar';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -76,6 +77,7 @@ export type ProfileOnboardingConversationProps = {
   onRetry?: () => void;
   onRewindAccepted?: () => void;
   onRewindRejected?: (error: unknown) => void;
+  onRewindRestart?: () => void;
   onRewindAnalytics?: (
     outcome: 'attempt' | 'success' | 'failed' | 'cancelled',
   ) => void;
@@ -115,6 +117,7 @@ export default function ProfileOnboardingConversation({
   onRetry,
   onRewindAccepted,
   onRewindRejected,
+  onRewindRestart,
   onRewindAnalytics,
   questionScrollFooter,
   onCollectionRouteChosen,
@@ -126,6 +129,7 @@ export default function ProfileOnboardingConversation({
   onAssistantResult,
 }: ProfileOnboardingConversationProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [assistantVisible, setAssistantVisible] = React.useState(false);
   const assistantView =
     assistantAnswers &&
@@ -156,6 +160,23 @@ export default function ProfileOnboardingConversation({
     setPendingProfileDraft(null);
     onRewindAccepted?.();
   }, [onRewindAccepted]);
+  const handleSessionStarted = React.useCallback(
+    (sessionId: string) => {
+      setPendingProfileDraft(null);
+      onSessionStarted?.(sessionId);
+    },
+    [onSessionStarted],
+  );
+  const handleRewindRestart = React.useCallback(() => {
+    setPendingProfileDraft(null);
+    setAssistantVisible(false);
+    try {
+      toast({
+        title: t('module.profileOnboarding.guided.restartingAfterEditError'),
+      });
+    } catch {}
+    onRewindRestart?.();
+  }, [onRewindRestart, t, toast]);
 
   React.useEffect(() => {
     const syncVisibility = () =>
@@ -204,7 +225,7 @@ export default function ProfileOnboardingConversation({
       missingDraft: t('module.profileOnboarding.guided.missingDraft'),
       assistantError: t('module.profileOnboarding.assistant.error'),
     },
-    onSessionStarted,
+    onSessionStarted: handleSessionStarted,
     onRunInFlightChange,
     onDraftReady: holdProfileDraft,
     onError,
@@ -212,6 +233,7 @@ export default function ProfileOnboardingConversation({
     onRetry,
     onRewindAccepted: invalidateProfileDraft,
     onRewindRejected,
+    onRewindRestart: handleRewindRestart,
     onRewindAnalytics,
     onAssistantAttempt,
     onAssistantResult,

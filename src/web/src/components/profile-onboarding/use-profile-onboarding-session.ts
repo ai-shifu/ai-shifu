@@ -82,6 +82,7 @@ type UseProfileOnboardingSessionParams = {
   onRetry?: () => void;
   onRewindAccepted?: () => void;
   onRewindRejected?: (error: unknown) => void;
+  onRewindRestart?: () => void;
   onRewindAnalytics?: (outcome: ProfileAnswerEditOutcome) => void;
   onAssistantAttempt?: () => void;
   onAssistantResult?: (
@@ -105,6 +106,7 @@ export const useProfileOnboardingSession = ({
   onRetry,
   onRewindAccepted,
   onRewindRejected,
+  onRewindRestart,
   onRewindAnalytics,
   onAssistantAttempt,
   onAssistantResult,
@@ -167,6 +169,7 @@ export const useProfileOnboardingSession = ({
     ) => void
   >(() => {});
   const flushAssistantRequestRef = React.useRef<() => void>(() => {});
+  const startSessionRef = React.useRef<() => void>(() => {});
   const createSessionRef = React.useRef(createSession);
   const runSessionRef = React.useRef(runSession);
   const onSessionStartedRef = React.useRef(onSessionStarted);
@@ -177,6 +180,7 @@ export const useProfileOnboardingSession = ({
   const onRetryRef = React.useRef(onRetry);
   const onRewindAcceptedRef = React.useRef(onRewindAccepted);
   const onRewindRejectedRef = React.useRef(onRewindRejected);
+  const onRewindRestartRef = React.useRef(onRewindRestart);
   const onRewindAnalyticsRef = React.useRef(onRewindAnalytics);
   const onAssistantAttemptRef = React.useRef(onAssistantAttempt);
   const onAssistantResultRef = React.useRef(onAssistantResult);
@@ -193,6 +197,7 @@ export const useProfileOnboardingSession = ({
   onRetryRef.current = onRetry;
   onRewindAcceptedRef.current = onRewindAccepted;
   onRewindRejectedRef.current = onRewindRejected;
+  onRewindRestartRef.current = onRewindRestart;
   onRewindAnalyticsRef.current = onRewindAnalytics;
   onAssistantAttemptRef.current = onAssistantAttempt;
   onAssistantResultRef.current = onAssistantResult;
@@ -330,6 +335,21 @@ export const useProfileOnboardingSession = ({
       }
       if (type === 'error') {
         const runtimeErrorCode = resolveRuntimeErrorCode(event.content);
+        if (
+          submittedRequest?.rewind === true &&
+          runtimeErrorCode === 'transient_markdownflow_invalid'
+        ) {
+          ++runAttemptRef.current;
+          runtimeFailedRef.current = true;
+          streamCompletedRef.current = true;
+          stopStream();
+          reportEditOutcome('failed');
+          try {
+            onRewindRestartRef.current?.();
+          } catch {}
+          startSessionRef.current();
+          return;
+        }
         uncertainRequestRef.current =
           runtimeErrorCode === 'transient_markdownflow_session_busy';
         // Import validation runs on temporary session state, so the learner
@@ -701,6 +721,7 @@ export const useProfileOnboardingSession = ({
         );
       });
   }, [holdAssistantRequest, reportEditOutcome, setRunInFlight, stopStream]);
+  startSessionRef.current = startSession;
 
   React.useEffect(() => {
     if (!disabled) resumeSettledWork();

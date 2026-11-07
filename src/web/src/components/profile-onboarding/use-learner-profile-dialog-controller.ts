@@ -967,6 +967,21 @@ export const useLearnerProfileDialogController = ({
     });
   }, []);
 
+  const handleRewindRestart = React.useCallback(() => {
+    const current = stateRef.current;
+    if (current.collectionKey !== requestEpochRef.current.collection) return;
+    handleRewindAccepted();
+    activeCollectionSessionIdRef.current = '';
+    dispatch({ type: 'patch', patch: { activeCollectionSessionId: '' } });
+    sendProfileAnalytics(
+      PROFILE_ONBOARDING_EVENTS.ANSWER_EDIT_RESTARTED,
+      buildProfileCollectionContext({
+        intent: current.collectionIntent,
+        presentation: presentationRef.current,
+      }),
+    );
+  }, [handleRewindAccepted, sendProfileAnalytics]);
+
   const handleRewindAnalytics = React.useCallback(
     (outcome: ProfileAnswerEditOutcome) => {
       sendProfileAnalytics(PROFILE_ONBOARDING_EVENTS.ANSWER_EDIT, {
@@ -1392,6 +1407,7 @@ export const useLearnerProfileDialogController = ({
       onDraftReady: handleCollectionDraftReady,
       onRewindAccepted: handleRewindAccepted,
       onRewindRejected: handleRewindRejected,
+      onRewindRestart: handleRewindRestart,
       onRewindAnalytics: handleRewindAnalytics,
       onRetry: handleCollectionRetry,
       onError: handleCollectionError,

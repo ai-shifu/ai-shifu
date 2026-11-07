@@ -81,6 +81,46 @@ Older terminal responses without capability metadata keep answered controls
 read-only. Roll out rewind support to the API workers before the web client
 starts sending edits.
 
+An SSE validation error (`transient_markdownflow_invalid`) on an answer edit
+shows a localized toast and automatically starts a new session from the first
+question. The client discards the retired session's unsaved questions, answers,
+draft, queued work and completion guard, and ignores its late callbacks. The
+replacement draft becomes reviewable and saveable. Fresh-session creation
+failure uses the existing creation retry instead of looping automatically.
+This restart does not save or alter the account's current Profile. Ordinary
+answer validation, assistant-import validation, native answer rejection,
+transport failures, busy sessions, model/summary failures and uncertain writes
+retain their existing handling and exact-request retries where applicable.
+Expired sessions still restart only when the learner selects Retry; that path
+also resets completed-draft state so its new result can be reviewed and saved.
+
+### Answer-edit restart analytics
+
+- Decision and metric: monitor daily raw
+  `learner_profile_answer_edit_restarted` counts divided by existing
+  `learner_profile_answer_edit` attempt counts, grouped by source and
+  presentation, to decide whether edit compatibility needs investigation.
+  This is an aggregate ratio rather than a matched-request funnel.
+- Trigger and population: once when an active learner onboarding/settings
+  edit receives the validation error and starts fresh-session creation, after
+  the existing failed edit outcome. Operator preview, ordinary answers,
+  imports, network/busy errors and explicit retries are excluded.
+- Count unit and deduplication: one automatic restart per edit attempt. The
+  retired attempt token rejects duplicate and late events before notification
+  or analytics. Creation failure remains an attempted restart.
+- Payload: exactly `source=guided|settings` and
+  `presentation=blocking|hidden`. No answer, prompt, question/session ID,
+  Profile text, nickname or raw error is collected.
+- Consumer: Profile product owner reviewing Umami daily restart counts and
+  existing answer-edit attempt totals; no repository dashboard/query exists.
+- Compatibility: additive event; existing attempt and terminal outcomes retain
+  their meanings. No rename, dual writing or backfill is needed.
+- Verification: hook and full-dialog regressions cover trigger timing,
+  deduplication, exclusions, exact payload/privacy, toast/analytics failure
+  isolation, and the replacement result's explicit review and save.
+
+### Independent browser sessions
+
 Each browser dialog creates an independent owner- and purpose-bound session.
 Several sessions for the same account can run concurrently. Creating, running,
 importing answers into, or deleting one session affects only that session ID.

@@ -3286,6 +3286,7 @@ export type I18nKey =
   | 'module.profileOnboarding.guided.collectionComplete'
   | 'module.profileOnboarding.guided.inputLimitError'
   | 'module.profileOnboarding.guided.missingDraft'
+  | 'module.profileOnboarding.guided.restartingAfterEditError'
   | 'module.profileOnboarding.guided.retry'
   | 'module.profileOnboarding.guided.retryableError'
   | 'module.profileOnboarding.guided.reviewCollection'
