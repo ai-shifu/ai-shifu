@@ -268,6 +268,28 @@ export const useProfileOnboardingSession = ({
     onErrorRef.current(new Error(messagesRef.current.retryableError));
   }, [reportAssistantResult, reportEditOutcome, setRunInFlight, stopStream]);
 
+  const resumeSettledWork = React.useCallback(
+    (settledAttempt = runAttemptRef.current) => {
+      if (
+        !mountedRef.current ||
+        disabledRef.current ||
+        settledAttempt !== runAttemptRef.current ||
+        !streamCompletedRef.current ||
+        runtimeFailedRef.current ||
+        uncertainRequestRef.current ||
+        sessionDoneRef.current
+      )
+        return;
+      // A clicked import uses the first confirmed native session turn.
+      if (pendingAssistantRequestRef.current) {
+        flushAssistantRequestRef.current();
+      } else if (!awaitingInteractionRef.current) {
+        runNextRef.current();
+      }
+    },
+    [],
+  );
+
   const handleEvent = React.useCallback(
     (event: ProfileOnboardingStreamEvent) => {
       if (
@@ -417,6 +439,8 @@ export const useProfileOnboardingSession = ({
           const reportRejection =
             onRewindRejectedRef.current ?? onErrorRef.current;
           reportRejection(new Error(messagesRef.current.streamError));
+          const settledAttempt = runAttemptRef.current;
+          queueMicrotask(() => resumeSettledWork(settledAttempt));
           return;
         }
       }
@@ -473,27 +497,14 @@ export const useProfileOnboardingSession = ({
         });
       }
       const settledAttempt = runAttemptRef.current;
-      queueMicrotask(() => {
-        if (
-          !mountedRef.current ||
-          settledAttempt !== runAttemptRef.current ||
-          !streamCompletedRef.current ||
-          runtimeFailedRef.current
-        )
-          return;
-        // A clicked import uses the first confirmed native session turn.
-        if (pendingAssistantRequestRef.current) {
-          flushAssistantRequestRef.current();
-        } else if (!awaitingInteractionRef.current) {
-          runNextRef.current();
-        }
-      });
+      queueMicrotask(() => resumeSettledWork(settledAttempt));
     },
     [
       handleStreamError,
       holdAssistantRequest,
       reportAssistantResult,
       reportEditOutcome,
+      resumeSettledWork,
       setRunInFlight,
       stopStream,
     ],
@@ -692,8 +703,8 @@ export const useProfileOnboardingSession = ({
   }, [holdAssistantRequest, reportEditOutcome, setRunInFlight, stopStream]);
 
   React.useEffect(() => {
-    if (!disabled) flushAssistantRequest();
-  }, [disabled, flushAssistantRequest]);
+    if (!disabled) resumeSettledWork();
+  }, [disabled, resumeSettledWork]);
 
   React.useEffect(() => {
     if (disabled || !initialRunPendingRef.current || !sessionIdRef.current) {
