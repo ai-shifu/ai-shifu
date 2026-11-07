@@ -117,13 +117,14 @@
     "unifiedTitle": "Paramètres de personnalisation"
   },
   "guided": {
-    "collectionComplete": "Votre enseignant IA a résumé votre parcours et vos préférences à partir de vos réponses. Vous pouvez relire et modifier ce résumé avant de l’enregistrer.",
+    "collectionComplete": "Vous avez terminé le questionnaire. Avant d’enregistrer, vérifiez le nom à utiliser et complétez ou modifiez les informations sur votre parcours et vos préférences.",
     "inputLimitError": "Cette réponse est trop longue ou comporte trop de choix. Raccourcissez-la, puis renvoyez-la ; vous pouvez continuer à la modifier.",
     "missingDraft": "Impossible de résumer votre parcours et vos préférences. Répondez de nouveau aux questions.",
     "restartingAfterEditError": "Cette modification n’a pas pu être effectuée. Nous reprenons la collecte de vos informations de personnalisation depuis le début.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
     "reviewCollection": "Voir le parcours et les préférences",
+    "reviewNickname": "Voir le nom choisi",
     "streamError": "Les questions se sont interrompues. Réessayez.",
     "summarizing": "Analyse de votre parcours"
   },

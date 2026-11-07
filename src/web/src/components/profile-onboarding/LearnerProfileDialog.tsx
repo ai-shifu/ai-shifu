@@ -584,7 +584,11 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                   disabled={busy}
                   onClick={continueToSave}
                 >
-                  {t('module.profileOnboarding.guided.reviewCollection')}
+                  {t(
+                    state.collectionResult?.draft.trim()
+                      ? 'module.profileOnboarding.guided.reviewCollection'
+                      : 'module.profileOnboarding.guided.reviewNickname',
+                  )}
                 </Button>
               ) : exitPolicy === 'dismissible' ? (
                 <Button

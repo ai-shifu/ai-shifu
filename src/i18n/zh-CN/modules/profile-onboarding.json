@@ -117,13 +117,14 @@
     "unifiedTitle": "个性化设置"
   },
   "guided": {
-    "collectionComplete": "你的背景与偏好已整理好。你可以先查看和修改，再确认保存。",
+    "collectionComplete": "问答已完成。你可以检查昵称，补充或修改背景与偏好，再确认保存。",
     "inputLimitError": "回答太长或选择太多，请精简后再提交。你的回答仍可继续修改。",
     "missingDraft": "暂时没能整理出你的背景与偏好，请重新回答问题。",
     "restartingAfterEditError": "本次修改未能完成，正在从头重新收集个性化信息。",
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
     "reviewCollection": "查看背景与偏好",
+    "reviewNickname": "查看昵称",
     "streamError": "提问意外中断了，请再试一次。",
     "summarizing": "正在研究你的背景"
   },

@@ -117,13 +117,14 @@
     "unifiedTitle": "Personalization settings"
   },
   "guided": {
-    "collectionComplete": "Your background and preferences are ready to review. You can edit them before saving.",
+    "collectionComplete": "You’ve finished the questions. Check your chosen name and add or edit your background and preferences before saving.",
     "inputLimitError": "This answer is too long or has too many selections. Shorten it, then submit again; you can keep editing it.",
     "missingDraft": "We could not summarize your background and preferences. Please answer the questions again.",
     "restartingAfterEditError": "This change could not be completed. We're starting over to collect your personalization information.",
     "retry": "Try again",
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
     "reviewCollection": "Review background and preferences",
+    "reviewNickname": "Review chosen name",
     "streamError": "The questions stopped unexpectedly. Try again.",
     "summarizing": "Learning about your background"
   },

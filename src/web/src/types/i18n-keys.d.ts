@@ -3290,6 +3290,7 @@ export type I18nKey =
   | 'module.profileOnboarding.guided.retry'
   | 'module.profileOnboarding.guided.retryableError'
   | 'module.profileOnboarding.guided.reviewCollection'
+  | 'module.profileOnboarding.guided.reviewNickname'
   | 'module.profileOnboarding.guided.streamError'
   | 'module.profileOnboarding.guided.summarizing'
   | 'module.profileOnboarding.loadFailed'

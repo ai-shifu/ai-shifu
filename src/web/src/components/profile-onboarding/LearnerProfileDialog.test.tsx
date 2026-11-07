@@ -1523,7 +1523,11 @@ describe('LearnerProfileDialog', () => {
     const { props } = renderDialog({ exitPolicy: 'blocking' });
     await waitForCollectionSession();
     act(() => mockConversationControls.at(-1)?.deliverDraft('', 'Robin'));
-    await continueCollectionToSave();
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.guided.reviewNickname',
+      }),
+    );
     expect(nicknameInput()).toHaveValue('Robin');
     expect(profileInput()).toHaveValue('');
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();

@@ -117,13 +117,14 @@
     "unifiedTitle": "Personalisierungseinstellungen"
   },
   "guided": {
-    "collectionComplete": "Ihre KI-Lehrkraft hat Ihren Hintergrund und Ihre Vorlieben anhand Ihrer Antworten zusammengefasst. Sie können die Angaben vor dem Speichern prüfen und bearbeiten.",
+    "collectionComplete": "Sie haben die Fragen beantwortet. Prüfen Sie vor dem Speichern Ihre Anrede und ergänzen oder bearbeiten Sie Ihre Angaben zu Hintergrund und Vorlieben.",
     "inputLimitError": "Diese Antwort ist zu lang oder enthält zu viele Auswahlmöglichkeiten. Kürzen Sie sie und senden Sie sie erneut. Sie können sie weiterhin bearbeiten.",
     "missingDraft": "Ihr Hintergrund und Ihre Vorlieben konnten nicht zusammengefasst werden. Bitte beantworten Sie die Fragen erneut.",
     "restartingAfterEditError": "Diese Änderung konnte nicht abgeschlossen werden. Wir erfassen Ihre Angaben zur Personalisierung noch einmal von Anfang an.",
     "retry": "Erneut versuchen",
     "retryableError": "Die Verbindung wurde unterbrochen. Ihre Antwort ist noch vorhanden. Bitte versuchen Sie es erneut.",
     "reviewCollection": "Hintergrund und Vorlieben ansehen",
+    "reviewNickname": "Anrede ansehen",
     "streamError": "Die Fragen wurden unerwartet unterbrochen. Bitte versuchen Sie es erneut.",
     "summarizing": "Dein Hintergrund wird analysiert"
   },
