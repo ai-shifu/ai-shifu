@@ -1050,9 +1050,7 @@ async def interact(
                 placeholder,
                 allow_different_hint=True,
             )
-        owns_memory = type != "confirm" and (
-            direction is not None or bool(question) or not navigation
-        )
+        owns_memory = type != "confirm" and (direction is not None or not navigation)
         if not owns_memory:
             question = ""
         variable = question if owns_memory else None
