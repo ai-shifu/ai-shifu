@@ -10,6 +10,7 @@ import { PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS } from './hooks/use-course-pr
 import { WECHAT_OPENID_BINDING_TIMEOUT_MS } from './hooks/use-wechat-open-id-binding';
 import ChatPage from './page';
 
+let mockRouteCourseId = 'course-1';
 const mockGetProfileOnboarding = jest.fn();
 const mockSkipProfileOnboarding = jest.fn();
 const mockUpdateWxcode = jest.fn();
@@ -19,6 +20,7 @@ let mockInMiniProgram = false;
 const mockRefreshUserInfo = jest.fn();
 const mockUpdateCourseId = jest.fn();
 const mockLoadTree = jest.fn();
+let mockOutlineAvailable = true;
 const mockReloadTree = jest.fn();
 const mockUpdateLesson = jest.fn();
 const mockUpdateSelectedLesson = jest.fn();
@@ -45,6 +47,7 @@ interface MockChatUiProps {
   titleLanguage?: string;
   followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
+  onRetryOutline?: () => void;
   lessonUpdate?: (value: {
     id: string;
     status: string;
@@ -108,6 +111,7 @@ const mockChatUi = jest.fn(
     followUpMode,
     runtimeReady,
     titleLanguage,
+    onRetryOutline,
   }: MockChatUiProps) => (
     <div
       data-testid='chat-ui'
@@ -115,7 +119,16 @@ const mockChatUi = jest.fn(
       data-follow-up-mode={followUpMode}
       data-runtime-ready={String(runtimeReady)}
       data-title-language={titleLanguage}
-    />
+    >
+      {onRetryOutline ? (
+        <button
+          type='button'
+          onClick={onRetryOutline}
+        >
+          retry outline
+        </button>
+      ) : null}
+    </div>
   ),
 );
 const mockNavDrawer = jest.fn(({ onPersonalInfoClick }: MockNavDrawerProps) => (
@@ -320,7 +333,7 @@ jest.mock('next/dynamic', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  useParams: () => ({ id: ['course-1'] }),
+  useParams: () => ({ id: [mockRouteCourseId] }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -426,16 +439,18 @@ jest.mock('@/lib/shifu/shifu-runtime', () => ({
 
 jest.mock('./hooks/use-lesson-tree', () => ({
   useLessonTree: () => ({
-    tree: {
-      bannerInfo: null,
-      titleLanguage: mockTitleLanguage,
-      catalogs: [
-        {
-          id: 'chapter-1',
-          lessons: mockLessonTreeLessons,
-        },
-      ],
-    },
+    tree: mockOutlineAvailable
+      ? {
+          bannerInfo: null,
+          titleLanguage: mockTitleLanguage,
+          catalogs: [
+            {
+              id: 'chapter-1',
+              lessons: mockLessonTreeLessons,
+            },
+          ],
+        }
+      : null,
     selectedLessonId: mockSelectedLessonId,
     loadTree: mockLoadTree,
     reloadTree: mockReloadTree,
@@ -490,6 +505,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteCourseId = 'course-1';
     mockUserStoreState.userInfo = { ...defaultMockUserInfo };
     mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.isInitialized = true;
@@ -514,6 +530,9 @@ describe('ChatPage profile onboarding gate', () => {
     mockTitleLanguage = undefined;
     mockSelectedLessonId = 'lesson-1';
     mockToast.mockReset();
+    mockTrackEvent.mockReset();
+    mockLoadTree.mockReset().mockResolvedValue({ catalogs: [] });
+    mockOutlineAvailable = true;
     mockLessonTreeLessons = [
       {
         id: 'lesson-1',
@@ -532,6 +551,108 @@ describe('ChatPage profile onboarding gate', () => {
     mockSkipProfileOnboarding.mockResolvedValue({ skipped: true });
     mockReloadTree.mockResolvedValue(null);
     mockRefreshUserInfo.mockResolvedValue(undefined);
+  });
+
+  test.each([
+    { previewMode: false, surface: 'published_learning', failure: 'throws' },
+    { previewMode: true, surface: 'teacher_preview', failure: 'rejects' },
+  ])(
+    'recovers an outline failure on $surface when analytics $failure',
+    async ({ previewMode, surface, failure }) => {
+      mockSystemStoreState.previewMode = previewMode;
+      mockOutlineAvailable = false;
+      mockSelectedLessonId = '';
+      mockLoadTree
+        .mockRejectedValueOnce(new Error('Private outline error'))
+        .mockRejectedValueOnce(new Error('Private retry error'));
+      mockTrackEvent.mockImplementation(() => {
+        const error = new Error('Analytics unavailable');
+        if (failure === 'throws') throw error;
+        return Promise.reject(error);
+      });
+      const view = render(<ChatPage />);
+      const retry = await screen.findByRole('button', {
+        name: 'retry outline',
+      });
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      if (previewMode) {
+        expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      }
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'false',
+      );
+
+      fireEvent.click(retry);
+      await waitFor(() => {
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['learner_lesson_catalog_retry_attempt', { surface }],
+          [
+            'learner_lesson_catalog_retry_result',
+            { surface, outcome: 'failed' },
+          ],
+        ]);
+      });
+
+      let finish!: (value: unknown) => void;
+      mockLoadTree.mockReturnValueOnce(
+        new Promise(resolve => {
+          finish = resolve;
+        }),
+      );
+      const retryAction = mockChatUi.mock.calls.at(-1)?.[0].onRetryOutline;
+      act(() => {
+        retryAction?.();
+        retryAction?.();
+      });
+      expect(mockLoadTree).toHaveBeenCalledTimes(3);
+      expect(
+        screen.queryByRole('button', { name: 'retry outline' }),
+      ).not.toBeInTheDocument();
+      await act(async () => {
+        mockOutlineAvailable = true;
+        mockSelectedLessonId = 'lesson-1';
+        finish({ catalogs: [] });
+      });
+      view.rerender(<ChatPage />);
+      await waitFor(() => {
+        expect(mockTrackEvent.mock.calls.slice(2)).toEqual([
+          ['learner_lesson_catalog_retry_attempt', { surface }],
+          [
+            'learner_lesson_catalog_retry_result',
+            { surface, outcome: 'success' },
+          ],
+        ]);
+      });
+      expect(
+        screen.queryByRole('button', { name: 'retry outline' }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-lesson-id',
+        'lesson-1',
+      );
+    },
+  );
+
+  test('does not emit a retry outcome after leaving the classroom', async () => {
+    mockSystemStoreState.previewMode = true;
+    mockOutlineAvailable = false;
+    mockLoadTree.mockResolvedValueOnce(null);
+    let finish!: (value: unknown) => void;
+    mockLoadTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        finish = resolve;
+      }),
+    );
+    const view = render(<ChatPage />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'retry outline' }),
+    );
+    view.unmount();
+    await act(async () => finish({ catalogs: [] }));
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['learner_lesson_catalog_retry_attempt', { surface: 'teacher_preview' }],
+    ]);
   });
 
   test('keeps the lesson shell visible without starting runtime while eligibility loads', async () => {
@@ -841,6 +962,84 @@ describe('ChatPage profile onboarding gate', () => {
     );
   });
 
+  test.each([
+    { result: { catalogs: [] }, retryVisible: false },
+    { result: null, retryVisible: true },
+  ])(
+    'sets outline recovery visibility to $retryVisible after a reset reload',
+    async ({ result, retryVisible }) => {
+      mockOutlineAvailable = false;
+      mockLoadTree.mockResolvedValueOnce(null);
+      mockReloadTree.mockImplementationOnce(async () => {
+        mockOutlineAvailable = result !== null;
+        return result;
+      });
+
+      render(<ChatPage />);
+      await screen.findByRole('button', { name: 'retry outline' });
+
+      const reset = getResetChapterEventHandler();
+      expect(reset).toBeDefined();
+      await act(async () => {
+        await reset?.(
+          new CustomEvent('RESET_CHAPTER', {
+            detail: { chapter_id: 'chapter-1', lesson_id: 'lesson-1' },
+          }),
+        );
+      });
+
+      const retry = screen.queryByRole('button', { name: 'retry outline' });
+      expect(Boolean(retry)).toBe(retryVisible);
+      expect(mockLoadTree).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  test('lets a newer explicit outline retry report its result after a reset reload', async () => {
+    mockOutlineAvailable = false;
+    let finishRetry!: (value: unknown) => void;
+    mockLoadTree.mockResolvedValueOnce(null).mockReturnValueOnce(
+      new Promise(resolve => {
+        finishRetry = resolve;
+      }),
+    );
+    let finishReload!: (value: unknown) => void;
+    mockReloadTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        finishReload = resolve;
+      }),
+    );
+
+    render(<ChatPage />);
+    const retry = await screen.findByRole('button', { name: 'retry outline' });
+    const reset = getResetChapterEventHandler();
+    expect(reset).toBeDefined();
+    const resetResult = reset?.(
+      new CustomEvent('RESET_CHAPTER', {
+        detail: { chapter_id: 'chapter-1', lesson_id: 'lesson-1' },
+      }),
+    );
+
+    fireEvent.click(retry);
+    await act(async () => {
+      finishReload({ catalogs: [] });
+      await resetResult;
+    });
+    await act(async () => finishRetry(null));
+
+    expect(screen.getByRole('button', { name: 'retry outline' })).toBeVisible();
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [
+        'learner_lesson_catalog_retry_attempt',
+        { surface: 'published_learning' },
+      ],
+      [
+        'learner_lesson_catalog_retry_result',
+        { surface: 'published_learning', outcome: 'failed' },
+      ],
+    ]);
+  });
+
   test('keeps a retaken lesson in progress after reloading its reset tree state', async () => {
     let resolveReloadTree: (value: unknown) => void = () => {};
     mockReloadTree.mockReturnValueOnce(
@@ -929,6 +1128,71 @@ describe('ChatPage profile onboarding gate', () => {
       status_value: 'in_progress',
     });
   });
+
+  test('keeps the completed retake reported by the server after a reset retry', async () => {
+    mockReloadTree.mockResolvedValueOnce({
+      catalogs: [
+        {
+          id: 'chapter-1',
+          lessons: [
+            { id: 'lesson-1', status: 'completed', status_value: 'completed' },
+          ],
+        },
+      ],
+    });
+    render(<ChatPage />);
+    await screen.findByTestId('chat-ui');
+
+    const reset = getResetChapterEventHandler();
+    expect(reset).toBeDefined();
+    await act(async () => {
+      await reset?.(
+        new CustomEvent('RESET_CHAPTER', {
+          detail: { chapter_id: 'chapter-1', lesson_id: 'lesson-1' },
+        }),
+      );
+    });
+    expect(mockUpdateLesson).not.toHaveBeenCalled();
+    expect(mockUpdateSelectedLesson).toHaveBeenCalledWith('lesson-1', true);
+  });
+
+  test.each(['course change', 'unmount', 'superseded'])(
+    'ignores a reset reload continuation after %s',
+    async reason => {
+      let finishReload!: (value: unknown) => void;
+      mockReloadTree.mockReturnValueOnce(
+        new Promise(resolve => {
+          finishReload = resolve;
+        }),
+      );
+      const view = render(<ChatPage />);
+      await screen.findByTestId('chat-ui');
+
+      const reset = getResetChapterEventHandler();
+      expect(reset).toBeDefined();
+      const resetResult = reset?.(
+        new CustomEvent('RESET_CHAPTER', {
+          detail: { chapter_id: 'chapter-1', lesson_id: 'lesson-old' },
+        }),
+      );
+      if (reason === 'course change') {
+        mockRouteCourseId = 'course-2';
+        view.rerender(<ChatPage />);
+      } else if (reason === 'unmount') {
+        view.unmount();
+      }
+      await act(async () => {
+        finishReload(reason === 'superseded' ? undefined : { catalogs: [] });
+        await resetResult;
+      });
+
+      expect(mockUpdateSelectedLesson).not.toHaveBeenCalledWith(
+        'lesson-old',
+        true,
+      );
+      expect(mockUpdateLessonId).not.toHaveBeenCalledWith('lesson-old');
+    },
+  );
 
   test('keeps blocking and surfaces the backend error when defer fails', async () => {
     mockGetProfileOnboarding.mockResolvedValue(

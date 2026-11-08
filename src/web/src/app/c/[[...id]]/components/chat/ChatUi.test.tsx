@@ -174,6 +174,26 @@ describe('ChatUi lesson PDF action', () => {
     expect(mockChatComponentProps.contentLanguage).toBe('zh-CN');
   });
 
+  it('replaces the loading placeholder with an actionable outline error', () => {
+    mockPreviewMode = true;
+    const retry = jest.fn();
+    render(
+      React.cloneElement(createChatUi(), {
+        runtimeReady: false,
+        onRetryOutline: retry,
+      }),
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'common.core.requestFailed',
+    );
+    expect(
+      screen.queryByTestId('chat-runtime-placeholder'),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the action visible and disabled before the lesson content is ready', () => {
     renderChatUi();
 
