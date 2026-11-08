@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator
 from uuid import uuid4
 
+import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -109,12 +110,14 @@ def test_oversized_defined_answer_stays_stored_without_expanding_script(
         assert VariableValue.query.filter_by(user_bid=user).count() == 2
 
 
+@pytest.mark.parametrize("long_answer", [False, True], ids=["whole", "paged"])
 def test_exact_question_reference_reads_the_answer_from_an_earlier_lesson(
     app: Flask,
+    long_answer: bool,
 ) -> None:
     user, course, first_lesson = (uuid4().hex for _ in range(3))
     question = "What would you like to learn?"
-    answer = "Geometry"
+    answer = ('é☕\n"\\abc' * 3500) if long_answer else "Geometry"
 
     async def model(
         messages: list[ModelMessage], _info: AgentInfo
@@ -184,10 +187,54 @@ def test_exact_question_reference_reads_the_answer_from_an_earlier_lesson(
         )
 
         seen: list[str] = []
+        pieces: list[str] = []
+
+        async def read_answer(
+            messages: list[ModelMessage], _info: AgentInfo
+        ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+            returns = [
+                part.content
+                for part in messages[-1].parts
+                if isinstance(part, ToolReturnPart)
+            ]
+            if not returns:
+                seen.append(messages[-1].parts[0].content)
+                args = {"key": question}
+            else:
+                wire = returns[0]
+                assert len(wire.encode("utf-8")) <= 8192
+                result = json.loads(wire)
+                if result["status"] == "too_large":
+                    args = {"key": question, "value_offset": 0}
+                else:
+                    assert result["status"] == "value_page"
+                    pieces.append(result["value"])
+                    offset = result["next_value_offset"]
+                    if offset is None:
+                        yield "Now we can use your earlier answer."
+                        return
+                    args = {"key": question, "value_offset": offset}
+            yield {
+                0: DeltaToolCall(
+                    name="recall",
+                    tool_call_id=f"read-{len(messages)}",
+                    json_args=json.dumps(args),
+                )
+            }
+
+        engine = (
+            Engine(
+                FunctionModel(stream_function=read_answer),
+                memory_recall=True,
+                memory_context_limit=32768,
+            )
+            if long_answer
+            else _observer(seen)
+        )
         list(
             run_agent.run_agent_lesson(
                 app,
-                engine=_observer(seen),
+                engine=engine,
                 script=f"Build on {{{{ {question} }}}} with a practice problem.",
                 user_bid=user,
                 shifu_bid=course,
@@ -195,4 +242,9 @@ def test_exact_question_reference_reads_the_answer_from_an_earlier_lesson(
                 iter_turn=_drive,
             )
         )
-        assert _memory(seen[0])[question] == answer
+        if long_answer:
+            assert question not in _memory(seen[0])
+            assert len(pieces) > 1
+            assert "".join(pieces) == answer
+        else:
+            assert _memory(seen[0])[question] == answer

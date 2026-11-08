@@ -53,7 +53,7 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     # guidance no longer points at the read_teaching tool.
     del hashes["teaching_history_compaction"], hashes["teaching_summary"]
     hashes["memory_recall"] = (
-        "e6dd42eaa357670fbb9263df3cdd9988917c47b8a1bec8914c578e8eeb45314b"
+        "a54d37a19b6018c25778cbbec1d47c6d28d965c6288654b365fff83dfea92e44"
     )
     hashes["recall_history_compaction"] = (
         "cd7e579720e5c03511ba93eb51ef6e37d29eac132abdf9f6a303080b7dbf6834"

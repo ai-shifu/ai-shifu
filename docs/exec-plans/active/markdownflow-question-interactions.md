@@ -39,6 +39,9 @@ response. Preserve earlier named answers, short references and pending turns.
   authored control identification, and returning to an interaction slide.
 - [x] 2026-11-08 11:04 UTC: Verified one interaction title field for first
   display and replay in the Course adapters and both slide modes.
+- [x] 2026-11-08 11:40 UTC: Added bounded recall for long answers, restored
+  pending Profile question prose, repaired authored input and navigation
+  controls, and checked question visibility after HTML and tool filtering.
 
 ## Surprises & Discoveries
 
@@ -68,6 +71,10 @@ authored question text distinguishes otherwise identical bound controls.
 - 2026-11-08: Listen and classroom use the same `interaction_question` metadata
   on first display and replay. The model's prose remains the original question
   and source of audio.
+- 2026-11-08: Exact recall keeps its existing byte limit. A later lesson can
+  read an explicitly referenced long text answer by offset. Identical bound and
+  unbound controls still require exact authored evidence to identify the bound
+  control without guessing the intended question.
 
 ## Outcomes & Retrospective
 
