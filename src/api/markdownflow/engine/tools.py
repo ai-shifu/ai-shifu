@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
+from markdown_it import MarkdownIt
 from pydantic import ValidationError
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
 from pydantic_ai.messages import (
@@ -76,6 +77,7 @@ class Deps:
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
+    question_text_filter: Callable[[str], str] | None = None
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in MarkdownFlow notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
@@ -729,6 +731,21 @@ def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
     )
 
 
+def _question_prose(deps: Deps, text: str) -> str:
+    """Read visible Markdown prose after applying the host's content filter."""
+    if deps.question_text_filter is not None:
+        text = deps.question_text_filter(text)
+    return "\n".join(
+        "".join(
+            child.content if child.type in ("text", "code_inline") else " "
+            for child in token.children
+            if child.type in ("text", "code_inline", "softbreak", "hardbreak")
+        )
+        for token in MarkdownIt("commonmark", {"html": True}).parse(text)
+        if token.type == "inline" and token.children
+    )
+
+
 def validate_direction_call(
     ctx: RunContext[Deps], *_args: object, **_kwargs: object
 ) -> None:
@@ -1082,6 +1099,7 @@ async def interact(
     )
     if legacy_call or owns_memory:
         spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
+    direction_text = direction.render() if direction is not None else ""
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
         if direction.answer_id not in ctx.deps.direction_sections:
@@ -1124,9 +1142,15 @@ async def interact(
                 else "direction requires question to contain the exact guiding questions in order, joined by one space"
             )
         if not problem and contains_interaction_markup(
-            direction.render(), ctx.deps.literal_interaction_markup
+            direction_text, ctx.deps.literal_interaction_markup
         ):
             problem = "direction must not contain unexecuted interaction markup"
+        if not problem and ctx.deps.question_text_filter is not None:
+            visible = _question_prose(ctx.deps, direction_text)
+            if any(
+                focus.guiding_question not in visible for focus in direction.focuses
+            ):
+                problem = "Each guiding question must be visible Markdown prose outside any hidden block"
         if not problem and (
             response is None
             or any(
@@ -1149,9 +1173,17 @@ async def interact(
             "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
         )
         raise ModelRetry(msg)
+    if owns_memory and direction is None:
+        before_call = "".join(_text_up_to([response], ctx.tool_call_id))
+        if spec.question not in _question_prose(ctx.deps, before_call):
+            message = (
+                "Ask the exact question in visible Markdown prose before calling interact. "
+                "Repeat the question in the response, outside any hidden block."
+            )
+            raise ModelRetry(message)
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
-        ctx.deps.direction_rendered[ctx.tool_call_id] = direction.render()
+        ctx.deps.direction_rendered[ctx.tool_call_id] = direction_text
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
