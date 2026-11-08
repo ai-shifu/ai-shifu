@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { StarIcon } from '@heroicons/react/24/solid';
-import { MoreHorizontal } from 'lucide-react';
+import { ExternalLink, MoreHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { buildCourseLearningUrl } from '@/components/header/publish-learning-mode';
@@ -303,6 +303,10 @@ const ShifuCard = ({
                 onClick={trackLearningPageClick}
               >
                 {t('module.shifuSetting.openLearningPage')}
+                <ExternalLink
+                  aria-hidden='true'
+                  className='ms-auto text-muted-foreground'
+                />
               </a>
             </DropdownMenuItem>
             {onImportActivationRequest &&
