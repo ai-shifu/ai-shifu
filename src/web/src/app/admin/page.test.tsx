@@ -168,12 +168,14 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   DropdownMenuItem: React.forwardRef<
     HTMLButtonElement,
     Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onSelect'> & {
+      asChild?: boolean;
       onSelect?: (event: { stopPropagation: () => void }) => void;
     }
   >(function MockDropdownMenuItem(
-    { children, onSelect, onClick, ...props },
+    { asChild, children, onSelect, onClick, ...props },
     ref,
   ) {
+    if (asChild) return children;
     return (
       <button
         type='button'
@@ -940,7 +942,7 @@ describe('AdminPage', () => {
     );
   });
 
-  test('does not show owner-only course actions for shared-permission courses', async () => {
+  test('offers the learning link without owner-only actions for shared courses', async () => {
     mockGetShifuList.mockResolvedValue({
       items: [
         {
@@ -970,6 +972,11 @@ describe('AdminPage', () => {
     );
 
     expect(
+      screen.getByRole('link', {
+        name: 'module.shifuSetting.openLearningPage',
+      }),
+    ).toHaveAttribute('href', '/c/course-shared-1');
+    expect(
       screen.queryByRole('button', {
         name: 'module.order.importActivation.action',
       }),
@@ -981,7 +988,7 @@ describe('AdminPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('does not show import activation or redemption code actions for unpublished owner courses', async () => {
+  test('offers the learning link without enrollment actions for unpublished courses', async () => {
     mockGetShifuList.mockResolvedValue({
       items: [
         {
@@ -1010,6 +1017,11 @@ describe('AdminPage', () => {
       }),
     );
 
+    expect(
+      screen.getByRole('link', {
+        name: 'module.shifuSetting.openLearningPage',
+      }),
+    ).toHaveAttribute('href', '/c/course-draft-1');
     expect(
       screen.queryByRole('button', {
         name: 'module.order.importActivation.action',

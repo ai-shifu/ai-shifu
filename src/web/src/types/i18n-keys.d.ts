@@ -3603,6 +3603,7 @@ export type I18nKey =
   | 'module.shifuSetting.modelOptions.text'
   | 'module.shifuSetting.modelOptions.unavailable'
   | 'module.shifuSetting.number'
+  | 'module.shifuSetting.openLearningPage'
   | 'module.shifuSetting.permissionContactRequired'
   | 'module.shifuSetting.permissionCount'
   | 'module.shifuSetting.permissionDescription'

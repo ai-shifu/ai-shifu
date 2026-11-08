@@ -71,3 +71,38 @@ The payload is an explicit two-field allowlist. It never includes course titles,
 descriptions, tooltip text, account contacts, coupon values, URLs, raw errors or
 other user-authored content. Shared user exclusions and transport safeguards
 apply independently of this feature.
+
+## Opening the learning page from a course card
+
+The course card menu offers a link to the learner-facing course page in a new
+tab. Anyone who can see the card can use the link, including collaborators
+without course management permissions and viewers of draft or archived cards.
+The destination applies its existing publication and learner access rules.
+
+### Learning page link analytics
+
+Product owners review weekly `creator_course_learning_page_click` event counts
+in Umami to decide whether to keep the learning page shortcut in the card
+menu. The metric counts link activations. It has no exposure denominator and
+requires no user, course, or outcome join. This additive event has no checked-in
+query or dashboard to migrate. The tooltip event keeps its existing contract.
+
+The link's click handler emits one event per activation, including primary
+pointer clicks and keyboard selection through the menu. Separate deliberate
+activations count separately. Rendering, opening the menu, hovering, focusing,
+selecting other items, middle-clicking, and using the browser context menu are
+outside the trigger. Eligible users include signed-in teachers, collaborators,
+and operators who can view the card, regardless of management permissions or
+course status. The shared account-level analytics exclusion policy applies.
+Guest learner surfaces and learner or editor preview are outside this surface.
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `surface` | string | `admin_course_list` | One | Non-personal | Identifies the menu surface |
+
+`surface` is the complete feature payload. Use `useTracking` without awaiting
+delivery or preventing native link navigation. Component tests cover
+availability without management permissions, activation timing, repeat
+activation, the exact allowlisted payload, and navigation behavior when
+tracking throws or rejects. The event records activation independently of
+whether the destination loads.

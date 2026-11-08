@@ -6,6 +6,7 @@ import { StarIcon } from '@heroicons/react/24/solid';
 import { MoreHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { buildCourseLearningUrl } from '@/components/header/publish-learning-mode';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -126,12 +127,17 @@ const ShifuCard = ({
       }, 300),
     };
   };
-  const showMenu = Boolean(
-    onRedemptionCodeRequest ||
-    onImportActivationRequest ||
-    canManageArchive ||
-    canManagePermissions,
-  );
+  const trackLearningPageClick = () => {
+    try {
+      void Promise.resolve(
+        trackEvent('creator_course_learning_page_click', {
+          surface: 'admin_course_list',
+        }),
+      ).catch(() => {});
+    } catch {
+      // Keep native link navigation independent of analytics.
+    }
+  };
 
   const renderAction = (
     action: CourseHelpAction,
@@ -206,9 +212,7 @@ const ShifuCard = ({
           style={CARD_CONTAINER_STYLE}
         >
           <CardContent className={CARD_CONTENT_CLASS}>
-            <div
-              className={`mb-4 flex flex-row items-center justify-between ${showMenu ? 'pr-8' : ''}`}
-            >
+            <div className='mb-4 flex flex-row items-center justify-between pr-8'>
               <div className='flex min-w-0 flex-row items-center w-full'>
                 <div
                   className={COURSE_AVATAR_CLASS}
@@ -250,84 +254,92 @@ const ShifuCard = ({
           </CardContent>
         </Card>
       </Link>
-      {showMenu && (
-        <TooltipProvider delayDuration={300}>
-          <DropdownMenu
-            onOpenChange={open => {
-              menuOpenRef.current = open;
-              clearPendingHelp();
-              setOpenHelpAction(null);
-              hoveredHelpActionRef.current = null;
+      <TooltipProvider delayDuration={300}>
+        <DropdownMenu
+          onOpenChange={open => {
+            menuOpenRef.current = open;
+            clearPendingHelp();
+            setOpenHelpAction(null);
+            hoveredHelpActionRef.current = null;
+            helpInputRef.current = 'keyboard';
+            if (open) {
+              viewedHelpActionsRef.current.clear();
+            }
+          }}
+        >
+          <div className='absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center'>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                className='h-8 w-8 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted data-[state=open]:bg-muted data-[state=open]:text-foreground'
+                title={t('common.core.more')}
+                aria-label={t('common.core.more')}
+                onClick={event => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+              >
+                <MoreHorizontal className='h-5 w-5' />
+              </Button>
+            </DropdownMenuTrigger>
+          </div>
+          <DropdownMenuContent
+            align='end'
+            sideOffset={4}
+            onKeyDownCapture={() => {
               helpInputRef.current = 'keyboard';
-              if (open) {
-                viewedHelpActionsRef.current.clear();
-              }
+              hoveredHelpActionRef.current = null;
+              clearPendingHelp();
             }}
+            className='min-w-[10rem] max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
           >
-            <div className='absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center'>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  className='h-8 w-8 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted data-[state=open]:bg-muted data-[state=open]:text-foreground'
-                  title={t('common.core.more')}
-                  aria-label={t('common.core.more')}
-                  onClick={event => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                  }}
-                >
-                  <MoreHorizontal className='h-5 w-5' />
-                </Button>
-              </DropdownMenuTrigger>
-            </div>
-            <DropdownMenuContent
-              align='end'
-              sideOffset={4}
-              onKeyDownCapture={() => {
-                helpInputRef.current = 'keyboard';
-                hoveredHelpActionRef.current = null;
-                clearPendingHelp();
-              }}
-              className='min-w-[10rem] max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
-            >
-              {onImportActivationRequest &&
-                renderAction(
-                  'activate_learners',
-                  t('module.order.importActivation.action'),
-                  t('module.order.importActivation.actionDescription'),
-                  onImportActivationRequest,
-                )}
-              {onRedemptionCodeRequest &&
-                renderAction(
-                  'create_discount_code',
-                  t('module.order.redemptionCodes.action'),
-                  t('module.order.redemptionCodes.actionDescription'),
-                  onRedemptionCodeRequest,
-                )}
-              {canManagePermissions &&
-                renderAction(
-                  'manage_collaborators',
-                  t('module.shifuSetting.permissionManage'),
-                  t('module.shifuSetting.permissionManageHint'),
-                  onPermissionRequest,
-                )}
-              {canManageArchive &&
-                renderAction(
-                  archived ? 'restore' : 'archive',
-                  archived
-                    ? t('module.shifuSetting.unarchive')
-                    : t('module.shifuSetting.archive'),
-                  archived
-                    ? t('module.shifuSetting.unarchiveHint')
-                    : t('module.shifuSetting.archiveHint'),
-                  onArchiveRequest,
-                )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TooltipProvider>
-      )}
+            {onImportActivationRequest &&
+              renderAction(
+                'activate_learners',
+                t('module.order.importActivation.action'),
+                t('module.order.importActivation.actionDescription'),
+                onImportActivationRequest,
+              )}
+            {onRedemptionCodeRequest &&
+              renderAction(
+                'create_discount_code',
+                t('module.order.redemptionCodes.action'),
+                t('module.order.redemptionCodes.actionDescription'),
+                onRedemptionCodeRequest,
+              )}
+            {canManagePermissions &&
+              renderAction(
+                'manage_collaborators',
+                t('module.shifuSetting.permissionManage'),
+                t('module.shifuSetting.permissionManageHint'),
+                onPermissionRequest,
+              )}
+            {canManageArchive &&
+              renderAction(
+                archived ? 'restore' : 'archive',
+                archived
+                  ? t('module.shifuSetting.unarchive')
+                  : t('module.shifuSetting.archive'),
+                archived
+                  ? t('module.shifuSetting.unarchiveHint')
+                  : t('module.shifuSetting.archiveHint'),
+                onArchiveRequest,
+              )}
+            <DropdownMenuItem asChild>
+              <a
+                href={buildCourseLearningUrl(id)}
+                target='_blank'
+                rel='noopener noreferrer'
+                onClick={trackLearningPageClick}
+              >
+                {t('module.shifuSetting.openLearningPage')}
+              </a>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TooltipProvider>
     </div>
   );
 };

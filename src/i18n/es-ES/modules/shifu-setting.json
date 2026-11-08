@@ -172,6 +172,7 @@
     "unavailable": "No disponible"
   },
   "number": "Introduce un número",
+  "openLearningPage": "Abrir la página de aprendizaje",
   "permissionContactRequired": "Introduce al menos una cuenta",
   "permissionCount": "Colaboradores: {count}/{max}",
   "permissionDescription": "Añade personas para trabajar contigo en este curso y elige lo que pueden hacer.",

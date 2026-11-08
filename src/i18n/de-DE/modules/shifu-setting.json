@@ -172,6 +172,7 @@
     "unavailable": "Nicht verfügbar"
   },
   "number": "Geben Sie eine Zahl ein",
+  "openLearningPage": "Lernseite öffnen",
   "permissionContactRequired": "Geben Sie mindestens ein Konto an",
   "permissionCount": "Mitwirkende: {count}/{max}",
   "permissionDescription": "Fügen Sie Personen hinzu, die mit Ihnen an diesem Kurs arbeiten, und legen Sie ihre Berechtigungen fest.",
