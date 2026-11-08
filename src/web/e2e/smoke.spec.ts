@@ -94,4 +94,53 @@ test.describe('agent-first smoke harness', () => {
     await learnerBootstrap;
     expectNoServerErrors(diagnostics.serverErrorEntries);
   });
+
+  test('saves the first learning mode selected from the course page', async ({
+    page,
+  }) => {
+    const courseId = DEFAULT_DEMO_SHIFU_BID;
+    const coursePath = `/c/${courseId}`;
+    const storageKey = `course_learning_mode:${courseId}`;
+
+    // Enable the Listen option independently of the demo course configuration.
+    await page.route(
+      url => url.pathname === `/api/learn/shifu/${courseId}`,
+      async route => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        await route.fulfill({
+          response,
+          json: {
+            ...payload,
+            data: {
+              ...payload.data,
+              tts_enabled: true,
+              default_listen_mode_enabled: false,
+            },
+          },
+        });
+      },
+    );
+
+    const learnerBootstrap = waitForLearnerBootstrap(page, courseId);
+    await page.goto(coursePath);
+    await learnerBootstrap;
+    const read = page.getByRole('radio', { name: /^(Read|阅读)$/ });
+    const listen = page.getByRole('radio', { name: /^(Listen|听课)$/ });
+    await expect(read).toBeChecked();
+    expect(
+      await page.evaluate(key => localStorage.getItem(key), storageKey),
+    ).toBeNull();
+
+    await listen.click();
+    await expect(page).toHaveURL(
+      url => url.searchParams.get('mode') === 'listen',
+    );
+    await expect
+      .poll(() => page.evaluate(key => localStorage.getItem(key), storageKey))
+      .toBe('listen');
+
+    await page.goto(coursePath);
+    await expect(listen).toBeChecked();
+  });
 });
