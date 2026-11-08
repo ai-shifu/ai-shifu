@@ -293,7 +293,7 @@ const ShifuCard = ({
               hoveredHelpActionRef.current = null;
               clearPendingHelp();
             }}
-            className='min-w-[10rem] max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
+            className='max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
           >
             <DropdownMenuItem
               asChild

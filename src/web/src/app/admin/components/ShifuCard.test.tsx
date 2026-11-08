@@ -217,7 +217,12 @@ describe('course action help', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
     const menu = openMenu();
 
-    expect(menu).toHaveClass('min-w-[10rem]');
+    expect(menu).toHaveClass(
+      'min-w-[8rem]',
+      'max-w-[calc(100vw-2rem)]',
+      'max-h-[var(--radix-dropdown-menu-content-available-height)]',
+      'overflow-y-auto',
+    );
     expect(screen.getAllByRole('menuitem')).toHaveLength(5);
     for (const action of ACTIONS) {
       const item = screen.getByRole('menuitem', { name: action.label });
