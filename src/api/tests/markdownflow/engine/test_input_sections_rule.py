@@ -41,7 +41,8 @@ def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
 def test_the_notation_uses_one_question_for_display_and_storage() -> None:
     """The syntax and system instructions agree on what identifies an answer."""
     notation = (_PROMPTS / "syntax.md").read_text()
-    assert "The host displays the question and stores the answer under it" in notation
+    assert "in prose, then call `interact` with `question=" in notation
+    assert "The answer is stored under the question" in notation
     assert "The authored short binding remains a reference to that answer" in notation
 
 

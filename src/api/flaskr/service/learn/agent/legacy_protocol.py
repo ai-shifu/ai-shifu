@@ -60,13 +60,20 @@ def translate(
 
     if isinstance(event, InteractionRequest):
         question, controls = render_question(event.spec)
+        # Current questions are asked in the model's prose. Reusing their tool
+        # arguments as panel titles would display the question a second time.
+        title = (
+            question
+            if not event.spec.question_owns_memory and question.strip()
+            else None
+        )
         return [
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 type=GeneratedType.INTERACTION,
                 content=controls,
-                interaction_question=question if question.strip() else None,
+                interaction_question=title,
             )
         ]
 
