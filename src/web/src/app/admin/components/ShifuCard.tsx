@@ -295,7 +295,10 @@ const ShifuCard = ({
             }}
             className='min-w-[10rem] max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
           >
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem
+              asChild
+              className='gap-1.5 [&_svg]:size-3.5'
+            >
               <a
                 href={buildCourseLearningUrl(id)}
                 target='_blank'
@@ -305,7 +308,7 @@ const ShifuCard = ({
                 {t('module.shifuSetting.openLearningPage')}
                 <ExternalLink
                   aria-hidden='true'
-                  className='ms-auto text-muted-foreground'
+                  className='text-muted-foreground'
                 />
               </a>
             </DropdownMenuItem>
