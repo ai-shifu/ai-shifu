@@ -29,7 +29,8 @@ canonical: true
 For an ordinary answer interaction, the model asks the question in visible
 Markdown prose and then calls `interact` with the same wording in `question`.
 When the control has a leading `{{...}}` binding, that question is the exact
-text inside the braces, even when it is a short label. The runtime
+text inside the braces after trimming leading and trailing whitespace, even
+when it is a short label. The runtime
 uses `question` for the interaction and memory without generating a second
 presentation from the tool arguments. For structured
 direction, the runtime presents the guiding question within the structured

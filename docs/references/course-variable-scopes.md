@@ -73,7 +73,8 @@ course questions and legacy custom keys retain their existing text and identity.
 Within a course, entries with the same exact key share the current value across
 lessons. For a new MarkdownFlow 2.0 answer interaction, the question shown to
 the learner is the storage key. With an authored binding, the text inside the
-braces supplies both, even when it is a short label. Changing the question
+braces supplies both after trimming its leading and trailing whitespace, even
+when it is a short label. Changing the question
 creates a different entry. Existing stored entries and original answer history
 keep their identities. See [Learner Memory Admission](../product-specs/learner-memory-admission.md).
 

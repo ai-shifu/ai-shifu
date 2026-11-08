@@ -54,13 +54,15 @@ authored question text distinguishes otherwise identical bound controls.
 - 2026-11-08: An answer control waits for visible model-authored question prose.
   Retry missing or filtered questions. On Profile reload, restore saved structured
   guidance ahead of its pending correction control.
-- 2026-11-08: The text inside an authored binding is the question and storage
-  key, even when it is a short label. Remove the unreleased alias table and
-  use exact keys across courses, Profile, and editor Debug.
+- 2026-11-08: After trimming leading and trailing whitespace, the text inside
+  an authored binding is the question and storage key, even when it is a short
+  label. Remove the unreleased alias table and use exact keys across courses,
+  Profile, and editor Debug.
 
 ## Outcomes & Retrospective
 
-The engine uses the text inside the binding as the question and memory key.
+The engine trims outer whitespace inside a binding and uses the remaining
+text as the question and memory key.
 Explicit references can read earlier course answers by their original text.
 
 ## Context and Orientation
@@ -78,8 +80,8 @@ streams and writes admitted course memory with its existing transaction.
    correction feedback and authored navigation boundaries. Use options for
    new navigation labels.
 3. Record accepted course answers under the exact question, including the
-   literal text of an authored binding. Keep system profile and other course
-   scopes separate.
+   text of an authored binding after trimming its outer whitespace. Keep system
+   profile and other course scopes separate.
 4. Migrate Profile evidence, update canonical guidance, and verify all paths.
 
 ## Concrete Steps
@@ -93,7 +95,8 @@ after updating the plan and canonical references.
 A new answer call without `question` is rejected. The model's question appears
 before the controls, and an accepted answer is recorded under that exact
 question. A bound short label is used verbatim in prose, the tool call, and
-the memory key. Continue and navigation clicks do not update memory. Legacy
+the memory key after trimming its outer whitespace. Continue and navigation
+clicks do not update memory. Legacy
 sessions and Profile evidence continue to restore and resume.
 
 ## Idempotence and Recovery
