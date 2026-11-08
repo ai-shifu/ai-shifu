@@ -72,7 +72,10 @@ projection considers only the newest 100 unresolved course keys and includes who
 values fitting 32768 JSON characters, counting escaping. Existing canonical/defined
 variable resolution remains exact and does not consume this allowance. Oversized or
 older supplementary values remain stored and available through the existing memory
-inspection reader, without fabricated provenance or a historical data purge.
+inspection reader. A later lesson that explicitly references an oversized text
+answer can use [bounded recall pages](../references/markdownflow-memory-recall.md)
+to read its original text when needed. Normal-sized references retain their
+existing behavior.
 
 Existing key/value/count and per-scope JSON growth limits also apply. After an
 asynchronous check, capacity and finished state are checked again before mutation.
