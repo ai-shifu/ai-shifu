@@ -25,10 +25,20 @@ async def test_question_first_contract_preserves_prose_then_authored_controls(
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         instructions = info.instructions or ""
         assert (
-            "For ordinary answer collection, ask the complete question in Markdown prose, "
-            "then call `interact` in the same response. "
-            "Do not repeat a question already asked in the current turn."
+            "Except for structured correction feedback, ask the complete question "
+            "in Markdown prose in the current turn, "
+            "then call `interact` in that same turn."
         ) in instructions
+        assert "MUST receive the complete question before any answer controls" in (
+            instructions
+        )
+        assert (
+            "option label, placeholder, or question from a prior turn" in instructions
+        )
+        assert (
+            "Navigation-only buttons and pauses do not require a question"
+            in instructions
+        )
         assert "Never write the options as plain text" in instructions
         assert "the tool prompt is a control title" in instructions
         assert "Preserve every authored input boundary" in instructions
