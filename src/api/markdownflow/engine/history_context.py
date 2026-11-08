@@ -37,6 +37,13 @@ def _successful_recall(content: object) -> bool:
         return False
     if content.get("status") == "found":
         return set(content) == {"status", "value"}
+    if content.get("status") == "value_page":
+        offset = content.get("next_value_offset")
+        return (
+            set(content) == {"status", "value", "next_value_offset"}
+            and isinstance(content["value"], str)
+            and (offset is None or (type(offset) is int and offset > 0))
+        )
     if content.get("status") != "keys" or set(content) != {
         "status",
         "keys",
@@ -98,6 +105,7 @@ def current_recall_notice(
                     "found",
                     "unavailable",
                     "too_large",
+                    "value_page",
                     "history_compacted",
                 ):
                     latest[calls[part.tool_call_id]] = result
@@ -106,7 +114,7 @@ def current_recall_notice(
         available = key in memory and key not in excluded
         status = result["status"]
         if (
-            status == "history_compacted"
+            status in ("history_compacted", "value_page")
             or (status == "unavailable" and available)
             or (
                 status == "found"
