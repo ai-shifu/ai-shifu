@@ -1,6 +1,6 @@
 import { type BrowserContext, expect, Page, test } from '@playwright/test';
 
-import { loginWithPhone } from './harness-auth';
+import { callHarnessApi as callApi, loginWithPhone } from './harness-auth';
 import {
   attachRuntimeHarnessDiagnostics,
   type RuntimeHarnessDiagnostics,
@@ -11,31 +11,6 @@ type Memory = { value_id: string; key: string; value: string };
 
 const source =
   'Choose a learning path.\n\n?[{{e2e_answer}} Visible A//a | Visible B//b]';
-
-const callApi = async <T>(
-  page: Page,
-  method: string,
-  path: string,
-  data?: Record<string, unknown>,
-): Promise<T> => {
-  const token = await page.evaluate<string>(() =>
-    JSON.parse(window.localStorage.getItem('token') || '""'),
-  );
-  expect(token).not.toBe('');
-  const response = await page.request.fetch(path, {
-    method,
-    data,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Token: token,
-      'Accept-Language': 'en-US',
-    },
-  });
-  expect(response.ok(), `${method} ${path}`).toBe(true);
-  const body = await response.json();
-  expect(body.code, `${method} ${path}: ${body.message}`).toBe(0);
-  return body.data;
-};
 
 test.describe('standard interaction binding persistence', () => {
   let diagnostics: RuntimeHarnessDiagnostics;

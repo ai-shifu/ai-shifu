@@ -4,6 +4,31 @@ const DEFAULT_PHONE = process.env.AI_SHIFU_TEST_PHONE || '13800138000';
 const DEFAULT_OTP = process.env.AI_SHIFU_TEST_OTP || '1024';
 const DEFAULT_CAPTCHA = process.env.AI_SHIFU_TEST_CAPTCHA || '0000';
 
+export const callHarnessApi = async <T>(
+  page: Page,
+  method: string,
+  path: string,
+  data?: Record<string, unknown>,
+): Promise<T> => {
+  const token = await page.evaluate<string>(() =>
+    JSON.parse(window.localStorage.getItem('token') || '""'),
+  );
+  expect(token).not.toBe('');
+  const response = await page.request.fetch(path, {
+    method,
+    data,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Token: token,
+      'Accept-Language': 'en-US',
+    },
+  });
+  expect(response.ok(), `${method} ${path}`).toBe(true);
+  const body = await response.json();
+  expect(body.code, `${method} ${path}: ${body.message}`).toBe(0);
+  return body.data;
+};
+
 const ensurePhoneLoginVisible = async (page: Page) => {
   const phoneInput = page.locator('#phone');
   if (await phoneInput.isVisible()) {
