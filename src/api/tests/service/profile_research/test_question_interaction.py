@@ -59,8 +59,10 @@ def test_question_only_tool_records_canonical_answers_and_keeps_nickname_private
             yield _finish()
         elif answers:
             assert not batched, "Do not call the model between queued sibling questions"
+            yield nickname_question
             yield ask("nickname", nickname_question, "Enter your nickname")
         else:
+            yield f"{question}\n\n{nickname_question}" if batched else question
             calls = ask("goal", question, "Share your goal")
             if batched:
                 calls.update(
@@ -71,12 +73,16 @@ def test_question_only_tool_records_canonical_answers_and_keeps_nickname_private
     model = FunctionModel(stream_function=script)
     first = run_profile_turn(session, {}, model)
     assert first.chunks[-1].interaction_id == "goal"
-    assert [chunk.content for chunk in first.chunks[:-1]] == [question]
+    assert "".join(chunk.content for chunk in first.chunks[:-1]) == (
+        f"{question}\n\n{nickname_question}" if batched else question
+    )
     session = type(session).from_cache_payload(session.to_cache_payload())
     second = run_profile_turn(session, {question: ["Algebra"]}, model)
     assert second.input_accepted
     assert second.chunks[-1].interaction_id == "nickname"
-    assert [chunk.content for chunk in second.chunks[:-1]] == [nickname_question]
+    assert "".join(chunk.content for chunk in second.chunks[:-1]) == (
+        "" if batched else nickname_question
+    )
     session = type(session).from_cache_payload(session.to_cache_payload())
     final = run_profile_turn(session, {nickname_question: ["Learner"]}, model)
     assert final.input_accepted

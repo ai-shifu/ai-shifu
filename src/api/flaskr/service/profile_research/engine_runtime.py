@@ -248,7 +248,6 @@ def run_profile_turn(
             pauses_from_notation=bool(questions),
             memory_admission=True,
             buffer_model_responses=True,
-            sequential_interactions=True,
         )
         async for event in engine.run_turn(working, turn):
             yield event

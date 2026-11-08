@@ -103,15 +103,12 @@ def _content(result: ProfileTurnResult) -> str:
         ("Which value is largest?", "Which value is smallest?"),
     ],
 )
-def test_complete_question_appears_before_the_controls_once(
+def test_question_argument_never_adds_to_model_prose(
     narration: str, question: str
 ) -> None:
     session = _session("Ask about the learner, then wait for the answer.")
 
-    async def script(_messages: list[ModelMessage], info: AgentInfo) -> Stream:
-        assert "The host presents it before the answer controls" in (
-            info.instructions or ""
-        )
+    async def script(_messages: list[ModelMessage], _info: AgentInfo) -> Stream:
         if narration:
             yield narration
         yield {
@@ -132,12 +129,7 @@ def test_complete_question_appears_before_the_controls_once(
     interaction = result.chunks[-1]
     assert interaction.interaction_id == "current"
     assert interaction.interaction.endswith("...Your answer]")
-    expected = (
-        narration
-        if narration.endswith(question)
-        else "\n\n".join(filter(None, (narration, question)))
-    )
-    assert _content(result).strip() == expected
+    assert _content(result).strip() == narration
     pending = Session.from_dict(session.engine_session).pending[0]
     assert pending.tool_call_id == "current"
     assert pending.spec.question == question

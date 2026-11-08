@@ -216,6 +216,7 @@ async def test_question_contract_keeps_guiding_question_and_its_answer_together(
         nonlocal calls
         calls += 1
         if calls == 1:
+            yield original_question
             yield _call(
                 {
                     "type": "text",

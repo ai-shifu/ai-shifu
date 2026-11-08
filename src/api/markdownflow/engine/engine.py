@@ -109,7 +109,7 @@ from .script import (
     substitute_variables,
     substitution_names,
 )
-from .segmenter import Narration, Segmenter, SegmentPiece, plain_narration
+from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
 from .stream_html_context import pending_html_prefix
 from .tools import (
@@ -503,7 +503,6 @@ class Engine:
         feedback_contract: bool = False,
         buffer_model_responses: bool = False,
         legacy_interact_args: bool = False,
-        sequential_interactions: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -556,14 +555,10 @@ class Engine:
 
         `legacy_interact_args` permits portable callers to replay the former tool argument shape.
         The provider schema always advertises the question-only contract.
-
-        `sequential_interactions` presents only the current pending question and control when
-        the host can display one interaction at a time. Sibling calls stay deferred.
         """
         self.feedback_contract = feedback_contract
         self.buffer_model_responses = buffer_model_responses
         self.legacy_interact_args = legacy_interact_args
-        self.sequential_interactions = sequential_interactions
         self.feedback_instructions = (
             load_prompt("feedback_contract") if feedback_contract else ""
         )
@@ -923,8 +918,8 @@ class Engine:
             # question never shown, to be asked again in a form that can be.
             self._set_aside_unshowable(session)
             if session.pending:
-                for event in self._present_pending(session, session.pending[0]):
-                    yield event
+                pending = session.pending[0]
+                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
                 yield TurnDone(reason="interaction", usage=session.usage)
                 return
             kwargs["deferred_tool_results"] = DeferredToolResults(
@@ -1010,8 +1005,8 @@ class Engine:
                 # The model raised several interactions in one turn. Ask the next one and wait:
                 # pydantic-ai rejects a resume that leaves any deferred call unanswered, so the
                 # model only runs again once every one of them has an answer.
-                for event in self._present_pending(session, session.pending[0]):
-                    yield event
+                pending = session.pending[0]
+                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
                 yield TurnDone(reason="interaction", usage=session.usage)
                 return
             kwargs["deferred_tool_results"] = DeferredToolResults(
@@ -1676,46 +1671,15 @@ class Engine:
                             # in the same response as `finish`, the script's last question is
                             # still the learner's to answer, and the turn that takes the answer
                             # ends the lesson (see `_finished_in`).
-                            deferred: list[PendingInteraction] = []
                             for call in result.output.calls:
                                 spec = InteractionSpec.model_validate(
                                     result.output.metadata.get(call.tool_call_id, {})
                                 )
                                 pending = PendingInteraction(call.tool_call_id, spec)
-                                deferred.append(pending)
                                 if call.tool_call_id not in direction_pending:
                                     session.pending.append(pending)
                                 if spec.question_owns_memory:
                                     session.interaction_specs[call.tool_call_id] = spec
-                            visible = (
-                                deferred[:1]
-                                if self.sequential_interactions
-                                else deferred
-                            )
-                            for pending in visible:
-                                spec = pending.spec
-                                if (
-                                    spec.question_owns_memory
-                                    and not spec.structured_correction
-                                    and not "".join(shown)
-                                    .rstrip()
-                                    .endswith(spec.question)
-                                ):
-                                    question_text = (
-                                        "\n\n" if shown else ""
-                                    ) + spec.question
-                                    for event in _text(question_text):
-                                        yield event
-                                    for event in _flush_markup():
-                                        yield event
-                                    if segmenter:
-                                        for event in self._segment(
-                                            segmenter.finish(),
-                                            seg_state,
-                                            session,
-                                            final=True,
-                                        ):
-                                            yield event
                                 yield InteractionRequest(
                                     id=pending.tool_call_id, spec=spec
                                 )
@@ -1807,31 +1771,6 @@ class Engine:
                 )
             ):
                 await self.memory_store.save(session.user_id, session.user_memory)
-
-    def _present_pending(
-        self, session: Session, pending: PendingInteraction
-    ) -> list[Event]:
-        """Present a queued sibling now that it is the current interaction."""
-        spec = pending.spec
-        events: list[Event] = []
-        if (
-            self.sequential_interactions
-            and spec.question_owns_memory
-            and not spec.structured_correction
-        ):
-            events.append(ContentDelta(text=spec.question))
-            if session.listen_mode:
-                segment_id = f"{session.id[:8]}-{session.turn}-interaction-{pending.tool_call_id}"
-                narration = plain_narration(spec.question)
-                events.extend(
-                    (
-                        SegmentStart(segment_id=segment_id),
-                        NarrationDelta(segment_id=segment_id, text=narration),
-                        SegmentEnd(segment_id=segment_id, narration=narration),
-                    )
-                )
-        events.append(InteractionRequest(id=pending.tool_call_id, spec=spec))
-        return events
 
     def _set_aside_unshowable(self, session: Session) -> None:
         """Resolve, as never shown, every question at the head of the queue the host cannot show.
