@@ -163,12 +163,14 @@ def test_answers_at_the_learners_position(
 
 
 @pytest.mark.parametrize("disabled_at", ["course", "lesson"])
-def test_published_follow_up_disabled_before_provider_or_history(
+@pytest.mark.parametrize("has_progress", [False, True])
+def test_published_follow_up_disabled_without_writing_progress_or_history(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     runtime_dependencies: object,
     ask_runtime: SimpleNamespace,
     disabled_at: str,
+    has_progress: bool,
 ) -> None:
     _ = runtime_dependencies
     course = revision._seed_course(app)
@@ -187,12 +189,16 @@ def test_published_follow_up_disabled_before_provider_or_history(
             published_lesson.ask_enabled_status = (
                 ASK_MODE_DISABLE if disabled_at == "lesson" else ASK_MODE_DEFAULT
             )
-        _progress(course, position=0)
+        if has_progress:
+            _progress(course, position=0)
 
         with pytest.raises(AppError) as error:
             _ask(app, course)
 
         assert error.value.code == ERROR_CODE["server.common.paramsError"]
+        assert LearnProgressRecord.query.filter_by(
+            user_bid=course.user_bid, shifu_bid=course.course_bid
+        ).count() == int(has_progress)
         assert (
             ask_runtime.calls.guardrails
             == ask_runtime.calls.providers
@@ -272,17 +278,24 @@ def _sell_lesson(course: SimpleNamespace) -> None:
         ).update({"type": 402})
 
 
+@pytest.mark.parametrize("follow_up_disabled", [False, True])
 def test_an_unbought_paid_lesson_is_refused_before_anything_is_written(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     runtime_dependencies: object,
     ask_runtime: SimpleNamespace,
+    follow_up_disabled: bool,
 ) -> None:
     _ = runtime_dependencies
     course = revision._seed_course(app)
     _learner(monkeypatch, course.user_bid)
     with app.app_context():
         _sell_lesson(course)
+        if follow_up_disabled:
+            with unit_of_work():
+                PublishedOutlineItem.query.filter_by(
+                    outline_item_bid=course.outline_bid
+                ).one().ask_enabled_status = ASK_MODE_DISABLE
         with pytest.raises(PaidError):
             _ask(app, course)
 

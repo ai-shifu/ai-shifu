@@ -27,7 +27,7 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.common import raise_error
 from flaskr.service.learn.agent.session_store import active_session_id
 from flaskr.service.learn.ask.context import resolve_course_system_prompt
-from flaskr.service.learn.ask.handler import handle_input_ask
+from flaskr.service.learn.ask.handler import handle_input_ask, require_follow_up_enabled
 from flaskr.service.learn.ask.memory_writer import (
     FollowUpMemoryPatch,
     stage_follow_up_memory,
@@ -40,6 +40,7 @@ from flaskr.service.learn.langfuse_naming import (
     build_langfuse_trace_name,
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
 from flaskr.service.memory.api import load_memory
 from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
@@ -71,6 +72,7 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
+    from flaskr.service.learn.utils_v2 import FollowUpInfo
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
@@ -188,13 +190,25 @@ def follow_up_events(
             user_bid=user_info.user_id,
             outline_bid=outline_item_info.bid,
         )
-        attend = _current_attend(
+        attend = _find_current_attend(user_info.user_id, outline_item_info.bid)
+        if attend is None:
+            _require_initial_attend_access(
+                context,
+                outline_bid=outline_item_info.bid,
+                is_paid=_is_paid(user_bid, shifu_info),
+            )
+        follow_up_info = get_follow_up_info_v2(
             app,
-            context,
-            user_info,
-            outline_bid=outline_item_info.bid,
-            is_paid=_is_paid(user_bid, shifu_info),
+            shifu_info.bid,
+            outline_item_info.bid,
+            is_preview=preview_mode,
+            struct=struct,
         )
+        require_follow_up_enabled(follow_up_info)
+        if attend is None:
+            attend = _create_attend_placeholders(
+                app, context, user_info, outline_bid=outline_item_info.bid
+            )
         tracing.args["metadata"]["progress_record_bid"] = attend.progress_record_bid
         tracing.start(
             session_id=_trace_session_id(
@@ -211,6 +225,7 @@ def follow_up_events(
             user_info=user_info,
             outline_item_info=outline_item_info,
             attend=attend,
+            follow_up_info=follow_up_info,
             user_input=user_input,
             last_position=(
                 attend.block_position if anchor_position is None else anchor_position
@@ -400,24 +415,17 @@ def _is_paid(user_bid: str, shifu_info: ShifuInfoDto) -> bool:
     )
 
 
-def _current_attend(
-    app: Flask,
-    context: AskContext,
-    user_info: UserAggregate,
-    *,
-    outline_bid: str,
-    is_paid: bool,
-) -> LearnProgressRecord:
-    """Return the learner's progress record for the lesson, creating placeholders if missing.
+def _find_current_attend(user_bid: str, outline_bid: str) -> LearnProgressRecord | None:
+    """Find the learner's progress record for the lesson.
 
     A record that has started learning wins over a fresh NOT_STARTED placeholder: a
     question asked before the lesson stream committed cannot see the lesson's row and
     would otherwise make the next lesson request restart from the first block.
     """
-    attend = (
+    return (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.outline_item_bid == outline_bid,
-            LearnProgressRecord.user_bid == user_info.user_id,
+            LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.status != LEARN_STATUS_RESET,
         )
         .order_by(
@@ -426,9 +434,11 @@ def _current_attend(
         )
         .first()
     )
-    if attend:
-        return attend
 
+
+def _require_initial_attend_access(
+    context: AskContext, *, outline_bid: str, is_paid: bool
+) -> None:
     outline_model = context._outline_model
     shifu_model = context._shifu_model
     filters = [outline_model.outline_item_bid == outline_bid]
@@ -459,6 +469,10 @@ def _current_attend(
     ):
         raise PaidError
 
+
+def _create_attend_placeholders(
+    app: Flask, context: AskContext, user_info: UserAggregate, *, outline_bid: str
+) -> LearnProgressRecord:
     new_records: list[LearnProgressRecord] = []
     for item in context.outline_path(outline_bid):
         if item.type != "outline":
@@ -475,7 +489,7 @@ def _current_attend(
         attend = LearnProgressRecord()
         # Each placeholder carries its own node's bid, not the leaf's.
         attend.outline_item_bid = item.bid
-        attend.shifu_bid = outline_row.shifu_bid
+        attend.shifu_bid = context._shifu_info.bid
         attend.user_bid = user_info.user_id
         attend.status = LEARN_STATUS_NOT_STARTED
         attend.progress_record_bid = generate_id(app)
@@ -518,6 +532,7 @@ def _answer(
     user_info: UserAggregate,
     outline_item_info: ShifuOutlineItemDto,
     attend: LearnProgressRecord,
+    follow_up_info: FollowUpInfo,
     user_input: str | dict | list | None,
     last_position: int,
     anchor_element_bid: str,
@@ -558,6 +573,7 @@ def _answer(
         parent_observation=root_span,
         runtime_profiles=runtime_profiles,
         memory_patch=memory_patch,
+        follow_up_info=follow_up_info,
     )
     for event in events:
         _stop_if_requested(app, context)

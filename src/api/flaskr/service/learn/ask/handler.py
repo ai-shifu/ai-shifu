@@ -53,6 +53,7 @@ from flaskr.service.learn.live_follow_up_config import is_live_follow_up_model
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.learn.utils_v2 import (
+    FollowUpInfo,
     get_fmt_prompt,
     get_follow_up_info_v2,
     init_generated_block,
@@ -195,6 +196,12 @@ def _finalize_ask_trace(
     )
 
 
+def require_follow_up_enabled(follow_up_info: FollowUpInfo) -> None:
+    """Refuse follow-ups disabled by the effective course or lesson setting."""
+    if follow_up_info.ask_mode == ASK_MODE_DISABLE:
+        raise_param_error("follow_up")
+
+
 def handle_input_ask(
     app: Flask,
     context: object,
@@ -210,26 +217,29 @@ def handle_input_ask(
     parent_observation: object | None = None,
     runtime_profiles: dict | None = None,
     memory_patch: FollowUpMemoryPatch | None = None,
+    follow_up_info: FollowUpInfo | None = None,
 ) -> Generator[str, None, None]:
     """Handle user Q&A input.
 
     Process user questions in the shifu and return AI tutor responses.
     """
     # Get follow-up information (including Q&A prompts and model configuration)
-    retained_struct = getattr(context, "_struct", None)
-    struct_options = (
-        {"struct": retained_struct} if isinstance(retained_struct, HistoryItem) else {}
-    )
-    follow_up_info = get_follow_up_info_v2(
-        app,
-        outline_item_info.shifu_bid,
-        outline_item_info.bid,
-        attend_id,
-        is_preview,
-        **struct_options,
-    )
-    if follow_up_info.ask_mode == ASK_MODE_DISABLE:
-        raise_param_error("follow_up")
+    if follow_up_info is None:
+        retained_struct = getattr(context, "_struct", None)
+        struct_options = (
+            {"struct": retained_struct}
+            if isinstance(retained_struct, HistoryItem)
+            else {}
+        )
+        follow_up_info = get_follow_up_info_v2(
+            app,
+            outline_item_info.shifu_bid,
+            outline_item_info.bid,
+            attend_id,
+            is_preview,
+            **struct_options,
+        )
+    require_follow_up_enabled(follow_up_info)
     if is_live_follow_up_model(follow_up_info.ask_model):
         # Live voice has a dedicated authenticated WebSocket transport. The
         # legacy text/SSE path must never invoke it through LiteLLM or create a

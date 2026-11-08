@@ -173,7 +173,7 @@ def get_follow_up_info_v2(
     app: Flask,
     shifu_bid: str,
     outline_item_bid: str,
-    attend_id: str,
+    attend_id: str = "",
     is_preview: bool = False,
     *,
     struct: HistoryItem | None = None,
@@ -184,7 +184,7 @@ def get_follow_up_info_v2(
         app (Flask): The Flask application instance.
         shifu_bid (str): The shifu business ID.
         outline_item_bid (str): The outline item business ID.
-        attend_id (str): The attendance ID.
+        attend_id (str, optional): Legacy attendance ID, unused for configuration.
         is_preview (bool, optional): Whether to retrieve the follow up info in preview mode.
             If True, retrieves data as it would appear in preview (unpublished) state; if False,
             retrieves data as it appears in the published state. Defaults to False.
