@@ -19,6 +19,7 @@ from pydantic_ai.messages import (
 )
 
 from .interaction import DEFAULT_CONFIRM_LABEL, InteractionSpec
+from .memory import resolve_memory_aliases
 from .script import ScriptBundle
 
 
@@ -72,6 +73,7 @@ class Session:
     listen_mode: bool = False
     messages: list[ModelMessage] = field(default_factory=list)
     memory: dict[str, Any] = field(default_factory=dict)  # session scope
+    memory_aliases: dict[str, str] = field(default_factory=dict)
     answer_hashes: dict[str, str] = field(default_factory=dict)
     # Host-supplied memory deletion generations this session's memory reflects.
     memory_generations: dict[str, int] = field(default_factory=dict)
@@ -79,6 +81,8 @@ class Session:
     # Exact source values for initial host substitutions; None identifies legacy sessions.
     initial_variables: dict[str, Any] | None = None
     pending: list[PendingInteraction] = field(default_factory=list)
+    # The resolved controls of new calls, whose model arguments do not contain a memory binding.
+    interaction_specs: dict[str, InteractionSpec] = field(default_factory=dict)
     # Answers collected for this turn's deferred calls, keyed by tool_call_id. A turn can raise
     # several interactions at once; the host answers them one at a time, and they are only handed
     # back to the model together, because pydantic-ai requires a result for every deferred call.
@@ -100,7 +104,9 @@ class Session:
 
     def all_memory(self) -> dict[str, Any]:
         """Merge user-scoped memory with this session's own, session winning."""
-        return {**self.user_memory, **self.memory}
+        return resolve_memory_aliases(
+            {**self.user_memory, **self.memory}, self.memory_aliases
+        )
 
     def answered_memory_keys(self) -> frozenset[str]:
         """Identify current copies still owned by an accepted named answer."""
@@ -112,7 +118,14 @@ class Session:
             and answer_fingerprint(self.memory[key]) == digest
         )
 
-    def record_answer(self, key: str, value: str) -> None:
+    def record_answer(
+        self,
+        key: str,
+        value: str,
+        *,
+        alias: str | None = None,
+        question_owns_memory: bool = False,
+    ) -> None:
         """Replace a named-answer copy and its ownership fingerprint together."""
         digest = answer_fingerprint(value)
         if digest is None:
@@ -120,6 +133,10 @@ class Session:
             raise TypeError(message)
         self.memory[key] = value
         self.answer_hashes[key] = digest
+        if question_owns_memory:
+            self.memory_aliases.pop(key, None)
+        if alias and alias != key:
+            self.memory_aliases[alias] = key
 
     def _legacy_answer_hashes(self) -> dict[str, str]:
         """Recover matching answer copies from old persisted host results.
@@ -220,14 +237,42 @@ class Session:
             "script": self.script.to_dict(),
             "messages": json.loads(ModelMessagesTypeAdapter.dump_json(self.messages)),
             "memory": self.memory,
+            **(
+                {"memory_aliases": dict(self.memory_aliases)}
+                if self.memory_aliases
+                else {}
+            ),
             "answer_hashes": dict(self.answer_hashes),
             "memory_generations": dict(self.memory_generations),
             "user_memory": self.user_memory,
             "initial_variables": self.initial_variables,
             "pending": [
-                {"tool_call_id": p.tool_call_id, "spec": p.spec.model_dump(mode="json")}
+                {
+                    "tool_call_id": p.tool_call_id,
+                    "spec": p.spec.model_dump(
+                        mode="json",
+                        by_alias=True,
+                        exclude=None
+                        if p.spec.question_owns_memory
+                        else {
+                            "question_owns_memory",
+                            "binding_alias",
+                            "structured_correction",
+                        },
+                    ),
+                }
                 for p in self.pending
             ],
+            **(
+                {
+                    "interaction_specs": {
+                        call_id: spec.model_dump(mode="json")
+                        for call_id, spec in self.interaction_specs.items()
+                    }
+                }
+                if self.interaction_specs
+                else {}
+            ),
             "answers": self.answers,
             "request_inputs": self.request_inputs,
             "usage": self.usage,
@@ -255,6 +300,7 @@ class Session:
                 ModelMessagesTypeAdapter.validate_python(d.get("messages") or [])
             ),
             memory=dict(d.get("memory") or {}),
+            memory_aliases=dict(d.get("memory_aliases") or {}),
             answer_hashes=dict(d.get("answer_hashes") or {}),
             memory_generations={
                 str(key): int(value)
@@ -270,6 +316,10 @@ class Session:
                 PendingInteraction(p["tool_call_id"], _restored_spec(p["spec"]))
                 for p in d.get("pending") or []
             ],
+            interaction_specs={
+                call_id: _restored_spec(spec)
+                for call_id, spec in (d.get("interaction_specs") or {}).items()
+            },
             answers=dict(d.get("answers") or {}),
             request_inputs=list(d.get("request_inputs") or []),
             usage=dict(d.get("usage") or {}),

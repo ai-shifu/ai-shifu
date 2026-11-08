@@ -58,6 +58,7 @@ class Deps:
     history_len: int = 0
     # Transient request guidance; never persisted as learner evidence or a grade.
     resuming_interaction: bool = False
+    legacy_interact_args: bool = False
     authored_text: str = ""
     authored_answer_reference: str | None = None
     direction_answers: dict[str, str] = field(default_factory=dict)
@@ -80,6 +81,8 @@ class Deps:
     script_options: dict[str, str] = field(default_factory=dict)
     # Authored text-input questions, used only to repair an extra placeholder button.
     script_text_inputs: tuple[_Question, ...] = ()
+    script_questions: tuple[_Question, ...] = ()
+    translated_controls: bool = False
     literal_interaction_markup: frozenset[str] = frozenset()
     interaction_markup_pending: bool = False
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
@@ -88,6 +91,7 @@ class Deps:
     no_pauses: bool = False
     # None preserves a portable host's existing unrestricted memory contract.
     memory_keys: frozenset[str] | None = None
+    memory_aliases: dict[str, str] = field(default_factory=dict)
     memory_reserved_keys: frozenset[str] = frozenset()
     memory_readonly_prefixes: tuple[str, ...] = ()
     memory_deleted_keys: frozenset[str] = frozenset()
@@ -137,6 +141,9 @@ def recall_exclusions(deps: Deps) -> frozenset[str]:
         and key in deps.memory
         and answer_fingerprint(deps.memory[key]) == digest
     }
+    answered.update(
+        alias for alias, key in deps.memory_aliases.items() if key in answered
+    )
     return (
         deps.memory_recall_excluded_keys.difference(answered)
         | deps.memory_recall_blocked_keys
@@ -269,6 +276,7 @@ class _Question:
     placeholder: str | None
     written_placeholder: str | None
     multi: bool
+    preceding_line: str = ""
 
 
 def _script_questions(script_text: str) -> list[_Question]:
@@ -284,7 +292,18 @@ def _script_question_spans(script_text: str) -> list[tuple[int, int, _Question]]
     """Return each question with its source span, from the shared marker scanner."""
     text = script_text
     questions: list[tuple[int, int, _Question]] = []
+    lines = iter(text.splitlines(keepends=True))
+    line = next(lines, "")
+    line_start = 0
+    preceding_line = ""
     for start, end_exclusive in analyze_marker_context(text).controls:
+        while line and line_start + len(line) <= start:
+            preceding_line = line.strip() or preceding_line
+            line_start += len(line)
+            line = next(lines, "")
+        inline_prefix = line[
+            max(0, start - line_start - _MEMORY_KEY_LIMIT) : start - line_start
+        ]
         end = end_exclusive - 1
         raw = text[start + 2 : end]
         variable = read_interaction_variable(raw)
@@ -322,6 +341,7 @@ def _script_question_spans(script_text: str) -> list[tuple[int, int, _Question]]
                     if ellipsis >= 0
                     else None,
                     multi=multi,
+                    preceding_line=inline_prefix.strip() or preceding_line,
                 ),
             )
         )
@@ -331,6 +351,99 @@ def _script_question_spans(script_text: str) -> list[tuple[int, int, _Question]]
 def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
     """Read authored input hints; examples in code or comments are not questions."""
     return tuple(q for q in _script_questions(script_text) if q.placeholder)
+
+
+def authored_interaction_questions(script_text: str) -> tuple[_Question, ...]:
+    """Read the lesson's authored controls for new question-only tool calls."""
+    return tuple(_script_questions(script_text))
+
+
+def _authored_controls_match(
+    authored: _Question,
+    kind: InteractionType,
+    options: list[Option],
+    placeholder: str | None,
+    *,
+    translated: bool = False,
+) -> bool:
+    choices = [
+        _unescape(_split_unescaped(choice, "//")[:2][-1].strip())
+        for choice in authored.choices
+        if choice.strip()
+    ]
+    if choices != [option.stored for option in options]:
+        return False
+    hint_matches = translated or placeholder in (
+        authored.placeholder,
+        authored.written_placeholder,
+    )
+    if kind == "text":
+        return authored.text and not choices and hint_matches
+    if authored.text:
+        return (
+            kind == ("multi_or_text" if authored.multi else "single_or_text")
+            and hint_matches
+        )
+    return kind == ("multi" if authored.multi else "single")
+
+
+def _authored_binding(
+    deps: Deps,
+    kind: InteractionType,
+    question: str,
+    options: list[Option],
+    placeholder: str | None,
+) -> tuple[str | None, bool]:
+    matches = [
+        item
+        for item in deps.script_questions
+        if _authored_controls_match(item, kind, options, placeholder)
+    ]
+    if not matches and deps.translated_controls and placeholder:
+        # Localized text hints can differ; binding still requires unambiguous controls.
+        matches = [
+            item
+            for item in deps.script_questions
+            if _authored_controls_match(
+                item, kind, options, placeholder, translated=True
+            )
+        ]
+    exact = [
+        item
+        for item in matches
+        if question and question in (item.variable, item.preceding_line)
+    ]
+    matches = exact or matches
+    names = {item.variable for item in matches}
+    binding = next(iter(names)) if len(names) == 1 else None
+    navigation = (
+        kind == "single"
+        and len(options) == 1
+        and bool(matches)
+        and names == {None}
+        and not any(
+            item.preceding_line.endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
+            for item in matches
+        )
+        and options[0].stored.casefold()
+        in {
+            "continue",
+            "go on",
+            "next",
+            "next question",
+            "next step",
+            "next lesson",
+            "i understand",
+            "i'm ready",
+            "继续",
+            "下一题",
+            "下一步",
+            "下一节",
+            "我明白了",
+            "我准备好了",
+        }
+    )
+    return binding, navigation
 
 
 def normalize_script_text_input(
@@ -348,16 +461,19 @@ def normalize_script_text_input(
         hints = {
             q.placeholder
             for q in questions
-            if q.variable == spec.variable
+            if q.variable
+            == (spec.binding_alias if spec.question_owns_memory else spec.variable)
             and not any(c.strip() for c in q.choices)
-            and spec.prompt.strip() in (q.placeholder, q.written_placeholder)
+            and spec.question.strip() in (q.placeholder, q.written_placeholder)
         }
         if len(hints) == 1 and (hint := next(iter(hints))):
             return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
     submitted = [o.stored for o in spec.options]
     for question in questions:
-        if question.variable != spec.variable:
+        if question.variable != (
+            spec.binding_alias if spec.question_owns_memory else spec.variable
+        ):
             continue
         kinds = (
             ("multi", "multi_or_text")
@@ -514,7 +630,7 @@ def _asked(call: ToolCallPart, written: dict[str, str]) -> tuple[object, ...] | 
         return None
     return _question(
         args.get("type"),
-        args.get("prompt") or "",
+        args.get("question") or args.get("prompt") or "",
         args.get("variable"),
         options,
         args.get("placeholder"),
@@ -743,13 +859,15 @@ def feedback_response_problem(
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
-    prompt: str,
+    question: str = "",
     options: list[Option] | None = None,
-    variable: str | None = None,
     placeholder: str | None = None,
     direction: DirectionFeedback | None = None,
     review: FeedbackReview | None = None,
     feedback: DirectionFeedback | FeedbackReview | None = None,
+    *,
+    prompt: str | None = None,
+    variable: str | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -758,13 +876,9 @@ async def interact(
     `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
     without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
-    A `confirm` never takes a `variable`: pressing it says "go on", not an answer, and it is
-    dropped. To have the learner check something you wrote, ask it as `single`, or write the
-    read-back as content and pause with a plain `confirm`.
-    Give `options` for every type except `text`. `variable` is ONLY for a memory key the script
-    explicitly names; follow the host memory policy for eligible declarations. Leave it empty
-    otherwise. Copy its exact internal text, including spaces and punctuation; only surrounding
-    whitespace is trimmed. Do not translate, rename or collapse spaces in a declared name.
+    Use `question` for the complete learner-facing question. The host displays it before the
+    controls and stores the answer under its exact wording. Use an empty question only for
+    a pause or an authored navigation-only control. Give `options` for every type except `text`.
     The learner's answer is returned as the tool result; then continue the script.
     Before personal feedback and the next interaction, cite the original submission
     supporting each claimed misconception. A quoted denial of prior storage does not
@@ -812,9 +926,9 @@ async def interact(
     authored acknowledgement, or []. Only accepted/contradicted answer quotes and
     unanswered questions are displayed; diagnoses/criteria stay internal. The host
     checks provenance, not correctness or semantic focus.
-    Use type `text`, an empty `prompt`, and the same authored placeholder and eligible
-    variable as the answered input. Do not add another tool call or any free
-    content to that model response. This collects the correction directly, without
+    Use type `text` and the original authored placeholder. In `question`, copy the guiding
+    questions exactly in their order with a single space between them. Do not add another tool
+    call or any free content to that model response. This collects the correction directly, without
     a planning request. For passing answers, later authored help, navigation,
     clarification, stages without an authored count, multiple questions within one
     aspect, or an input without an
@@ -838,22 +952,74 @@ async def interact(
             review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
-    if variable is not None and not variable.strip():
-        # An empty optional argument means the answer has no memory key.
-        variable = None
-    if variable is not None:
-        normalized_variable = normalize_variable_name(variable)
-        if normalized_variable is None:
-            message = "Use a nonblank variable name without control characters or a closing brace pair."
-            raise ModelRetry(message)
-        variable = normalized_variable
-    if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
-        message = "This variable is a read-only reference. Ask using a local variable instead."
+    if (
+        prompt is not None or variable is not None
+    ) and not ctx.deps.legacy_interact_args:
+        message = "Use question for the full learner-facing question. The former prompt and variable fields are no longer accepted."
         raise ModelRetry(message)
-    if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
-        variable = None
+    legacy_call = prompt is not None
+    binding_alias = None
+    owns_memory = False
+    if legacy_call:
+        question = prompt or ""
+        if variable is not None and not variable.strip():
+            variable = None
+        if variable is not None:
+            normalized_variable = normalize_variable_name(variable)
+            if normalized_variable is None:
+                message = "Use a nonblank variable name without control characters or a closing brace pair."
+                raise ModelRetry(message)
+            variable = normalized_variable
+        if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
+            message = "This variable is a read-only reference. Ask using a local variable instead."
+            raise ModelRetry(message)
+        if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
+            variable = None
+    else:
+        question = question.strip()
+        normalized_options = [
+            _as_the_script_writes_it(option, ctx.deps.script_options)
+            for option in options or []
+        ]
+        binding_alias, navigation = _authored_binding(
+            ctx.deps, type, question, normalized_options, placeholder
+        )
+        owns_memory = type != "confirm" and (
+            direction is not None or bool(question) or not navigation
+        )
+        if not owns_memory:
+            question = ""
+        variable = question if owns_memory else None
+        if owns_memory:
+            if (
+                not question
+                or normalize_variable_name(question) is None
+                or len(question) > _MEMORY_KEY_LIMIT
+            ):
+                message = "Provide the complete question on one line, using 1 to 255 characters without a closing brace pair."
+                raise ModelRetry(message)
+            if (
+                question.startswith(("sys_", *ctx.deps.memory_readonly_prefixes))
+                or question in ctx.deps.memory_reserved_keys
+                or (binding_alias or "").startswith(ctx.deps.memory_readonly_prefixes)
+            ):
+                message = "Ask a learner-facing question without using a reserved or read-only memory key as its wording."
+                raise ModelRetry(message)
+            if contains_interaction_markup(
+                question, ctx.deps.literal_interaction_markup
+            ):
+                message = "Provide only the question in question. Send answer controls through the tool's other fields."
+                raise ModelRetry(message)
+        if direction is not None and (
+            previous := ctx.deps.direction_inputs.get(direction.answer_id)
+        ):
+            binding_alias = (
+                previous.binding_alias
+                if previous.question_owns_memory
+                else previous.variable
+            )
     if type != "confirm" and asks_the_answered_question_again(
-        ctx, type, prompt, variable, options, placeholder
+        ctx, type, question, variable if legacy_call else None, options, placeholder
     ):
         # Not a flat refusal: a script can ask again after a wrong answer, with the same
         # correction each time. Put that way, it is said to this answer and so reads differently.
@@ -890,10 +1056,13 @@ async def interact(
         ]
     spec = InteractionSpec(
         type=type,
-        prompt=prompt,
+        question=question,
         options=options or [],
         variable=variable,
         placeholder=placeholder,
+        binding_alias=binding_alias,
+        question_owns_memory=owns_memory,
+        structured_correction=direction is not None and not legacy_call,
     )
     spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
     if direction is not None:
@@ -914,12 +1083,28 @@ async def interact(
         if not problem and (
             previous is None
             or spec.type != "text"
-            or spec.prompt != ""
             or spec.placeholder != previous.placeholder
-            or spec.variable != previous.variable
+        ):
+            problem = "direction requires the original text input placeholder"
+        if (
+            not problem
+            and previous is not None
+            and (
+                (
+                    legacy_call
+                    and (spec.question != "" or spec.variable != previous.variable)
+                )
+                or (
+                    not legacy_call
+                    and spec.question
+                    != " ".join(focus.guiding_question for focus in direction.focuses)
+                )
+            )
         ):
             problem = (
                 "direction requires an empty prompt and the original text input binding"
+                if legacy_call
+                else "direction requires question to contain the exact guiding questions in order, joined by one space"
             )
         if not problem and contains_interaction_markup(
             direction.render(), ctx.deps.literal_interaction_markup
@@ -1026,6 +1211,21 @@ async def prepare_feedback_tool(
     """Expose the current reply's required branch without changing native validation."""
     schema = definition.parameters_json_schema
     properties = dict(schema["properties"])
+    if definition.name == "interact":
+        # The validator can still read old calls; the provider receives only the new contract.
+        properties.pop("prompt", None)
+        properties.pop("variable", None)
+        question_schema = dict(properties["question"])
+        question_schema.pop("default", None)
+        question_schema["description"] = (
+            "Complete learner-facing question. Send an empty string only for a pause or an "
+            "authored navigation-only control."
+        )
+        properties["question"] = question_schema
+        schema = {
+            **schema,
+            "required": list(dict.fromkeys([*schema.get("required", []), "question"])),
+        }
     if (
         not ctx.deps.feedback_contract
         or not ctx.deps.direction_sections
@@ -1113,7 +1313,7 @@ async def remember(
     100 or more entries accepts updates to existing keys only. Each scope has a budget of 32768
     characters of pretty-printed JSON. A larger existing scope accepts only non-growing updates.
     A refused note changes nothing; continue teaching instead of repeatedly trying to store it.
-    Existing history and answers recorded by `interact(variable=...)` are preserved without
+    Existing history and answers recorded by `interact` are preserved without
     these model-note limits.
     Record required notes before `finish`; a finished lesson accepts no further model notes.
 

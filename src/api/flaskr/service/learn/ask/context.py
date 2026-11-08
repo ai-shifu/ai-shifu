@@ -19,7 +19,11 @@ from flaskr.service.learn.learner_profile_prompt import (
     render_course_prompt_identity_variables,
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
-from flaskr.service.learn.utils_v2 import FollowUpInfo, get_fmt_prompt
+from flaskr.service.learn.utils_v2 import (
+    FollowUpInfo,
+    extract_variables,
+    get_fmt_prompt,
+)
 from flaskr.service.memory.api import load_memory
 from flaskr.service.shifu.api import find_node_with_parents, get_shifu_struct
 from flaskr.service.shifu.consts import (
@@ -441,6 +445,7 @@ def build_follow_up_conversation_context(
             user_info.user_id,
             shifu_bid,
             reference_text=context_prompt or "",
+            reference_keys=tuple(extract_variables(context_prompt or "")),
             include_course_variables=True,
         ).as_variables()
     )

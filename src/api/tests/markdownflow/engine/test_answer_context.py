@@ -211,6 +211,12 @@ def _spec(placeholder: str = "Techniques and effects") -> InteractionSpec:
     )
 
 
+def _legacy_interact_args() -> dict[str, str | None]:
+    """Keep the archived tool shape separate from internal interaction metadata."""
+    spec = _spec()
+    return {"type": spec.type, "prompt": spec.question, "placeholder": spec.placeholder}
+
+
 def test_local_section_keeps_acceptance_but_excludes_next_interaction() -> None:
     assert authored_answer_section(SCRIPT, _spec()) == SECTION
 
@@ -327,9 +333,7 @@ async def test_later_answer_sdk_keeps_enclosing_rules_with_local_hint(
         yield {
             0: DeltaToolCall(
                 name="interact",
-                json_args=json.dumps(
-                    _spec().model_dump(exclude={"labelled_by_engine"})
-                ),
+                json_args=json.dumps(_legacy_interact_args()),
                 tool_call_id=f"scope-{calls}",
             )
         }
@@ -448,9 +452,7 @@ async def test_current_feedback_instructions_end_with_complete_authored_scope(
         yield {
             0: DeltaToolCall(
                 name="interact",
-                json_args=json.dumps(
-                    _spec().model_dump(exclude={"labelled_by_engine"})
-                ),
+                json_args=json.dumps(_legacy_interact_args()),
                 tool_call_id=f"current-policy-{calls}",
             )
         }
@@ -517,9 +519,7 @@ async def test_interrupted_teaching_keeps_answer_without_current_reference(
             yield {
                 0: DeltaToolCall(
                     name="interact",
-                    json_args=json.dumps(
-                        _spec().model_dump(exclude={"labelled_by_engine"})
-                    ),
+                    json_args=json.dumps(_legacy_interact_args()),
                     tool_call_id="interrupted-answer",
                 )
             }

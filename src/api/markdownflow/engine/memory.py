@@ -9,6 +9,19 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 
+def resolve_memory_aliases(
+    memory: dict[str, Any], aliases: dict[str, str]
+) -> dict[str, Any]:
+    """Project legacy names onto current answers without storing a second copy."""
+    resolved = dict(memory)
+    for alias, key in aliases.items():
+        if key in memory:
+            resolved[alias] = memory[key]
+        else:
+            resolved.pop(alias, None)
+    return resolved
+
+
 class MemoryStore(Protocol):
     """Where user-scoped memory is kept between sessions."""
 

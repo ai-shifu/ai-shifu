@@ -208,6 +208,12 @@ class _ProfileResearchSession:
     # Ordered by acceptance. Each checkpoint precedes its question's answer.
     answer_checkpoints: dict[str, dict[str, Any]] = field(default_factory=dict)
 
+    def variable(self, key: str) -> str | list[str] | None:
+        """Read a current answer through either its question or its old binding."""
+        aliases = (self.engine_session or {}).get("memory_aliases")
+        target = aliases.get(key) if isinstance(aliases, dict) else None
+        return self.variables.get(target if isinstance(target, str) else key)
+
     def to_cache_payload(self) -> dict[str, Any]:
         return {
             "schema_version": SESSION_SCHEMA_VERSION,

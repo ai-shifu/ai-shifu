@@ -34,6 +34,7 @@ import {
   useRef,
 } from 'react';
 import {
+  readStoredDebugCourseAliases,
   readStoredDebugVariableValues,
   selectDebugVariableValues,
   mergeStoredDebugVariableValues,
@@ -1354,6 +1355,7 @@ export const ShifuProvider = ({
         variableKeys,
         storedVariableValues,
         resolvedSystemKeys,
+        readStoredDebugCourseAliases(resolvedShifuBid),
       );
       mergeStoredDebugVariableValues(
         resolvedShifuBid,

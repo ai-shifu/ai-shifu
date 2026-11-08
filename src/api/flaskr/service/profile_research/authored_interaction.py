@@ -36,7 +36,8 @@ def check_authored_interaction(
         )
 
     variable = authored.get("variable") or None
-    if (spec.variable or None) != variable:
+    binding = spec.binding_alias if spec.question_owns_memory else spec.variable
+    if (binding or None) != variable:
         return "Keep the authored interaction's variable binding unchanged."
 
     buttons = authored.get("buttons") or []
