@@ -13,6 +13,7 @@ from markdownflow.engine import (
     MemoryUpdated,
     Session,
 )
+from markdownflow.engine.tools import Deps, _question_prose
 from pydantic_ai.messages import ModelMessage, RetryPromptPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
@@ -240,7 +241,10 @@ async def test_reserved_question_requires_a_trusted_exact_authored_control(
 @pytest.mark.anyio
 @pytest.mark.parametrize("listen_mode", [False, True])
 @pytest.mark.parametrize("bound", [False, True])
-@pytest.mark.parametrize("failure", ["no-prose", "unrelated", "hidden", "after-tool"])
+@pytest.mark.parametrize(
+    "failure",
+    ["no-prose", "unrelated", "hidden", "hidden-span", "hidden-style", "after-tool"],
+)
 async def test_answer_controls_wait_for_visible_question_prose(
     listen_mode: bool, bound: bool, failure: str
 ) -> None:
@@ -264,6 +268,10 @@ async def test_answer_controls_wait_for_visible_question_prose(
             yield "Review the examples."
         elif failure == "hidden":
             yield f"<!-- {question} -->"
+        elif failure == "hidden-span":
+            yield f"Review the examples. <span hidden><span>{question}</span></span>"
+        elif failure == "hidden-style":
+            yield f'Review the examples. <span style="display: none">{question}</span>'
         yield {
             0: DeltaToolCall(
                 name="interact",
@@ -295,6 +303,16 @@ async def test_answer_controls_wait_for_visible_question_prose(
         if event.type == text_event
     )
     assert visible_before == (question if listen_mode else f"**{question}**")
+
+
+def test_question_prose_keeps_escaped_and_code_html_visible() -> None:
+    assert (
+        _question_prose(
+            Deps(memory={}, user_memory={}),
+            r"Compare `<span hidden>` and \<span hidden\>. <span hidden>Invisible</span> Which tag applies?",
+        )
+        == "Compare <span hidden> and <span hidden>.  Which tag applies?"
+    )
 
 
 @pytest.mark.anyio

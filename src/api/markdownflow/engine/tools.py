@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field, replace
+from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any, Literal
 
 from markdown_it import MarkdownIt
@@ -761,19 +763,85 @@ def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
     )
 
 
+_HIDDEN_INLINE_STYLE = re.compile(
+    r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))"
+    r"\s*(?:!important\s*)?(?:;|$)",
+    re.IGNORECASE,
+)
+_VOID_HTML_TAGS = frozenset(
+    {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    }
+)
+
+
+class _QuestionHTMLVisibility(HTMLParser):
+    """Track actual HTML tags while Markdown tokens distinguish literal markup."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.hidden_tags: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _VOID_HTML_TAGS:
+            return
+        if (
+            self.hidden_tags
+            or tag in ("script", "style", "template")
+            or any(
+                name == "hidden"
+                or (name == "style" and _HIDDEN_INLINE_STYLE.search(value or ""))
+                for name, value in attrs
+            )
+        ):
+            self.hidden_tags.append(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        for index in range(len(self.hidden_tags) - 1, -1, -1):
+            if self.hidden_tags[index] == tag:
+                del self.hidden_tags[index:]
+                break
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        # HTML ignores the self-closing slash on non-void elements.
+        self.handle_starttag(tag, attrs)
+
+
 def _question_prose(deps: Deps, text: str) -> str:
     """Read visible Markdown prose after applying the host's content filter."""
     if deps.question_text_filter is not None:
         text = deps.question_text_filter(text)
-    return "\n".join(
-        "".join(
-            child.content if child.type in ("text", "code_inline") else " "
-            for child in token.children
-            if child.type in ("text", "code_inline", "softbreak", "hardbreak")
-        )
-        for token in MarkdownIt("commonmark", {"html": True}).parse(text)
-        if token.type == "inline" and token.children
-    )
+    html = _QuestionHTMLVisibility()
+    visible: list[str] = []
+    for token in MarkdownIt("commonmark", {"html": True}).parse(text):
+        if token.type == "html_block":
+            html.feed(token.content)
+        if token.type != "inline" or not token.children:
+            continue
+        line: list[str] = []
+        for child in token.children:
+            if child.type == "html_inline":
+                html.feed(child.content)
+            elif not html.hidden_tags:
+                if child.type in ("text", "code_inline"):
+                    line.append(child.content)
+                elif child.type in ("softbreak", "hardbreak"):
+                    line.append(" ")
+        visible.append("".join(line))
+    return "\n".join(visible)
 
 
 def validate_direction_call(
