@@ -70,6 +70,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
+from flaskr.service.learn.utils_v2 import extract_variables
 from flaskr.service.memory.api import load_memory
 from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
@@ -671,11 +672,13 @@ def _answer(
     _stop_if_requested(app, context)
     app.logger.info("Ask input normalized: input_chars=%s", len(question))
 
+    reference_text = context.get_system_prompt(outline_item_info.bid) or ""
     runtime_profiles = load_memory(
         app,
         user_info.user_id,
         outline_item_info.shifu_bid,
-        reference_text=context.get_system_prompt(outline_item_info.bid) or "",
+        reference_text=reference_text,
+        reference_keys=tuple(extract_variables(reference_text)),
         include_course_variables=True,
     ).as_variables()
     memory_patch = FollowUpMemoryPatch()

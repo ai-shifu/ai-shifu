@@ -1042,6 +1042,10 @@ class PlaygroundPreviewRequest(BaseModel):
         default=None,
         description="Variables to replace inside Markdown-Flow document",
     )
+    course_aliases: dict[str, str] | None = Field(
+        default=None,
+        description="Legacy bindings to question keys in the editor's simulated memory",
+    )
     user_input: dict[str, list[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
     )

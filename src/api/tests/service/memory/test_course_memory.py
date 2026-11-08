@@ -15,6 +15,11 @@ from flaskr.service.memory.api import (
     delete_course_memory,
     list_course_memory,
 )
+from flaskr.service.memory.course_aliases import (
+    load_course_answer_aliases,
+    stage_course_answer_alias,
+)
+from flaskr.service.memory.course_memory import migrate_course_memory
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity
 
@@ -61,6 +66,33 @@ def test_listing_paginates_current_full_values_and_isolates_scopes(app: Flask) -
         assert len(items) == 103
         assert len({item["key"] for item in items}) == 103
         assert next(i["value"] for i in items if i["key"] == "item_0") == "z" * 40000
+
+
+def test_guest_merge_moves_only_aliases_with_their_question_history(app: Flask) -> None:
+    with app.app_context(), unit_of_work():
+        guest, account, course, other_course = (uuid4().hex for _ in range(4))
+        learning_goal = "What would you like to learn?"
+        study_pace = "What is your preferred study pace?"
+        _row(guest, course, learning_goal, "Algebra")
+        _row(guest, course, study_pace, "Steady")
+        _row(account, course, study_pace, "Fast")
+        _row(guest, other_course, learning_goal, "Geometry")
+        stage_course_answer_alias(guest, course, "goal", learning_goal)
+        stage_course_answer_alias(guest, course, "pace", study_pace)
+        stage_course_answer_alias(guest, other_course, "goal", learning_goal)
+        db.session.flush()
+
+        assert migrate_course_memory(guest, account, course) == 1
+
+        assert load_course_answer_aliases(account, course) == {"goal": learning_goal}
+        assert load_course_answer_aliases(guest, course) == {"pace": study_pace}
+        assert load_course_answer_aliases(guest, other_course) == {
+            "goal": learning_goal
+        }
+        assert {
+            item["key"]: item["value"]
+            for item in list_course_memory(account, course)["items"]
+        } == {learning_goal: "Algebra", study_pace: "Fast"}
 
 
 def test_delete_invalidates_history_without_touching_other_scopes(app: Flask) -> None:

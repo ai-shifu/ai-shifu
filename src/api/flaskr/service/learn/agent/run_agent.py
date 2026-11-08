@@ -40,7 +40,6 @@ from flaskr.api.markdownflow import (
     ScriptBundle,
     StartTurn,
     TurnDone,
-    collected_names,
     rebase_initial_script,
 )
 from flaskr.dao import db
@@ -295,6 +294,7 @@ def _load_or_start(
     rewind: RewindPlan | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
+    preview_aliases: dict[str, str] | None = None,
     memory_generations: dict[str, int] | None = None,
     memory_deleted_keys: set[str] | None = None,
     use_learner_language: bool | None = None,
@@ -350,21 +350,27 @@ def _load_or_start(
         memory_generations.update(generations)
     if memory_deleted_keys is not None:
         memory_deleted_keys.update(deleted)
-    user_memory = (
-        dict(stored.user_memory)
-        if debug_store is not None
-        and stored is not None
-        and (rewind is not None or preview_variables is None)
-        else dict(preview_variables or {})
-        if debug_store is not None
-        else load_memory(
+    if debug_store is not None:
+        user_memory = (
+            dict(stored.user_memory)
+            if stored is not None and (rewind is not None or preview_variables is None)
+            else dict(preview_variables or {})
+        )
+        memory_aliases = (
+            dict(stored.memory_aliases)
+            if stored is not None and (rewind is not None or preview_aliases is None)
+            else dict(preview_aliases or {})
+        )
+    else:
+        memory_snapshot = load_memory(
             app,
             user_bid,
             shifu_bid,
             include_course_variables=True,
             reference_text=(script, teaching_brief),
-        ).as_variables()
-    )
+        )
+        user_memory = dict(memory_snapshot.variables)
+        memory_aliases = dict(memory_snapshot.aliases)
     user_memory = {k: v for k, v in user_memory.items() if not is_course_reference(k)}
     if use_learner_language is not None:
         user_memory = configure_output_language(
@@ -401,12 +407,9 @@ def _load_or_start(
                 )
                 refresh_deleted_memory(stored, refreshed, current=user_memory)
                 stored.memory_generations = dict(generations)
-                # Named answers are durable course values. Retain the answered marker,
+                # Answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
-                for key in (
-                    collected_names(stored.script.script)
-                    & stored.answered_memory_keys()
-                ):
+                for key in stored.answered_memory_keys():
                     if key in user_memory:
                         stored.record_answer(key, user_memory[key])
             stored.user_memory = (
@@ -414,6 +417,7 @@ def _load_or_start(
                 if debug_store is not None
                 else dict(user_memory)
             )
+            stored.memory_aliases = dict(memory_aliases)
             # Keep engine context current without rewriting the initialized
             # conversation. Restart the session to apply a changed course prompt.
             stored.script = replace(stored.script, constraints=teaching_brief or None)
@@ -437,6 +441,7 @@ def _load_or_start(
         session = await engine.new_session(bundle, user_id=user_bid, listen_mode=False)
         session.user_memory = dict(user_memory)
         session.memory_generations = dict(generations)
+        session.memory_aliases = dict(memory_aliases)
         if on_session_loaded is not None:
             on_session_loaded(session)
         return session
@@ -463,6 +468,7 @@ def run_agent_lesson(
     rewind: RewindPlan | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
+    preview_aliases: dict[str, str] | None = None,
     on_turn_opened: Callable[[str, str], None] | None = None,
     lesson_version: ResolvedLessonSource | None = None,
     use_learner_language: bool | None = None,
@@ -511,6 +517,7 @@ def run_agent_lesson(
         rewind=rewind,
         debug_store=debug_store,
         preview_variables=preview_variables,
+        preview_aliases=preview_aliases,
         memory_generations=memory_generations,
         memory_deleted_keys=memory_deleted_keys,
         use_learner_language=use_learner_language,
@@ -1019,6 +1026,7 @@ def _stream_turn(
                         question_ids=question_ids
                         or [p.tool_call_id for p in session.pending],
                         course_updates=_debug_course_updates(pending_memory),
+                        course_aliases=_debug_course_alias_updates(pending_memory),
                     )
                     kept = True
                 else:
@@ -1133,6 +1141,7 @@ def _stream_turn(
                         rewind=session_holder.get("rewind"),
                         question_ids=question_ids,
                         course_updates=_debug_course_updates(pending_memory),
+                        course_aliases=_debug_course_alias_updates(pending_memory),
                     )
                     kept = True
                 else:
@@ -1329,6 +1338,24 @@ def _debug_course_updates(memory: list[MemoryUpdated]) -> dict[str, str]:
     }
 
 
+def _debug_course_alias_updates(
+    memory: list[MemoryUpdated],
+) -> dict[str, str | None]:
+    """Keep mappings separate from the simulated answer values."""
+    aliases: dict[str, str | None] = {}
+    for update in memory:
+        if not update.question_owns_memory or is_course_reference(update.key):
+            continue
+        aliases[update.key] = None
+        if (
+            update.alias
+            and not update.alias.startswith("sys_")
+            and not is_course_reference(update.alias)
+        ):
+            aliases[update.alias] = update.key
+    return aliases
+
+
 def _persist(
     app: Flask,
     session: Session,
@@ -1418,6 +1445,8 @@ def _persist(
                         VariableMemoryUpdate(
                             key=update.key,
                             value="" if update.value is None else str(update.value),
+                            alias=update.alias,
+                            question_answer=update.question_owns_memory,
                         )
                         for update in durable
                     ]

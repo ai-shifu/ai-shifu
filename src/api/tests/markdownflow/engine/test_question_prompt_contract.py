@@ -1,60 +1,67 @@
-"""Verify question-first instructions and authored interaction ordering reach the model."""
+"""Exercise the model-facing question, its presentation, and saved answer identity."""
 
 import json
 from collections.abc import AsyncIterator
 from typing import Literal
 
 import pytest
-from markdownflow.engine import ContentDelta, Engine, InteractionRequest
-from pydantic_ai.messages import ModelMessage
+from markdownflow.engine import (
+    ContentDelta,
+    Engine,
+    InteractionRequest,
+    InteractionResponseTurn,
+    MemoryUpdated,
+    Session,
+    ToolResult,
+)
+from pydantic_ai.messages import ModelMessage, RetryPromptPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("listen_mode", [False, True])
 @pytest.mark.parametrize("render", ["sandbox", "none"])
-@pytest.mark.parametrize("short_key", [False, True], ids=["question-key", "short-key"])
-async def test_question_first_contract_preserves_prose_then_authored_controls(
-    listen_mode: bool, render: Literal["sandbox", "none"], short_key: bool
+@pytest.mark.parametrize("binding", ["question", "legacy-key", "none"])
+async def test_question_is_shown_before_controls_and_keys_the_answer(
+    listen_mode: bool, render: Literal["sandbox", "none"], binding: str
 ) -> None:
-    """Check actual request instructions and engine events, not model compliance rates."""
+    """Drive the advertised tool without streaming a duplicate copy of the question."""
     question = "Which examples match?"
-    variable = "matching_examples" if short_key else question
+    teaching = "Compare the examples."
+    prefix = {
+        "question": f"{{{{ {question} }}}} ",
+        "legacy-key": "{{matching_examples}} ",
+        "none": "",
+    }[binding]
     options = [{"display": "A", "value": "a"}, {"display": "B", "value": "b"}]
+    calls = 0
 
     async def model(
         _messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
-        instructions = info.instructions or ""
-        assert (
-            "Except for structured correction feedback, ask the complete question "
-            "in Markdown prose in the current turn, "
-            "then call `interact` in that same turn."
-        ) in instructions
-        assert "MUST receive the complete question before any answer controls" in (
-            instructions
+        nonlocal calls
+        calls += 1
+        if calls == 2 and binding == "legacy-key":
+            yield {
+                0: DeltaToolCall(
+                    name="recall",
+                    tool_call_id="recall-old-binding",
+                    json_args=json.dumps({"key": "matching_examples"}),
+                )
+            }
+            return
+        if calls > 1:
+            yield "Those examples match."
+            return
+        schema = next(
+            tool.parameters_json_schema
+            for tool in info.function_tools
+            if tool.name == "interact"
         )
-        assert (
-            "option label, placeholder, or question from a prior turn" in instructions
-        )
-        assert (
-            "Navigation-only buttons and pauses do not require a question"
-            in instructions
-        )
-        assert (
-            "ask the question from the binding in lesson prose "
-            "before calling `interact`"
-        ) in instructions
-        assert "Even a short key requires a complete question." in instructions
-        assert "Never write the options as plain text" in instructions
-        assert "the tool prompt is a control title" in instructions
-        assert "Preserve every authored input boundary" in instructions
-        assert "Write no free content in that response" in instructions
-        assert (
-            "keep the input prompt empty and retain its authored binding"
-            in instructions
-        )
-        yield question
+        assert "question" in schema["properties"]
+        assert "question" in schema["required"]
+        assert not {"prompt", "variable"}.intersection(schema["properties"])
+        yield teaching
         yield {
             0: DeltaToolCall(
                 name="interact",
@@ -62,32 +69,105 @@ async def test_question_first_contract_preserves_prose_then_authored_controls(
                 json_args=json.dumps(
                     {
                         "type": "multi",
-                        "prompt": "Matching examples",
+                        "question": question,
                         "options": options,
-                        "variable": variable,
                     }
                 ),
             )
         }
 
-    engine = Engine(FunctionModel(stream_function=model), render=render)
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        render=render,
+        memory_admission=True,
+        memory_recall=True,
+    )
     session = await engine.new_session(
-        "?[{{ " + variable + " }} A//a || B//b]", listen_mode=listen_mode
+        f"{teaching}\n?[{prefix}A//a || B//b]", listen_mode=listen_mode
     )
     events = [event async for event in engine.run_turn(session)]
     assert not any(event.type == "error" for event in events)
     (interaction,) = [e for e in events if isinstance(e, InteractionRequest)]
     before = events[: events.index(interaction)]
     if not listen_mode:
-        assert (
-            "".join(e.text for e in before if isinstance(e, ContentDelta)) == question
-        )
+        text = "".join(e.text for e in before if isinstance(e, ContentDelta))
     else:
-        assert (
-            "".join(e.text for e in before if e.type == "narration.delta") == question
-        )
-    assert interaction.spec.prompt == "Matching examples"
+        text = "".join(e.text for e in before if e.type == "narration.delta")
+    assert text.index(teaching) < text.index(question)
+    assert text.count(question) == 1
+    assert interaction.spec.question == question
     assert interaction.spec.type == "multi"
-    assert interaction.spec.variable == variable
     assert [option.model_dump() for option in interaction.spec.options] == options
-    assert [pending.tool_call_id for pending in session.pending] == ["examples"]
+    session = Session.loads(session.dumps())
+    assert session.pending[0].spec.question == question
+    events = [
+        e
+        async for e in engine.run_turn(
+            session, InteractionResponseTurn(id="examples", values=["a", "b"])
+        )
+    ]
+    assert not any(event.type == "error" for event in events)
+    assert [(e.key, e.value) for e in events if isinstance(e, MemoryUpdated)] == [
+        (question, "a, b")
+    ]
+    assert session.memory == {question: "a, b"}
+    if binding == "legacy-key":
+        assert [
+            json.loads(e.content)
+            for e in events
+            if isinstance(e, ToolResult) and e.name == "recall"
+        ] == [{"status": "found", "value": "a, b"}]
+        restored = Session.loads(session.dumps())
+        assert restored.memory == {question: "a, b"}
+        assert restored.all_memory()["matching_examples"] == "a, b"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "missing_question",
+    [{}, {"question": "  "}, {"prompt": "Legacy question?", "variable": "key"}],
+    ids=["omitted", "blank", "legacy-only"],
+)
+@pytest.mark.parametrize("single_choice", [False, True])
+async def test_answer_control_without_a_real_question_is_retried(
+    missing_question: dict[str, str], single_choice: bool
+) -> None:
+    """A single answer option is not enough to make a question a navigation control."""
+    question = "What color is the sky?"
+    script = question + ("\n?[Blue]" if single_choice else "\n?[...Your answer]")
+    control = (
+        {"type": "single", "options": [{"display": "Blue"}]}
+        if single_choice
+        else {"type": "text", "placeholder": "Your answer"}
+    )
+    attempts = 0
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[dict[int, DeltaToolCall]]:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            fields = missing_question
+        else:
+            assert attempts == 2
+            assert any(
+                isinstance(part, RetryPromptPart) and part.tool_name == "interact"
+                for part in messages[-1].parts
+            )
+            fields = {"question": question}
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"attempt-{attempts}",
+                json_args=json.dumps({**control, **fields}),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    assert not any(event.type == "error" for event in events)
+    (interaction,) = [e for e in events if isinstance(e, InteractionRequest)]
+    assert interaction.id == "attempt-2"
+    assert interaction.spec.question == question

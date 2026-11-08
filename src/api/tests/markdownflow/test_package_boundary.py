@@ -32,16 +32,22 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     # Reference/binding and question-presentation guidance are reviewed changes;
     # retain every other copied prompt byte and keep the historical fixture intact.
     hashes["system"] = (
-        "8686cbb4ec3aa4f1c64161a836a2e7c7727ad0776892af87ceb547d543505c01"
+        "2e03c98cc77227b899385393950da5726a57e8e3f0bbb532efe577f7a28fad24"
     )
     hashes["v1_syntax"] = (
-        "6bd6e7b18e5932dbedf3f27aecc5154aee9908535eb4de345a20a0c2861c9c14"
+        "b049b6d77cbc3a7e167d5ec00b19f8c1ba5be56e15d60110cb296e3e4b718b52"
     )
     hashes["memory_policy"] = (
-        "b739d3f703fc190d1db3d582f406920ea49ea37afeb9779f804add8d8d5d2191"
+        "55c36f878fa9e545434d536504d5acb9940e71b990f986cf538f5ca10665ed77"
     )
     hashes["memory_unrestricted"] = (
-        "d36fe24811c5a7488c95011d5827c076519a8efb5cf158f3e4df33dd7cc673e0"
+        "64fe8a99f9dcc597eec3dc5b16b4614bb16b0f137e2d9cb7b6128d069d4964ff"
+    )
+    hashes["answer_review"] = (
+        "24405941f019dfd09ec49114b0e70261eefeda2bf8cbaace7ead55e6a788458a"
+    )
+    hashes["feedback_contract"] = (
+        "0ed7209037a211f5e4276f1c4504620d53e476b8de1644c35e24793e716375b8"
     )
     # Teaching history compaction was removed: its prompts are gone, and recall
     # guidance no longer points at the read_teaching tool.

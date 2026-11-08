@@ -8,6 +8,7 @@ from uuid import uuid4
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.memory.course_references import is_course_reference
+from flaskr.service.memory.models import CourseAnswerAlias
 from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import LargeBinary, cast, func, select
@@ -184,5 +185,25 @@ def migrate_course_memory(from_user_bid: str, to_user_bid: str, shifu_bid: str) 
         _course_rows(from_user_bid, shifu_bid).filter(
             exact_key.in_([key.encode("utf-8") for key in moving])
         ).update({VariableValue.user_bid: to_user_bid}, synchronize_session=False)
+        moving_keys = set(moving)
+        aliases = (
+            CourseAnswerAlias.query.filter(
+                CourseAnswerAlias.shifu_bid == shifu_bid,
+                CourseAnswerAlias.user_bid.in_((from_user_bid, to_user_bid)),
+            )
+            .with_for_update()
+            .all()
+        )
+        account_aliases = {
+            row.alias_digest for row in aliases if row.user_bid == to_user_bid
+        }
+        for row in aliases:
+            if (
+                row.user_bid == from_user_bid
+                and row.question_key in moving_keys
+                and row.alias_digest not in account_aliases
+                and row.alias not in account_keys
+            ):
+                row.user_bid = to_user_bid
         db.session.flush()
     return len(moving)

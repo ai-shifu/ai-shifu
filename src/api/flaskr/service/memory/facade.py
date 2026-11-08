@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.service.memory.course_aliases import (
+    load_course_alias_targets,
+    load_course_answer_aliases,
+    retire_course_answer_alias,
+    stage_course_answer_alias,
+)
 from flaskr.service.memory.course_memory import (
     course_memory_deletion_state,
     course_memory_value_versions,
@@ -17,6 +23,7 @@ from flaskr.service.profile.api import (
     global_profile_value_versions,
 )
 from flaskr.service.profile.dtos import ProfileToSave
+from markdownflow import MarkdownFlowDocument
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -29,6 +36,7 @@ def load_memory(
     *,
     include_course_variables: bool = False,
     reference_text: str | tuple[str, ...] = "",
+    reference_keys: tuple[str, ...] = (),
 ) -> MemorySnapshot:
     """Read supported memory categories for an authorized user/course context.
 
@@ -47,11 +55,26 @@ def load_memory(
         else {}
     )
     variables.update(resolved)
+    aliases = load_course_answer_aliases(user_bid, shifu_bid)
+    documents = (reference_text,) if isinstance(reference_text, str) else reference_text
+    referenced = set(reference_keys)
+    for document in documents:
+        if document:
+            referenced.update(
+                MarkdownFlowDocument(document=document).extract_variables()
+            )
+    variables.update(
+        load_course_alias_targets(
+            user_bid,
+            shifu_bid,
+            {aliases.get(key, key) for key in referenced} - variables.keys(),
+        )
+    )
     _, deleted = course_memory_deletion_state(user_bid, shifu_bid)
     for key in deleted:
         if not is_course_reference(key):
             variables.pop(key, None)
-    return MemorySnapshot(variables=variables)
+    return MemorySnapshot(variables=variables, aliases=aliases)
 
 
 def stage_memory(
@@ -99,4 +122,8 @@ def stage_memory(
     saved = save_user_profiles(app, user_bid, shifu_bid, profiles)
     for item, profile in zip(update.variables, profiles, strict=True):
         item.value = profile.value
+        if saved and item.question_answer:
+            retire_course_answer_alias(user_bid, shifu_bid, item.key)
+        if saved and item.alias is not None:
+            stage_course_answer_alias(user_bid, shifu_bid, item.alias, item.key)
     return saved

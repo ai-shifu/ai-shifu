@@ -1593,6 +1593,7 @@ def test_real_debug_answer_edit_uses_new_input_and_keeps_only_the_original_prefi
     assert json.loads(committed.content) == {
         "variables": {"seed": "keep", "scratch": "New working note"},
         "user_variables": {"seed": "keep"},
+        "user_aliases": {},
         "course_updates": {},
     }
     assert result[-2] is committed

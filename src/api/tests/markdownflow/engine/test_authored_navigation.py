@@ -35,8 +35,13 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
         nonlocal calls
         calls += 1
         if calls == 1 or (calls == 2 and correcting):
-            yield "First question." if calls == 1 else "Help for this question."
-            spec = {"type": "text", "prompt": "First question", "placeholder": "Answer"}
+            if calls == 2:
+                yield "Help for this question."
+            spec = {
+                "type": "text",
+                "question": "First question?",
+                "placeholder": "Answer",
+            }
         elif calls == (3 if correcting else 2):
             policy = info.instructions or ""
             assert "one-option navigation" in policy
@@ -53,15 +58,14 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
             yield "Correct; here is the required explanation."
             spec = {
                 "type": "single",
-                "prompt": "",
+                "question": "",
                 "options": [{"display": "Next question", "value": "next"}],
             }
         else:
             assert calls == (4 if correcting else 3)
-            yield "Second question."
             spec = {
                 "type": "text",
-                "prompt": "Second question",
+                "question": "Second question?",
                 "placeholder": "Answer two",
             }
         yield {
@@ -73,7 +77,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
         }
 
     engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
-    script = "First question.\n?[...Answer]\nExplain the accepted answer.\n?[Next question//next]\nSecond question.\n?[...Answer two]"
+    script = "First question?\n?[...Answer]\nExplain the accepted answer.\n?[Next question//next]\nSecond question?\n?[...Answer two]"
     session = await engine.new_session(script)
     await _events(engine.run_turn(session))
     if correcting:
@@ -100,6 +104,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     interactions = [e for e in events if isinstance(e, InteractionRequest)]
     assert len(interactions) == 1
     assert session.pending[0].spec.type == "single"
+    assert not session.pending[0].spec.question
     assert session.pending[0].spec.options[0].stored == "next"
     before = calls
     await _events(engine.run_turn(session, ContinueTurn()))
@@ -119,6 +124,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
         session.pending[0].spec.model_dump(),
     ) == pending
     assert session.answers == answers
+    memory = dict(session.memory)
     events = await _events(
         engine.run_turn(
             session,
@@ -127,11 +133,12 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
             ),
         )
     )
-    assert "Second question." in "".join(
+    assert "Second question?" in "".join(
         e.text for e in events if isinstance(e, ContentDelta)
     )
     assert session.pending[0].spec.type == "text"
     assert session.pending[0].spec.placeholder == "Answer two"
+    assert session.memory == memory
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:

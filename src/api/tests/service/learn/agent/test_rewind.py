@@ -28,7 +28,13 @@ from flaskr.util.datetime import now_utc
 from markdownflow.engine.interaction import InteractionSpec, Option
 from markdownflow.engine.script import ScriptBundle
 from markdownflow.engine.session import PendingInteraction, Session
-from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    UserPromptPart,
+)
 
 from tests.common.fixtures.model_factories import (
     make_generated_block,
@@ -108,6 +114,27 @@ def test_answer_ownership_does_not_leak_back_into_an_earlier_checkpoint() -> Non
     rewind.restore(session, checkpoint)
     assert session.memory["goal"] == "Seeded value"
     assert not session.answered_memory_keys()
+
+
+def test_question_aliases_and_resolved_calls_rewind_with_their_turn() -> None:
+    session = _session_waiting_on_a_question()
+    first = InteractionSpec(type="text", question="What would you like to learn?")
+    later = InteractionSpec(type="text", question="What would you learn next?")
+    for call_id, spec in (("first", first), ("later", later)):
+        if call_id == "later":
+            checkpoint = rewind.checkpoint_of(session)
+        session.messages.append(
+            ModelResponse(
+                parts=[ToolCallPart("interact", {"question": spec.question}, call_id)]
+            )
+        )
+        session.interaction_specs[call_id] = spec
+        session.memory_aliases["goal"] = spec.question
+
+    rewind.restore(session, checkpoint)
+
+    assert session.memory_aliases == {"goal": first.question}
+    assert session.interaction_specs == {"first": first}
 
 
 # --- planning a rewind --------------------------------------------------------------------

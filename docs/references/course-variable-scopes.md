@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-31
+last_reviewed: 2026-11-08
 canonical: true
 ---
 
@@ -70,13 +70,12 @@ tooltips, input names and placeholders. Hovering or focusing never reveals their
 internal keys; an unknown system field uses the localized Memory label. Authored
 course questions and legacy custom keys retain their existing text and identity.
 
-This wording keeps the existing technical key/value contract. Within a course,
-entries with the same exact key share the current value across lessons. Changing
-the key creates a different entry and does not transfer an existing answer.
-Changing only the displayed question does not change the key. Existing identifiers
-are not rewritten into questions, and no new question identity or answer-history
-model is introduced. API fields, storage, cache keys, runtime prompts and analytics
-contracts retain their existing names and behavior.
+Within a course, entries with the same exact key share the current value across
+lessons. For new MarkdownFlow 2.0 answer interactions, the complete question
+shown to the learner is the storage key. Changing that question creates a
+different entry. Old short bindings can resolve to a new answer when the engine
+can uniquely match the authored control. Existing stored entries and original
+answer history keep their identities. See [Learner Memory Admission](../product-specs/learner-memory-admission.md).
 
 ## Authored memory key names
 
@@ -106,9 +105,8 @@ Use {{ What would you like to learn? }} to choose a relevant example.
 ```
 
 The existing percent-prefixed form
-`?[%{{ What would you like to learn? }}...Share your goal]` binds the same key.
-Neither form changes the memory admission rules or requires historical keys to
-be written as questions.
+`?[%{{ What would you like to learn? }}...Share your goal]` can reference the
+same answer. An existing lesson can still use a historical short binding.
 
 Names are case-sensitive and are not normalized. Changing a question or its
 punctuation creates a different key; it does not rename an existing answer.

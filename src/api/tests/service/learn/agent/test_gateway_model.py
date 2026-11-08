@@ -450,11 +450,11 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
         TurnDone,
     )
 
+    question = "How do you feel?"
     spec = {
         "type": "single",
-        "prompt": "How do you feel?",
+        "question": question,
         "options": [{"display": "Good", "value": "good"}],
-        "variable": "feeling",
     }
     seen: list[list[dict]] = []
     turns = {"n": 0}
@@ -465,6 +465,14 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
         seen.append(kwargs["messages"])
         turns["n"] += 1
         if turns["n"] == 1:
+            interact = next(
+                tool["function"]
+                for tool in kwargs["tools"]
+                if tool["function"]["name"] == "interact"
+            )
+            fields = interact["parameters"]["properties"]
+            assert "question" in fields
+            assert not {"prompt", "variable"} & fields.keys()
             yield FakeChunk(result="Hello.\n")
             yield FakeChunk(
                 tool_call_deltas=[
@@ -486,13 +494,14 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     span = FakeSpan()
     model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=span)
     engine = Engine(model)
-    session = await engine.new_session("Ask the learner how they feel.")
+    session = await engine.new_session(f"{question}\n\n?[{{{{feeling}}}} Good//good]")
 
     first = [e async for e in engine.run_turn(session)]
     requests = [e for e in first if isinstance(e, InteractionRequest)]
     assert requests, [type(e).__name__ for e in first]
     request = requests[0]
-    assert request.spec.variable == "feeling"
+    assert request.spec.question == question
+    assert request.spec.variable == question
     assert isinstance(first[-1], TurnDone)
     assert first[-1].reason == "interaction"
 
@@ -502,8 +511,12 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
             session, InteractionResponseTurn(values=["Good"])
         )
     ]
-    assert any(isinstance(e, MemoryUpdated) and e.key == "feeling" for e in second)
-    assert session.memory["feeling"] == "good"
+    assert any(
+        isinstance(e, MemoryUpdated) and e.key == question and e.alias == "feeling"
+        for e in second
+    )
+    assert session.memory == {question: "good"}
+    assert session.all_memory()["feeling"] == "good"
 
     # The resumed request carries the tool result back, keyed by the call it answers.
     resumed = seen[-1]

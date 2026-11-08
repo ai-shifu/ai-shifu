@@ -40,7 +40,7 @@ _PROBE_MESSAGES = [
             "`interact` tool; never write the options as text."
         ),
     },
-    {"role": "user", "content": "Ask the learner whether to continue."},
+    {"role": "user", "content": "Ask the learner what they would like to learn."},
 ]
 
 # The same shape `map_tools` builds for a real turn.
@@ -53,10 +53,10 @@ _PROBE_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "type": {"type": "string", "enum": ["confirm"]},
-                    "prompt": {"type": "string"},
+                    "type": {"type": "string", "enum": ["text"]},
+                    "question": {"type": "string"},
                 },
-                "required": ["type", "prompt"],
+                "required": ["type", "question"],
             },
         },
     }
@@ -169,7 +169,7 @@ def _has_question(arguments: str) -> bool:
         return False
     if not isinstance(parsed, dict):
         return False
-    prompt = parsed.get("prompt")
+    question = parsed.get("question")
     # A string, as the tool declares it: a number or an object in that field is not a question
     # anyone can be asked, however truthy it is.
-    return isinstance(prompt, str) and bool(prompt.strip())
+    return isinstance(question, str) and bool(question.strip())
