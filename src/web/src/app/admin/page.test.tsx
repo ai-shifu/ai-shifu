@@ -974,20 +974,20 @@ describe('AdminPage', () => {
       screen.getByRole('button', {
         name: 'module.order.importActivation.action',
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('button', {
         name: 'module.order.redemptionCodes.action',
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('button', {
         name: 'module.shifuSetting.permissionManage',
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('button', { name: 'module.shifuSetting.archive' }),
-    ).toBeEnabled();
+    ).not.toHaveAttribute('aria-disabled');
   });
 
   test('disables enrollment actions while keeping management actions available to draft owners', async () => {
@@ -1028,19 +1028,19 @@ describe('AdminPage', () => {
       screen.getByRole('button', {
         name: 'module.order.importActivation.action',
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('button', {
         name: 'module.order.redemptionCodes.action',
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('button', {
         name: 'module.shifuSetting.permissionManage',
       }),
-    ).toBeEnabled();
+    ).not.toHaveAttribute('aria-disabled');
     expect(
       screen.getByRole('button', { name: 'module.shifuSetting.archive' }),
-    ).toBeEnabled();
+    ).not.toHaveAttribute('aria-disabled');
   });
 });

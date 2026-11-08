@@ -256,10 +256,7 @@ describe('blocked course actions', () => {
         const item = screen.getByRole('menuitem', { name: label });
         expect(item).toBeVisible();
         expect(item).toHaveAttribute('aria-disabled', 'true');
-        expect(item).toHaveClass(
-          'data-[disabled]:opacity-50',
-          'data-[disabled]:pointer-events-auto',
-        );
+        expect(item).toHaveClass('aria-disabled:opacity-50');
         fireEvent.click(item);
         fireEvent.keyDown(item, { key: 'Enter' });
         fireEvent.keyDown(item, { key: ' ' });
@@ -292,6 +289,53 @@ describe('blocked course actions', () => {
       }
     },
   );
+
+  test('exposes a blocked requirement immediately during keyboard navigation', async () => {
+    const select = jest.fn();
+    renderActionCard({ canManageArchive: false, onArchiveRequest: select });
+
+    const trigger = screen.getByRole('button', { name: 'common.core.more' });
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    const learningLink = getLearningPageLink();
+    await waitFor(() => expect(learningLink).toHaveFocus());
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(learningLink, { key: 'ArrowDown' });
+    const archiveItem = screen.getByRole('menuitem', {
+      name: ACTIONS[3].label,
+    });
+    await waitFor(() => expect(archiveItem).toHaveFocus());
+    const requirement =
+      'module.shifuSetting.courseActionBlocked.courseAccessRequired';
+    expect(screen.getByRole('tooltip')).toHaveTextContent(requirement);
+    expect(archiveItem).toHaveAccessibleDescription(requirement);
+    expect(archiveItem).toHaveAttribute('aria-disabled', 'true');
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [
+        'creator_course_action_blocked_help_view',
+        {
+          surface: 'admin_course_list',
+          action: 'archive',
+          reason: 'course_access_required',
+        },
+      ],
+    ]);
+
+    fireEvent.keyDown(archiveItem, { key: 'Enter' });
+    fireEvent.keyDown(archiveItem, { key: ' ' });
+    fireEvent.click(archiveItem);
+    expect(select).not.toHaveBeenCalled();
+    expect(archiveItem).toHaveFocus();
+    expect(screen.getByRole('menu')).toBeVisible();
+
+    fireEvent.keyDown(archiveItem, { key: 'ArrowUp' });
+    await waitFor(() => expect(learningLink).toHaveFocus());
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    fireEvent.keyDown(learningLink, { key: 'ArrowDown' });
+    await waitFor(() => expect(archiveItem).toHaveFocus());
+    expect(screen.getByRole('tooltip')).toHaveTextContent(requirement);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('course action help', () => {

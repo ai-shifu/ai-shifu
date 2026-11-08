@@ -19,9 +19,9 @@ Items appear in increasing order of requirements. The learning page link comes
 first, followed by personal archive or restore for users with course access,
 permission management for the course owner, and learner activation and discount
 codes for published courses owned by the current user. Unavailable items stay in
-the menu, appear dimmed, and cannot be selected. Hovering them shows the missing
-permission or publication requirement. For enrollment actions, ownership is
-checked before publication.
+the menu, appear dimmed, and cannot be selected. Hovering them or focusing them
+with the keyboard shows the missing permission or publication requirement. For
+enrollment actions, ownership is checked before publication.
 
 ## Product analytics contract
 
@@ -87,13 +87,14 @@ state most often requires an explanation. This is a separate, additive event
 with no historical backfill or checked-in consumer. Existing help-view counts
 continue to cover available actions.
 
-Emit when the tooltip for a disabled action becomes visible after 300 ms of
-continuous pointer dwell in an open menu. Apply the same signed-in eligibility,
-surface and account exclusions, and per-menu-open action deduplication as the
-available-action event. Enabled actions, touch, menu opens, brief pointer
-movement and attempted selection do not qualify. The same best-effort delivery
-keeps both the tooltip and menu independent of analytics. Component tests check
-timing, exclusions, deduplication, the exact payload and delivery failure.
+Emit when the tooltip for a disabled action becomes visible in an open menu,
+after 300 ms of continuous pointer dwell or immediately on keyboard focus.
+Apply the same signed-in eligibility, surface and account exclusions, and
+per-menu-open action deduplication across both inputs as the available-action
+event. Enabled actions, touch, menu opens, brief pointer movement and attempted
+selection do not qualify. The same best-effort delivery keeps both the tooltip
+and menu independent of analytics. Component tests check timing, keyboard
+navigation, exclusions, deduplication, the exact payload and delivery failure.
 
 The complete payload contains `surface` (`admin_course_list`), `action` (the
 same five values above) and `reason` (`course_access_required`, `owner_required`

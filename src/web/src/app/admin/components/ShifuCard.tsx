@@ -195,9 +195,9 @@ const ShifuCard = ({
       <TooltipTrigger asChild>
         <DropdownMenuItem
           aria-label={label}
-          disabled={Boolean(blockedReason)}
-          // Keep disabled items reachable by the pointer for their help tooltip.
-          className='data-[disabled]:pointer-events-auto'
+          // Keep unavailable items in the arrow-key sequence for their help tooltip.
+          aria-disabled={blockedReason ? true : undefined}
+          className='aria-disabled:opacity-50'
           onPointerMoveCapture={event => {
             if (event.pointerType === 'touch') return;
             // Radix menu pointer navigation focuses the item immediately.
@@ -215,6 +215,10 @@ const ShifuCard = ({
           }}
           onSelect={event => {
             event.stopPropagation();
+            if (blockedReason) {
+              event.preventDefault();
+              return;
+            }
             onSelect?.();
           }}
         >
