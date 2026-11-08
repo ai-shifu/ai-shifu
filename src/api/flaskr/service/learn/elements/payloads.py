@@ -87,9 +87,6 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     interaction_question = payload_dict.get("interaction_question")
     if not isinstance(interaction_question, str) or not interaction_question.strip():
         interaction_question = None
-    revisit_question = payload_dict.get("interaction_revisit_question")
-    if not isinstance(revisit_question, str) or not revisit_question.strip():
-        revisit_question = None
     asks = payload_dict.get("asks")
     if not isinstance(asks, list):
         asks = None
@@ -112,7 +109,6 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
         ask_element_bid=ask_element_bid,
         user_input=user_input,
         interaction_question=interaction_question,
-        interaction_revisit_question=revisit_question,
         diff_payload=diff_payload,
         asks=asks,
         interaction_mode=interaction_mode,

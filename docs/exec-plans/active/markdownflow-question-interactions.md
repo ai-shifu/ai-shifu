@@ -37,6 +37,8 @@ response. Preserve earlier named answers, short references and pending turns.
   and text-input repair. The engine suite and repository checks passed.
 - [x] 2026-11-08 09:55 UTC: Verified follow-up review fixes for indented bindings,
   authored control identification, and returning to an interaction slide.
+- [x] 2026-11-08 11:04 UTC: Verified one interaction title field for first
+  display and replay in the Course adapters and both slide modes.
 
 ## Surprises & Discoveries
 
@@ -50,9 +52,8 @@ authored question text distinguishes otherwise identical bound controls.
 - 2026-11-08: New answer calls carry complete question text, including for
   corrections. Authored navigation and `confirm` do not collect an answer.
 - 2026-11-08: The model asks each ordinary question in prose before calling the
-  tool with the same wording. The engine sends the controls without creating
-  a question or panel title from the call. Historical question metadata retains
-  its display treatment.
+  tool with the same wording. The runtime emits controls after the question
+  and carries the wording in the interaction title metadata.
 - 2026-11-08: An answer control waits for visible model-authored question prose.
   Retry missing or filtered questions. On Profile reload, restore saved structured
   guidance ahead of its pending correction control.
@@ -64,9 +65,9 @@ authored question text distinguishes otherwise identical bound controls.
   created a control outside the script. Authored controls still match by
   input kind and stored options when the hint changes. Generated controls
   cannot use an authored binding or opt out of a Profile questionnaire.
-- 2026-11-08: Preserve question text as optional revisit metadata so learners
-  can identify the answer when opening an existing listen or classroom slide.
-  The model's prose remains the original question and source of audio.
+- 2026-11-08: Listen and classroom use the same `interaction_question` metadata
+  on first display and replay. The model's prose remains the original question
+  and source of audio.
 
 ## Outcomes & Retrospective
 

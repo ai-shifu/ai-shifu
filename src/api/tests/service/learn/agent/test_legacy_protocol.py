@@ -214,7 +214,7 @@ def test_an_interaction_carries_its_question_as_control_metadata() -> None:
     assert controls.__json__()["content"] == controls.content
 
 
-def test_current_answer_control_does_not_repeat_question_as_title() -> None:
+def test_current_answer_control_carries_its_question_as_title() -> None:
     question = "What would you like to learn?"
     (controls,) = _translate(
         InteractionRequest(
@@ -229,10 +229,8 @@ def test_current_answer_control_does_not_repeat_question_as_title() -> None:
         )
     )
     assert controls.type == GeneratedType.INTERACTION
-    assert controls.interaction_question is None
-    assert "interaction_question" not in controls.__json__()
-    assert controls.interaction_revisit_question == question
-    assert controls.__json__()["interaction_revisit_question"] == question
+    assert controls.interaction_question == question
+    assert controls.__json__()["interaction_question"] == question
     assert _parse(controls.content)["variable"] == question
 
 

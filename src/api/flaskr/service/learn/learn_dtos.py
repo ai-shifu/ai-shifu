@@ -649,10 +649,6 @@ class ElementPayloadDTO(BaseModel):
         default=None,
         description="Question title displayed with the interaction controls",
     )
-    interaction_revisit_question: str | None = Field(
-        default=None,
-        description="Question title for returning to an interaction slide",
-    )
     diff_payload: list[dict[str, Any]] | None = Field(
         default=None, description="Optional diff payload for incremental updates"
     )
@@ -691,7 +687,6 @@ class ElementPayloadDTO(BaseModel):
         live_turn_index: int | None = None,
         interrupted: bool | None = None,
         interaction_question: str | None = None,
-        interaction_revisit_question: str | None = None,
     ) -> None:
         """Build the composite element payload."""
         super().__init__(
@@ -701,7 +696,6 @@ class ElementPayloadDTO(BaseModel):
             ask_element_bid=ask_element_bid,
             user_input=user_input,
             interaction_question=interaction_question,
-            interaction_revisit_question=interaction_revisit_question,
             diff_payload=diff_payload,
             asks=asks,
             interaction_mode=interaction_mode,
@@ -729,8 +723,6 @@ class ElementPayloadDTO(BaseModel):
             ret["user_input"] = self.user_input
         if self.interaction_question is not None:
             ret["interaction_question"] = self.interaction_question
-        if self.interaction_revisit_question is not None:
-            ret["interaction_revisit_question"] = self.interaction_revisit_question
         if self.asks is not None:
             ret["asks"] = self.asks
         if self.interaction_mode is not None:
@@ -970,10 +962,6 @@ class RunMarkdownFlowDTO(BaseModel):
         default=None,
         description="Question title carried by an interaction event",
     )
-    interaction_revisit_question: str | None = Field(
-        default=None,
-        description="Question title for returning to an interaction slide",
-    )
 
     def __init__(
         self,
@@ -987,7 +975,6 @@ class RunMarkdownFlowDTO(BaseModel):
         | AudioCompleteDTO,
         anchor_element_bid: str = "",
         interaction_question: str | None = None,
-        interaction_revisit_question: str | None = None,
     ) -> None:
         """Build the MarkdownFlow execution payload."""
         super().__init__(
@@ -997,7 +984,6 @@ class RunMarkdownFlowDTO(BaseModel):
             content=content,
             anchor_element_bid=anchor_element_bid,
             interaction_question=interaction_question,
-            interaction_revisit_question=interaction_revisit_question,
         )
 
     def set_mdflow_stream_parts(
@@ -1042,8 +1028,6 @@ class RunMarkdownFlowDTO(BaseModel):
             ret["anchor_element_bid"] = self.anchor_element_bid
         if self.interaction_question is not None:
             ret["interaction_question"] = self.interaction_question
-        if self.interaction_revisit_question is not None:
-            ret["interaction_revisit_question"] = self.interaction_revisit_question
         return ret
 
 

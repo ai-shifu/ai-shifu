@@ -126,24 +126,21 @@ def test_empty_preview_retirement_does_not_emit_events(
 
 
 @pytest.mark.parametrize("question", [None, "**Which example?**"])
-@pytest.mark.parametrize(
-    "title_key", ["interaction_question", "interaction_revisit_question"]
-)
 def test_preview_interaction_preserves_its_title_in_stream_and_snapshot(
-    adapter: PreviewElementRunAdapter, question: str | None, title_key: str
+    adapter: PreviewElementRunAdapter, question: str | None
 ) -> None:
     event = RunMarkdownFlowDTO(
         outline_bid="lesson",
         generated_block_bid="block",
         type=GeneratedType.INTERACTION,
         content="?[First | Second]",
-        **{title_key: question},
+        interaction_question=question,
     )
     (message,) = list(adapter.process([event]))
     element = message.content
     assert isinstance(element, ElementDTO)
-    assert getattr(element.payload, title_key) == question
+    assert element.payload.interaction_question == question
     stored = adapter._load_latest_element_snapshot(element.element_bid)
-    assert getattr(stored.payload, title_key) == question
+    assert stored.payload.interaction_question == question
     assert stored.content == "?[First | Second]"
     assert stored.is_speakable is False
