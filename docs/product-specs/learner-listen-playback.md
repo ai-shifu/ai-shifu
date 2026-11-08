@@ -37,10 +37,10 @@ direction, the runtime presents the guiding question within the structured
 feedback. Confirmation and authored navigation send an empty question. Custom
 navigation labels use the tool options.
 
-Interaction `content` contains only the controls. Current answer controls use
-the default listen and classroom panel title, while the learner receives the
-question in the model's teaching content. Reading, Debug, and Profile likewise
-display that content separately from the controls.
+Interaction `content` contains only the controls. A new answer slide uses the
+default listen and classroom panel title on its first live presentation. The
+learner receives the question in the model's teaching content. Reading, Debug,
+and Profile also display that content separately from the controls.
 
 Historical `prompt` values remain readable as `payload.interaction_question`
 presentation metadata. Existing saved prose and exact request replay payloads
@@ -53,10 +53,13 @@ or analytics meaning. Question text must never be sent to analytics.
 ## Listen and classroom interaction titles
 
 Listen and classroom modes use a nonblank native `interaction_question` as the
-active interaction panel title. Its body shows only the controls. Moving to
-another interaction updates the title; changing only the metadata at the same
-element ID also invalidates the rendered-element cache. Historical questions
-and answered controls retain their corresponding title and answer.
+active interaction panel title for historical tool arguments. A current answer
+stores `interaction_revisit_question` for the panel title when the learner
+returns to an already viewed slide, jumps to it from the timeline, or opens a
+saved slide. Its body shows only
+the controls. Moving to another interaction updates the title, and changing
+only the metadata at the same element ID invalidates the rendered-element
+cache. Answered controls retain their corresponding answer.
 
 Titles display the original question as literal text. HTML and Markdown are not
 executed or rendered as rich content. Missing or blank questions, system
@@ -64,10 +67,9 @@ controls, and questions whose trimmed value is `sys_user_nickname`,
 `sys_user_language` or `sys_user_background` use the localized generic title.
 Short confirmation wording that already labels its button keeps that behavior.
 
-The question is not emitted again as a slide, lesson body or independent audio.
-Switching back to reading continues to hide the extra question. This consumer
-change depends on the reading/shared transport contract and introduces no new
-backend, database, dependency or analytics behavior.
+The panel title stays separate from the model's lesson body and audio. Reading
+uses the model's question prose. Revisit metadata follows the existing
+interaction payload and slide navigation contracts.
 
 ### `learner_listen_resume_requested`
 

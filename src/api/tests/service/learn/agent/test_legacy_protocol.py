@@ -231,6 +231,8 @@ def test_current_answer_control_does_not_repeat_question_as_title() -> None:
     assert controls.type == GeneratedType.INTERACTION
     assert controls.interaction_question is None
     assert "interaction_question" not in controls.__json__()
+    assert controls.interaction_revisit_question == question
+    assert controls.__json__()["interaction_revisit_question"] == question
     assert _parse(controls.content)["variable"] == question
 
 

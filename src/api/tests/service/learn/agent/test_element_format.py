@@ -256,14 +256,22 @@ def test_all_modes_reuse_formatted_elements_and_persist_visuals(
 
 
 @pytest.mark.parametrize("listen", [False, True])
+@pytest.mark.parametrize("current", [False, True], ids=["legacy", "current"])
 def test_question_title_survives_stream_and_history_without_becoming_lesson_content(
-    format_environment: Flask, listen: bool
+    format_environment: Flask, listen: bool, current: bool
 ) -> None:
     narration = "Compare the examples.\n\n"
-    question = (
+    question = "Which example do you prefer?"
+    legacy_title = (
         '<div class="choices"><p>First or second?</p></div>\n'
-        "<style>.choices { color: blue; }</style>\n\n"
-        "Which example do you prefer?"
+        "<style>.choices { color: blue; }</style>\n\n" + question
+    )
+    if current:
+        narration += question
+    title = question if current else legacy_title
+    title_key = "interaction_revisit_question" if current else "interaction_question"
+    controls = (
+        f"?[%{{{{ {question} }}}} First | Second]" if current else "?[First | Second]"
     )
     engine = host_fixture._Engine(
         [
@@ -272,7 +280,9 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
                 id="comparison",
                 spec=InteractionSpec(
                     type="single",
-                    prompt=question,
+                    question=title,
+                    question_owns_memory=current,
+                    variable=question if current else None,
                     options=[Option(display="First"), Option(display="Second")],
                 ),
             ),
@@ -288,34 +298,36 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
     ]
     assert _shape(content) == _reference_shape(narration)
     assert history[-1].element_type == ElementType.INTERACTION
-    assert history[-1].content == "?[First | Second]"
+    assert history[-1].content == controls
     assert _shape(streamed) == _shape(history)
     for elements in (streamed, history):
         interaction = elements[-1]
-        assert interaction.payload.interaction_question == question
+        assert getattr(interaction.payload, title_key) == title
         wire = interaction.__json__()
-        assert wire["payload"]["interaction_question"] == question
-        assert wire["content"] == "?[First | Second]"
-        assert interaction.content == "?[First | Second]"
+        assert wire["payload"][title_key] == title
+        if current:
+            assert "interaction_question" not in wire["payload"]
+        assert wire["content"] == controls
+        assert interaction.content == controls
         assert interaction.is_speakable is False
         assert interaction.audio_url == ""
         assert interaction.payload.audio is None
         assert bool(elements[0].audio_url) is listen
     interaction_event = next(e for e in events if e.type == GeneratedType.INTERACTION)
     assert interaction_event.__json__()["content"] == wire["content"]
-    assert interaction_event.content == "?[First | Second]"
+    assert interaction_event.content == controls
     serialized_event = json.loads(
         _to_sse_data_line(interaction_event).removeprefix("data: ")
     )
     assert serialized_event["content"] == wire["content"]
-    assert serialized_event["interaction_question"] == question
+    assert serialized_event[title_key] == title
     response = make_common_response(LearnElementRecordDTO(elements=history)).get_json()
     assert response["data"]["elements"][-1]["content"] == wire["content"]
     with format_environment.app_context():
         row = LearnGeneratedElement.query.filter_by(
             element_bid=history[-1].element_bid, status=1, deleted=0
         ).one()
-        assert row.content_text == "?[First | Second]"
+        assert row.content_text == controls
 
 
 @pytest.mark.parametrize("opening", ["<div>", "<svg>", "```python"])
