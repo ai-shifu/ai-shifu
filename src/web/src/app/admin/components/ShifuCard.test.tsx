@@ -150,7 +150,12 @@ describe('open learning page', () => {
 
       openMenu();
       const link = getLearningPageLink();
-      expect(screen.getAllByRole('menuitem')).toEqual([link]);
+      const [firstItem, ...managementItems] = screen.getAllByRole('menuitem');
+      expect(firstItem).toBe(link);
+      expect(managementItems).toHaveLength(4);
+      for (const item of managementItems) {
+        expect(item).toHaveAttribute('aria-disabled', 'true');
+      }
       expect(link.tagName).toBe('A');
       expect(link).toHaveAttribute('href', '/c/course%20with%20spaces');
       expect(link).toHaveAttribute('target', '_blank');
@@ -207,6 +212,88 @@ describe('open learning page', () => {
   );
 });
 
+describe('blocked course actions', () => {
+  beforeEach(() => {
+    mockTrackEvent.mockReset();
+  });
+
+  test.each([
+    {
+      label: 'module.shifuSetting.unarchive',
+      action: 'restore',
+      reason: 'course_access_required',
+      hint: 'courseAccessRequired',
+      props: { archived: true, canManageArchive: false },
+      callback: 'onArchiveRequest',
+    },
+    {
+      label: 'module.shifuSetting.permissionManage',
+      action: 'manage_collaborators',
+      reason: 'owner_required',
+      hint: 'ownerRequired',
+      props: { canManagePermissions: false },
+      callback: 'onPermissionRequest',
+    },
+    {
+      label: 'module.order.importActivation.action',
+      action: 'activate_learners',
+      reason: 'publication_required',
+      hint: 'publicationRequired',
+      props: { enrollmentActionBlockReason: 'publication_required' },
+      callback: 'onImportActivationRequest',
+    },
+  ] as const)(
+    'explains $reason without allowing $action',
+    ({ label, action, reason, hint, props, callback }) => {
+      jest.useFakeTimers();
+      const select = jest.fn();
+      mockTrackEvent.mockImplementation(() => {
+        throw new Error('Tracking unavailable');
+      });
+      const view = renderActionCard({ ...props, [callback]: select });
+      try {
+        openMenu();
+        const item = screen.getByRole('menuitem', { name: label });
+        expect(item).toBeVisible();
+        expect(item).toHaveAttribute('aria-disabled', 'true');
+        expect(item).toHaveClass(
+          'data-[disabled]:opacity-50',
+          'data-[disabled]:pointer-events-auto',
+        );
+        fireEvent.click(item);
+        fireEvent.keyDown(item, { key: 'Enter' });
+        fireEvent.keyDown(item, { key: ' ' });
+        expect(select).not.toHaveBeenCalled();
+        expect(screen.getByRole('menu')).toBeVisible();
+
+        pointer(item, 'pointermove');
+        act(() => jest.advanceTimersByTime(299));
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+        act(() => jest.advanceTimersByTime(1));
+        const permissionHelp = `module.shifuSetting.courseActionBlocked.${hint}`;
+        expect(screen.getByRole('tooltip')).toHaveTextContent(permissionHelp);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          [
+            'creator_course_action_blocked_help_view',
+            { surface: 'admin_course_list', action, reason },
+          ],
+        ]);
+
+        pointer(item, 'pointerout');
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        pointer(item, 'pointermove');
+        act(() => jest.advanceTimersByTime(300));
+        expect(screen.getByRole('tooltip')).toHaveTextContent(permissionHelp);
+        expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      } finally {
+        view.unmount();
+        jest.useRealTimers();
+      }
+    },
+  );
+});
+
 describe('course action help', () => {
   beforeEach(() => {
     mockTrackEvent.mockReset();
@@ -223,7 +310,12 @@ describe('course action help', () => {
       'max-h-[var(--radix-dropdown-menu-content-available-height)]',
       'overflow-y-auto',
     );
-    expect(screen.getAllByRole('menuitem')).toHaveLength(5);
+    expect(screen.getAllByRole('menuitem')).toEqual([
+      getLearningPageLink(),
+      ...[ACTIONS[3], ACTIONS[2], ACTIONS[0], ACTIONS[1]].map(action =>
+        screen.getByRole('menuitem', { name: action.label }),
+      ),
+    ]);
     for (const action of ACTIONS) {
       const item = screen.getByRole('menuitem', { name: action.label });
       expect(item).toHaveTextContent(action.label);
@@ -331,44 +423,47 @@ describe('course action help', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
 
     fireEvent.keyDown(learningLink, { key: 'ArrowDown' });
-    const activationItem = screen.getByRole('menuitem', {
-      name: ACTIONS[0].label,
+    const archiveAction = ACTIONS[3];
+    const archiveItem = screen.getByRole('menuitem', {
+      name: archiveAction.label,
     });
-    await waitFor(() => expect(activationItem).toHaveFocus());
-    expect(screen.getByRole('tooltip')).toHaveTextContent(ACTIONS[0].help);
+    await waitFor(() => expect(archiveItem).toHaveFocus());
+    expect(screen.getByRole('tooltip')).toHaveTextContent(archiveAction.help);
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
 
-    fireEvent.keyDown(activationItem, { key: 'ArrowDown' });
-    const discountItem = screen.getByRole('menuitem', {
-      name: ACTIONS[1].label,
+    fireEvent.keyDown(archiveItem, { key: 'ArrowDown' });
+    const collaboratorItem = screen.getByRole('menuitem', {
+      name: ACTIONS[2].label,
     });
-    await waitFor(() => expect(discountItem).toHaveFocus());
+    await waitFor(() => expect(collaboratorItem).toHaveFocus());
     expect(mockTrackEvent).toHaveBeenCalledTimes(2);
 
-    fireEvent.keyDown(discountItem, { key: 'ArrowUp' });
-    await waitFor(() => expect(activationItem).toHaveFocus());
+    fireEvent.keyDown(collaboratorItem, { key: 'ArrowUp' });
+    await waitFor(() => expect(archiveItem).toHaveFocus());
     expect(mockTrackEvent).toHaveBeenCalledTimes(2);
-    fireEvent.click(activationItem);
+    fireEvent.click(archiveItem);
     await waitFor(() =>
       expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
     );
 
     openMenu();
-    act(() => screen.getByRole('menuitem', { name: ACTIONS[0].label }).focus());
+    act(() =>
+      screen.getByRole('menuitem', { name: archiveAction.label }).focus(),
+    );
     await waitFor(() =>
-      expect(screen.getByRole('tooltip')).toHaveTextContent(ACTIONS[0].help),
+      expect(screen.getByRole('tooltip')).toHaveTextContent(archiveAction.help),
     );
     expect(mockTrackEvent).toHaveBeenCalledTimes(3);
     expect(mockTrackEvent).toHaveBeenLastCalledWith(
       'creator_course_action_help_view',
       {
         surface: 'admin_course_list',
-        action: 'activate_learners',
+        action: archiveAction.action,
       },
     );
   });
 
-  test('reports restore separately and never renders unavailable action help', async () => {
+  test('reports help for restoring an archived course separately', async () => {
     renderActionCard({
       archived: true,
       onImportActivationRequest: undefined,
@@ -376,11 +471,8 @@ describe('course action help', () => {
       canManagePermissions: false,
     });
     openMenu();
-    expect(screen.getAllByRole('menuitem')).toHaveLength(2);
+    expect(screen.getAllByRole('menuitem')).toHaveLength(5);
     for (const action of ACTIONS) {
-      expect(
-        screen.queryByRole('menuitem', { name: action.label }),
-      ).not.toBeInTheDocument();
       expect(screen.queryByText(action.help)).not.toBeInTheDocument();
     }
     const restore = screen.getByRole('menuitem', {

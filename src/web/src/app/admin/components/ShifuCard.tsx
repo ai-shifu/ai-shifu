@@ -32,6 +32,11 @@ type CourseHelpAction =
   | 'archive'
   | 'restore';
 
+type EnrollmentActionBlockReason = 'owner_required' | 'publication_required';
+type CourseActionBlockReason =
+  | EnrollmentActionBlockReason
+  | 'course_access_required';
+
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -41,6 +46,7 @@ interface ShifuCardProps {
   archived?: boolean;
   canManageArchive?: boolean;
   canManagePermissions?: boolean;
+  enrollmentActionBlockReason?: EnrollmentActionBlockReason;
   onArchiveRequest?: () => void;
   onPermissionRequest?: () => void;
   onImportActivationRequest?: () => void;
@@ -70,6 +76,7 @@ const ShifuCard = ({
   archived,
   canManageArchive,
   canManagePermissions,
+  enrollmentActionBlockReason,
   onArchiveRequest,
   onPermissionRequest,
   onImportActivationRequest,
@@ -78,6 +85,15 @@ const ShifuCard = ({
 }: ShifuCardProps) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
+  const blockedHelp = {
+    course_access_required: t(
+      'module.shifuSetting.courseActionBlocked.courseAccessRequired',
+    ),
+    owner_required: t('module.shifuSetting.courseActionBlocked.ownerRequired'),
+    publication_required: t(
+      'module.shifuSetting.courseActionBlocked.publicationRequired',
+    ),
+  };
   const menuOpenRef = React.useRef(false);
   const viewedHelpActionsRef = React.useRef(new Set<CourseHelpAction>());
   const [openHelpAction, setOpenHelpAction] =
@@ -96,22 +112,34 @@ const ShifuCard = ({
   }, []);
   React.useEffect(() => clearPendingHelp, [clearPendingHelp]);
 
-  const showHelp = (action: CourseHelpAction) => {
+  const showHelp = (
+    action: CourseHelpAction,
+    blockedReason?: CourseActionBlockReason,
+  ) => {
     if (!menuOpenRef.current) return;
     setOpenHelpAction(action);
     if (viewedHelpActionsRef.current.has(action)) return;
     viewedHelpActionsRef.current.add(action);
     try {
       void Promise.resolve(
-        trackEvent('creator_course_action_help_view', {
-          surface: 'admin_course_list',
-          action,
-        }),
+        blockedReason
+          ? trackEvent('creator_course_action_blocked_help_view', {
+              surface: 'admin_course_list',
+              action,
+              reason: blockedReason,
+            })
+          : trackEvent('creator_course_action_help_view', {
+              surface: 'admin_course_list',
+              action,
+            }),
       ).catch(() => {});
     } catch {}
   };
 
-  const schedulePointerHelp = (action: CourseHelpAction) => {
+  const schedulePointerHelp = (
+    action: CourseHelpAction,
+    blockedReason?: CourseActionBlockReason,
+  ) => {
     if (
       pendingHelpRef.current?.action === action ||
       openHelpAction === action
@@ -123,7 +151,9 @@ const ShifuCard = ({
       action,
       timer: setTimeout(() => {
         pendingHelpRef.current = null;
-        if (hoveredHelpActionRef.current === action) showHelp(action);
+        if (hoveredHelpActionRef.current === action) {
+          showHelp(action, blockedReason);
+        }
       }, 300),
     };
   };
@@ -144,6 +174,7 @@ const ShifuCard = ({
     label: string,
     help: string,
     onSelect?: () => void,
+    blockedReason?: CourseActionBlockReason,
   ) => (
     <Tooltip
       open={openHelpAction === action}
@@ -154,23 +185,26 @@ const ShifuCard = ({
           return;
         }
         if (helpInputRef.current === 'pointer') {
-          schedulePointerHelp(action);
+          schedulePointerHelp(action, blockedReason);
         } else {
           clearPendingHelp();
-          showHelp(action);
+          showHelp(action, blockedReason);
         }
       }}
     >
       <TooltipTrigger asChild>
         <DropdownMenuItem
           aria-label={label}
+          disabled={Boolean(blockedReason)}
+          // Keep disabled items reachable by the pointer for their help tooltip.
+          className='data-[disabled]:pointer-events-auto'
           onPointerMoveCapture={event => {
             if (event.pointerType === 'touch') return;
             // Radix menu pointer navigation focuses the item immediately.
             // Keep that focus from bypassing the pointer dwell requirement.
             helpInputRef.current = 'pointer';
             hoveredHelpActionRef.current = action;
-            schedulePointerHelp(action);
+            schedulePointerHelp(action, blockedReason);
           }}
           onPointerLeave={() => {
             if (hoveredHelpActionRef.current === action) {
@@ -191,7 +225,7 @@ const ShifuCard = ({
         side='left'
         className='z-[113] max-w-64 break-words'
       >
-        {help}
+        {blockedReason ? blockedHelp[blockedReason] : help}
       </TooltipContent>
     </Tooltip>
   );
@@ -312,38 +346,40 @@ const ShifuCard = ({
                 />
               </a>
             </DropdownMenuItem>
-            {onImportActivationRequest &&
-              renderAction(
-                'activate_learners',
-                t('module.order.importActivation.action'),
-                t('module.order.importActivation.actionDescription'),
-                onImportActivationRequest,
-              )}
-            {onRedemptionCodeRequest &&
-              renderAction(
-                'create_discount_code',
-                t('module.order.redemptionCodes.action'),
-                t('module.order.redemptionCodes.actionDescription'),
-                onRedemptionCodeRequest,
-              )}
-            {canManagePermissions &&
-              renderAction(
-                'manage_collaborators',
-                t('module.shifuSetting.permissionManage'),
-                t('module.shifuSetting.permissionManageHint'),
-                onPermissionRequest,
-              )}
-            {canManageArchive &&
-              renderAction(
-                archived ? 'restore' : 'archive',
-                archived
-                  ? t('module.shifuSetting.unarchive')
-                  : t('module.shifuSetting.archive'),
-                archived
-                  ? t('module.shifuSetting.unarchiveHint')
-                  : t('module.shifuSetting.archiveHint'),
-                onArchiveRequest,
-              )}
+            {renderAction(
+              archived ? 'restore' : 'archive',
+              archived
+                ? t('module.shifuSetting.unarchive')
+                : t('module.shifuSetting.archive'),
+              archived
+                ? t('module.shifuSetting.unarchiveHint')
+                : t('module.shifuSetting.archiveHint'),
+              onArchiveRequest,
+              canManageArchive ? undefined : 'course_access_required',
+            )}
+            {renderAction(
+              'manage_collaborators',
+              t('module.shifuSetting.permissionManage'),
+              t('module.shifuSetting.permissionManageHint'),
+              onPermissionRequest,
+              canManagePermissions ? undefined : 'owner_required',
+            )}
+            {renderAction(
+              'activate_learners',
+              t('module.order.importActivation.action'),
+              t('module.order.importActivation.actionDescription'),
+              onImportActivationRequest,
+              enrollmentActionBlockReason ??
+                (onImportActivationRequest ? undefined : 'owner_required'),
+            )}
+            {renderAction(
+              'create_discount_code',
+              t('module.order.redemptionCodes.action'),
+              t('module.order.redemptionCodes.actionDescription'),
+              onRedemptionCodeRequest,
+              enrollmentActionBlockReason ??
+                (onRedemptionCodeRequest ? undefined : 'owner_required'),
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </TooltipProvider>

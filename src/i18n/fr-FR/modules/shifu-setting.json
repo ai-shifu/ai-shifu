@@ -110,6 +110,11 @@
   },
   "askProviderSelect": "Choisir comment générer les réponses",
   "askTitle": "Source de connaissances pour les questions de suivi",
+  "courseActionBlocked": {
+    "courseAccessRequired": "Cette action nécessite l’accès à l’administration de ce cours.",
+    "ownerRequired": "Seul le responsable du cours peut effectuer cette action.",
+    "publicationRequired": "Cette action est disponible après la publication du cours."
+  },
   "defaultListenModeDescription": "Une fois activé, les apprenants commencent ce cours en mode écoute par défaut",
   "defaultListenModeTitle": "Ouvrir en écoute par défaut",
   "draftConflictDescription": "Ce cours a été mis à jour par {phone}. Chargez le contenu le plus récent pour continuer à modifier en sécurité.",

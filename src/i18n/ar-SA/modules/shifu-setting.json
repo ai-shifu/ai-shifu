@@ -110,6 +110,11 @@
   },
   "askProviderSelect": "اختر طريقة توليد إجابات أسئلة المتابعة",
   "askTitle": "مصدر معرفة أسئلة المتابعة",
+  "courseActionBlocked": {
+    "courseAccessRequired": "يلزم إذن الوصول إلى هذه الدورة في لوحة الإدارة.",
+    "ownerRequired": "يمكن لمسؤول هذه الدورة فقط تنفيذ هذا الإجراء.",
+    "publicationRequired": "يتاح هذا الإجراء بعد نشر الدورة."
+  },
   "defaultListenModeDescription": "عند التفعيل، يبدأ المتعلم هذه الدورة في وضع الاستماع افتراضيًا",
   "defaultListenModeTitle": "الفتح في وضع الاستماع افتراضيًا",
   "draftConflictDescription": "عُدّلت هذه الدورة بواسطة {phone}. حمّل أحدث محتوى للاطلاع على أحدث التغييرات.",

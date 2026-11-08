@@ -110,6 +110,11 @@
   },
   "askProviderSelect": "Wählen Sie die Quelle für Antworten auf Rückfragen aus.",
   "askTitle": "Wissensquelle für Rückfragen",
+  "courseActionBlocked": {
+    "courseAccessRequired": "Für diese Aktion ist Zugriff auf den Verwaltungsbereich dieses Kurses erforderlich.",
+    "ownerRequired": "Nur der Kursinhaber kann diese Aktion ausführen.",
+    "publicationRequired": "Diese Aktion ist nach der Veröffentlichung des Kurses verfügbar."
+  },
   "defaultListenModeDescription": "Wenn diese Option aktiviert ist, starten Lernende diesen Kurs standardmäßig im Hörmodus.",
   "defaultListenModeTitle": "Standardmäßig im Hörmodus starten",
   "draftConflictDescription": "Dieser Kurs wurde von {phone} aktualisiert. Laden Sie den neuesten Inhalt, um die Bearbeitung sicher fortzusetzen.",

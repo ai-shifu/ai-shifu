@@ -14,7 +14,14 @@ explaining the operation. Selecting the item performs the same action as before.
 The shared Tooltip primitive owns positioning and accessible descriptions. The
 menu requires 300 ms of continuous pointer dwell before showing help; keyboard
 focus shows it immediately. Pointer-induced menu focus cannot bypass the delay.
-Help does not grant permissions or change whether an action is available.
+
+Items appear in increasing order of requirements. The learning page link comes
+first, followed by personal archive or restore for users with course access,
+permission management for the course owner, and learner activation and discount
+codes for published courses owned by the current user. Unavailable items stay in
+the menu, appear dimmed, and cannot be selected. Hovering them shows the missing
+permission or publication requirement. For enrollment actions, ownership is
+checked before publication.
 
 ## Product analytics contract
 
@@ -39,10 +46,10 @@ invocation path, so tooltip use has an additive event contract.
   rendering a card, opening a menu, pointing briefly at an item, or selecting an
   item does not emit it.
 - Population: include draft and published courses and the archive-restore
-  variant. Include pointer and keyboard tooltip opens. Exclude hidden actions,
-  closed menus, guest learner surfaces, learner/editor previews and accounts
-  excluded by the shared analytics policy. Course-list authorization remains
-  owned by the existing route; this component does not broaden it.
+  variant. Include pointer and keyboard tooltip opens for available actions.
+  Exclude disabled actions, closed menus, guest learner surfaces, learner/editor
+  previews and accounts excluded by the shared analytics policy. The existing
+  route owns course-list authorization.
 - Count unit and deduplication: at most one help view per action per opening of
   a course card's menu. A component-local Set is reset when the menu opens;
   repeated hovering or refocusing the same action within that opening does not
@@ -60,7 +67,7 @@ invocation path, so tooltip use has an additive event contract.
   failed analytics must not affect tooltips, menu selection or the operation.
 - Verification: component tests cover real tooltip hover/focus opening,
   non-opening pointer interactions, per-open deduplication, archive/restore,
-  hidden-action exclusions, exact event/payload privacy and tracking failure.
+  disabled-action exclusions, exact event/payload privacy and tracking failure.
 
 | Field     | Type   | Allowed values                                                                            | Cardinality | Privacy class | Why required                    |
 | --------- | ------ | ----------------------------------------------------------------------------------------- | ----------- | ------------- | ------------------------------- |
@@ -71,6 +78,27 @@ The payload is an explicit two-field allowlist. It never includes course titles,
 descriptions, tooltip text, account contacts, coupon values, URLs, raw errors or
 other user-authored content. Shared user exclusions and transport safeguards
 apply independently of this feature.
+
+### Disabled action help analytics
+
+The product owner reviews weekly `creator_course_action_blocked_help_view`
+counts by action and reason in Umami to identify which permission or course
+state most often requires an explanation. This is a separate, additive event
+with no historical backfill or checked-in consumer. Existing help-view counts
+continue to cover available actions.
+
+Emit when the tooltip for a disabled action becomes visible after 300 ms of
+continuous pointer dwell in an open menu. Apply the same signed-in eligibility,
+surface and account exclusions, and per-menu-open action deduplication as the
+available-action event. Enabled actions, touch, menu opens, brief pointer
+movement and attempted selection do not qualify. The same best-effort delivery
+keeps both the tooltip and menu independent of analytics. Component tests check
+timing, exclusions, deduplication, the exact payload and delivery failure.
+
+The complete payload contains `surface` (`admin_course_list`), `action` (the
+same five values above) and `reason` (`course_access_required`, `owner_required`
+or `publication_required`). No course, account, content or tooltip text is
+collected.
 
 ## Opening the learning page from a course card
 
