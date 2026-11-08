@@ -172,6 +172,7 @@
     "unavailable": "غير متاح"
   },
   "number": "أدخل رقمًا",
+  "openLearningPage": "فتح صفحة التعلّم",
   "permissionContactRequired": "أدخل حسابًا واحدًا على الأقل",
   "permissionCount": "المتعاونون: {count}/{max}",
   "permissionDescription": "أضف أشخاصًا للعمل معك على إعداد هذه الدورة، وحدد ما يمكنهم فعله.",

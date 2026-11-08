@@ -172,6 +172,7 @@
     "unavailable": "Unavailable"
   },
   "number": "Enter a number",
+  "openLearningPage": "Open learning page",
   "permissionContactRequired": "Enter at least one account",
   "permissionCount": "Collaborators: {count}/{max}",
   "permissionDescription": "Add people to work on this course with you, and choose what they can do.",

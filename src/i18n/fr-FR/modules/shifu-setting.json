@@ -172,6 +172,7 @@
     "unavailable": "Indisponible"
   },
   "number": "Saisir un nombre",
+  "openLearningPage": "Ouvrir la page d’apprentissage",
   "permissionContactRequired": "Saisissez au moins un compte",
   "permissionCount": "Collaborateurs : {count}/{max}",
   "permissionDescription": "Ajoutez des personnes pour travailler avec vous sur ce cours et choisissez ce qu’elles peuvent faire.",

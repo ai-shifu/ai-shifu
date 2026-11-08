@@ -82,6 +82,34 @@ test.describe('agent-first smoke harness', () => {
     expectNoServerErrors(diagnostics.serverErrorEntries);
   });
 
+  test('opens the guide course learning page in a new tab from its admin card', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/admin');
+    const guideCard = page.locator(
+      '[data-onboarding-id^="guide-course-card-"]',
+    );
+    const editorLink = guideCard.getByRole('link');
+    await expect(editorLink).toHaveAttribute('href', /^\/shifu\/[^/?#]+$/);
+    const learnerPath = (await editorLink.getAttribute('href'))?.replace(
+      /^\/shifu\//,
+      '/c/',
+    );
+
+    await guideCard.getByRole('button', { name: /^(More|更多)$/ }).click();
+    const learningLink = page.getByRole('menuitem', {
+      name: /^(Open learning page|打开学习页面)$/,
+    });
+    const [learningPage] = await Promise.all([
+      context.waitForEvent('page'),
+      learningLink.click(),
+    ]);
+
+    await expect(learningPage).toHaveURL(url => url.pathname === learnerPath);
+    await expect(page).toHaveURL(url => url.pathname === '/admin');
+  });
+
   test('learner course shell loads its first data request without server errors', async ({
     page,
   }) => {

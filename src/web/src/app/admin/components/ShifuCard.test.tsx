@@ -126,6 +126,87 @@ const openMenu = () => {
   return screen.getByRole('menu');
 };
 
+const getLearningPageLink = () =>
+  screen.getByRole('menuitem', {
+    name: 'module.shifuSetting.openLearningPage',
+  });
+
+describe('open learning page', () => {
+  beforeEach(() => {
+    mockTrackEvent.mockReset();
+  });
+
+  test.each([false, true])(
+    'offers the learning link without management permissions (archived: %s)',
+    archived => {
+      renderActionCard({
+        id: 'course with spaces',
+        archived,
+        onImportActivationRequest: undefined,
+        onRedemptionCodeRequest: undefined,
+        canManagePermissions: false,
+        canManageArchive: false,
+      });
+
+      openMenu();
+      const link = getLearningPageLink();
+      expect(screen.getAllByRole('menuitem')).toEqual([link]);
+      expect(link.tagName).toBe('A');
+      expect(link).toHaveAttribute('href', '/c/course%20with%20spaces');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  test('tracks each deliberate pointer or keyboard activation with only the surface', () => {
+    renderActionCard();
+    openMenu();
+    const link = getLearningPageLink();
+    pointer(link, 'pointermove');
+    fireEvent.contextMenu(link);
+    fireEvent(link, new MouseEvent('auxclick', { button: 1, bubbles: true }));
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    fireEvent.click(link);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    openMenu();
+    const reopenedLink = getLearningPageLink();
+    act(() => reopenedLink.focus());
+    fireEvent.keyDown(reopenedLink, { key: 'Enter' });
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['creator_course_learning_page_click', { surface: 'admin_course_list' }],
+      ['creator_course_learning_page_click', { surface: 'admin_course_list' }],
+    ]);
+  });
+
+  test.each(['throw', 'reject', 'pending'] as const)(
+    'allows native navigation when tracking is %s',
+    failure => {
+      if (failure === 'throw') {
+        mockTrackEvent.mockImplementation(() => {
+          throw new Error('Tracking unavailable');
+        });
+      }
+      if (failure === 'reject') {
+        mockTrackEvent.mockRejectedValue(new Error('Tracking unavailable'));
+      }
+      if (failure === 'pending') {
+        mockTrackEvent.mockReturnValue(new Promise(() => {}));
+      }
+      renderActionCard();
+      openMenu();
+
+      expect(fireEvent.click(getLearningPageLink())).toBe(true);
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
 describe('course action help', () => {
   beforeEach(() => {
     mockTrackEvent.mockReset();
@@ -136,8 +217,13 @@ describe('course action help', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
     const menu = openMenu();
 
-    expect(menu).toHaveClass('min-w-[10rem]');
-    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
+    expect(menu).toHaveClass(
+      'min-w-[8rem]',
+      'max-w-[calc(100vw-2rem)]',
+      'max-h-[var(--radix-dropdown-menu-content-available-height)]',
+      'overflow-y-auto',
+    );
+    expect(screen.getAllByRole('menuitem')).toHaveLength(5);
     for (const action of ACTIONS) {
       const item = screen.getByRole('menuitem', { name: action.label });
       expect(item).toHaveTextContent(action.label);
@@ -239,21 +325,30 @@ describe('course action help', () => {
     renderActionCard();
     const trigger = screen.getByRole('button', { name: 'common.core.more' });
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-    const firstItem = screen.getByRole('menuitem', { name: ACTIONS[0].label });
+    const learningLink = getLearningPageLink();
+    await waitFor(() => expect(learningLink).toHaveFocus());
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(firstItem).toHaveFocus());
+    fireEvent.keyDown(learningLink, { key: 'ArrowDown' });
+    const activationItem = screen.getByRole('menuitem', {
+      name: ACTIONS[0].label,
+    });
+    await waitFor(() => expect(activationItem).toHaveFocus());
     expect(screen.getByRole('tooltip')).toHaveTextContent(ACTIONS[0].help);
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
 
-    fireEvent.keyDown(firstItem, { key: 'ArrowDown' });
-    const secondItem = screen.getByRole('menuitem', { name: ACTIONS[1].label });
-    await waitFor(() => expect(secondItem).toHaveFocus());
+    fireEvent.keyDown(activationItem, { key: 'ArrowDown' });
+    const discountItem = screen.getByRole('menuitem', {
+      name: ACTIONS[1].label,
+    });
+    await waitFor(() => expect(discountItem).toHaveFocus());
     expect(mockTrackEvent).toHaveBeenCalledTimes(2);
 
-    fireEvent.keyDown(secondItem, { key: 'ArrowUp' });
-    await waitFor(() => expect(firstItem).toHaveFocus());
+    fireEvent.keyDown(discountItem, { key: 'ArrowUp' });
+    await waitFor(() => expect(activationItem).toHaveFocus());
     expect(mockTrackEvent).toHaveBeenCalledTimes(2);
-    fireEvent.click(firstItem);
+    fireEvent.click(activationItem);
     await waitFor(() =>
       expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
     );
@@ -281,7 +376,7 @@ describe('course action help', () => {
       canManagePermissions: false,
     });
     openMenu();
-    expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+    expect(screen.getAllByRole('menuitem')).toHaveLength(2);
     for (const action of ACTIONS) {
       expect(
         screen.queryByRole('menuitem', { name: action.label }),
@@ -335,18 +430,4 @@ describe('course action help', () => {
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     },
   );
-
-  test('does not expose a menu or emit help events for a card with no actions', () => {
-    renderActionCard({
-      onImportActivationRequest: undefined,
-      onRedemptionCodeRequest: undefined,
-      canManagePermissions: false,
-      canManageArchive: false,
-    });
-    expect(
-      screen.queryByRole('button', { name: 'common.core.more' }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
-    expect(mockTrackEvent).not.toHaveBeenCalled();
-  });
 });

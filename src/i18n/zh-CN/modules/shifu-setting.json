@@ -172,6 +172,7 @@
     "unavailable": "暂不可用"
   },
   "number": "输入数字",
+  "openLearningPage": "打开学习页面",
   "permissionContactRequired": "请填写至少一个账号",
   "permissionCount": "协作者 {count}/{max} 人",
   "permissionDescription": "添加一起编写课程的人，并设置他们能进行的操作。",

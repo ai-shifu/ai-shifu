@@ -172,6 +172,7 @@
     "unavailable": "ไม่พร้อมใช้งาน"
   },
   "number": "กรอกตัวเลข",
+  "openLearningPage": "เปิดหน้าการเรียนรู้",
   "permissionContactRequired": "โปรดกรอกอย่างน้อยหนึ่งบัญชี",
   "permissionCount": "ผู้ร่วมจัดทำ: {count}/{max} คน",
   "permissionDescription": "เพิ่มผู้ร่วมจัดทำหลักสูตรกับคุณ และกำหนดว่าพวกเขาทำอะไรได้บ้าง",
