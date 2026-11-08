@@ -519,7 +519,6 @@ def handle_input_ask(
                 value_versions=memory_policy.value_versions,
                 reserved_keys=memory_policy.reserved_keys,
                 request_check=make_request_check(admission_model),
-                preview=is_preview,
                 temperature=float(follow_up_info.model_args["temperature"]),
                 cancelled=(
                     context._stop_event.is_set

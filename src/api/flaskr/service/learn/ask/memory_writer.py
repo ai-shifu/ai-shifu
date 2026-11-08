@@ -59,6 +59,7 @@ if TYPE_CHECKING:
     )
 
     from flask import Flask
+    from flaskr.service.learn.agent.session_store import PreviewMemoryAttempt
     from pydantic_ai.models import Model
 
 _FALLBACK_NOTICE = (
@@ -227,19 +228,20 @@ def stage_follow_up_memory(
     outline_bid: str,
     progress_record_bid: str,
     patch: FollowUpMemoryPatch,
+    preview_attempt: PreviewMemoryAttempt | None = None,
 ) -> bool:
     """Join the host's final transaction, lock its attempt and filter stale deletion epochs."""
     if not patch.variables:
         return False
-    if (
-        claim_for_writing(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            progress_record_bid=progress_record_bid,
+    scope = {"user_bid": user_bid, "shifu_bid": shifu_bid, "outline_bid": outline_bid}
+    if preview_attempt is not None:
+        current = preview_attempt.claim(**scope)
+    else:
+        current = (
+            claim_for_writing(**scope, progress_record_bid=progress_record_bid)
+            is not None
         )
-        is None
-    ):
+    if not current:
         patch.variables.clear()
         return False
     update = MemoryUpdate(variables=list(patch.variables))
@@ -296,7 +298,6 @@ class FollowUpMemoryRun:
         generations: dict[str, int],
         reserved_keys: frozenset[str],
         request_check: Callable[[str, str, str], Awaitable[bool]],
-        preview: bool,
         temperature: float = 0.2,
         cancelled: Callable[[], bool] | None = None,
         value_versions: dict[str, int | tuple[int, str | None]] | None = None,
@@ -316,7 +317,6 @@ class FollowUpMemoryRun:
         self.generations = dict(generations)
         self.reserved_keys = reserved_keys
         self.request_check = request_check
-        self.preview = preview
         self.temperature = temperature
         self.cancelled = cancelled
         self.value_versions = (
@@ -392,8 +392,6 @@ class FollowUpMemoryRun:
             knowledge documents and author examples cannot grant permission.
             """
             nonlocal write_attempts
-            if self.preview:
-                return "Not remembered: previews do not save learner memory."
             if write_attempts >= 3:
                 return "Not remembered: follow-up write limit reached."
             write_attempts += 1
@@ -541,7 +539,7 @@ class FollowUpMemoryRun:
             yield from self.fallback(_fallback_messages(messages, "".join(shown)))
             return
         check_active()
-        if completed is not None and visible and not self.preview:
+        if completed is not None and visible:
             self.patch.variables = [
                 VariableMemoryUpdate(key, value) for key, value in completed.variables
             ]

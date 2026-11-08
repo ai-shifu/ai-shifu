@@ -5,37 +5,59 @@ from __future__ import annotations
 import json
 import threading
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
+from flaskr.api import markdownflow
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+from flaskr.service.learn.agent.preview_history import begin_preview_run
 from flaskr.service.learn.ask import follow_up_run
 from flaskr.service.learn.ask.follow_up_run import (
     FollowUpCancelledError,
     follow_up_events,
 )
 from flaskr.service.learn.exceptions import PaidError
-from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.learn_funcs import reset_learn_record
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.memory.api import (
+    MemoryUpdate,
+    VariableMemoryUpdate,
+    load_memory,
+    stage_memory,
+)
 from flaskr.service.order.consts import (
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_NOT_STARTED,
 )
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
-from flaskr.service.shifu.models import DraftShifu, PublishedOutlineItem, PublishedShifu
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.user.repository import create_user_entity
 
 from tests.common.fixtures.model_factories import (
     make_generated_block,
     make_progress_record,
 )
 from tests.service.learn import published_course as revision
+from tests.service.learn.test_follow_up_memory_writeback import note_model
 from tests.service.learn.test_run_published_follow_up import (
     follow_up_dependencies,  # noqa: F401 - pytest fixture
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flaskr.service.learn.ask.memory_writer import FollowUpMemoryPatch
 
 runtime_dependencies = revision.runtime_dependencies
 
@@ -283,6 +305,132 @@ def test_a_question_before_the_lesson_started_creates_a_placeholder(
         ).one()
         assert record.status == LEARN_STATUS_NOT_STARTED
         assert _ask_block(course).progress_record_bid == record.progress_record_bid
+
+
+@pytest.mark.parametrize(
+    "preview_first", [False, True], ids=["published-first", "draft-first"]
+)
+def test_follow_ups_share_course_memory_using_the_selected_script(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+    preview_first: bool,
+) -> None:
+    """Both modes save the selected script's declared keys to the same course scope."""
+    _ = runtime_dependencies, ask_runtime
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    monkeypatch.setattr(follow_up_run, "load_memory", load_memory)
+    returns: list[str] = []
+    notes = [
+        {"key": "published_goal", "value": "Algebra", "request": None},
+        {"key": "draft_goal", "value": "Geometry", "request": None},
+        {"key": "shared_goal", "value": "", "request": None},
+    ]
+    monkeypatch.setattr(
+        markdownflow,
+        "GatewayModel",
+        lambda *_args, **_kwargs: note_model(notes, returns),
+    )
+    with app.app_context():
+        with unit_of_work():
+            create_user_entity(
+                user_bid=course.user_bid, identify=course.user_bid, nickname="Learner"
+            )
+            PublishedOutlineItem.query.filter_by(
+                outline_item_bid=course.outline_bid
+            ).one().content = "?[{{published_goal}}...Enter a goal]\n?[{{shared_goal}}...Enter a goal]"
+            DraftOutlineItem.query.filter_by(
+                outline_item_bid=course.outline_bid
+            ).one().content = (
+                "?[{{draft_goal}}...Enter a goal]\n?[{{shared_goal}}...Enter a goal]"
+            )
+
+        expected = {}
+        for preview in (preview_first, not preview_first):
+            admitted = notes[int(preview)]
+            notes[2]["value"] = admitted["value"]
+            returns.clear()
+            events = _ask(app, course, preview_mode=preview)
+
+            assert any(event.content == "Acknowledged." for event in events)
+            assert sum(result.startswith("remembered ") for result in returns) == 2
+            expected[admitted["key"]] = admitted["value"]
+            expected["shared_goal"] = admitted["value"]
+            values = load_memory(
+                app, course.user_bid, course.course_bid, include_course_variables=True
+            ).as_variables()
+            tracked_keys = {note["key"] for note in notes}
+            assert {
+                key: values[key] for key in tracked_keys & values.keys()
+            } == expected
+        other_course = load_memory(
+            app, course.user_bid, uuid4().hex, include_course_variables=True
+        ).as_variables()
+        assert not (expected.keys() & other_course.keys())
+
+
+@pytest.mark.parametrize(
+    ("active_at_start", "reset_preview"), [(True, True), (False, True), (True, False)]
+)
+def test_preview_follow_up_write_is_bound_to_its_preview_attempt(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+    active_at_start: bool,
+    reset_preview: bool,
+) -> None:
+    """A draft reset discards a pending patch and leaves saved memory intact."""
+    _ = runtime_dependencies, ask_runtime
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    scope = {
+        "user_bid": course.user_bid,
+        "shifu_bid": course.course_bid,
+        "outline_bid": course.outline_bid,
+    }
+
+    def begin_preview() -> None:
+        begin_preview_run(app, **scope, run_bid=uuid4().hex)
+
+    def answer(
+        *_args: object, memory_patch: FollowUpMemoryPatch, **_kwargs: object
+    ) -> Iterator[RunMarkdownFlowDTO]:
+        memory_patch.variables = [VariableMemoryUpdate("goal", "New value")]
+        yield RunMarkdownFlowDTO(
+            course.outline_bid, uuid4().hex, GeneratedType.CONTENT, "Acknowledged."
+        )
+        # Use the real reset once the question has started, while its patch is pending.
+        if not active_at_start:
+            begin_preview()
+        reset_learn_record(app, **scope, preview_mode=reset_preview)
+        if reset_preview and active_at_start:
+            # A fresh generation cannot authorize a question from a retired one.
+            begin_preview()
+
+    monkeypatch.setattr(follow_up_run, "handle_input_ask", answer)
+    with app.app_context():
+        with unit_of_work():
+            create_user_entity(
+                user_bid=course.user_bid, identify=course.user_bid, nickname="Learner"
+            )
+            stage_memory(
+                app,
+                course.user_bid,
+                course.course_bid,
+                MemoryUpdate(variables=[VariableMemoryUpdate("goal", "Saved value")]),
+            )
+        if active_at_start:
+            begin_preview()
+
+        _ask(app, course, preview_mode=True)
+
+        values = load_memory(
+            app, course.user_bid, course.course_bid, include_course_variables=True
+        ).as_variables()
+        assert values["goal"] == ("Saved value" if reset_preview else "New value")
 
 
 @pytest.mark.parametrize("preview", [False, True])

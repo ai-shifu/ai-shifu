@@ -206,13 +206,13 @@ const MainMenuModal = ({
       // Analytics must never prevent navigation to the source repository.
     }
   };
-  const memoryContext = `${courseId || ''}:${userInfo?.user_id || ''}`;
+  const memoryContext = `${courseId || ''}:${userInfo?.user_id || ''}:${previewMode}`;
   const [memoryOpen, setMemoryOpen] = useState<string | null>(null);
   const memoryOpening = useRef<string | null>(null);
   useEffect(() => {
     setMemoryOpen(null);
     memoryOpening.current = null;
-  }, [memoryContext, previewMode]);
+  }, [memoryContext]);
 
   const _onPersonalInfoClick = (evt: ReactMouseEvent) => {
     evt.preventDefault();
@@ -368,7 +368,7 @@ const MainMenuModal = ({
         >
           {surface === 'learner' ? (
             <div className={styles.contextGroup}>
-              {courseId && !previewMode ? (
+              {courseId ? (
                 <button
                   type='button'
                   className={cn(styles.mainMenuModalRow, 'px-2.5')}
@@ -580,13 +580,11 @@ const MainMenuModal = ({
         open={sessionsModalOpen}
         onClose={() => setSessionsModalOpen(false)}
       />
-      {memoryOpen === memoryContext &&
-      courseId &&
-      surface === 'learner' &&
-      !previewMode ? (
+      {memoryOpen === memoryContext && courseId && surface === 'learner' ? (
         <CourseMemoryDialog
-          key={`${courseId}:${userInfo?.user_id || ''}`}
+          key={memoryContext}
           courseId={courseId}
+          previewMode={previewMode}
           onClose={() => {
             setMemoryOpen(null);
             memoryOpening.current = null;

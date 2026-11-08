@@ -41,10 +41,15 @@ const entry = {
 };
 const page = { items: [entry], next_before: null };
 const label = (key: string) => `module.settings.${key}`;
-const setup = () =>
+const courseModes = [
+  { previewMode: false, family: 'learner_course_memory' },
+  { previewMode: true, family: 'teacher_preview_course_memory' },
+] as const;
+const setup = (previewMode = false) =>
   render(
     <CourseMemoryDialog
       courseId='course-id'
+      previewMode={previewMode}
       onClose={jest.fn()}
     />,
   );
@@ -97,94 +102,122 @@ describe('CourseMemoryDialog', () => {
     expect(description).not.toHaveTextContent('{entry}');
   });
 
-  it('shows plain text and records one eligible open even under StrictMode', async () => {
-    render(
-      <React.StrictMode>
+  it.each(courseModes)(
+    'shows plain text and records one open under StrictMode (preview=$previewMode)',
+    async ({ previewMode, family }) => {
+      render(
+        <React.StrictMode>
+          <CourseMemoryDialog
+            courseId='course-id'
+            previewMode={previewMode}
+            onClose={jest.fn()}
+          />
+        </React.StrictMode>,
+      );
+      expect(await screen.findByText(entry.value)).toBeInTheDocument();
+      expect(document.querySelector('script')).toBeNull();
+      expect(listCourseMemory).toHaveBeenCalledWith('course-id', undefined);
+      expect(mockTrack.mock.calls).toEqual([
+        [`${family}_opened`, { course_id: 'course-id' }],
+      ]);
+    },
+  );
+
+  it.each(courseModes)(
+    'keeps deletion single-flight and reports success (preview=$previewMode)',
+    async ({ previewMode, family }) => {
+      let finish!: (value: { conflict: boolean }) => void;
+      (deleteCourseMemory as jest.Mock).mockImplementation(
+        () =>
+          new Promise(resolve => {
+            finish = resolve;
+          }),
+      );
+      const onClose = jest.fn();
+      render(
         <CourseMemoryDialog
           courseId='course-id'
-          onClose={jest.fn()}
-        />
-      </React.StrictMode>,
-    );
-    expect(await screen.findByText(entry.value)).toBeInTheDocument();
-    expect(document.querySelector('script')).toBeNull();
-    expect(mockTrack.mock.calls).toEqual([
-      ['learner_course_memory_opened', { course_id: 'course-id' }],
-    ]);
-  });
-
-  it('keeps confirmation pending and single-flight, then removes the confirmed row', async () => {
-    let finish!: (value: { conflict: boolean }) => void;
-    (deleteCourseMemory as jest.Mock).mockImplementation(
-      () =>
-        new Promise(resolve => {
-          finish = resolve;
-        }),
-    );
-    const onClose = jest.fn();
-    render(
-      <CourseMemoryDialog
-        courseId='course-id'
-        onClose={onClose}
-      />,
-    );
-    await confirm();
-    const button = screen.getByRole('button', { name: label('memoryConfirm') });
-    fireEvent.click(button);
-    expect(button).toBeDisabled();
-    expect(
-      screen.getByRole('button', { name: 'common.core.cancel' }),
-    ).toBeDisabled();
-    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
-    expect(onClose).not.toHaveBeenCalled();
-    expect(deleteCourseMemory).toHaveBeenCalledTimes(1);
-    await act(async () => finish({ conflict: false }));
-    await screen.findByText(label('memoryEmpty'));
-    expect(mockTrack.mock.calls.slice(1)).toEqual([
-      ['learner_course_memory_delete_attempt', { course_id: 'course-id' }],
-      [
-        'learner_course_memory_delete_result',
-        { course_id: 'course-id', outcome: 'success' },
-      ],
-    ]);
-    expect(JSON.stringify(mockTrack.mock.calls)).not.toContain('private');
-  });
-
-  it('keeps a failed deletion open and allows an explicit retry', async () => {
-    (deleteCourseMemory as jest.Mock).mockRejectedValueOnce(
-      new Error('private raw error'),
-    );
-    setup();
-    await confirm();
-    await waitFor(() =>
-      expect(
+          previewMode={previewMode}
+          onClose={onClose}
+        />,
+      );
+      await screen.findByText(entry.value);
+      fireEvent.click(
+        screen.getByRole('button', { name: label('memoryDelete') }),
+      );
+      expect(mockTrack).toHaveBeenCalledTimes(1);
+      fireEvent.click(
         screen.getByRole('button', { name: label('memoryConfirm') }),
-      ).toBeEnabled(),
-    );
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-    expect(
-      screen.getAllByText(label('memoryDeleteFailed')).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByText(entry.value)).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole('button', { name: label('memoryConfirm') }),
-    );
-    await screen.findByText(label('memoryEmpty'));
-    expect(
-      mockTrack.mock.calls.filter(
-        ([name]) => name === 'learner_course_memory_delete_result',
-      ),
-    ).toEqual([
-      [
-        'learner_course_memory_delete_result',
-        { course_id: 'course-id', outcome: 'failed' },
-      ],
-      [
-        'learner_course_memory_delete_result',
-        { course_id: 'course-id', outcome: 'success' },
-      ],
-    ]);
-  });
+      );
+      const button = screen.getByRole('button', {
+        name: label('memoryConfirm'),
+      });
+      fireEvent.click(button);
+      expect(button).toBeDisabled();
+      expect(
+        screen.getByRole('button', { name: 'common.core.cancel' }),
+      ).toBeDisabled();
+      fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(deleteCourseMemory).toHaveBeenCalledTimes(1);
+      expect(deleteCourseMemory).toHaveBeenCalledWith(
+        'course-id',
+        'private-id',
+      );
+      expect(mockTrack.mock.calls.slice(1)).toEqual([
+        [`${family}_delete_attempt`, { course_id: 'course-id' }],
+      ]);
+      await act(async () => finish({ conflict: false }));
+      await screen.findByText(label('memoryEmpty'));
+      expect(mockTrack.mock.calls.slice(1)).toEqual([
+        [`${family}_delete_attempt`, { course_id: 'course-id' }],
+        [
+          `${family}_delete_result`,
+          { course_id: 'course-id', outcome: 'success' },
+        ],
+      ]);
+      expect(JSON.stringify(mockTrack.mock.calls)).not.toContain('private');
+    },
+  );
+
+  it.each(courseModes)(
+    'keeps a failed deletion open and allows an explicit retry (preview=$previewMode)',
+    async ({ previewMode, family }) => {
+      (deleteCourseMemory as jest.Mock).mockRejectedValueOnce(
+        new Error('private raw error'),
+      );
+      setup(previewMode);
+      await confirm();
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: label('memoryConfirm') }),
+        ).toBeEnabled(),
+      );
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(
+        screen.getAllByText(label('memoryDeleteFailed')).length,
+      ).toBeGreaterThan(0);
+      expect(screen.getByText(entry.value)).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: label('memoryConfirm') }),
+      );
+      await screen.findByText(label('memoryEmpty'));
+      expect(
+        mockTrack.mock.calls.filter(
+          ([name]) => name === `${family}_delete_result`,
+        ),
+      ).toEqual([
+        [
+          `${family}_delete_result`,
+          { course_id: 'course-id', outcome: 'failed' },
+        ],
+        [
+          `${family}_delete_result`,
+          { course_id: 'course-id', outcome: 'success' },
+        ],
+      ]);
+    },
+  );
 
   it('refreshes a stale selection without deleting a newer value', async () => {
     (deleteCourseMemory as jest.Mock).mockResolvedValue({ conflict: true });
@@ -235,7 +268,7 @@ describe('CourseMemoryDialog', () => {
       if (mode === 'throws') throw new Error('offline');
       return Promise.reject(new Error('offline'));
     });
-    setup();
+    setup(true);
     await confirm();
     await screen.findByText(label('memoryEmpty'));
     expect(deleteCourseMemory).toHaveBeenCalledTimes(1);

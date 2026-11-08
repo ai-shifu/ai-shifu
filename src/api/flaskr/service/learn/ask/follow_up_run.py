@@ -25,7 +25,10 @@ from flaskr.api.langfuse import (
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common import raise_error
-from flaskr.service.learn.agent.session_store import active_session_id
+from flaskr.service.learn.agent.session_store import (
+    PreviewMemoryAttempt,
+    active_session_id,
+)
 from flaskr.service.learn.ask.context import resolve_course_system_prompt
 from flaskr.service.learn.ask.handler import handle_input_ask
 from flaskr.service.learn.ask.memory_writer import (
@@ -182,6 +185,15 @@ def follow_up_events(
         app, user_info, outline_item_info, user_input, preview_mode
     )
     try:
+        preview_attempt = (
+            PreviewMemoryAttempt.capture(
+                user_bid=user_info.user_id,
+                shifu_bid=shifu_info.bid,
+                outline_bid=outline_item_info.bid,
+            )
+            if preview_mode
+            else None
+        )
         anchor_element_bid, anchor_position = _resolve_anchor(
             reload_generated_block_bid,
             reload_element_bid,
@@ -219,6 +231,7 @@ def follow_up_events(
             trace_args=tracing.args,
             trace=tracing.trace,
             root_span=tracing.root_span,
+            preview_attempt=preview_attempt,
         )
     except (FollowUpCancelledError, GeneratorExit):
         # The learner walked away; the trace is left as it stands.
@@ -524,6 +537,7 @@ def _answer(
     trace_args: dict,
     trace: object,
     root_span: object,
+    preview_attempt: PreviewMemoryAttempt | None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     question = user_input
     if isinstance(question, dict):
@@ -565,7 +579,8 @@ def _answer(
 
     # handle_input_ask stages its history rows with plain flushes; the caller
     # commits them once the stream has completed.
-    if memory_patch.variables and not context._preview_mode:
+    if memory_patch.variables:
+        _stop_if_requested(app, context)
         with unit_of_work():
             stage_follow_up_memory(
                 app,
@@ -574,6 +589,7 @@ def _answer(
                 outline_bid=outline_item_info.bid,
                 progress_record_bid=attend.progress_record_bid,
                 patch=memory_patch,
+                preview_attempt=preview_attempt,
             )
             db.session.flush()
 

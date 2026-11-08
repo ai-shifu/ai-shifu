@@ -93,7 +93,6 @@ def test_follow_up_uses_actual_declared_or_requested_admission(
         generations={},
         reserved_keys=frozenset({"sys_nickname"}),
         request_check=checker,
-        preview=False,
     )
     chunks = list(run.stream([{"role": "user", "content": REQUEST}]))
     assert "".join(c.result for c in chunks) == "Acknowledged."
@@ -106,11 +105,11 @@ def test_follow_up_uses_actual_declared_or_requested_admission(
         checker.assert_not_awaited()
 
 
-@pytest.mark.parametrize("failure", ["provider", "disconnect", "preview"])
-def test_unfinished_or_preview_answers_do_not_publish_memory_patch(
+@pytest.mark.parametrize("failure", ["provider", "disconnect"])
+def test_unfinished_answers_do_not_publish_memory_patch(
     failure: object,
 ) -> None:
-    """Approved native-thread proposals only leave a successfully consumed real answer."""
+    """Publish approved proposals only after the answer is consumed successfully."""
     patch = FollowUpMemoryPatch()
     run = FollowUpMemoryRun(
         note_model(
@@ -126,17 +125,14 @@ def test_unfinished_or_preview_answers_do_not_publish_memory_patch(
         generations={},
         reserved_keys=frozenset(),
         request_check=AsyncMock(return_value=True),
-        preview=failure == "preview",
     )
     stream = run.stream([{"role": "user", "content": REQUEST}])
     if failure == "provider":
         with pytest.raises(RuntimeError, match="provider interrupted"):
             list(stream)
-    elif failure == "disconnect":
+    else:
         next(stream)
         stream.close()
-    else:
-        list(stream)
     assert patch.variables == []
 
 
@@ -173,7 +169,6 @@ def test_follow_up_reuses_system_reference_deletion_and_capacity_policy(
         generations={"practice_code": 3},
         reserved_keys=frozenset({"sys_nickname"}),
         request_check=AsyncMock(return_value=True),
-        preview=False,
     )
     list(run.stream([{"role": "user", "content": REQUEST}]))
     assert bool(patch.variables) == allowed
@@ -205,7 +200,6 @@ def test_plain_question_does_not_add_admission_model_requests() -> None:
         generations={},
         reserved_keys=frozenset(),
         request_check=checker,
-        preview=False,
     )
     assert (
         "".join(
@@ -299,7 +293,6 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
         generations={},
         reserved_keys=frozenset(),
         request_check=checker,
-        preview=False,
     )
     assert "".join(x.result for x in run.stream(history)) == "Current memory checked."
     assert results == [expected]
@@ -350,7 +343,6 @@ def test_post_read_host_context_cannot_authorize_a_memory_write() -> None:
         generations={},
         reserved_keys=frozenset(),
         request_check=checker,
-        preview=False,
     )
     list(run.stream([{"role": "user", "content": question}]))
     assert len(calls) == 3
@@ -396,7 +388,6 @@ def test_follow_up_reads_its_newly_admitted_value_without_old_snapshot_shadow() 
         generations={},
         reserved_keys=frozenset(),
         request_check=AsyncMock(return_value=True),
-        preview=False,
     )
     list(run.stream([{"role": "user", "content": REQUEST}]))
     assert len(calls) == 3
@@ -442,7 +433,6 @@ def test_follow_up_discovers_relevant_keys_before_an_exact_read() -> None:
         generations={},
         reserved_keys=frozenset({"sys_nickname"}),
         request_check=checker,
-        preview=True,
     )
     list(run.stream([{"role": "user", "content": run.current_input}]))
     assert len(calls) == 3
@@ -492,7 +482,6 @@ def test_follow_up_can_quote_deleted_history_without_restoring_memory() -> None:
         generations={},
         reserved_keys=frozenset(),
         request_check=checker,
-        preview=False,
     )
     list(run.stream(history))
     assert len(calls) == 1
@@ -557,7 +546,6 @@ def test_follow_up_can_read_late_pages_and_still_bound_memory_writes(
         generations={},
         reserved_keys=frozenset(),
         request_check=checker,
-        preview=False,
     )
     assert (
         "".join(
@@ -816,7 +804,6 @@ def test_idle_native_follow_up_notices_request_cancellation() -> None:
         generations={},
         reserved_keys=frozenset(),
         request_check=AsyncMock(),
-        preview=False,
         cancelled=started.is_set,
     )
     start = time.monotonic()
@@ -852,7 +839,6 @@ def test_declared_system_field_uses_existing_global_profile_storage(
         generations={},
         reserved_keys=frozenset({key}),
         request_check=checker,
-        preview=False,
         value_versions=versions,
     )
     list(run.stream([{"role": "user", "content": "Call me Student."}]))
@@ -1118,7 +1104,6 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
         generations={},
         reserved_keys=frozenset(),
         request_check=checker,
-        preview=False,
     )
     assert (
         "".join(c.result for c in run.stream(history)) == "Historical source checked."
@@ -1194,7 +1179,6 @@ def _reading_run(
         generations={},
         reserved_keys=frozenset(),
         request_check=AsyncMock(return_value=True),
-        preview=False,
         fallback=_plain_answer(received),
     )
 

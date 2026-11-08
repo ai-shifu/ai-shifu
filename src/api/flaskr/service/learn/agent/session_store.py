@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -31,12 +32,14 @@ from flaskr.service.learn.agent.models import (
     LearnAgentSession,
     active_key_for,
 )
+from flaskr.service.learn.models import LearnLessonResetRecord
 from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from flask import Flask
+    from sqlalchemy.orm import Query
 
 
 PREVIEW_PRESENTATION_KEY = "ai_shifu_preview_presentation"
@@ -122,6 +125,77 @@ def active_session_id(
     return session_id if isinstance(session_id, str) and session_id else None
 
 
+def _active_preview_session_query(
+    *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> Query:
+    return LearnAgentSession.query.filter_by(
+        active_key=active_key_for(user_bid, outline_bid, preview_mode=True),
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_bid,
+        deleted=0,
+    )
+
+
+def _preview_reset_query(*, user_bid: str, shifu_bid: str, outline_bid: str) -> Query:
+    return (
+        LearnLessonResetRecord.query.with_entities(LearnLessonResetRecord.id)
+        .filter_by(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            preview_mode=1,
+        )
+        .order_by(LearnLessonResetRecord.id.desc())
+        .limit(1)
+    )
+
+
+@dataclass(frozen=True)
+class PreviewMemoryAttempt:
+    """A draft conversation or the reset boundary before it has started."""
+
+    generation: str | None
+    reset_id: int | None
+
+    @classmethod
+    def capture(
+        cls, *, user_bid: str, shifu_bid: str, outline_bid: str
+    ) -> PreviewMemoryAttempt:
+        """Read the active generation and last reset from one database snapshot."""
+        scope = {
+            "user_bid": user_bid,
+            "shifu_bid": shifu_bid,
+            "outline_bid": outline_bid,
+        }
+        generation = (
+            _active_preview_session_query(**scope)
+            .with_entities(LearnAgentSession.agent_session_bid)
+            .scalar_subquery()
+        )
+        reset_id = _preview_reset_query(**scope).scalar_subquery()
+        return cls(*db.session.query(generation, reset_id).one())
+
+    def claim(self, *, user_bid: str, shifu_bid: str, outline_bid: str) -> bool:
+        """Serialize the memory write with a reset without creating a preview session."""
+        scope = {
+            "user_bid": user_bid,
+            "shifu_bid": shifu_bid,
+            "outline_bid": outline_bid,
+        }
+        generation = (
+            _active_preview_session_query(**scope)
+            .with_entities(LearnAgentSession.agent_session_bid)
+            .with_for_update()
+            .scalar()
+        )
+        if self.generation is not None:
+            return generation == self.generation
+        # A first preview run can start while the question streams. A reset that
+        # retires it must invalidate the question even if no active row remains.
+        return _preview_reset_query(**scope).with_for_update().scalar() == self.reset_id
+
+
 def _load(
     user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
 ) -> Session | None:
@@ -177,19 +251,17 @@ def save_agent_session(
     with app_context_scope(app), unit_of_work():
         row = None
         if preview_generation is not None:
+            if not preview_mode:
+                raise PreviewGenerationDiscardedError
             row = (
-                LearnAgentSession.query.filter_by(
-                    active_key=key,
-                    agent_session_bid=preview_generation,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_item_bid=outline_item_bid,
-                    deleted=0,
+                _active_preview_session_query(
+                    user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_item_bid
                 )
+                .filter_by(agent_session_bid=preview_generation)
                 .with_for_update()
                 .first()
             )
-            if not preview_mode or row is None:
+            if row is None:
                 raise PreviewGenerationDiscardedError
         if stage is not None:
             stage()
