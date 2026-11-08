@@ -15,6 +15,7 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
+from flaskr.service.learn.agent.session_store import load_agent_session
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -491,9 +492,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         exercise_statistics=True,
         feedback_contract=True,
         memory_reserved_keys=entry.get_global_profile_keys(),
-        allowed_authored_question_keys=entry.get_global_profile_keys()
-        if not preview_mode
-        else frozenset(),
+        allowed_authored_question_keys=entry.get_global_profile_keys(),
         memory_readonly_prefixes=("course:", "share:"),
         memory_request_check=request_check.return_value,
         model_settings={"temperature": 0.25},
@@ -543,16 +542,16 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
 
 
 @pytest.mark.parametrize(
-    ("question", "field", "answer", "preview_mode", "authored"),
+    ("question", "field", "answer", "authored"),
     [
-        (SYS_USER_NICKNAME, "nickname", "Taylor", False, True),
-        (SYS_USER_LANGUAGE, "language", "fr-FR", False, True),
-        (SYS_USER_BACKGROUND, "learner_profile", "I teach geometry.", False, True),
-        (SYS_USER_NICKNAME, "nickname", "Taylor", True, True),
-        (SYS_USER_NICKNAME, "nickname", "Taylor", False, False),
+        (SYS_USER_NICKNAME, "nickname", "Taylor", True),
+        (SYS_USER_LANGUAGE, "language", "fr-FR", True),
+        (SYS_USER_BACKGROUND, "learner_profile", "I teach geometry.", True),
+        (SYS_USER_NICKNAME, "nickname", "Taylor", False),
     ],
 )
-def test_only_retained_published_system_questions_update_account_fields(
+@pytest.mark.parametrize("preview_mode", [False, True], ids=["published", "preview"])
+def test_authored_system_answers_use_the_same_account_memory_in_both_modes(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     question: str,
@@ -561,6 +560,7 @@ def test_only_retained_published_system_questions_update_account_fields(
     preview_mode: bool,
     authored: bool,
 ) -> None:
+    """An authored system binding updates the account in preview and published lessons."""
     user, course, outline = (uuid.uuid4().hex for _ in range(3))
     script = (
         f"?[{{{{{question}}}}}...Enter your answer]"
@@ -623,19 +623,21 @@ def test_only_retained_published_system_questions_update_account_fields(
             "preview_mode": preview_mode,
         }
         events = list(entry.agent_lesson_events(app, **params))
-        allowed = authored and not preview_mode
         assert (
-            any(event.type == GeneratedType.INTERACTION for event in events) == allowed
+            any(event.type == GeneratedType.INTERACTION for event in events) == authored
         )
-        if allowed:
+        if authored:
             list(entry.agent_lesson_events(app, user_input=answer, **params))
+            session = load_agent_session(app, user, outline)
+            assert session is not None
+            assert session.all_memory()[question] == answer
         db.session.remove()
         assert getattr(get_user_entity_by_bid(user), field) == (
-            answer if allowed else original
+            answer if authored else original
         )
         rows = VariableValue.query.filter_by(user_bid=user, key=question).all()
         assert [(row.shifu_bid, row.value) for row in rows] == (
-            [("", answer)] if allowed else []
+            [("", answer)] if authored else []
         )
 
 
