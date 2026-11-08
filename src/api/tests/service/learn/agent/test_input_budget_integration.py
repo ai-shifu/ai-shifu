@@ -25,6 +25,7 @@ def test_failed_total_budget_keeps_named_answer_and_retry_evidence_in_database(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen = []
+    question = "What would you like to learn?"
 
     def chat(**kwargs: object) -> Iterator[FakeChunk]:
         seen.append(kwargs["messages"])
@@ -36,7 +37,11 @@ def test_failed_total_budget_keeps_named_answer_and_retry_evidence_in_database(
                         "id": "q",
                         "name": "interact",
                         "arguments": json.dumps(
-                            {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                            {
+                                "type": "text",
+                                "question": question,
+                                "placeholder": "Your goal",
+                            }
                         ),
                     }
                 ],
@@ -66,7 +71,7 @@ def test_failed_total_budget_keeps_named_answer_and_retry_evidence_in_database(
             stream = run_agent.run_agent_lesson(
                 app,
                 engine=engine,
-                script="Ask %{{goal}} and explain.",
+                script=f"{question}\n\n?[{{{{goal}}}}...Your goal]\n\nExplain.",
                 user_bid=user,
                 shifu_bid=course,
                 outline_bid=lesson,
@@ -90,19 +95,25 @@ def test_failed_total_budget_keeps_named_answer_and_retry_evidence_in_database(
         assert len(seen) == 1
         db.session.remove()
         stored = session_store.load_agent_session(app, user, lesson)
-        assert stored.memory["goal"] == answer
+        assert stored.memory == {question: answer}
+        assert stored.all_memory()["goal"] == answer
         assert stored.answers
         assert not stored.finished
         assert stored.to_dict()["messages"] == initial
-        assert load_memory(app, user, course).variables["goal"] == answer
         assert (
-            VariableValue.query.filter_by(user_bid=user, key="goal").one().value
+            load_memory(app, user, course, reference_keys=("goal",)).as_variables()[
+                "goal"
+            ]
+            == answer
+        )
+        assert (
+            VariableValue.query.filter_by(user_bid=user, key=question).one().value
             == answer
         )
         assert run(None, INPUT_BUDGET_BYTES * 4).reason == "end"
         db.session.remove()
         retried = session_store.load_agent_session(app, user, lesson)
         assert not retried.answers
-        assert retried.memory["goal"] == answer
+        assert retried.memory[question] == answer
         assert answer in seen[-1][-1]["content"]
         assert retried.to_dict()["messages"][: len(initial)] == initial

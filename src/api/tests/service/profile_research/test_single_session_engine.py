@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from flask import Flask
+from flaskr.api.markdownflow import Session
 from flaskr.common.cache_provider import InMemoryCacheProvider
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from flaskr.service.profile_research.engine_runtime import (
@@ -102,28 +103,44 @@ def _content(result: ProfileTurnResult) -> str:
         ("Which value is largest?", "Which value is smallest?"),
     ],
 )
-def test_interaction_contains_only_controls_without_question_fallback(
+def test_complete_question_appears_before_the_controls_once(
     narration: str, question: str
 ) -> None:
     session = _session("Ask about the learner, then wait for the answer.")
 
     async def script(_messages: list[ModelMessage], info: AgentInfo) -> Stream:
-        assert "ask the complete question in Markdown prose" in (
+        assert "The host presents it before the answer controls" in (
             info.instructions or ""
         )
         if narration:
             yield narration
         yield {
-            0: _question("current", None, prompt=question, placeholder="Your answer")
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="current",
+                json_args=json.dumps(
+                    {
+                        "type": "text",
+                        "question": question,
+                        "placeholder": "Your answer",
+                    }
+                ),
+            )
         }
 
     result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
     interaction = result.chunks[-1]
     assert interaction.interaction_id == "current"
-    assert interaction.interaction == "?[...Your answer]"
-    assert _content(result).strip() == narration.strip()
-    assert session.engine_session["pending"][0]["tool_call_id"] == "current"
-    assert session.engine_session["pending"][0]["spec"]["prompt"] == question
+    assert interaction.interaction.endswith("...Your answer]")
+    expected = (
+        narration
+        if narration.endswith(question)
+        else "\n\n".join(filter(None, (narration, question)))
+    )
+    assert _content(result).strip() == expected
+    pending = Session.from_dict(session.engine_session).pending[0]
+    assert pending.tool_call_id == "current"
+    assert pending.spec.question == question
 
 
 def test_pending_queue_and_reload_return_only_controls_with_answer_identity() -> None:

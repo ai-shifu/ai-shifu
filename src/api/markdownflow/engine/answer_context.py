@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 from pydantic_ai.messages import ModelRequest, ToolCallPart
 
+from markdownflow.syntax.variable_names import read_interaction_variable
+
 from .interaction import InteractionSpec
 from .tools import (
     _script_question_spans,
@@ -18,6 +20,7 @@ from .tools import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from collections.abc import Set as AbstractSet
 
     from pydantic_ai.messages import ModelMessage
@@ -95,7 +98,8 @@ def _authored_answer_scope(
         if q.text
         and not any(c.strip() for c in q.choices)
         and q.placeholder == spec.placeholder
-        and q.variable == spec.variable
+        and q.variable
+        == (spec.binding_alias if spec.question_owns_memory else spec.variable)
     ]
     if len(matches) != 1:
         return None
@@ -119,8 +123,16 @@ def _authored_answer_scope(
     start, end = max(candidates, key=lambda bounds: bounds[1] - bounds[0])
     section = script[start:end]
     # Do not re-render variables from a newer memory snapshot or reinsert an old
-    # fact near the current answer. Existing script/memory handling remains in charge.
-    if "{{" in section:
+    # fact near the current answer. A resolved answer's own binding is a declaration.
+    substitution_text = section
+    if spec.question_owns_memory and spec.binding_alias is not None:
+        binding_start = anchor + 2 - start
+        binding = read_interaction_variable(section[binding_start:])
+        if binding is not None and binding.name == spec.binding_alias:
+            substitution_text = (
+                section[:binding_start] + section[binding_start + binding.end :]
+            )
+    if "{{" in substitution_text:
         return None
     # Do not clip a large section down to just its question and lose acceptance.
     if len(section.encode("utf-8")) > _SECTION_BYTES:
@@ -173,6 +185,7 @@ def authored_answer_reference(
     resumed: AbstractSet[str],
     *,
     memory_keys: AbstractSet[str] | None = None,
+    interaction_specs: Mapping[str, InteractionSpec] | None = None,
 ) -> str | None:
     """Build bounded current-turn instruction context, never learner history."""
     calls = [
@@ -186,14 +199,20 @@ def authored_answer_reference(
     if len(calls) != 1:
         return None
     call = calls[0]
-    try:
-        spec = InteractionSpec.model_validate(call.args_as_dict())
-    except (AssertionError, TypeError, ValueError, ValidationError):
-        return None
+    spec = interaction_specs.get(call.tool_call_id) if interaction_specs else None
+    if spec is None:
+        try:
+            spec = InteractionSpec.model_validate(call.args_as_dict())
+        except (AssertionError, TypeError, ValueError, ValidationError):
+            return None
     # Deferred-call arguments retain what the model originally sent, while the
     # displayed control has already dropped unadmitted keys and restored exact
     # authored input hints. Match the same control without rewriting evidence.
-    if memory_keys is not None and spec.variable not in memory_keys:
+    if (
+        memory_keys is not None
+        and spec.variable not in memory_keys
+        and not spec.question_owns_memory
+    ):
         spec = spec.model_copy(update={"variable": None})
     spec = normalize_script_text_input(spec, script_text_inputs(script))
     scope = _authored_answer_scope(script, spec)

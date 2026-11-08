@@ -11,6 +11,7 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 from .test_direction_feedback import (
     DISPLAY,
+    QUESTION,
     SCRIPT,
     WRONG,
     _call,
@@ -30,7 +31,8 @@ async def test_feedback_schema_requires_a_branch_only_for_a_supported_reply(
     """Expose required non-null branches on real resumed SDK calls without global mutation."""
     calls = 0
     question = "Please explain briefly, then keep my answer input pending."
-    args = {"type": "text", "prompt": "", "placeholder": "Explanation"}
+    prompt = "How would you explain this?"
+    args = {"type": "text", "question": prompt, "placeholder": "Explanation"}
     review = {
         "answer_id": "original",
         "phase": "clarification",
@@ -51,7 +53,10 @@ async def test_feedback_schema_requires_a_branch_only_for_a_supported_reply(
         assert interact.is_valid({**args, "review": None}) is not required
         assert interact.is_valid({**args, "direction": None}) is not required
         assert interact.is_valid({**args, "review": review}) is not required
-        assert interact.is_valid({**args, "direction": _direction()}) is not required
+        assert (
+            interact.is_valid({**args, "question": QUESTION, "direction": _direction()})
+            is not required
+        )
         assert finish.is_valid({"summary": "Done.", "review": review}) is not required
         if not required:
             assert (
@@ -73,7 +78,9 @@ async def test_feedback_schema_requires_a_branch_only_for_a_supported_reply(
             )
             assert "anyOf" not in definitions["interact"].parameters_json_schema
             assert interact.is_valid({**args, "feedback": review})
-            assert interact.is_valid({**args, "feedback": _direction()})
+            assert interact.is_valid(
+                {**args, "question": QUESTION, "feedback": _direction()}
+            )
             assert not interact.is_valid({**args, "feedback": None})
             assert finish.is_valid({"summary": "Done.", "feedback": review})
         if calls == 2:
@@ -102,10 +109,9 @@ async def test_feedback_schema_requires_a_branch_only_for_a_supported_reply(
     events = await _collect(
         engine.run_turn(session, InteractionResponseTurn(text=question))
     )
-    assert _text(events) == "A concise knowledge explanation."
+    assert _text(events) == f"A concise knowledge explanation.\n\n{prompt}"
     assert session.pending[0].tool_call_id == "continued"
     assert not session.finished
-    assert not session.all_memory()
     assert session.script.script == before
     # A fresh session on the same engine must regain the initial optional schema.
     fresh = await engine.new_session(script)
@@ -120,7 +126,11 @@ async def test_declared_branch_keeps_legacy_sibling_and_later_calls_valid(
 ) -> None:
     """Keep response-wide native validation and optional later calls after a declaration."""
     calls = 0
-    args = {"type": "text", "prompt": "", "placeholder": "Explanation"}
+    args = {
+        "type": "text",
+        "question": "How would you explain this?",
+        "placeholder": "Explanation",
+    }
     question = "Remember that I prefer concise examples, and explain briefly."
     review = {
         "answer_id": "original",
@@ -193,6 +203,9 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
     """Keep schema-valid simultaneous inputs and reject inconsistent sibling decisions."""
     calls = 0
     answer = "A complete answer."
+    original_question = "How does this work?"
+    first_question = "What is the first step?"
+    second_question = "What is the second step?"
     script = "Explain.\n?[...Original]\nThen ask both fields together.\n?[...First]\n?[...Second]\n"
     review = {
         "answer_id": "original",
@@ -207,7 +220,12 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
         calls += 1
         if calls == 1:
             yield _call(
-                {"type": "text", "prompt": "", "placeholder": "Original"}, "original"
+                {
+                    "type": "text",
+                    "question": original_question,
+                    "placeholder": "Original",
+                },
+                "original",
             )
             return
         assert calls <= 3
@@ -224,8 +242,18 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
                 "clarification" if conflict == "phase" else "A conflicting explanation."
             )
         payloads = [
-            {"type": "text", "prompt": "", "placeholder": "First", "feedback": review},
-            {"type": "text", "prompt": "", "placeholder": "Second", "feedback": second},
+            {
+                "type": "text",
+                "question": first_question,
+                "placeholder": "First",
+                "feedback": review,
+            },
+            {
+                "type": "text",
+                "question": second_question,
+                "placeholder": "Second",
+                "feedback": second,
+            },
         ]
         assert all(validator.is_valid(p) for p in payloads)
         yield (
@@ -248,10 +276,13 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
     events = await _collect(
         engine.run_turn(session, InteractionResponseTurn(text=answer))
     )
-    assert _text(events) == "Accepted explanation."
+    assert (
+        _text(events)
+        == f"Accepted explanation.\n\n{first_question}\n\n{second_question}"
+    )
     assert [p.spec.placeholder for p in session.pending] == ["First", "Second"]
     assert not session.finished
-    assert not session.all_memory()
+    assert session.all_memory() == {original_question: answer}
     assert session.script.script == script
     assert "Undisplayed conflicting feedback." not in session.dumps()
     assert calls == (2 if conflict is None else 3)
@@ -270,7 +301,8 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
     from pydantic_ai.models import ModelRequestParameters
 
     calls = 0
-    args = {"type": "text", "prompt": "", "placeholder": "Explanation"}
+    question = "How would you explain this?"
+    args = {"type": "text", "question": question, "placeholder": "Explanation"}
     review = {
         "answer_id": "original",
         "phase": "clarification",
@@ -325,7 +357,9 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
             assert not validator.is_valid(args)
             assert not validator.is_valid({**args, "feedback": None})
             assert validator.is_valid({**args, "feedback": review})
-            assert validator.is_valid({**args, "feedback": _direction()})
+            assert validator.is_valid(
+                {**args, "question": QUESTION, "feedback": _direction()}
+            )
             assert not validator.is_valid({**args, "feedback": json.dumps(review)})
             for name in ("interact", "finish"):
                 offered = next(
@@ -347,7 +381,7 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
     events = await _collect(
         engine.run_turn(session, InteractionResponseTurn(text="Explain briefly."))
     )
-    assert _text(events) == "A concise explanation."
+    assert _text(events) == f"A concise explanation.\n\n{question}"
     assert calls == 2
     assert not session.finished
 

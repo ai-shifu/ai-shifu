@@ -329,6 +329,7 @@ def agent_lesson_events(
     script_override: str | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, object] | None = None,
+    preview_aliases: dict[str, str] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
 
@@ -501,7 +502,11 @@ def agent_lesson_events(
             )
             while True:
                 debug_options = (
-                    {"debug_store": debug_store, "preview_variables": preview_variables}
+                    {
+                        "debug_store": debug_store,
+                        "preview_variables": preview_variables,
+                        "preview_aliases": preview_aliases,
+                    }
                     if debug_store is not None
                     else {}
                 )
@@ -580,6 +585,7 @@ def agent_lesson_events(
                     # The request seed predates the writes this turn just saved.
                     # Automatic continuation should resume from the saved memory.
                     preview_variables = None
+                    preview_aliases = None
                 user_input, rewind = None, None
         except RewindUnavailableError:
             # The session the rows point back into is gone (unreadable, or never stored).

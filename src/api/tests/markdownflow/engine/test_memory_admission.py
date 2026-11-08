@@ -610,30 +610,28 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
 
     engine = Engine(FunctionModel(stream_function=model), memory_admission=enabled)
     instructions = engine.compose_instructions()
+    assert "An accepted answer to `interact` is stored under its `question`" in (
+        instructions
+    )
     if enabled:
-        assert "Only record variables the main script declares" in instructions
+        assert "including exercises with no declared binding" in instructions
+        assert "For other facts, `remember` may write a key declared" in instructions
         assert "complete verbatim free-text input" in instructions
         assert "before your next `interact` or `finish`" in instructions
-        assert (
-            "Also call `remember` when the learner states a preference"
-            not in instructions
-        )
+        assert "when the learner states a preference" not in instructions
     else:
+        assert "when the learner states a preference" in instructions
         assert (
-            "Also call `remember` when the learner states a preference" in instructions
+            "For other facts, `remember` may write a key declared" not in instructions
         )
-        assert '"store it as X"' in instructions
-        assert "Only record variables the main script declares" not in instructions
     session = await engine.new_session("Teach.")
     _ = [event async for event in engine.run_turn(session)]
     assert len(seen) == 2
     for description in seen:
         assert (
-            "Only record variables the main script declares" in description
+            "For other facts, `remember` may write a key declared" in description
         ) is enabled
-        assert (
-            "Also call `remember` when the learner states a preference" in description
-        ) is not enabled
+        assert ("when the learner states a preference" in description) is not enabled
 
 
 @pytest.mark.parametrize("replaying", [True, False])

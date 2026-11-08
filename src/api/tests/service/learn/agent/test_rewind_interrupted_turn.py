@@ -30,6 +30,7 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.memory.dtos import MemorySnapshot as _Memory
 from flaskr.util.datetime import now_utc
 from markdownflow.engine import ContentDelta, Engine
 from pydantic_ai.messages import ToolReturnPart
@@ -62,11 +63,6 @@ def _answers_seen(messages: list[ModelMessage]) -> list[str]:
         for part in getattr(message, "parts", [])
         if isinstance(part, ToolReturnPart) and part.tool_name == "interact"
     ]
-
-
-class _Memory:
-    def as_variables(self) -> dict:
-        return {}
 
 
 @pytest.fixture

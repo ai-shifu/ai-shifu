@@ -13,7 +13,9 @@ from markdownflow.engine import (
     ContinueTurn,
     Engine,
     ErrorEvent,
+    InteractionRequest,
     InteractionResponseTurn,
+    MemoryUpdated,
     Session,
 )
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter, TextPart
@@ -197,6 +199,65 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
     )
     assert _text(events) == "Another question."
     assert calls == 4
+
+
+@pytest.mark.anyio
+async def test_question_contract_keeps_guiding_question_and_its_answer_together() -> (
+    None
+):
+    """Render the structured guidance once and store the answer to that exact question."""
+    original_question = "What must happen before a program executes?"
+    answer = "The processor fetches the instruction from memory."
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {
+                    "type": "text",
+                    "question": original_question,
+                    "placeholder": "Answer",
+                },
+                "original",
+            )
+        elif calls == 2:
+            yield _call(
+                {
+                    "type": "text",
+                    "question": QUESTION,
+                    "placeholder": "Answer",
+                    "direction": _direction(),
+                },
+                "correction",
+            )
+        else:
+            yield "Correct."
+
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        memory_admission=True,
+        legacy_interact_args=False,
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(id="original", text=WRONG))
+    )
+    assert _text(events) == DISPLAY
+    (correction,) = [e for e in events if isinstance(e, InteractionRequest)]
+    assert correction.spec.question == QUESTION
+    session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(id="correction", text=answer))
+    )
+    assert [(e.key, e.value) for e in events if isinstance(e, MemoryUpdated)] == [
+        (QUESTION, answer)
+    ]
+    assert session.memory == {original_question: WRONG, QUESTION: answer}
 
 
 @pytest.mark.anyio

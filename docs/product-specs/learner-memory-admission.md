@@ -13,22 +13,23 @@ The portable engine retains its optional default and unrestricted recording
 instructions for other hosts; system and tool instructions select the same policy. The existing
 profile writer and the session's unit of work remain responsible for persistence.
 
-The overall product feature is "Memory", with question-and-answer pairs as its
-entry structure. Declared question keys and their values supply the two sides.
-A complete question may serve as the existing key; existing keys are not rewritten,
-and the displayed question remains separate from its binding. This product wording
-does not make every interaction eligible for persistent memory, change same-key
-reuse or overwrite behavior, or introduce a per-question memory switch. Information
-saved through an explicit request remains course memory. Presenting it in the same
-structure does not justify a fabricated original question or a claim that it was
-an original learner answer.
+The model supplies the complete `question` for each answer interaction. An
+accepted answer is course memory under that exact question, including exercises
+without a declared binding. Reusing the exact question updates its current
+answer. Navigation and confirmation clicks do not record answers. Legacy
+questions and answers keep their original storage keys and history.
 
-A lesson may record a key declared by a leading `?[{{key}} ...]` binding in its
-main script, outside fenced examples. Existing explicit percent-prefixed declarations
-remain compatible. Briefs, reference documents, ordinary `{{key}}` references and existing
-stored keys do not grant write permission. Named interaction answers require the
-same declaration and retain their exact original values and existing scope rules.
-An undeclared answer binding is dropped without dropping the question.
+A leading `?[{{key}} ...]` binding can remain a reference to the new question's
+answer. The runtime associates an alias only when the authored control identifies
+it unambiguously. Aliases are scoped to the learner and course, are stored with
+the answer, and do not duplicate it. Deleting the answer also makes the alias
+unavailable. Existing explicit percent-prefixed declarations remain compatible.
+
+For writes through `remember`, a key declared by a leading binding in the main
+script is eligible. Briefs, reference documents, ordinary `{{key}}` references,
+and existing stored keys do not themselves grant permission for those writes.
+Information saved by an explicit request remains course memory and does not
+acquire a fabricated question or answer provenance.
 
 An edited draft can carry forward a percent-prefixed system declaration already
 present in its previous revision. Restoring a stored version preserves those

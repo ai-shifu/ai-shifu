@@ -248,6 +248,7 @@ def run_profile_turn(
             pauses_from_notation=bool(questions),
             memory_admission=True,
             buffer_model_responses=True,
+            sequential_interactions=True,
         )
         async for event in engine.run_turn(working, turn):
             yield event
@@ -346,22 +347,40 @@ def profile_answer_evidence(
                     args = part.args_as_dict()
                 except (AssertionError, TypeError, ValueError):
                     continue
-                variable = args.get("variable")
-                if variable is not None:
-                    if not isinstance(variable, str):
+                if args.get("type") == "confirm":
+                    continue
+                if isinstance(args.get("question"), str):
+                    # A resolved spec records both the actual question and its
+                    # admitted binding, including aliases for older questionnaires.
+                    spec = working.interaction_specs.get(part.tool_call_id)
+                    if (
+                        spec is None
+                        or not spec.question_owns_memory
+                        or SYS_USER_NICKNAME in (spec.variable, spec.binding_alias)
+                    ):
                         continue
-                    normalized_variable = normalize_variable_name(variable)
-                    if normalized_variable is None and variable.strip():
+                    prompt, variable = spec.question, spec.variable
+                    context = _question_context(spec.model_dump(mode="json"))
+                else:
+                    # Older sessions have only raw arguments. Normalize the
+                    # saved key the same way as the historical interaction tool.
+                    prompt = args.get("prompt")
+                    variable = args.get("variable")
+                    if variable is not None:
+                        if not isinstance(variable, str):
+                            continue
+                        normalized_variable = normalize_variable_name(variable)
+                        if normalized_variable is None and variable.strip():
+                            continue
+                        variable = normalized_variable
+                    if variable == SYS_USER_NICKNAME or not isinstance(prompt, str):
                         continue
-                    variable = normalized_variable
-                if (
-                    args.get("type") != "confirm"
-                    and variable != SYS_USER_NICKNAME
-                    and isinstance(args.get("prompt"), str)
-                ):
-                    # Tool history retains the model's original arguments, before
-                    # interact canonicalizes its binding or drops a blank optional key.
-                    calls[part.tool_call_id] = {**args, "variable": variable}
+                    context = _question_context(args)
+                calls[part.tool_call_id] = {
+                    "prompt": prompt,
+                    "variable": variable,
+                    **context,
+                }
             elif (
                 isinstance(message, ModelRequest)
                 and isinstance(part, ToolReturnPart)
@@ -379,13 +398,8 @@ def profile_answer_evidence(
         }
     )
     return [
-        {
-            "prompt": args["prompt"],
-            "variable": args.get("variable"),
-            "answer": answers[call_id],
-            **_question_context(args),
-        }
-        for call_id, args in calls.items()
+        {**evidence, "answer": answers[call_id]}
+        for call_id, evidence in calls.items()
         if call_id in answers
     ]
 

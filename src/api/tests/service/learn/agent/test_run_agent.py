@@ -20,6 +20,7 @@ import pytest
 from flaskr.service.learn.agent import run_agent
 from flaskr.service.learn.agent.session_store import StoredSessionUnusable
 from flaskr.service.learn.learn_dtos import GeneratedType, LearnStatus
+from flaskr.service.memory.dtos import MemorySnapshot as _Memory
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from markdownflow.engine.events import (
     ContentDelta,
@@ -60,6 +61,7 @@ class _Session:
         self.script = ScriptBundle(script=SCRIPT)
         self.messages: list = []
         self.memory: dict = {}
+        self.memory_aliases: dict[str, str] = {}
         self.answer_hashes: dict = {}
         self.answers: dict = {}
         self.initial_variables: dict | None = None
@@ -88,16 +90,6 @@ class _Record:
 
     def __init__(self) -> None:
         self.status = 602
-
-
-class _Memory:
-    """Stands in for a memory snapshot: the host only projects it to variables."""
-
-    def __init__(self, variables: dict) -> None:
-        self._variables = variables
-
-    def as_variables(self) -> dict:
-        return dict(self._variables)
 
 
 class _Engine:

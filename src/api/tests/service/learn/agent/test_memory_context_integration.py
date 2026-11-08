@@ -17,10 +17,15 @@ from flaskr.service.memory import (
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine
-from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
+from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
-from tests.service.learn.agent.test_memory_integration import _drive, _memory
+from tests.service.learn.agent.test_memory_integration import _drive, _memory, _observer
 
 
 def test_oversized_defined_answer_stays_stored_without_expanding_script(
@@ -102,3 +107,74 @@ def test_oversized_defined_answer_stays_stored_without_expanding_script(
             assert answer not in prompt
             assert "An absent key is unknown here" in prompt
         assert VariableValue.query.filter_by(user_bid=user).count() == 2
+
+
+def test_current_question_answer_is_available_under_legacy_reference_next_lesson(
+    app: Flask,
+) -> None:
+    user, course, first_lesson = (uuid4().hex for _ in range(3))
+    question = "What would you like to learn?"
+    answer = "Geometry"
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        if any(
+            isinstance(part, ToolReturnPart)
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+        ):
+            yield "We will use this in the next lesson."
+            return
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="goal",
+                json_args=json.dumps(
+                    {
+                        "type": "text",
+                        "question": question,
+                        "placeholder": "Share your goal",
+                    }
+                ),
+            )
+        }
+
+    with app.app_context():
+        with unit_of_work():
+            create_user_entity(user_bid=user, identify=user, nickname="Learner")
+        for submitted in (None, answer):
+            list(
+                run_agent.run_agent_lesson(
+                    app,
+                    engine=Engine(FunctionModel(stream_function=model)),
+                    script="?[{{goal}}...Share your goal]",
+                    user_bid=user,
+                    shifu_bid=course,
+                    outline_bid=first_lesson,
+                    user_input=submitted,
+                    iter_turn=_drive,
+                )
+            )
+        db.session.remove()
+        assert [
+            (row.key, row.value)
+            for row in VariableValue.query.filter_by(
+                user_bid=user, shifu_bid=course
+            ).all()
+        ] == [(question, answer)]
+
+        seen: list[str] = []
+        list(
+            run_agent.run_agent_lesson(
+                app,
+                engine=_observer(seen),
+                script="Build on {{goal}} with a practice problem.",
+                user_bid=user,
+                shifu_bid=course,
+                outline_bid=uuid4().hex,
+                iter_turn=_drive,
+            )
+        )
+        assert _memory(seen[0])["goal"] == answer

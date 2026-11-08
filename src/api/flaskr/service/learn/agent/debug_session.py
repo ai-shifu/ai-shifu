@@ -25,6 +25,8 @@ from flaskr.service.learn.agent.rewind import (
 )
 from flaskr.service.learn.learn_dtos import ElementType, RunElementSSEMessageDTO
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.memory.api import is_course_reference
+from markdownflow import normalize_variable_name
 from redis.exceptions import RedisError
 
 if TYPE_CHECKING:
@@ -36,6 +38,37 @@ if TYPE_CHECKING:
 
 # Local development keeps debug state in process; configured Redis never uses this cache.
 cache = InMemoryCacheProvider()
+
+
+def _debug_aliases(raw: object) -> dict[str, str]:
+    """Accept only exact, ordinary question keys in simulated course aliases."""
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        alias: key
+        for alias, key in raw.items()
+        if isinstance(alias, str)
+        and isinstance(key, str)
+        and alias != key
+        and normalize_variable_name(alias) == alias
+        and normalize_variable_name(key) == key
+        and not alias.startswith("sys_")
+        and not key.startswith("sys_")
+        and not is_course_reference(alias)
+        and not is_course_reference(key)
+    }
+
+
+def _visible_debug_variables(
+    session: Session, *, include_lesson: bool = True
+) -> dict[str, object]:
+    """Keep alias reads out of the teacher's displayed memory values."""
+    values = dict(session.user_memory)
+    if include_lesson:
+        values.update(session.memory)
+    return {
+        key: value for key, value in values.items() if key not in session.memory_aliases
+    }
 
 
 @contextmanager
@@ -182,6 +215,7 @@ class DebugSessionStore:
         rewind: RewindPlan | None = None,
         question_ids: list[str] | None = None,
         course_updates: dict[str, str] | None = None,
+        course_aliases: dict[str, str | None] | None = None,
     ) -> None:
         """Save before the runner emits the turn's terminal event."""
         lock = self._write_lock() if self._request_bid is not None else nullcontext()
@@ -198,11 +232,18 @@ class DebugSessionStore:
             # Publish the session this request saved, even if a later request replaces
             # the cache entry before this turn's boundary reaches the adapter.
             snapshot = {
-                "variables": session.all_memory(),
+                "variables": _visible_debug_variables(session),
                 "course_updates": course_updates,
             }
+            if course_aliases:
+                snapshot["course_aliases"] = course_aliases
             if rewind is not None:
-                snapshot["user_variables"] = session.user_memory
+                snapshot["user_variables"] = _visible_debug_variables(
+                    session, include_lesson=False
+                )
+                snapshot["user_aliases"] = _debug_aliases(
+                    rewind.checkpoint.get("memory_aliases") or {}
+                )
             self._committed_variables = json.dumps(snapshot, ensure_ascii=False)
 
     def take_committed_variables(self) -> str | None:
@@ -417,7 +458,7 @@ def stream_debug_preview(
         yield RunElementSSEMessageDTO(
             type="debug_variables",
             event_type="debug_variables",
-            content=json.dumps(session.all_memory(), ensure_ascii=False),
+            content=json.dumps(_visible_debug_variables(session), ensure_ascii=False),
             is_terminal=False,
         )
     yield RunElementSSEMessageDTO(
@@ -444,6 +485,11 @@ def stream_debug_preview(
             script_override=script,
             debug_store=store,
             preview_variables=preview_request.variables,
+            preview_aliases=(
+                _debug_aliases(preview_request.course_aliases)
+                if preview_request.course_aliases is not None
+                else None
+            ),
             reload_generated_block_bid=preview_request.reload_generated_block_bid,
             reload_element_bid=preview_request.reload_element_bid,
         )
@@ -471,7 +517,9 @@ def stream_debug_preview(
                 yield RunElementSSEMessageDTO(
                     type="debug_variables",
                     event_type="debug_variables",
-                    content=json.dumps(saved.all_memory(), ensure_ascii=False),
+                    content=json.dumps(
+                        _visible_debug_variables(saved), ensure_ascii=False
+                    ),
                     is_terminal=False,
                 )
         if message.type == "done":
