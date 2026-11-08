@@ -211,7 +211,6 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
                     by_alias=True,
                     exclude={
                         "labelled_by_engine",
-                        "binding_alias",
                         "question_owns_memory",
                         "structured_correction",
                     },

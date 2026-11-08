@@ -13,17 +13,14 @@ The portable engine retains its optional default and unrestricted recording
 instructions for other hosts; system and tool instructions select the same policy. The existing
 profile writer and the session's unit of work remain responsible for persistence.
 
-The model supplies the complete `question` for each answer interaction. An
-accepted answer is course memory under that exact question, including exercises
-without a declared binding. Reusing the exact question updates its current
-answer. Navigation and confirmation clicks do not record answers. Legacy
-questions and answers keep their original storage keys and history.
-
-A leading `?[{{key}} ...]` binding can remain a reference to the new question's
-answer. The runtime associates an alias only when the authored control identifies
-it unambiguously. Aliases are scoped to the learner and course, are stored with
-the answer, and do not duplicate it. Deleting the answer also makes the alias
-unavailable. Existing explicit percent-prefixed declarations remain compatible.
+The model supplies `question` for each answer interaction. The text inside
+a leading `?[{{key}} ...]` binding is the exact question and storage key, even
+when it is a short label. A later `{{key}}` reference reads that same entry.
+For exercises without a binding, the model supplies the question from the
+lesson prose or context. Reusing the exact question updates the current
+answer. Navigation and confirmation clicks do not record answers. Existing
+percent-prefixed declarations have the same meaning. Earlier questions and
+answers keep their original storage keys and history.
 
 For writes through `remember`, a key declared by a leading binding in the main
 script is eligible. Briefs, reference documents, ordinary `{{key}}` references,

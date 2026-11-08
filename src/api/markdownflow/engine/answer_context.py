@@ -92,15 +92,19 @@ def _authored_answer_scope(
     # Multiline or inline controls cannot establish exact standalone boundaries.
     if len(questions) != len(controls):
         return None
+    question_key = spec.source_question or spec.variable
     matches = [
         i
         for i, (_, q) in enumerate(controls)
         if q.text
         and not any(c.strip() for c in q.choices)
         and q.placeholder == spec.placeholder
-        and q.variable
-        == (spec.binding_alias if spec.question_owns_memory else spec.variable)
+        and (
+            q.variable == question_key
+            or (spec.question_owns_memory and q.variable is None)
+        )
     ]
+    matches = [i for i in matches if controls[i][1].variable == question_key] or matches
     if len(matches) != 1:
         return None
     index = matches[0]
@@ -125,10 +129,10 @@ def _authored_answer_scope(
     # Do not re-render variables from a newer memory snapshot or reinsert an old
     # fact near the current answer. A resolved answer's own binding is a declaration.
     substitution_text = section
-    if spec.question_owns_memory and spec.binding_alias is not None:
+    if spec.question_owns_memory and controls[index][1].variable is not None:
         binding_start = anchor + 2 - start
         binding = read_interaction_variable(section[binding_start:])
-        if binding is not None and binding.name == spec.binding_alias:
+        if binding is not None and binding.name == question_key:
             substitution_text = (
                 section[:binding_start] + section[binding_start + binding.end :]
             )

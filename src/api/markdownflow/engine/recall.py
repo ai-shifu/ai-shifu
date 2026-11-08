@@ -10,7 +10,6 @@ from pydantic_ai import (
 )
 
 from .direction import FeedbackReview  # noqa: TC001 - Runtime tool schema annotation.
-from .memory import resolve_memory_aliases
 from .tools import LESSON_OVER, Deps, recall_exclusions, validate_direction_call
 
 RECALL_RESULT_BYTES = 8192
@@ -53,9 +52,7 @@ async def recall(
         return LESSON_OVER
     if offset < 0 or (key is not None and offset != 0):
         return _encode({"status": "invalid_offset"})
-    memory = resolve_memory_aliases(
-        {**ctx.deps.user_memory, **ctx.deps.memory}, ctx.deps.memory_aliases
-    )
+    memory = {**ctx.deps.user_memory, **ctx.deps.memory}
     excluded = recall_exclusions(ctx.deps)
     if key is not None:
         if key in excluded or key not in memory:

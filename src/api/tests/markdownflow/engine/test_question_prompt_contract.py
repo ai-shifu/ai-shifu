@@ -12,7 +12,6 @@ from markdownflow.engine import (
     InteractionResponseTurn,
     MemoryUpdated,
     Session,
-    ToolResult,
 )
 from pydantic_ai.messages import ModelMessage, RetryPromptPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
@@ -21,18 +20,16 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 @pytest.mark.anyio
 @pytest.mark.parametrize("listen_mode", [False, True])
 @pytest.mark.parametrize("render", ["sandbox", "none"])
-@pytest.mark.parametrize("binding", ["question", "legacy-key", "none"])
+@pytest.mark.parametrize("binding", ["question", "short-label", "none", "mixed"])
 async def test_question_is_shown_before_controls_and_keys_the_answer(
     listen_mode: bool, render: Literal["sandbox", "none"], binding: str
 ) -> None:
     """Keep the model's question prose ahead of the controls and use its key for storage."""
-    question = "Which examples match?"
+    question = (
+        "matching_examples" if binding == "short-label" else "Which examples match?"
+    )
     teaching = "Compare the examples."
-    prefix = {
-        "question": f"{{{{ {question} }}}} ",
-        "legacy-key": "{{matching_examples}} ",
-        "none": "",
-    }[binding]
+    prefix = f"{{{{ {question} }}}} " if binding in ("question", "short-label") else ""
     options = [{"display": "A", "value": "a"}, {"display": "B", "value": "b"}]
     calls = 0
 
@@ -41,15 +38,6 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         nonlocal calls
         calls += 1
-        if calls == 2 and binding == "legacy-key":
-            yield {
-                0: DeltaToolCall(
-                    name="recall",
-                    tool_call_id="recall-old-binding",
-                    json_args=json.dumps({"key": "matching_examples"}),
-                )
-            }
-            return
         if calls > 1:
             yield "Those examples match."
             return
@@ -61,9 +49,7 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         assert "question" in schema["properties"]
         assert "question" in schema["required"]
         assert not {"prompt", "variable"}.intersection(schema["properties"])
-        assert "ask the complete question in visible Markdown prose" in (
-            info.instructions or ""
-        )
+        assert "ask the question in visible Markdown prose" in (info.instructions or "")
         yield f"{teaching}\n\n{question}"
         yield {
             0: DeltaToolCall(
@@ -85,9 +71,10 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         memory_admission=True,
         memory_recall=True,
     )
-    session = await engine.new_session(
-        f"{teaching}\n?[{prefix}A//a || B//b]", listen_mode=listen_mode
-    )
+    script = f"{teaching}\n?[{prefix}A//a || B//b]"
+    if binding == "mixed":
+        script += "\n?[{{extra_examples}} A//a || B//b]"
+    session = await engine.new_session(script, listen_mode=listen_mode)
     events = [event async for event in engine.run_turn(session)]
     assert not any(event.type == "error" for event in events)
     (interaction,) = [e for e in events if isinstance(e, InteractionRequest)]
@@ -114,15 +101,140 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         (question, "a, b")
     ]
     assert session.memory == {question: "a, b"}
-    if binding == "legacy-key":
-        assert [
-            json.loads(e.content)
-            for e in events
-            if isinstance(e, ToolResult) and e.name == "recall"
-        ] == [{"status": "found", "value": "a, b"}]
-        restored = Session.loads(session.dumps())
-        assert restored.memory == {question: "a, b"}
-        assert restored.all_memory()["matching_examples"] == "a, b"
+    restored = Session.loads(session.dumps())
+    assert restored.all_memory() == {question: "a, b"}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "wrong_question", ["What would you like to learn?", "Learning goal"]
+)
+@pytest.mark.parametrize("competing_control", [False, True])
+@pytest.mark.parametrize("placeholder", ["Share your goal", None])
+async def test_bound_control_retries_rewritten_question_with_localized_or_omitted_hint(
+    wrong_question: str, competing_control: bool, placeholder: str | None
+) -> None:
+    """The bound label itself is the visible question and the only key for its answer."""
+    question = "learning_goal"
+    attempts = 0
+
+    async def model(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 3:
+            yield "Continue teaching."
+            return
+        if attempts == 2:
+            assert any(
+                isinstance(part, RetryPromptPart)
+                and part.tool_name == "interact"
+                and question in str(part.content)
+                for part in messages[-1].parts
+            )
+        assert "Do not translate a question written in a leading {{...}} binding" in (
+            info.instructions or ""
+        )
+        wording = wrong_question if attempts == 1 else question
+        yield wording
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"attempt-{attempts}",
+                json_args=json.dumps(
+                    {
+                        "type": "text",
+                        "question": wording,
+                        "placeholder": placeholder,
+                    }
+                ),
+            )
+        }
+
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        output_language="en-US",
+        buffer_model_responses=True,
+        memory_admission=True,
+    )
+    lesson = "?[{{ learning_goal }}...请分享学习目标]"
+    if competing_control:
+        lesson += "\n?[{{ learning_pace }}...请分享学习目标]"
+    session = await engine.new_session(lesson)
+    events = [event async for event in engine.run_turn(session)]
+    (interaction,) = [e for e in events if isinstance(e, InteractionRequest)]
+    assert interaction.id == "attempt-2"
+    assert "".join(e.text for e in events if isinstance(e, ContentDelta)) == question
+    events = [
+        e
+        async for e in engine.run_turn(session, InteractionResponseTurn(text="Graphs"))
+    ]
+    assert [(e.key, e.value) for e in events if isinstance(e, MemoryUpdated)] == [
+        (question, "Graphs")
+    ]
+    assert session.all_memory() == {question: "Graphs"}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("trusted", "authored", "accepted"),
+    [(True, True, True), (True, False, False), (False, True, False)],
+)
+async def test_reserved_question_requires_a_trusted_exact_authored_control(
+    trusted: bool,
+    authored: bool,
+    accepted: bool,
+) -> None:
+    """An allowlist cannot authorize an unbound use of a host-owned key."""
+    question = "sys_user_nickname"
+    attempts = 0
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 2:
+            if not accepted:
+                assert any(
+                    isinstance(part, RetryPromptPart)
+                    and "reserved" in str(part.content)
+                    for part in messages[-1].parts
+                )
+            yield "Continue teaching."
+            return
+        yield question
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="nickname",
+                json_args=json.dumps(
+                    {"type": "text", "question": question, "placeholder": "Nickname"}
+                ),
+            )
+        }
+
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        allowed_authored_question_keys=frozenset({question})
+        if trusted
+        else frozenset(),
+        memory_admission=True,
+    )
+    binding = f"{{{{ {question} }}}}" if authored else ""
+    session = await engine.new_session(f"?[{binding}...Nickname]")
+    events = [event async for event in engine.run_turn(session)]
+    assert not any(event.type == "error" for event in events)
+    assert bool(session.pending) is accepted
+    if accepted:
+        _ = [
+            e
+            async for e in engine.run_turn(
+                session, InteractionResponseTurn(text="Learner")
+            )
+        ]
+    assert session.memory == ({question: "Learner"} if accepted else {})
 
 
 @pytest.mark.anyio

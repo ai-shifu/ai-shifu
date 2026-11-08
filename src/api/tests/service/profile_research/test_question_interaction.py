@@ -32,9 +32,9 @@ def test_question_only_tool_records_canonical_answers_and_keeps_nickname_private
     batched: bool,
 ) -> None:
     question = "What would you like to learn?"
-    nickname_question = "How should I address you?"
+    nickname_question = SYS_USER_NICKNAME
     session = _session(
-        "?[{{learning_goal}}...Share your goal]\n\n"
+        f"?[{{{{ {question} }}}}...Share your goal]\n\n"
         f"?[{{{{{SYS_USER_NICKNAME}}}}}...Enter your nickname]"
     )
 
@@ -87,7 +87,6 @@ def test_question_only_tool_records_canonical_answers_and_keeps_nickname_private
     final = run_profile_turn(session, {nickname_question: ["Learner"]}, model)
     assert final.input_accepted
     assert session.variables == {question: "Algebra", nickname_question: "Learner"}
-    assert session.variable("learning_goal") == "Algebra"
     assert _collected_nickname(session) == "Learner"
     assert profile_answer_evidence(session) == [
         {
