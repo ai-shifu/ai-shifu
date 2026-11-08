@@ -35,7 +35,7 @@ response. Preserve earlier named answers, short references and pending turns.
 - [x] 2026-11-08 09:35 UTC: Verified review fixes for question visibility,
   pending structured feedback, retained system bindings, navigation values,
   and text-input repair. The engine suite and repository checks passed.
-- [ ] 2026-11-08 09:54 UTC: Verify follow-up review fixes for indented bindings,
+- [x] 2026-11-08 09:55 UTC: Verified follow-up review fixes for indented bindings,
   authored control identification, and returning to an interaction slide.
 
 ## Surprises & Discoveries
@@ -64,6 +64,9 @@ authored question text distinguishes otherwise identical bound controls.
   created a control outside the script. Authored controls still match by
   input kind and stored options when the hint changes. Generated controls
   cannot use an authored binding or opt out of a Profile questionnaire.
+- 2026-11-08: Preserve question text as optional revisit metadata so learners
+  can identify the answer when opening an existing listen or classroom slide.
+  The model's prose remains the original question and source of audio.
 
 ## Outcomes & Retrospective
 

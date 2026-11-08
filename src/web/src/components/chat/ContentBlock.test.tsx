@@ -244,7 +244,7 @@ it('keeps question metadata out of reading output when it arrives later', () => 
   view.rerender(
     <ContentBlock
       {...props}
-      item={{ ...item, payload: { interaction_question: 'Q?' } }}
+      item={{ ...item, payload: { interaction_revisit_question: 'Q?' } }}
     />,
   );
   expect(screen.getByTestId('course-content').textContent).toBe(
