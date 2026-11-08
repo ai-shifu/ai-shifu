@@ -46,8 +46,9 @@ const replaceCurrentUrl = (url: URL) => {
     return;
   }
 
+  // Let the App Router copy its own history state and notify useSearchParams.
   window.history.replaceState(
-    window.history.state,
+    null,
     '',
     `${url.pathname}${url.search}${url.hash}`,
   );
