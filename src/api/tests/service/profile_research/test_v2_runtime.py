@@ -140,19 +140,28 @@ def _run(
     )
 
 
-def test_question_first_content_replays_and_pending_reload_keeps_its_identity() -> None:
+@pytest.mark.parametrize(
+    ("question", "display_question"),
+    [
+        ("Your goal?", "Your goal?"),
+        ("Compare *literal* and <tag>?", r"Compare \*literal\* and \<tag\>?"),
+    ],
+)
+def test_pending_reload_restores_question_before_the_same_controls(
+    question: str, display_question: str
+) -> None:
     calls = 0
 
     async def script(_messages: list[ModelMessage], info: AgentInfo) -> StreamChunks:
         nonlocal calls
         calls += 1
         assert "ask the question in visible Markdown prose" in (info.instructions or "")
-        yield "Your goal?"
+        yield display_question
         yield {
             0: DeltaToolCall(
                 name="interact",
                 tool_call_id="goal",
-                json_args='{"type":"text","question":"Your goal?"}',
+                json_args=json.dumps({"type": "text", "question": question}),
             )
         }
 
@@ -165,16 +174,23 @@ def test_question_first_content_replays_and_pending_reload_keeps_its_identity() 
     assert interaction["interaction_id"] == "goal"
     assert interaction["content"].startswith("?[")
     assert any(
-        event["event_type"] == "content" and event["content"] == "Your goal?"
+        event["event_type"] == "content" and event["content"] == display_question
         for event in opening
     )
     assert _run(runtime, view, index=0) == opening
     assert calls == 1
     reloaded = _run(runtime, view, request_id="reload")
     (pending,) = [event for event in reloaded if event["event_type"] == "interaction"]
+    (restored_question,) = [
+        event
+        for event in reloaded
+        if event["event_type"] == "content" and event["is_final"]
+    ]
+    assert restored_question["content"] == display_question
+    assert reloaded.index(restored_question) < reloaded.index(pending)
     assert pending["interaction_id"] == "goal"
     assert pending["content"] == interaction["content"]
-    assert not any(event["event_type"] == "content" for event in reloaded)
+    assert _run(runtime, view, index=1, request_id="reload") == reloaded
     assert calls == 1
 
 

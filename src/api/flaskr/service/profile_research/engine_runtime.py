@@ -64,6 +64,9 @@ profile privately afterward; do not publish a profile draft or a summary of priv
 """.strip()
 _ACCEPTED_ANSWER_PREFIXES = ("Learner wrote: ", "Learner chose: ")
 _CONFIRM_ANSWER_PREFIX = "Learner pressed continue."
+_QUESTION_PROSE_ESCAPES = str.maketrans(
+    {char: "\\" + char for char in r"\`*_{}[]<>()#+-.!|&~$="}
+)
 
 
 @dataclass
@@ -240,11 +243,14 @@ def run_profile_turn(
         raise ProfileResearchError(msg)
     if working.pending and not user_input:
         pending = working.pending[0]
-        chunks = (
-            _content_chunks([pending.spec.question])
-            if pending.spec.structured_correction
-            else []
-        )
+        question = pending.spec.question
+        chunks = []
+        if question.strip() and pending.spec.type != "confirm":
+            chunks = (
+                _content_chunks([question])
+                if pending.spec.structured_correction
+                else [ProfileChunk(content=question.translate(_QUESTION_PROSE_ESCAPES))]
+            )
         chunks.append(_pending_chunk(pending))
         return ProfileTurnResult(chunks=chunks, reason="interaction")
     if user_input and not working.pending:
