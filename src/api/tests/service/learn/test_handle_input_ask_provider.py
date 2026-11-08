@@ -5,6 +5,7 @@ import sys
 import types
 
 import pytest
+from flaskr.service.shifu.consts import ASK_MODE_DEFAULT
 
 from tests.common.fixtures.model_factories import (
     make_generated_block,
@@ -143,6 +144,7 @@ class _DummyFollowUpInfo:
     def __init__(self, ask_provider_config: object) -> None:
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}::{knowledge_section}"
         self.ask_model = "gpt-test"
+        self.ask_mode = ASK_MODE_DEFAULT
         self.model_args = {"temperature": 0.2}
         self.ask_provider_config = ask_provider_config
 
@@ -243,7 +245,9 @@ def test_live_follow_up_is_rejected_before_legacy_text_path_side_effects(
     monkeypatch.setattr(
         module,
         "get_follow_up_info_v2",
-        lambda *_args, **_kwargs: types.SimpleNamespace(ask_model=model),
+        lambda *_args, **_kwargs: types.SimpleNamespace(
+            ask_model=model, ask_mode=ASK_MODE_DEFAULT
+        ),
     )
     monkeypatch.setattr(
         module,

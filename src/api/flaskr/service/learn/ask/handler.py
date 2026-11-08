@@ -64,6 +64,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.shifu.ask_provider_registry import get_effective_ask_provider_config
 from flaskr.service.shifu.consts import (
+    ASK_MODE_DISABLE,
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
 )
@@ -227,6 +228,8 @@ def handle_input_ask(
         is_preview,
         **struct_options,
     )
+    if follow_up_info.ask_mode == ASK_MODE_DISABLE:
+        raise_param_error("follow_up")
     if is_live_follow_up_model(follow_up_info.ask_model):
         # Live voice has a dedicated authenticated WebSocket transport. The
         # legacy text/SSE path must never invoke it through LiteLLM or create a

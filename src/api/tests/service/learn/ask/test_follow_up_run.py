@@ -25,7 +25,12 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_NOT_STARTED,
 )
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
+from flaskr.service.shifu.consts import (
+    ASK_MODE_DEFAULT,
+    ASK_MODE_DISABLE,
+    ASK_MODE_ENABLE,
+    BLOCK_TYPE_MDASK_VALUE,
+)
 from flaskr.service.shifu.models import DraftShifu, PublishedOutlineItem, PublishedShifu
 
 from tests.common.fixtures.model_factories import (
@@ -155,6 +160,50 @@ def test_answers_at_the_learners_position(
         trace = ask_runtime.traces[-1]["trace_payload"]
         assert trace["metadata"]["scene"] == "lesson_runtime"
         assert trace["metadata"]["outline_item_bid"] == course.outline_bid
+
+
+@pytest.mark.parametrize("disabled_at", ["course", "lesson"])
+def test_published_follow_up_disabled_before_provider_or_history(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+    disabled_at: str,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        with unit_of_work():
+            published_course = PublishedShifu.query.filter_by(
+                shifu_bid=course.course_bid
+            ).one()
+            published_lesson = PublishedOutlineItem.query.filter_by(
+                outline_item_bid=course.outline_bid
+            ).one()
+            published_course.ask_enabled_status = (
+                ASK_MODE_DISABLE if disabled_at == "course" else ASK_MODE_ENABLE
+            )
+            published_lesson.ask_enabled_status = (
+                ASK_MODE_DISABLE if disabled_at == "lesson" else ASK_MODE_DEFAULT
+            )
+        _progress(course, position=0)
+
+        with pytest.raises(AppError) as error:
+            _ask(app, course)
+
+        assert error.value.code == ERROR_CODE["server.common.paramsError"]
+        assert (
+            ask_runtime.calls.guardrails
+            == ask_runtime.calls.providers
+            == ask_runtime.calls.llm
+            == []
+        )
+        assert not LearnGeneratedBlock.query.filter_by(
+            user_bid=course.user_bid,
+            shifu_bid=course.course_bid,
+            outline_item_bid=course.outline_bid,
+        ).count()
 
 
 def test_an_anchored_question_is_asked_at_the_anchor_block(
