@@ -355,6 +355,14 @@ def authored_interaction_questions(script_text: str) -> tuple[_Question, ...]:
     return tuple(_script_questions(script_text))
 
 
+def _authored_choice_values(question: _Question) -> list[str]:
+    return [
+        _unescape(_split_unescaped(choice, "//")[:2][-1].strip())
+        for choice in question.choices
+        if choice.strip()
+    ]
+
+
 def _authored_controls_match(
     authored: _Question,
     kind: InteractionType,
@@ -363,11 +371,7 @@ def _authored_controls_match(
     *,
     ignore_placeholder: bool = False,
 ) -> bool:
-    choices = [
-        _unescape(_split_unescaped(choice, "//")[:2][-1].strip())
-        for choice in authored.choices
-        if choice.strip()
-    ]
+    choices = _authored_choice_values(authored)
     if choices != [option.stored for option in options]:
         return False
     hint_matches = ignore_placeholder or placeholder in (
@@ -405,6 +409,20 @@ def _authored_binding(
                 item, kind, options, placeholder, ignore_placeholder=True
             )
         ]
+    if options and (not matches or question):
+        repaired = [
+            item
+            for item in deps.script_text_inputs
+            if (
+                candidate := _script_text_input_candidate(
+                    item, kind, options, placeholder
+                )
+            )
+            is not None
+            and len(candidate[1]) < len(options)
+        ]
+        if not matches or any(item.variable == question for item in repaired):
+            matches.extend(repaired)
     exact = [item for item in matches if question and question == item.variable]
     preceding = [
         item for item in matches if question and question == item.preceding_line
@@ -417,28 +435,56 @@ def _authored_binding(
         and bool(matches)
         and names == {None}
         and not any(
-            item.preceding_line.endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
+            item.text
+            or item.preceding_line.endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
             for item in matches
         )
-        and options[0].stored.casefold()
-        in {
-            "continue",
-            "go on",
-            "next",
-            "next question",
-            "next step",
-            "next lesson",
-            "i understand",
-            "i'm ready",
-            "继续",
-            "下一题",
-            "下一步",
-            "下一节",
-            "我明白了",
-            "我准备好了",
-        }
     )
     return names, navigation
+
+
+def _script_text_input_candidate(
+    question: _Question,
+    kind: InteractionType,
+    options: list[Option],
+    placeholder: str | None,
+) -> tuple[InteractionType, list[Option], str | None] | None:
+    kinds = (
+        ("multi", "multi_or_text")
+        if question.multi
+        else ("single", "single_or_text", "text")
+    )
+    if kind not in kinds:
+        return None
+    authored = _authored_choice_values(question)
+    hint = question.placeholder or ""
+    forms = {hint, question.written_placeholder or hint}
+    extras = {
+        marker + value
+        for marker in ("", "...")
+        for value in forms
+        if marker + value not in authored
+    }
+    display_hints = {
+        hint
+        if option.display in forms or option.display.removeprefix("...") in forms
+        else option.display.removeprefix("...")
+        for option in options
+        if option.stored in extras
+    }
+    if placeholder not in (None, "", *forms, *display_hints):
+        return None
+    if [option.stored for option in options] == authored:
+        return kind, options, placeholder
+    remaining = [option for option in options if option.stored not in extras]
+    if [option.stored for option in remaining] != authored or len(display_hints) != 1:
+        return None
+    # The duplicate's stable value identifies its display, including localized hints.
+    restored_hint = next(iter(display_hints))
+    if not restored_hint.strip():
+        return None
+    mixed: InteractionType = "multi_or_text" if question.multi else "single_or_text"
+    return mixed if authored else "text", remaining, restored_hint
 
 
 def normalize_script_text_input(
@@ -469,63 +515,16 @@ def normalize_script_text_input(
         if len(hints) == 1 and (hint := next(iter(hints))):
             return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
-    submitted = [o.stored for o in spec.options]
     for question in authored_inputs:
-        kinds = (
-            ("multi", "multi_or_text")
-            if question.multi
-            else ("single", "single_or_text", "text")
+        control = _script_text_input_candidate(
+            question, spec.type, spec.options, spec.placeholder
         )
-        if spec.type not in kinds:
+        if control is None:
             continue
-        authored: list[str] = []
-        for choice in question.choices:
-            if not choice.strip():
-                continue
-            halves = [
-                _unescape(half.strip()) for half in _split_unescaped(choice, "//")[:2]
-            ]
-            authored.append(halves[1] if len(halves) > 1 else halves[0])
-        hint = question.placeholder or ""
-        forms = {hint, question.written_placeholder or hint}
-        extras = {
-            marker + value
-            for marker in ("", "...")
-            for value in forms
-            if marker + value not in authored
-        }
-        duplicate_hints = [o for o in spec.options if o.stored in extras]
-        display_hints = {
-            hint
-            if o.display in forms or o.display.removeprefix("...") in forms
-            else o.display.removeprefix("...")
-            for o in duplicate_hints
-        }
-        if spec.placeholder not in (None, "", *forms, *display_hints):
-            continue
-        remaining = [value for value in submitted if value not in extras]
-        if submitted == authored:
-            candidate = spec
-        elif remaining == authored and len(remaining) < len(submitted):
-            # A stable hint value identifies its translated display. Do not restore
-            # an authored-language placeholder over it or guess between translations.
-            if len(display_hints) != 1:
-                continue
-            restored_hint = next(iter(display_hints))
-            if not restored_hint.strip():
-                continue
-            kind: InteractionType = (
-                "multi_or_text" if question.multi else "single_or_text"
-            )
-            candidate = spec.model_copy(
-                update={
-                    "type": kind if authored else "text",
-                    "options": [o for o in spec.options if o.stored not in extras],
-                    "placeholder": restored_hint,
-                }
-            )
-        else:
-            continue
+        kind, options, placeholder = control
+        candidate = spec.model_copy(
+            update={"type": kind, "options": options, "placeholder": placeholder}
+        )
         candidates[candidate.model_dump_json()] = candidate
     return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
@@ -1081,7 +1080,8 @@ async def interact(
         structured_correction=direction is not None and not legacy_call,
         source_question=source_question,
     )
-    spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
+    if legacy_call or owns_memory:
+        spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
         if direction.answer_id not in ctx.deps.direction_sections:

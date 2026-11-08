@@ -21,8 +21,12 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("prelude", [None, "incorrect", "clarification submission"])
+@pytest.mark.parametrize(
+    ("label", "value"),
+    [("Next question", "next"), ("Begin practice", "begin_practice")],
+)
 async def test_authored_navigation_waits_for_click_after_answer_and_reload(
-    reload: bool, prelude: str | None
+    reload: bool, prelude: str | None, label: str, value: str
 ) -> None:
     """Check policy delivery and pending controls, including non-selection messages."""
     calls = 0
@@ -60,7 +64,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
             spec = {
                 "type": "single",
                 "question": "",
-                "options": [{"display": "Next question", "value": "next"}],
+                "options": [{"display": label, "value": value}],
             }
         else:
             assert calls == (4 if correcting else 3)
@@ -79,7 +83,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
         }
 
     engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
-    script = "First question?\n?[...Answer]\nExplain the accepted answer.\n?[Next question//next]\nSecond question?\n?[...Answer two]"
+    script = f"First question?\n?[...Answer]\nExplain the accepted answer.\n?[{label}//{value}]\nSecond question?\n?[...Answer two]\n?[{{{{practice_feedback}}}}...{value}]\n?[...{value}]"
     session = await engine.new_session(script)
     await _events(engine.run_turn(session))
     if correcting:
@@ -107,7 +111,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     assert len(interactions) == 1
     assert session.pending[0].spec.type == "single"
     assert not session.pending[0].spec.question
-    assert session.pending[0].spec.options[0].stored == "next"
+    assert session.pending[0].spec.options[0].stored == value
     before = calls
     await _events(engine.run_turn(session, ContinueTurn()))
     assert calls == before
@@ -130,9 +134,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     events = await _events(
         engine.run_turn(
             session,
-            InteractionResponseTurn(
-                id=session.pending[0].tool_call_id, values=["next"]
-            ),
+            InteractionResponseTurn(id=session.pending[0].tool_call_id, values=[value]),
         )
     )
     assert "Second question?" in "".join(
