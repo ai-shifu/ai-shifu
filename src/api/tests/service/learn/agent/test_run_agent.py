@@ -3328,6 +3328,86 @@ def test_narrated_controls_with_authored_hints_or_choices_stay_exact(span: str) 
     assert _interactions(events) == [span]
 
 
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("inside_memory", [False, True])
+def test_answer_control_waits_for_question_outside_echoed_memory_across_recall(
+    app: object, inside_memory: bool
+) -> None:
+    """The actual Course filter keeps a memory block open across a model tool result."""
+    import json
+
+    from flaskr.service.learn.agent.echoed_memory import strip_echoed_memory
+    from markdownflow.engine import Engine
+    from pydantic_ai.messages import RetryPromptPart
+    from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+    question = "Which example applies here?"
+    attempts = 0
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            yield '<memory>\n{"goal":"learn"}\n'
+            yield {
+                0: DeltaToolCall(
+                    name="recall", json_args='{"key":"goal"}', tool_call_id="read"
+                )
+            }
+            return
+        if attempts == 2 and inside_memory:
+            yield f"{question}\n</memory>\n"
+        elif attempts == 2:
+            yield f"</memory>\n\n{question}"
+        else:
+            assert attempts == 3
+            assert any(
+                isinstance(part, RetryPromptPart) and part.tool_name == "interact"
+                for part in messages[-1].parts
+            )
+            yield question
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"question-{attempts}",
+                json_args=json.dumps({"type": "text", "question": question}),
+            )
+        }
+
+    response = list(
+        run_agent.run_agent_lesson(
+            app,
+            engine=Engine(
+                FunctionModel(stream_function=stream),
+                render="none",
+                memory_recall=True,
+                question_text_filter=strip_echoed_memory,
+                legacy_interact_args=False,
+            ),
+            script="Review the examples, then ask which applies.",
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+        )
+    )
+
+    (interaction,) = [
+        event for event in response if event.type == GeneratedType.INTERACTION
+    ]
+    before = response[: response.index(interaction)]
+    assert (
+        "".join(
+            str(event.content)
+            for event in before
+            if event.type == GeneratedType.CONTENT
+        ).strip()
+        == question
+    )
+    assert attempts == (3 if inside_memory else 2)
+
+
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("disconnect", [False, True])
 @pytest.mark.parametrize("prefix", [False, True])

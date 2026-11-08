@@ -1212,6 +1212,7 @@ class Engine:
         shown: list[str] = []
         response_index = 0
         shown_response = 0
+        shown_response_start = 0
         after_pause = False
         history_saved = False
         was_interrupted = session.interrupted
@@ -1252,9 +1253,11 @@ class Engine:
 
         def _out(text: str, response: int) -> list[Event]:
             """Deliver text and track what this turn has sent to the learner."""
-            nonlocal delivered, shown_response
-            if shown and response != shown_response:
-                text = _response_separator(shown, text) + text
+            nonlocal delivered, shown_response, shown_response_start
+            if response != shown_response:
+                shown_response_start = len(shown)
+                if shown:
+                    text = _response_separator(shown, text) + text
             shown_response = response
             delivered += _visible_length(text)
             said.append("".join(text.split()))
@@ -1263,6 +1266,28 @@ class Engine:
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
+
+        def _question_context(text: str) -> str:
+            # A host filter can keep a block open across tool hops. Replay the
+            # delivered prefix with the candidate, excluding this response's
+            # streamed text because the tool may precede part of that text.
+            prefix = (
+                shown[:shown_response_start]
+                if shown_response == response_index
+                else shown
+            )
+            if holding:
+                buffered = [
+                    chunk for response, chunk in held if response != response_index
+                ]
+                if buffered and text:
+                    text = _response_separator([*prefix, *buffered], text) + text
+                text = _after_the_repeat([*buffered, text], previous)
+            separator = _response_separator(prefix, text) if prefix and text else ""
+            return "".join(prefix) + separator + text
+
+        if self.question_text_filter is not None:
+            deps.question_text_context = _question_context
 
         def _release_held(remaining: str) -> list[Event]:
             """Release the retained suffix without losing its response boundaries."""

@@ -80,6 +80,7 @@ class Deps:
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
     question_text_filter: Callable[[str], str] | None = None
+    question_text_context: Callable[[str], str] | None = None
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in MarkdownFlow notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
@@ -822,6 +823,8 @@ class _QuestionHTMLVisibility(HTMLParser):
 
 def _question_prose(deps: Deps, text: str) -> str:
     """Read visible Markdown prose after applying the host's content filter."""
+    if deps.question_text_context is not None:
+        text = deps.question_text_context(text)
     if deps.question_text_filter is not None:
         text = deps.question_text_filter(text)
     html = _QuestionHTMLVisibility()
