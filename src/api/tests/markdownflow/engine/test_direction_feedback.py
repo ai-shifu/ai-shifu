@@ -202,16 +202,17 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
 
 
 @pytest.mark.anyio
-async def test_question_contract_keeps_guiding_question_and_its_answer_together() -> (
-    None
-):
+@pytest.mark.parametrize("indent", [None, 0, 1, 2, 3])
+async def test_question_contract_keeps_guiding_question_and_its_answer_together(
+    indent: int | None,
+) -> None:
     """Render the structured guidance once and store the answer to that exact question."""
     original_question = "What must happen before a program executes?"
     answer = "The processor fetches the instruction from memory."
     calls = 0
 
     async def model(
-        _messages: list[ModelMessage], _info: AgentInfo
+        _messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         nonlocal calls
         calls += 1
@@ -226,6 +227,7 @@ async def test_question_contract_keeps_guiding_question_and_its_answer_together(
                 "original",
             )
         elif calls == 2:
+            assert '"status":"authored_section"' in (info.instructions or "")
             yield _call(
                 {
                     "type": "text",
@@ -243,7 +245,11 @@ async def test_question_contract_keeps_guiding_question_and_its_answer_together(
         memory_admission=True,
         legacy_interact_args=False,
     )
-    session = await engine.new_session(SCRIPT)
+    script = SCRIPT
+    if indent is not None:
+        control = f"{' ' * indent}?[{{{{ {original_question} }}}}...Answer]"
+        script = SCRIPT.replace("?[...Answer]", control)
+    session = await engine.new_session(script)
     await _collect(engine.run_turn(session))
     events = await _collect(
         engine.run_turn(session, InteractionResponseTurn(id="original", text=WRONG))
