@@ -129,6 +129,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
             audio=None,
             previous_visuals=[],
             interaction_question=event.interaction_question,
+            interaction_revisit_question=event.interaction_revisit_question,
         )
         content_text = (
             event.content
