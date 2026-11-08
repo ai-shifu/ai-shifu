@@ -398,7 +398,7 @@ def _authored_binding(
     placeholder: str | None,
     *,
     allow_different_hint: bool = False,
-) -> tuple[set[str | None], bool]:
+) -> tuple[set[str | None], bool, bool]:
     matches = [
         item
         for item in deps.script_questions
@@ -423,13 +423,15 @@ def _authored_binding(
             for item in deps.script_text_inputs
             if (
                 candidate := _script_text_input_candidate(
-                    item, kind, options, placeholder
+                    item, kind, options, placeholder, restore_missing_input=True
                 )
             )
             is not None
-            and len(candidate[1]) < len(options)
+            and (candidate[0] != kind or len(candidate[1]) < len(options))
         ]
-        if not matches or any(item.variable == question for item in repaired):
+        if not matches or any(
+            question in (item.variable, item.preceding_line) for item in repaired
+        ):
             matches.extend(repaired)
     exact = [item for item in matches if question and question == item.variable]
     preceding = [
@@ -448,7 +450,7 @@ def _authored_binding(
             for item in matches
         )
     )
-    return names, navigation
+    return names, navigation, bool(matches) and all(item.text for item in matches)
 
 
 def _script_text_input_candidate(
@@ -456,6 +458,8 @@ def _script_text_input_candidate(
     kind: InteractionType,
     options: list[Option],
     placeholder: str | None,
+    *,
+    restore_missing_input: bool = False,
 ) -> tuple[InteractionType, list[Option], str | None] | None:
     kinds = (
         ("multi", "multi_or_text")
@@ -482,7 +486,10 @@ def _script_text_input_candidate(
     }
     if placeholder not in (None, "", *forms, *display_hints):
         return None
+    mixed: InteractionType = "multi_or_text" if question.multi else "single_or_text"
     if [option.stored for option in options] == authored:
+        if restore_missing_input and authored:
+            return mixed, options, placeholder or hint
         return kind, options, placeholder
     remaining = [option for option in options if option.stored not in extras]
     if [option.stored for option in remaining] != authored or len(display_hints) != 1:
@@ -491,20 +498,22 @@ def _script_text_input_candidate(
     restored_hint = next(iter(display_hints))
     if not restored_hint.strip():
         return None
-    mixed: InteractionType = "multi_or_text" if question.multi else "single_or_text"
     return mixed if authored else "text", remaining, restored_hint
 
 
 def normalize_script_text_input(
     spec: InteractionSpec,
     questions: tuple[_Question, ...],
+    *,
+    restore_missing_input: bool = False,
 ) -> InteractionSpec:
     """Restore a missing text hint or remove its duplicate generated choice.
 
     The remaining stored values must be the author's exact ordered choices; display text
     may be translated. A hint stored as a real choice or a model-created value is kept.
     Text-only questions must match the copied prompt and the same variable.
-    Ambiguous questions and unrelated explicit placeholders are left unchanged.
+    Restore an entirely missing input only after the caller rules out a matching
+    plain choice. Ambiguous questions and unrelated explicit placeholders stay unchanged.
     """
     if spec.generated_control:
         return spec
@@ -527,7 +536,11 @@ def normalize_script_text_input(
     candidates: dict[str, InteractionSpec] = {}
     for question in authored_inputs:
         control = _script_text_input_candidate(
-            question, spec.type, spec.options, spec.placeholder
+            question,
+            spec.type,
+            spec.options,
+            spec.placeholder,
+            restore_missing_input=restore_missing_input,
         )
         if control is None:
             continue
@@ -994,6 +1007,7 @@ async def interact(
     legacy_call = prompt is not None
     source_question = None
     owns_memory = False
+    restore_missing_input = False
     if legacy_call:
         question = prompt or ""
         if variable is not None and not variable.strip():
@@ -1028,7 +1042,7 @@ async def interact(
                 raise ModelRetry(message)
             authored_questions, navigation = set(), False
         else:
-            authored_questions, navigation = _authored_binding(
+            authored_questions, navigation, restore_missing_input = _authored_binding(
                 ctx.deps,
                 type,
                 question,
@@ -1147,7 +1161,11 @@ async def interact(
         source_question=source_question,
     )
     if legacy_call or owns_memory:
-        spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
+        spec = normalize_script_text_input(
+            spec,
+            ctx.deps.script_text_inputs,
+            restore_missing_input=restore_missing_input,
+        )
     direction_text = direction.render() if direction is not None else ""
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
