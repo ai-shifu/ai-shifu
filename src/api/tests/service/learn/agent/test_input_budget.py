@@ -257,6 +257,7 @@ async def test_oversized_pending_answer_survives_snapshot_and_successful_retry(
     def chat(**kwargs: object) -> Iterator[FakeChunk]:
         seen.append(kwargs["messages"])
         if len(seen) == 1:
+            yield FakeChunk(result=f"{question}\n")
             yield FakeChunk(
                 tool_call_deltas=[
                     {

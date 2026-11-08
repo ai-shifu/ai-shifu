@@ -239,35 +239,62 @@ async def test_reserved_question_requires_a_trusted_exact_authored_control(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("listen_mode", [False, True])
-async def test_tool_question_does_not_generate_missing_prose(listen_mode: bool) -> None:
-    """The tool's memory key cannot add text or narration that the model did not write."""
-    teaching = "Review the examples."
+@pytest.mark.parametrize("bound", [False, True])
+@pytest.mark.parametrize("failure", ["no-prose", "unrelated", "hidden", "after-tool"])
+async def test_answer_controls_wait_for_visible_question_prose(
+    listen_mode: bool, bound: bool, failure: str
+) -> None:
+    """Retry a questionless response before publishing its input."""
     question = "Which example applies here?"
+    attempts = 0
 
     async def model(
-        _messages: list[ModelMessage], _info: AgentInfo
+        messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
-        yield teaching
+        nonlocal attempts
+        attempts += 1
+        assert "ask the question in visible Markdown prose" in (info.instructions or "")
+        if attempts == 2:
+            assert any(
+                isinstance(part, RetryPromptPart) and part.tool_name == "interact"
+                for part in messages[-1].parts
+            )
+            yield f"**{question}**"
+        elif failure == "unrelated":
+            yield "Review the examples."
+        elif failure == "hidden":
+            yield f"<!-- {question} -->"
         yield {
             0: DeltaToolCall(
                 name="interact",
-                tool_call_id="example",
-                json_args=json.dumps({"type": "text", "question": question}),
+                tool_call_id=f"example-{attempts}",
+                json_args=json.dumps(
+                    {"type": "text", "question": question, "placeholder": "Answer"}
+                ),
             )
         }
+        if attempts == 1 and failure == "after-tool":
+            yield question
 
-    engine = Engine(FunctionModel(stream_function=model))
-    session = await engine.new_session("Discuss the examples.", listen_mode=listen_mode)
+    engine = Engine(FunctionModel(stream_function=model), buffer_model_responses=True)
+    binding = f"{{{{{question}}}}}" if bound else ""
+    session = await engine.new_session(
+        f"?[{binding}...Answer]", listen_mode=listen_mode
+    )
     events = [event async for event in engine.run_turn(session)]
     assert not any(event.type == "error" for event in events)
     (interaction,) = [
         event for event in events if isinstance(event, InteractionRequest)
     ]
+    assert interaction.id == "example-2"
     assert interaction.spec.question == question
     text_event = "narration.delta" if listen_mode else "content.delta"
-    assert (
-        "".join(event.text for event in events if event.type == text_event) == teaching
+    visible_before = "".join(
+        event.text
+        for event in events[: events.index(interaction)]
+        if event.type == text_event
     )
+    assert visible_before == (question if listen_mode else f"**{question}**")
 
 
 @pytest.mark.anyio

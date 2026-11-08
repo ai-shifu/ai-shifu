@@ -30,6 +30,7 @@ def test_failed_total_budget_keeps_named_answer_and_retry_evidence_in_database(
     def chat(**kwargs: object) -> Iterator[FakeChunk]:
         seen.append(kwargs["messages"])
         if len(seen) == 1:
+            yield FakeChunk(result=f"{question}\n")
             yield FakeChunk(
                 tool_call_deltas=[
                     {

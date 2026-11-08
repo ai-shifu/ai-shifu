@@ -3345,8 +3345,10 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     import json
 
     from flaskr.service.learn.agent import session_store
+    from flaskr.service.learn.agent.echoed_memory import strip_echoed_memory
     from markdownflow import bridge
     from markdownflow.engine import Engine
+    from pydantic_ai.messages import RetryPromptPart
     from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
     rule = "First give one checking direction, one aspect per round."
@@ -3356,10 +3358,11 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
         "?[...Answer]\n### Acceptance\n" + criterion + "\n?[Next]\n"
     )
     wrong = "A program executes without prior memory storage."
+    original_question = "What must happen before a program runs?"
     question = "Where does the processor obtain its first instruction?"
     rendered = "> " + wrong + "\n\n" + question
-    if filter_buffered:
-        rendered = "<memory>\n" + question
+    first_correction = 3 if prefix else 2
+    valid_correction = first_correction + int(filter_buffered)
     requests = 0
     learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
     lesson = f"direction-lesson-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
@@ -3372,13 +3375,15 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     )
 
     async def stream(
-        _messages: list[ModelMessage], _info: AgentInfo
+        messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         """Return a validated direction, then accept the complete restored correction."""
         nonlocal requests
         requests += 1
-        args = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        args = {"type": "text", "question": original_question, "placeholder": "Answer"}
         call_id = "original"
+        if requests == 1:
+            yield original_question
         if requests == 2 and prefix:
             yield "Review submitted evidence.\n\n"
             yield {
@@ -3387,7 +3392,16 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
                 )
             }
             return
-        if requests == (3 if prefix else 2):
+        if first_correction <= requests <= valid_correction:
+            hidden = requests < valid_correction
+            if filter_buffered and not hidden:
+                assert any(
+                    isinstance(part, RetryPromptPart)
+                    and "visible Markdown prose" in str(part.content)
+                    for part in messages[-1].parts
+                )
+            guiding_question = f"<memory>{question}</memory>" if hidden else question
+            args["question"] = guiding_question
             args["direction"] = {
                 "answer_id": "original",
                 "rule_quote": rule,
@@ -3396,17 +3410,16 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
                 "focuses": [
                     {
                         "criterion_quote": criterion,
-                        "submission_quote": None if filter_buffered else wrong,
+                        "submission_quote": wrong,
                         "observed_issue": "Your answer denies prior storage.",
-                        "guiding_question": ("<memory>\n" if filter_buffered else "")
-                        + question,
+                        "guiding_question": guiding_question,
                     }
                 ],
             }
-            call_id = "correction"
-        elif requests == (4 if prefix else 3):
+            call_id = "hidden" if hidden else "correction"
+        elif requests == valid_correction + 1:
             yield "Accepted."
-            args = {"type": "single", "prompt": "", "options": [{"display": "Next"}]}
+            args = {"type": "single", "question": "", "options": [{"display": "Next"}]}
             call_id = "next"
         yield {
             0: DeltaToolCall(
@@ -3419,7 +3432,11 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
         return run_agent.run_agent_lesson(
             app,
             engine=Engine(
-                FunctionModel(stream_function=stream), render="none", memory_recall=True
+                FunctionModel(stream_function=stream),
+                render="none",
+                memory_recall=True,
+                question_text_filter=strip_echoed_memory,
+                legacy_interact_args=False,
             ),
             script=script,
             user_bid=learner,
@@ -3433,9 +3450,8 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     calls.clear()
     response = run(wrong)
     for event in response:
-        if event.type == GeneratedType.CONTENT and (
-            question if filter_buffered else wrong
-        ) in str(event.content):
+        assert event.type != GeneratedType.INTERACTION
+        if event.type == GeneratedType.CONTENT and wrong in str(event.content):
             break
     else:
         pytest.fail("No visible validated feedback")
@@ -3462,7 +3478,7 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     accepted = session_store.load_agent_session(app, learner, lesson)
     assert accepted is not None
     assert accepted.pending[0].tool_call_id == "next"
-    assert requests == (4 if prefix else 3)
+    assert requests == valid_correction + 1
 
 
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])

@@ -130,9 +130,8 @@ independent character whitelists. The Python library and vendored engine run
 the same conformance corpus. Assignment and reference markers share name
 recognition; option separators are parsed after the complete assignment marker.
 A `]`, `|`, `//` or `...` inside that marker is key content, not an interaction
-operator. An interaction's variable name is not its displayed
-question: write the learner-facing question separately when exact wording is
-required.
+operator. In MarkdownFlow 2.0, the binding text also supplies the displayed
+question. MarkdownFlow 1.0 authors write the learner-facing question separately.
 
 The wider rule intentionally recognizes some markers that older parsers
 treated as plain text, including names with internal spaces. Existing ordinary

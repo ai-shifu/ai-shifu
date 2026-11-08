@@ -42,7 +42,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Mapping
+    from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 
     from flaskr.api.markdownflow import (
         Event,
@@ -134,10 +134,24 @@ def _interaction_problem(
     ):
         return (
             "Use one of the authored questionnaire interactions. Preserve its input type, "
-            "variable binding and complete ordered stored option values; only localize "
-            "display labels and question wording."
+            "exact question from the leading binding and complete ordered stored option "
+            "values. Localize display labels and input hints."
         )
     return None
+
+
+def _content_chunks(content: Iterable[str]) -> list[ProfileChunk]:
+    pager = LessonPager(clean_markers=True)
+    chunks = [
+        ProfileChunk(content=value, type=kind, number=number)
+        for text in content
+        for value, kind, number in pager.add(text)
+    ]
+    chunks.extend(
+        ProfileChunk(content=value, type=kind, number=number)
+        for value, kind, number in pager.flush()
+    )
+    return chunks
 
 
 def _pending_chunk(pending: PendingInteraction) -> ProfileChunk:
@@ -222,9 +236,14 @@ def run_profile_turn(
         msg = "MarkdownFlow 2.0 cannot resume the saved profile question"
         raise ProfileResearchError(msg)
     if working.pending and not user_input:
-        return ProfileTurnResult(
-            chunks=[_pending_chunk(working.pending[0])], reason="interaction"
+        pending = working.pending[0]
+        chunks = (
+            _content_chunks([pending.spec.question])
+            if pending.spec.structured_correction
+            else []
         )
+        chunks.append(_pending_chunk(pending))
+        return ProfileTurnResult(chunks=chunks, reason="interaction")
     if user_input and not working.pending:
         msg = "MarkdownFlow 2.0 has no profile question to answer"
         raise ProfileResearchValidationError(msg)
@@ -294,17 +313,7 @@ def run_profile_turn(
         msg = "MarkdownFlow 2.0 did not accept the submitted profile answer"
         raise ProfileResearchError(msg)
 
-    chunks: list[ProfileChunk] = []
-    pager = LessonPager(clean_markers=True)
-    for text in content:
-        chunks.extend(
-            ProfileChunk(content=value, type=kind, number=number)
-            for value, kind, number in pager.add(text)
-        )
-    chunks.extend(
-        ProfileChunk(content=value, type=kind, number=number)
-        for value, kind, number in pager.flush()
-    )
+    chunks = _content_chunks(content)
     if working.pending:
         # Native Engine retains every deferred call. Only the first unanswered one
         # is visible; the next answer resumes it without discarding sibling calls.
