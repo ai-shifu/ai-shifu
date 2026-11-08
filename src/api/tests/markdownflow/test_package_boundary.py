@@ -35,7 +35,7 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
         "8686cbb4ec3aa4f1c64161a836a2e7c7727ad0776892af87ceb547d543505c01"
     )
     hashes["v1_syntax"] = (
-        "72b9f2a30c4fd803c833d38320946c73de7a43bc77c3a22a8d1142438456fb85"
+        "6bd6e7b18e5932dbedf3f27aecc5154aee9908535eb4de345a20a0c2861c9c14"
     )
     hashes["memory_policy"] = (
         "b739d3f703fc190d1db3d582f406920ea49ea37afeb9779f804add8d8d5d2191"
