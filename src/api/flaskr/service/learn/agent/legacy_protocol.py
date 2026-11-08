@@ -60,18 +60,13 @@ def translate(
 
     if isinstance(event, InteractionRequest):
         question, controls = render_question(event.spec)
-        title = question if question.strip() else None
-        # Current questions are asked in the model's prose. Keep a separate
-        # title for a learner returning to the control without that context.
-        revisit_title = title if event.spec.question_owns_memory else None
         return [
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 type=GeneratedType.INTERACTION,
                 content=controls,
-                interaction_question=None if revisit_title else title,
-                interaction_revisit_question=revisit_title,
+                interaction_question=question if question.strip() else None,
             )
         ]
 

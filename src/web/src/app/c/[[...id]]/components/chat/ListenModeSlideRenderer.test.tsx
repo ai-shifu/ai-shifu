@@ -1019,31 +1019,34 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps).not.toHaveProperty('playerTexts');
   });
 
-  it.each(['listen', 'classroom'] as const)(
-    'uses each interaction question as its title when navigating %s history',
-    variant => {
+  it.each([
+    ['listen', false],
+    ['classroom', false],
+    ['listen', true],
+    ['classroom', true],
+  ] as const)(
+    'uses each interaction question as its title in %s with history %s',
+    (variant, isHistory) => {
       const items: ChatContentItem[] = [
         {
           element_bid: 'first-question',
           type: 'interaction',
           content: '?[A | B]',
-          isHistory: true,
+          isHistory,
           payload: { interaction_question: 'Q?' },
         },
         {
           element_bid: 'second-question',
           type: 'interaction',
           content: '?[C | D]',
-          isHistory: true,
-          payload: {
-            interaction_revisit_question: 'Which example comes second?',
-          },
+          isHistory,
+          payload: { interaction_question: 'Which example comes second?' },
         },
         {
           element_bid: 'legacy-question',
           type: 'interaction',
           content: '?[E | F]',
-          isHistory: true,
+          isHistory,
         },
       ];
       render(
@@ -1087,89 +1090,6 @@ describe('ListenModeSlideRenderer', () => {
         });
         expect(getProps().interactionTexts.title).toBe(expectedTitle);
       }
-    },
-  );
-
-  it.each([
-    ['listen', 'revisit'],
-    ['classroom', 'revisit'],
-    ['listen', 'timeline'],
-  ] as const)(
-    'restores the live question in %s after %s navigation',
-    (variant, navigation) => {
-      const question = 'Which example comes second?';
-      const items: ChatContentItem[] = [
-        {
-          element_bid: 'question-prose',
-          type: 'content',
-          content: question,
-          is_marker: true,
-        },
-        {
-          element_bid: 'question-input',
-          type: 'interaction',
-          content: '?[C | D]',
-          payload: { interaction_revisit_question: question },
-        },
-      ];
-      render(
-        <ListenModeSlideRenderer
-          items={items}
-          mobileStyle={false}
-          chatRef={createChatRef()}
-          variant={variant}
-        />,
-      );
-
-      const getProps = () =>
-        getMockSlide().mock.calls.at(-1)?.[0] as {
-          elementList: Array<{
-            blockBid: string;
-            is_marker: boolean;
-            type: string;
-            content: string;
-          }>;
-          interactionTexts: { title: string };
-          onStepChange: (element: unknown, index: number) => void;
-          onSlideProgressNavigate: (element: unknown, index: number) => void;
-        };
-      const showStep = (bid: string, direct = false) => {
-        const props = getProps();
-        const steps = props.elementList.filter(element => element.is_marker);
-        const index = steps.findIndex(element => element.blockBid === bid);
-        expect(index).toBeGreaterThanOrEqual(0);
-        act(() => {
-          if (direct) {
-            props.onSlideProgressNavigate(steps[index], index);
-          }
-          props.onStepChange(steps[index], index);
-        });
-      };
-
-      if (navigation === 'revisit') {
-        showStep('question-prose');
-        showStep('question-input');
-        showStep('question-input');
-        expect(getProps().interactionTexts.title).toBe(
-          'module.chat.listenInteractionHint',
-        );
-
-        showStep('question-prose');
-        showStep('question-input');
-      } else {
-        showStep('question-input', true);
-      }
-      expect(getProps().interactionTexts.title).toBe(question);
-      const interaction = getProps().elementList.find(
-        item => item.type === 'interaction',
-      );
-      expect(interaction).toEqual(
-        expect.objectContaining({ content: '?[C | D]' }),
-      );
-      expect(interaction).not.toHaveProperty('audio_url');
-      expect(
-        getProps().elementList.filter(item => item.content === question),
-      ).toHaveLength(1);
     },
   );
 

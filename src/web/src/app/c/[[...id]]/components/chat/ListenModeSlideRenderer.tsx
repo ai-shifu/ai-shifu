@@ -90,7 +90,6 @@ import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/us
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
   interaction_question?: string;
-  interaction_revisit_question?: string;
   page?: number;
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
@@ -112,13 +111,6 @@ const SYSTEM_PROFILE_VARIABLE_NAMES = new Set([
   'sys_user_language',
   'sys_user_background',
 ]);
-
-const getInteractionQuestion = (question?: string) => {
-  const trimmed = typeof question === 'string' ? question.trim() : '';
-  return trimmed && !SYSTEM_PROFILE_VARIABLE_NAMES.has(trimmed)
-    ? question
-    : undefined;
-};
 
 const CLASSROOM_PAGE_SHORTCUT_KEY_MAP: Record<
   string,
@@ -538,7 +530,6 @@ const buildListenSlideElementFingerprint = (element: ListenSlideElement) =>
     page: element.page,
     user_input: element.user_input,
     interaction_question: element.interaction_question,
-    interaction_revisit_question: element.interaction_revisit_question,
     readonly: element.readonly,
     audio_url: element.audio_url,
     audio_segments: element.audio_segments,
@@ -723,12 +714,8 @@ const buildSlideElementList = ({
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
     const hasResolvedUserInput = Boolean(currentUserInput.trim());
     const isSystemInteraction = isSystemInteractionContent(item.content);
-    const question = isSystemInteraction
-      ? undefined
-      : getInteractionQuestion(item.payload?.interaction_question);
-    const revisitQuestion = isSystemInteraction
-      ? undefined
-      : getInteractionQuestion(item.payload?.interaction_revisit_question);
+    const question = item.payload?.interaction_question;
+    const trimmedQuestion = typeof question === 'string' ? question.trim() : '';
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
     const askList = askListByAnchorElementBid.get(item.element_bid);
@@ -744,8 +731,11 @@ const buildSlideElementList = ({
       type: 'interaction',
       content: localizedContent,
       interaction_question:
-        question ?? (item.isHistory ? revisitQuestion : undefined),
-      interaction_revisit_question: revisitQuestion,
+        !isSystemInteraction &&
+        trimmedQuestion &&
+        !SYSTEM_PROFILE_VARIABLE_NAMES.has(trimmedQuestion)
+          ? question
+          : undefined,
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,
       is_new: item.is_new ?? true,
@@ -884,9 +874,6 @@ const ListenModeSlideRenderer = ({
   const [fullscreenPortalContainer, setFullscreenPortalContainer] =
     useState<HTMLElement | null>(null);
   const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
-  const lastViewedStepBidRef = useRef('');
-  const viewedInteractionBidsRef = useRef(new Set<string>());
-  const [revisitedInteractionBid, setRevisitedInteractionBid] = useState('');
   const [playerCustomActionState, setPlayerCustomActionState] =
     useState<PlayerCustomActionState>({
       currentElement: undefined,
@@ -1254,14 +1241,8 @@ const ListenModeSlideRenderer = ({
     variant,
   ]);
   const handleSlideProgressNavigate = useCallback(
-    (element: SlideElement | undefined, targetStepIndex: number) => {
+    (_element: unknown, targetStepIndex: number) => {
       pendingKeyboardNavigationRef.current = null;
-      const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
-      if (element?.type === 'interaction' && blockBid) {
-        // A direct timeline jump can bypass the question's preceding prose.
-        viewedInteractionBidsRef.current.add(blockBid);
-        setRevisitedInteractionBid(blockBid);
-      }
       if (variant !== 'listen' || previewMode || !shifuBid) {
         return;
       }
@@ -1944,16 +1925,6 @@ const ListenModeSlideRenderer = ({
       if (blockBid && blockBid !== 'empty-ppt') {
         setCurrentStepBlockBid(blockBid);
       }
-      if (blockBid && blockBid !== lastViewedStepBidRef.current) {
-        lastViewedStepBidRef.current = blockBid;
-        const isInteraction = element?.type === 'interaction';
-        const isRevisit =
-          isInteraction && viewedInteractionBidsRef.current.has(blockBid);
-        if (isInteraction) {
-          viewedInteractionBidsRef.current.add(blockBid);
-        }
-        setRevisitedInteractionBid(isRevisit ? blockBid : '');
-      }
 
       setPlaybackState(prevState => {
         if (
@@ -2587,9 +2558,6 @@ const ListenModeSlideRenderer = ({
           interactionTexts={{
             title:
               currentMarkerStepElement?.interaction_question ??
-              (currentMarkerStepElement?.blockBid === revisitedInteractionBid
-                ? currentMarkerStepElement.interaction_revisit_question
-                : undefined) ??
               t('module.chat.listenInteractionHint'),
           }}
           bufferingText={{
