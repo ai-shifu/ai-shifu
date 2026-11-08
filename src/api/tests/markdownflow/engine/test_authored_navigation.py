@@ -11,6 +11,7 @@ from markdownflow.engine import (
     ErrorEvent,
     InteractionRequest,
     InteractionResponseTurn,
+    MemoryUpdated,
     MessageTurn,
     Session,
 )
@@ -21,12 +22,13 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("prelude", [None, "incorrect", "clarification submission"])
+@pytest.mark.parametrize("nav_question", ["", "Ready to proceed?"])
 @pytest.mark.parametrize(
     ("label", "value"),
     [("Next question", "next"), ("Begin practice", "begin_practice")],
 )
 async def test_authored_navigation_waits_for_click_after_answer_and_reload(
-    reload: bool, prelude: str | None, label: str, value: str
+    reload: bool, prelude: str | None, nav_question: str, label: str, value: str
 ) -> None:
     """Check policy delivery and pending controls, including non-selection messages."""
     calls = 0
@@ -61,9 +63,11 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
                 in interaction_tool.description
             )
             yield "Correct; here is the required explanation."
+            if nav_question:
+                yield "\n\n" + nav_question
             spec = {
                 "type": "single",
-                "question": "",
+                "question": nav_question,
                 "options": [{"display": label, "value": value}],
             }
         else:
@@ -143,6 +147,52 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     assert session.pending[0].spec.type == "text"
     assert session.pending[0].spec.placeholder == "Answer two"
     assert session.memory == memory
+    assert not any(isinstance(event, MemoryUpdated) for event in events)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("bound", [False, True])
+async def test_an_authored_single_choice_can_still_record_an_answer(
+    bound: bool,
+) -> None:
+    question = "What color is the sky?"
+    script = f"?[{{{{{question}}}}} Blue]" if bound else f"{question}\n?[Blue]"
+    attempts = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal attempts
+        attempts += 1
+        if attempts > 1:
+            yield "Continue teaching."
+            return
+        yield question
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="color",
+                json_args=json.dumps(
+                    {
+                        "type": "single",
+                        "question": question,
+                        "options": [{"display": "Blue"}],
+                    }
+                ),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(script)
+    first = await _events(engine.run_turn(session))
+    (request,) = [event for event in first if isinstance(event, InteractionRequest)]
+    assert request.spec.question == question
+    second = await _events(
+        engine.run_turn(session, InteractionResponseTurn(values=["Blue"]))
+    )
+    assert [
+        (event.key, event.value) for event in second if isinstance(event, MemoryUpdated)
+    ] == [(question, "Blue")]
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:
