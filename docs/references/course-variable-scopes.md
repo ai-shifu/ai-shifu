@@ -71,11 +71,11 @@ internal keys; an unknown system field uses the localized Memory label. Authored
 course questions and legacy custom keys retain their existing text and identity.
 
 Within a course, entries with the same exact key share the current value across
-lessons. For new MarkdownFlow 2.0 answer interactions, the complete question
-shown to the learner is the storage key. Changing that question creates a
-different entry. Old short bindings can resolve to a new answer when the engine
-can uniquely match the authored control. Existing stored entries and original
-answer history keep their identities. See [Learner Memory Admission](../product-specs/learner-memory-admission.md).
+lessons. For a new MarkdownFlow 2.0 answer interaction, the question shown to
+the learner is the storage key. With an authored binding, the text inside the
+braces supplies both, even when it is a short label. Changing the question
+creates a different entry. Existing stored entries and original answer history
+keep their identities. See [Learner Memory Admission](../product-specs/learner-memory-admission.md).
 
 ## Authored memory key names
 
@@ -104,9 +104,10 @@ What would you like to learn?
 Use {{ What would you like to learn? }} to choose a relevant example.
 ```
 
-The existing percent-prefixed form
-`?[%{{ What would you like to learn? }}...Share your goal]` can reference the
-same answer. An existing lesson can still use a historical short binding.
+The percent-prefixed form
+`?[%{{ What would you like to learn? }}...Share your goal]` has the same meaning.
+In `?[{{learning_goal}}...Share your goal]`, the question and key are both
+`learning_goal`, and a later `{{learning_goal}}` reads that answer directly.
 
 Names are case-sensitive and are not normalized. Changing a question or its
 punctuation creates a different key; it does not rename an existing answer.

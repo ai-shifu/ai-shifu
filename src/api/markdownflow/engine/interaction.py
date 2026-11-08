@@ -70,9 +70,10 @@ class InteractionSpec(BaseModel):
         default=None,
         description="Resolved memory key to store the answer under.",
     )
-    binding_alias: str | None = None
     question_owns_memory: bool = False
     structured_correction: bool = False
+    # Feedback may ask a narrower follow-up than the authored input it corrects.
+    source_question: str | None = None
     placeholder: str | None = Field(
         default=None, description="Placeholder for the text box."
     )
@@ -112,9 +113,9 @@ class InteractionSpec(BaseModel):
             # Models do attach a variable to it -- often the one the previous question filled --
             # and pressing continue then overwrites a real answer with the button's label.
             self.variable = None
-            self.binding_alias = None
             self.question_owns_memory = False
             self.structured_correction = False
+            self.source_question = None
         return self
 
 

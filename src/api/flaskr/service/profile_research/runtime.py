@@ -112,7 +112,7 @@ class _RunAdmission:
 
 
 def _collected_nickname(session: _ProfileResearchSession) -> str | None:
-    raw_nickname = session.variable(_NICKNAME_VARIABLE_KEY)
+    raw_nickname = session.variables.get(_NICKNAME_VARIABLE_KEY)
     if isinstance(raw_nickname, str):
         normalized = raw_nickname.strip()
         return normalized or None

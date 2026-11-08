@@ -147,16 +147,14 @@ def get_fmt_prompt(
         str: Fmt prompt.
 
     """
-    keys = extract_variables(profile_tmplate)
     profiles = (
         dict(resolved_profiles)
         if resolved_profiles is not None
-        else load_memory(
-            app, user_id, course_id, reference_keys=tuple(keys)
-        ).as_variables()
+        else load_memory(app, user_id, course_id).as_variables()
     )
     if profile_overrides:
         profiles.update(profile_overrides)
+    keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:
         if key in profiles:

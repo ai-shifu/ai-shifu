@@ -1,7 +1,5 @@
 import { buildDebugContinuationParams } from './debug-request-params';
 import {
-  mergeStoredDebugCourseAliases,
-  readStoredDebugCourseAliases,
   readStoredDebugVariableValues,
   selectDebugVariableValues,
 } from './debug-variable-storage';
@@ -643,91 +641,6 @@ describe('useDebugSession helpers and business error rendering', () => {
       },
     );
 
-    test('sends the saved canonical answer and legacy alias to the next lesson', async () => {
-      const first = buildMockSseSource();
-      const second = buildMockSseSource();
-      (SSE as jest.Mock)
-        .mockReturnValueOnce(first)
-        .mockReturnValueOnce(second)
-        .mockReturnValueOnce(buildMockSseSource());
-      const { result } = renderHook(() =>
-        useDebugSession({ creditInsufficientAudience: 'teacher' }),
-      );
-      const alias = 'learning_goal';
-      const question = 'What would you like to learn?';
-      const answer = 'Graphs';
-      const run = {
-        shifuBid,
-        outlineBid: 'lesson-1',
-        mdflow: 'Ask a question',
-      };
-      await act(async () => result.current.startRun(run));
-      act(() => {
-        emit(first, {
-          type: 'debug_variables_committed',
-          content: {
-            variables: { [question]: answer, [alias]: 'Legacy copy' },
-            course_updates: { [question]: answer },
-            course_aliases: { [alias]: question },
-          },
-        });
-        emit(first, { type: 'done', is_terminal: true });
-      });
-      expect(result.current.variableValues).toEqual({ [question]: answer });
-      expect(readStoredDebugVariableValues(shifuBid).course).toEqual({
-        [question]: answer,
-      });
-      const aliases = readStoredDebugCourseAliases(shifuBid);
-      expect(aliases).toEqual({ [alias]: question });
-      expect(readStoredDebugCourseAliases('another-course')).toEqual({});
-
-      act(() => result.current.resetSession());
-      await act(async () =>
-        result.current.startRun({
-          ...run,
-          outlineBid: 'lesson-2',
-          mdflow: 'Use {{learning_goal}}',
-          variableValues: selectDebugVariableValues(
-            [alias],
-            readStoredDebugVariableValues(shifuBid),
-            [],
-            aliases,
-          ),
-        }),
-      );
-      expect(
-        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload),
-      ).toMatchObject({
-        variables: { [question]: answer },
-        course_aliases: { [alias]: question },
-      });
-      expect(result.current.variableValues).toEqual({ [question]: answer });
-      act(() =>
-        emit(second, {
-          type: 'debug_variables_committed',
-          content: {
-            variables: { [alias]: 'Direct answer' },
-            course_updates: { [alias]: 'Direct answer' },
-            course_aliases: { [alias]: null },
-          },
-        }),
-      );
-      expect(readStoredDebugCourseAliases(shifuBid)).toEqual({});
-      expect(result.current.variableValues).toEqual({
-        [alias]: 'Direct answer',
-      });
-      await act(async () =>
-        result.current.startRun({
-          ...run,
-          outlineBid: 'lesson-2',
-          courseAliases: {},
-        }),
-      );
-      expect(
-        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload).course_aliases,
-      ).toEqual({});
-    });
-
     test.each([true, false])(
       'carries the saved topic into the next lesson when done is_terminal=%s',
       async isTerminal => {
@@ -1047,8 +960,6 @@ describe('useDebugSession helpers and business error rendering', () => {
   });
 
   describe('Debug answer editing', () => {
-    beforeEach(() => window.localStorage.clear());
-
     const emit = (source: MockSseSource, payload: Record<string, unknown>) => {
       source.listeners.message?.({ data: JSON.stringify(payload) });
     };
@@ -1310,11 +1221,6 @@ describe('useDebugSession helpers and business error rendering', () => {
     test.each(['scoped', 'legacy'])(
       'keeps lesson-only memory out of the next answer after a %s rewind',
       async protocol => {
-        if (protocol === 'scoped') {
-          mergeStoredDebugCourseAliases('course', {
-            discardedAlias: 'Discarded question',
-          });
-        }
         mockParseToRemarkFormat.mockImplementation((content: string) => ({
           variableName: content.includes('nextAnswer')
             ? 'nextAnswer'
@@ -1373,11 +1279,6 @@ describe('useDebugSession helpers and business error rendering', () => {
                   sys_user_language: 'fr-FR',
                 },
                 course_updates: { answer: 'B' },
-                user_aliases: {
-                  earlier: 'earlierAnswer',
-                  retired: 'lessonNote',
-                },
-                course_aliases: { retired: null, replacement: 'answer' },
               },
             });
           }
@@ -1398,11 +1299,6 @@ describe('useDebugSession helpers and business error rendering', () => {
         const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
         expect(request.reload_generated_block_bid).toBeUndefined();
         expect(request.user_input).toEqual({ nextAnswer: ['Next response'] });
-        expect(request.course_aliases).toEqual(
-          protocol === 'scoped'
-            ? { earlier: 'earlierAnswer', replacement: 'answer' }
-            : undefined,
-        );
         expect(request.variables).toEqual({
           ...(protocol === 'scoped'
             ? { earlierAnswer: 'Keep me', answer: 'B' }

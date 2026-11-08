@@ -29,15 +29,16 @@ response. Preserve earlier named answers, short references and pending turns.
 - [x] 2026-11-08 09:07 UTC: Verified model-first question delivery, with no
   generated question or duplicate title from tool arguments. Passed 3,507
   engine and Profile tests, 379 course-host tests, and repository checks.
+- [x] 2026-11-08 09:20 UTC: Replaced alias matching and persistence with exact
+  authored question text. Added regressions for identical controls, localized
+  and omitted input hints, and direct recall of an older course answer.
 
 ## Surprises & Discoveries
 
 The old title was not rendered in reading mode. Simply renaming the field
 would leave readers reliant on a separately generated question. The current
-runtime also serializes raw calls and pending controls independently.
-Two legacy bindings can have identical controls. Match the exact authored
-question where possible. If the source cannot distinguish them, store the
-answer under the question without assigning a short alias by guesswork.
+runtime also serializes raw calls and pending controls independently. Exact
+authored question text distinguishes otherwise identical bound controls.
 
 ## Decision Log
 
@@ -46,14 +47,15 @@ answer under the question without assigning a short alias by guesswork.
 - 2026-11-08: The model asks each ordinary question in prose before calling the
   tool with the same wording. The engine sends the controls without creating
   a question or panel title from the call. Historical question metadata retains
-  its display treatment. Course memory keeps one answer under the question
-  and uses old declared keys only as aliases.
+  its display treatment.
+- 2026-11-08: The text inside an authored binding is the question and storage
+  key, even when it is a short label. Remove the unreleased alias table and
+  use exact keys across courses, Profile, and editor Debug.
 
 ## Outcomes & Retrospective
 
-Local acceptance passed. The engine and Profile suite passed 3,507 tests. The
-editor Debug checks passed 83 tests and TypeScript validation. Remote CI and
-rollout remain separate from local acceptance.
+The engine uses the text inside the binding as the question and memory key.
+Explicit references can read earlier course answers by their original text.
 
 ## Context and Orientation
 
@@ -69,8 +71,9 @@ streams and writes admitted course memory with its existing transaction.
 2. Prompt the model to ask the question before the controls. Keep structured
    correction feedback and authored navigation boundaries. Use options for
    new navigation labels.
-3. Record accepted course answers under the question and resolve historical
-   aliases at read time. Keep system profile and other course scopes separate.
+3. Record accepted course answers under the exact question, including the
+   literal text of an authored binding. Keep system profile and other course
+   scopes separate.
 4. Migrate Profile evidence, update canonical guidance, and verify all paths.
 
 ## Concrete Steps
@@ -83,15 +86,15 @@ after updating the plan and canonical references.
 
 A new answer call without `question` is rejected. The model's question appears
 before the controls, and an accepted answer is recorded under that exact
-question. An old short reference resolves to the new answer without creating
-an extra answer. Continue and navigation clicks do not update memory. Legacy
+question. A bound short label is used verbatim in prose, the tool call, and
+the memory key. Continue and navigation clicks do not update memory. Legacy
 sessions and Profile evidence continue to restore and resume.
 
 ## Idempotence and Recovery
 
 Do not rewrite historical tool history or answers. Read old and new stored
-shapes during the transition. Persist course memory and aliases in the same
-transaction as the accepted turn. Alias reads must not recreate deleted answers.
+shapes during the transition. Persist course memory in the accepted turn's
+existing transaction. The released schema needs no migration for this change.
 
 ## Interfaces and Dependencies
 

@@ -87,8 +87,6 @@ class MemoryUpdated(BaseModel):
     type: Literal["memory.updated"] = "memory.updated"
     key: str
     value: Any
-    alias: str | None = None
-    question_owns_memory: bool = False
     scope: Literal["session", "user"] = "session"
     source: Literal["tool", "interaction"] = "tool"
 

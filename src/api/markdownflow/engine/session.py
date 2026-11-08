@@ -19,7 +19,6 @@ from pydantic_ai.messages import (
 )
 
 from .interaction import DEFAULT_CONFIRM_LABEL, InteractionSpec
-from .memory import resolve_memory_aliases
 from .script import ScriptBundle
 
 
@@ -73,7 +72,6 @@ class Session:
     listen_mode: bool = False
     messages: list[ModelMessage] = field(default_factory=list)
     memory: dict[str, Any] = field(default_factory=dict)  # session scope
-    memory_aliases: dict[str, str] = field(default_factory=dict)
     answer_hashes: dict[str, str] = field(default_factory=dict)
     # Host-supplied memory deletion generations this session's memory reflects.
     memory_generations: dict[str, int] = field(default_factory=dict)
@@ -104,9 +102,7 @@ class Session:
 
     def all_memory(self) -> dict[str, Any]:
         """Merge user-scoped memory with this session's own, session winning."""
-        return resolve_memory_aliases(
-            {**self.user_memory, **self.memory}, self.memory_aliases
-        )
+        return {**self.user_memory, **self.memory}
 
     def answered_memory_keys(self) -> frozenset[str]:
         """Identify current copies still owned by an accepted named answer."""
@@ -118,14 +114,7 @@ class Session:
             and answer_fingerprint(self.memory[key]) == digest
         )
 
-    def record_answer(
-        self,
-        key: str,
-        value: str,
-        *,
-        alias: str | None = None,
-        question_owns_memory: bool = False,
-    ) -> None:
+    def record_answer(self, key: str, value: str) -> None:
         """Replace a named-answer copy and its ownership fingerprint together."""
         digest = answer_fingerprint(value)
         if digest is None:
@@ -133,10 +122,6 @@ class Session:
             raise TypeError(message)
         self.memory[key] = value
         self.answer_hashes[key] = digest
-        if question_owns_memory:
-            self.memory_aliases.pop(key, None)
-        if alias and alias != key:
-            self.memory_aliases[alias] = key
 
     def _legacy_answer_hashes(self) -> dict[str, str]:
         """Recover matching answer copies from old persisted host results.
@@ -237,11 +222,6 @@ class Session:
             "script": self.script.to_dict(),
             "messages": json.loads(ModelMessagesTypeAdapter.dump_json(self.messages)),
             "memory": self.memory,
-            **(
-                {"memory_aliases": dict(self.memory_aliases)}
-                if self.memory_aliases
-                else {}
-            ),
             "answer_hashes": dict(self.answer_hashes),
             "memory_generations": dict(self.memory_generations),
             "user_memory": self.user_memory,
@@ -256,7 +236,7 @@ class Session:
                         if p.spec.question_owns_memory
                         else {
                             "question_owns_memory",
-                            "binding_alias",
+                            "source_question",
                             "structured_correction",
                         },
                     ),
@@ -300,7 +280,6 @@ class Session:
                 ModelMessagesTypeAdapter.validate_python(d.get("messages") or [])
             ),
             memory=dict(d.get("memory") or {}),
-            memory_aliases=dict(d.get("memory_aliases") or {}),
             answer_hashes=dict(d.get("answer_hashes") or {}),
             memory_generations={
                 str(key): int(value)
