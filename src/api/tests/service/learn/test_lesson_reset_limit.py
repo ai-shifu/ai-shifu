@@ -8,11 +8,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
-from flaskr.dao.uow import unit_of_work
-from flaskr.service.common.models import AppError
+from flaskr.dao.uow import autonomous_unit_of_work, unit_of_work
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn import learn_funcs
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
-from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
+from flaskr.service.learn.lesson_reset_limit import (
+    get_lesson_reset_status,
+    is_reset_receipt_conflict,
+)
 from flaskr.service.learn.models import LearnLessonResetRecord, LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_IN_PROGRESS,
@@ -25,7 +28,7 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedOutlineItem,
 )
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from tests.common.fixtures.model_factories import make_progress_record
 
@@ -452,6 +455,162 @@ def test_agent_preview_reset_is_recorded_as_uncounted(
     # Nothing live any more: the next preview reset is empty and leaves no row.
     assert reset(app, course, preview_mode=True) is True
     assert len(reset_rows(app, course)) == 1
+
+
+@pytest.mark.parametrize(
+    ("winning_scope", "quota_used_during_conflict"),
+    [
+        ("same", False),
+        ("another-lesson", False),
+        ("another-lesson", True),
+        ("preview", False),
+    ],
+)
+def test_duplicate_reset_receipt_rolls_back_before_checking_the_winner(
+    app: Flask,
+    course: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    winning_scope: str,
+    quota_used_during_conflict: bool,
+) -> None:
+    monkeypatch.setitem(app.config, "LESSON_RESET_LIMIT", 1)
+    request_id = "concurrent-receipt"
+    winning_lesson = (
+        course.other_lesson if winning_scope == "another-lesson" else course.lesson
+    )
+    winning_preview = winning_scope == "preview"
+    if winning_preview:
+        with app.app_context(), unit_of_work():
+            db.session.add(
+                DraftOutlineItem(
+                    shifu_bid=course.bid,
+                    outline_item_bid=course.lesson,
+                    content="Teach a test lesson.",
+                )
+            )
+    assert reset(
+        app,
+        course,
+        lesson=winning_lesson,
+        preview_mode=winning_preview,
+        request_id=request_id,
+    )
+    replacement = start(app, course)
+    replacement_session = start_session(app, course)
+    original_lookup = learn_funcs.find_reset_receipt
+    looked_up_ids = []
+
+    def stale_first_lookup(
+        user_bid: str, receipt_id: str | None
+    ) -> LearnLessonResetRecord | None:
+        looked_up_ids.append(receipt_id)
+        if len(looked_up_ids) == 1:
+            # The first MySQL snapshot can precede the winner's commit.
+            return None
+        if len(looked_up_ids) == 2 and quota_used_during_conflict:
+            # A different reset consumes this lesson's allowance after the failed insert.
+            with autonomous_unit_of_work(app):
+                learn_funcs.record_lesson_reset(
+                    user_bid=course.learner,
+                    shifu_bid=course.bid,
+                    outline_bid=course.lesson,
+                    counted=True,
+                    request_id="intervening-reset",
+                )
+        return original_lookup(user_bid, receipt_id)
+
+    monkeypatch.setattr(learn_funcs, "find_reset_receipt", stale_first_lookup)
+    with app.app_context():
+        if quota_used_during_conflict:
+            with pytest.raises(AppError) as denied:
+                reset(app, course, request_id=request_id)
+            assert denied.value.code == ERROR_CODE["server.learn.resetLimitReached"]
+        else:
+            assert reset(app, course, request_id=request_id)
+    assert len(looked_up_ids) == (2 if winning_scope == "same" else 3)
+    if winning_scope != "same":
+        assert looked_up_ids[-1] is None
+
+    kept_learning = winning_scope == "same" or quota_used_during_conflict
+    assert live_records(app, course) == (replacement if kept_learning else [])
+    rows = reset_rows(app, course)
+    assert (rows[0].outline_item_bid, rows[0].counted, bool(rows[0].preview_mode)) == (
+        winning_lesson,
+        0,
+        winning_preview,
+    )
+    if winning_scope == "same":
+        assert len(rows) == 1
+    else:
+        assert len(rows) == 2
+        assert (rows[1].outline_item_bid, rows[1].counted, rows[1].preview_mode) == (
+            course.lesson,
+            1,
+            0,
+        )
+        assert rows[1].request_id == (
+            "intervening-reset" if quota_used_during_conflict else None
+        )
+    with app.app_context():
+        session = LearnAgentSession.query.filter_by(
+            agent_session_bid=replacement_session
+        ).one()
+        assert session.active_key == (
+            active_key_for(course.learner, course.lesson) if kept_learning else None
+        )
+
+
+@pytest.mark.parametrize("retry", [True, False])
+def test_quota_denial_checks_for_a_concurrent_matching_reset_receipt(
+    app: Flask,
+    course: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    retry: bool,
+) -> None:
+    monkeypatch.setitem(app.config, "LESSON_RESET_LIMIT", 1)
+    start(app, course)
+    assert reset(app, course, request_id="last-reset")
+    replacement = start(app, course)
+    original_lookup = learn_funcs.find_reset_receipt
+    reads = 0
+
+    def stale_first_lookup(
+        user_bid: str, receipt_id: str | None
+    ) -> LearnLessonResetRecord | None:
+        nonlocal reads
+        reads += 1
+        return None if reads == 1 else original_lookup(user_bid, receipt_id)
+
+    monkeypatch.setattr(learn_funcs, "find_reset_receipt", stale_first_lookup)
+    monkeypatch.setattr(
+        learn_funcs,
+        "record_lesson_reset",
+        lambda **_: pytest.fail("Expected quota denial before the receipt insert"),
+    )
+    with app.app_context():
+        if retry:
+            assert reset(app, course, request_id="last-reset")
+        else:
+            with pytest.raises(AppError) as denied:
+                reset(app, course, request_id="another-reset")
+            assert denied.value.code == ERROR_CODE["server.learn.resetLimitReached"]
+    assert reads == 2
+    assert live_records(app, course) == replacement
+    assert [row.counted for row in reset_rows(app, course)] == [1]
+
+
+@pytest.mark.parametrize(
+    ("index", "expected"),
+    [
+        ("learn_lesson_reset_records.uq_learn_lesson_reset_records_request", True),
+        ("learn_lesson_reset_records.PRIMARY", False),
+    ],
+)
+def test_mysql_reset_receipt_conflict_requires_the_request_index(
+    index: str, expected: bool
+) -> None:
+    original = Exception(1062, f"Duplicate entry 'test' for key '{index}'")
+    assert is_reset_receipt_conflict(IntegrityError(None, None, original)) is expected
 
 
 def test_status_stays_open_when_nothing_chargeable_remains(

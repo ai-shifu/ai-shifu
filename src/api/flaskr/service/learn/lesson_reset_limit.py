@@ -1,9 +1,8 @@
 """Limit how many times a learner may reset one lesson.
 
-Usage lives in ``learn_lesson_reset_records``: one row per effective reset, written in
-the same transaction that retires the learning state, so the count can never drift from
-what actually happened. Every function here runs inside the caller's unit of work and
-never commits on its own.
+Usage lives in ``learn_lesson_reset_records``: effective resets write the ledger in
+the same transaction that retires learning state, and accepted empty requests with an
+ID write uncounted receipts. These helpers never commit on their own.
 """
 
 from __future__ import annotations
@@ -24,6 +23,7 @@ from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 
 if TYPE_CHECKING:
     from flask import Flask
+    from sqlalchemy.exc import IntegrityError
 
 
 def get_lesson_reset_limit() -> int:
@@ -91,6 +91,20 @@ def find_reset_receipt(
         LearnLessonResetRecord.user_bid == user_bid,
         LearnLessonResetRecord.request_id == request_id,
     ).first()
+
+
+def is_reset_receipt_conflict(error: IntegrityError) -> bool:
+    """Identify only duplicate keys for a learner's reset request ID."""
+    args = error.orig.args if error.orig is not None else ()
+    if args == (
+        "UNIQUE constraint failed: learn_lesson_reset_records.user_bid, "
+        "learn_lesson_reset_records.request_id",
+    ):
+        return True
+    if len(args) < 2 or args[0] != 1062:
+        return False
+    index = str(args[1]).rpartition(" for key ")[2].strip("'\"`").rsplit(".", 1)[-1]
+    return index == "uq_learn_lesson_reset_records_request"
 
 
 def has_learning_state(user_bid: str, shifu_bid: str, outline_bid: str) -> bool:
