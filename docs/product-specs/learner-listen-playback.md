@@ -30,17 +30,14 @@ For an ordinary answer interaction, the model asks the question in visible
 Markdown prose and then calls `interact` with the same wording in `question`.
 When the control has a leading `{{...}}` binding, that question is the exact
 text inside the braces after trimming leading and trailing whitespace, even
-when it is a short label. The runtime
-uses `question` for the interaction and memory without generating a second
-presentation from the tool arguments. For structured
+when it is a short label. The runtime uses `question` for memory and carries it
+with the interaction as `payload.interaction_question`. For structured
 direction, the runtime presents the guiding question within the structured
 feedback. Confirmation and authored navigation send an empty question. Custom
 navigation labels use the tool options.
 
-Interaction `content` contains only the controls. A new answer slide uses the
-default listen and classroom panel title on its first live presentation. The
-learner receives the question in the model's teaching content. Reading, Debug,
-and Profile also display that content separately from the controls.
+Interaction `content` contains only the controls. Reading, Debug, and Profile
+display the question in the model's teaching content separately from the controls.
 
 Historical `prompt` values remain readable as `payload.interaction_question`
 presentation metadata. Existing saved prose and exact request replay payloads
@@ -53,13 +50,10 @@ or analytics meaning. Question text must never be sent to analytics.
 ## Listen and classroom interaction titles
 
 Listen and classroom modes use a nonblank native `interaction_question` as the
-active interaction panel title for historical tool arguments. A current answer
-stores `interaction_revisit_question` for the panel title when the learner
-returns to an already viewed slide, jumps to it from the timeline, or opens a
-saved slide. Its body shows only
-the controls. Moving to another interaction updates the title, and changing
-only the metadata at the same element ID invalidates the rendered-element
-cache. Answered controls retain their corresponding answer.
+active interaction panel title on first display, timeline navigation, and
+history restore. Its body shows only the controls. Moving to another interaction
+updates the title. Changing only the metadata at the same element ID invalidates
+the rendered-element cache. Answered controls retain their corresponding answer.
 
 Titles display the original question as literal text. HTML and Markdown are not
 executed or rendered as rich content. Missing or blank questions, system
@@ -68,8 +62,8 @@ controls, and questions whose trimmed value is `sys_user_nickname`,
 Short confirmation wording that already labels its button keeps that behavior.
 
 The panel title stays separate from the model's lesson body and audio. Reading
-uses the model's question prose. Revisit metadata follows the existing
-interaction payload and slide navigation contracts.
+uses the model's question prose. The title follows the existing interaction
+payload and slide navigation contracts.
 
 ### `learner_listen_resume_requested`
 

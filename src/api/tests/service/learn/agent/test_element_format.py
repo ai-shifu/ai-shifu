@@ -269,7 +269,6 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
     if current:
         narration += question
     title = question if current else legacy_title
-    title_key = "interaction_revisit_question" if current else "interaction_question"
     controls = (
         f"?[%{{{{ {question} }}}} First | Second]" if current else "?[First | Second]"
     )
@@ -302,11 +301,9 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
     assert _shape(streamed) == _shape(history)
     for elements in (streamed, history):
         interaction = elements[-1]
-        assert getattr(interaction.payload, title_key) == title
+        assert interaction.payload.interaction_question == title
         wire = interaction.__json__()
-        assert wire["payload"][title_key] == title
-        if current:
-            assert "interaction_question" not in wire["payload"]
+        assert wire["payload"]["interaction_question"] == title
         assert wire["content"] == controls
         assert interaction.content == controls
         assert interaction.is_speakable is False
@@ -320,7 +317,7 @@ def test_question_title_survives_stream_and_history_without_becoming_lesson_cont
         _to_sse_data_line(interaction_event).removeprefix("data: ")
     )
     assert serialized_event["content"] == wire["content"]
-    assert serialized_event[title_key] == title
+    assert serialized_event["interaction_question"] == title
     response = make_common_response(LearnElementRecordDTO(elements=history)).get_json()
     assert response["data"]["elements"][-1]["content"] == wire["content"]
     with format_environment.app_context():

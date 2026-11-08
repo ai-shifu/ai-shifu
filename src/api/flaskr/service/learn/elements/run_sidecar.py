@@ -248,7 +248,6 @@ class ListenElementRunSidecarMixin:
             audio=None,
             previous_visuals=[],
             interaction_question=event.interaction_question,
-            interaction_revisit_question=event.interaction_revisit_question,
         )
         if interaction_user_input:
             payload.user_input = interaction_user_input
