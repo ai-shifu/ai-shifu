@@ -536,8 +536,8 @@ included in analytics.
   the current stream with a nonempty `course_updates` map. A qualifying map
   contains at least one server-saved answer or user-scoped memory write.
   MarkdownFlow 2.0 records answers under the complete question even without
-  a declared binding. Navigation, confirmation and alias metadata alone do
-  not qualify. Automatic continuation and an accepted answer edit can qualify
+  a declared binding. Navigation and confirmation do not qualify. Automatic
+  continuation and an accepted answer edit can qualify
   within the same run.
 - Population: Authorized teachers and collaborators using the course editor's
   Debug panel. Exclude optimistic answers, manual panel edits, rewind

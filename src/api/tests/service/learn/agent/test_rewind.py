@@ -116,7 +116,7 @@ def test_answer_ownership_does_not_leak_back_into_an_earlier_checkpoint() -> Non
     assert not session.answered_memory_keys()
 
 
-def test_question_aliases_and_resolved_calls_rewind_with_their_turn() -> None:
+def test_resolved_question_calls_rewind_with_their_turn() -> None:
     session = _session_waiting_on_a_question()
     first = InteractionSpec(type="text", question="What would you like to learn?")
     later = InteractionSpec(type="text", question="What would you learn next?")
@@ -129,11 +129,9 @@ def test_question_aliases_and_resolved_calls_rewind_with_their_turn() -> None:
             )
         )
         session.interaction_specs[call_id] = spec
-        session.memory_aliases["goal"] = spec.question
 
     rewind.restore(session, checkpoint)
 
-    assert session.memory_aliases == {"goal": first.question}
     assert session.interaction_specs == {"first": first}
 
 

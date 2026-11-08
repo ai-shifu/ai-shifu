@@ -289,7 +289,6 @@ def checkpoint_of(session: Session) -> dict[str, Any]:
         "messages": len(session.messages),
         "session_id": state.get("id"),
         "memory": state["memory"],
-        "memory_aliases": state.get("memory_aliases", {}),
         "answer_hashes": state.get("answer_hashes", {}),
         "memory_generations": state.get("memory_generations", {}),
         "pending": state["pending"],
@@ -319,7 +318,6 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     }
     state.update(
         memory=checkpoint.get("memory") or {},
-        memory_aliases=checkpoint.get("memory_aliases") or {},
         interaction_specs={
             call_id: spec
             for call_id, spec in state.get("interaction_specs", {}).items()
@@ -340,7 +338,6 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     restored = SessionClass.from_dict(state)
     session.messages = restored.messages
     session.memory = restored.memory
-    session.memory_aliases = restored.memory_aliases
     session.interaction_specs = restored.interaction_specs
     session.answer_hashes = restored.answer_hashes
     # Restored memory reflects the deletions seen when the checkpoint was taken, so later

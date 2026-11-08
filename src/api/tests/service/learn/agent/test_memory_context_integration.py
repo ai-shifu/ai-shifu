@@ -109,7 +109,7 @@ def test_oversized_defined_answer_stays_stored_without_expanding_script(
         assert VariableValue.query.filter_by(user_bid=user).count() == 2
 
 
-def test_current_question_answer_is_available_under_legacy_reference_next_lesson(
+def test_exact_question_reference_reads_the_answer_from_an_earlier_lesson(
     app: Flask,
 ) -> None:
     user, course, first_lesson = (uuid4().hex for _ in range(3))
@@ -149,7 +149,7 @@ def test_current_question_answer_is_available_under_legacy_reference_next_lesson
                 run_agent.run_agent_lesson(
                     app,
                     engine=Engine(FunctionModel(stream_function=model)),
-                    script="?[{{goal}}...Share your goal]",
+                    script=f"?[{{{{ {question} }}}}...Share your goal]",
                     user_bid=user,
                     shifu_bid=course,
                     outline_bid=first_lesson,
@@ -164,17 +164,34 @@ def test_current_question_answer_is_available_under_legacy_reference_next_lesson
                 user_bid=user, shifu_bid=course
             ).all()
         ] == [(question, answer)]
+        with unit_of_work():
+            db.session.add_all(
+                VariableValue(
+                    variable_value_bid=uuid4().hex,
+                    user_bid=user,
+                    shifu_bid=course,
+                    key=f"Other question {index}?",
+                    value="Another answer",
+                )
+                for index in range(101)
+            )
+        assert (
+            question
+            not in load_memory(
+                app, user, course, include_course_variables=True
+            ).variables
+        )
 
         seen: list[str] = []
         list(
             run_agent.run_agent_lesson(
                 app,
                 engine=_observer(seen),
-                script="Build on {{goal}} with a practice problem.",
+                script=f"Build on {{{{ {question} }}}} with a practice problem.",
                 user_bid=user,
                 shifu_bid=course,
                 outline_bid=uuid4().hex,
                 iter_turn=_drive,
             )
         )
-        assert _memory(seen[0])["goal"] == answer
+        assert _memory(seen[0])[question] == answer

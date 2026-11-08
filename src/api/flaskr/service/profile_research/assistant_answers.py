@@ -5,10 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from flaskr.service.profile.api import (
-    LEARNER_PROFILE_NICKNAME_MAX_LENGTH,
-    SYS_USER_NICKNAME,
-)
+from flaskr.service.profile.api import LEARNER_PROFILE_NICKNAME_MAX_LENGTH
 from flaskr.service.profile_research.engine_runtime import profile_answer_evidence
 from flaskr.service.profile_research.session import ProfileResearchValidationError
 from flaskr.util.prompt_loader import load_prompt_template
@@ -24,9 +21,6 @@ def parse_assistant_answers(
     raw_text: str,
 ) -> tuple[str, str]:
     """Return supplemental evidence and a separately stated nickname."""
-    manual_variables = dict(session.variables)
-    if (nickname := session.variable(SYS_USER_NICKNAME)) is not None:
-        manual_variables[SYS_USER_NICKNAME] = nickname
     result = provider.complete(
         messages=[
             {
@@ -38,7 +32,7 @@ def parse_assistant_answers(
                 "content": json.dumps(
                     {
                         "questionnaire": session.assistant_prompt,
-                        "manual_variables": manual_variables,
+                        "manual_variables": session.variables,
                         "accepted_answers": profile_answer_evidence(session),
                         "conversation": session.context,
                         "external_answer": raw_text,

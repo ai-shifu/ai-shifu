@@ -61,18 +61,10 @@ import { onSseData, openSseStream } from '@/lib/sse-client';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/hooks/use-tracking';
 import type {
-  DebugCourseAliases,
   DebugRunParams,
   DebugVariableValues,
 } from '@/types/debug-session';
-import {
-  applyDebugCourseAliasPatch,
-  canonicalizeDebugVariableValues,
-  mergeStoredDebugCourseAliases,
-  mergeStoredDebugVariableValues,
-  normalizeDebugCourseAliasPatch,
-  readStoredDebugCourseAliases,
-} from './debug-variable-storage';
+import { mergeStoredDebugVariableValues } from './debug-variable-storage';
 import {
   buildDebugContinuationParams,
   buildDebugInteractionInput,
@@ -400,7 +392,6 @@ export function useDebugSession({
   const currentStreamingElementBidRef = useRef<string | null>(null);
   const runParamsRef = useRef<DebugRunParams>({});
   const initialVariableValuesRef = useRef<Record<string, unknown> | null>(null);
-  const initialCourseAliasesRef = useRef<DebugCourseAliases | null>(null);
   const runStreamRef = useRef<DebugStreamSource | null>(null);
   const audioStreamsByElementRef = useRef<Record<string, DebugStreamSource>>(
     {},
@@ -509,10 +500,6 @@ export function useDebugSession({
     if (!name) {
       return;
     }
-    const aliases = runParamsRef.current.courseAliases;
-    if (aliases && Object.hasOwn(aliases, name)) {
-      name = aliases[name];
-    }
     const update = { [name]: value };
     if (isStreamingRef.current) {
       postStartVariableEditsRef.current.set(name, value);
@@ -554,10 +541,7 @@ export function useDebugSession({
       }
       mergeStoredDebugVariableValues(
         resolvedShifuBid,
-        canonicalizeDebugVariableValues(
-          resolvedVariableValues,
-          readStoredDebugCourseAliases(resolvedShifuBid),
-        ),
+        resolvedVariableValues,
         resolvedSystemKeys,
       );
     },
@@ -703,7 +687,6 @@ export function useDebugSession({
     freshAgentInteractionBidsRef.current.clear();
     setVariableValuesSnapshot({});
     initialVariableValuesRef.current = null;
-    initialCourseAliasesRef.current = null;
     debugSessionIdRef.current = createDebugSessionId();
     hasSessionStartedRef.current = false;
     trackedEngineSessionIdRef.current = null;
@@ -1010,30 +993,6 @@ export function useDebugSession({
               const rewindSeed = parseObjectPayload<Record<string, unknown>>(
                 payloadObject?.user_variables,
               );
-              const aliasPatch = normalizeDebugCourseAliasPatch(
-                parseObjectPayload(payloadObject?.course_aliases),
-              );
-              const aliasSeed = parseObjectPayload<Record<string, unknown>>(
-                payloadObject?.user_aliases,
-              );
-              const hasAliasSeed =
-                aliasSeed !== null && !Array.isArray(aliasSeed);
-              const aliases = applyDebugCourseAliasPatch(
-                hasAliasSeed
-                  ? applyDebugCourseAliasPatch(
-                      {},
-                      normalizeDebugCourseAliasPatch(aliasSeed),
-                    )
-                  : runParamsRef.current.courseAliases || {},
-                aliasPatch,
-              );
-              if (hasAliasSeed || Object.keys(aliasPatch).length) {
-                runParamsRef.current.courseAliases = aliases;
-              }
-              mergeStoredDebugCourseAliases(
-                runParamsRef.current.shifuBid,
-                aliasPatch,
-              );
               // Rebase on scoped memory after rewind. A full panel snapshot can
               // contain lesson-only values that must not become request inputs.
               const requestVariables = {
@@ -1042,9 +1001,6 @@ export function useDebugSession({
               };
               for (const name of freshQuestionVariableNamesRef.current) {
                 delete requestVariables[name];
-              }
-              for (const alias of Object.keys(aliases)) {
-                delete requestVariables[alias];
               }
               if (rewindSeed) streamVariables.awaitingLegacyRewindSeed = false;
               runParamsRef.current.variableValues = {
@@ -1093,11 +1049,6 @@ export function useDebugSession({
                 ...postStartEdits,
               };
               streamVariables.awaitingLegacyRewindSeed = false;
-            }
-            for (const alias of Object.keys(
-              runParamsRef.current.courseAliases || {},
-            )) {
-              delete snapshot[alias];
             }
             setVariableValuesSnapshot(
               normalizeDebugVariableValues({ ...snapshot, ...postStartEdits }),
@@ -1167,7 +1118,6 @@ export function useDebugSession({
       blockIndex,
       userInput,
       variableValues,
-      courseAliases,
       maxBlockCount,
       systemVariableKeys,
       reloadGeneratedBlockBid,
@@ -1187,13 +1137,6 @@ export function useDebugSession({
           : undefined;
       if (
         hasSessionStartedRef.current &&
-        (shifuBid !== runParamsRef.current.shifuBid ||
-          outlineBid !== runParamsRef.current.outlineBid)
-      ) {
-        resetSession();
-      }
-      if (
-        hasSessionStartedRef.current &&
         mdflow !== runParamsRef.current.mdflow &&
         !normalizedUserInput
       ) {
@@ -1201,26 +1144,14 @@ export function useDebugSession({
         // from its beginning with a new debug session. An answer keeps the
         // session, and the server continues it under the edited draft.
         variableValues = { ...(initialVariableValuesRef.current || {}) };
-        courseAliases = { ...(initialCourseAliasesRef.current || {}) };
         resetSession();
         normalizedUserInput = undefined;
         blockIndex = 0;
         reloadGeneratedBlockBid = undefined;
         reloadElementBid = undefined;
       }
-      const storedAliases =
-        courseAliases ?? readStoredDebugCourseAliases(shifuBid);
-      // An explicit empty map clears the seed. Omit the field only if no alias state is available.
-      const finalCourseAliases =
-        courseAliases ??
-        (Object.keys(storedAliases).length ? storedAliases : undefined);
-      const canonicalVariableValues = canonicalizeDebugVariableValues(
-        variableValues || {},
-        finalCourseAliases || {},
-      );
       if (initialVariableValuesRef.current === null) {
-        initialVariableValuesRef.current = canonicalVariableValues;
-        initialCourseAliasesRef.current = { ...finalCourseAliases };
+        initialVariableValuesRef.current = { ...(variableValues || {}) };
       }
       if (!debugSessionIdRef.current) {
         debugSessionIdRef.current = createDebugSessionId();
@@ -1243,8 +1174,7 @@ export function useDebugSession({
         outlineBid,
         mdflow,
         blockIndex,
-        variableValues: canonicalVariableValues,
-        courseAliases: finalCourseAliases,
+        variableValues,
         maxBlockCount,
         systemVariableKeys,
       };
@@ -1330,7 +1260,6 @@ export function useDebugSession({
           block_index: finalBlockIndex,
           content: finalMdflow,
           variables: finalVariableValues,
-          ...(finalCourseAliases ? { course_aliases: finalCourseAliases } : {}),
           ...(reloadGeneratedBlockBid
             ? { reload_generated_block_bid: reloadGeneratedBlockBid }
             : {}),
@@ -1443,13 +1372,11 @@ export function useDebugSession({
     const initialVariableValues = {
       ...(initialVariableValuesRef.current || {}),
     };
-    const initialCourseAliases = { ...(initialCourseAliasesRef.current || {}) };
     resetSession();
     void startRun({
       ...currentParams,
       mdflow: resolveLatestMdflow(),
       variableValues: initialVariableValues,
-      courseAliases: initialCourseAliases,
       blockIndex: 0,
       userInput: undefined,
     });

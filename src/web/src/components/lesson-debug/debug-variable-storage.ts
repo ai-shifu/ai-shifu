@@ -6,8 +6,6 @@ import {
 } from '@/lib/runtime-storage';
 import { debugWarn } from '@/lib/debug-console';
 import type {
-  DebugCourseAliases,
-  DebugCourseAliasPatch,
   DebugVariableValues,
   StoredDebugVariableValues,
 } from '@/types/debug-session';
@@ -15,7 +13,6 @@ import type {
 // Preserve saved editor Debug variables under the existing storage key.
 const VARIABLE_STORAGE_KEY_PREFIX = 'lesson_preview_variables';
 const SYSTEM_VARIABLES_STORAGE_KEY = VARIABLE_STORAGE_KEY_PREFIX;
-const COURSE_ALIASES_STORAGE_KEY_PREFIX = 'lesson_preview_course_aliases';
 
 const normalizeValue = (value: unknown): string => {
   if (typeof value === 'string') {
@@ -37,7 +34,7 @@ const buildCourseVariableStorageKey = (shifuBid?: string) => {
   return `${VARIABLE_STORAGE_KEY_PREFIX}:${shifuBid}`;
 };
 
-const readStoredObject = (key: string): Record<string, unknown> => {
+const readVariableValues = (key: string): DebugVariableValues => {
   if (typeof window === 'undefined' || !key) {
     return {};
   }
@@ -52,10 +49,14 @@ const readStoredObject = (key: string): Record<string, unknown> => {
 
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    if (!parsed || typeof parsed !== 'object') {
       return {};
     }
-    return parsed;
+    return Object.entries(parsed).reduce<DebugVariableValues>((acc, entry) => {
+      const [name, storedValue] = entry;
+      acc[name] = normalizeValue(storedValue);
+      return acc;
+    }, {});
   } catch (error) {
     debugWarn('[debug-variable-storage] failed to parse localStorage JSON', {
       key,
@@ -64,14 +65,6 @@ const readStoredObject = (key: string): Record<string, unknown> => {
     return {};
   }
 };
-
-const readVariableValues = (key: string): DebugVariableValues =>
-  Object.fromEntries(
-    Object.entries(readStoredObject(key)).map(([name, value]) => [
-      name,
-      normalizeValue(value),
-    ]),
-  );
 
 const writeVariableValues = (key: string, data: DebugVariableValues) => {
   if (typeof window === 'undefined' || !key) {
@@ -83,74 +76,6 @@ const writeVariableValues = (key: string, data: DebugVariableValues) => {
     '[debug-variable-storage] failed to write localStorage',
   );
 };
-
-const buildCourseAliasStorageKey = (shifuBid?: string) =>
-  shifuBid ? `${COURSE_ALIASES_STORAGE_KEY_PREFIX}:${shifuBid}` : '';
-
-export const normalizeDebugCourseAliasPatch = (
-  input: Record<string, unknown> | null,
-): DebugCourseAliasPatch => {
-  const patch = new Map<string, string | null>();
-  for (const [alias, target] of Object.entries(
-    input && !Array.isArray(input) ? input : {},
-  )) {
-    if (
-      alias &&
-      (target === null ||
-        (typeof target === 'string' && target && alias !== target))
-    ) {
-      patch.set(alias, target);
-    }
-  }
-  return Object.fromEntries(patch);
-};
-
-export const applyDebugCourseAliasPatch = (
-  aliases: DebugCourseAliases,
-  patch: DebugCourseAliasPatch,
-): DebugCourseAliases => {
-  const updated = new Map(Object.entries(aliases));
-  for (const [alias, target] of Object.entries(patch)) {
-    if (target === null) {
-      updated.delete(alias);
-    } else {
-      updated.set(alias, target);
-    }
-  }
-  return Object.fromEntries(updated);
-};
-
-export const readStoredDebugCourseAliases = (shifuBid?: string) =>
-  applyDebugCourseAliasPatch(
-    {},
-    normalizeDebugCourseAliasPatch(
-      readStoredObject(buildCourseAliasStorageKey(shifuBid)),
-    ),
-  );
-
-export const mergeStoredDebugCourseAliases = (
-  shifuBid: string | undefined,
-  patch: DebugCourseAliasPatch,
-) => {
-  if (!Object.keys(patch).length) {
-    return;
-  }
-  writeVariableValues(
-    buildCourseAliasStorageKey(shifuBid),
-    applyDebugCourseAliasPatch(readStoredDebugCourseAliases(shifuBid), patch),
-  );
-};
-
-export const canonicalizeDebugVariableValues = <T>(
-  values: Record<string, T>,
-  aliases: DebugCourseAliases,
-): Record<string, T> =>
-  Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [
-      Object.hasOwn(aliases, key) ? aliases[key] : key,
-      value,
-    ]),
-  );
 
 export const readStoredDebugVariableValues = (
   shifuBid?: string,
@@ -166,23 +91,13 @@ export const selectDebugVariableValues = (
   keys: string[],
   stored: StoredDebugVariableValues,
   systemVariableKeys: Set<string> | string[],
-  courseAliases: DebugCourseAliases = {},
 ): DebugVariableValues => {
   const systemSet = new Set(systemVariableKeys);
-  return Object.fromEntries(
-    keys.map(key => {
-      const isSystem = systemSet.has(key);
-      const canonicalKey =
-        !isSystem && Object.hasOwn(courseAliases, key)
-          ? courseAliases[key]
-          : key;
-      const source = isSystem ? stored.system : stored.course;
-      return [
-        canonicalKey,
-        Object.hasOwn(source, canonicalKey) ? source[canonicalKey] : '',
-      ];
-    }),
-  );
+  return keys.reduce<DebugVariableValues>((acc, key) => {
+    const source = systemSet.has(key) ? stored.system : stored.course;
+    acc[key] = source?.[key] || '';
+    return acc;
+  }, {});
 };
 
 export const mergeStoredDebugVariableValues = (

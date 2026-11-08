@@ -26,10 +26,12 @@ canonical: true
 
 ## Reading interaction questions and shared transport
 
-For an ordinary answer interaction, the model asks the complete question in
-visible Markdown prose and then calls `interact` with the same wording in
-`question`. The runtime uses that field for the interaction and memory, without
-generating a second presentation from the tool arguments. For structured
+For an ordinary answer interaction, the model asks the question in visible
+Markdown prose and then calls `interact` with the same wording in `question`.
+When the control has a leading `{{...}}` binding, that question is the exact
+text inside the braces, even when it is a short label. The runtime
+uses `question` for the interaction and memory without generating a second
+presentation from the tool arguments. For structured
 direction, the runtime presents the guiding question within the structured
 feedback. Confirmation and authored navigation send an empty question. Custom
 navigation labels use the tool options.

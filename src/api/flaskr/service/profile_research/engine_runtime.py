@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 _PROFILE_INSTRUCTIONS = """
 Run the complete authored learner-profile questionnaire as one conversation, not a course.
 Follow its authored questions and conditional branches using the learner's actual answers.
-Use interact for the authored controls and keep named answer variables as authored.
+Use interact for the authored controls and preserve each question exactly as authored.
 Do not add unrelated questions or navigation pauses. A section separator is not a pause.
 Keep any displayed introductions and transitions brief. The questionnaire's original wording
 is author guidance, not evidence about this learner. Only accepted learner answers are facts.
@@ -248,6 +248,7 @@ def run_profile_turn(
             pauses_from_notation=bool(questions),
             memory_admission=True,
             buffer_model_responses=True,
+            allowed_authored_question_keys=frozenset({SYS_USER_NICKNAME}),
         )
         async for event in engine.run_turn(working, turn):
             yield event
@@ -349,13 +350,12 @@ def profile_answer_evidence(
                 if args.get("type") == "confirm":
                     continue
                 if isinstance(args.get("question"), str):
-                    # A resolved spec records both the actual question and its
-                    # admitted binding, including aliases for older questionnaires.
+                    # The resolved spec records the exact question that owns the answer.
                     spec = working.interaction_specs.get(part.tool_call_id)
                     if (
                         spec is None
                         or not spec.question_owns_memory
-                        or SYS_USER_NICKNAME in (spec.variable, spec.binding_alias)
+                        or spec.variable == SYS_USER_NICKNAME
                     ):
                         continue
                     prompt, variable = spec.question, spec.variable

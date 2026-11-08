@@ -146,9 +146,7 @@ def test_question_first_content_replays_and_pending_reload_keeps_its_identity() 
     async def script(_messages: list[ModelMessage], info: AgentInfo) -> StreamChunks:
         nonlocal calls
         calls += 1
-        assert "ask the complete question in visible Markdown prose" in (
-            info.instructions or ""
-        )
+        assert "ask the question in visible Markdown prose" in (info.instructions or "")
         yield "Your goal?"
         yield {
             0: DeltaToolCall(
