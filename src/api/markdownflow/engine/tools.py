@@ -449,7 +449,9 @@ def _authored_binding(
         and names == {None}
         and not any(
             item.text
-            or item.preceding_line.endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
+            or _markdown_prose(item.preceding_line)
+            .rstrip()
+            .endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
             for item in matches
         )
     )
@@ -821,12 +823,8 @@ class _QuestionHTMLVisibility(HTMLParser):
         self.handle_starttag(tag, attrs)
 
 
-def _question_prose(deps: Deps, text: str) -> str:
-    """Read visible Markdown prose after applying the host's content filter."""
-    if deps.question_text_context is not None:
-        text = deps.question_text_context(text)
-    if deps.question_text_filter is not None:
-        text = deps.question_text_filter(text)
+def _markdown_prose(text: str) -> str:
+    """Read visible prose from Markdown source."""
     html = _QuestionHTMLVisibility()
     visible: list[str] = []
     for token in MarkdownIt("commonmark", {"html": True}).parse(text):
@@ -845,6 +843,15 @@ def _question_prose(deps: Deps, text: str) -> str:
                     line.append(" ")
         visible.append("".join(line))
     return "\n".join(visible)
+
+
+def _question_prose(deps: Deps, text: str) -> str:
+    """Read question prose after applying the host's content filter."""
+    if deps.question_text_context is not None:
+        text = deps.question_text_context(text)
+    if deps.question_text_filter is not None:
+        text = deps.question_text_filter(text)
+    return _markdown_prose(text)
 
 
 def validate_direction_call(

@@ -151,12 +151,20 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("bound", [False, True])
+@pytest.mark.parametrize(
+    "preceding",
+    [None, "{question}", "**{question}**", "[{question}](https://example.com)"],
+    ids=["bound", "plain", "bold", "link"],
+)
 async def test_an_authored_single_choice_can_still_record_an_answer(
-    bound: bool,
+    preceding: str | None,
 ) -> None:
     question = "What color is the sky?"
-    script = f"?[{{{{{question}}}}} Blue]" if bound else f"{question}\n?[Blue]"
+    script = (
+        f"?[{{{{{question}}}}} Blue]"
+        if preceding is None
+        else f"{preceding.format(question=question)}\n?[Blue]"
+    )
     attempts = 0
 
     async def model(
