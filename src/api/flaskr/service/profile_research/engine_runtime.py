@@ -128,9 +128,12 @@ def _interaction_problem(
 ) -> str | None:
     if reason := unrenderable_reason(spec):
         return reason
-    if questions and all(
-        check_authored_interaction(spec, source, variables) is not None
-        for source in questions
+    if questions and (
+        spec.generated_control
+        or all(
+            check_authored_interaction(spec, source, variables) is not None
+            for source in questions
+        )
     ):
         return (
             "Use one of the authored questionnaire interactions. Preserve its input type, "
