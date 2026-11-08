@@ -137,6 +137,44 @@ describe('useLessonTree request ordering', () => {
     );
   });
 
+  it.each(['empty response', 'rejection'])(
+    'keeps a loaded catalog and selected lesson on refresh %s',
+    async failure => {
+      let finishReload!: (value: null) => void;
+      let failReload!: (error: Error) => void;
+      mockGetLessonTree.mockResolvedValueOnce(outline('in_progress'));
+      mockGetLessonTree.mockReturnValueOnce(
+        new Promise((resolve, reject) => {
+          finishReload = resolve;
+          failReload = reject;
+        }),
+      );
+      const { result } = renderHook(() => useLessonTree('course-1'));
+      await act(async () => {
+        await result.current.loadTree('chapter-1', 'lesson-2');
+      });
+      const previousTree = result.current.tree;
+
+      let reload!: ReturnType<typeof result.current.reloadTree>;
+      act(() => {
+        reload = result.current.reloadTree();
+      });
+      const settled = reload.catch(error => error);
+      await act(async () => {
+        if (failure === 'rejection') {
+          failReload(new Error('Request failed'));
+          expect(await settled).toEqual(new Error('Request failed'));
+        } else {
+          finishReload(null);
+          expect(await settled).toBeNull();
+        }
+      });
+
+      expect(result.current.tree).toBe(previousTree);
+      expect(result.current.selectedLessonId).toBe('lesson-2');
+    },
+  );
+
   it.each(['cached route', 'catalog click'])(
     'keeps a newer lesson selected after a reload started (%s)',
     async source => {

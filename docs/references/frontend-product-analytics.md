@@ -657,12 +657,13 @@ context are handled separately by the shared transport.
 
 ## Classroom outline recovery
 
-- Business question and metric: how often does a user recover after an initial
-  course outline failure? Compare successful explicit retries divided by
-  attempts in published learning and ordinary draft preview.
+- Business question and metric: how often does a user recover when the
+  classroom cannot load an outline? Compare successful explicit retries
+  divided by attempts in published learning and ordinary draft preview.
 - Trigger: `learner_lesson_catalog_retry_attempt` fires when the classroom
-  accepts a retry click after its outline request failed. The current request's
-  terminal result emits `learner_lesson_catalog_retry_result`. Successful
+  accepts a retry click after a failed request left it without a usable
+  outline. A failed refresh preserves an already loaded outline. The current
+  request's terminal result emits `learner_lesson_catalog_retry_result`. Successful
   outline loads count even for courses with no lessons. Rejected requests and
   empty responses count as failures. An abandoned or superseded request emits
   no result.

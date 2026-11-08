@@ -238,7 +238,6 @@ export const useLessonTree = (routeCourseId?: string) => {
   );
 
   const loadTreeInner = useCallback(async () => {
-    setSelectedLessonId(null);
     const courseId = routeCourseId || useEnvStore.getState().courseId;
     debugInfo('[lesson-tree] request start', {
       courseId,
@@ -390,8 +389,11 @@ export const useLessonTree = (routeCourseId?: string) => {
         const newTree = await loadTreeInner();
         if (outlineRequestRef.current !== request) return;
         const shouldSelect = isSelectionCurrent();
-        // A newer lesson choice can keep a successful catalog update without reselecting.
-        if (newTree || shouldSelect) apply(newTree, shouldSelect);
+        if (newTree) {
+          // A newer lesson choice can keep a successful catalog update without reselecting.
+          if (shouldSelect) setSelectedLessonId(null);
+          apply(newTree, shouldSelect);
+        }
         return shouldSelect ? newTree : undefined;
       } catch (error) {
         if (outlineRequestRef.current === request && isSelectionCurrent()) {
