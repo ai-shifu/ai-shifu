@@ -48,7 +48,10 @@ from flaskr.i18n import _, translate_for_language
 from flaskr.service.common.models import AppError
 from flaskr.service.learn.agent.course_references import discard_course_references
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
-from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
+from flaskr.service.learn.agent.echoed_memory import (
+    EchoedMemoryFilter,
+    strip_echoed_memory,
+)
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
@@ -842,8 +845,7 @@ class _NarrationSyntax:
 
 def _prepared_lesson_text(text: str) -> str:
     """Project complete feedback through the same typed policy before committing it."""
-    echoes = EchoedMemoryFilter()
-    text = echoes.feed(text) + echoes.flush()
+    text = strip_echoed_memory(text)
     pager = LessonPager(clean_markers=True)
     narration = _NarrationSyntax(InteractionSyntaxFilter())
     pieces = narration.flush(narration.process(pager.add(text) + pager.flush()))

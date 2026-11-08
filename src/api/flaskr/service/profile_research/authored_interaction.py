@@ -22,7 +22,7 @@ def check_authored_interaction(
 ) -> str | None:
     """Reject changed bindings, input kinds, or ordered stored values.
 
-    Display labels, prompts and text hints may be localized. An unassigned
+    Display labels, unbound questions and text hints may be localized. An unassigned
     single button may use the engine's canonical confirm value, unless the
     author explicitly supplied a machine value with ``Display//value``.
     Hosts may match this contract against any authored question in a full script.

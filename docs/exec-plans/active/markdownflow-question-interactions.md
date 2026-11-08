@@ -32,6 +32,9 @@ response. Preserve earlier named answers, short references and pending turns.
 - [x] 2026-11-08 09:20 UTC: Replaced alias matching and persistence with exact
   authored question text. Added regressions for identical controls, localized
   and omitted input hints, and direct recall of an older course answer.
+- [x] 2026-11-08 09:35 UTC: Verified review fixes for question visibility,
+  pending structured feedback, retained system bindings, navigation values,
+  and text-input repair. The engine suite and repository checks passed.
 
 ## Surprises & Discoveries
 
@@ -48,6 +51,9 @@ authored question text distinguishes otherwise identical bound controls.
   tool with the same wording. The engine sends the controls without creating
   a question or panel title from the call. Historical question metadata retains
   its display treatment.
+- 2026-11-08: An answer control waits for visible model-authored question prose.
+  Retry missing or filtered questions. On Profile reload, restore saved structured
+  guidance ahead of its pending correction control.
 - 2026-11-08: The text inside an authored binding is the question and storage
   key, even when it is a short label. Remove the unreleased alias table and
   use exact keys across courses, Profile, and editor Debug.

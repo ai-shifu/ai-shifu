@@ -127,6 +127,7 @@ def test_exact_question_reference_reads_the_answer_from_an_earlier_lesson(
         ):
             yield "We will use this in the next lesson."
             return
+        yield question
         yield {
             0: DeltaToolCall(
                 name="interact",

@@ -44,8 +44,10 @@ def test_the_notation_uses_one_question_for_display_and_storage() -> None:
     assert (
         "use that exact text in the lesson prose and in `interact.question`" in notation
     )
-    assert 'question="learning_goal"' in notation
-    assert "The answer is saved under `learning_goal`" in notation
+    assert "?[{{a question}} ...]" in notation
+    assert "{{What would you like to learn?}}" in notation
+    assert 'question="What would you like to learn?"' in notation
+    assert "The answer is saved under `What would you like to learn?`" in notation
 
 
 def test_the_notation_says_how_to_read_an_escape_in_an_option() -> None:

@@ -52,6 +52,12 @@ def _may_open_block(partial: str) -> bool:
     return _OPEN.startswith(rest) or rest.startswith(_OPEN)
 
 
+def strip_echoed_memory(text: str) -> str:
+    """Apply the same memory filter to a complete response."""
+    echoes = EchoedMemoryFilter()
+    return echoes.feed(text) + echoes.flush()
+
+
 class EchoedMemoryFilter:
     """Remove `<memory>` blocks from streamed text, one chunk at a time."""
 

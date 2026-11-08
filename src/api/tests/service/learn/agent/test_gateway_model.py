@@ -473,7 +473,7 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
             fields = interact["parameters"]["properties"]
             assert "question" in fields
             assert not {"prompt", "variable"} & fields.keys()
-            yield FakeChunk(result="Hello.\n")
+            yield FakeChunk(result=f"{question}\n")
             yield FakeChunk(
                 tool_call_deltas=[
                     {
@@ -494,7 +494,7 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     span = FakeSpan()
     model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=span)
     engine = Engine(model)
-    session = await engine.new_session(f"{question}\n\n?[{{{{feeling}}}} Good//good]")
+    session = await engine.new_session(f"?[{{{{{question}}}}} Good//good]")
 
     first = [e async for e in engine.run_turn(session)]
     requests = [e for e in first if isinstance(e, InteractionRequest)]
@@ -512,11 +512,11 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
         )
     ]
     assert any(
-        isinstance(e, MemoryUpdated) and e.key == question and e.alias == "feeling"
+        isinstance(e, MemoryUpdated) and e.key == question and e.value == "good"
         for e in second
     )
     assert session.memory == {question: "good"}
-    assert session.all_memory()["feeling"] == "good"
+    assert session.all_memory() == {question: "good"}
 
     # The resumed request carries the tool result back, keyed by the call it answers.
     resumed = seen[-1]
