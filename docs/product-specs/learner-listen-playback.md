@@ -26,22 +26,22 @@ canonical: true
 
 ## Reading interaction questions and shared transport
 
-New answer interactions use `interact.question` as the complete question. The
-model supplies teaching or feedback separately and calls the tool. The runtime
-presents the question before the answer controls. For structured direction it
-presents the guiding question within the structured feedback. Confirmation and
-authored navigation do not collect answers and send an empty question. Custom
+For an ordinary answer interaction, the model asks the complete question in
+visible Markdown prose and then calls `interact` with the same wording in
+`question`. The runtime uses that field for the interaction and memory, without
+generating a second presentation from the tool arguments. For structured
+direction, the runtime presents the guiding question within the structured
+feedback. Confirmation and authored navigation send an empty question. Custom
 navigation labels use the tool options.
 
-Interaction `content` contains only the controls. The question is also available
-in optional `payload.interaction_question` metadata for the listen and classroom
-panel title. Reading and Debug display question content before the controls and
-do not repeat the metadata as a separate title. Profile uses the same engine
-question content and keeps its controls separate.
+Interaction `content` contains only the controls. Current answer controls use
+the default listen and classroom panel title, while the learner receives the
+question in the model's teaching content. Reading, Debug, and Profile likewise
+display that content separately from the controls.
 
-Historical `prompt` values remain readable as presentation metadata. Existing
-saved prose and exact request replay payloads keep their prior presentation.
-The model-facing tool now sends the question separately from authored teaching.
+Historical `prompt` values remain readable as `payload.interaction_question`
+presentation metadata. Existing saved prose and exact request replay payloads
+keep their prior presentation.
 See [Learner Memory Admission](./learner-memory-admission.md) for storage rules.
 
 This changes existing-content placement, with no new action

@@ -25,7 +25,7 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 async def test_question_is_shown_before_controls_and_keys_the_answer(
     listen_mode: bool, render: Literal["sandbox", "none"], binding: str
 ) -> None:
-    """Drive the advertised tool without streaming a duplicate copy of the question."""
+    """Keep the model's question prose ahead of the controls and use its key for storage."""
     question = "Which examples match?"
     teaching = "Compare the examples."
     prefix = {
@@ -61,7 +61,10 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         assert "question" in schema["properties"]
         assert "question" in schema["required"]
         assert not {"prompt", "variable"}.intersection(schema["properties"])
-        yield teaching
+        assert "ask the complete question in visible Markdown prose" in (
+            info.instructions or ""
+        )
+        yield f"{teaching}\n\n{question}"
         yield {
             0: DeltaToolCall(
                 name="interact",
@@ -123,6 +126,39 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("listen_mode", [False, True])
+async def test_tool_question_does_not_generate_missing_prose(listen_mode: bool) -> None:
+    """The tool's memory key cannot add text or narration that the model did not write."""
+    teaching = "Review the examples."
+    question = "Which example applies here?"
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        yield teaching
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="example",
+                json_args=json.dumps({"type": "text", "question": question}),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Discuss the examples.", listen_mode=listen_mode)
+    events = [event async for event in engine.run_turn(session)]
+    assert not any(event.type == "error" for event in events)
+    (interaction,) = [
+        event for event in events if isinstance(event, InteractionRequest)
+    ]
+    assert interaction.spec.question == question
+    text_event = "narration.delta" if listen_mode else "content.delta"
+    assert (
+        "".join(event.text for event in events if event.type == text_event) == teaching
+    )
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "missing_question",
     [{}, {"question": "  "}, {"prompt": "Legacy question?", "variable": "key"}],
@@ -144,7 +180,7 @@ async def test_answer_control_without_a_real_question_is_retried(
 
     async def model(
         messages: list[ModelMessage], _info: AgentInfo
-    ) -> AsyncIterator[dict[int, DeltaToolCall]]:
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         nonlocal attempts
         attempts += 1
         if attempts == 1:
@@ -156,6 +192,7 @@ async def test_answer_control_without_a_real_question_is_retried(
                 for part in messages[-1].parts
             )
             fields = {"question": question}
+            yield question
         yield {
             0: DeltaToolCall(
                 name="interact",

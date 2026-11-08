@@ -84,11 +84,12 @@ async def test_feedback_schema_requires_a_branch_only_for_a_supported_reply(
             assert not interact.is_valid({**args, "feedback": None})
             assert finish.is_valid({"summary": "Done.", "feedback": review})
         if calls == 2:
-            yield "A concise knowledge explanation."
+            yield f"A concise knowledge explanation.\n\n{prompt}"
             yield _call(
                 {**args, **({"feedback": review} if required else {})}, "continued"
             )
         else:
+            yield prompt
             yield _call(args, "original")
 
     engine = Engine(
@@ -149,6 +150,7 @@ async def test_declared_branch_keeps_legacy_sibling_and_later_calls_valid(
             validator = Draft202012Validator(definitions[name].parameters_json_schema)
             assert validator.is_valid(payload) is not required
         if calls == 1:
+            yield args["question"]
             yield _call(args, "original")
         elif calls == 2:
             yield "Your preference is retained."
@@ -166,6 +168,7 @@ async def test_declared_branch_keeps_legacy_sibling_and_later_calls_valid(
                 )
             }
             if same_response:
+                yield f"\n\n{args['question']}"
                 # The model schema advertises a canonical declaration on interact;
                 # existing callers may still declare it on a sibling native call.
                 output[1] = DeltaToolCall(
@@ -177,7 +180,7 @@ async def test_declared_branch_keeps_legacy_sibling_and_later_calls_valid(
         else:
             assert calls == 3
             assert not same_response
-            yield "A concise explanation."
+            yield f"A concise explanation.\n\n{args['question']}"
             yield _call(args, "continued")
 
     engine = Engine(
@@ -219,6 +222,7 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
         nonlocal calls
         calls += 1
         if calls == 1:
+            yield original_question
             yield _call(
                 {
                     "type": "text",
@@ -257,7 +261,9 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
         ]
         assert all(validator.is_valid(p) for p in payloads)
         yield (
-            "Undisplayed conflicting feedback." if invalid else "Accepted explanation."
+            "Undisplayed conflicting feedback."
+            if invalid
+            else f"Accepted explanation.\n\n{first_question}\n\n{second_question}"
         )
         yield {
             i: DeltaToolCall(
@@ -368,9 +374,10 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
                     if t["function"]["name"] == name
                 )
                 assert offered["properties"]["feedback"]["type"] == "object"
-            yield "A concise explanation."
+            yield f"A concise explanation.\n\n{question}"
             yield _call({**args, "feedback": review}, "continued")
         else:
+            yield question
             yield _call(args, "original")
 
     engine = Engine(

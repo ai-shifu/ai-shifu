@@ -36,7 +36,8 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
         calls += 1
         if calls == 1 or (calls == 2 and correcting):
             if calls == 2:
-                yield "Help for this question."
+                yield "Help for this question.\n\n"
+            yield "First question?"
             spec = {
                 "type": "text",
                 "question": "First question?",
@@ -63,6 +64,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
             }
         else:
             assert calls == (4 if correcting else 3)
+            yield "Second question?"
             spec = {
                 "type": "text",
                 "question": "Second question?",

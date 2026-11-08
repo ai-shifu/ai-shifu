@@ -876,9 +876,10 @@ async def interact(
     `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
     without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
-    Use `question` for the complete learner-facing question. The host displays it before the
-    controls and stores the answer under its exact wording. Use an empty question only for
-    a pause or an authored navigation-only control. Give `options` for every type except `text`.
+    For an ordinary answer interaction, ask the complete question in visible prose first, then
+    call this tool with the same wording in `question`. The host stores the answer under that
+    wording. Use an empty question only for a pause or an authored navigation-only control.
+    Give `options` for every type except `text`.
     The learner's answer is returned as the tool result; then continue the script.
     Before personal feedback and the next interaction, cite the original submission
     supporting each claimed misconception. A quoted denial of prior storage does not

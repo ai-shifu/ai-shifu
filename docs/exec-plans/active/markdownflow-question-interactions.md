@@ -26,6 +26,9 @@ response. Preserve earlier named answers, short references and pending turns.
   affected course, memory, and guest migration tests. Verified queued Profile
   questions after cache reload and completed the repository checks.
 - [ ] Verify remote checks on the updated pull request and await maintainer review.
+- [x] 2026-11-08 09:07 UTC: Verified model-first question delivery, with no
+  generated question or duplicate title from tool arguments. Passed 3,507
+  engine and Profile tests, 379 course-host tests, and repository checks.
 
 ## Surprises & Discoveries
 
@@ -40,15 +43,15 @@ answer under the question without assigning a short alias by guesswork.
 
 - 2026-11-08: New answer calls carry complete question text, including for
   corrections. Authored navigation and `confirm` do not collect an answer.
-- 2026-11-08: The engine presents the new question before its controls. Historical
-  question metadata retains its prior display treatment. Course memory keeps one
-  answer under the question and uses old declared keys only as aliases.
-- 2026-11-08: Profile presents one pending question at a time, including when a
-  provider batches tool calls. Course history retains its existing presentation.
+- 2026-11-08: The model asks each ordinary question in prose before calling the
+  tool with the same wording. The engine sends the controls without creating
+  a question or panel title from the call. Historical question metadata retains
+  its display treatment. Course memory keeps one answer under the question
+  and uses old declared keys only as aliases.
 
 ## Outcomes & Retrospective
 
-Local acceptance passed. The engine and Profile suite passed 3,505 tests. The
+Local acceptance passed. The engine and Profile suite passed 3,507 tests. The
 editor Debug checks passed 83 tests and TypeScript validation. Remote CI and
 rollout remain separate from local acceptance.
 
@@ -63,8 +66,9 @@ streams and writes admitted course memory with its existing transaction.
 
 1. Replace model-facing title and binding inputs with `question`. Normalize old
    calls for replay without changing historical answers or their identifiers.
-2. Render the same question before the controls. Keep correction feedback and
-   authored navigation boundaries. Use options for new navigation labels.
+2. Prompt the model to ask the question before the controls. Keep structured
+   correction feedback and authored navigation boundaries. Use options for
+   new navigation labels.
 3. Record accepted course answers under the question and resolve historical
    aliases at read time. Keep system profile and other course scopes separate.
 4. Migrate Profile evidence, update canonical guidance, and verify all paths.
@@ -77,7 +81,7 @@ after updating the plan and canonical references.
 
 ## Validation and Acceptance
 
-A new answer call without `question` is rejected. A complete question appears
+A new answer call without `question` is rejected. The model's question appears
 before the controls, and an accepted answer is recorded under that exact
 question. An old short reference resolves to the new answer without creating
 an extra answer. Continue and navigation clicks do not update memory. Legacy
