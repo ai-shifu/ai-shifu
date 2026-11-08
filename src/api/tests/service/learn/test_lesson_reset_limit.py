@@ -353,6 +353,44 @@ def test_opened_but_ungenerated_lesson_resets_for_free(
     assert blocked.value.code == 4021
 
 
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_empty_reset_retry_preserves_new_learning(
+    app: Flask, course: SimpleNamespace, preview_mode: bool
+) -> None:
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            DraftOutlineItem(
+                shifu_bid=course.bid,
+                outline_item_bid=course.lesson,
+                content="Teach a test lesson.",
+            )
+        )
+    other_session = start_session(app, course, preview_mode=not preview_mode)
+
+    request_id = "empty-reset-retry"
+    assert reset(app, course, preview_mode=preview_mode, request_id=request_id)
+    replacement_session = start_session(app, course, preview_mode=preview_mode)
+    replacement_progress = [] if preview_mode else start(app, course)
+    assert reset(app, course, preview_mode=preview_mode, request_id=request_id)
+
+    assert live_records(app, course) == replacement_progress
+    rows = reset_rows(app, course)
+    assert len(rows) == 1
+    assert (rows[0].counted, bool(rows[0].preview_mode)) == (0, preview_mode)
+    assert rows[0].progress_record_bid == ""
+    with app.app_context():
+        active_sessions = LearnAgentSession.query.filter_by(
+            user_bid=course.learner,
+            shifu_bid=course.bid,
+            outline_item_bid=course.lesson,
+            deleted=0,
+        ).all()
+        assert {row.agent_session_bid for row in active_sessions} == {
+            other_session,
+            replacement_session,
+        }
+
+
 def test_unlimited_and_exempt_resets_keep_retry_receipts(
     app: Flask, course: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:

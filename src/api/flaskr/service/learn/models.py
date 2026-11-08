@@ -90,13 +90,11 @@ class LearnProgressRecord(db.Model):
 
 
 class LearnLessonResetRecord(db.Model):
-    """One effective lesson reset by one learner.
+    """One recorded lesson reset request by one learner.
 
-    A row is written only when a reset actually retired learning state (progress
-    records or a live agent session); empty resets leave nothing behind. The learner's
-    quota is ``COUNT(*)`` of counted, undeleted rows for the same user, course and
-    lesson, so the limit survives restarts and is auditable from SQL. Exempt staff and
-    preview resets are still recorded with ``counted=0`` for support questions.
+    A row records a reset that retired learning state, or an empty reset with a
+    request ID. The learner's quota is ``COUNT(*)`` of counted, undeleted rows for
+    the same user, course and lesson. Empty resets never consume quota.
 
     Extension points: per-course or per-user allowances belong in a separate policy
     table that this table does not need to know about; refunding a use means setting

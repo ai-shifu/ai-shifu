@@ -784,7 +784,8 @@ def reset_learn_record(
 
     An effective reset is recorded in ``learn_lesson_reset_records`` inside the same
     transaction; ordinary learners are refused once their recorded resets for this lesson
-    reach ``LESSON_RESET_LIMIT``. Nothing is written or counted for an empty reset.
+    reach ``LESSON_RESET_LIMIT``. An empty reset with a request ID keeps an uncounted
+    receipt so its retry cannot clear learning started after it.
 
     The whole transaction is retried on a MySQL deadlock: the locking quota count takes
     a gap lock on the ledger index, and two first-ever resets whose empty ranges share a
@@ -804,7 +805,7 @@ def reset_learn_record(
             require_reset_lesson(shifu_bid, outline_bid)
         # A retry of a reset that already landed must not clear the learning the
         # learner has started since, nor spend a second use. This holds for exempt
-        # and unlimited resets too, so every effective reset keeps its receipt.
+        # and unlimited resets too, including requests that found nothing to reset.
         request_id = normalize_reset_request_id(reset_request_id)
         receipt = find_reset_receipt(user_bid, request_id)
         if receipt is not None:
@@ -848,7 +849,7 @@ def reset_learn_record(
                     outline_item_bid=outline_bid,
                     preview_mode=True,
                 )
-                if preview_session is not None:
+                if preview_session is not None or request_id is not None:
                     record_lesson_reset(
                         user_bid=user_bid,
                         shifu_bid=shifu_bid,
@@ -919,7 +920,7 @@ def reset_learn_record(
             outline_item_bid=outline_bid,
             preview_mode=preview_mode,
         )
-        if effective:
+        if effective or request_id is not None:
             record_lesson_reset(
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
