@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from flask import Flask
+    from flask.testing import FlaskClient
 
 
 @pytest.fixture
@@ -392,6 +393,69 @@ def test_empty_reset_retry_preserves_new_learning(
             other_session,
             replacement_session,
         }
+
+
+def test_draftless_preview_reset_retry_preserves_new_draft_learning(
+    app: Flask,
+    test_client: FlaskClient,
+    course: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = SimpleNamespace(
+        user_id=course.learner, is_creator=True, is_operator=False, language="en-US"
+    )
+    monkeypatch.setattr("flaskr.route.user.validate_user", lambda *_args: user)
+
+    def request(lesson: str, request_id: str | None = None) -> dict:
+        headers = {"Token": "test-token"}
+        if request_id is not None:
+            headers["X-Request-ID"] = request_id
+        return test_client.delete(
+            f"/api/learn/shifu/{course.bid}/records/{lesson}?preview_mode=true",
+            headers=headers,
+        ).get_json(force=True)
+
+    request_id = "draftless-preview-reset"
+    assert (
+        request(course.lesson, request_id)["code"]
+        == ERROR_CODE["server.shifu.noPermission"]
+    )
+    assert reset_rows(app, course) == []
+
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            AiCourseAuth(
+                course_id=course.bid, user_id=course.learner, auth_type="view", status=1
+            )
+        )
+
+    assert request(uuid.uuid4().hex, request_id)["data"] is True
+    assert request(course.lesson)["data"] is True
+    assert reset_rows(app, course) == []
+    assert request(course.lesson, request_id)["data"] is True
+
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            DraftOutlineItem(
+                shifu_bid=course.bid,
+                outline_item_bid=course.lesson,
+                content="Teach the new draft lesson.",
+            )
+        )
+    preview_session = start_session(app, course, preview_mode=True)
+    assert request(course.lesson, request_id)["data"] is True
+
+    rows = reset_rows(app, course)
+    assert [(row.outline_item_bid, row.counted, row.preview_mode) for row in rows] == [
+        (course.lesson, 0, 1)
+    ]
+    with app.app_context():
+        session = LearnAgentSession.query.filter_by(
+            agent_session_bid=preview_session
+        ).one()
+        assert session.active_key == active_key_for(
+            course.learner, course.lesson, preview_mode=True
+        )
 
 
 def test_unlimited_and_exempt_resets_keep_retry_receipts(

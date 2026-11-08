@@ -900,6 +900,22 @@ def _reset_learn_record_once(
             if not DraftOutlineItem.query.filter_by(
                 shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
             ).first():
+                # A published lesson can acquire a draft after this accepted
+                # no-op. Unknown lesson IDs do not get reset receipts.
+                if (
+                    request_id is not None
+                    and PublishedOutlineItem.query.filter_by(
+                        shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+                    ).first()
+                ):
+                    record_lesson_reset(
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=True,
+                        counted=False,
+                        request_id=request_id,
+                    )
                 return True
             if uses_preview_session_history(
                 app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
