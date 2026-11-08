@@ -71,6 +71,7 @@ class InteractionSpec(BaseModel):
         description="Resolved memory key to store the answer under.",
     )
     question_owns_memory: bool = False
+    generated_control: bool = Field(default=False, exclude_if=lambda value: not value)
     structured_correction: bool = False
     # Feedback may ask a narrower follow-up than the authored input it corrects.
     source_question: str | None = None

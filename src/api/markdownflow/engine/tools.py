@@ -396,14 +396,20 @@ def _authored_binding(
     question: str,
     options: list[Option],
     placeholder: str | None,
+    *,
+    allow_different_hint: bool = False,
 ) -> tuple[set[str | None], bool]:
     matches = [
         item
         for item in deps.script_questions
         if _authored_controls_match(item, kind, options, placeholder)
     ]
-    if not matches and (not (placeholder or "").strip() or deps.translated_controls):
-        # Missing and localized hints can differ while the control shape stays the same.
+    if not matches and (
+        allow_different_hint
+        or not (placeholder or "").strip()
+        or deps.translated_controls
+    ):
+        # The input hint may change while its authored control shape stays the same.
         matches = [
             item
             for item in deps.script_questions
@@ -500,6 +506,8 @@ def normalize_script_text_input(
     Text-only questions must match the copied prompt and the same variable.
     Ambiguous questions and unrelated explicit placeholders are left unchanged.
     """
+    if spec.generated_control:
+        return spec
     question_key = spec.source_question or spec.variable
     authored_inputs = [q for q in questions if q.variable == question_key]
     if spec.question_owns_memory and not authored_inputs:
@@ -631,7 +639,7 @@ def _asked(call: ToolCallPart, written: dict[str, str]) -> tuple[object, ...] | 
         args.get("variable"),
         options,
         args.get("placeholder"),
-        written,
+        {} if args.get("generated_control") is True else written,
     )
 
 
@@ -642,6 +650,8 @@ def asks_the_answered_question_again(
     variable: str | None,
     options: list[Option] | None = None,
     placeholder: str | None = None,
+    *,
+    generated_control: bool = False,
 ) -> bool:
     """Whether this call repeats, word for word, the turn that asked a question just answered.
 
@@ -662,7 +672,14 @@ def asks_the_answered_question_again(
     if len(now) < _LOOP_FLOOR_CHARS:
         return False
     written = ctx.deps.script_options
-    question = _question(kind, prompt, variable, options, placeholder, written)
+    question = _question(
+        kind,
+        prompt,
+        variable,
+        options,
+        placeholder,
+        {} if generated_control else written,
+    )
     for index in range(min(start, len(messages)) - 1, -1, -1):
         msg = messages[index]
         if not isinstance(msg, ModelResponse):
@@ -874,6 +891,7 @@ async def interact(
     question: str = "",
     options: list[Option] | None = None,
     placeholder: str | None = None,
+    generated_control: bool = False,
     direction: DirectionFeedback | None = None,
     review: FeedbackReview | None = None,
     feedback: DirectionFeedback | FeedbackReview | None = None,
@@ -892,6 +910,8 @@ async def interact(
     call this tool with the same wording in `question`. The host stores the answer under that
     wording. If the control starts with a `{{...}}` binding, use its exact text as the question,
     even if it is short. Use an empty question only for a pause or an authored navigation-only control.
+    Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
+    it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.
     The learner's answer is returned as the tool result; then continue the script.
     Before personal feedback and the next interaction, cite the original submission
@@ -995,9 +1015,27 @@ async def interact(
             _as_the_script_writes_it(option, ctx.deps.script_options)
             for option in options or []
         ]
-        authored_questions, navigation = _authored_binding(
-            ctx.deps, type, question, normalized_options, placeholder
-        )
+        if generated_control:
+            if (
+                type == "confirm"
+                or direction is not None
+                or any(
+                    question == control.variable
+                    for control in ctx.deps.script_questions
+                )
+            ):
+                message = "Use generated_control only for a new answer control without an authored binding."
+                raise ModelRetry(message)
+            authored_questions, navigation = set(), False
+        else:
+            authored_questions, navigation = _authored_binding(
+                ctx.deps,
+                type,
+                question,
+                normalized_options,
+                placeholder,
+                allow_different_hint=True,
+            )
         owns_memory = type != "confirm" and (
             direction is not None or bool(question) or not navigation
         )
@@ -1028,8 +1066,12 @@ async def interact(
                 raise ModelRetry(message)
             trusted_question = (
                 direction is None
-                and question in authored_questions
+                and not generated_control
                 and question in ctx.deps.allowed_authored_question_keys
+                and question
+                in _authored_binding(
+                    ctx.deps, type, question, normalized_options, placeholder
+                )[0]
             )
             if question.startswith(ctx.deps.memory_readonly_prefixes) or (
                 not trusted_question
@@ -1052,7 +1094,13 @@ async def interact(
         ):
             source_question = previous.source_question or previous.variable
     if type != "confirm" and asks_the_answered_question_again(
-        ctx, type, question, variable if legacy_call else None, options, placeholder
+        ctx,
+        type,
+        question,
+        variable if legacy_call else None,
+        options,
+        placeholder,
+        generated_control=generated_control and not legacy_call,
     ):
         # Not a flat refusal: a script can ask again after a wrong answer, with the same
         # correction each time. Put that way, it is said to this answer and so reads differently.
@@ -1083,7 +1131,7 @@ async def interact(
         # Not while a question written as text is owed: that pause would leave it owed, with
         # `finish` withheld and text refused, so the pause is asked for real and settles it.
         return NO_PAUSE
-    if ctx.deps.script_options:
+    if ctx.deps.script_options and (legacy_call or not generated_control):
         options = [
             _as_the_script_writes_it(o, ctx.deps.script_options) for o in options or []
         ]
@@ -1094,6 +1142,7 @@ async def interact(
         variable=variable,
         placeholder=placeholder,
         question_owns_memory=owns_memory,
+        generated_control=generated_control and not legacy_call,
         structured_correction=direction is not None and not legacy_call,
         source_question=source_question,
     )
@@ -1271,6 +1320,13 @@ async def prepare_feedback_tool(
             "authored navigation-only control."
         )
         properties["question"] = question_schema
+        properties["generated_control"] = {
+            **properties["generated_control"],
+            "description": (
+                "True only for a newly created answer control. Leave false for any "
+                "authored control, including an unbound one whose question you formulate."
+            ),
+        }
         schema = {
             **schema,
             "required": list(dict.fromkeys([*schema.get("required", []), "question"])),

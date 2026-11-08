@@ -70,7 +70,7 @@ def _authored_answer_scope(
     choose a grade or define new requirements. Unsupported controls retain the
     full script without a focused copy.
     """
-    if spec.type != "text" or not spec.placeholder:
+    if spec.generated_control or spec.type != "text" or not spec.placeholder:
         return None
     lines = _masked_lines(script)
     questions = _script_question_spans(script)

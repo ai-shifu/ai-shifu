@@ -12,6 +12,7 @@ from flaskr.service.profile_research.engine_runtime import (
     run_profile_turn,
 )
 from flaskr.service.profile_research.runtime import _collected_nickname
+from pydantic_ai.messages import RetryPromptPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from tests.service.profile_research.test_single_session_engine import (
@@ -108,6 +109,36 @@ def _text_input(
             ),
         )
     }
+
+
+def test_profile_keeps_its_authored_control_instead_of_a_generated_lookalike() -> None:
+    session = _session("What would you like to learn?\n?[...Answer]")
+    attempt = 0
+
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+        nonlocal attempt
+        attempt += 1
+        if attempt == 1:
+            question = "What is your favorite game?"
+            yield question
+            yield _text_input("generated", question, "Answer", generated_control=True)
+            return
+        assert attempt == 2
+        assert any(
+            isinstance(part, RetryPromptPart)
+            and part.tool_name == "interact"
+            and "authored questionnaire" in str(part.content)
+            for part in messages[-1].parts
+        )
+        question = "What would you like to learn?"
+        yield question
+        yield _text_input("authored", question, "Answer")
+
+    turn = run_profile_turn(session, {}, FunctionModel(stream_function=script))
+    assert turn.chunks[-1].interaction_id == "authored"
+    assert "".join(chunk.content for chunk in turn.chunks[:-1]) == (
+        "What would you like to learn?"
+    )
 
 
 def test_localized_profile_keeps_distinct_bound_questions_with_shared_input_shape() -> (

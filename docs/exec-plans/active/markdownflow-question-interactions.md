@@ -35,6 +35,8 @@ response. Preserve earlier named answers, short references and pending turns.
 - [x] 2026-11-08 09:35 UTC: Verified review fixes for question visibility,
   pending structured feedback, retained system bindings, navigation values,
   and text-input repair. The engine suite and repository checks passed.
+- [ ] 2026-11-08 09:54 UTC: Verify follow-up review fixes for indented bindings,
+  authored control identification, and returning to an interaction slide.
 
 ## Surprises & Discoveries
 
@@ -58,6 +60,10 @@ authored question text distinguishes otherwise identical bound controls.
   an authored binding is the question and storage key, even when it is a short
   label. Remove the unreleased alias table and use exact keys across courses,
   Profile, and editor Debug.
+- 2026-11-08: The optional `generated_control` flag tells the engine the model
+  created a control outside the script. Authored controls still match by
+  input kind and stored options when the hint changes. Generated controls
+  cannot use an authored binding or opt out of a Profile questionnaire.
 
 ## Outcomes & Retrospective
 
