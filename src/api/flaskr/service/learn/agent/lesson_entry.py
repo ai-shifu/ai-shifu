@@ -481,11 +481,9 @@ def agent_lesson_events(
                 exercise_statistics=True,
                 feedback_contract=True,
                 memory_reserved_keys=system_keys,
-                # Retained published lessons can have active system bindings. The
-                # engine allows these only on a matching authored control.
-                allowed_authored_question_keys=system_keys
-                if not preview_mode
-                else frozenset(),
+                # Retained lessons can have active system bindings. The engine
+                # allows these only on a matching authored control.
+                allowed_authored_question_keys=system_keys,
                 memory_readonly_prefixes=(
                     COURSE_REFERENCE_PREFIX,
                     SHARED_ANSWER_PREFIX,
