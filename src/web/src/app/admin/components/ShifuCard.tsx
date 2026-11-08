@@ -295,6 +295,16 @@ const ShifuCard = ({
             }}
             className='min-w-[10rem] max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
           >
+            <DropdownMenuItem asChild>
+              <a
+                href={buildCourseLearningUrl(id)}
+                target='_blank'
+                rel='noopener noreferrer'
+                onClick={trackLearningPageClick}
+              >
+                {t('module.shifuSetting.openLearningPage')}
+              </a>
+            </DropdownMenuItem>
             {onImportActivationRequest &&
               renderAction(
                 'activate_learners',
@@ -327,16 +337,6 @@ const ShifuCard = ({
                   : t('module.shifuSetting.archiveHint'),
                 onArchiveRequest,
               )}
-            <DropdownMenuItem asChild>
-              <a
-                href={buildCourseLearningUrl(id)}
-                target='_blank'
-                rel='noopener noreferrer'
-                onClick={trackLearningPageClick}
-              >
-                {t('module.shifuSetting.openLearningPage')}
-              </a>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TooltipProvider>

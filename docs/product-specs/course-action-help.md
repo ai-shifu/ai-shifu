@@ -74,8 +74,8 @@ apply independently of this feature.
 
 ## Opening the learning page from a course card
 
-The course card menu offers a link to the learner-facing course page in a new
-tab. Anyone who can see the card can use the link, including collaborators
+The first item in the course card menu opens the learner-facing course page in a
+new tab. Anyone who can see the card can use the link, including collaborators
 without course management permissions and viewers of draft or archived cards.
 The destination applies its existing publication and learner access rules.
 

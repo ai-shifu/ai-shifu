@@ -320,21 +320,30 @@ describe('course action help', () => {
     renderActionCard();
     const trigger = screen.getByRole('button', { name: 'common.core.more' });
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-    const firstItem = screen.getByRole('menuitem', { name: ACTIONS[0].label });
+    const learningLink = getLearningPageLink();
+    await waitFor(() => expect(learningLink).toHaveFocus());
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(firstItem).toHaveFocus());
+    fireEvent.keyDown(learningLink, { key: 'ArrowDown' });
+    const activationItem = screen.getByRole('menuitem', {
+      name: ACTIONS[0].label,
+    });
+    await waitFor(() => expect(activationItem).toHaveFocus());
     expect(screen.getByRole('tooltip')).toHaveTextContent(ACTIONS[0].help);
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
 
-    fireEvent.keyDown(firstItem, { key: 'ArrowDown' });
-    const secondItem = screen.getByRole('menuitem', { name: ACTIONS[1].label });
-    await waitFor(() => expect(secondItem).toHaveFocus());
+    fireEvent.keyDown(activationItem, { key: 'ArrowDown' });
+    const discountItem = screen.getByRole('menuitem', {
+      name: ACTIONS[1].label,
+    });
+    await waitFor(() => expect(discountItem).toHaveFocus());
     expect(mockTrackEvent).toHaveBeenCalledTimes(2);
 
-    fireEvent.keyDown(secondItem, { key: 'ArrowUp' });
-    await waitFor(() => expect(firstItem).toHaveFocus());
+    fireEvent.keyDown(discountItem, { key: 'ArrowUp' });
+    await waitFor(() => expect(activationItem).toHaveFocus());
     expect(mockTrackEvent).toHaveBeenCalledTimes(2);
-    fireEvent.click(firstItem);
+    fireEvent.click(activationItem);
     await waitFor(() =>
       expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
     );
