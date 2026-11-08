@@ -39,6 +39,10 @@ async def test_question_first_contract_preserves_prose_then_authored_controls(
             "Navigation-only buttons and pauses do not require a question"
             in instructions
         )
+        assert (
+            "if the binding itself is a complete question, ask it in lesson prose "
+            "before calling `interact`"
+        ) in instructions
         assert "Never write the options as plain text" in instructions
         assert "the tool prompt is a control title" in instructions
         assert "Preserve every authored input boundary" in instructions
@@ -53,14 +57,19 @@ async def test_question_first_contract_preserves_prose_then_authored_controls(
                 name="interact",
                 tool_call_id="examples",
                 json_args=json.dumps(
-                    {"type": "multi", "prompt": "Matching examples", "options": options}
+                    {
+                        "type": "multi",
+                        "prompt": "Matching examples",
+                        "options": options,
+                        "variable": question,
+                    }
                 ),
             )
         }
 
     engine = Engine(FunctionModel(stream_function=model), render=render)
     session = await engine.new_session(
-        question + "\n?[A//a || B//b]", listen_mode=listen_mode
+        "?[{{ " + question + " }} A//a || B//b]", listen_mode=listen_mode
     )
     events = [event async for event in engine.run_turn(session)]
     assert not any(event.type == "error" for event in events)
@@ -76,5 +85,6 @@ async def test_question_first_contract_preserves_prose_then_authored_controls(
         )
     assert interaction.spec.prompt == "Matching examples"
     assert interaction.spec.type == "multi"
+    assert interaction.spec.variable == question
     assert [option.model_dump() for option in interaction.spec.options] == options
     assert [pending.tool_call_id for pending in session.pending] == ["examples"]
