@@ -654,3 +654,30 @@ context are handled separately by the shared transport.
   repeated dismissal/reopening, guest/member and preview eligibility, missing
   version exclusion, internal and prevented outside interactions, touch timing,
   fullscreen migration, and synchronous/asynchronous tracking failures.
+
+## Classroom outline recovery
+
+- Business question and metric: how often does a user recover when the
+  classroom cannot load an outline? Compare successful explicit retries
+  divided by attempts in published learning and ordinary draft preview.
+- Trigger: `learner_lesson_catalog_retry_attempt` fires when the classroom
+  accepts a retry click after a failed request left it without a usable
+  outline. A failed refresh preserves an already loaded outline. The current
+  request's terminal result emits `learner_lesson_catalog_retry_result`. Successful
+  outline loads count even for courses with no lessons. Rejected requests and
+  empty responses count as failures. An abandoned or superseded request emits
+  no result.
+- Population: users opening a classroom, including guest learners and users
+  opening ordinary draft preview links. Server admission still applies.
+  Exclude initial loads, automatic navigation or reloads, Editor Debug, and
+  clicks while a retry is pending. Delivery follows shared account analytics
+  eligibility.
+- Deduplication: one attempt per accepted click and at most one terminal result
+  per attempt. A second deliberate retry after a failure starts a new attempt.
+- Payload: only `surface=published_learning|teacher_preview`. The result also
+  includes `outcome=success|failed`. No course or lesson identifier, URL,
+  account data, prompt, generated text, or raw error is sent.
+- Consumer and compatibility: use this additive family in weekly product and
+  operations recovery reporting, grouped by surface. The events measure
+  outline recovery, without inferring that teaching started. No backfill or
+  dual writing. Analytics is best-effort and never affects the retry.

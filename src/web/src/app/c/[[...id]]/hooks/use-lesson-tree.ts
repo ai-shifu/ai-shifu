@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useIsomorphicLayoutEffect } from 'react-use';
 import { produce } from 'immer';
 import { getLessonTree } from '@/api/lesson';
 import { LESSON_STATUS_VALUE } from '@/constants/course-constants';
@@ -107,17 +108,33 @@ export const checkChapterCanLearning = ({ status_value }: LessonStatusLike) => {
   return canLearn;
 };
 
-export const useLessonTree = () => {
+export const useLessonTree = (routeCourseId?: string) => {
   const [tree, setTree] = useState<LessonTree>(null);
   const treeRef = useRef<LessonTree>(tree);
+  const outlineRequestRef = useRef(0);
 
   useEffect(() => {
     treeRef.current = tree;
   }, [tree]);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const latestSelection = useRef<{ lessonId: string | null }>({
+    lessonId: null,
+  });
+  const selectLesson = useCallback((lessonId: string) => {
+    if (latestSelection.current.lessonId !== lessonId) {
+      latestSelection.current = { lessonId };
+    }
+    setSelectedLessonId(lessonId);
+  }, []);
   const { trackEvent } = useTracking();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const previewMode = useSystemStore(state => state.previewMode);
+  useIsomorphicLayoutEffect(
+    () => () => {
+      outlineRequestRef.current += 1;
+    },
+    [routeCourseId, previewMode],
+  );
   const { openPayModal } = useCourseStore(
     useShallow(state => ({
       openPayModal: state.openPayModal,
@@ -201,7 +218,7 @@ export const useLessonTree = () => {
         if (!ensureLessonAccessible(lesson, catalog?.id || '')) {
           return;
         }
-        setSelectedLessonId(lesson.id);
+        selectLesson(lesson.id);
       } else {
         // find the last chapter that is completed
         let lastChapter: LessonTreeCatalog | undefined;
@@ -213,18 +230,15 @@ export const useLessonTree = () => {
           }
         }
         if (lastChapter) {
-          setSelectedLessonId(
-            lastChapter.lessons[lastChapter.lessons.length - 1].id,
-          );
+          selectLesson(lastChapter.lessons[lastChapter.lessons.length - 1].id);
         }
       }
     },
-    [ensureLessonAccessible],
+    [ensureLessonAccessible, selectLesson],
   );
 
   const loadTreeInner = useCallback(async () => {
-    setSelectedLessonId(null);
-    const courseId = useEnvStore.getState().courseId;
+    const courseId = routeCourseId || useEnvStore.getState().courseId;
     debugInfo('[lesson-tree] request start', {
       courseId,
       previewMode,
@@ -311,7 +325,7 @@ export const useLessonTree = () => {
       });
       throw error;
     }
-  }, [previewMode]);
+  }, [previewMode, routeCourseId]);
 
   const setSelectedState = useCallback(
     (treeData: LessonTreeData | null, chapterId: string, lessonId?: string) => {
@@ -353,63 +367,93 @@ export const useLessonTree = () => {
         if (!ensureLessonAccessible(lesson, chapter.id)) {
           return false;
         }
-        setSelectedLessonId(lesson.id);
+        selectLesson(lesson.id);
         return true;
       }
       return true;
     },
-    [ensureLessonAccessible],
+    [ensureLessonAccessible, selectLesson],
+  );
+
+  const loadCurrentTree = useCallback(
+    async (
+      apply: (newTree: LessonTree, shouldSelect: boolean) => void,
+      targetLessonId?: string,
+    ) => {
+      const request = ++outlineRequestRef.current;
+      const selection = latestSelection.current;
+      const isSelectionCurrent = () =>
+        latestSelection.current === selection ||
+        latestSelection.current.lessonId === targetLessonId;
+      try {
+        const newTree = await loadTreeInner();
+        if (outlineRequestRef.current !== request) return;
+        const shouldSelect = isSelectionCurrent();
+        if (newTree) {
+          // A newer lesson choice can keep a successful catalog update without reselecting.
+          if (shouldSelect) setSelectedLessonId(null);
+          apply(newTree, shouldSelect);
+        }
+        return shouldSelect ? newTree : undefined;
+      } catch (error) {
+        if (outlineRequestRef.current === request && isSelectionCurrent()) {
+          throw error;
+        }
+      }
+    },
+    [loadTreeInner],
   );
 
   // Reload the course tree while preserving transient state
   const reloadTree = useCallback(
-    async (chapterId: string | undefined = undefined, lessonId = undefined) => {
-      const newTree = await loadTreeInner();
-      if (chapterId === undefined) {
-        initialSelectedChapter(newTree);
-      } else {
-        setSelectedState(newTree, chapterId, lessonId);
-      }
-      // Restore each catalog's collapse state using the previous snapshot
-      const previousTree = treeRef.current;
-      newTree?.catalogs.forEach(c => {
-        const oldCatalog = previousTree?.catalogs.find(oc => oc.id === c.id);
-
-        if (oldCatalog) {
-          c.collapse = oldCatalog.collapse;
+    (chapterId?: string, lessonId?: string) =>
+      loadCurrentTree((newTree, shouldSelect) => {
+        if (shouldSelect) {
+          if (chapterId === undefined) {
+            initialSelectedChapter(newTree);
+          } else {
+            setSelectedState(newTree, chapterId, lessonId);
+          }
         }
-      });
+        // Restore each catalog's collapse state using the previous snapshot
+        const previousTree = treeRef.current;
+        newTree?.catalogs.forEach(c => {
+          const oldCatalog = previousTree?.catalogs.find(oc => oc.id === c.id);
 
-      setTree(newTree);
-      return newTree;
-    },
-    [loadTreeInner, initialSelectedChapter, setSelectedState],
+          if (oldCatalog) {
+            c.collapse = oldCatalog.collapse;
+          }
+        });
+
+        setTree(newTree);
+      }, lessonId),
+    [initialSelectedChapter, loadCurrentTree, setSelectedState],
   );
 
   const loadTree = useCallback(
     async (chapterId = '', lessonId = '') => {
-      let newTree: LessonTree = null;
-      if (!tree) {
-        newTree = await loadTreeInner();
-      } else {
-        newTree = tree;
+      const select = (newTree: LessonTree) => {
+        if (!setSelectedState(newTree, chapterId, lessonId)) {
+          initialSelectedChapter(newTree);
+        }
+      };
+      if (tree) {
+        select(tree);
+        return tree;
       }
-
-      const selected = setSelectedState(newTree, chapterId, lessonId);
-      if (!selected) {
-        initialSelectedChapter(newTree);
-      }
-      setTree(newTree);
-      return newTree;
+      return loadCurrentTree((newTree, shouldSelect) => {
+        if (shouldSelect) select(newTree);
+        setTree(newTree);
+      }, lessonId);
     },
-    [initialSelectedChapter, loadTreeInner, setSelectedState, tree],
+    [initialSelectedChapter, loadCurrentTree, setSelectedState, tree],
   );
 
   const updateSelectedLesson = async (
     lessonId: string,
     forceExpand = false,
   ) => {
-    setSelectedLessonId(lessonId);
+    selectLesson(lessonId);
 
     setTree(old => {
       if (!old) {

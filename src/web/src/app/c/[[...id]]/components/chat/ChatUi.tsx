@@ -12,6 +12,7 @@ import { FRAME_LAYOUT_MOBILE, FRAME_LAYOUT_PC } from '@/constants/ui-constants';
 import { useSystemStore } from '@/store/use-system-store';
 import { useCourseStore, useUiLayoutStore } from '@/store';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
+import { Button } from '@/components/ui/Button';
 import type { ListenMobileViewModeChangeHandler } from './listen-mode-types';
 import CourseHeaderSummary from '../CourseHeaderSummary';
 import LearningModeSwitch from '../LearningModeSwitch';
@@ -44,6 +45,7 @@ interface ChatUiProps {
   lessonStatus?: string;
   followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
+  onRetryOutline?: () => void;
   titleLanguage?: string;
   contentLanguage?: string;
   onMobileSettingClick?: () => void;
@@ -70,6 +72,7 @@ export const ChatUi = ({
   lessonStatus = '',
   followUpMode = 'text',
   runtimeReady = true,
+  onRetryOutline,
   titleLanguage,
   contentLanguage,
   chapterUpdate,
@@ -213,7 +216,25 @@ export const ChatUi = ({
         ) : null
         // <div className={styles.headerMobile}></div>
       }
-      {runtimeReady ? (
+      {onRetryOutline ? (
+        <div className={cn(styles.chatComponents, styles.runtimePlaceholder)}>
+          <div className={styles.runtimePlaceholderCard}>
+            <p
+              role='alert'
+              className='mb-4'
+            >
+              {t('common.core.requestFailed')}
+            </p>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={onRetryOutline}
+            >
+              {t('common.core.retry')}
+            </Button>
+          </div>
+        </div>
+      ) : runtimeReady ? (
         <LessonConversation
           chapterId={chapterId}
           lessonId={lessonId}

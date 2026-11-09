@@ -3,6 +3,7 @@
 import styles from './page.module.scss';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useIsomorphicLayoutEffect } from 'react-use';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +28,13 @@ import {
 } from '@/store';
 import { useUserStore } from '@/store';
 import { useDisclosure } from '@/hooks/use-disclosure';
-import { useLessonTree, type LessonTreeLesson } from './hooks/use-lesson-tree';
+import { useSingleFlight } from '@/hooks/use-single-flight';
+import { useTracking } from '@/hooks/use-tracking';
+import {
+  useLessonTree,
+  type LessonTree,
+  type LessonTreeLesson,
+} from './hooks/use-lesson-tree';
 import {
   applyLessonSelection,
   resolveRequestedLessonId,
@@ -120,6 +127,7 @@ const isEditableElementFocused = () => {
 
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
 
   /**
    * User info and init part
@@ -370,16 +378,7 @@ export default function ChatPage() {
     getChapterByLesson,
     onTryLessonSelect,
     getNextLessonId,
-  } = useLessonTree();
-
-  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
-
-  useEffect(() => {
-    if (tree && i18n.language !== currentLanguage) {
-      setCurrentLanguage(i18n.language);
-      reloadTree();
-    }
-  }, [i18n.language, tree, currentLanguage, reloadTree]);
+  } = useLessonTree(courseId);
 
   const {
     lessonId,
@@ -437,9 +436,83 @@ export default function ChatPage() {
     urlLessonId,
   );
 
+  const [outlineLoadFailed, setOutlineLoadFailed] = useState(false);
+  const outlineRequestRef = useRef(0);
+  const resetReloadRef = useRef(0);
+  useIsomorphicLayoutEffect(
+    () => () => {
+      outlineRequestRef.current += 1;
+      resetReloadRef.current += 1;
+    },
+    [courseId, previewMode],
+  );
+
+  const requestOutline = useCallback(
+    async (
+      load: () => Promise<LessonTree | undefined>,
+      showFailure: boolean,
+    ) => {
+      const request = ++outlineRequestRef.current;
+      let result: LessonTree | undefined = null;
+      try {
+        result = await load();
+      } catch {
+        // The request layer already reports the underlying error.
+      }
+      if (outlineRequestRef.current !== request || result === undefined) return;
+      setOutlineLoadFailed(result === null && showFailure);
+      return result;
+    },
+    [],
+  );
+
   const loadData = useCallback(async () => {
-    await loadTree(chapterId, requestedLessonId);
-  }, [chapterId, loadTree, requestedLessonId]);
+    setOutlineLoadFailed(false);
+    const result = await requestOutline(
+      () => loadTree(chapterId, requestedLessonId),
+      true,
+    );
+    return result === undefined ? undefined : result !== null;
+  }, [chapterId, loadTree, requestOutline, requestedLessonId]);
+
+  const hasOutline = Boolean(tree);
+  const reloadOutline = useCallback(
+    (targetChapterId?: string, targetLessonId?: string) =>
+      requestOutline(
+        () => reloadTree(targetChapterId, targetLessonId),
+        !hasOutline,
+      ),
+    [hasOutline, reloadTree, requestOutline],
+  );
+
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
+  useEffect(() => {
+    if (hasOutline && i18n.language !== currentLanguage) {
+      setCurrentLanguage(i18n.language);
+      void reloadOutline();
+    }
+  }, [currentLanguage, hasOutline, i18n.language, reloadOutline]);
+
+  const canRetryOutline = outlineLoadFailed && !hasOutline;
+  const retryOutline = useSingleFlight(async () => {
+    if (!canRetryOutline) return;
+    const surface = previewMode ? 'teacher_preview' : 'published_learning';
+    const emit = (name: string, data: Record<string, string>) => {
+      try {
+        void Promise.resolve(trackEvent(name, data)).catch(() => {});
+      } catch {
+        // Analytics delivery does not affect recovery.
+      }
+    };
+    emit('learner_lesson_catalog_retry_attempt', { surface });
+    const loaded = await loadData();
+    if (loaded !== undefined) {
+      emit('learner_lesson_catalog_retry_result', {
+        surface,
+        outcome: loaded ? 'success' : 'failed',
+      });
+    }
+  });
 
   const [loadedChapterId, setLoadedChapterId] = useState<string | null>(null);
 
@@ -452,7 +525,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (initialized && loadedChapterId !== chapterId) {
-      loadData();
+      void loadData();
       setLoadedChapterId(chapterId);
     }
   }, [chapterId, initialized, loadData, loadedChapterId]);
@@ -632,8 +705,8 @@ export default function ChatPage() {
     );
 
   const onPurchased = useCallback(() => {
-    reloadTree();
-  }, [reloadTree]);
+    void reloadOutline();
+  }, [reloadOutline]);
 
   const _onPayModalCancel = useCallback(() => {
     closePayModal();
@@ -688,20 +761,36 @@ export default function ChatPage() {
   useEffect(() => {
     const resetChapterEventHandler = async e => {
       const targetLessonId = e.detail.lesson_id;
+      const resetReload = ++resetReloadRef.current;
       const lessonUpdateSequenceBeforeReload = lessonUpdateSequenceRef.current;
-      await reloadTree(e.detail.chapter_id, targetLessonId);
+      const reloadedTree = await reloadOutline(
+        e.detail.chapter_id,
+        targetLessonId,
+      );
+      if (resetReloadRef.current !== resetReload || reloadedTree === undefined)
+        return;
+
       const latestLessonUpdate =
         latestLessonUpdatesRef.current.get(targetLessonId);
-      onLessonUpdate(
-        latestLessonUpdate &&
-          latestLessonUpdate.sequence > lessonUpdateSequenceBeforeReload
-          ? latestLessonUpdate.value
-          : {
-              id: targetLessonId,
-              status: LESSON_STATUS_VALUE.LEARNING,
-              status_value: LESSON_STATUS_VALUE.LEARNING,
-            },
+      const completedRetake = reloadedTree?.catalogs.some(catalog =>
+        catalog.lessons.some(
+          lesson =>
+            lesson.id === targetLessonId &&
+            lesson.status_value === LESSON_STATUS_VALUE.COMPLETED,
+        ),
       );
+      if (
+        latestLessonUpdate &&
+        latestLessonUpdate.sequence > lessonUpdateSequenceBeforeReload
+      ) {
+        onLessonUpdate(latestLessonUpdate.value);
+      } else if (!completedRetake) {
+        onLessonUpdate({
+          id: targetLessonId,
+          status: LESSON_STATUS_VALUE.LEARNING,
+          status_value: LESSON_STATUS_VALUE.LEARNING,
+        });
+      }
       updateSelectedLesson(targetLessonId, true);
       onGoChapter(targetLessonId);
       if (mobileStyle) {
@@ -740,7 +829,7 @@ export default function ChatPage() {
     onGoChapter,
     onLessonUpdate,
     onNavClose,
-    reloadTree,
+    reloadOutline,
     updateSelectedLesson,
   ]);
 
@@ -821,7 +910,8 @@ export default function ChatPage() {
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}
             onPurchased={onPurchased}
-            runtimeReady={profileOnboardingRuntimeReady}
+            runtimeReady={profileOnboardingRuntimeReady && hasOutline}
+            onRetryOutline={canRetryOutline ? retryOutline : undefined}
             chapterUpdate={onChapterUpdate}
             updateSelectedLesson={updateSelectedLesson}
             getNextLessonId={getNextLessonId}
