@@ -22,9 +22,9 @@ canonical: true
 
 ## 目标
 
-本文档基于 `docs/product-specs/billing-credit-notifications.md`，描述积分通知中心的后续实现设计。v1 只落地短信渠道，但数据模型、任务和运营后台按通知中心抽象设计，后续可以扩展站内信、邮件、飞书等渠道。
-
-本设计只说明未来实现方案，不表示相关数据库表、任务、API 或前端页面已经存在。
+本文档基于[积分通知需求](../product-specs/billing-credit-notifications.md)，
+记录积分通知中心的短信初版设计。初版以短信为首个渠道，复用同一套
+数据模型、任务和运营后台扩展其他渠道。现行短信和邮件范围见上文。
 
 ## 设计原则
 
@@ -37,14 +37,16 @@ canonical: true
 ## 当前系统衔接点
 
 - 现有支付成功短信位于 `src/api/flaskr/service/billing/notifications.py`，采用“业务事实落库后标记通知意图，commit 后 enqueue，worker 发送并落状态”的异步模式。
-- 现有低余额扫描任务为 `billing.send_low_balance_alert`，位于 `src/api/flaskr/service/billing/tasks.py`，当前主要产出候选结果，后续应升级为生成通知记录并入队。
+- `billing.scan_low_balance_notifications` 生成符合规则的通知记录并入队。
+  `billing.send_low_balance_alert` 是委托给同一扫描逻辑的兼容入口。
 - 现有积分桶过期任务为 `billing.expire_wallet_buckets`，只负责过期账务处理，不负责发送到期提醒。
 - 现有短信供应商入口为 `send_sms_ali`。积分通知不得复用 `/api/user/send_sms_code`、`/api/user/console_send_sms_code` 或验证码短信模板。
 - 现有配置读取优先使用 `src/api/flaskr/service/config` 的 `get_config`，v1 运营策略可先放在 `sys_configs`。
 
 ## 数据模型
 
-新增统一通知记录表，建议命名为 `notification_records`。
+短信初版引入统一通知记录表 `notification_records`。当前模型定义见
+`src/api/flaskr/service/billing/models.py`。
 
 ### 字段
 
@@ -259,7 +261,7 @@ BILL_CREDIT_NOTIFICATION_SMS_CONFIG
 7. 通知记录的模板参数快照保存 `threshold_kind`、`available_credits`、`trigger_days`、`lookback_days`、`avg_daily_consumption`、`estimated_remaining_days`。
 8. dry-run 返回每条候选的平均日消耗、预计剩余可用天数、回看天数和跳过原因。
 9. 成功创建 `pending` 记录后 enqueue 发送任务。
-10. v1 可以保留旧 `billing.send_low_balance_alert` 任务名作为兼容入口，内部委托给新扫描逻辑。
+10. 兼容入口 `billing.send_low_balance_alert` 委托给同一扫描逻辑。
 
 低余额扫描只负责通知，不负责阻止请求；hardlimit 仍由 billing admission 判断。
 
