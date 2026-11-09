@@ -44,6 +44,7 @@ from flaskr.service.learn.type_state_machine import (
     TypeStateMachine,
 )
 from flaskr.service.shifu.consts import (
+    ASK_MODE_ENABLE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
@@ -134,6 +135,8 @@ class _FollowUpContext:
 
 
 class _FollowUpInfo:
+    ask_mode = ASK_MODE_ENABLE
+
     def __init__(self, ask_provider_config: object) -> None:
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}"
         self.ask_model = "gpt-test"

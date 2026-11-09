@@ -21,6 +21,7 @@ from flaskr.service.learn.ask.providers import (
 )
 from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
 from flaskr.service.shifu import shifu_publish_funcs
+from flaskr.service.shifu.consts import ASK_MODE_ENABLE
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, PublishedShifu
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from sqlalchemy.exc import OperationalError
@@ -109,7 +110,7 @@ def _configure_follow_up(
         draft.ask_llm_system_prompt = (
             f"{label} course follow-up prompt::{{shifu_system_message}}"
         )
-        draft.ask_enabled_status = 5103 if label == "Old" else 5102
+        draft.ask_enabled_status = ASK_MODE_ENABLE
         draft.ask_provider_config = json.dumps(provider_config)
         outline = DraftOutlineItem.query.filter_by(
             outline_item_bid=course.outline_bid, deleted=0
@@ -117,7 +118,7 @@ def _configure_follow_up(
         outline.ask_llm_system_prompt = (
             f"{label} lesson follow-up prompt::{{shifu_system_message}}"
         )
-        outline.ask_enabled_status = 5103 if label == "Old" else 5102
+        outline.ask_enabled_status = ASK_MODE_ENABLE
     return provider_config
 
 

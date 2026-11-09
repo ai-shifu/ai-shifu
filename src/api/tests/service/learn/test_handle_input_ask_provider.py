@@ -5,6 +5,7 @@ import sys
 import types
 
 import pytest
+from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
 
 from tests.common.fixtures.model_factories import (
     make_generated_block,
@@ -143,6 +144,7 @@ class _DummyFollowUpInfo:
     def __init__(self, ask_provider_config: object) -> None:
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}::{knowledge_section}"
         self.ask_model = "gpt-test"
+        self.ask_mode = ASK_MODE_DEFAULT
         self.model_args = {"temperature": 0.2}
         self.ask_provider_config = ask_provider_config
 
@@ -225,17 +227,19 @@ class _Context:
 
 
 @pytest.mark.parametrize(
-    "model",
+    ("model", "ask_mode"),
     [
-        "gemini-3.8-live",
-        "gemini-3.1-flash-live-preview",
-        "gemini-3.8-live-extended-thinking",
+        ("gemini-3.8-live", ASK_MODE_DEFAULT),
+        ("gemini-3.1-flash-live-preview", ASK_MODE_DEFAULT),
+        ("gemini-3.8-live-extended-thinking", ASK_MODE_DEFAULT),
+        ("gpt-test", ASK_MODE_DISABLE),
     ],
 )
-def test_live_follow_up_is_rejected_before_legacy_text_path_side_effects(
+def test_ineligible_follow_up_is_rejected_before_legacy_text_path_side_effects(
     app: object,
     monkeypatch: object,
     model: str,
+    ask_mode: int,
 ) -> None:
     from flaskr.service.common.models import AppError
     from flaskr.service.learn.ask import handler as module
@@ -243,13 +247,15 @@ def test_live_follow_up_is_rejected_before_legacy_text_path_side_effects(
     monkeypatch.setattr(
         module,
         "get_follow_up_info_v2",
-        lambda *_args, **_kwargs: types.SimpleNamespace(ask_model=model),
+        lambda *_args, **_kwargs: types.SimpleNamespace(
+            ask_model=model, ask_mode=ask_mode
+        ),
     )
     monkeypatch.setattr(
         module,
         "build_follow_up_conversation_context",
         lambda *_args, **_kwargs: pytest.fail(
-            "Live model entered legacy text conversation building"
+            "Ineligible follow-up entered legacy text conversation building"
         ),
     )
 
@@ -260,7 +266,7 @@ def test_live_follow_up_is_rejected_before_legacy_text_path_side_effects(
                 context=_Context(),
                 user_info=types.SimpleNamespace(user_id="user-1"),
                 attend_id="attend-1",
-                user_input="must stay voice-only",
+                user_input="This text follow-up is unavailable",
                 outline_item_info=types.SimpleNamespace(
                     shifu_bid="shifu-1",
                     bid="outline-1",
