@@ -13,8 +13,7 @@ USAGE = {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
 MODEL = {"id": "gpt-test", "object": "model", "created": 0, "owned_by": "harness"}
 QUESTION = {
     "type": "single",
-    "prompt": "Choose a learning path",
-    "variable": "e2e_answer",
+    "question": "e2e_answer",
     "options": [
         {"display": "Visible A", "value": "a"},
         {"display": "Visible B", "value": "b"},
@@ -45,13 +44,15 @@ def response_message(payload: dict[str, Any]) -> dict[str, Any]:
         )
     }
     name = None
+    content = "Learning path recorded." if returned else "Choose a learning path."
     if authored and "interact" in tools and "interact" not in returned:
         name, arguments = "interact", QUESTION
+        content = QUESTION["question"]
     elif "finish" in tools and "interact" in returned and "finish" not in returned:
         name, arguments = "finish", {"summary": "Learning path recorded"}
     message: dict[str, Any] = {
         "role": "assistant",
-        "content": "Learning path recorded." if returned else "Choose a learning path.",
+        "content": content,
     }
     if name:
         message["tool_calls"] = [
