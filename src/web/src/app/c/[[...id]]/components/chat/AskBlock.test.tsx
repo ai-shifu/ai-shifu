@@ -600,6 +600,176 @@ describe('AskBlock', () => {
     );
   });
 
+  it('keeps mobile reading inline and restores its draft after collapsing', () => {
+    const onDraftChange = jest.fn();
+    const onToggleAskExpanded = jest.fn();
+    const view = (isExpanded: boolean) => (
+      <AppContext.Provider value={{ mobileStyle: true } as any}>
+        <AskBlock
+          inlineReading
+          isExpanded={isExpanded}
+          onDraftChange={onDraftChange}
+          onToggleAskExpanded={onToggleAskExpanded}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+        />
+      </AppContext.Provider>
+    );
+    const { rerender, container } = render(view(true));
+
+    expect(
+      screen.getByRole('region', { name: 'module.chat.ask' }),
+    ).toBeVisible();
+    expect(container.querySelector('.mobileOverlay')).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    expect(onDraftChange).toHaveBeenLastCalledWith(false);
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'draft at this reading point' },
+    });
+    expect(onDraftChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.close' }));
+    expect(onToggleAskExpanded).toHaveBeenCalledWith('block-1');
+
+    rerender(view(false));
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('ask-input')).not.toBeInTheDocument();
+    rerender(view(true));
+    expect(screen.getByLabelText('ask-input')).toHaveValue(
+      'draft at this reading point',
+    );
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('delegates inline continue and Escape dismissal to the reading owner', () => {
+    const onContinueReading = jest.fn();
+    const onToggleAskExpanded = jest.fn();
+    render(
+      <AppContext.Provider value={{ mobileStyle: false } as any}>
+        <AskBlock
+          inlineReading
+          isExpanded
+          onContinueReading={onContinueReading}
+          onToggleAskExpanded={onToggleAskExpanded}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.chat.continueReading' }),
+    );
+    expect(onContinueReading).toHaveBeenCalledTimes(1);
+    expect(onToggleAskExpanded).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByLabelText('ask-input'), {
+      key: 'Escape',
+      isComposing: true,
+    });
+    expect(onToggleAskExpanded).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByLabelText('ask-input'), { key: 'Escape' });
+    expect(onToggleAskExpanded).toHaveBeenCalledWith('block-1');
+  });
+
+  it('retains the inline streaming answer while collapsed and completes it', async () => {
+    const view = (isExpanded: boolean) => (
+      <AppContext.Provider value={{ mobileStyle: true } as any}>
+        <AskBlock
+          inlineReading
+          isExpanded={isExpanded}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+        />
+      </AppContext.Provider>
+    );
+    const { rerender } = render(view(true));
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'follow-up question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: 'answer in progress',
+      });
+    });
+    const answer = screen.getByTestId('follow-up-answer');
+    rerender(view(false));
+    expect(screen.getByTestId('follow-up-answer')).toBe(answer);
+    expect(answer).not.toBeVisible();
+    expect(activeRun?.source.close).not.toHaveBeenCalled();
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
+      });
+    });
+    expect(
+      useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[1],
+    ).toMatchObject({
+      isStreaming: false,
+      shouldUseTypewriter: false,
+      content: 'answer in progress',
+    });
+    rerender(view(true));
+    expect(screen.getByText('answer in progress')).toBeVisible();
+  });
+
+  it('preserves the mobile listen sheet and scroll lock without inline opt-in', () => {
+    const { unmount } = render(
+      <AppContext.Provider value={{ mobileStyle: true } as any}>
+        <AskBlock
+          className='listen-slide-ask-block'
+          isExpanded
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+        />
+      </AppContext.Provider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Close' })).toBeVisible();
+    expect(document.body.style.overflow).toBe('hidden');
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it.each([false, true])(
+    'preserves the existing follow-up context payload (inline=%s)',
+    async inlineReading => {
+      render(
+        <AppContext.Provider value={{ mobileStyle: false } as any}>
+          <AskBlock
+            inlineReading={inlineReading}
+            isExpanded
+            shifu_bid='shifu-1'
+            outline_bid='lesson-1'
+            element_bid='block-1'
+          />
+        </AppContext.Provider>,
+      );
+      fireEvent.change(screen.getByLabelText('ask-input'), {
+        target: { value: 'follow-up question' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'send' }));
+      await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+      expect(mockGetRunMessage.mock.calls[0][3]).toEqual({
+        input: 'follow-up question',
+        input_type: 'ask',
+        reload_generated_block_bid: 'block-1',
+        reload_element_bid: 'block-1',
+        listen: false,
+      });
+      expect(mockGetRunMessage.mock.calls[0][3]).not.toHaveProperty(
+        'reading_context',
+      );
+    },
+  );
+
   it('tracks an accepted desktop Enter submission with a privacy-safe payload', async () => {
     render(
       <AppContext.Provider

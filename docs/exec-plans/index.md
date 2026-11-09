@@ -199,6 +199,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Profile collection uses course reading rendering](./completed/profile-reading-runtime.md)
 - [Publish Web images without the Cook name](./completed/public-web-image-name.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
+- [Reading follow-up entry](./completed/reading-follow-up-entry.md)
 - [Compact completed memory recall history](./completed/recall-history-compaction.md)
 - [Remove editor Debug content regeneration](./completed/remove-debug-content-regeneration.md)
 - [Remove manual memory definition write APIs](./completed/remove-manual-memory-definition-apis.md)
