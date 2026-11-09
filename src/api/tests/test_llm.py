@@ -4605,7 +4605,7 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     from flaskr.api.langfuse import MockClient
     from flaskr.api.llm import model_selection
     from flaskr.api.markdownflow import ScriptBundle, Session
-    from flaskr.dao import db
+    from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.agent import lesson_entry
     from pydantic_ai.models import ModelRequestParameters
 
@@ -4661,13 +4661,17 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     with app.test_request_context():
         outline_type, course_type = lesson_entry._models(preview)
         course_bid, outline_bid = uuid4().hex, uuid4().hex
-        course = course_type(shifu_bid=course_bid, llm=selection, llm_temperature=0.4)
+        course = course_type(
+            shifu_bid=course_bid,
+            created_user_bid="selection-user",
+            llm=selection,
+            llm_temperature=0.4,
+        )
         outline = outline_type(
             shifu_bid=course_bid, outline_item_bid=outline_bid, content="Teach."
         )
-        db.session.add_all([course, outline])
-        db.session.flush()
-        db.session.commit()
+        with unit_of_work():
+            db.session.add_all([course, outline])
         list(
             lesson_entry.agent_lesson_events(
                 app,
@@ -4893,13 +4897,11 @@ async def test_real_chat_gateway_preserves_cache_observations_and_billing(
 
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
-@pytest.mark.parametrize("course_table", ["draft", "published"])
 def test_agent_entry_attributes_all_model_usage_to_the_course(
     monkeypatch: pytest.MonkeyPatch,
     app: object,
     preview_mode: bool,
     learning_mode: str,
-    course_table: str,
 ) -> None:
     """Exercise entry, all three real adapters, shared chat normalization and persistence."""
     import asyncio
@@ -4911,25 +4913,16 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.billing import ownership
     from flaskr.service.learn.agent import lesson_entry
-    from flaskr.service.learn.llmsetting import LLMSettings
     from flaskr.service.metering import recorder
     from flaskr.service.metering.models import BillUsageRecord
-    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
     from pydantic_ai.models import ModelRequestParameters
 
     _use_fake_provider(monkeypatch)
-    identity = uuid.uuid4().hex
-    monkeypatch.setattr(
-        lesson_entry,
-        "_resolve",
-        lambda *_args, **_kwargs: (
-            "script",
-            "",
-            LLMSettings(model="gpt-test", temperature=0.25),
-            None,
-            False,
-        ),
+    course_bid, outline_bid, owner_bid, learner_bid = (
+        uuid.uuid4().hex for _ in range(4)
     )
+    user_bid = owner_bid if preview_mode else learner_bid
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
     monkeypatch.setattr(langfuse_markdownflow, "get_langfuse_client", MockClient)
     monkeypatch.setattr(
         recorder, "_enqueue_usage_settlement", lambda *_args, **_kw: None
@@ -4971,18 +4964,30 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
 
     monkeypatch.setattr(lesson_entry, "run_agent_lesson", run)
     with app.app_context():
-        course_bid = uuid.uuid4().hex
-        owner_bid = uuid.uuid4().hex
-        table = DraftShifu if course_table == "draft" else PublishedShifu
+        outline_type, course_type = lesson_entry._models(preview_mode)
         with unit_of_work():
-            db.session.add(table(shifu_bid=course_bid, created_user_bid=owner_bid))
+            db.session.add_all(
+                [
+                    course_type(
+                        shifu_bid=course_bid,
+                        created_user_bid=owner_bid,
+                        llm="1",
+                        llm_temperature=0.25,
+                    ),
+                    outline_type(
+                        shifu_bid=course_bid,
+                        outline_item_bid=outline_bid,
+                        content="Teach.",
+                    ),
+                ]
+            )
         assert (
             list(
                 lesson_entry.agent_lesson_events(
                     app,
-                    user_bid=identity,
+                    user_bid=user_bid,
                     shifu_bid=course_bid,
-                    outline_bid="course-usage-lesson",
+                    outline_bid=outline_bid,
                     preview_mode=preview_mode,
                     listen=learning_mode == "listen",
                     learning_mode=learning_mode,
@@ -4990,7 +4995,7 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
             )
             == []
         )
-        rows = BillUsageRecord.query.filter_by(user_bid=identity).all()
+        rows = BillUsageRecord.query.filter_by(user_bid=user_bid).all()
         assert len(rows) == 2
         assert {row.extra["generation_name"] for row in rows} == {
             "teaching",
@@ -4998,7 +5003,7 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
         }
         for row in rows:
             assert row.shifu_bid == course_bid
-            assert row.outline_item_bid == "course-usage-lesson"
+            assert row.outline_item_bid == outline_bid
             assert row.usage_scene == (
                 BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
             )
