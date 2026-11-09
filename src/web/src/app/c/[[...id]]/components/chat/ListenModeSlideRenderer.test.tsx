@@ -476,6 +476,151 @@ describe('ListenModeSlideRenderer', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
+  const renderKeyboardNavigation = (
+    options: { previewMode?: boolean; variant?: 'listen' | 'classroom' } = {},
+  ) => {
+    render(
+      <ListenModeSlideRenderer
+        items={Array.from({ length: 3 }, (_, index) => ({
+          type: 'content',
+          content: `Slide ${index + 1}`,
+          element_bid: `keyboard-slide-${index}`,
+        }))}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='keyboard-course'
+        lessonId='keyboard-lesson'
+        {...options}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onStepChange: (element: unknown, index: number) => void;
+    };
+    const changeStep = (index: number) => {
+      slideProps.onStepChange(
+        { blockBid: `keyboard-slide-${index}`, is_marker: true },
+        index,
+      );
+    };
+    act(() => changeStep(0));
+    mockTrackEvent.mockClear();
+    return changeStep;
+  };
+
+  const dispatchSlideArrow = (
+    key: 'ArrowUp' | 'ArrowDown',
+    options: {
+      consumed?: boolean;
+      shiftKey?: boolean;
+      target?: HTMLElement;
+    } = {},
+  ) => {
+    const {
+      consumed = true,
+      shiftKey = false,
+      target = document.body,
+    } = options;
+    const preventDefault = (event: KeyboardEvent) => event.preventDefault();
+    if (consumed) {
+      document.addEventListener('keydown', preventDefault);
+    }
+    try {
+      fireEvent.keyDown(target, { key, shiftKey });
+    } finally {
+      document.removeEventListener('keydown', preventDefault);
+    }
+  };
+
+  it('tracks each consumed vertical key that turns an adjacent generated slide', () => {
+    const changeStep = renderKeyboardNavigation();
+
+    act(() => {
+      dispatchSlideArrow('ArrowDown', { consumed: false });
+      changeStep(1);
+    });
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    render(<input aria-label='Slide note' />);
+    const input = screen.getByRole('textbox', { name: 'Slide note' });
+    act(() => {
+      dispatchSlideArrow('ArrowUp', { target: input });
+      changeStep(0);
+      changeStep(1);
+    });
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    act(() => {
+      dispatchSlideArrow('ArrowDown');
+      changeStep(2);
+      changeStep(2);
+      dispatchSlideArrow('ArrowDown');
+      dispatchSlideArrow('ArrowUp', { shiftKey: true });
+      changeStep(1);
+      dispatchSlideArrow('ArrowUp');
+      changeStep(0);
+    });
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [
+        'learner_listen_slide_keyboard_navigate',
+        {
+          shifu_bid: 'keyboard-course',
+          surface: 'learner_listen',
+          direction: 'next',
+        },
+      ],
+      [
+        'learner_listen_slide_keyboard_navigate',
+        {
+          shifu_bid: 'keyboard-course',
+          surface: 'learner_listen',
+          direction: 'previous',
+        },
+      ],
+    ]);
+  });
+
+  it('discards a consumed key before a later slide change and keeps tracking fail-open', async () => {
+    const changeStep = renderKeyboardNavigation();
+
+    dispatchSlideArrow('ArrowDown');
+    await act(async () => {
+      await new Promise(resolve => window.setTimeout(resolve, 0));
+      changeStep(1);
+    });
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    mockTrackEvent.mockImplementationOnce(() => {
+      throw new Error('tracking unavailable');
+    });
+    expect(() => {
+      act(() => {
+        dispatchSlideArrow('ArrowDown');
+        changeStep(2);
+      });
+    }).not.toThrow();
+
+    mockTrackEvent.mockRejectedValueOnce(new Error('tracking unavailable'));
+    await act(async () => {
+      dispatchSlideArrow('ArrowUp');
+      changeStep(1);
+    });
+    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([{ previewMode: true }, { variant: 'classroom' as const }])(
+    'excludes keyboard navigation outside learner listen mode (%o)',
+    options => {
+      const changeStep = renderKeyboardNavigation(options);
+
+      act(() => {
+        dispatchSlideArrow('ArrowDown');
+        changeStep(1);
+      });
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not show the audio preparation text for normal loading', () => {
     render(
       <ListenModeSlideRenderer

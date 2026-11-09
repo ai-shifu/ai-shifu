@@ -140,6 +140,36 @@ backend, database, dependency or analytics behavior.
 | `surface`              | string | `learner_listen`                 | 1           | non-personal  | fixed product surface   |
 | `target_step_index`    | number | zero-based generated slide index | bounded     | non-personal  | selected location       |
 
+### `learner_listen_slide_keyboard_navigate`
+
+The learning team uses this event to measure adoption of vertical keyboard
+navigation. Reports count accepted turns by course and direction over a
+reporting window. Timeline reporting uses the separate marker selection event.
+
+Guests and members are eligible in learner listen mode when the course and
+lesson IDs are available and at least two generated slides exist. Preview and
+classroom are excluded.
+
+The renderer emits after a committed move to the adjacent generated slide in
+the direction of an unmodified, canceled arrow key event in the same dispatch
+task. Arrow Up moves to the previous slide and Arrow Down to the next slide.
+Keys used for scrolling, disabled navigation, and attempts that leave the
+current slide in place fall outside the trigger.
+
+Each matching dispatch is consumed once. Separate accepted turns each count,
+including repeated visits to a slide. The renderer scopes the association to the
+current course and lesson and sends the course ID for course-level reporting.
+This additive event starts with the release.
+
+Renderer tests verify the trigger, exclusions, single emission per matching
+dispatch, exact payload, and continued navigation when `useTracking` fails.
+
+| Field       | Type   | Allowed values     | Cardinality | Privacy class | Why required          |
+| ----------- | ------ | ------------------ | ----------- | ------------- | --------------------- |
+| `shifu_bid` | string | course machine ID  | high        | pseudonymous  | course-level grouping |
+| `surface`   | string | `learner_listen`   | 1           | non-personal  | fixed product surface |
+| `direction` | string | `previous`, `next` | 2           | non-personal  | groups turns by key   |
+
 ### `learner_listen_slide_timeline_exposed`
 
 - Business question: What share of eligible listen sessions uses generated

@@ -122,7 +122,7 @@ const CLASSROOM_PAGE_SHORTCUT_KEY_MAP: Record<
   PageDown: 'ArrowRight',
 };
 
-const CLASSROOM_PAGE_SHORTCUT_IGNORE_SELECTOR = [
+const SLIDE_SHORTCUT_IGNORE_SELECTOR = [
   'input',
   'textarea',
   'select',
@@ -162,7 +162,7 @@ const resolveClassroomPageShortcutKey = (
   return null;
 };
 
-const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
+const shouldIgnoreSlideShortcutEvent = (event: KeyboardEvent) => {
   if (
     event.defaultPrevented ||
     event.altKey ||
@@ -179,7 +179,7 @@ const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
   }
 
   return Boolean(
-    target.closest(CLASSROOM_PAGE_SHORTCUT_IGNORE_SELECTOR) ||
+    target.closest(SLIDE_SHORTCUT_IGNORE_SELECTOR) ||
     (isClassroomSpaceShortcutEvent(event) &&
       target.closest(CLASSROOM_SPACE_NATIVE_ACTION_SELECTOR)),
   );
@@ -794,6 +794,12 @@ const ListenModeSlideRenderer = ({
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
+  const observedStepIndexRef = useRef(-1);
+  const pendingKeyboardNavigationRef = useRef<{
+    event: KeyboardEvent;
+    targetIndex: number;
+    direction: 'previous' | 'next';
+  } | null>(null);
   const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
     'course_listen',
     variant === 'listen' && !previewMode,
@@ -1236,6 +1242,7 @@ const ListenModeSlideRenderer = ({
   ]);
   const handleSlideProgressNavigate = useCallback(
     (_element: unknown, targetStepIndex: number) => {
+      pendingKeyboardNavigationRef.current = null;
       if (variant !== 'listen' || previewMode || !shifuBid) {
         return;
       }
@@ -1607,7 +1614,7 @@ const ListenModeSlideRenderer = ({
 
     const handleClassroomPageShortcut = (event: KeyboardEvent) => {
       const forwardedKey = resolveClassroomPageShortcutKey(event);
-      if (!forwardedKey || shouldIgnoreClassroomPageShortcutEvent(event)) {
+      if (!forwardedKey || shouldIgnoreSlideShortcutEvent(event)) {
         return;
       }
 
@@ -1833,9 +1840,88 @@ const ListenModeSlideRenderer = ({
     });
   }, [chatRef, pausePlaybackWhen]);
 
+  const canTrackKeyboardNavigation =
+    variant === 'listen' &&
+    !previewMode &&
+    Boolean(shifuBid && lessonId) &&
+    isPlaybackRestoreReady &&
+    generatedTimelineStepCount > 1;
+
+  useEffect(() => {
+    if (!canTrackKeyboardNavigation) {
+      return;
+    }
+
+    let clearPendingTimer: number | undefined;
+    const observeVerticalShortcut = (event: KeyboardEvent) => {
+      if (
+        (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') ||
+        event.isComposing ||
+        shouldIgnoreSlideShortcutEvent(event)
+      ) {
+        return;
+      }
+
+      const currentIndex = observedStepIndexRef.current;
+      const previous = event.key === 'ArrowUp';
+      const targetIndex = currentIndex + (previous ? -1 : 1);
+      pendingKeyboardNavigationRef.current = null;
+      if (
+        currentIndex < 0 ||
+        targetIndex < 0 ||
+        targetIndex >= markerStepCount
+      ) {
+        return;
+      }
+
+      // Slide reports the committed index without the initiating input.
+      pendingKeyboardNavigationRef.current = {
+        event,
+        targetIndex,
+        direction: previous ? 'previous' : 'next',
+      };
+      window.clearTimeout(clearPendingTimer);
+      clearPendingTimer = window.setTimeout(() => {
+        pendingKeyboardNavigationRef.current = null;
+      }, 0);
+    };
+
+    window.addEventListener('keydown', observeVerticalShortcut, true);
+    return () => {
+      window.removeEventListener('keydown', observeVerticalShortcut, true);
+      window.clearTimeout(clearPendingTimer);
+      pendingKeyboardNavigationRef.current = null;
+    };
+  }, [canTrackKeyboardNavigation, lessonId, markerStepCount, shifuBid]);
+
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
       const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
+      if (observedStepIndexRef.current !== index) {
+        observedStepIndexRef.current = index;
+        const shortcut = pendingKeyboardNavigationRef.current;
+        pendingKeyboardNavigationRef.current = null;
+        if (
+          canTrackKeyboardNavigation &&
+          shifuBid &&
+          blockBid &&
+          blockBid !== 'empty-ppt' &&
+          element?.is_marker &&
+          shortcut?.event.defaultPrevented &&
+          shortcut.targetIndex === index
+        ) {
+          try {
+            void Promise.resolve(
+              trackEvent('learner_listen_slide_keyboard_navigate', {
+                shifu_bid: shifuBid,
+                surface: 'learner_listen',
+                direction: shortcut.direction,
+              }),
+            ).catch(() => {});
+          } catch {}
+        }
+      }
+
       if (blockBid && blockBid !== 'empty-ppt') {
         setCurrentStepBlockBid(blockBid);
       }
@@ -1855,7 +1941,7 @@ const ListenModeSlideRenderer = ({
         };
       });
     },
-    [markerStepCount],
+    [canTrackKeyboardNavigation, markerStepCount, shifuBid, trackEvent],
   );
 
   useEffect(() => {
