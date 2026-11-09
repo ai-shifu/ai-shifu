@@ -54,6 +54,7 @@ interface LessonDraft {
   persisted: string | undefined;
   revision: number | null;
   conflicted: boolean;
+  loading: boolean;
 }
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
@@ -233,6 +234,7 @@ export const ShifuProvider = ({
             persisted: undefined,
             revision: null,
             conflicted: false,
+            loading: false,
           }
         : null;
     mdflowRequestRef.current += 1;
@@ -524,6 +526,7 @@ export const ShifuProvider = ({
     const isLatest = () =>
       lessonDraftRef.current === draft &&
       mdflowRequestRef.current === requestId;
+    draft.loading = true;
     setIsLoading(true);
     setError(null);
 
@@ -566,9 +569,23 @@ export const ShifuProvider = ({
       return false;
     } finally {
       if (isLatest()) {
+        draft.loading = false;
         setIsLoading(false);
       }
     }
+  };
+
+  const retryMdflow = (outlineId: string, shifuId: string) => {
+    const draft = lessonDraftRef.current;
+    if (
+      draft?.outlineId !== outlineId ||
+      draft.shifuId !== shifuId ||
+      draft.loading ||
+      draft.persisted !== undefined
+    ) {
+      return;
+    }
+    return loadMdflow(outlineId, shifuId);
   };
 
   const loadDraftMeta = useCallback(
@@ -1846,6 +1863,7 @@ export const ShifuProvider = ({
       loadModels,
       reorderOutlineTree,
       loadMdflow,
+      retryMdflow,
       saveMdflow,
       loadDraftMeta,
       loadMdflowHistory,

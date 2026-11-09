@@ -217,8 +217,8 @@ lesson settings retain their title, permission, and visibility behavior.
   access. The selected lesson must have a course ID and lesson ID, an unloaded
   body, and no load in progress. Ordinary navigation, initial loads, chapters,
   placeholders, loaded lessons, and learner surfaces are excluded.
-- Count and deduplication: one result per accepted retry. The row holds an
-  in-flight guard until the load settles. Later accepted retries count
+- Count and deduplication: one result per accepted retry. The draft store
+  guards the selected lesson until its load settles. Later accepted retries count
   separately. There is no persisted deduplication or cross-event join.
 - Payload: only the low-cardinality, non-personal string `outcome`.
   `applied` means the body load succeeded for the selection.

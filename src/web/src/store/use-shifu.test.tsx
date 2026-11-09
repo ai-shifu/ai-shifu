@@ -146,6 +146,9 @@ describe('useShifu lesson drafts', () => {
       await result.current.actions.loadMdflow('lesson-2', 'shifu-1');
       result.current.actions.setCurrentNode(lesson('lesson-1'));
       latestLoad = result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+      expect(
+        result.current.actions.retryMdflow('lesson-1', 'shifu-1'),
+      ).toBeUndefined();
     });
     await act(async () => {
       earlier.resolve('Stale body');
@@ -158,6 +161,9 @@ describe('useShifu lesson drafts', () => {
     await act(async () => {
       latest.resolve('Latest body');
       expect(await latestLoad).toBe(true);
+      expect(
+        result.current.actions.retryMdflow('lesson-1', 'shifu-1'),
+      ).toBeUndefined();
     });
     expect(result.current.mdflow).toBe('Latest body');
   });
