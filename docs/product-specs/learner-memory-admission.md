@@ -30,6 +30,11 @@ stored keys do not grant write permission. Named interaction answers require the
 same declaration and retain their exact original values and existing scope rules.
 An undeclared answer binding is dropped without dropping the question.
 
+An edited draft can carry forward a percent-prefixed system declaration already
+present in its previous revision. Restoring a stored version preserves those
+declarations from the selected version. Imports create new lesson identities and
+cannot introduce system declarations.
+
 For an undeclared note, `remember` must quote a complete accepted free-text input
 from the current model turn as `request` (at most 4096 characters). Enabled hosts
 make this field required in the model-facing schema; declared keys may supply null.
@@ -61,10 +66,6 @@ missing definitions, and supplementary reads exclude undefined `sys_` keys.
 Active system declarations in retained published lessons keep their canonical
 profile mapping semantics.
 Canonical account fields remain authoritative. There is no cross-course sharing.
-An edited draft can carry forward a percent-prefixed system declaration already
-present in its previous revision. Restoring a stored version preserves those
-declarations from the selected version. Imports create new lesson identities and
-cannot introduce system declarations.
 Only the agent's memory reader opts into additional current-course variable rows;
 other consumers retain definition-based runtime resolution. The supplementary
 projection considers only the newest 100 unresolved course keys and includes whole
