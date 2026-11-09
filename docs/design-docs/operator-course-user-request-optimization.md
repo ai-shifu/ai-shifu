@@ -1,8 +1,8 @@
 ---
 title: Operator Course/User Request Optimization
-status: needs-review
+status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -10,13 +10,9 @@ canonical: true
 
 ## Context
 
-The operator course list and user list currently do too much work inside the paginated list endpoints:
-
-- both list APIs recompute overview cards on every paging/search request
-- the user list returns full created/learning course arrays for every row even though the dialog is opened on demand
-- the course list computes course prompt flags before pagination, which scales with the whole candidate set
-
-This makes the course list especially slow and also adds avoidable load to the user list.
+The operator course and user lists previously rebuilt their overview on paging
+and search. The user list also returned course arrays eagerly, and the course
+list calculated prompt flags before pagination.
 
 ## Goals
 
@@ -27,11 +23,14 @@ This makes the course list especially slow and also adds avoidable load to the u
 
 ## Plan
 
-1. Split course overview and user overview into dedicated backend endpoints.
-2. Remove overview computation from the paginated list endpoints.
-3. Slim user list rows to counts for created/learning courses, then fetch full course arrays only when the dialog opens.
-4. Defer course prompt flag calculation to paginated course rows only.
-5. Update frontend pages to request overview data separately and load user course dialog data on demand.
+The paginated lists and their overview endpoints are separate. The course and
+user overview requests run after the initial list settles. The user list returns
+created/learning course counts and loads course arrays from user detail on
+demand. The course list calculates prompt flags for the selected page.
+
+The backend paths are `admin_operations/courses_listing.py` and
+`admin_operations/users.py` under the shifu service. The corresponding Cook
+Web operations course and user page tests cover deferred overview loading.
 
 ## Non-goals
 

@@ -1,8 +1,8 @@
 ---
 title: Operator Promotions
-status: needs-review
+status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -15,9 +15,11 @@ Add a new operator-level `Promotions` area under operations for managing coupon 
 ## Scope
 
 - Add a new operator menu item and page route at `/admin/operations/promotions`
-- Build two tabs on the page:
-  - Coupon Codes
-  - Campaigns
+- The page has Coupon Codes, course Campaigns, Package Campaigns, and Referral
+  Campaigns tabs. This document covers the coupon and course campaign
+  contracts. See the [referral design](../design-docs/referral-invitation-rewards.md)
+  and [billing design](../design-docs/billing-subscription-design.md) for the
+  other tabs.
 - Reuse the existing promo, coupon, coupon usage, and promo redemption domain models where possible
 - Add operator-facing backend list/detail/create/status APIs
 - Add focused backend and frontend tests for the new flows
@@ -30,7 +32,7 @@ Add a new operator-level `Promotions` area under operations for managing coupon 
 - Route path: `/admin/operations/promotions`
 - Tabs:
   - `兑换码`
-  - `活动`
+  - `活动` (course campaign tab)
 
 ### Coupon Codes
 
@@ -46,7 +48,7 @@ Add a new operator-level `Promotions` area under operations for managing coupon 
   - single course
 - Coupon batches support create, limited edit, and enable/disable
 - Fields such as usage type, discount type, discount value, course scope, and channel stay locked after creation
-- Operators can edit only the implemented batch fields exposed by this PR: name and schedule/time window
+- Operators can edit only the implemented batch fields exposed by the operator API: name and schedule/time window
 - Coupon and campaign discounts may stack
 
 ### Campaigns
@@ -95,6 +97,10 @@ Add operator routes under `/shifu/admin/operations/promotions/...`.
 - Keep UI strings in `src/i18n`
 
 ## Verification
+
+`test_admin_promotions.py` verifies operator authorization, round trips,
+locked fields, and campaign overlap. The Cook Web operations promotions page
+wires the coupon and course campaign list and mutation endpoints.
 
 - Backend pytest for coupon and campaign operator APIs and validations
 - Frontend page tests for tabs, rendering, and form validation

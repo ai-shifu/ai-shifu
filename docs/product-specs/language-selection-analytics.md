@@ -2,14 +2,16 @@
 title: Language Selection Analytics
 status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
 # Language Selection Analytics
 
-Transferred without changing event semantics from the delivered plan. A full
-producer/consumer review date is not inferred from this document move.
+The producer and regression tests live in
+`src/web/src/components/language-select/LanguageSelect.tsx` and
+`LanguageSelect.test.tsx`. The weekly breakdown below describes the intended
+reporting contract.
 
 - Business question: among deliberate language selections, how often is each supported language chosen, and on which entry surface? This informs whether to prioritize locale-specific copy improvements and where to make language switching easier to find.
 - Metric definition: weekly count of `user_language_selected` events with the selected locale (including `ur-PK`), divided by the weekly count of all `user_language_selected` events; segment both counts by `surface`. This is a share of deliberate selections, not a conversion rate from eligible views or a count of successfully persisted preferences.

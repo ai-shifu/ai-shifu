@@ -1,12 +1,16 @@
 ---
 title: MDFlow Element Backfill
-status: implemented
+status: historical
 owner_surface: shared
-last_reviewed: 2026-04-17
-canonical: true
+last_reviewed: 2026-11-09
+canonical: false
 ---
 
 # MDFlow Element Backfill
+
+The one-off script, its adapter, and its dedicated tests were removed in
+[PR #3240](https://github.com/ai-shifu/ai-shifu/pull/3240). The rules below
+record what the removed backfill did.
 
 ## Goal
 

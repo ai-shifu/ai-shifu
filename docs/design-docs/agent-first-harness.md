@@ -2,7 +2,7 @@
 title: Agent-First Harness Migration
 status: implemented
 owner_surface: repo
-last_reviewed: 2026-04-17
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -29,7 +29,11 @@ checked.
 
 ## Deliverables
 
-- Root knowledge docs and generated indexes
+- Root knowledge docs and committed generated indexes. See the
+  [knowledge workflow](../README.md#workflow) for validation and derived reports.
 - Updated AI-doc generation and validation scripts
-- Playwright smoke coverage with diagnostics artifacts
-- Backend request-id diagnostics script
+- Playwright smoke coverage and diagnostics artifacts in the Runtime Harness workflow
+- Backend request-ID diagnostics in `src/api/scripts/harness_diagnostics.py`
+- Static Checks validate committed knowledge artifacts. The scheduled Harness
+  Gardening job separately checks document freshness, retired terms, and stale
+  architecture baseline entries.

@@ -2,13 +2,17 @@
 title: Billing 设计文档
 status: needs-review
 owner_surface: backend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
 # Billing 设计文档
 
-更新日期：2026-08-16
+原设计更新日期：2026-08-16
+
+本文保留 v1 / v1.1 的分期设计和初版接口草案。核对当前运行边界时，
+以 1.5 的能力注册表、实际路由和 ORM 模型为准。预购、国内直连支付和
+发放有效期的现行规则分别见本文链接的专项设计。
 
 ## 1. 文档目标
 
@@ -37,15 +41,15 @@ v1.1 再补充下列扩展能力：
 - 计费主体固定为 `creator_bid`
 - 课程学习、预览、调试的 LLM/TTS 消耗都由课程负责人承担
 - 商品目录统一使用 `bill_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
-- 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders`，native 国内直连 provider 写入 `order_native_payment_orders`，并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
+- 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders`，native 国内直连 provider 写入 `order_alipay_orders` / `order_wechatpay_orders`，并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
 - 账户/积分桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费积分桶，`credit_ledger_entries` 才是不可变真相源
 - `bill_usage + credit_ledger_entries` 是结算真相源；日报表只是报表层聚合，不参与扣费真相判断
 - 积分消费顺序固定为 `subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先；历史 `free` bucket 仅作为兼容数据处理，不作为新的产品积分类型
 - 旧的学员购课 `/order` 流程继续保留，不与 creator billing 混表
 
-### 1.4 当前实现批次范围（2026-04-08）
+### 1.4 初版实施范围（2026-04-08）
 
-本文描述的是完整 billing v1 / v1.1 设计；但当前实施批次只落地 “Figma `方案1` 浅色稿 + creator billing 可联调 MVP”，范围固定如下：
+本文描述的是完整 billing v1 / v1.1 设计；但该初版实施批次只落地 “Figma `方案1` 浅色稿 + creator billing 可联调 MVP”，范围固定如下：
 
 - 前端以 Figma `方案1` 浅色稿为唯一视觉准绳，保留现有 `/admin` 作为创作中心首页，只补侧边栏会员卡、`会员与积分` 导航和新的 `/admin/billing`
 - 新增 `/payment/stripe/billing-result`，专门承接 creator billing 的 Stripe 回跳与 sync
@@ -66,12 +70,11 @@ v1.1 再补充下列扩展能力：
 | `creator_wallet_ledger` | `active` | `GET /api/billing/wallet-buckets`、`GET /api/billing/ledger` | on | 是 | 账户积分桶和账本明细当前正式可达 |
 | `creator_orders` | `active` | `POST /api/billing/topups/checkout`、`POST /api/billing/orders/*/sync`、`POST /api/billing/orders/*/checkout` | on | 是 | creator topup、补单 checkout 和 sync 当前正式可达；退款接口在积分冲正规则完成前暂停开放 |
 | `admin_subscriptions` | `active` | `GET /api/admin/billing/subscriptions` | on | 是 | admin 订阅审查当前正式可达 |
-| `admin_orders` | `active` | `GET /api/admin/billing/orders` | on | 是 | admin 订单审查当前正式可达 |
 | `admin_ledger_adjust` | `active` | `POST /api/admin/billing/ledger/adjust` | on | 是 | admin 手工账本调整当前正式可达 |
-| `admin_entitlements` | `active` | `GET /api/admin/billing/entitlements` | on | 是 | admin 权益查看当前正式可达 |
-| `admin_domains` | `active` | `GET /api/admin/billing/domain-audits` | on | 是 | admin 域名审核当前正式可达 |
+| `admin_entitlements` | `active` | `GET /api/admin/billing/entitlements`、`POST /api/admin/billing/entitlements/grants` | on | 是 | admin 权益查看当前正式可达 |
 | `admin_reports` | `active` | `GET /api/admin/billing/reports/*` | on | 是 | admin usage/ledger 报表当前正式可达 |
-| `runtime_billing_extensions` | `active` | `GET /api/config/runtime-config` | on | 否 | runtime config 已返回 billing entitlement/domain 扩展 |
+| `admin_campaigns` | `active` | 商品选项与活动列表、详情、创建、编辑、状态接口 | on | 是 | admin 套餐活动配置 |
+| `runtime_billing_extensions` | `active` | `GET /api/runtime-config` | on | 否 | runtime config 已返回 billing entitlement/domain 扩展 |
 | `billing_feature_flag` | `default_disabled` | `BILL_ENABLED` | off | 否 | feature flag seed 默认关闭，代码能力存在 |
 | `renewal_task_queue` | `default_disabled` | `BILL_RENEWAL_TASK_CONFIG.enabled` | off | 否 | renewal worker 默认配置关闭 |
 | `usage_settlement` | `internal_only` | task/CLI | on | 否 | usage settlement 只供内部任务和补偿使用 |
@@ -83,6 +86,9 @@ v1.1 再补充下列扩展能力：
 | `domain_verify_refresh` | `internal_only` | task | on | 否 | 域名验证刷新属于后台任务 |
 
 ### 1.6 延伸设计
+
+- 国内直连支付渠道、provider 快照及回调见
+  [国内直连支付设计](native-cn-payments.md)。
 
 - 积分领域术语、当前代码映射、审计动词和 Billing-R 重构边界见
   `docs/design-docs/billing-credit-domain-terminology.md`。该文档用于统一
@@ -1179,7 +1185,7 @@ interface BillingPaymentProviderAdapter {
 
 - `verify_webhook` 返回归一化事件后，调用方直接按订单状态机推进 `bill_orders` / `bill_subscriptions`
 - `sync_reference` 只做主动对账与状态补偿，不生成独立 webhook 记录
-- 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK；业务状态不复用旧 `order_orders`，provider raw snapshot 通过 `order_pingxx_orders` / `order_stripe_orders` / `order_native_payment_orders` 按 provider 与 `biz_domain` 隔离
+- 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK；业务状态不复用旧 `order_orders`，provider raw snapshot 通过 `order_pingxx_orders` / `order_stripe_orders` / `order_alipay_orders` / `order_wechatpay_orders` 按 provider 与 `biz_domain` 隔离
 
 ### 7.5 前端实现方案
 

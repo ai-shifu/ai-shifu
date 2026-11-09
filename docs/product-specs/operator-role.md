@@ -2,7 +2,7 @@
 title: Operator Role Design
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-05-12
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -10,14 +10,13 @@ canonical: true
 
 ## Context
 
-The current account-level authorization model exposes a single durable role
-flag: `is_creator`. Creator access is used for authoring surfaces, creator
+Before the operator role, the account-level authorization model exposed one
+durable role flag, `is_creator`. Creator access is used for authoring surfaces, creator
 orders, and several admin-facing entry points. Course ownership and shared
 course permissions are handled separately through `created_user_bid` and
 `AiCourseAuth`.
 
-The project now needs a separate operator role without breaking the existing
-creator behavior. Because this repository is open source and commonly
+The separate operator role preserves existing creator behavior. Because this repository is open source and commonly
 self-hosted, the first real account in a fresh deployment must automatically
 receive both creator and operator access so the instance is usable without
 manual database edits.
@@ -40,25 +39,19 @@ manual database edits.
 - Existing creator-only routes stay as they are unless a
   route is explicitly meant for operator access.
 
-## Existing Model
+## Authorization Model
 
 ### Account-level flags
 
 - `state`: account lifecycle state (unregistered, registered, trial, paid)
 - `is_creator`: creator capability flag
+- `is_operator`: platform operations capability flag
 
 ### Course-level permissions
 
 - Course owner: `created_user_bid`
 - Shared permissions: `AiCourseAuth.auth_type` mapped to `view`, `edit`,
   `publish`
-
-## Proposed Model
-
-### New account-level flag
-
-Add `is_operator` to `user_users` as a durable boolean-like small integer field
-mirroring the existing `is_creator` storage pattern.
 
 ### Role semantics
 
@@ -143,6 +136,11 @@ surfaces.
 - New operator behavior is additive and low-risk.
 
 ## Verification
+
+The first-account bootstrap is in `service/user/phone_flow.py`.
+`test_auth_infrastructure_boundaries.py` checks that a bootstrap lock failure
+does not grant roles. `test_repository_boundaries.py` covers durable role
+updates.
 
 - Backend tests for DTO serialization and first-account bootstrap role grants.
 - Frontend type check to ensure the new field does not break user state

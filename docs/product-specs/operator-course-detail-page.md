@@ -2,7 +2,7 @@
 title: Operator Course Detail Page
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-05-13
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -65,12 +65,10 @@ The backend detail payload should return:
   entry and orchestration layer, but split heavy bottom-tab UI into dedicated
   local components as the page grows
 
-### Frontend Structure Follow-up
+### Frontend Structure
 
-- Current preferred split order:
-  1. credit usage tab
-  2. users tab
-  3. chapter tab table / detail helpers
+- The route owns request orchestration. Dedicated components render the credit
+  usage and course-user tabs.
 - Split rules:
   - do not change existing backend contracts while only restructuring UI
   - keep route params, operator guard, tab switching, and data-fetch orchestration
@@ -83,11 +81,8 @@ The backend detail payload should return:
 
 ### Credit Usage Aggregation Follow-up
 
-- The current credit-usage list is settlement-accurate, but it is too granular
-  for operator inspection because it shows one row per settled `usage_bid`.
-- The operator-facing view should evolve without changing billing or settlement
-  behavior.
-- Implemented in this branch:
+- The operator overview groups settled usage on the backend for inspection.
+- The grouped view:
   - add a grouped credit-usage view for operators
   - keep grouping on the backend so pagination, totals, and ordering remain
     correct
@@ -104,13 +99,11 @@ The backend detail payload should return:
   - usage mode summary
   - total consumed credits
   - model summary
-- Future extension:
-  - keep the grouped view as the default operator overview
-  - later add grouped-to-raw drill-down so operators can inspect underlying
-    usage rows without replacing grouped view as the primary mode
+- The grouped view is the default. The `credit-usages/details` endpoint and
+  detail panel expose the underlying settled usage rows.
 
 ### Verification
 
-- Add focused backend tests for the new operator detail response
-- Add focused frontend tests for the detail page loading, rendering, and back navigation
-- Run targeted type, lint, and pytest coverage for touched files
+- `test_admin_course_detail.py` covers detail resolution, operator access,
+  grouped credit usage, and usage details.
+- The adjacent Cook Web `[shifu_bid]/page.test.tsx` covers the course detail UI.

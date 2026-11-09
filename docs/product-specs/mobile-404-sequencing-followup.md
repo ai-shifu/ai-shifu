@@ -1,16 +1,23 @@
 ---
 title: "Mobile 404 Follow-up: Sequencing Improvement Plan"
-status: implemented
+status: proposed
 owner_surface: frontend
-last_reviewed: 2026-04-17
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
 # Mobile 404 Follow-up: Sequencing Improvement Plan
 
 ## Background
-- Current hotfix only narrows `/404` redirect conditions.
-- We still have potential race windows on mobile/WeChat where OAuth, user init, and course loading run in parallel.
+
+The course layout retries transient course-info failures with capped exponential
+backoff. An explicit course-not-found error redirects to `/404`. A definitive
+access denial stops retries. The course API and preview-layout tests cover these
+branches.
+
+The layout gates course fetches on environment initialization. It still has a
+separate TODO for sequencing WeChat OAuth, user initialization, and course-info
+requests on weak networks.
 
 ## Goal
 - Reduce transient course-load failures caused by client-side initialization order.
@@ -18,8 +25,8 @@ canonical: true
 ## Proposed Sequencing Refactor
 1. Gate course-info fetch on OAuth readiness in WeChat.
 2. Gate course-info fetch on user initialization completion.
-3. Add lightweight retry with backoff for non-not-found course-info errors.
-4. Keep `/404` redirect only for explicit not-found signals.
+3. Preserve the existing backoff and terminal-error handling while adding
+   the readiness gates.
 
 ## Candidate Files
 - `src/web/src/app/c/[[...id]]/layout.tsx`

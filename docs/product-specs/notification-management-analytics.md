@@ -2,14 +2,11 @@
 title: Notification Management Analytics
 status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
 # Notification Management Analytics
-
-Transferred without changing event semantics from the delivered plan. A full
-producer/consumer review date is not inferred from this document move.
 
 ## Template management
 
@@ -62,10 +59,8 @@ identifiers, filter text, raw errors or provider request IDs. Each save invocati
 has one attempt and one result; no cross-invocation deduplication is added.
 
 Consumers are operator notification-center adoption and synchronization/save
-reliability reports. This document now includes existing email variants and save
-events; it does not change any producer, payload or event name. Reports that
-previously filtered only SMS must include the existing email rows and distinguish
-refresh success, template-save success and actual email delivery.
+reliability reports. For a cross-channel report, include both channel pairs and distinguish refresh
+success, template-save success, and email delivery.
 
 Source: `src/web/src/app/admin/operations/credit-notifications/page.tsx`,
 `CreditNotificationTemplateManagementTab.tsx`, and `notification-template-tracking.ts`.
