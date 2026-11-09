@@ -16,13 +16,15 @@ Unpublished content still requires draft access.
 - [x] 2026-11-08 19:13 CST: Aligned history, reset, navigation, follow-up and audio.
 - [x] 2026-11-08 19:19 CST: Verified the learning and web suites, including
   first publication, legacy data, permission revocation, and version changes.
+- [x] 2026-11-09 13:49 CST: Removed standalone preview migration and replay.
+  Verified direct start, retake with an old follow-up, and first publication.
 
 ## Surprises & Discoveries
 
 - Publishing already preserves course and lesson business IDs and carries
   forward the script revision. Script revision does not cover course settings.
-- Old ordinary previews store exact adapter run IDs but typically lack the
-  generated blocks that make formal follow-up, audio and rewind possible.
+- Old standalone previews can store teaching outside the shared progress
+  record, even when a follow-up has a progress row of its own.
 - Existing progress cannot serve as evidence of course purchase. Text follow-up
   must check entitlement before reusing or creating progress.
 
@@ -31,9 +33,8 @@ Unpublished content still requires draft access.
 - Keep the stable account, course and lesson scope of formal learning. Use one
   active attempt for both classroom entry points and retain the content source
   when an attempt starts. Keep the existing independent editor Debug session.
-- Keep existing old attempts readable where ownership is established. Never
-  merge divergent engine conversations or replace a live formal attempt with
-  a legacy preview attempt solely because the latter is newer.
+- Start fresh when only an old standalone preview session exists. Use the
+  shared history reader and retire the old session on retake.
 - Retain draft authorization and explicit billing attribution. Recheck draft
   access before returning or using a retained draft source through either URL.
   A script revision match alone cannot prove settings are safe to publish.
@@ -43,8 +44,9 @@ Unpublished content still requires draft access.
 Both classroom entry points now use the same durable learning attempt and
 persist new teaching under its retained source. A course can start from an
 unpublished draft and keep its progress, transcript and pending question
-after publication. Retaking chooses the selected version. Verified legacy
-draft-only attempts can be adopted without overwriting formal attempts.
+after publication. Retaking chooses the selected version and retires old
+standalone preview sessions. Opening a lesson with only an old preview starts
+a fresh shared attempt.
 
 The local learning suite passed 3,643 tests with 90 skips. A targeted run
 also verified recovery after draft access is revoked and the reset quota is
@@ -63,9 +65,9 @@ the version and renders the shared conversation.
 
 Select and validate one physical version for new learning. Persist the source
 alongside the active attempt and use it to authorize and resolve later actions.
-Remove the ordinary-preview runtime/storage fork; keep legacy preview reads
-within their verified ownership bounds. Use the selected outline for navigation
-and the canonical progress record for writes, resets, and completion.
+Remove the ordinary-preview runtime and history reader. Use the selected
+outline for navigation and the canonical progress record for writes, resets,
+and completion.
 
 ## Concrete Steps
 
@@ -83,8 +85,10 @@ the real authoring service and verify that the original pending question is
 answered under the same attempt and progress IDs. Verify continuing a pending interaction, shared completion and
 retake, exact content revision, authorization after role revocation,
 late writes after reset, and an unchanged revision after publication.
-Exercise old records with missing provenance and a lesson absent from the
-selected outline. Verify that a progress row does not grant course purchase.
+Verify that a lesson with only an old standalone preview opens a new attempt
+and that retaking clears an old session and its related progress. Exercise old
+formal records with missing provenance and a lesson absent from the selected
+outline. Verify that a progress row does not grant course purchase.
 
 ## Idempotence and Recovery
 

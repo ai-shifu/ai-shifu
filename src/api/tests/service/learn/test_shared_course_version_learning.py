@@ -16,17 +16,14 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent import lesson_entry
-from flaskr.service.learn.agent.lesson_source import resolve_lesson_source
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.agent.session_store import (
     _ATTEMPT_SOURCE_KEY,
-    PREVIEW_PRESENTATION_KEY,
     load_agent_session,
     load_lesson_attempt_source,
 )
 from flaskr.service.learn.const import (
     CONTEXT_INTERACTION_NEXT,
-    ROLE_STUDENT,
     ROLE_TEACHER,
 )
 from flaskr.service.learn.elements.run_adapter import (
@@ -59,7 +56,6 @@ from flaskr.service.shifu import shifu_publish_funcs
 from flaskr.service.shifu.consts import (
     ASK_MODE_DISABLE,
     BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDASK_VALUE,
 )
 from flaskr.service.shifu.models import (
     AiCourseAuth,
@@ -468,7 +464,7 @@ def _store_as_legacy_preview(app: Flask, course: str, lesson: str, user: str) ->
             db.session.delete(block)
         document = json.loads(row.session_data)
         del document[_ATTEMPT_SOURCE_KEY]
-        document[PREVIEW_PRESENTATION_KEY] = {
+        document["ai_shifu_preview_presentation"] = {
             "version": 1,
             "runs": sorted(runs),
             "questions": questions,
@@ -481,45 +477,128 @@ def _store_as_legacy_preview(app: Flask, course: str, lesson: str, user: str) ->
         return document["id"]
 
 
-def test_first_publication_can_resume_a_verifiable_legacy_preview(
-    app: Flask, draft_only: _DraftOnly
+@pytest.mark.parametrize("preview", [True, False])
+def test_only_legacy_preview_starts_a_new_attempt_without_retaking(
+    app: Flask, draft_only: _DraftOnly, preview: bool
 ) -> None:
     course, lesson, user, owner, _turns = draft_only
     _run(app, course, lesson, user, preview=True)
-    session_id = _store_as_legacy_preview(app, course, lesson, user)
-
-    _publish(app, owner, course)
-    with app.app_context(), unit_of_work():
-        DraftOutlineItem.query.filter_by(
-            outline_item_bid=lesson
-        ).one().ask_enabled_status = ASK_MODE_DISABLE
+    legacy_session_id = _store_as_legacy_preview(app, course, lesson, user)
+    if not preview:
+        _publish(app, owner, course)
+    scope = {"user_bid": user, "shifu_bid": course, "outline_item_bid": lesson}
     with app.app_context():
-        restored = get_listen_element_record(
-            app, course, lesson, user, preview_mode=False
+        old_element_bids = {
+            row.element_bid
+            for row in LearnGeneratedElement.query.filter_by(**scope)
+            if row.element_bid
+        }
+    with app.app_context():
+        history = get_listen_element_record(
+            app, course, lesson, user, preview_mode=preview, include_non_navigable=True
         )
-        assert any("Teaching segment 1." in el.content for el in restored.elements)
-        assert restored.follow_up_mode == "disabled"
+        assert not history.elements
+        assert not history.events
         assert load_agent_session(app, user, lesson) is None
 
-    _run(
-        app, course, lesson, user, preview=False, answer="Answer to the legacy question"
-    )
+    _run(app, course, lesson, user, preview=preview)
     with app.app_context():
-        assert load_agent_session(app, user, lesson).id == session_id
-        restored = get_listen_element_record(
-            app, course, lesson, user, preview_mode=False
+        session = load_agent_session(app, user, lesson)
+        assert session.id != legacy_session_id
+        assert session.pending[0].tool_call_id == "question-2-0"
+        assert load_agent_session(app, user, lesson, preview_mode=True).id == (
+            legacy_session_id
+        )
+        source = load_lesson_attempt_source(
+            user_bid=user, shifu_bid=course, outline_bid=lesson
+        )
+        assert source.preview_mode is preview
+        history = get_listen_element_record(
+            app, course, lesson, user, preview_mode=preview, include_non_navigable=True
         )
         assert any(
-            "Answer to the legacy question" in (el.payload.user_input or "")
-            for el in restored.elements
-            if el.payload
+            "Teaching segment 2." in element.content for element in history.elements
+        )
+        assert old_element_bids.isdisjoint(
+            element.element_bid for element in history.elements
         )
 
+    reset_learn_record(app, course, lesson, user, preview_mode=preview)
+    with app.app_context():
+        rows = LearnAgentSession.query.filter_by(**scope).all()
+        assert len(rows) == 2
+        assert all(row.deleted and row.active_key is None for row in rows)
 
-@pytest.mark.parametrize("legacy", [False, True])
+
+def test_retaking_legacy_preview_with_follow_up_starts_fresh(
+    app: Flask, draft_only: _DraftOnly
+) -> None:
+    course, lesson, user, _owner, _turns = draft_only
+    _run(app, course, lesson, user, preview=True)
+    legacy_session_id = _store_as_legacy_preview(app, course, lesson, user)
+    scope = {"user_bid": user, "shifu_bid": course, "outline_item_bid": lesson}
+    with app.app_context(), unit_of_work():
+        old_elements = LearnGeneratedElement.query.filter_by(**scope).all()
+        anchor = next(row for row in old_elements if row.element_type == "text")
+        progress_bid, answer_bid = uuid4().hex, uuid4().hex
+        db.session.add_all(
+            [
+                make_progress_record(
+                    **scope,
+                    progress_record_bid=progress_bid,
+                    status=LEARN_STATUS_NOT_STARTED,
+                ),
+                LearnGeneratedBlock(
+                    **scope,
+                    progress_record_bid=progress_bid,
+                    generated_block_bid=answer_bid,
+                    generated_content="An old preview follow-up reply.",
+                    role=ROLE_TEACHER,
+                    type=BLOCK_TYPE_MDANSWER_VALUE,
+                    status=1,
+                ),
+            ]
+        )
+        db.session.flush()
+        adapter = ListenElementRunAdapter(
+            app, user_bid=user, shifu_bid=course, outline_bid=lesson
+        )
+        list(
+            adapter.process(
+                RunMarkdownFlowDTO(
+                    outline_bid=lesson,
+                    generated_block_bid=answer_bid,
+                    type=event_type,
+                    content=content,
+                    anchor_element_bid=anchor.element_bid,
+                )
+                for event_type, content in (
+                    (GeneratedType.ASK, "An old preview follow-up."),
+                    (GeneratedType.CONTENT, "An old preview follow-up reply."),
+                    (GeneratedType.BREAK, ""),
+                )
+            )
+        )
+    with app.app_context():
+        get_listen_element_record(app, course, lesson, user, preview_mode=True)
+
+    reset_learn_record(app, course, lesson, user, preview_mode=True)
+    with app.app_context():
+        assert load_agent_session(app, user, lesson, preview_mode=True) is None
+        assert not get_listen_element_record(
+            app, course, lesson, user, preview_mode=True
+        ).elements
+
+    _run(app, course, lesson, user, preview=True)
+    with app.app_context():
+        session = load_agent_session(app, user, lesson)
+        assert session.id != legacy_session_id
+        assert session.pending[0].tool_call_id == "question-2-0"
+
+
 @pytest.mark.parametrize("draft_only", [2], indirect=True)
 def test_deferred_question_keeps_original_control_through_first_publish(
-    app: Flask, draft_only: _DraftOnly, legacy: bool
+    app: Flask, draft_only: _DraftOnly
 ) -> None:
     course, lesson, user, owner, _turns = draft_only
 
@@ -557,16 +636,13 @@ def test_deferred_question_keeps_original_control_through_first_publish(
             == "question-1-1"
         )
 
-    if legacy:
-        assert _store_as_legacy_preview(app, course, lesson, user) == session_id
     _publish(app, owner, course)
 
-    if not legacy:
-        with app.app_context():
-            assert [item.element_bid for item in controls(preview=False)] == [
-                first.element_bid,
-                deferred.element_bid,
-            ]
+    with app.app_context():
+        assert [item.element_bid for item in controls(preview=False)] == [
+            first.element_bid,
+            deferred.element_bid,
+        ]
 
     _run(
         app,
@@ -582,7 +658,7 @@ def test_deferred_question_keeps_original_control_through_first_publish(
         active_progress = LearnProgressRecord.query.filter_by(
             user_bid=user, shifu_bid=course
         ).one()
-        assert (active_progress.progress_record_bid != progress_bid) is legacy
+        assert active_progress.progress_record_bid == progress_bid
         published = controls(preview=False)
         assert [item.element_bid for item in published[:2]] == [
             first.element_bid,
@@ -601,62 +677,8 @@ def test_deferred_question_keeps_original_control_through_first_publish(
         ]
 
 
-def test_started_formal_progress_blocks_legacy_preview_promotion(
+def test_completed_shared_draft_reconciles_the_published_outline(
     app: Flask, draft_only: _DraftOnly
-) -> None:
-    course, lesson, user, owner, _turns = draft_only
-    _run(app, course, lesson, user, preview=True)
-    session_id = _store_as_legacy_preview(app, course, lesson, user)
-    _publish(app, owner, course)
-    formal_bid, placeholder_bid = uuid4().hex, uuid4().hex
-    scope = {"user_bid": user, "shifu_bid": course, "outline_item_bid": lesson}
-    with app.app_context(), unit_of_work():
-        db.session.add(
-            make_progress_record(
-                **scope, progress_record_bid=formal_bid, status=LEARN_STATUS_IN_PROGRESS
-            )
-        )
-        db.session.flush()
-        db.session.add(
-            make_progress_record(
-                **scope,
-                progress_record_bid=placeholder_bid,
-                status=LEARN_STATUS_NOT_STARTED,
-            )
-        )
-
-    with app.app_context():
-        version = resolve_lesson_source(
-            app,
-            user_bid=user,
-            shifu_bid=course,
-            outline_bid=lesson,
-            preview_mode=False,
-            promote_legacy=True,
-        )
-        assert not version.source.preview_mode
-        assert version.progress_record_bid == formal_bid
-        assert load_agent_session(app, user, lesson) is None
-        assert load_agent_session(app, user, lesson, preview_mode=True).id == session_id
-        assert (
-            LearnProgressRecord.query.filter_by(progress_record_bid=placeholder_bid)
-            .one()
-            .status
-            == LEARN_STATUS_NOT_STARTED
-        )
-
-
-@pytest.mark.parametrize(
-    ("last_turn", "recover_in_draft"),
-    [
-        ("missing", False),
-        ("missing_question", False),
-        ("silent_finish", False),
-        ("silent_finish", True),
-    ],
-)
-def test_legacy_preview_promotion_requires_recoverable_turn_presentation(
-    app: Flask, draft_only: _DraftOnly, last_turn: str, recover_in_draft: bool
 ) -> None:
     course, lesson, user, owner, _turns = draft_only
     chapter_bid, next_lesson_bid, earlier_lesson_bid, hidden_lesson_bid = (
@@ -664,357 +686,202 @@ def test_legacy_preview_promotion_requires_recoverable_turn_presentation(
     )
     _run(app, course, lesson, user, preview=True)
 
-    if last_turn == "silent_finish":
+    async def finish(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[dict[int, DeltaToolCall]]:
+        yield {0: DeltaToolCall(name="finish", tool_call_id="finish", json_args="{}")}
 
-        async def finish(
-            _messages: list[ModelMessage], _info: AgentInfo
-        ) -> AsyncIterator[dict[int, DeltaToolCall]]:
-            yield {
-                0: DeltaToolCall(name="finish", tool_call_id="finish", json_args="{}")
-            }
-
-        lesson_entry.GatewayModel().stream_function = finish
-
+    lesson_entry.GatewayModel().stream_function = finish
     _run(app, course, lesson, user, preview=True, answer="First answer")
-    session_id = _store_as_legacy_preview(app, course, lesson, user)
     with app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(user_bid=user, shifu_bid=course).one()
-        turns = json.loads(row.session_data)[PREVIEW_PRESENTATION_KEY]["turns"]
-        first_turn, second_turn = turns
-        assert LearnGeneratedElement.query.filter_by(
-            generated_block_bid=first_turn["block_bid"], event_type="element"
-        ).count()
-        final_rows = LearnGeneratedElement.query.filter_by(
-            generated_block_bid=second_turn["block_bid"]
-        ).all()
-        assert final_rows
-        if last_turn == "silent_finish":
-            assert any(row.event_type == GeneratedType.DONE.value for row in final_rows)
-            assert all(row.event_type != "element" for row in final_rows)
-            lesson_row = DraftOutlineItem.query.filter_by(outline_item_bid=lesson).one()
-            lesson_row.position = "0103"
-            lesson_row.parent_bid = chapter_bid
-            db.session.add_all(
-                [
-                    DraftOutlineItem(
-                        shifu_bid=course,
-                        outline_item_bid=chapter_bid,
-                        position="01",
-                        title="Completed chapter",
-                    ),
-                    DraftOutlineItem(
-                        shifu_bid=course,
-                        outline_item_bid=next_lesson_bid,
-                        position="02",
-                        title="Next lesson",
-                    ),
-                    DraftOutlineItem(
-                        shifu_bid=course,
-                        outline_item_bid=earlier_lesson_bid,
-                        parent_bid=chapter_bid,
-                        position="0101",
-                    ),
-                    DraftOutlineItem(
-                        shifu_bid=course,
-                        outline_item_bid=hidden_lesson_bid,
-                        parent_bid=chapter_bid,
-                        position="0102",
-                        hidden=1,
-                    ),
-                ]
-            )
-        else:
-            for snapshot in final_rows:
-                if (
-                    last_turn == "missing"
-                    or snapshot.element_type == ElementType.INTERACTION.value
-                ):
-                    db.session.delete(snapshot)
-
+        assert load_agent_session(app, user, lesson).finished
+        lesson_row = DraftOutlineItem.query.filter_by(outline_item_bid=lesson).one()
+        lesson_row.position = "0103"
+        lesson_row.parent_bid = chapter_bid
+        db.session.add_all(
+            [
+                DraftOutlineItem(
+                    shifu_bid=course,
+                    outline_item_bid=chapter_bid,
+                    position="01",
+                    title="Completed chapter",
+                ),
+                DraftOutlineItem(
+                    shifu_bid=course,
+                    outline_item_bid=next_lesson_bid,
+                    position="02",
+                    title="Next lesson",
+                ),
+                DraftOutlineItem(
+                    shifu_bid=course,
+                    outline_item_bid=earlier_lesson_bid,
+                    parent_bid=chapter_bid,
+                    position="0101",
+                ),
+                DraftOutlineItem(
+                    shifu_bid=course,
+                    outline_item_bid=hidden_lesson_bid,
+                    parent_bid=chapter_bid,
+                    position="0102",
+                    hidden=1,
+                ),
+            ]
+        )
     _publish(app, owner, course)
-    if last_turn == "silent_finish":
-        with app.app_context(), unit_of_work():
-            # The next lesson is visible only in the published catalog.
-            DraftOutlineItem.query.filter_by(
-                outline_item_bid=next_lesson_bid
-            ).one().hidden = 1
-    with app.app_context():
-        version = resolve_lesson_source(
-            app,
-            user_bid=user,
-            shifu_bid=course,
-            outline_bid=lesson,
-            preview_mode=recover_in_draft,
-            promote_legacy=True,
-        )
-        if last_turn == "silent_finish":
-            assert version.source.preview_mode
-            assert load_agent_session(app, user, lesson).id == session_id
-            progress_rows = LearnProgressRecord.query.filter_by(
-                shifu_bid=course, user_bid=user
-            )
-            completed_outline = {
-                lesson: LEARN_STATUS_COMPLETED,
-                chapter_bid: LEARN_STATUS_COMPLETED,
-                next_lesson_bid: LEARN_STATUS_IN_PROGRESS,
-            }
-            lesson_update = {
-                "outline_bid": lesson,
-                "status": "completed",
-                "title": "First lesson",
-                "has_children": False,
-            }
-            chapter_update = {
-                "outline_bid": chapter_bid,
-                "status": "completed",
-                "title": "Completed chapter",
-                "has_children": True,
-            }
-            next_update = {
-                "outline_bid": next_lesson_bid,
-                "status": "in_progress",
-                "title": "Next lesson",
-                "has_children": False,
-            }
-            if recover_in_draft:
-                assert {row.outline_item_bid: row.status for row in progress_rows} == {
-                    lesson: LEARN_STATUS_COMPLETED,
-                }
-                draft = get_listen_element_record(
-                    app, course, lesson, user, preview_mode=True
-                )
-                assert make_common_response(draft).get_json()["data"][
-                    "outline_progress_updates"
-                ] == [lesson_update]
-                block_rows = LearnGeneratedBlock.query.filter_by(
-                    shifu_bid=course, user_bid=user
-                )
-                blocks_before = block_rows.count()
-                for _ in range(2):
-                    reopened = get_listen_element_record(
-                        app, course, lesson, user, preview_mode=False
-                    )
-                    payload = make_common_response(reopened).get_json()["data"]
-                    assert payload["outline_progress_updates"] == [
-                        lesson_update,
-                        chapter_update,
-                        next_update,
-                    ]
-                    assert (
-                        sum(
-                            CONTEXT_INTERACTION_NEXT in item.content
-                            for item in reopened.elements
-                        )
-                        == 1
-                    )
-                assert block_rows.count() == blocks_before
-            assert {
-                row.outline_item_bid: row.status for row in progress_rows
-            } == completed_outline
-            if recover_in_draft:
-                assert reset_learn_record(app, course, next_lesson_bid, user)
-                reopened = get_listen_element_record(
-                    app, course, lesson, user, preview_mode=False
-                )
-                payload = make_common_response(reopened).get_json()["data"]
-                assert payload["outline_progress_updates"] == [
-                    lesson_update,
-                    chapter_update,
-                    {**next_update, "status": "not_started"},
-                ]
-                assert (
-                    progress_rows.filter_by(outline_item_bid=next_lesson_bid)
-                    .one()
-                    .status
-                    == LEARN_STATUS_RESET
-                )
-                with unit_of_work():
-                    db.session.add(
-                        make_progress_record(
-                            user_bid=user,
-                            shifu_bid=course,
-                            outline_item_bid=next_lesson_bid,
-                            progress_record_bid=uuid4().hex,
-                            status=LEARN_STATUS_COMPLETED,
-                        )
-                    )
-                reopened = get_listen_element_record(
-                    app, course, lesson, user, preview_mode=False
-                )
-                payload = make_common_response(reopened).get_json()["data"]
-                assert payload["outline_progress_updates"] == [
-                    lesson_update,
-                    chapter_update,
-                    {**next_update, "status": "completed"},
-                ]
-                earlier_attempt_bid = uuid4().hex
-                with unit_of_work():
-                    progress_rows.filter_by(
-                        outline_item_bid=chapter_bid
-                    ).one().status = LEARN_STATUS_IN_PROGRESS
-                    db.session.add_all(
-                        [
-                            make_progress_record(
-                                user_bid=user,
-                                shifu_bid=course,
-                                outline_item_bid=bid,
-                                progress_record_bid=uuid4().hex,
-                                status=LEARN_STATUS_RESET,
-                            )
-                            for bid in (earlier_lesson_bid, hidden_lesson_bid)
-                        ]
-                    )
-                    db.session.add(
-                        make_progress_record(
-                            user_bid=user,
-                            shifu_bid=course,
-                            outline_item_bid=earlier_lesson_bid,
-                            progress_record_bid=earlier_attempt_bid,
-                            status=LEARN_STATUS_NOT_STARTED,
-                        )
-                    )
-                earlier_attempt = progress_rows.filter_by(
-                    progress_record_bid=earlier_attempt_bid
-                )
-                for retake_status in (
-                    LEARN_STATUS_NOT_STARTED,
-                    LEARN_STATUS_IN_PROGRESS,
-                ):
-                    with unit_of_work():
-                        earlier_attempt.one().status = retake_status
-                    reopened = get_listen_element_record(
-                        app, course, lesson, user, preview_mode=False
-                    )
-                    assert reopened.outline_progress_updates[1].__json__() == {
-                        **chapter_update,
-                        "status": "in_progress",
-                    }
-                    assert (
-                        progress_rows.filter_by(outline_item_bid=chapter_bid)
-                        .one()
-                        .status
-                        == LEARN_STATUS_IN_PROGRESS
-                    )
-                with unit_of_work():
-                    earlier_attempt.one().status = LEARN_STATUS_COMPLETED
-                reopened = get_listen_element_record(
-                    app, course, lesson, user, preview_mode=False
-                )
-                assert reopened.outline_progress_updates[1].__json__() == chapter_update
-                assert reset_learn_record(app, course, earlier_lesson_bid, user)
-                reopened = get_listen_element_record(
-                    app, course, lesson, user, preview_mode=False
-                )
-                assert reopened.outline_progress_updates[1].__json__() == chapter_update
-        else:
-            assert not version.source.preview_mode
-            assert load_agent_session(app, user, lesson) is None
-            assert (
-                load_agent_session(app, user, lesson, preview_mode=True).id
-                == session_id
-            )
-
-
-def test_legacy_preview_promotion_retains_answers_and_exact_anchored_follow_ups(
-    app: Flask, draft_only: _DraftOnly
-) -> None:
-    course, lesson, user, owner, _turns = draft_only
-    _run(app, course, lesson, user, preview=True)
-    _run(app, course, lesson, user, preview=True, answer="First answer")
-    _store_as_legacy_preview(app, course, lesson, user)
-    scope = {"user_bid": user, "shifu_bid": course, "outline_item_bid": lesson}
-    follow_ups = []
     with app.app_context(), unit_of_work():
-        anchor_bid = (
-            LearnGeneratedElement.query.filter_by(
-                **scope, event_type="element", element_type=ElementType.TEXT.value
-            )
-            .order_by(LearnGeneratedElement.id)
-            .first()
-            .element_bid
+        # The next lesson is visible only in the published catalog.
+        DraftOutlineItem.query.filter_by(
+            outline_item_bid=next_lesson_bid
+        ).one().hidden = 1
+    with app.app_context():
+        progress_rows = LearnProgressRecord.query.filter_by(
+            shifu_bid=course, user_bid=user
         )
-        for index, anchor in enumerate([anchor_bid, anchor_bid, "unrelated-anchor"]):
-            placeholder_bid, question_bid, answer_bid = (uuid4().hex for _ in range(3))
-            question, answer = f"Follow-up {index}?", f"Reply {index}."
-            follow_ups.append((placeholder_bid, question_bid, answer_bid))
+        completed_outline = {
+            lesson: LEARN_STATUS_COMPLETED,
+            chapter_bid: LEARN_STATUS_COMPLETED,
+            next_lesson_bid: LEARN_STATUS_IN_PROGRESS,
+        }
+        lesson_update = {
+            "outline_bid": lesson,
+            "status": "completed",
+            "title": "First lesson",
+            "has_children": False,
+        }
+        chapter_update = {
+            "outline_bid": chapter_bid,
+            "status": "completed",
+            "title": "Completed chapter",
+            "has_children": True,
+        }
+        next_update = {
+            "outline_bid": next_lesson_bid,
+            "status": "in_progress",
+            "title": "Next lesson",
+            "has_children": False,
+        }
+        assert {row.outline_item_bid: row.status for row in progress_rows} == {
+            lesson: LEARN_STATUS_COMPLETED,
+        }
+        draft = get_listen_element_record(app, course, lesson, user, preview_mode=True)
+        assert make_common_response(draft).get_json()["data"][
+            "outline_progress_updates"
+        ] == [lesson_update]
+        block_rows = LearnGeneratedBlock.query.filter_by(
+            shifu_bid=course, user_bid=user
+        )
+        blocks_before = block_rows.count()
+        for _ in range(2):
+            reopened = get_listen_element_record(
+                app, course, lesson, user, preview_mode=False
+            )
+            payload = make_common_response(reopened).get_json()["data"]
+            assert payload["outline_progress_updates"] == [
+                lesson_update,
+                chapter_update,
+                next_update,
+            ]
+            assert (
+                sum(
+                    CONTEXT_INTERACTION_NEXT in item.content
+                    for item in reopened.elements
+                )
+                == 1
+            )
+        assert block_rows.count() == blocks_before
+        assert {
+            row.outline_item_bid: row.status for row in progress_rows
+        } == completed_outline
+        assert reset_learn_record(app, course, next_lesson_bid, user)
+        reopened = get_listen_element_record(
+            app, course, lesson, user, preview_mode=False
+        )
+        payload = make_common_response(reopened).get_json()["data"]
+        assert payload["outline_progress_updates"] == [
+            lesson_update,
+            chapter_update,
+            {**next_update, "status": "not_started"},
+        ]
+        assert (
+            progress_rows.filter_by(outline_item_bid=next_lesson_bid).one().status
+            == LEARN_STATUS_RESET
+        )
+        with unit_of_work():
             db.session.add(
                 make_progress_record(
-                    **scope,
-                    progress_record_bid=placeholder_bid,
+                    user_bid=user,
+                    shifu_bid=course,
+                    outline_item_bid=next_lesson_bid,
+                    progress_record_bid=uuid4().hex,
+                    status=LEARN_STATUS_COMPLETED,
+                )
+            )
+        reopened = get_listen_element_record(
+            app, course, lesson, user, preview_mode=False
+        )
+        payload = make_common_response(reopened).get_json()["data"]
+        assert payload["outline_progress_updates"] == [
+            lesson_update,
+            chapter_update,
+            {**next_update, "status": "completed"},
+        ]
+        earlier_attempt_bid = uuid4().hex
+        with unit_of_work():
+            progress_rows.filter_by(
+                outline_item_bid=chapter_bid
+            ).one().status = LEARN_STATUS_IN_PROGRESS
+            db.session.add_all(
+                [
+                    make_progress_record(
+                        user_bid=user,
+                        shifu_bid=course,
+                        outline_item_bid=bid,
+                        progress_record_bid=uuid4().hex,
+                        status=LEARN_STATUS_RESET,
+                    )
+                    for bid in (earlier_lesson_bid, hidden_lesson_bid)
+                ]
+            )
+            db.session.add(
+                make_progress_record(
+                    user_bid=user,
+                    shifu_bid=course,
+                    outline_item_bid=earlier_lesson_bid,
+                    progress_record_bid=earlier_attempt_bid,
                     status=LEARN_STATUS_NOT_STARTED,
                 )
             )
-            for bid, content, role, kind in (
-                (question_bid, question, ROLE_STUDENT, BLOCK_TYPE_MDASK_VALUE),
-                (answer_bid, answer, ROLE_TEACHER, BLOCK_TYPE_MDANSWER_VALUE),
-            ):
-                db.session.add(
-                    LearnGeneratedBlock(
-                        **scope,
-                        progress_record_bid=placeholder_bid,
-                        generated_block_bid=bid,
-                        generated_content=content,
-                        role=role,
-                        type=kind,
-                        status=1,
-                    )
-                )
-            db.session.flush()
-            adapter = ListenElementRunAdapter(
-                app, user_bid=user, shifu_bid=course, outline_bid=lesson
-            )
-            list(
-                adapter.process(
-                    RunMarkdownFlowDTO(
-                        outline_bid=lesson,
-                        generated_block_bid=answer_bid,
-                        type=event_type,
-                        content=content,
-                        anchor_element_bid=anchor
-                        if event_type == GeneratedType.ASK
-                        else "",
-                    )
-                    for event_type, content in (
-                        (GeneratedType.ASK, question),
-                        (GeneratedType.CONTENT, answer),
-                        (GeneratedType.BREAK, ""),
-                    )
-                )
-            )
-
-    _publish(app, owner, course)
-    with app.app_context():
-        version = resolve_lesson_source(
-            app,
-            user_bid=user,
-            shifu_bid=course,
-            outline_bid=lesson,
-            preview_mode=False,
-            promote_legacy=True,
+        earlier_attempt = progress_rows.filter_by(
+            progress_record_bid=earlier_attempt_bid
         )
-        assert version.source.preview_mode
-        restored = get_listen_element_record(
+        for retake_status in (
+            LEARN_STATUS_NOT_STARTED,
+            LEARN_STATUS_IN_PROGRESS,
+        ):
+            with unit_of_work():
+                earlier_attempt.one().status = retake_status
+            reopened = get_listen_element_record(
+                app, course, lesson, user, preview_mode=False
+            )
+            assert reopened.outline_progress_updates[1].__json__() == {
+                **chapter_update,
+                "status": "in_progress",
+            }
+            assert (
+                progress_rows.filter_by(outline_item_bid=chapter_bid).one().status
+                == LEARN_STATUS_IN_PROGRESS
+            )
+        with unit_of_work():
+            earlier_attempt.one().status = LEARN_STATUS_COMPLETED
+        reopened = get_listen_element_record(
             app, course, lesson, user, preview_mode=False
         )
-        assert any(
-            "First answer" in (element.payload.user_input or "")
-            for element in restored.elements
-            if element.payload
+        assert reopened.outline_progress_updates[1].__json__() == chapter_update
+        assert reset_learn_record(app, course, earlier_lesson_bid, user)
+        reopened = get_listen_element_record(
+            app, course, lesson, user, preview_mode=False
         )
-        assert [
-            element.content
-            for element in restored.elements
-            if element.element_type in {ElementType.ASK, ElementType.ANSWER}
-        ] == ["Follow-up 0?", "Reply 0.", "Follow-up 1?", "Reply 1."]
-        for index, (placeholder_bid, question_bid, answer_bid) in enumerate(follow_ups):
-            expected = version.progress_record_bid if index < 2 else placeholder_bid
-            for bid in (question_bid, answer_bid):
-                assert (
-                    LearnGeneratedBlock.query.filter_by(generated_block_bid=bid)
-                    .one()
-                    .progress_record_bid
-                    == expected
-                )
+        assert reopened.outline_progress_updates[1].__json__() == chapter_update
 
 
 def test_retry_of_empty_reset_preserves_the_draft_attempt_started_after_it(

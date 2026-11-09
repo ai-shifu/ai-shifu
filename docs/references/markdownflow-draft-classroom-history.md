@@ -2,7 +2,7 @@
 title: MarkdownFlow Draft Classroom History
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -32,12 +32,10 @@ learner can explicitly retire an inaccessible draft attempt from the
 published classroom after losing draft access, without using the reset
 allowance.
 
-Older independent preview rows can have an
-`ai_shifu_preview_presentation` sidecar with exact adapter run IDs, question
-ownership and checkpoints. A compatible draft-only attempt can be attached to
-the shared record after verifying its script, revision and owned snapshots.
-An existing formal attempt takes precedence. Unreadable or conflicting legacy
-rows are kept without splicing their engine messages into the shared attempt.
+The classroom reads its shared progress and session. A lesson with only an old
+standalone preview session starts a fresh attempt on the selected version.
+Retaking the lesson retires any old preview session along with the current
+attempt.
 
 ## Rollout
 

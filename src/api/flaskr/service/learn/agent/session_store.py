@@ -43,36 +43,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Query
 
 
-PREVIEW_PRESENTATION_KEY = "ai_shifu_preview_presentation"
 _ATTEMPT_SOURCE_KEY = "ai_shifu_lesson_source"
-
-
-class PreviewGenerationDiscardedError(Exception):
-    """A draft restart retired the generation this turn was teaching."""
-
-
-def preview_presentation(row: LearnAgentSession | None) -> dict:
-    """Read recognized host metadata without interpreting raw engine history."""
-    try:
-        data = json.loads(row.session_data) if row is not None else {}
-    except (TypeError, ValueError):
-        return {}
-    return preview_presentation_from_document(data)
-
-
-def preview_presentation_from_document(data: object) -> dict:
-    """Read presentation from an already decoded session without parsing it again."""
-    value = data.get(PREVIEW_PRESENTATION_KEY) if isinstance(data, dict) else None
-    if (
-        isinstance(value, dict)
-        and value.get("version") == 1
-        and isinstance(value.get("runs"), list)
-        and all(isinstance(bid, str) for bid in value["runs"])
-        and isinstance(value.get("questions"), dict)
-        and isinstance(value.get("answers"), dict)
-    ):
-        return value
-    return {}
 
 
 def _pydantic_ai_version() -> str:
@@ -250,18 +221,6 @@ def active_session_id(
     return session_id if isinstance(session_id, str) and session_id else None
 
 
-def _active_preview_session_query(
-    *, user_bid: str, shifu_bid: str, outline_bid: str
-) -> Query:
-    return LearnAgentSession.query.filter_by(
-        active_key=active_key_for(user_bid, outline_bid, preview_mode=True),
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_item_bid=outline_bid,
-        deleted=0,
-    )
-
-
 def _load(
     user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
 ) -> Session | None:
@@ -303,7 +262,6 @@ def save_agent_session(
     outline_item_bid: str,
     preview_mode: bool = False,
     stage: Callable[[], object] | None = None,
-    preview_generation: str | None = None,
     content_revision: int | None = None,
 ) -> None:
     """Write the session back, replacing the learner's previous one for this lesson.
@@ -318,26 +276,11 @@ def save_agent_session(
     require_transaction_owner("save_agent_session", app)
     key = active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
     with app_context_scope(app), unit_of_work():
-        row = None
-        if preview_generation is not None:
-            if not preview_mode:
-                raise PreviewGenerationDiscardedError
-            row = (
-                _active_preview_session_query(
-                    user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_item_bid
-                )
-                .filter_by(agent_session_bid=preview_generation)
-                .with_for_update()
-                .first()
-            )
-            if row is None:
-                raise PreviewGenerationDiscardedError
         if stage is not None:
             stage()
-        if row is None:
-            row = LearnAgentSession.query.filter(
-                LearnAgentSession.active_key == key
-            ).first()
+        row = LearnAgentSession.query.filter(
+            LearnAgentSession.active_key == key
+        ).first()
         if row is None:
             row = LearnAgentSession(
                 agent_session_bid=str(uuid.uuid4()).replace("-", ""),
@@ -374,7 +317,6 @@ def _apply(
         previous = {"messages": ["unknown"]}
     if not isinstance(previous, dict):
         previous = {"messages": ["unknown"]}
-    presentation = preview_presentation_from_document(previous)
     data = json.loads(session.dumps())
     # A loader-incompatible session starts a new engine attempt on the same DB
     # row. Its baseline follows its new document ID, just like an explicit retake.
@@ -391,8 +333,6 @@ def _apply(
         row.content_revision = (
             content_revision if content_revision and content_revision > 0 else 0
         )
-    if presentation:
-        data[PREVIEW_PRESENTATION_KEY] = presentation
     if _ATTEMPT_SOURCE_KEY in previous:
         data[_ATTEMPT_SOURCE_KEY] = previous[_ATTEMPT_SOURCE_KEY]
     row.session_data = json.dumps(data, ensure_ascii=False)
@@ -415,7 +355,7 @@ def stage_agent_session_discard(
     resetting a lesson retires its progress records and its session together, or neither, so a
     reset cannot half-apply and leave the learner resumed into the conversation they just cleared.
 
-    Legacy callers retire both scopes. Explicit preview resets retire only the draft.
+    Classroom retakes retire the shared session and any old standalone preview.
     """
     query = LearnAgentSession.query.filter(
         LearnAgentSession.user_bid == user_bid,

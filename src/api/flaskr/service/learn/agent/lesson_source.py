@@ -12,10 +12,7 @@ from flaskr.service.learn.agent.session_store import (
     LessonAttemptSource,
     load_lesson_attempt_source,
 )
-from flaskr.service.learn.preview_permissions import (
-    has_shifu_staff_permission,
-    require_shifu_preview_permission,
-)
+from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
 from flaskr.service.shifu.api import HistoryItem
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -60,15 +57,11 @@ def resolve_lesson_source(
     shifu_bid: str,
     outline_bid: str,
     preview_mode: bool,
-    promote_legacy: bool = False,
 ) -> ResolvedLessonSource:
     """Resume the pinned source, or use the requested version for a fresh attempt."""
     scope = {"user_bid": user_bid, "shifu_bid": shifu_bid, "outline_bid": outline_bid}
     with app_context_scope(app):
         pinned = load_lesson_attempt_source(**scope)
-        if pinned is None and promote_legacy:
-            _promote_legacy(app, **scope, preview_mode=preview_mode)
-            pinned = load_lesson_attempt_source(**scope)
         source_is_draft = pinned.preview_mode if pinned is not None else preview_mode
         if source_is_draft:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
@@ -84,28 +77,6 @@ def resolve_lesson_source(
             if progress is not None
             else resolved
         )
-
-
-def _promote_legacy(
-    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str, preview_mode: bool
-) -> None:
-    from flaskr.service.learn.agent.preview_history import (
-        legacy_preview_can_resume,
-        promote_legacy_preview_attempt,
-    )
-
-    if not preview_mode and not has_shifu_staff_permission(app, user_bid, shifu_bid):
-        return
-    scope = {"user_bid": user_bid, "shifu_bid": shifu_bid, "outline_bid": outline_bid}
-    if not legacy_preview_can_resume(app, **scope):
-        return
-    require_shifu_preview_permission(app, user_bid, shifu_bid)
-    draft = resolve_requested_lesson_source(
-        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=True
-    )
-    promote_legacy_preview_attempt(
-        app, **scope, source=draft, preview_mode=preview_mode
-    )
 
 
 def _read_source(

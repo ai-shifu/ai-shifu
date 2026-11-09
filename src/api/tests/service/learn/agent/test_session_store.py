@@ -475,29 +475,6 @@ def test_retaking_records_a_new_baseline_without_changing_the_other_scope(
         assert _revision_row(not preview).content_revision == 21
 
 
-def test_preview_reservation_captures_no_baseline_until_teaching_is_saved(
-    app: object,
-) -> None:
-    from flaskr.service.learn.agent.preview_history import begin_preview_run
-
-    with app.app_context():
-        generation = begin_preview_run(
-            app, user_bid=USER, shifu_bid=SHIFU, outline_bid=OUTLINE, run_bid="run-1"
-        )
-        assert _revision_row(preview=True).content_revision is None
-        session_store.save_agent_session(
-            app,
-            _teaching_session(),
-            user_bid=USER,
-            shifu_bid=SHIFU,
-            outline_item_bid=OUTLINE,
-            preview_mode=True,
-            preview_generation=generation,
-            content_revision=12,
-        )
-        assert _revision_row(preview=True).content_revision == 12
-
-
 @pytest.mark.parametrize("preview", [False, True])
 @pytest.mark.parametrize(
     "unusable", ["schema", "pydantic", "broken-json", "scalar-json"]

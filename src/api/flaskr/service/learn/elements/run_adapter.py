@@ -42,10 +42,7 @@ from flaskr.service.learn.learn_funcs import (
     resolve_outline_reconciliation,
 )
 from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
-from flaskr.service.learn.preview_permissions import (
-    has_shifu_staff_permission,
-    require_shifu_preview_permission,
-)
+from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
 from flaskr.service.learn.type_state_machine import (
     TypeInput,
     TypeStateMachine,
@@ -344,38 +341,6 @@ def get_listen_element_record(
         LEARN_STATUS_IN_PROGRESS,
         LEARN_STATUS_COMPLETED,
     )
-    if (
-        source is None
-        and not started
-        and (preview_mode or has_shifu_staff_permission(app, user_bid, shifu_bid))
-    ):
-        from flaskr.service.learn.agent.preview_history import (
-            get_preview_record,
-            legacy_preview_can_resume,
-        )
-
-        if legacy_preview_can_resume(
-            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
-        ):
-            legacy = get_preview_record(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                include_non_navigable=include_non_navigable,
-            )
-            if legacy.elements:
-                _require_draft_history_access(
-                    app,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                    preview_mode=preview_mode,
-                )
-                legacy.follow_up_mode = _retained_follow_up_mode(
-                    app, shifu_bid, outline_bid, LessonAttemptSource(preview_mode=True)
-                )
-                return legacy
     record = _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,

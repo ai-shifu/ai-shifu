@@ -841,7 +841,6 @@ def register_live_follow_up_routes(
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             preview_mode=preview_mode,
-            promote_legacy=True,
         )
         anchor = _load_anchor(
             shifu_bid=shifu_bid,

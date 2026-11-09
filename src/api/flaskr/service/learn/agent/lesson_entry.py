@@ -299,13 +299,11 @@ def require_requested_lesson_access(
 def _resolve_ordinary_lesson(
     app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str, preview_mode: bool
 ) -> ResolvedLessonSource:
-    """Admit the selected entry before resolving or promoting retained history."""
+    """Admit the selected entry before resolving the active learning attempt."""
     scope = {"user_bid": user_bid, "shifu_bid": shifu_bid, "outline_bid": outline_bid}
     with app_context_scope(app):
         require_requested_lesson_access(app, **scope, preview_mode=preview_mode)
-        return resolve_lesson_source(
-            app, **scope, preview_mode=preview_mode, promote_legacy=True
-        )
+        return resolve_lesson_source(app, **scope, preview_mode=preview_mode)
 
 
 def agent_lesson_events(

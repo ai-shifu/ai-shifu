@@ -240,7 +240,6 @@ def follow_up_events(
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             preview_mode=preview_mode,
-            promote_legacy=True,
         )
         struct = resolved.structure or get_shifu_struct(
             app, shifu_bid, resolved.source.preview_mode
