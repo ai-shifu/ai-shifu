@@ -30,6 +30,11 @@ stored keys do not grant write permission. Named interaction answers require the
 same declaration and retain their exact original values and existing scope rules.
 An undeclared answer binding is dropped without dropping the question.
 
+An edited draft can carry forward a percent-prefixed system declaration already
+present in its previous revision. Restoring a stored version preserves those
+declarations from the selected version. Imports create new lesson identities and
+cannot introduce system declarations.
+
 For an undeclared note, `remember` must quote a complete accepted free-text input
 from the current model turn as `request` (at most 4096 characters). Enabled hosts
 make this field required in the model-facing schema; declared keys may supply null.

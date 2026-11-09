@@ -2,7 +2,7 @@
   "__namespace__": "server.profile",
   "__flat__": {
     "keyInvalid": "Could not save the memory: the question cannot be empty or contain control characters or }}.",
-    "keyReserved": "Questions cannot start with sys_; this prefix is reserved for the system.",
+    "keyReserved": "The sys_ prefix is reserved for system fields.",
     "language": "Language",
     "learnerProfileOptimizationEmptyResponse": "The AI returned no optimized content. Please try again.",
     "learnerProfileOptimizationFailed": "The AI optimization service encountered an error. Please try again later.",

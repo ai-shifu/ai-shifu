@@ -2,7 +2,7 @@
   "__namespace__": "server.profile",
   "__flat__": {
     "keyInvalid": "تعذّر حفظ الذاكرة: يجب ألا يكون السؤال فارغًا وألا يحتوي على أحرف تحكم أو «}}».",
-    "keyReserved": "لا يمكن أن تبدأ الأسئلة بـ sys_؛ فهذه البادئة محجوزة للنظام.",
+    "keyReserved": "البادئة sys_ محجوزة لحقول النظام.",
     "language": "اللغة",
     "learnerProfileOptimizationEmptyResponse": "لم يُعد الذكاء الاصطناعي محتوى محسنًا، يرجى المحاولة مرة أخرى",
     "learnerProfileOptimizationFailed": "حدث خطأ في خدمة تحسين الذكاء الاصطناعي، يرجى المحاولة مرة أخرى لاحقًا",

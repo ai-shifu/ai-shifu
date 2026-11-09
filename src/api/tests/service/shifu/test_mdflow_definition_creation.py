@@ -168,12 +168,19 @@ def test_late_failure_rolls_back_outline_and_automatically_created_definitions(
     ]
 
 
-@pytest.mark.parametrize("prefix", ["", "%"])
-def test_save_rejects_system_questions_without_writes_or_moderation(
+@pytest.mark.parametrize(
+    "content",
+    [
+        "?[{{ sys_custom }} ...Answer]",
+        "?[%{{ sys_custom }} ...Answer]",
+        "Remember a name in %{{sys_user_nickname}}.",
+    ],
+)
+def test_save_rejects_new_system_declarations_without_writes_or_moderation(
     app: Flask,
     draft_course: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
-    prefix: str,
+    content: str,
 ) -> None:
     moderation_calls = []
     monkeypatch.setattr(
@@ -181,8 +188,6 @@ def test_save_rejects_system_questions_without_writes_or_moderation(
         "check_text_with_risk_control",
         lambda *args: moderation_calls.append(args),
     )
-    content = f"?[{prefix}{{{{ sys_custom }}}} ...Answer]"
-
     with pytest.raises(AppError) as exc_info:
         mdflow.save_shifu_mdflow(
             app, draft_course.owner, draft_course.bid, draft_course.outline_bid, content
@@ -201,7 +206,8 @@ def test_saving_system_references_only_creates_ordinary_course_definitions(
     app: Flask, draft_course: SimpleNamespace
 ) -> None:
     content = (
-        "Hello {{sys_user_nickname}}. Use %{{sys_custom}}.\n\n"
+        "Hello {{sys_user_nickname}}.\n\n"
+        "```md\nUse %{{sys_custom}}.\n```\n\n"
         "?[{{course_question}} Yes | No]"
     )
 
@@ -237,6 +243,37 @@ def test_parse_rejects_system_question_in_supplied_or_stored_content(
         )
 
     assert exc_info.value.code == ERROR_CODE["server.profile.keyReserved"]
+
+
+def test_preserve_and_restore_only_stored_legacy_system_declarations(
+    app: Flask, draft_course: SimpleNamespace
+) -> None:
+    legacy = "Ask for a name and remember it in %{{sys_user_nickname}}."
+    with app.app_context(), unit_of_work():
+        DraftOutlineItem.query.filter_by(
+            shifu_bid=draft_course.bid
+        ).one().content = legacy
+
+    args = (app, draft_course.owner, draft_course.bid, draft_course.outline_bid)
+    assert not mdflow.save_shifu_mdflow(*args, legacy + " Ask politely.")["conflict"]
+    assert not mdflow.save_shifu_mdflow(*args, "Lesson without system declarations")[
+        "conflict"
+    ]
+    with pytest.raises(AppError) as error:
+        mdflow.parse_shifu_mdflow(
+            app, draft_course.bid, draft_course.outline_bid, legacy
+        )
+    assert error.value.code == ERROR_CODE["server.profile.keyReserved"]
+    with pytest.raises(AppError) as error:
+        mdflow.save_shifu_mdflow(*args, legacy)
+    assert error.value.code == ERROR_CODE["server.profile.keyReserved"]
+
+    restored = mdflow.restore_shifu_mdflow_history_version(*args, draft_course.revision)
+    assert restored["restored"]
+    assert (
+        _committed_course_rows(app, DraftOutlineItem, draft_course.bid)[-1].content
+        == legacy
+    )
 
 
 def test_restore_rejects_historical_system_question_without_new_revision(
