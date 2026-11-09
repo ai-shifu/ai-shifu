@@ -3,6 +3,7 @@ import {
   type ChatContentItem,
 } from '@/types/chat-ui';
 import {
+  classifyLearnerInteraction,
   requiresInteractionRewind,
   updateInteractionItems,
 } from './chat-interaction-rewind';
@@ -23,6 +24,33 @@ const items: ChatContentItem[] = [
   },
   { element_bid: 'later', type: T.CONTENT, content: 'Old result' },
 ];
+
+it('only suppresses a multi-select repeat when the choice order matches', () => {
+  const question = {
+    ...items[1],
+    user_input: JSON.stringify({ selectedValues: ['A', 'B'] }),
+  };
+  expect(
+    classifyLearnerInteraction(
+      [question],
+      'q1',
+      { selectedValues: ['A', 'B'] },
+      {
+        isStreaming: false,
+      },
+    ),
+  ).toBe('repeat');
+  expect(
+    classifyLearnerInteraction(
+      [question],
+      'q1',
+      { selectedValues: ['B', 'A'] },
+      {
+        isStreaming: false,
+      },
+    ),
+  ).toBe('rewind');
+});
 
 it('keeps the exact question and prefix with repeated variable names', () => {
   const result = updateInteractionItems(

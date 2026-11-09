@@ -63,11 +63,10 @@ export const classifyLearnerInteraction = (
     try {
       const saved = JSON.parse(previous) as OnSendContentParams | null;
       if (saved && Array.isArray(saved.selectedValues)) {
-        const oldValues = resolveInteractionSubmission(saved).values.sort();
-        const newValues = [...submission.values].sort();
+        const oldValues = resolveInteractionSubmission(saved).values;
         identical =
-          oldValues.length === newValues.length &&
-          oldValues.every((value, i) => value === newValues[i]);
+          oldValues.length === submission.values.length &&
+          oldValues.every((value, i) => value === submission.values[i]);
       }
     } catch {
       // Older lesson history stores the joined answer as plain text.
