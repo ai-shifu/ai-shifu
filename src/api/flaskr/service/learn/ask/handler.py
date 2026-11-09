@@ -1,6 +1,6 @@
 """Handle learner follow-up questions and streamed answers."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import Any
 
 from flask import Flask
@@ -13,6 +13,7 @@ from flaskr.api.langfuse import (
 from flaskr.api.llm import chat_llm
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.ask.context import (
@@ -95,7 +96,6 @@ def _create_ask_block(
     ask_block.role = ROLE_STUDENT
     ask_block.type = BLOCK_TYPE_MDASK_VALUE
     ask_block.position = last_position
-    db.session.add(ask_block)
     return ask_block
 
 
@@ -120,7 +120,6 @@ def _create_answer_block(
     answer_block.generated_content = response_text
     answer_block.role = ROLE_TEACHER
     answer_block.position = last_position
-    db.session.add(answer_block)
     return answer_block
 
 
@@ -138,6 +137,8 @@ def _run_guardrail(
     usage_context: object,
     chapter_title: object,
     ask_scene: object,
+    *,
+    defer_block: Callable[[LearnGeneratedBlock], None] | None = None,
 ) -> list[str]:
     res = check_text_with_llm_response(
         app,
@@ -158,6 +159,7 @@ def _run_guardrail(
         usage_context=usage_context,
         chapter_title=chapter_title,
         scene=ask_scene,
+        defer_block=defer_block,
     )
     chunks = []
     for i in res:
@@ -196,6 +198,37 @@ def _finalize_ask_trace(
     )
 
 
+def _follow_up_source_preview(context: object, is_preview: bool) -> bool:
+    source_mode = getattr(context, "_source_preview_mode", is_preview)
+    return source_mode if isinstance(source_mode, bool) else is_preview
+
+
+def resolve_text_follow_up_info(
+    app: Flask,
+    context: object,
+    outline_item_info: ShifuOutlineItemDto,
+    *,
+    is_preview: bool,
+    attend_id: str = "",
+) -> FollowUpInfo:
+    """Resolve text follow-up configuration from the authorized lesson source."""
+    retained_struct = getattr(context, "_struct", None)
+    source_preview = _follow_up_source_preview(context, is_preview)
+    struct_options = (
+        {"struct": retained_struct} if isinstance(retained_struct, HistoryItem) else {}
+    )
+    if source_preview and getattr(context, "_source", None) is not None:
+        struct_options["allow_retired_draft"] = True
+    return get_follow_up_info_v2(
+        app,
+        outline_item_info.shifu_bid,
+        outline_item_info.bid,
+        attend_id,
+        source_preview,
+        **struct_options,
+    )
+
+
 def require_follow_up_enabled(follow_up_info: FollowUpInfo) -> None:
     """Refuse follow-ups disabled by the effective course or lesson setting."""
     if follow_up_info.ask_mode == ASK_MODE_DISABLE:
@@ -218,26 +251,18 @@ def handle_input_ask(
     runtime_profiles: dict | None = None,
     memory_patch: FollowUpMemoryPatch | None = None,
     follow_up_info: FollowUpInfo | None = None,
+    *,
+    defer_block: Callable[[LearnGeneratedBlock], None] | None = None,
 ) -> Generator[str, None, None]:
     """Handle user Q&A input.
 
     Process user questions in the shifu and return AI tutor responses.
     """
-    # Get follow-up information (including Q&A prompts and model configuration)
+    source_preview = _follow_up_source_preview(context, is_preview)
+    has_bound_source = getattr(context, "_source", None) is not None
     if follow_up_info is None:
-        retained_struct = getattr(context, "_struct", None)
-        struct_options = (
-            {"struct": retained_struct}
-            if isinstance(retained_struct, HistoryItem)
-            else {}
-        )
-        follow_up_info = get_follow_up_info_v2(
-            app,
-            outline_item_info.shifu_bid,
-            outline_item_info.bid,
-            attend_id,
-            is_preview,
-            **struct_options,
+        follow_up_info = resolve_text_follow_up_info(
+            app, context, outline_item_info, is_preview=is_preview, attend_id=attend_id
         )
     require_follow_up_enabled(follow_up_info)
     if is_live_follow_up_model(follow_up_info.ask_model):
@@ -334,6 +359,7 @@ def handle_input_ask(
     memory_policy = None
     if memory_patch is not None:
         row_loader = getattr(context, "_get_outline_row_id", None)
+        retained_script = getattr(context, "_legacy_script", None)
         memory_policy = load_follow_up_memory_policy(
             user_bid=user_info.user_id,
             shifu_bid=outline_item_info.shifu_bid,
@@ -341,8 +367,24 @@ def handle_input_ask(
             outline_row_id=row_loader(outline_item_info.bid)
             if callable(row_loader)
             else None,
-            preview=is_preview,
+            preview=source_preview,
+            **(
+                {"retained_script": retained_script}
+                if isinstance(retained_script, str)
+                else {}
+            ),
+            **(
+                {"allow_retired_draft": True}
+                if has_bound_source and source_preview
+                else {}
+            ),
         )
+
+    if defer_block is not None:
+        # Context and memory reads are complete. Release their snapshot before
+        # starting guardrail or provider work.
+        with unit_of_work(discard=True):
+            pass
 
     # Create ask block
     ask_block = _create_ask_block(
@@ -359,7 +401,13 @@ def handle_input_ask(
     answer_block = _create_answer_block(
         app, outline_item_info, attend_id, user_info.user_id, "", last_position
     )
-    db.session.flush()
+    if defer_block is None:
+        db.session.add(ask_block)
+        db.session.add(answer_block)
+        db.session.flush()
+    else:
+        defer_block(ask_block)
+        defer_block(answer_block)
 
     # Bind the new reply before guardrail or provider calls. The question's
     # historical anchor belongs to an earlier block, not this answer's usage.
@@ -404,6 +452,7 @@ def handle_input_ask(
         usage_context,
         chapter_title,
         ask_scene,
+        **({"defer_block": defer_block} if defer_block is not None else {}),
     )
 
     if guardrail_chunks:
@@ -436,7 +485,8 @@ def handle_input_ask(
             trace_args=trace_args,
             response_text=guardrail_text,
         )
-        db.session.flush()
+        if defer_block is None:
+            db.session.flush()
         return
 
     # Call LLM to generate response
@@ -532,7 +582,6 @@ def handle_input_ask(
                 value_versions=memory_policy.value_versions,
                 reserved_keys=memory_policy.reserved_keys,
                 request_check=make_request_check(admission_model),
-                preview=is_preview,
                 temperature=float(follow_up_info.model_args["temperature"]),
                 cancelled=(
                     context._stop_event.is_set
@@ -666,7 +715,8 @@ def handle_input_ask(
         trace_args=trace_args,
         response_text=response_text,
     )
-    db.session.flush()
+    if defer_block is None:
+        db.session.flush()
 
     # Return end marker
     yield RunMarkdownFlowDTO(

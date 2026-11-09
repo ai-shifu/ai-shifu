@@ -29,3 +29,7 @@ class BreakError(AppError):
                 ERROR_CODE["server.common.unknownError"],
             ),
         )
+
+
+class DraftTurnAccessRevokedError(AppError):
+    """A turn lost permission to use draft content before it could be saved."""

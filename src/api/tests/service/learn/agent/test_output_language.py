@@ -10,12 +10,14 @@ from uuid import uuid4
 import pytest
 from flaskr.api.llm.markdownflow_model import map_messages
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
+from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import clear_language, set_language
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.output_language import configure_output_language
 from flaskr.service.learn.learn_funcs import reset_learn_record
 from flaskr.service.memory import load_memory
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine
 from markdownflow.engine.output_language import (
@@ -155,6 +157,12 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
             create_user_entity(
                 user_bid=user, identify=user, nickname="Alex", language="zh-CN"
             )
+            db.session.add_all(
+                [
+                    DraftOutlineItem(shifu_bid=course, outline_item_bid=lesson),
+                    PublishedOutlineItem(shifu_bid=course, outline_item_bid=lesson),
+                ]
+            )
         original = load_memory(app, user, course).as_variables()
         first_id = None
         first_messages = None
@@ -183,9 +191,7 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
                 )
             finally:
                 clear_language()
-            saved = session_store.load_agent_session(
-                app, user, lesson, preview_mode=preview_mode
-            )
+            saved = session_store.load_agent_session(app, user, lesson)
             assert saved.user_memory["sys_user_language"] == language
             assert seen[-1][-1]["content"] == output_language_instructions(
                 resolve_markdownflow_output_language(language)
@@ -210,22 +216,8 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
             load_memory(app, user, course).as_variables()["sys_user_language"]
             == original["sys_user_language"]
         )
-        if not preview_mode:
-            reset_learn_record(app, course, lesson, user)
-        else:
-            with unit_of_work():
-                session_store.stage_agent_session_discard(
-                    user_bid=user,
-                    shifu_bid=course,
-                    outline_item_bid=lesson,
-                    preview_mode=True,
-                )
-        assert (
-            session_store.load_agent_session(
-                app, user, lesson, preview_mode=preview_mode
-            )
-            is None
-        )
+        reset_learn_record(app, course, lesson, user, preview_mode=preview_mode)
+        assert session_store.load_agent_session(app, user, lesson) is None
         set_language("en-US")
         try:
             engine = Engine(FunctionModel(stream_function=model))
@@ -236,7 +228,6 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
                 shifu_bid=course,
                 outline_bid=lesson,
                 script="Teach a fresh lesson.",
-                preview_mode=preview_mode,
                 use_learner_language=True,
             )
             fresh = asyncio.run(factory())

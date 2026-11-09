@@ -17,7 +17,7 @@ User-facing workflow and page behavior specifications live here.
 - [Course activation import](../product-specs/course-activation-import.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-27` | Canonical: `true`
 - [Course Memory Management](../product-specs/course-memory-management.md)
-  - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-30` | Canonical: `true`
+  - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-11-08` | Canonical: `true`
 - [Course Prompts](../product-specs/course-prompts.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-04` | Canonical: `true`
 - [Internal Course Temperature Settings](../product-specs/course-temperature-settings.md)
@@ -31,9 +31,9 @@ User-facing workflow and page behavior specifications live here.
 - [Learner Listen Playback and Timeline](../product-specs/learner-listen-playback.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-11-04` | Canonical: `true`
 - [Learner Memory Admission](../product-specs/learner-memory-admission.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-31` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-11-08` | Canonical: `true`
 - [Lesson Content Update Recommendations](../product-specs/lesson-content-updates.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-12` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-08` | Canonical: `true`
 - [Lesson Memory Context](../product-specs/lesson-memory-context.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
 - [MDFlow Element Backfill](../product-specs/mdflow-element-backfill.md)

@@ -18,10 +18,13 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
     LogPublishedStruct,
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 from tests.service.learn.test_resolve_outline_progression import (
     CHAPTER,
@@ -34,17 +37,27 @@ from tests.service.learn.test_resolve_outline_progression import (
 )
 
 
-def _publish(shifu_bid: str, *, price: int = 0) -> None:
-    """Publish a chapter whose first lesson is empty, followed by another lesson."""
+def _publish(shifu_bid: str, *, price: int = 0, draft_owner: str | None = None) -> None:
+    """Create a chapter whose first lesson is empty, followed by another lesson."""
     with unit_of_work():
-        db.session.add(PublishedShifu(shifu_bid=shifu_bid, price=price))
-        chapter = _outline_row(PublishedOutlineItem, shifu_bid, CHAPTER, title="Ch")
-        lesson = _outline_row(PublishedOutlineItem, shifu_bid, LESSON, title="Empty")
-        following = _outline_row(PublishedOutlineItem, shifu_bid, NEXT, title="Next")
+        course = (
+            DraftShifu(shifu_bid=shifu_bid, price=price, created_user_bid=draft_owner)
+            if draft_owner
+            else PublishedShifu(shifu_bid=shifu_bid, price=price)
+        )
+        db.session.add(course)
+        model = DraftOutlineItem if draft_owner else PublishedOutlineItem
+        chapter = _outline_row(model, shifu_bid, CHAPTER, title="Ch")
+        lesson = _outline_row(model, shifu_bid, LESSON, title="Empty")
+        following = _outline_row(model, shifu_bid, NEXT, title="Next")
+        struct = HistoryItem.from_json(
+            _structure(shifu_bid, chapter, {LESSON: lesson, NEXT: following})
+        )
+        struct.id = course.id
         _store_structure(
-            LogPublishedStruct,
+            LogDraftStruct if draft_owner else LogPublishedStruct,
             shifu_bid,
-            _structure(shifu_bid, chapter, {LESSON: lesson, NEXT: following}),
+            struct.to_json(),
         )
 
 
@@ -105,17 +118,17 @@ def test_an_unbought_paid_lesson_is_not_completed(
         assert _records(course, learner) == {}
 
 
-def test_a_preview_changes_no_progress(
+def test_an_empty_draft_lesson_completes_without_a_publication(
     app: object,
     course: str,  # noqa: F811 - pytest fixture
 ) -> None:
     learner = uuid.uuid4().hex
     with app.app_context():
-        _publish(course)
-        with unit_of_work():
-            _outline_row(DraftOutlineItem, course, LESSON, title="Draft")
-        assert _complete(app, course, learner, preview=True) == []
-        assert _records(course, learner) == {}
+        _publish(course, draft_owner=learner)
+        events = _complete(app, course, learner, preview=True)
+        assert events[-1].type == GeneratedType.INTERACTION
+        assert _records(course, learner)[LESSON] == LEARN_STATUS_COMPLETED
+        assert _records(course, learner)[NEXT] == LEARN_STATUS_IN_PROGRESS
 
 
 def test_a_missing_lesson_is_reported_not_completed(

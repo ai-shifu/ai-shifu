@@ -690,7 +690,6 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
         shifu_bid="course",
         outline_bid="lesson",
         script="Edited draft",
-        preview_mode=True,
         debug_store=following,
     )
     resumed = asyncio.run(factory())
@@ -1198,7 +1197,6 @@ def test_debug_automatic_continuation_preserves_restored_output_language(
             shifu_bid="course",
             outline_bid="lesson",
             script="Current draft",
-            preview_mode=True,
             debug_store=store,
             preview_variables=None,
             use_learner_language=True,
@@ -1262,7 +1260,6 @@ def test_debug_answer_edits_share_the_exact_accepting_checkpoint(
         shifu_bid="course",
         outline_bid="lesson",
         script="Current draft",
-        preview_mode=True,
         debug_store=store,
         rewind=plan,
         preview_variables={"future": "discard", "seed": "wrong"},

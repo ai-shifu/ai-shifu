@@ -20,10 +20,15 @@ export const getLessonResetStatus = async (
   );
 };
 
-export const getLessonTree = async (courseId: string, previewMode: boolean) => {
+export const getLessonTree = async (
+  courseId: string,
+  previewMode: boolean,
+  options?: { skipErrorToast?: boolean },
+) => {
   return request.get(
     // `/api/study/get_lesson_tree?course_id=${courseId}&preview_mode=${previewMode}`,
     `/api/learn/shifu/${courseId}/outline-item-tree?preview_mode=${previewMode}`,
+    options,
   );
 };
 
@@ -32,7 +37,8 @@ export const resetChapter = async ({ lessonId: outline_bid }) => {
   const { previewMode } = useSystemStore.getState();
   const user = useUserStore.getState();
   const identity = user.userInfo?.user_id || user.getToken();
-  const scope = JSON.stringify([identity, shifu_bid, outline_bid, previewMode]);
+  // Draft and published routes reset the same learning attempt.
+  const scope = JSON.stringify([identity, shifu_bid, outline_bid]);
   const requestId = pendingResetRequestIds.get(scope) || createRequestId();
   pendingResetRequestIds.set(scope, requestId);
   const result = await request.delete(

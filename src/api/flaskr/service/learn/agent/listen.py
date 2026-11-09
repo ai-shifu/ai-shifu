@@ -58,6 +58,7 @@ class LessonVoice:
         user_bid: str,
         generated_block_bid: str,
         usage_scene: int | None = None,
+        course_row_id: int | None = None,
     ) -> None:
         """Bind what the processors will need, without creating any yet."""
         self._app = app
@@ -70,6 +71,7 @@ class LessonVoice:
         # What this lesson's audio is billed and reported as: an author previewing is not a
         # learner taking the course, and counting it as one overstates production usage.
         self._usage_scene = usage_scene
+        self._course_row_id = course_row_id
         self._processor: object | None = None
         self._key: tuple[str, int] | None = None
         self._next_position = 0
@@ -140,6 +142,11 @@ class LessonVoice:
         self._processor = create_tts_processor(
             self._app,
             shifu_model=self._shifu_model,
+            **(
+                {}
+                if self._course_row_id is None
+                else {"course_row_id": self._course_row_id}
+            ),
             shifu_bid=self._shifu_bid,
             outline_bid=self._outline_bid,
             progress_record_bid=self._progress_record_bid,

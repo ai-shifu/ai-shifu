@@ -29,12 +29,14 @@ def _seed_course(
     *,
     model: str = "1",
     temperature: Decimal = Decimal(0),
+    publish: bool = True,
 ) -> SimpleNamespace:
     course_bid, outline_bid, user_bid = (uuid4().hex for _index in range(3))
     with app.app_context(), unit_of_work():
         draft = DraftShifu(
             shifu_bid=course_bid,
             title="Revision test course",
+            created_user_bid=user_bid,
             llm=model,
             llm_temperature=temperature,
             llm_system_prompt="Old course prompt",
@@ -70,9 +72,10 @@ def _seed_course(
                 struct=draft_struct.to_json(),
             )
         )
-    shifu_publish_funcs.publish_shifu_draft(
-        app, user_bid, course_bid, "", sync_summary=True
-    )
+    if publish:
+        shifu_publish_funcs.publish_shifu_draft(
+            app, user_bid, course_bid, "", sync_summary=True
+        )
     return SimpleNamespace(
         course_bid=course_bid, outline_bid=outline_bid, user_bid=user_bid
     )

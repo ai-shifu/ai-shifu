@@ -502,7 +502,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
         assert events[-1]["is_terminal"] is True
 
 
-def test_follow_up_events_route_through_element_adapter_and_commit(
+def test_follow_up_events_route_through_element_adapter_for_final_write(
     monkeypatch: object,
 ) -> None:
     from flaskr.service.learn.ask import follow_up_run as ask
@@ -520,6 +520,12 @@ def test_follow_up_events_route_through_element_adapter_and_commit(
         lambda _app, *, source: removed.append(source),
     )
     seen = {}
+
+    def read_only(*, discard: bool) -> object:
+        assert discard
+        return contextlib.nullcontext()
+
+    monkeypatch.setattr(host_lesson, "unit_of_work", read_only)
 
     def fake_follow_up_events(_app: object, **kwargs: object) -> object:
         seen.update(kwargs)
@@ -548,6 +554,16 @@ def test_follow_up_events_route_through_element_adapter_and_commit(
     class FakeElementAdapter:
         def __init__(self) -> None:
             self.calls = []
+            self.deferred = False
+
+        def defer_follow_up_persistence(self) -> None:
+            self.deferred = True
+
+        def bind_follow_up_block(self, _block: object) -> None:
+            pass
+
+        def stage_follow_up_elements(self) -> None:
+            pass
 
         def process(self, events: object) -> object:
             captured = list(events)
@@ -574,14 +590,17 @@ def test_follow_up_events_route_through_element_adapter_and_commit(
     )
 
     assert emitted == ["converted:ask", "converted:content", "converted:break"]
-    assert [event.type for event in element_adapter.calls[0]] == [
+    assert [event.type for call in element_adapter.calls for event in call] == [
         GeneratedType.ASK,
         GeneratedType.CONTENT,
         GeneratedType.BREAK,
     ]
     assert seen["reload_element_bid"] == "element-1"
     assert seen["stop_event"] is stop_event
-    assert commits == [True]
+    assert element_adapter.deferred is True
+    assert seen["bind_block"] == element_adapter.bind_follow_up_block
+    assert seen["stage_elements"] == element_adapter.stage_follow_up_elements
+    assert commits == []
     assert removed == ["follow-up"]
 
 
@@ -611,7 +630,12 @@ def test_cancelled_follow_up_discards_the_connection_without_committing(
         yield  # pragma: no cover - makes this a generator
 
     monkeypatch.setattr(ask, "follow_up_events", cancelled)
-    adapter = SimpleNamespace(process=lambda events: events)
+    adapter = SimpleNamespace(
+        defer_follow_up_persistence=lambda: None,
+        bind_follow_up_block=lambda _block: None,
+        stage_follow_up_elements=lambda: None,
+        process=lambda events: events,
+    )
 
     emitted = list(
         host_lesson._follow_up_events(
@@ -671,7 +695,12 @@ def test_failed_follow_up_cleans_the_session_through_the_dao(
                 learning_mode="read",
                 preview_mode=False,
                 stop_event=threading.Event(),
-                element_adapter=SimpleNamespace(process=lambda events: events),
+                element_adapter=SimpleNamespace(
+                    defer_follow_up_persistence=lambda: None,
+                    bind_follow_up_block=lambda _block: None,
+                    stage_follow_up_elements=lambda: None,
+                    process=lambda events: events,
+                ),
             )
         )
 

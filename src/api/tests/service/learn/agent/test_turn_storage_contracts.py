@@ -363,7 +363,7 @@ def test_retirement_is_idempotent_and_preserves_completed_turns(
 
 @pytest.mark.parametrize("preview", [False, True])
 @pytest.mark.parametrize("failure", ["provider", "disconnect"])
-def test_unfinished_agent_turn_retires_reserved_block_and_preview_writes_no_progress(
+def test_unfinished_agent_turn_retires_the_shared_reserved_block(
     identity: object,
     monkeypatch: pytest.MonkeyPatch,
     preview: bool,
@@ -393,9 +393,12 @@ def test_unfinished_agent_turn_retires_reserved_block_and_preview_writes_no_prog
     )
     event = next(stream)
     with identity.app.app_context():
-        assert LearnGeneratedBlock.query.filter_by(
-            user_bid=identity.user, deleted=0
-        ).count() == int(not preview)
+        assert (
+            LearnGeneratedBlock.query.filter_by(
+                user_bid=identity.user, deleted=0
+            ).count()
+            == 1
+        )
     if failure == "disconnect":
         stream.close()
     else:
@@ -405,16 +408,11 @@ def test_unfinished_agent_turn_retires_reserved_block_and_preview_writes_no_prog
     with identity.app.app_context():
         db.session.expire_all()
         blocks = LearnGeneratedBlock.query.filter_by(user_bid=identity.user).all()
-        if preview:
-            assert blocks == []
-            assert (
-                LearnProgressRecord.query.filter_by(user_bid=identity.user).count() == 0
-            )
-        else:
-            assert len(blocks) == 1
-            assert blocks[0].generated_block_bid == event.generated_block_bid
-            assert blocks[0].deleted == 1
-            assert blocks[0].status == 0
+        assert len(blocks) == 1
+        assert blocks[0].generated_block_bid == event.generated_block_bid
+        assert blocks[0].deleted == 1
+        assert blocks[0].status == 0
+        assert LearnProgressRecord.query.filter_by(user_bid=identity.user).count() == 1
 
 
 def test_retirement_database_failure_does_not_replace_original_provider_error(

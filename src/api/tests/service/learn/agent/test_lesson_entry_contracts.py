@@ -363,6 +363,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     preview_mode: bool,
     learning_mode: str | None,
 ) -> None:
+    monkeypatch.setattr(entry, "_resolve_ordinary_lesson", lambda *_a, **_k: None)
     settings = LLMSettings(
         model="2",
         temperature=0.25,
@@ -509,6 +510,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
 
 def _entry_with_runner(monkeypatch: object) -> Mock:
     """Stub everything around the turn and return the mock standing in for the turn itself."""
+    monkeypatch.setattr(entry, "_resolve_ordinary_lesson", lambda *_a, **_k: None)
     settings = LLMSettings(model="2", temperature=0.25, usage_metadata={})
     monkeypatch.setattr(
         entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
@@ -777,15 +779,12 @@ def test_a_lesson_that_cannot_go_back_says_so_instead_of_running(
     runner.assert_not_called()
 
 
-def test_a_preview_cannot_go_back(app: object, monkeypatch: object) -> None:
-    """A preview keeps no turn blocks to go back to."""
-    from flaskr.service.common.models import AppError
-
+def test_a_preview_rewinds_the_shared_attempt(app: object, monkeypatch: object) -> None:
     runner = _entry_with_runner(monkeypatch)
-    monkeypatch.setattr(entry, "plan_rewind", Mock())
-    with pytest.raises(AppError):
-        _reload(app, user_input="", preview_mode=True)
-    runner.assert_not_called()
+    plan = object()
+    monkeypatch.setattr(entry, "plan_rewind", Mock(return_value=plan))
+    _reload(app, user_input="", preview_mode=True)
+    assert runner.call_args.kwargs["rewind"] is plan
 
 
 def _turn(

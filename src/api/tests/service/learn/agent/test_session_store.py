@@ -15,6 +15,7 @@ from flaskr.service.learn.agent.models import (
 )
 from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ModelRequest, UserPromptPart
+from sqlalchemy.exc import IntegrityError
 
 USER = "learner-1"
 SHIFU = "course-a"
@@ -59,6 +60,54 @@ def store(
         content_revision=content_revision,
         preview_mode=preview_mode,
     )
+
+
+def test_first_attempt_reservation_discards_a_duplicate_insert(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = {"user_bid": USER, "shifu_bid": SHIFU, "outline_bid": OUTLINE}
+    winner = session_store.LessonAttemptSource(preview_mode=True, outline_row_id=1)
+    loser = session_store.LessonAttemptSource(preview_mode=False, outline_row_id=2)
+
+    with app.app_context():
+        with unit_of_work():
+            assert session_store.stage_lesson_attempt_source(**scope, source=winner)
+
+        # Simulate an initial consistent read that predates the winner's insert.
+        class StaleRead:
+            def first(self) -> None:
+                return None
+
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                session_store, "_shared_session_query", lambda **_scope: StaleRead()
+            )
+            with unit_of_work():
+                assert not session_store.stage_lesson_attempt_source(
+                    **scope, source=loser
+                )
+                assert LearnAgentSession.query.one().active_key == active_key_for(
+                    USER, OUTLINE
+                )
+
+        assert session_store.load_lesson_attempt_source(**scope) == winner
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        (
+            "Duplicate entry 'active' for key 'learn_agent_sessions.uq_learn_agent_sessions_active'",
+            True,
+        ),
+        ("Duplicate entry '1' for key 'learn_agent_sessions.PRIMARY'", False),
+    ],
+)
+def test_mysql_reservation_conflict_requires_the_active_index(
+    detail: str, expected: bool
+) -> None:
+    error = IntegrityError(None, None, Exception(1062, detail))
+    assert session_store._is_attempt_reservation_conflict(error) is expected
 
 
 def test_a_session_survives_a_round_trip(app: object) -> None:
@@ -311,10 +360,10 @@ def test_resetting_a_lesson_retires_its_session(app: object) -> None:
         assert session_store.load_agent_session(app, USER, OUTLINE) is None
 
 
-def test_resetting_published_learning_preserves_the_preview_session(
+def test_resetting_shared_learning_retires_legacy_preview_session(
     app: object,
 ) -> None:
-    """Published retakes do not discard a teacher's independent preview."""
+    """A retake cannot restore an old draft snapshot after clearing shared history."""
     from flaskr.service.learn.learn_funcs import reset_learn_record
 
     with app.app_context():
@@ -331,7 +380,7 @@ def test_resetting_published_learning_preserves_the_preview_session(
 
         assert (
             session_store.load_agent_session(app, USER, OUTLINE, preview_mode=True)
-            is not None
+            is None
         )
 
 

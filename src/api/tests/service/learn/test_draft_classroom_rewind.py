@@ -10,12 +10,9 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
-from flaskr.service.learn.agent import lesson_entry, preview_history, preview_rewind
-from flaskr.service.learn.agent.models import LearnAgentSession
-from flaskr.service.learn.agent.session_store import (
-    load_agent_session,
-    save_agent_session,
-)
+from flaskr.service.learn.agent import lesson_entry, rewind, run_agent
+from flaskr.service.learn.agent.lesson_record import stage_turn_block
+from flaskr.service.learn.agent.session_store import load_agent_session
 from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     ElementType,
@@ -27,7 +24,6 @@ from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnProgressRecord,
 )
-from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
@@ -54,10 +50,6 @@ def test_editing_an_old_draft_answer_replaces_only_its_future(
     app: Flask, classroom: tuple
 ) -> None:
     identity, run, history, _calls = classroom
-    published = Session(script=ScriptBundle(script="Published"), turn=7)
-    save_agent_session(
-        app, published, user_bid=identity, shifu_bid=identity, outline_item_bid=identity
-    )
     run()
     original = history().elements
     run("Old choice")
@@ -74,15 +66,19 @@ def test_editing_an_old_draft_answer_replaces_only_its_future(
     assert elements[1].element_bid == original[1].element_bid
     assert _shown(elements[1].payload.user_input) == "New choice"
     assert "question 4" in elements[2].content
-    session = load_agent_session(app, identity, identity, preview_mode=True)
+    session = load_agent_session(app, identity, identity)
     serialized = json.dumps(session.to_dict())
     assert "New choice" in serialized
     assert "Old choice" not in serialized
     assert "Discard this later answer" not in serialized
-    assert load_agent_session(app, identity, identity).to_dict() == published.to_dict()
     with app.app_context():
-        assert LearnProgressRecord.query.filter_by(user_bid=identity).count() == 0
-        assert LearnGeneratedBlock.query.filter_by(user_bid=identity).count() == 0
+        progress = LearnProgressRecord.query.filter_by(user_bid=identity).one()
+        blocks = LearnGeneratedBlock.query.filter_by(user_bid=identity, status=1).all()
+        assert len(blocks) == 2
+        assert all(
+            block.progress_record_bid == progress.progress_record_bid
+            for block in blocks
+        )
 
 
 def test_draft_content_regeneration_reuses_the_original_answer(
@@ -100,21 +96,16 @@ def test_draft_content_regeneration_reuses_the_original_answer(
     assert "question 3" in restored.elements[2].content
     assert "question 2" not in " ".join(e.content or "" for e in restored.elements)
     assert "Original answer" in json.dumps(
-        load_agent_session(app, identity, identity, preview_mode=True).to_dict()
+        load_agent_session(app, identity, identity).to_dict()
     )
 
 
 def test_anchored_first_pending_answer_does_not_require_a_checkpoint(
-    app: Flask, classroom: tuple
+    classroom: tuple,
 ) -> None:
-    identity, run, history, _calls = classroom
+    _identity, run, history, _calls = classroom
     run()
     anchor = history().elements[1].element_bid
-    with app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
-        data = json.loads(row.session_data)
-        data["ai_shifu_preview_presentation"].pop("turns", None)
-        row.session_data = json.dumps(data)
     run("First answer", anchor=anchor)
     assert _shown(history().elements[1].payload.user_input) == "First answer"
 
@@ -127,10 +118,12 @@ def test_missing_old_checkpoint_does_not_discard_existing_history(
     anchor = history().elements[1].element_bid
     run("Old answer")
     with app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
-        data = json.loads(row.session_data)
-        data["ai_shifu_preview_presentation"].pop("turns")
-        row.session_data = json.dumps(data)
+        accepting = (
+            LearnGeneratedBlock.query.filter_by(user_bid=identity, status=1)
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
+        )
+        accepting.block_content_conf = ""
     before = history().model_dump()
     count = len(calls)
     with pytest.raises(AppError):
@@ -163,20 +156,17 @@ def test_failed_draft_save_rolls_back_retirement_with_the_session(
     anchor = history().elements[1].element_bid
     run("Old answer")
     before = history().model_dump()
-    session = load_agent_session(app, identity, identity, preview_mode=True).to_dict()
+    session = load_agent_session(app, identity, identity).to_dict()
 
     def fail_stage(**_kwargs: object) -> None:
         message = "Forced draft save failure"
         raise RuntimeError(message)
 
-    monkeypatch.setattr(preview_history, "stage_preview_turn", fail_stage)
+    monkeypatch.setattr(run_agent, "record_turn_content", fail_stage)
     with pytest.raises(RuntimeError, match="Forced draft save failure"):
         run("Replacement", anchor=anchor)
     assert history().model_dump() == before
-    assert (
-        load_agent_session(app, identity, identity, preview_mode=True).to_dict()
-        == session
-    )
+    assert load_agent_session(app, identity, identity).to_dict() == session
 
 
 @pytest.mark.parametrize("dimension", ["user_bid", "shifu_bid", "outline_item_bid"])
@@ -190,14 +180,12 @@ def test_foreign_anchor_is_rejected_without_changing_the_draft(
     owner = {"user_bid": identity, "shifu_bid": identity, "outline_item_bid": identity}
     owner[dimension] = uuid.uuid4().hex
     with app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
-        runs = json.loads(row.session_data)["ai_shifu_preview_presentation"]["runs"]
         db.session.add(
             make_generated_element(
                 **owner,
                 element_bid=anchor,
                 generated_block_bid=uuid.uuid4().hex,
-                run_session_bid=runs[0],
+                run_session_bid=uuid.uuid4().hex,
                 element_type="text",
                 content_text="Foreign teaching",
                 is_final=1,
@@ -222,10 +210,14 @@ def test_unusable_turn_metadata_keeps_existing_history(
     anchor = history().elements[1].element_bid
     run("Old answer")
     with app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
-        data = json.loads(row.session_data)
-        data["ai_shifu_preview_presentation"]["turns"] = corruption
-        row.session_data = json.dumps(data)
+        accepting = (
+            LearnGeneratedBlock.query.filter_by(user_bid=identity, status=1)
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
+        )
+        document = json.loads(accepting.block_content_conf)
+        document["agent_turn"]["checkpoint"] = corruption
+        accepting.block_content_conf = json.dumps(document)
     before = history().model_dump()
     count = len(calls)
     with pytest.raises(AppError):
@@ -285,7 +277,7 @@ def test_editing_one_of_two_questions_restores_its_own_accepting_turn(
     assert [_shown(e.payload.user_input) for e in restored_controls] == (
         ["Replacement", ""] if question == 0 else ["First answer", "Replacement"]
     )
-    session = load_agent_session(app, identity, identity, preview_mode=True)
+    session = load_agent_session(app, identity, identity)
     assert session.finished is (question == 1)
     assert "Second answer" not in json.dumps(session.to_dict())
 
@@ -317,6 +309,15 @@ def test_follow_ups_on_retired_teaching_are_excluded(
         )
         block = uuid.uuid4().hex
         anchor = history().elements[2].element_bid
+        progress = LearnProgressRecord.query.filter_by(user_bid=identity).one()
+        stage_turn_block(
+            user_bid=identity,
+            shifu_bid=identity,
+            outline_bid=identity,
+            progress_record_bid=progress.progress_record_bid,
+            generated_block_bid=block,
+            position=0,
+        )
         list(
             adapter.process(
                 iter(
@@ -366,8 +367,7 @@ def test_stale_rewind_plan_cannot_retire_a_later_turn(
     anchor = history().elements[1].element_bid
     run("Old answer")
     with app.app_context():
-        plan = preview_rewind.plan_preview_rewind(
-            app,
+        plan = rewind.plan_rewind(
             user_bid=identity,
             shifu_bid=identity,
             outline_bid=identity,
@@ -376,20 +376,12 @@ def test_stale_rewind_plan_cannot_retire_a_later_turn(
         )
     run("Later answer")
     before = history().model_dump()
-    from flaskr.service.learn.agent.session_store import PreviewGenerationDiscardedError
-
     with (
         app.app_context(),
-        pytest.raises(PreviewGenerationDiscardedError),
+        pytest.raises(rewind.RewindUnavailableError),
         unit_of_work(),
     ):
-        preview_rewind.stage_preview_retirement(
-            plan,
-            generation=plan.generation,
-            user_bid=identity,
-            shifu_bid=identity,
-            outline_bid=identity,
-        )
+        rewind.stage_retirement(plan, user_bid=identity, outline_bid=identity)
     assert history().model_dump() == before
 
 
@@ -422,7 +414,7 @@ def test_reset_during_rewind_refuses_late_save_and_leaves_no_active_history(
     with pytest.raises(lesson_entry.DiscardedTurnError):
         run("New answer", anchor=anchor)
     assert history().elements == []
-    assert load_agent_session(app, identity, identity, preview_mode=True) is None
+    assert load_agent_session(app, identity, identity) is None
 
 
 @pytest.mark.parametrize("operation", ["edit", "regenerate"])
@@ -453,29 +445,28 @@ def test_separate_model_turns_keep_earlier_displayed_answers(
 def test_existing_draft_accepting_checkpoint_ignores_an_unaccepted_attempt(
     app: Flask, classroom: tuple
 ) -> None:
-    identity, run, history, _calls = classroom
+    identity, run, _history, _calls = classroom
     run()
-    anchor = history().elements[1].element_bid
     run("Accepted answer")
     with app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
-        data = json.loads(row.session_data)
-        turns = data["ai_shifu_preview_presentation"]["turns"]
-        accepting_block = turns[1]["block_bid"]
-        rejected = json.loads(json.dumps(turns[1]))
-        rejected["block_bid"] = "unaccepted-attempt"
-        rejected["answered_question_id"] = None
-        rejected["record"]["values"] = []
-        turns.insert(1, rejected)
-        row.session_data = json.dumps(data)
-    with app.app_context():
-        plan = preview_rewind.plan_preview_rewind(
-            app,
-            user_bid=identity,
-            shifu_bid=identity,
-            outline_bid=identity,
-            anchor=anchor,
-            answering=True,
+        accepting = (
+            LearnGeneratedBlock.query.filter_by(user_bid=identity, status=1)
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
         )
-    assert plan.retired_block_bids == [accepting_block]
+        document = json.loads(accepting.block_content_conf)
+        rejected = json.loads(json.dumps(document))
+        rejected["agent_turn"]["answered_question_id"] = None
+        rejected["agent_turn"]["values"] = []
+    plan = rewind.plan_turn_rewind(
+        [
+            {"block_bid": "question", "record": {}},
+            {"block_bid": "unaccepted-attempt", "record": rejected["agent_turn"]},
+            {"block_bid": "accepting-turn", "record": document["agent_turn"]},
+        ],
+        block_bid="question",
+        answering=True,
+        question_id=document["agent_turn"]["answered_question_id"],
+    )
+    assert plan.retired_block_bids == ["accepting-turn"]
     assert plan.replay_values is None

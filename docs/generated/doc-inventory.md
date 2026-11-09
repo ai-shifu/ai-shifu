@@ -253,7 +253,9 @@
 | `docs/exec-plans/completed/safe-frontend-dead-code-cleanup.md` | Safe Frontend Dead Code Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/safe-outbound-url-validation.md` | Safe Outbound URL Validation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/session-langfuse-traces.md` | Session Langfuse Traces | `exec-plan-completed` | `completed` | `backend` | `2026-10-27` | `false` |
+| `docs/exec-plans/completed/share-course-preview-memory.md` | Share course memory across preview and learning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-answer-writeback.md` | Write explicit named answers back to same-owner course variables | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/shared-course-version-learning.md` | Share learning across course versions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-interaction-rewind.md` | Shared Interaction Rewind | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-lesson-request-lifecycle.md` | Share lesson request completion | `exec-plan-completed` | `completed` | `backend` | `2026-10-26` | `false` |
 | `docs/exec-plans/completed/simplify-typed-marker-cleanup.md` | Simplify typed MarkdownFlow marker cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -294,7 +296,7 @@
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
 | `docs/product-specs/course-action-help.md` | Course action menu help | `product-spec` | `implemented` | `frontend` | `2026-10-26` | `true` |
 | `docs/product-specs/course-activation-import.md` | Course activation import | `product-spec` | `implemented` | `frontend` | `2026-10-27` | `true` |
-| `docs/product-specs/course-memory-management.md` | Course Memory Management | `product-spec` | `implemented` | `learner` | `2026-10-30` | `true` |
+| `docs/product-specs/course-memory-management.md` | Course Memory Management | `product-spec` | `implemented` | `learner` | `2026-11-08` | `true` |
 | `docs/product-specs/course-prompts.md` | Course Prompts | `product-spec` | `implemented` | `shared` | `2026-11-04` | `true` |
 | `docs/product-specs/course-temperature-settings.md` | Internal Course Temperature Settings | `product-spec` | `implemented` | `shared` | `2026-10-08` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |
@@ -302,8 +304,8 @@
 | `docs/product-specs/index.md` | Product Specs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
 | `docs/product-specs/learner-listen-playback.md` | Learner Listen Playback and Timeline | `product-spec` | `implemented` | `frontend` | `2026-11-04` | `true` |
-| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-31` | `true` |
-| `docs/product-specs/lesson-content-updates.md` | Lesson Content Update Recommendations | `product-spec` | `implemented` | `shared` | `2026-10-12` | `true` |
+| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-11-08` | `true` |
+| `docs/product-specs/lesson-content-updates.md` | Lesson Content Update Recommendations | `product-spec` | `implemented` | `shared` | `2026-11-08` | `true` |
 | `docs/product-specs/lesson-memory-context.md` | Lesson Memory Context | `product-spec` | `implemented` | `backend` | `2026-10-07` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
@@ -339,7 +341,7 @@
 | `docs/references/lesson-content-update-performance.md` | Lesson Content Revision Comparison Performance | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-authored-inputs.md` | MarkdownFlow Authored Input Hints | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
 | `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-11-04` | `true` |
-| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-11-06` | `true` |
+| `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-11-08` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |
 | `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-11-04` | `true` |
 | `docs/references/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompts | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |

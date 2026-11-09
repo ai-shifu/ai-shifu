@@ -18,7 +18,7 @@ from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
 )
-from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.learn.utils_v2 import FollowUpInfo, get_fmt_prompt
 from flaskr.service.memory.api import load_memory
 from flaskr.service.shifu.api import find_node_with_parents, get_shifu_struct
@@ -35,6 +35,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from markdownflow import replace_variables_in_text
+from sqlalchemy import or_
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -64,6 +65,7 @@ def resolve_course_system_prompt(
     outline_path: list[object] | None = None,
     outline_model: object | None = None,
     shifu_model: object | None = None,
+    allow_retired_draft: bool = False,
 ) -> str | None:
     """Return the Course Prompt from the physical course row bound to this run."""
     path = outline_path
@@ -94,7 +96,7 @@ def resolve_course_system_prompt(
         resolved_outline_model.id.in_(outline_ids),
         resolved_outline_model.shifu_bid == course_bid,
     ]
-    if preview_mode:
+    if preview_mode and not allow_retired_draft:
         shifu_filters.append(resolved_shifu_model.deleted == 0)
         outline_filters.append(resolved_outline_model.deleted == 0)
     elif not resolved_shifu_model.query.filter(
@@ -229,6 +231,40 @@ def build_follow_up_element_history(
             history_limit,
         )
     return None
+
+
+def claim_follow_up_anchor(
+    anchor_element_bid: str,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    progress_record_bid: str,
+) -> LearnGeneratedElement | None:
+    """Lock a still-active anchor while its already claimed attempt receives a reply."""
+    return (
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.user_bid == user_bid,
+            LearnGeneratedElement.shifu_bid == shifu_bid,
+            LearnGeneratedElement.outline_item_bid == outline_bid,
+            LearnGeneratedElement.progress_record_bid == progress_record_bid,
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+            or_(
+                LearnGeneratedElement.element_bid == anchor_element_bid,
+                LearnGeneratedElement.target_element_bid == anchor_element_bid,
+            ),
+        )
+        .populate_existing()
+        .with_for_update()
+        .order_by(
+            LearnGeneratedElement.sequence_number.desc(),
+            LearnGeneratedElement.run_event_seq.desc(),
+            LearnGeneratedElement.id.desc(),
+        )
+        .first()
+    )
 
 
 def load_prior_classroom_history(

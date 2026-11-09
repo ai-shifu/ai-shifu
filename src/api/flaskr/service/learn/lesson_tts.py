@@ -36,6 +36,7 @@ def create_tts_processor(
     stream_element_number: int | None = None,
     stream_element_type: str | None = None,
     usage_scene: int | None = None,
+    course_row_id: int | None = None,
 ) -> object | None:
     """Return the processor this lesson speaks through, or None if it is not spoken.
 
@@ -51,14 +52,13 @@ def create_tts_processor(
         from flaskr.service.tts.api import create_streaming_tts_processor
         from flaskr.service.tts.validation import validate_tts_settings_strict
 
-        shifu_record = (
-            shifu_model.query.filter(
-                shifu_model.shifu_bid == shifu_bid,
-                shifu_model.deleted == 0,
-            )
-            .order_by(shifu_model.id.desc())
-            .first()
-        )
+        courses = shifu_model.query.filter(shifu_model.shifu_bid == shifu_bid)
+        if course_row_id is None:
+            courses = courses.filter(shifu_model.deleted == 0)
+        else:
+            # The host already authorized the historical course source.
+            courses = courses.filter(shifu_model.id == course_row_id)
+        shifu_record = courses.order_by(shifu_model.id.desc()).first()
         if not shifu_record or not getattr(shifu_record, "tts_enabled", False):
             return None
 

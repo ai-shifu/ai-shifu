@@ -177,6 +177,7 @@ def get_follow_up_info_v2(
     is_preview: bool = False,
     *,
     struct: HistoryItem | None = None,
+    allow_retired_draft: bool = False,
 ) -> FollowUpInfo:
     """Get follow up info.
 
@@ -189,6 +190,7 @@ def get_follow_up_info_v2(
             If True, retrieves data as it would appear in preview (unpublished) state; if False,
             retrieves data as it appears in the published state. Defaults to False.
         struct (HistoryItem, optional): The structure already bound to a learning run.
+        allow_retired_draft: The caller authorized and resolved a retained draft source.
 
     Returns:
         FollowUpInfo: The follow up information for the given parameters.
@@ -224,7 +226,7 @@ def get_follow_up_info_v2(
             raise_error("server.shifu.shifuNotFound")
         shifu_filters.append(shifu_model.id == shifu_path[0].id)
         outline_filters.append(outline_model.shifu_bid == shifu_bid)
-        if is_preview:
+        if is_preview and not allow_retired_draft:
             shifu_filters.append(shifu_model.deleted == 0)
             outline_filters.append(outline_model.deleted == 0)
         elif not shifu_model.query.filter(

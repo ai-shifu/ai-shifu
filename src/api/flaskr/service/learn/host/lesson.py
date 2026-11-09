@@ -8,10 +8,11 @@ from flask import Flask
 from flaskr.dao import (
     cleanup_session_after,
 )
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
-from flaskr.service.learn.exceptions import BreakError
+from flaskr.service.learn.exceptions import BreakError, DraftTurnAccessRevokedError
 from flaskr.service.learn.host.db_session import (
     _commit_pending_step,
     _discard_session_connection,
@@ -30,6 +31,7 @@ def _follow_up_events(
     *,
     app: Flask,
     user_bid: str,
+    shifu_bid: str | None = None,
     outline_bid: str,
     user_input: str | dict | None,
     reload_generated_block_bid: str | None,
@@ -48,23 +50,30 @@ def _follow_up_events(
 
     try:
         _ensure_healthy_db_connection(app)
-        yield from element_adapter.process(
-            follow_up_events(
-                app,
-                user_bid=user_bid,
-                outline_bid=outline_bid,
-                user_input=user_input,
-                reload_generated_block_bid=reload_generated_block_bid,
-                reload_element_bid=reload_element_bid,
-                listen=listen,
-                learning_mode=learning_mode,
-                preview_mode=preview_mode,
-                stop_event=stop_event,
-            )
+        element_adapter.defer_follow_up_persistence()
+        events = follow_up_events(
+            app,
+            user_bid=user_bid,
+            **({} if shifu_bid is None else {"shifu_bid": shifu_bid}),
+            outline_bid=outline_bid,
+            user_input=user_input,
+            reload_generated_block_bid=reload_generated_block_bid,
+            reload_element_bid=reload_element_bid,
+            listen=listen,
+            learning_mode=learning_mode,
+            preview_mode=preview_mode,
+            stop_event=stop_event,
+            bind_block=element_adapter.bind_follow_up_block,
+            stage_elements=element_adapter.stage_follow_up_elements,
         )
-        _commit_pending_step()
+        with contextlib.closing(events):
+            for event in events:
+                # Anchor lookups by the adapter are read-only. Release the
+                # snapshot before yielding to SSE or resuming the provider.
+                with unit_of_work(discard=True):
+                    outgoing = list(element_adapter.process((event,)))
+                yield from outgoing
     except BreakError:
-        _commit_pending_step()
         app.logger.info("BreakError")
     except (FollowUpCancelledError, GeneratorExit):
         # The close lands at an arbitrary point (client disconnect), so the
@@ -107,6 +116,7 @@ def _lesson_events(
         yield from _follow_up_events(
             app=app,
             user_bid=user_bid,
+            shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             user_input=user_input,
             reload_generated_block_bid=reload_generated_block_bid,
@@ -131,7 +141,6 @@ def _lesson_events(
         LessonNotTeachable,
         agent_lesson_events,
         complete_empty_lesson,
-        require_teachable_preview,
     )
 
     # Logged per request: it is what a decision to raise the worker's turn ceiling is based on.
@@ -143,83 +152,6 @@ def _lesson_events(
     # Replace a pooled connection an interrupted stream left desynced before any lesson read.
     _ensure_healthy_db_connection(app)
     try:
-        preview_options = {}
-        if preview_mode:
-            require_teachable_preview(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-            )
-            from flaskr.service.learn.agent.preview_history import (
-                begin_preview_run,
-                pending_preview_record,
-                preview_status_event,
-            )
-            from flaskr.service.learn.agent.run_agent import learner_values
-
-            if reload_element_bid or reload_generated_block_bid:
-                from flaskr.service.learn.agent.preview_rewind import (
-                    plan_preview_rewind,
-                )
-                from flaskr.service.learn.agent.rewind import RewindUnavailableError
-
-                try:
-                    plan_preview_rewind(
-                        app,
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                        anchor=reload_element_bid or reload_generated_block_bid,
-                        answering=bool(learner_values(user_input)),
-                    )
-                except RewindUnavailableError:
-                    raise_error("server.learn.agentRewindUnavailable")
-            if not learner_values(user_input) and not (
-                reload_generated_block_bid or reload_element_bid
-            ):
-                restored = pending_preview_record(
-                    app,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                )
-                if restored is not None:
-                    update = preview_status_event(
-                        app,
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                    )
-                    if update is not None:
-                        yield update
-                    for element in restored.elements:
-                        yield RunElementSSEMessageDTO(
-                            type="element",
-                            event_type="element",
-                            content=element,
-                            generated_block_bid=element.generated_block_bid,
-                        )
-                    yield RunElementSSEMessageDTO(
-                        type="done", event_type="done", content="", is_terminal=True
-                    )
-                    return
-            preview_options["preview_generation"] = begin_preview_run(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                run_bid=element_adapter.run_session_bid,
-            )
-            update = preview_status_event(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                generation=preview_options["preview_generation"],
-            )
-            if update is not None:
-                yield update
         agent_events = agent_lesson_events(
             app,
             user_bid=user_bid,
@@ -232,7 +164,6 @@ def _lesson_events(
             heartbeat_interval=heartbeat_interval,
             reload_generated_block_bid=reload_generated_block_bid,
             reload_element_bid=reload_element_bid,
-            **preview_options,
         )
         # Final snapshots are staged by the adapter on DONE. Adapt here so the commit and
         # readiness notification precede terminal DONE, on which the browser closes SSE.
@@ -254,7 +185,9 @@ def _lesson_events(
                 else:
                     yield payload
         except AppError as exc:
-            if element_adapter is not None and not isinstance(exc, DiscardedTurnError):
+            if element_adapter is not None and not isinstance(
+                exc, (DiscardedTurnError, DraftTurnAccessRevokedError)
+            ):
                 # A turn can fail after text was shown: a refused tool request, a provider
                 # error after output started, or an exhausted recovery. The engine keeps
                 # that text in its saved session and continues after it, so persist the
@@ -279,16 +212,6 @@ def _lesson_events(
             ) in element_adapter.finalized_element_identities():
                 ready_by_block.setdefault(block_bid, []).append(element_bid)
         _commit_pending_step()
-        if preview_mode:
-            update = preview_status_event(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                generation=preview_options["preview_generation"],
-            )
-            if update is not None:
-                yield update
         for block_bid, element_bids in ready_by_block.items():
             yield _make_audio_backfill_ready_event(block_bid, element_bids)
         if terminal_done is not None:

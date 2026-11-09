@@ -2,7 +2,7 @@
 title: Learner Memory Admission
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-10-31
+last_reviewed: 2026-11-08
 canonical: true
 ---
 
@@ -63,9 +63,10 @@ follow ordinary course scope and admission rules. The generic `sys_` authoring
 restriction has no exception for `sys_user_style`. Existing stored course
 definitions keep ordinary key/scope reads and writes; value writes do not create
 missing definitions, and supplementary reads exclude undefined `sys_` keys.
-Active system declarations in retained published lessons keep their canonical
-profile mapping semantics.
-Canonical account fields remain authoritative. There is no cross-course sharing.
+Active legacy system declarations retain their canonical profile mapping in
+both published lessons and ordinary draft preview. A write to one of those
+account fields can therefore affect the same account in other courses.
+Custom course memory stays scoped to the current course.
 Only the agent's memory reader opts into additional current-course variable rows;
 other consumers retain definition-based runtime resolution. The supplementary
 projection considers only the newest 100 unresolved course keys and includes whole
@@ -79,5 +80,14 @@ asynchronous check, capacity and finished state are checked again before mutatio
 A refusal emits no persistence update. Session state and accepted memory updates
 commit or roll back together. Named answers and old snapshots are not truncated.
 
-Viewing/deletion, author-declared cross-course sharing, independent human course
-acceptance and a hard budget for all injected context are separate follow-up work.
+Ordinary draft preview and published learning use the same admission and
+persistent memory for the signed-in account and course. Each turn uses the
+declarations from the script version it runs, including in free follow-up
+questions. A value saved from one version can be recalled by the other, and an
+admitted write to the same key can replace it. A draft-only key can stay in
+memory after the draft changes or is published. Retaking from either classroom
+entry point retires the shared attempt without deleting memory. A follow-up
+started in a retired attempt cannot persist updates. The editor debug simulator retains independent state.
+
+See [Course Memory Management](course-memory-management.md) for viewing and
+deletion.

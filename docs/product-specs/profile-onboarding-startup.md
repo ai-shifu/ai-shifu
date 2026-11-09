@@ -228,11 +228,10 @@ Inside WeChat, outside mini programs, with the WeChat code flow enabled:
   collection that would be replaced when that identity arrives.
 
 Other browsers, mini programs, and disabled WeChat code flows keep their existing
-behavior. Teacher preview runtime keeps its immediate readiness bypass because
-preview does not automatically collect Profile. Old account, token, or code work
-cannot affect a new identity. React
-effect replay reuses a pending exchange rather than spending a single-use code
-again.
+behavior. Learning from an authorized draft uses the same account Profile
+startup and readiness checks as the published version. Old account, token, or
+code work cannot affect a new identity. React effect replay reuses a pending
+exchange rather than spending a single-use code again.
 
 ## Existing Profile analytics timing
 
@@ -249,12 +248,16 @@ This extends the timing contract under
 - Triggers: the dialog controller's `beginCollection` owns `shown`; a real
   collection error owns `runtime_failed`. Parent OAuth waiting, OpenID waiting, recovery navigation,
   and abandonment of binding emit neither event.
-- Population and count unit: existing eligible collection journeys, with the
-  current guest, preview, settings, and per-journey producer guards preserved.
+- Population and count unit: one event per eligible collection journey.
+  Guided collection includes eligible signed-in learners using either the
+  published version or an authorized draft. Settings entry remains eligible
+  through its existing trigger. Guests and Editor Debug remain excluded.
   Preparation does not create an extra journey or event.
 - Consumers: existing Profile start/failure reports and operational queries.
   Release comparisons should account for removal of starts interrupted by
-  recovery navigation. No dual writing, renaming, or backfill is needed.
+  recovery navigation and inclusion of authorized draft learning. These
+  account-wide events do not segment by course or content version. No dual
+  writing, renaming, or backfill is needed.
 - Privacy and correlation: no new fields or identifiers; never collect OpenIDs,
   OAuth codes, credentials, account information, or URLs.
 

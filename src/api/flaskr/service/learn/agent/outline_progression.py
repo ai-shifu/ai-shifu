@@ -162,6 +162,20 @@ def _next_reachable_lesson(
     )
 
 
+def reachable_lessons_by_chapter(
+    struct: OutlineNode, hidden: dict[str, bool], chapter_bids: set[str]
+) -> dict[str, set[str]]:
+    """List visible descendant lessons for the selected chapters."""
+    lessons = {bid: set() for bid in chapter_bids}
+    if chapter_bids:
+        for path in _leaves(struct):
+            if _reachable(path, hidden):
+                for chapter in path[1:-1]:
+                    if chapter.bid in lessons:
+                        lessons[chapter.bid].add(path[-1].bid)
+    return lessons
+
+
 def _completed(item: OutlineNode, titles: dict[str, str]) -> OutlineItemUpdateDTO:
     return OutlineItemUpdateDTO(
         outline_bid=item.bid,

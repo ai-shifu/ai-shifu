@@ -7,6 +7,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useCourseStore, useEnvStore } from '@/store';
 import { useSystemStore } from '@/store/use-system-store';
 import { useUserStore } from '@/store/use-user-store';
+import { getCourseInfo } from '@/api/course';
+import { readLearningModeFromStorage } from './components/learning-mode-storage';
 import ChatLayout from './layout';
 import ChatPage from './page';
 
@@ -21,6 +23,18 @@ const mockGetLearnerProfile = jest.fn();
 const mockCreateProfileOnboardingSession = jest.fn();
 const mockRunProfileOnboardingSession = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockCourseInfo = {
+  course_id: 'course-1',
+  course_name: 'Course',
+  course_desc: 'Description',
+  course_keywords: [],
+  course_avatar: '',
+  course_teacher_avatar: '',
+  course_price: 0,
+  course_tts_enabled: false,
+  default_listen_mode_enabled: false,
+  course_is_owner: false,
+};
 const mockI18n = {
   language: 'en-US',
   resolvedLanguage: 'en-US',
@@ -85,17 +99,7 @@ jest.mock('@/store', () => ({
   ...jest.requireMock('@/store/use-user-store'),
 }));
 jest.mock('@/api/course', () => ({
-  getCourseInfo: jest.fn().mockResolvedValue({
-    course_id: 'course-1',
-    course_name: 'Course',
-    course_desc: 'Description',
-    course_keywords: [],
-    course_avatar: '',
-    course_price: 0,
-    course_tts_enabled: false,
-    default_listen_mode_enabled: false,
-    course_is_owner: false,
-  }),
+  getCourseInfo: jest.fn(),
 }));
 jest.mock('@/api/user', () => ({
   ...jest.requireActual('@/api/user'),
@@ -272,6 +276,7 @@ describe('course layout and page WeChat authorization integration', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest.mocked(getCourseInfo).mockResolvedValue(mockCourseInfo);
     sessionStorage.clear();
     localStorage.clear();
     mockQuery = '';
@@ -555,16 +560,79 @@ describe('course layout and page WeChat authorization integration', () => {
     expectProfileStarted();
   });
 
-  test('keeps teacher preview runtime available without opening learner Profile during authorization', async () => {
+  test('uses the same Profile startup gate when learning from the draft', async () => {
     setQuery('preview=true');
-    useSystemStore.setState({ previewMode: true });
     render(courseRoute());
     await flush();
     expect(screen.getByTestId('chat-runtime')).toHaveAttribute(
       'data-ready',
-      'true',
+      'false',
     );
     expectNoProfileStart();
+
+    await showPage(true);
+    expectProfileStarted();
+    expect(mockTrackEvent).toHaveBeenCalledWith('profile_onboarding_shown', {
+      source: 'guided',
+      presentation: 'blocking',
+      has_profile: false,
+    });
+  });
+
+  test('opens a draft-only course without fetching its published version', async () => {
+    mockInWechat = false;
+    mockGetProfileOnboarding.mockResolvedValue({
+      ...onboardingStatus,
+      should_show: false,
+    });
+    jest.mocked(getCourseInfo).mockImplementation(async (_, draft) => {
+      if (!draft) throw new Error('Course is not published');
+      return { ...mockCourseInfo, course_name: 'Draft only' };
+    });
+    setQuery('preview=true&lessonid=lesson-1');
+
+    render(courseRoute());
+    await flush();
+
+    expect(jest.mocked(getCourseInfo).mock.calls).toEqual([
+      ['course-1', true, undefined],
+    ]);
+    expect(useCourseStore.getState().courseName).toBe('Draft only');
+    expect(screen.getByTestId('chat-runtime')).toHaveAttribute(
+      'data-ready',
+      'true',
+    );
+  });
+
+  test('preserves the chosen learning mode when the draft disables listening', async () => {
+    mockInWechat = false;
+    mockGetProfileOnboarding.mockResolvedValue({
+      ...onboardingStatus,
+      should_show: false,
+    });
+    jest.mocked(getCourseInfo).mockImplementation(async (_, draft) => ({
+      ...mockCourseInfo,
+      course_name: draft ? 'Draft course' : 'Published course',
+      course_tts_enabled: !draft,
+    }));
+    setQuery('mode=listen');
+    const view = render(courseRoute());
+    await flush();
+    expect(useSystemStore.getState().learningMode).toBe('listen');
+    expect(readLearningModeFromStorage('course-1')).toBe('listen');
+
+    setQuery('preview=true&mode=listen');
+    view.rerender(courseRoute());
+    await flush();
+    expect(useCourseStore.getState().courseName).toBe('Draft course');
+    expect(useSystemStore.getState().learningMode).toBe('read');
+    expect(readLearningModeFromStorage('course-1')).toBe('listen');
+
+    setQuery('');
+    view.rerender(courseRoute());
+    await flush();
+    expect(useCourseStore.getState().courseName).toBe('Published course');
+    expect(useSystemStore.getState().learningMode).toBe('listen');
   });
 
   test('waits for runtime configuration before deciding whether layout authorization is required', async () => {

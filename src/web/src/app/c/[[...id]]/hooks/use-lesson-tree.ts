@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useIsomorphicLayoutEffect } from 'react-use';
 import { produce } from 'immer';
 import { getLessonTree } from '@/api/lesson';
@@ -96,6 +96,15 @@ type ChapterStatusPatch = {
   status_value: string;
 };
 
+type OutlineProgressPatch =
+  | {
+      kind: 'lesson';
+      id: string;
+      patch: LessonUpdatePatch;
+      refreshMissingLesson?: boolean;
+    }
+  | { kind: 'chapter'; id: string; patch: ChapterStatusPatch };
+
 type LessonSelectTrackingParams = {
   lessonId: string;
 };
@@ -108,14 +117,45 @@ export const checkChapterCanLearning = ({ status_value }: LessonStatusLike) => {
   return canLearn;
 };
 
+const isMissingHistoryLesson = (
+  tree: LessonTreeData,
+  update: OutlineProgressPatch,
+) =>
+  update.kind === 'lesson' &&
+  update.refreshMissingLesson === true &&
+  !tree.catalogs.some(catalog =>
+    catalog.lessons.some(lesson => lesson.id === update.id),
+  );
+
+const applyOutlineProgress = (
+  tree: LessonTree,
+  updates: OutlineProgressPatch[],
+) => {
+  if (!tree || !updates.length) return tree;
+
+  return produce(tree, draft => {
+    for (const { kind, id, patch } of updates) {
+      if (kind === 'chapter') {
+        const chapter = draft.catalogs.find(catalog => catalog.id === id);
+        if (chapter) Object.assign(chapter, patch);
+      } else {
+        for (const catalog of draft.catalogs) {
+          const lesson = catalog.lessons.find(entry => entry.id === id);
+          if (!lesson) continue;
+          Object.assign(lesson, patch);
+          lesson.canLearning = checkChapterCanLearning(lesson);
+        }
+      }
+    }
+  });
+};
+
 export const useLessonTree = (routeCourseId?: string) => {
   const [tree, setTree] = useState<LessonTree>(null);
-  const treeRef = useRef<LessonTree>(tree);
-  const outlineRequestRef = useRef(0);
-
-  useEffect(() => {
-    treeRef.current = tree;
-  }, [tree]);
+  const loadedOutline = useRef<LessonTree>(null);
+  const pendingOutlineRequest = useRef<{
+    updates: OutlineProgressPatch[];
+  } | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const latestSelection = useRef<{ lessonId: string | null }>({
     lessonId: null,
@@ -129,9 +169,11 @@ export const useLessonTree = (routeCourseId?: string) => {
   const { trackEvent } = useTracking();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const previewMode = useSystemStore(state => state.previewMode);
+
   useIsomorphicLayoutEffect(
     () => () => {
-      outlineRequestRef.current += 1;
+      loadedOutline.current = null;
+      pendingOutlineRequest.current = null;
     },
     [routeCourseId, previewMode],
   );
@@ -237,37 +279,38 @@ export const useLessonTree = (routeCourseId?: string) => {
     [ensureLessonAccessible, selectLesson],
   );
 
-  const loadTreeInner = useCallback(async () => {
-    const courseId = routeCourseId || useEnvStore.getState().courseId;
-    debugInfo('[lesson-tree] request start', {
-      courseId,
-      previewMode,
-      path:
-        typeof window !== 'undefined'
-          ? `${window.location.pathname}${window.location.search}`
-          : '',
-    });
-
-    try {
-      const treeData = (await getLessonTree(
+  const loadTreeInner = useCallback(
+    async (background = false) => {
+      const courseId = routeCourseId || useEnvStore.getState().courseId;
+      debugInfo('[lesson-tree] request start', {
         courseId,
         previewMode,
-      )) as LessonTreeApiResponse;
-      if (!treeData) {
-        debugWarn('[lesson-tree] empty response', {
-          courseId,
-          previewMode,
-        });
-        return null;
-      }
+        path:
+          typeof window !== 'undefined'
+            ? `${window.location.pathname}${window.location.search}`
+            : '',
+      });
 
-      // new api without course_id
-      // if (treeData.course_id !== useEnvStore.getState().courseId) {
-      //   await updateCourseId(treeData.course_id);
-      // }
+      try {
+        const treeData = (await (background
+          ? getLessonTree(courseId, previewMode, { skipErrorToast: true })
+          : getLessonTree(courseId, previewMode))) as LessonTreeApiResponse;
+        if (!treeData) {
+          debugWarn('[lesson-tree] empty response', {
+            courseId,
+            previewMode,
+          });
+          return null;
+        }
 
-      const catalogs: LessonTreeCatalog[] = (treeData.outline_items || []).map(
-        l => {
+        // new api without course_id
+        // if (treeData.course_id !== useEnvStore.getState().courseId) {
+        //   await updateCourseId(treeData.course_id);
+        // }
+
+        const catalogs: LessonTreeCatalog[] = (
+          treeData.outline_items || []
+        ).map(l => {
           const lessons: LessonTreeLesson[] = l.children.map(c => {
             return {
               id: c.bid,
@@ -297,35 +340,36 @@ export const useLessonTree = (routeCourseId?: string) => {
             lessons,
             collapse: false,
           };
-        },
-      );
+        });
 
-      const newTree: LessonTreeData = {
-        catalogs,
-        bannerInfo: treeData.banner_info,
-        titleLanguage: treeData.title_language,
-        contentLanguage: treeData.content_language,
-      };
+        const newTree: LessonTreeData = {
+          catalogs,
+          bannerInfo: treeData.banner_info,
+          titleLanguage: treeData.title_language,
+          contentLanguage: treeData.content_language,
+        };
 
-      debugInfo('[lesson-tree] request success', {
-        courseId,
-        previewMode,
-        outlineItemCount: treeData.outline_items?.length || 0,
-        catalogCount: catalogs.length,
-      });
+        debugInfo('[lesson-tree] request success', {
+          courseId,
+          previewMode,
+          outlineItemCount: treeData.outline_items?.length || 0,
+          catalogCount: catalogs.length,
+        });
 
-      return newTree;
-    } catch (error) {
-      debugError('[lesson-tree] request failed', {
-        courseId,
-        previewMode,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        businessCode: (error as { code?: number | string })?.code ?? '',
-        httpStatus: (error as { status?: number | string })?.status ?? '',
-      });
-      throw error;
-    }
-  }, [previewMode, routeCourseId]);
+        return newTree;
+      } catch (error) {
+        debugError('[lesson-tree] request failed', {
+          courseId,
+          previewMode,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          businessCode: (error as { code?: number | string })?.code ?? '',
+          httpStatus: (error as { status?: number | string })?.status ?? '',
+        });
+        throw error;
+      }
+    },
+    [previewMode, routeCourseId],
+  );
 
   const setSelectedState = useCallback(
     (treeData: LessonTreeData | null, chapterId: string, lessonId?: string) => {
@@ -375,59 +419,106 @@ export const useLessonTree = (routeCourseId?: string) => {
     [ensureLessonAccessible, selectLesson],
   );
 
-  const loadCurrentTree = useCallback(
-    async (
-      apply: (newTree: LessonTree, shouldSelect: boolean) => void,
-      targetLessonId?: string,
-    ) => {
-      const request = ++outlineRequestRef.current;
+  const loadOutline = useCallback(
+    async function loadOutline({
+      select,
+      updates = [],
+      targetLessonId,
+    }: {
+      select?: (newTree: LessonTree) => void;
+      updates?: OutlineProgressPatch[];
+      targetLessonId?: string;
+    }): Promise<LessonTree | undefined> {
+      const request = { updates };
+      pendingOutlineRequest.current = request;
       const selection = latestSelection.current;
       const isSelectionCurrent = () =>
+        !select ||
         latestSelection.current === selection ||
         latestSelection.current.lessonId === targetLessonId;
       try {
-        const newTree = await loadTreeInner();
-        if (outlineRequestRef.current !== request) return;
+        const loadedTree = await loadTreeInner(!select);
+        if (pendingOutlineRequest.current !== request) return;
         const shouldSelect = isSelectionCurrent();
-        if (newTree) {
-          // A newer lesson choice can keep a successful catalog update without reselecting.
-          if (shouldSelect) setSelectedLessonId(null);
-          apply(newTree, shouldSelect);
+        if (!loadedTree) return shouldSelect ? null : undefined;
+
+        // The response can be older than progress that arrived from history or SSE.
+        const newTree = applyOutlineProgress(loadedTree, request.updates);
+        loadedOutline.current = newTree;
+        if (select && shouldSelect) {
+          setSelectedLessonId(null);
+          select(newTree);
+        }
+        setTree(previousTree => {
+          if (!newTree) return previousTree;
+          return {
+            ...newTree,
+            catalogs: newTree.catalogs.map(catalog => ({
+              ...catalog,
+              collapse:
+                previousTree?.catalogs.find(
+                  previous => previous.id === catalog.id,
+                )?.collapse ?? catalog.collapse,
+            })),
+          };
+        });
+        if (select && newTree) {
+          const missing = request.updates.filter(update =>
+            isMissingHistoryLesson(newTree, update),
+          );
+          if (missing.length) {
+            // The pending foreground snapshot can predate a catalog edit too.
+            void loadOutline({ updates: missing });
+          }
         }
         return shouldSelect ? newTree : undefined;
       } catch (error) {
-        if (outlineRequestRef.current === request && isSelectionCurrent()) {
+        if (
+          select &&
+          pendingOutlineRequest.current === request &&
+          isSelectionCurrent()
+        ) {
           throw error;
+        }
+      } finally {
+        if (pendingOutlineRequest.current === request) {
+          pendingOutlineRequest.current = null;
         }
       }
     },
     [loadTreeInner],
   );
 
-  // Reload the course tree while preserving transient state
+  const updateOutlineProgress = useCallback(
+    (update: OutlineProgressPatch) => {
+      setTree(current => applyOutlineProgress(current, [update]));
+      const pending = pendingOutlineRequest.current;
+      if (pending) {
+        pending.updates.push(update);
+      } else if (
+        loadedOutline.current &&
+        isMissingHistoryLesson(loadedOutline.current, update)
+      ) {
+        // An authorized progress update names a row missing from the cached catalog.
+        void loadOutline({ updates: [update] });
+      }
+    },
+    [loadOutline],
+  );
+
   const reloadTree = useCallback(
     (chapterId?: string, lessonId?: string) =>
-      loadCurrentTree((newTree, shouldSelect) => {
-        if (shouldSelect) {
+      loadOutline({
+        targetLessonId: lessonId,
+        select: newTree => {
           if (chapterId === undefined) {
             initialSelectedChapter(newTree);
           } else {
             setSelectedState(newTree, chapterId, lessonId);
           }
-        }
-        // Restore each catalog's collapse state using the previous snapshot
-        const previousTree = treeRef.current;
-        newTree?.catalogs.forEach(c => {
-          const oldCatalog = previousTree?.catalogs.find(oc => oc.id === c.id);
-
-          if (oldCatalog) {
-            c.collapse = oldCatalog.collapse;
-          }
-        });
-
-        setTree(newTree);
-      }, lessonId),
-    [initialSelectedChapter, loadCurrentTree, setSelectedState],
+        },
+      }),
+    [initialSelectedChapter, loadOutline, setSelectedState],
   );
 
   const loadTree = useCallback(
@@ -437,16 +528,11 @@ export const useLessonTree = (routeCourseId?: string) => {
           initialSelectedChapter(newTree);
         }
       };
-      if (tree) {
-        select(tree);
-        return tree;
-      }
-      return loadCurrentTree((newTree, shouldSelect) => {
-        if (shouldSelect) select(newTree);
-        setTree(newTree);
-      }, lessonId);
+      if (!tree) return loadOutline({ select, targetLessonId: lessonId });
+      select(tree);
+      return tree;
     },
-    [initialSelectedChapter, loadCurrentTree, setSelectedState, tree],
+    [initialSelectedChapter, loadOutline, setSelectedState, tree],
   );
 
   const updateSelectedLesson = async (
@@ -492,67 +578,34 @@ export const useLessonTree = (routeCourseId?: string) => {
   };
 
   const toggleCollapse = ({ id }: ToggleCollapseParams) => {
-    const nextState = produce(tree, draft => {
-      if (!draft) {
-        return draft;
-      }
-      draft.catalogs.forEach(c => {
-        if (c.id === id) {
-          c.collapse = !c.collapse;
-        }
-      });
-    });
-
-    setTree(nextState);
+    setTree(current =>
+      produce(current, draft => {
+        const catalog = draft?.catalogs.find(entry => entry.id === id);
+        if (catalog) catalog.collapse = !catalog.collapse;
+      }),
+    );
   };
 
-  const updateLesson = (id: string, val: LessonUpdatePatch) => {
-    setTree(old => {
-      if (!old) {
-        return null;
-      }
+  const updateLesson = useCallback(
+    (
+      id: string,
+      patch: LessonUpdatePatch,
+      { refreshMissingLesson = false } = {},
+    ) =>
+      updateOutlineProgress({
+        kind: 'lesson',
+        id,
+        patch,
+        refreshMissingLesson,
+      }),
+    [updateOutlineProgress],
+  );
 
-      const nextState = produce(old, draft => {
-        draft.catalogs.forEach(c => {
-          const idx = c.lessons.findIndex(ch => ch.id === id);
-          if (idx !== -1) {
-            const newLesson = {
-              ...c.lessons[idx],
-              ...val,
-            };
-            newLesson.canLearning = checkChapterCanLearning(newLesson);
-            c.lessons[idx] = newLesson;
-          }
-        });
-      });
-
-      return nextState;
-    });
-  };
-
-  const updateChapterStatus = (
-    id: string,
-    { status, status_value }: ChapterStatusPatch,
-  ) => {
-    setTree(old => {
-      if (!old) {
-        return null;
-      }
-
-      const nextState = produce(old, draft => {
-        const idx = draft.catalogs.findIndex(ch => ch.id === id);
-        if (idx !== -1) {
-          draft.catalogs[idx] = {
-            ...draft.catalogs[idx],
-            status,
-            status_value,
-          };
-        }
-      });
-
-      return nextState;
-    });
-  };
+  const updateChapterStatus = useCallback(
+    (id: string, patch: ChapterStatusPatch) =>
+      updateOutlineProgress({ kind: 'chapter', id, patch }),
+    [updateOutlineProgress],
+  );
 
   const getChapterByLesson = (lessonId: string): LessonTreeCatalog | null => {
     if (!tree) {

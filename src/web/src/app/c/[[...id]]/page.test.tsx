@@ -1140,7 +1140,7 @@ describe('ChatPage profile onboarding gate', () => {
     ]);
   });
 
-  test('keeps a retaken lesson in progress after reloading its reset tree state', async () => {
+  test('reloads a retaken lesson and selects it after the reset request', async () => {
     let resolveReloadTree: (value: unknown) => void = () => {};
     mockReloadTree.mockReturnValueOnce(
       new Promise(resolve => {
@@ -1171,62 +1171,7 @@ describe('ChatPage profile onboarding gate', () => {
     resolveReloadTree(null);
     await resetPromise;
 
-    expect(mockUpdateLesson).toHaveBeenCalledWith('lesson-1', {
-      id: 'lesson-1',
-      status: 'in_progress',
-      status_value: 'in_progress',
-    });
     expect(mockUpdateSelectedLesson).toHaveBeenCalledWith('lesson-1', true);
-  });
-
-  test('preserves a newer lesson status received while the reset tree reloads', async () => {
-    let resolveReloadTree: (value: unknown) => void = () => {};
-    mockReloadTree.mockReturnValueOnce(
-      new Promise(resolve => {
-        resolveReloadTree = resolve;
-      }),
-    );
-
-    render(<ChatPage />);
-
-    await screen.findByTestId('chat-ui');
-
-    const resetChapterEventHandler = getResetChapterEventHandler();
-    const latestChatUiCall =
-      mockChatUi.mock.calls[mockChatUi.mock.calls.length - 1];
-    const lessonUpdate = latestChatUiCall?.[0].lessonUpdate;
-
-    expect(resetChapterEventHandler).toBeDefined();
-    expect(lessonUpdate).toBeDefined();
-
-    const resetPromise = resetChapterEventHandler?.(
-      new CustomEvent('RESET_CHAPTER', {
-        detail: {
-          chapter_id: 'chapter-1',
-          lesson_id: 'lesson-1',
-        },
-      }),
-    );
-
-    lessonUpdate?.({
-      id: 'lesson-1',
-      status: 'completed',
-      status_value: 'completed',
-    });
-
-    resolveReloadTree(null);
-    await resetPromise;
-
-    expect(mockUpdateLesson).toHaveBeenLastCalledWith('lesson-1', {
-      id: 'lesson-1',
-      status: 'completed',
-      status_value: 'completed',
-    });
-    expect(mockUpdateLesson).not.toHaveBeenCalledWith('lesson-1', {
-      id: 'lesson-1',
-      status: 'in_progress',
-      status_value: 'in_progress',
-    });
   });
 
   test('keeps the completed retake reported by the server after a reset retry', async () => {
@@ -2065,7 +2010,7 @@ describe('ChatPage profile onboarding gate', () => {
       );
     });
 
-    test('keeps teacher preview runtime ready during pending OpenID preparation', () => {
+    test('draft learning waits for pending OpenID preparation', () => {
       mockSystemStoreState.previewMode = true;
       mockSystemStoreState.wechatCode = 'code-1';
       mockUpdateWxcode.mockReturnValue(new Promise(() => {}));
@@ -2076,7 +2021,7 @@ describe('ChatPage profile onboarding gate', () => {
       expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
       expect(screen.getByTestId('chat-ui')).toHaveAttribute(
         'data-runtime-ready',
-        'true',
+        'false',
       );
     });
 

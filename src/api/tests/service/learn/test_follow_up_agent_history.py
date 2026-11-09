@@ -16,14 +16,17 @@ from flaskr.service.learn.agent import lesson_entry
 from flaskr.service.learn.ask.context import load_follow_up_history
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.learn_funcs import reset_learn_record
-from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.user.repository import create_user_entity
 from markdownflow import bridge
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from tests.common.fixtures.model_factories import make_generated_element
+from tests.service.learn import published_course
+
+runtime_dependencies = published_course.runtime_dependencies
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
@@ -35,11 +38,20 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
+def agent_classroom(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, runtime_dependencies: object
+) -> Callable:
     """Replace only external model/trace and thread transport; persist real host turns."""
-    identity = uuid.uuid4().hex
+    _ = runtime_dependencies
+    course = published_course._seed_course(app)
     with app.app_context(), unit_of_work():
-        create_user_entity(user_bid=identity, identify=identity, nickname="Learner")
+        create_user_entity(
+            user_bid=course.user_bid, identify=course.user_bid, nickname="Learner"
+        )
+        for model in (DraftOutlineItem, PublishedOutlineItem):
+            model.query.filter_by(
+                outline_item_bid=course.outline_bid
+            ).one().content = "Teach arithmetic and ask several questions. Do not finish before all questions."
     calls = 0
     contexts: list[UsageContext] = []
 
@@ -66,17 +78,6 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
 
     gateway = OfflineGateway(stream_function=model)
     monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
-    monkeypatch.setattr(
-        lesson_entry,
-        "_resolve",
-        lambda *_a, **_k: (
-            "Teach arithmetic and ask several questions. Do not finish before all questions.",
-            "",
-            LLMSettings(model="test-model", temperature=0.0),
-            11,
-            False,
-        ),
-    )
     monkeypatch.setattr(langfuse_markdownflow, "get_langfuse_client", MockClient)
 
     def drive(make_events: Callable, **_kwargs: object) -> Iterator:
@@ -87,15 +88,18 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
 
     monkeypatch.setattr(bridge, "iter_turn", drive)
 
-    def run(answer: str | None = None, **reload: str) -> LearnGeneratedElement:
+    def run(
+        answer: str | None = None, *, preview_mode: bool = False, **reload: str
+    ) -> LearnGeneratedElement:
         with app.app_context():
             events = list(
                 lesson_entry.agent_lesson_events(
                     app,
-                    user_bid=identity,
-                    shifu_bid=identity,
-                    outline_bid=identity,
+                    user_bid=course.user_bid,
+                    shifu_bid=course.course_bid,
+                    outline_bid=course.outline_bid,
                     user_input=answer,
+                    preview_mode=preview_mode,
                     **reload,
                 )
             )
@@ -115,9 +119,9 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
                     element_bid=uuid.uuid4().hex,
                     generated_block_bid=block.generated_block_bid,
                     progress_record_bid=block.progress_record_bid,
-                    user_bid=identity,
-                    shifu_bid=identity,
-                    outline_item_bid=identity,
+                    user_bid=course.user_bid,
+                    shifu_bid=course.course_bid,
+                    outline_item_bid=course.outline_bid,
                     element_type="text",
                     content_text=str(contents[-1].content),
                 )
@@ -137,6 +141,7 @@ def _history(anchor: LearnGeneratedElement, limit: int = 10) -> list[dict[str, s
     )
 
 
+@pytest.mark.parametrize("starts_in_draft", [False, True])
 @pytest.mark.parametrize(
     "lifecycle", ["original", "regenerate", "replace-answer", "reset"]
 )
@@ -144,11 +149,17 @@ def test_real_agent_answers_follow_current_anchor_lifecycle(
     app: Flask,
     agent_classroom: Callable,
     lifecycle: str,
+    starts_in_draft: bool,
 ) -> None:
     """Actual stored turn inputs survive regeneration, change with answers and isolate resets."""
-    first = agent_classroom()
-    agent_classroom("4")
-    third = agent_classroom("6")
+    first = agent_classroom(preview_mode=starts_in_draft)
+    second = agent_classroom("4", preview_mode=not starts_in_draft)
+    third = agent_classroom("6", preview_mode=starts_in_draft)
+    assert (
+        first.progress_record_bid
+        == second.progress_record_bid
+        == third.progress_record_bid
+    )
     with app.app_context():
         assert [m["content"] for m in _history(third) if m["role"] == "user"] == [
             "4",
@@ -156,17 +167,24 @@ def test_real_agent_answers_follow_current_anchor_lifecycle(
         ]
         if lifecycle == "regenerate":
             current = agent_classroom(
-                reload_generated_block_bid=third.generated_block_bid
+                reload_generated_block_bid=third.generated_block_bid,
+                preview_mode=not starts_in_draft,
             )
             expected = ["4", "6"]
         elif lifecycle == "replace-answer":
             current = agent_classroom(
-                "5", reload_generated_block_bid=first.generated_block_bid
+                "5",
+                reload_generated_block_bid=first.generated_block_bid,
+                preview_mode=not starts_in_draft,
             )
             expected = ["5"]
         elif lifecycle == "reset":
             reset_learn_record(
-                app, third.shifu_bid, third.outline_item_bid, third.user_bid
+                app,
+                third.shifu_bid,
+                third.outline_item_bid,
+                third.user_bid,
+                preview_mode=not starts_in_draft,
             )
             current = agent_classroom()
             assert current.progress_record_bid != third.progress_record_bid

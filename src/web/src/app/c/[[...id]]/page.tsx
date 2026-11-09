@@ -17,7 +17,6 @@ import {
   inWechat,
   inMiniProgram,
 } from '@/constants/ui-constants';
-import { LESSON_STATUS_VALUE } from '@/constants/course-constants';
 import { EVENT_NAMES, events } from './events';
 
 import {
@@ -30,11 +29,8 @@ import { useUserStore } from '@/store';
 import { useDisclosure } from '@/hooks/use-disclosure';
 import { useSingleFlight } from '@/hooks/use-single-flight';
 import { useTracking } from '@/hooks/use-tracking';
-import {
-  useLessonTree,
-  type LessonTree,
-  type LessonTreeLesson,
-} from './hooks/use-lesson-tree';
+import { useLessonTree, type LessonTree } from './hooks/use-lesson-tree';
+import type { LessonUpdateHandler } from './components/chat/use-lesson-conversation.types';
 import {
   applyLessonSelection,
   resolveRequestedLessonId,
@@ -76,8 +72,6 @@ const MobilePaymentDialog = dynamic(
 const PayModal = dynamic(() => import('./components/payment/PayModal'), {
   ssr: false,
 });
-
-type LessonUpdate = Pick<LessonTreeLesson, 'id'> & Partial<LessonTreeLesson>;
 
 // import LoginModal from './Components/Login/LoginModal';
 
@@ -403,11 +397,10 @@ export default function ChatPage() {
     openFromMenu: openLearnerProfileFromMenu,
     dialogProps: learnerProfileDialogProps,
   } = useCourseProfileOnboardingGate({
-    initialized,
+    initialized: initialized && (!previewMode || Boolean(tree)),
     startupReady: wechatAuthorization.ready && wechatOpenIdReady,
     accountReady: !requiresWechatAccount || isUserProfileLoaded,
     isLoggedIn,
-    previewMode,
     courseName,
     learnerProfileScope,
     refreshUserInfo,
@@ -530,7 +523,13 @@ export default function ChatPage() {
     }
   }, [chapterId, initialized, loadData, loadedChapterId]);
 
-  const resolvedLessonId = selectedLessonId || lessonId;
+  const resolvedLessonId =
+    selectedLessonId ??
+    (tree?.catalogs.some(catalog =>
+      catalog.lessons.some(lesson => lesson.id === lessonId),
+    )
+      ? lessonId
+      : undefined);
   const syncLessonUrl = useCallback((nextLessonId: string) => {
     if (!nextLessonId?.trim()) {
       return;
@@ -621,16 +620,8 @@ export default function ChatPage() {
     }
   };
 
-  const lessonUpdateSequenceRef = useRef(0);
-  const latestLessonUpdatesRef = useRef(
-    new Map<string, { sequence: number; value: LessonUpdate }>(),
-  );
-  const onLessonUpdate = useCallback(
-    (val: LessonUpdate) => {
-      const sequence = ++lessonUpdateSequenceRef.current;
-      latestLessonUpdatesRef.current.set(val.id, { sequence, value: val });
-      updateLesson(val.id, val);
-    },
+  const onLessonUpdate = useCallback<LessonUpdateHandler>(
+    (val, options) => updateLesson(val.id, val, options),
     [updateLesson],
   );
 
@@ -762,35 +753,12 @@ export default function ChatPage() {
     const resetChapterEventHandler = async e => {
       const targetLessonId = e.detail.lesson_id;
       const resetReload = ++resetReloadRef.current;
-      const lessonUpdateSequenceBeforeReload = lessonUpdateSequenceRef.current;
       const reloadedTree = await reloadOutline(
         e.detail.chapter_id,
         targetLessonId,
       );
       if (resetReloadRef.current !== resetReload || reloadedTree === undefined)
         return;
-
-      const latestLessonUpdate =
-        latestLessonUpdatesRef.current.get(targetLessonId);
-      const completedRetake = reloadedTree?.catalogs.some(catalog =>
-        catalog.lessons.some(
-          lesson =>
-            lesson.id === targetLessonId &&
-            lesson.status_value === LESSON_STATUS_VALUE.COMPLETED,
-        ),
-      );
-      if (
-        latestLessonUpdate &&
-        latestLessonUpdate.sequence > lessonUpdateSequenceBeforeReload
-      ) {
-        onLessonUpdate(latestLessonUpdate.value);
-      } else if (!completedRetake) {
-        onLessonUpdate({
-          id: targetLessonId,
-          status: LESSON_STATUS_VALUE.LEARNING,
-          status_value: LESSON_STATUS_VALUE.LEARNING,
-        });
-      }
       updateSelectedLesson(targetLessonId, true);
       onGoChapter(targetLessonId);
       if (mobileStyle) {
@@ -827,7 +795,6 @@ export default function ChatPage() {
     gotoLogin,
     mobileStyle,
     onGoChapter,
-    onLessonUpdate,
     onNavClose,
     reloadOutline,
     updateSelectedLesson,

@@ -43,8 +43,10 @@ from flaskr.api.markdownflow import (
     collected_names,
     rebase_initial_script,
 )
+from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
+from flaskr.service.common.models import AppError
 from flaskr.service.learn.agent.course_references import discard_course_references
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
@@ -78,13 +80,14 @@ from flaskr.service.learn.agent.rewind import (
     with_turn_interactions,
 )
 from flaskr.service.learn.agent.session_store import (
-    PreviewGenerationDiscardedError,
     StoredSessionUnusable,
     load_agent_session,
     save_agent_session,
+    stage_lesson_attempt_source,
 )
 from flaskr.service.learn.agent.turn_liveness import hold_turn_liveness
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.exceptions import DraftTurnAccessRevokedError
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnStatus,
@@ -95,6 +98,7 @@ from flaskr.service.learn.learn_funcs import (
     get_current_lesson_outline,
     resolve_outline_progression,
 )
+from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
 from flaskr.service.memory.api import (
     MemoryUpdate,
     VariableMemoryUpdate,
@@ -120,6 +124,7 @@ if TYPE_CHECKING:
     from flaskr.api.markdownflow import Engine, Event, Session, TurnInput
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
     from flaskr.service.learn.agent.langfuse_tracing import CourseTrace
+    from flaskr.service.learn.agent.lesson_source import ResolvedLessonSource
 
 
 def learner_values(user_input: str | dict | None) -> list[str]:
@@ -151,6 +156,7 @@ def _open_turn(
     outline_bid: str,
     generated_block_bid: str,
     position: int,
+    lesson_version: ResolvedLessonSource | None = None,
 ) -> tuple[str, OutlineItemUpdateDTO | None]:
     """Settle where this turn's rows belong, before any of them are written.
 
@@ -159,13 +165,43 @@ def _open_turn(
     starts from, and the block is what the element pipeline reads that record off.
     """
     with app_context_scope(app), unit_of_work():
-        record = active_progress_record(
-            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
-        )
+        if lesson_version is not None and lesson_version.progress_record_bid:
+            record = claim_for_writing(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=lesson_version.progress_record_bid,
+            )
+            if record is None:
+                raise _TurnDiscardedError
+        else:
+            record = active_progress_record(
+                app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+            )
         started = record.id is None or record.status in (
             LEARN_STATUS_NOT_STARTED,
             LEARN_STATUS_LOCKED,
         )
+        if lesson_version is not None:
+            if not lesson_version.progress_record_bid:
+                db.session.flush()
+                if (
+                    claim_for_writing(
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        progress_record_bid=record.progress_record_bid,
+                    )
+                    is None
+                ):
+                    raise _TurnDiscardedError
+            if not stage_lesson_attempt_source(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                source=lesson_version.source,
+            ):
+                raise _TurnDiscardedError
         if started:
             record.status = LEARN_STATUS_IN_PROGRESS
         if record.id is not None:
@@ -186,19 +222,10 @@ def _open_turn(
         )
         update = None
         if started:
-            current = get_current_lesson_outline(
-                shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=False
-            )
             lesson = (
-                PublishedOutlineItem.query.filter_by(
-                    id=current.id,
-                    shifu_bid=shifu_bid,
-                    outline_item_bid=outline_bid,
-                    deleted=0,
-                    hidden=0,
-                ).first()
-                if current is not None
-                else None
+                lesson_version.outline
+                if lesson_version is not None
+                else _published_outline_for_progress(shifu_bid, outline_bid)
             )
             if lesson is not None:
                 update = OutlineItemUpdateDTO(
@@ -208,6 +235,23 @@ def _open_turn(
                     has_children=False,
                 )
         return record.progress_record_bid, update
+
+
+def _published_outline_for_progress(
+    shifu_bid: str, outline_bid: str
+) -> PublishedOutlineItem | None:
+    current = get_current_lesson_outline(
+        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=False
+    )
+    if current is None:
+        return None
+    return PublishedOutlineItem.query.filter_by(
+        id=current.id,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_bid,
+        deleted=0,
+        hidden=0,
+    ).first()
 
 
 def _turn_input(session: Session, values: list[str]) -> TurnInput:
@@ -242,7 +286,6 @@ def _load_or_start(
     outline_bid: str,
     script: str,
     teaching_brief: str = "",
-    preview_mode: bool,
     rewind: RewindPlan | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
@@ -275,9 +318,7 @@ def _load_or_start(
             script_edited = True
     else:
         try:
-            stored = load_agent_session(
-                app, user_bid, outline_bid, preview_mode=preview_mode
-            )
+            stored = load_agent_session(app, user_bid, outline_bid)
         except StoredSessionUnusable:
             # Written by code whose sessions this one cannot read. Starting over loses the
             # conversation, which is the point of comparing versions rather than parsing hopefully.
@@ -416,7 +457,7 @@ def run_agent_lesson(
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
     on_turn_opened: Callable[[str, str], None] | None = None,
-    preview_generation: str | None = None,
+    lesson_version: ResolvedLessonSource | None = None,
     use_learner_language: bool | None = None,
     tracing: CourseTrace | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
@@ -460,7 +501,6 @@ def run_agent_lesson(
         outline_bid=outline_bid,
         script=script,
         teaching_brief=teaching_brief,
-        preview_mode=preview_mode,
         rewind=rewind,
         debug_store=debug_store,
         preview_variables=preview_variables,
@@ -493,37 +533,32 @@ def run_agent_lesson(
     # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
     # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
     # lesson it started in is still the one it is finishing.
-    # A preview writes no learner progress. The author is the same person as the learner and the
-    # lesson identifier is the same, so a progress record, a block or a completion written here
-    # would land in that learner's own history -- their preview turns showing up as lessons they
-    # took. Their session is still stored, under its own key, so the preview resumes.
-    #
-    # It still gets an identifier, just an unwritten one -- the same shape the 1.0 run gives a
-    # preview, which builds a progress record and never adds it to the session. The spoken track
-    # hangs each piece of audio off one, so without it an author previewing a lesson in listening
-    # mode heard nothing at all.
-    # Held from before the block is written until the turn ends, so another request never sees
-    # this block without the mark that says its run is still going (see `agent.turn_liveness`).
-    # A preview writes no block.
+    # Ordinary draft and published lessons both anchor their elements and audio to
+    # a durable block. Editor Debug uses only its own simulated attempt.
     liveness = contextlib.ExitStack()
-    if not preview_mode:
+    if debug_store is None:
         liveness.enter_context(hold_turn_liveness(app, generated_block_bid))
     with liveness:
         start_update = None
-        if preview_mode:
+        if debug_store is not None:
             progress_record_bid = generate_id(app)
         else:
-            progress_record_bid, start_update = _open_turn(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-                position=0,
-            )
+            try:
+                progress_record_bid, start_update = _open_turn(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                    position=0,
+                    lesson_version=lesson_version,
+                )
+            except _TurnDiscardedError:
+                if tracing is not None:
+                    tracing.after_save(discarded=True)
+                return TurnOutcome(reason=None, taught=False, discarded=True)
         session_holder: dict[str, Any] = {
             "rewind": rewind,
-            "preview_generation": preview_generation,
             "content_revision": content_revision,
             "memory_generations": memory_generations,
         }
@@ -573,6 +608,11 @@ def run_agent_lesson(
                 user_bid=user_bid,
                 generated_block_bid=generated_block_bid,
                 usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else None,
+                **(
+                    {}
+                    if lesson_version is None
+                    else {"course_row_id": lesson_version.source.course_row_id}
+                ),
             )
             if listen and progress_record_bid
             else None
@@ -585,41 +625,62 @@ def run_agent_lesson(
                 tracing.bind_execution(progress_record_bid, generated_block_bid)
             if on_turn_opened is not None:
                 on_turn_opened(progress_record_bid, generated_block_bid)
+            requires_draft_permission = (
+                lesson_version is not None and lesson_version.source.preview_mode
+            )
             if start_update is not None:
                 # The opening step has committed. Tell the directory before teaching so its
                 # first-turn actions do not wait for completion or a page reload.
+                if requires_draft_permission:
+                    _require_draft_turn_permission(app, user_bid, shifu_bid)
                 yield RunMarkdownFlowDTO(
                     outline_bid=outline_bid,
                     generated_block_bid="",
                     type=GeneratedType.OUTLINE_ITEM_UPDATE,
                     content=start_update,
                 )
-            return (
-                yield from _stream_turn(
-                    app,
-                    run_turn_on_thread=run_turn_on_thread,
-                    voice=voice,
-                    pager=pager,
-                    make_events=make_events,
-                    session_holder=session_holder,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    preview_mode=preview_mode,
-                    progress_record_bid=progress_record_bid,
-                    generated_block_bid=generated_block_bid,
-                    heartbeat_interval=heartbeat_interval,
-                    debug_store=debug_store,
-                    tracing=tracing,
-                )
+            turn = _stream_turn(
+                app,
+                run_turn_on_thread=run_turn_on_thread,
+                voice=voice,
+                pager=pager,
+                make_events=make_events,
+                session_holder=session_holder,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview_mode,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                heartbeat_interval=heartbeat_interval,
+                debug_store=debug_store,
+                requires_draft_permission=requires_draft_permission,
+                tracing=tracing,
             )
+            if not requires_draft_permission:
+                return (yield from turn)
+            with contextlib.closing(turn):
+                while True:
+                    try:
+                        message = next(turn)
+                    except StopIteration as done:
+                        return done.value
+                    _require_draft_turn_permission(app, user_bid, shifu_bid)
+                    yield message
         except BaseException:
             # The turn died before it could record what it taught -- an engine error, or the learner
             # closing the page. The block reserved for it would otherwise stay behind as an empty
             # assistant turn. GeneratorExit is caught too: a disconnect is the common case.
-            if not preview_mode:
+            if debug_store is None:
                 _retire_block(app, generated_block_bid=generated_block_bid)
             raise
+
+
+def _require_draft_turn_permission(app: Flask, user_bid: str, shifu_bid: str) -> None:
+    try:
+        require_shifu_preview_permission(app, user_bid, shifu_bid)
+    except AppError as error:
+        raise DraftTurnAccessRevokedError(error.message, error.code) from error
 
 
 def _retire_block(app: Flask, *, generated_block_bid: str) -> None:
@@ -818,9 +879,6 @@ def _outline_progression(
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Report what the finished lesson changed in the outline, and write it down.
 
-    A preview changes nothing: the author is looking at a lesson, not taking one, and a preview
-    that ticked lessons off would rewrite the author's own progress through their course.
-
     A failure here is not allowed to take the lesson down with it. The learner has finished it and
     the turn is already saved; losing the outline update costs them a tick in the sidebar, while
     raising would cost them the end of the lesson.
@@ -829,8 +887,6 @@ def _outline_progression(
     this one leaves no live record to complete, and the changes are dropped rather than recorded;
     telling the browser about them anyway would show a completion the database does not hold.
     """
-    if preview_mode:
-        return
     try:
         updates = resolve_outline_progression(
             app, shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
@@ -918,6 +974,7 @@ def _stream_turn(
     heartbeat_interval: float,
     debug_store: DebugSessionStore | None = None,
     tracing: CourseTrace | None = None,
+    requires_draft_permission: bool = False,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
@@ -965,15 +1022,15 @@ def _stream_turn(
                         user_bid=user_bid,
                         shifu_bid=shifu_bid,
                         outline_bid=outline_bid,
-                        preview_mode=preview_mode,
                         progress_record_bid=progress_record_bid,
                         generated_block_bid=generated_block_bid,
                         taught=prepared,
                         turn_record=session_holder.get("turn_record", ""),
+                        question_ids=[p.tool_call_id for p in session.pending],
                         rewind=session_holder.get("rewind"),
                         memory_generations=session_holder.get("memory_generations"),
-                        preview_generation=session_holder.get("preview_generation"),
-                        question_ids=[p.tool_call_id for p in session.pending],
+                        content_revision=session_holder.get("content_revision"),
+                        requires_draft_permission=requires_draft_permission,
                     )
                 if not kept:
                     if tracing is not None:
@@ -1079,16 +1136,15 @@ def _stream_turn(
                         user_bid=user_bid,
                         shifu_bid=shifu_bid,
                         outline_bid=outline_bid,
-                        preview_mode=preview_mode,
                         progress_record_bid=progress_record_bid,
                         generated_block_bid=generated_block_bid,
                         taught="".join(taught),
                         turn_record=session_holder.get("turn_record", ""),
+                        question_ids=question_ids,
                         rewind=session_holder.get("rewind"),
                         memory_generations=session_holder.get("memory_generations"),
-                        preview_generation=session_holder.get("preview_generation"),
                         content_revision=session_holder.get("content_revision"),
-                        question_ids=question_ids,
+                        requires_draft_permission=requires_draft_permission,
                     )
                 pending_memory = []
                 if tracing is not None:
@@ -1105,7 +1161,7 @@ def _stream_turn(
                         taught=bool("".join(taught).strip()),
                         discarded=True,
                     )
-                if session.finished and kept:  # not for a turn a reset discarded
+                if session.finished and kept and debug_store is None:
                     # Before the terminal event, because the browser stops reading the stream on
                     # it. These are the only thing that ticks the lesson off in the outline, ends
                     # the chapter it belonged to, and hands the learner on to what is next -- and
@@ -1211,16 +1267,15 @@ def _stream_turn(
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,
-                preview_mode=preview_mode,
                 progress_record_bid=progress_record_bid,
                 generated_block_bid=generated_block_bid,
                 taught="".join(taught),
                 turn_record=session_holder.get("turn_record", ""),
+                question_ids=question_ids,
                 rewind=session_holder.get("rewind"),
                 memory_generations=session_holder.get("memory_generations"),
-                preview_generation=session_holder.get("preview_generation"),
                 content_revision=session_holder.get("content_revision"),
-                question_ids=question_ids,
+                requires_draft_permission=requires_draft_permission,
             )
 
     if tracing is not None and session_holder.get("reason") is None:
@@ -1275,16 +1330,15 @@ def _persist(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    preview_mode: bool,
     progress_record_bid: str,
     generated_block_bid: str,
     taught: str,
     turn_record: str = "",
     rewind: RewindPlan | None = None,
     memory_generations: dict[str, int] | None = None,
-    preview_generation: str | None = None,
     question_ids: list[str] | None = None,
     content_revision: int | None = None,
+    requires_draft_permission: bool = False,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1306,38 +1360,16 @@ def _persist(
         and clear it. Staging anything ahead of that check would leave it in the session for
         whoever commits next, a write from a turn that was meant to be discarded.
         """
-        record = None
-        if preview_generation is not None:
-            from flaskr.service.learn.agent.preview_history import stage_preview_turn
-            from flaskr.service.learn.agent.preview_rewind import (
-                PreviewRewindPlan,
-                stage_preview_retirement,
-            )
-
-            if isinstance(rewind, PreviewRewindPlan):
-                stage_preview_retirement(
-                    rewind,
-                    generation=preview_generation,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                )
-            stage_preview_turn(
-                generation=preview_generation,
-                session=session,
-                generated_block_bid=generated_block_bid,
-                turn_record=turn_record,
-                question_ids=question_ids,
-            )
-        if not preview_mode:
-            record = claim_for_writing(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                progress_record_bid=progress_record_bid,
-            )
-            if record is None:
-                raise _TurnDiscardedError
+        record = claim_for_writing(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+        )
+        if record is None:
+            raise _TurnDiscardedError
+        if requires_draft_permission:
+            _require_draft_turn_permission(app, user_bid, shifu_bid)
 
         # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
         # them to the profile would leak a turn's working notes into preview, Ask and follow-up
@@ -1384,25 +1416,24 @@ def _persist(
                     ]
                 ),
             )
-        if record is not None:
-            if rewind is not None:
-                # With the session it restored, or not at all: rows retired by a turn that was
-                # then discarded would leave history ending where the session does not.
-                stage_retirement(rewind, user_bid=user_bid, outline_bid=outline_bid)
-            record_turn_content(
-                generated_block_bid=generated_block_bid,
-                content=taught,
-                turn_record=with_turn_interactions(
-                    turn_record, session=session, question_ids=question_ids or []
-                ),
-            )
-            if session.finished:
-                mark_lesson_finished(record)
-            # A rewind does not reopen a lesson already completed. Going back to answer
-            # differently is revisiting it, and the completion was earned: reopening only this
-            # record would also leave its chapter completed and the next lesson started, ahead of
-            # a lesson that says it is unfinished -- which is why the outline never reopens a
-            # finished lesson either (see `apply_outline_progression`).
+        if rewind is not None:
+            # With the session it restored, or not at all: rows retired by a turn that was
+            # then discarded would leave history ending where the session does not.
+            stage_retirement(rewind, user_bid=user_bid, outline_bid=outline_bid)
+        record_turn_content(
+            generated_block_bid=generated_block_bid,
+            content=taught,
+            turn_record=with_turn_interactions(
+                turn_record, session=session, question_ids=question_ids or []
+            ),
+        )
+        if session.finished:
+            mark_lesson_finished(record)
+        # A rewind does not reopen a lesson already completed. Going back to answer
+        # differently is revisiting it, and the completion was earned: reopening only this
+        # record would also leave its chapter completed and the next lesson started, ahead of
+        # a lesson that says it is unfinished -- which is why the outline never reopens a
+        # finished lesson either (see `apply_outline_progression`).
 
     try:
         save_agent_session(
@@ -1411,14 +1442,10 @@ def _persist(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
-            preview_mode=preview_mode,
             stage=stage_everything,
             content_revision=content_revision,
-            **(
-                {"preview_generation": preview_generation} if preview_generation else {}
-            ),
         )
-    except (_TurnDiscardedError, PreviewGenerationDiscardedError):
+    except _TurnDiscardedError:
         app.logger.info(
             "discarding a turn whose lesson was reset while it ran: "
             "user_bid=%s outline_bid=%s",

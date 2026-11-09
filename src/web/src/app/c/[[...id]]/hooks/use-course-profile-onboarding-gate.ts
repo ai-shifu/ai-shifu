@@ -25,7 +25,6 @@ type UseCourseProfileOnboardingGateParams = {
   startupReady?: boolean;
   accountReady?: boolean;
   isLoggedIn: boolean;
-  previewMode: boolean;
   courseName: string;
   learnerProfileScope: string;
   refreshUserInfo: () => Promise<unknown>;
@@ -36,7 +35,6 @@ export const useCourseProfileOnboardingGate = ({
   startupReady = true,
   accountReady = true,
   isLoggedIn,
-  previewMode,
   courseName,
   learnerProfileScope,
   refreshUserInfo,
@@ -58,9 +56,8 @@ export const useCourseProfileOnboardingGate = ({
 
   const runtimeReady =
     initialized &&
-    (previewMode ||
-      (startupReady &&
-        (!isLoggedIn || !accountReady || readyScope === learnerProfileScope)));
+    startupReady &&
+    (!isLoggedIn || !accountReady || readyScope === learnerProfileScope);
 
   const release = useCallback(() => {
     eligibilityRef.current = 'complete';
@@ -115,7 +112,6 @@ export const useCourseProfileOnboardingGate = ({
     initialized,
     isLoggedIn,
     learnerProfileScope,
-    previewMode,
     startupReady,
   ]);
 
@@ -125,7 +121,7 @@ export const useCourseProfileOnboardingGate = ({
       setReadyScope(null);
       return;
     }
-    if (!isLoggedIn || previewMode) {
+    if (!isLoggedIn) {
       eligibilityRef.current = 'complete';
       return;
     }
@@ -213,7 +209,6 @@ export const useCourseProfileOnboardingGate = ({
     initialized,
     isLoggedIn,
     learnerProfileScope,
-    previewMode,
     startupReady,
   ]);
 

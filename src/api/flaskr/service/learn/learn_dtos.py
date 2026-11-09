@@ -1091,12 +1091,23 @@ class LearnElementRecordDTO(BaseModel):
         description="Whether the current lesson body differs from the active teaching baseline",
     )
 
+    follow_up_mode: Literal["text", "live_voice", "disabled"] | None = Field(
+        default=None,
+        description="Follow-up mode of the retained teaching attempt when known",
+    )
+    outline_progress_updates: list[OutlineItemUpdateDTO] = Field(
+        default_factory=list,
+        description="Current outline progress reconciled when reopening completed history",
+    )
+
     def __init__(
         self,
         elements: list[ElementDTO] | None = None,
         events: list[RunElementSSEMessageDTO] | None = None,
         last_progress_updated_at: str | None = None,
         has_content_update_for_current_user: bool = False,
+        follow_up_mode: Literal["text", "live_voice", "disabled"] | None = None,
+        outline_progress_updates: list[OutlineItemUpdateDTO] | None = None,
     ) -> None:
         """Build the recorded learner-element payload."""
         super().__init__(
@@ -1104,6 +1115,8 @@ class LearnElementRecordDTO(BaseModel):
             events=events,
             last_progress_updated_at=last_progress_updated_at,
             has_content_update_for_current_user=has_content_update_for_current_user,
+            follow_up_mode=follow_up_mode,
+            outline_progress_updates=outline_progress_updates or [],
         )
 
     def __json__(self) -> dict:
@@ -1122,6 +1135,12 @@ class LearnElementRecordDTO(BaseModel):
             ]
         if self.last_progress_updated_at is not None:
             ret["last_progress_updated_at"] = self.last_progress_updated_at
+        if self.follow_up_mode is not None:
+            ret["follow_up_mode"] = self.follow_up_mode
+        if self.outline_progress_updates:
+            ret["outline_progress_updates"] = [
+                item.__json__() for item in self.outline_progress_updates
+            ]
         return ret
 
 

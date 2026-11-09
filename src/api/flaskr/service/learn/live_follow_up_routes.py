@@ -31,6 +31,7 @@ from flaskr.service.config import (
     get_config,
     has_config_override,
 )
+from flaskr.service.learn.agent.lesson_source import resolve_lesson_source
 from flaskr.service.learn.ask.context import (
     build_follow_up_conversation_context,
 )
@@ -102,9 +103,10 @@ from flaskr.service.learn.live_follow_up_session_store import (
     touch_live_follow_up_session,
 )
 from flaskr.service.learn.live_follow_up_trace import LiveFollowUpTrace
-from flaskr.service.learn.models import LearnGeneratedElement
+from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
 from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
 from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
+from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.shifu.api import get_effective_ask_provider_config
 from flaskr.service.shifu.consts import ASK_MODE_DISABLE
 from flaskr.service.user.api import is_allowed_oauth_origin, load_user_aggregate
@@ -115,6 +117,8 @@ from sqlalchemy import or_
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from flaskr.service.learn.agent.lesson_source import ResolvedLessonSource
 
 LIVE_FOLLOW_UP_SESSION_SECONDS = 15 * 60
 _ALLOWED_LEARNING_MODES = frozenset({"read", "listen"})
@@ -233,7 +237,17 @@ def _load_anchor(
     anchor_element_bid: str,
 ) -> LearnGeneratedElement:
     row = (
-        LearnGeneratedElement.query.filter(
+        LearnGeneratedElement.query.join(
+            LearnProgressRecord,
+            LearnProgressRecord.progress_record_bid
+            == LearnGeneratedElement.progress_record_bid,
+        )
+        .filter(
+            LearnProgressRecord.user_bid == user_bid,
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.outline_item_bid == outline_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
             LearnGeneratedElement.shifu_bid == shifu_bid,
             LearnGeneratedElement.outline_item_bid == outline_bid,
             LearnGeneratedElement.user_bid == user_bid,
@@ -264,13 +278,20 @@ def _resolve_live_config(
     outline_bid: str,
     progress_record_bid: str,
     preview_mode: bool,
+    source: ResolvedLessonSource | None = None,
 ) -> tuple[object, str]:
+    source_options = (
+        {"struct": source.structure, "allow_retired_draft": source.source.preview_mode}
+        if source is not None and source.structure is not None
+        else {}
+    )
     follow_up_info = get_follow_up_info_v2(
         app,
         shifu_bid,
         outline_bid,
         progress_record_bid,
-        preview_mode,
+        source.source.preview_mode if source is not None else preview_mode,
+        **source_options,
     )
     if follow_up_info.ask_mode == ASK_MODE_DISABLE:
         raise_param_error("follow_up")
@@ -346,6 +367,7 @@ def _new_session_binding(
     language: str,
     learning_mode: str,
     expires_at_epoch: float,
+    source_is_draft: bool = False,
 ) -> LiveFollowUpSessionBinding:
     return LiveFollowUpSessionBinding(
         session_bid=session_bid,
@@ -361,6 +383,7 @@ def _new_session_binding(
         language=language,
         learning_mode=learning_mode,
         expires_at_epoch=expires_at_epoch,
+        source_is_draft=source_is_draft,
     )
 
 
@@ -812,18 +835,29 @@ def register_live_follow_up_routes(
             user_bid=user_bid,
             preview_mode=preview_mode,
         )
+        source = resolve_lesson_source(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
+            promote_legacy=True,
+        )
         anchor = _load_anchor(
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             user_bid=user_bid,
             anchor_element_bid=anchor_element_bid,
         )
+        if anchor.progress_record_bid != source.progress_record_bid:
+            raise_param_error("anchor_element_bid")
         follow_up_info, voice = _resolve_live_config(
             app,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             progress_record_bid=anchor.progress_record_bid,
             preview_mode=preview_mode,
+            source=source,
         )
         api_key = str(get_config("GEMINI_API_KEY", "") or "").strip()
         if not api_key:
@@ -845,6 +879,7 @@ def register_live_follow_up_routes(
             language=language,
             learning_mode=learning_mode,
             expires_at_epoch=0,
+            source_is_draft=source.source.preview_mode and not preview_mode,
         )
         system_instruction, history = _build_conversation(
             app,
@@ -912,6 +947,7 @@ def register_live_follow_up_routes(
                 language=language,
                 learning_mode=learning_mode,
                 expires_at_epoch=token.expires_at.timestamp(),
+                source_is_draft=source.source.preview_mode and not preview_mode,
             )
             session = StoredLiveFollowUpSession(
                 binding=binding,
@@ -1017,6 +1053,9 @@ def register_live_follow_up_routes(
     @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def heartbeat_live_follow_up_session_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid)
+        binding = session.binding
+        if binding.preview_mode or binding.source_is_draft:
+            require_shifu_preview_permission(app, binding.user_bid, binding.shifu_bid)
         if session.admission:
             try:
                 current = current_admission(
@@ -1076,6 +1115,7 @@ def register_live_follow_up_routes(
                     progress_record_bid=binding.progress_record_bid,
                     anchor_element_bid=binding.anchor_element_bid,
                     preview_mode=binding.preview_mode,
+                    source_is_draft=binding.source_is_draft,
                     learning_mode=binding.learning_mode,
                     request_id=get_request_id(),
                     trace_id=trace.trace_id,

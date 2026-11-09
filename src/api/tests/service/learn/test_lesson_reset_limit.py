@@ -12,6 +12,12 @@ from flaskr.dao.uow import autonomous_unit_of_work, unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn import learn_funcs
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+from flaskr.service.learn.agent.session_store import (
+    LessonAttemptSource,
+    UnreadableLessonAttemptSourceError,
+    bind_lesson_attempt_source,
+    load_lesson_attempt_source,
+)
 from flaskr.service.learn.lesson_reset_limit import (
     get_lesson_reset_status,
     is_reset_receipt_conflict,
@@ -55,11 +61,12 @@ def course(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Iterator[SimpleNamesp
             DraftShifu(shifu_bid=course.bid, created_user_bid=course.owner, deleted=0)
         )
         for lesson in (course.lesson, course.other_lesson):
-            db.session.add(
-                PublishedOutlineItem(
-                    shifu_bid=course.bid, outline_item_bid=lesson, deleted=0
+            for outline_model in (PublishedOutlineItem, DraftOutlineItem):
+                db.session.add(
+                    outline_model(
+                        shifu_bid=course.bid, outline_item_bid=lesson, deleted=0
+                    )
                 )
-            )
     yield course
     with app.app_context(), unit_of_work():
         for model in (
@@ -142,6 +149,41 @@ def reset(
         preview_mode=preview_mode,
         reset_request_id=request_id,
     )
+
+
+@pytest.mark.parametrize(
+    ("session_data", "quota_exhausted"), [("{", False), ("[]", True)]
+)
+def test_damaged_attempt_can_be_discarded_using_the_ordinary_allowance(
+    app: Flask, course: SimpleNamespace, session_data: str, quota_exhausted: bool
+) -> None:
+    if quota_exhausted:
+        for _ in range(2):
+            start(app, course)
+            assert reset(app, course)
+    session_bid = start_session(app, course)
+    with app.app_context(), unit_of_work():
+        row = LearnAgentSession.query.filter_by(agent_session_bid=session_bid).one()
+        row.session_data = session_data
+
+    with app.app_context(), pytest.raises(UnreadableLessonAttemptSourceError):
+        load_lesson_attempt_source(
+            user_bid=course.learner, shifu_bid=course.bid, outline_bid=course.lesson
+        )
+
+    assert get_lesson_reset_status(app, course.bid, course.lesson, course.learner) == {
+        "can_reset": not quota_exhausted
+    }
+    if quota_exhausted:
+        with pytest.raises(AppError) as denied:
+            reset(app, course)
+        assert denied.value.code == ERROR_CODE["server.learn.resetLimitReached"]
+    else:
+        assert reset(app, course)
+        assert reset_rows(app, course)[0].counted == 1
+    with app.app_context():
+        row = LearnAgentSession.query.filter_by(agent_session_bid=session_bid).one()
+        assert bool(row.deleted) == (not quota_exhausted)
 
 
 def live_records(app: Flask, course: SimpleNamespace) -> list[str]:
@@ -298,19 +340,19 @@ def test_agent_session_counts_as_learning_state(
         )
 
 
-def test_learner_reset_leaves_the_draft_preview_session_alone(
+def test_shared_reset_retires_legacy_preview_state(
     app: Flask, course: SimpleNamespace
 ) -> None:
     preview = start_session(app, course, preview_mode=True)
     assert reset(app, course) is True
-    assert reset_rows(app, course) == []
+    assert [row.counted for row in reset_rows(app, course)] == [1]
     with app.app_context():
         row = LearnAgentSession.query.filter_by(agent_session_bid=preview).one()
-        assert row.deleted == 0
-        assert row.active_key is not None
+        assert row.deleted == 1
+        assert row.active_key is None
 
 
-def test_preview_reset_is_not_counted_and_status_is_open(
+def test_changing_course_version_cannot_bypass_reset_limit(
     app: Flask, course: SimpleNamespace
 ) -> None:
     for _ in range(2):
@@ -318,10 +360,9 @@ def test_preview_reset_is_not_counted_and_status_is_open(
         reset(app, course)
     start(app, course)
     assert status(app, course) is False
-    assert status(app, course, preview_mode=True) is True
-    assert reset(app, course, preview_mode=True) is True
-    # A preview with no live draft session resets nothing and spends nothing; the
-    # uncounted audit row for a live one is covered by the agent preview test below.
+    assert status(app, course, preview_mode=True) is False
+    with pytest.raises(AppError):
+        reset(app, course, preview_mode=True)
     assert [row.counted for row in reset_rows(app, course)] == [1, 1]
 
 
@@ -357,50 +398,16 @@ def test_opened_but_ungenerated_lesson_resets_for_free(
     assert blocked.value.code == 4021
 
 
-@pytest.mark.parametrize("preview_mode", [False, True])
-def test_empty_reset_retry_preserves_new_learning(
-    app: Flask, course: SimpleNamespace, preview_mode: bool
-) -> None:
-    with app.app_context(), unit_of_work():
-        db.session.add(
-            DraftOutlineItem(
-                shifu_bid=course.bid,
-                outline_item_bid=course.lesson,
-                content="Teach a test lesson.",
-            )
-        )
-    other_session = start_session(app, course, preview_mode=not preview_mode)
-
-    request_id = "empty-reset-retry"
-    assert reset(app, course, preview_mode=preview_mode, request_id=request_id)
-    replacement_session = start_session(app, course, preview_mode=preview_mode)
-    replacement_progress = [] if preview_mode else start(app, course)
-    assert reset(app, course, preview_mode=preview_mode, request_id=request_id)
-
-    assert live_records(app, course) == replacement_progress
-    rows = reset_rows(app, course)
-    assert len(rows) == 1
-    assert (rows[0].counted, bool(rows[0].preview_mode)) == (0, preview_mode)
-    assert rows[0].progress_record_bid == ""
-    with app.app_context():
-        active_sessions = LearnAgentSession.query.filter_by(
-            user_bid=course.learner,
-            shifu_bid=course.bid,
-            outline_item_bid=course.lesson,
-            deleted=0,
-        ).all()
-        assert {row.agent_session_bid for row in active_sessions} == {
-            other_session,
-            replacement_session,
-        }
-
-
 def test_draftless_preview_reset_retry_preserves_new_draft_learning(
     app: Flask,
     test_client: FlaskClient,
     course: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    with app.app_context(), unit_of_work():
+        DraftOutlineItem.query.filter_by(
+            shifu_bid=course.bid, outline_item_bid=course.lesson
+        ).delete()
     user = SimpleNamespace(
         user_id=course.learner, is_creator=True, is_operator=False, language="en-US"
     )
@@ -442,7 +449,7 @@ def test_draftless_preview_reset_retry_preserves_new_draft_learning(
                 content="Teach the new draft lesson.",
             )
         )
-    preview_session = start_session(app, course, preview_mode=True)
+    preview_session = start_session(app, course)
     assert request(course.lesson, request_id)["data"] is True
 
     rows = reset_rows(app, course)
@@ -453,9 +460,7 @@ def test_draftless_preview_reset_retry_preserves_new_draft_learning(
         session = LearnAgentSession.query.filter_by(
             agent_session_bid=preview_session
         ).one()
-        assert session.active_key == active_key_for(
-            course.learner, course.lesson, preview_mode=True
-        )
+        assert session.active_key == active_key_for(course.learner, course.lesson)
 
 
 def test_unlimited_and_exempt_resets_keep_retry_receipts(
@@ -498,36 +503,26 @@ def test_same_trace_id_on_another_lesson_is_not_a_retry(
     assert rows[1].request_id is None
 
 
-def test_agent_preview_reset_is_recorded_as_uncounted(
+def test_reset_receipt_is_shared_across_version_switch(
     app: Flask, course: SimpleNamespace
 ) -> None:
-    """The 2.0 draft-preview branch returns early but still leaves an audit row."""
-    with app.app_context(), unit_of_work():
-        db.session.add(
-            DraftOutlineItem(
-                shifu_bid=course.bid, outline_item_bid=course.lesson, deleted=0
-            )
-        )
-    preview = start_session(app, course, preview_mode=True)
-    assert reset(app, course, preview_mode=True) is True
-    rows = reset_rows(app, course)
-    assert [(row.counted, row.preview_mode) for row in rows] == [(0, 1)]
-    with app.app_context():
-        assert (
-            LearnAgentSession.query.filter_by(agent_session_bid=preview).one().deleted
-        )
-    # Nothing live any more: the next preview reset is empty and leaves no row.
-    assert reset(app, course, preview_mode=True) is True
-    assert len(reset_rows(app, course)) == 1
+    start(app, course)
+    assert reset(app, course, preview_mode=True, request_id="same-operation")
+    replacement = start(app, course)
+    assert reset(app, course, request_id="same-operation")
+    assert live_records(app, course) == replacement
+    assert [(row.counted, row.preview_mode) for row in reset_rows(app, course)] == [
+        (1, 1)
+    ]
 
 
 @pytest.mark.parametrize(
     ("winning_scope", "quota_used_during_conflict"),
     [
-        ("same", False),
-        ("another-lesson", False),
-        ("another-lesson", True),
-        ("preview", False),
+        pytest.param("same", False, id="matching-receipt"),
+        pytest.param("preview", False, id="matching-receipt-across-versions"),
+        pytest.param("another-lesson", False, id="different-lesson"),
+        pytest.param("another-lesson", True, id="different-lesson-quota-used"),
     ],
 )
 def test_duplicate_reset_receipt_rolls_back_before_checking_the_winner(
@@ -539,23 +534,13 @@ def test_duplicate_reset_receipt_rolls_back_before_checking_the_winner(
 ) -> None:
     monkeypatch.setitem(app.config, "LESSON_RESET_LIMIT", 1)
     request_id = "concurrent-receipt"
-    winning_lesson = (
-        course.other_lesson if winning_scope == "another-lesson" else course.lesson
-    )
+    same_lesson = winning_scope != "another-lesson"
+    winner = course.lesson if same_lesson else course.other_lesson
     winning_preview = winning_scope == "preview"
-    if winning_preview:
-        with app.app_context(), unit_of_work():
-            db.session.add(
-                DraftOutlineItem(
-                    shifu_bid=course.bid,
-                    outline_item_bid=course.lesson,
-                    content="Teach a test lesson.",
-                )
-            )
     assert reset(
         app,
         course,
-        lesson=winning_lesson,
+        lesson=winner,
         preview_mode=winning_preview,
         request_id=request_id,
     )
@@ -591,27 +576,23 @@ def test_duplicate_reset_receipt_rolls_back_before_checking_the_winner(
             assert denied.value.code == ERROR_CODE["server.learn.resetLimitReached"]
         else:
             assert reset(app, course, request_id=request_id)
-    assert len(looked_up_ids) == (2 if winning_scope == "same" else 3)
-    if winning_scope != "same":
+    assert len(looked_up_ids) == (2 if same_lesson else 3)
+    if not same_lesson:
         assert looked_up_ids[-1] is None
 
-    kept_learning = winning_scope == "same" or quota_used_during_conflict
+    kept_learning = same_lesson or quota_used_during_conflict
     assert live_records(app, course) == (replacement if kept_learning else [])
     rows = reset_rows(app, course)
     assert (rows[0].outline_item_bid, rows[0].counted, bool(rows[0].preview_mode)) == (
-        winning_lesson,
+        winner,
         0,
         winning_preview,
     )
-    if winning_scope == "same":
+    if same_lesson:
         assert len(rows) == 1
     else:
         assert len(rows) == 2
-        assert (rows[1].outline_item_bid, rows[1].counted, rows[1].preview_mode) == (
-            course.lesson,
-            1,
-            0,
-        )
+        assert (rows[1].outline_item_bid, rows[1].counted) == (course.lesson, 1)
         assert rows[1].request_id == (
             "intervening-reset" if quota_used_during_conflict else None
         )
@@ -653,10 +634,10 @@ def test_quota_denial_checks_for_a_concurrent_matching_reset_receipt(
     )
     with app.app_context():
         if retry:
-            assert reset(app, course, request_id="last-reset")
+            assert reset(app, course, preview_mode=True, request_id="last-reset")
         else:
             with pytest.raises(AppError) as denied:
-                reset(app, course, request_id="another-reset")
+                reset(app, course, preview_mode=True, request_id="another-reset")
             assert denied.value.code == ERROR_CODE["server.learn.resetLimitReached"]
     assert reads == 2
     assert live_records(app, course) == replacement
@@ -713,3 +694,22 @@ def test_reset_retries_the_whole_transaction_after_a_deadlock(
     rows = reset_rows(app, course)
     assert len(rows) == 1
     assert rows[0].counted == 1
+
+
+def test_revoked_draft_access_does_not_block_a_published_restart(
+    app: Flask, course: SimpleNamespace
+) -> None:
+    for _ in range(2):
+        start(app, course)
+        assert reset(app, course)
+    start(app, course)
+    assert status(app, course) is False
+    session_bid = start_session(app, course)
+    with app.app_context(), unit_of_work():
+        session = LearnAgentSession.query.filter_by(agent_session_bid=session_bid).one()
+        bind_lesson_attempt_source(session, LessonAttemptSource(preview_mode=True))
+
+    assert status(app, course) is True
+    assert reset(app, course) is True
+    assert [row.counted for row in reset_rows(app, course)] == [1, 1, 0]
+    assert live_records(app, course) == []

@@ -1,4 +1,8 @@
-import { type AudioCompleteData, type SSE_INPUT_TYPE } from '@/api/learning';
+import {
+  type AudioCompleteData,
+  type LessonFollowUpMode,
+  type SSE_INPUT_TYPE,
+} from '@/api/learning';
 import { type ChatContentItem } from '@/types/chat-ui';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 
@@ -40,7 +44,10 @@ export interface ChapterUpdatePayload {
   status_value: string;
 }
 
-export type LessonUpdateHandler = (params: LessonUpdatePayload) => void;
+export type LessonUpdateHandler = (
+  params: LessonUpdatePayload,
+  options?: { refreshMissingLesson?: boolean },
+) => void;
 export type ChapterUpdateHandler = (params: ChapterUpdatePayload) => void;
 export type LessonSelectionUpdater = (
   lessonId: string,
@@ -72,6 +79,7 @@ export interface UseChatSessionParams {
 
 export interface UseChatSessionResult {
   items: ChatContentItem[];
+  attemptFollowUpMode?: LessonFollowUpMode;
   isLoading: boolean;
   isOutputInProgress: boolean;
   hasRunFailed: boolean;

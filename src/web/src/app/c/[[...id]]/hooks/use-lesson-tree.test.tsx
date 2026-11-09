@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { getLessonTree } from '@/api/lesson';
 import { useLessonTree } from './use-lesson-tree';
 
+let mockPreviewMode = false;
 jest.mock('@/api/lesson', () => ({ getLessonTree: jest.fn() }));
 jest.mock('@/api/learning', () => ({
   LEARNING_PERMISSION: {
@@ -18,7 +19,7 @@ jest.mock('@/store/env-store', () => ({
 }));
 jest.mock('@/store/use-system-store', () => ({
   useSystemStore: (selector: (state: { previewMode: boolean }) => unknown) =>
-    selector({ previewMode: false }),
+    selector({ previewMode: mockPreviewMode }),
 }));
 jest.mock('@/store', () => ({
   useUserStore: (selector: (state: { isLoggedIn: boolean }) => unknown) =>
@@ -34,6 +35,7 @@ const mockGetLessonTree = getLessonTree as jest.Mock;
 describe('useLessonTree authored language metadata', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPreviewMode = false;
   });
 
   it('keeps the authored guide title language across tree reloads', async () => {
@@ -63,6 +65,18 @@ describe('useLessonTree authored language metadata', () => {
     expect(mockGetLessonTree).toHaveBeenCalledWith('guide-course', false);
   });
 
+  it('loads a draft-only course by its route ID and draft selector', async () => {
+    mockPreviewMode = true;
+    mockGetLessonTree.mockResolvedValueOnce({ outline_items: [] });
+    const { result } = renderHook(() => useLessonTree('draft-only-course'));
+
+    await act(async () => {
+      await result.current.loadTree();
+    });
+
+    expect(mockGetLessonTree.mock.calls).toEqual([['draft-only-course', true]]);
+  });
+
   it('leaves ordinary courses without a content language override', async () => {
     mockGetLessonTree.mockResolvedValue({ outline_items: [] });
 
@@ -76,7 +90,7 @@ describe('useLessonTree authored language metadata', () => {
   });
 });
 
-describe('useLessonTree request ordering', () => {
+describe('useLessonTree reload with streamed and recovered progress', () => {
   const outline = (status: string) => ({
     outline_items: [
       {
@@ -107,6 +121,74 @@ describe('useLessonTree request ordering', () => {
 
   beforeEach(() => {
     mockGetLessonTree.mockReset();
+    mockPreviewMode = false;
+  });
+
+  it('keeps lesson and chapter patches that arrived after a reload started', async () => {
+    let finishReload!: (value: ReturnType<typeof outline>) => void;
+    mockGetLessonTree.mockResolvedValueOnce(outline('in_progress'));
+    mockGetLessonTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        finishReload = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useLessonTree('course-1'));
+    await act(async () => {
+      await result.current.loadTree('chapter-1', 'lesson-1');
+    });
+
+    let reload!: ReturnType<typeof result.current.reloadTree>;
+    act(() => {
+      reload = result.current.reloadTree('chapter-1', 'lesson-1');
+    });
+    act(() => {
+      result.current.updateLesson('lesson-1', {
+        name: 'Updated title',
+        status: 'completed',
+        status_value: 'completed',
+      });
+      result.current.updateChapterStatus('chapter-1', {
+        status: 'completed',
+        status_value: 'completed',
+      });
+      result.current.updateLesson('lesson-2', {
+        status: 'in_progress',
+        status_value: 'in_progress',
+      });
+      result.current.toggleCollapse({ id: 'chapter-1' });
+    });
+    expect(result.current.tree?.catalogs[0].lessons[1].status).toBe(
+      'in_progress',
+    );
+    await act(async () => {
+      finishReload(outline('in_progress'));
+      await reload;
+    });
+
+    expect(result.current.selectedLessonId).toBe('lesson-1');
+    expect(result.current.tree?.catalogs[0]).toMatchObject({
+      collapse: true,
+      status: 'completed',
+      lessons: [
+        { id: 'lesson-1', name: 'Updated title', status: 'completed' },
+        { id: 'lesson-2', status: 'in_progress', canLearning: true },
+      ],
+    });
+    expect(mockGetLessonTree).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a completed retake when the server returns it after reset retry', async () => {
+    mockGetLessonTree.mockResolvedValue(outline('completed'));
+    const { result } = renderHook(() => useLessonTree('course-1'));
+    await act(async () => {
+      await result.current.reloadTree('chapter-1', 'lesson-1');
+    });
+    expect(result.current.selectedLessonId).toBe('lesson-1');
+    expect(result.current.tree?.catalogs[0].lessons[0]).toMatchObject({
+      status: 'completed',
+      status_value: 'completed',
+      canLearning: true,
+    });
   });
 
   it('rejects an older catalog response before it can select another lesson', async () => {
@@ -250,5 +332,145 @@ describe('useLessonTree request ordering', () => {
       ['course-1', false],
       ['course-2', false],
     ]);
+  });
+  it('refreshes unknown successors once without changing the current lesson', async () => {
+    let finishRefresh!: (value: ReturnType<typeof outline>) => void;
+    mockGetLessonTree.mockResolvedValueOnce(outline('completed'));
+    mockGetLessonTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        finishRefresh = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useLessonTree('course-1'));
+    await act(async () => {
+      await result.current.loadTree('chapter-1', 'lesson-1');
+    });
+    act(() => {
+      result.current.toggleCollapse({ id: 'chapter-1' });
+      result.current.updateChapterStatus('nested-chapter', {
+        status: 'completed',
+        status_value: 'completed',
+      });
+      result.current.updateLesson('unknown-stream-lesson', {
+        status: 'in_progress',
+      });
+      expect(mockGetLessonTree).toHaveBeenCalledTimes(1);
+      result.current.updateLesson(
+        'lesson-new',
+        {
+          status: 'in_progress',
+          status_value: 'in_progress',
+        },
+        { refreshMissingLesson: true },
+      );
+      result.current.updateChapterStatus('chapter-1', {
+        status: 'completed',
+        status_value: 'completed',
+      });
+      result.current.updateLesson('lesson-new', {
+        status: 'completed',
+        status_value: 'completed',
+      });
+    });
+
+    expect(result.current.selectedLessonId).toBe('lesson-1');
+    expect(mockGetLessonTree).toHaveBeenCalledTimes(2);
+    expect(mockGetLessonTree).toHaveBeenLastCalledWith('course-1', false, {
+      skipErrorToast: true,
+    });
+
+    const refreshedOutline = outline('completed');
+    refreshedOutline.outline_items[0].children.splice(1, 0, {
+      bid: 'lesson-new',
+      title: 'New successor',
+      status: 'not_started',
+      type: 'guest',
+      is_paid: true,
+    });
+    await act(async () => finishRefresh(refreshedOutline));
+
+    expect(result.current.selectedLessonId).toBe('lesson-1');
+    expect(result.current.getNextLessonId()).toBe('lesson-new');
+    expect(result.current.tree?.catalogs[0]).toMatchObject({
+      collapse: true,
+      status: 'completed',
+      lessons: [
+        { id: 'lesson-1', status: 'completed' },
+        { id: 'lesson-new', status: 'completed', canLearning: true },
+        { id: 'lesson-2', status: 'not_started' },
+      ],
+    });
+    expect(mockGetLessonTree).toHaveBeenCalledTimes(2);
+  });
+
+  it('checks a missing target after a foreground reload without looping', async () => {
+    let finishReload!: (value: ReturnType<typeof outline>) => void;
+    mockGetLessonTree
+      .mockResolvedValueOnce(outline('completed'))
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          finishReload = resolve;
+        }),
+      )
+      .mockResolvedValueOnce(outline('completed'));
+    const { result } = renderHook(() => useLessonTree('course-1'));
+    await act(async () => {
+      await result.current.loadTree('chapter-1', 'lesson-1');
+    });
+
+    let reload!: ReturnType<typeof result.current.reloadTree>;
+    act(() => {
+      reload = result.current.reloadTree('chapter-1', 'lesson-1');
+      result.current.updateLesson(
+        'lesson-unknown',
+        {
+          status: 'in_progress',
+        },
+        { refreshMissingLesson: true },
+      );
+    });
+    expect(mockGetLessonTree).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      finishReload(outline('completed'));
+      await reload;
+    });
+
+    expect(result.current.selectedLessonId).toBe('lesson-1');
+    expect(result.current.getNextLessonId()).toBe('lesson-2');
+    expect(mockGetLessonTree).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps the reset selection when an older structure refresh returns', async () => {
+    let finishRefresh!: (value: ReturnType<typeof outline>) => void;
+    mockGetLessonTree
+      .mockResolvedValueOnce(outline('in_progress'))
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          finishRefresh = resolve;
+        }),
+      )
+      .mockResolvedValueOnce(outline('completed'));
+    const { result } = renderHook(() => useLessonTree('course-1'));
+    await act(async () => {
+      await result.current.loadTree('chapter-1', 'lesson-1');
+    });
+    act(() =>
+      result.current.updateLesson(
+        'lesson-unknown',
+        { status: 'in_progress' },
+        { refreshMissingLesson: true },
+      ),
+    );
+    expect(mockGetLessonTree).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await result.current.reloadTree('chapter-1', 'lesson-2');
+    });
+    await act(async () => finishRefresh(outline('in_progress')));
+
+    expect(result.current.selectedLessonId).toBe('lesson-2');
+    expect(result.current.tree?.catalogs[0].lessons[0].status).toBe(
+      'completed',
+    );
+    expect(mockGetLessonTree).toHaveBeenCalledTimes(3);
   });
 });

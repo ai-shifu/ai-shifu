@@ -166,7 +166,7 @@ export const LessonConversation = ({
   titleLanguage,
   contentLanguage,
   lessonStatus = '',
-  followUpMode = 'text',
+  followUpMode: catalogFollowUpMode = 'text',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -387,14 +387,6 @@ export const LessonConversation = ({
     onTranscript: handleLiveTranscript,
     onSessionFinished: handleLiveSessionFinished,
   });
-  const {
-    configured: isLiveVoiceFollowUpConfigured,
-    supported: isLiveVoiceFollowUpSupported,
-  } = resolveLiveVoiceFollowUpAvailability({
-    followUpMode,
-    isClassroomMode,
-  });
-  const isFollowUpUnavailable = followUpMode === 'disabled';
   const closeLiveVoiceFollowUp = liveVoiceFollowUp.close;
   const liveVoiceAnchor = liveVoiceFollowUp.anchorElementBid;
   const promptContextKey = `${resolvedLessonId}:${
@@ -402,11 +394,7 @@ export const LessonConversation = ({
   }`;
   const [settledPromptContextKey, setSettledPromptContextKey] =
     useState(promptContextKey);
-  const isPreviewReadMode = previewMode && learningMode === 'read';
-  const shouldShowAudioAction =
-    !isClassroomMode &&
-    (previewMode || isListenModeActive) &&
-    !isPreviewReadMode;
+  const shouldShowAudioAction = isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
 
@@ -489,6 +477,7 @@ export const LessonConversation = ({
 
   const {
     items,
+    attemptFollowUpMode,
     isLoading,
     isOutputInProgress,
     hasRunFailed,
@@ -527,6 +516,20 @@ export const LessonConversation = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+  const followUpMode = isLoading
+    ? 'disabled'
+    : (attemptFollowUpMode ?? catalogFollowUpMode);
+  const {
+    configured: isLiveVoiceFollowUpConfigured,
+    supported: isLiveVoiceFollowUpSupported,
+  } = resolveLiveVoiceFollowUpAvailability({ followUpMode, isClassroomMode });
+  const isFollowUpUnavailable = followUpMode === 'disabled';
+
+  useEffect(() => {
+    if (liveVoiceAnchor && !isLiveVoiceFollowUpSupported) {
+      closeLiveVoiceFollowUp();
+    }
+  }, [closeLiveVoiceFollowUp, isLiveVoiceFollowUpSupported, liveVoiceAnchor]);
 
   useEffect(() => {
     onLessonUpdateNoticeVisibilityChange?.(showLessonUpdateNotice);
@@ -1219,7 +1222,7 @@ export const LessonConversation = ({
         shouldShowAudioAction &&
         (hasAudioContentInTrack(primaryTrack) ||
           Boolean(primaryTrack?.isAudioStreaming) ||
-          (!previewMode && Boolean(currentBlock.element_bid)));
+          Boolean(currentBlock.element_bid));
       if (!showGenerateBtn && !hasMobileAudioAction) {
         return;
       }
@@ -1238,12 +1241,7 @@ export const LessonConversation = ({
         });
       });
     },
-    [
-      currentStreamingElementBid,
-      previewMode,
-      shouldShowAudioAction,
-      showGenerateBtn,
-    ],
+    [currentStreamingElementBid, shouldShowAudioAction, showGenerateBtn],
   );
 
   useEffect(() => {
@@ -1648,9 +1646,7 @@ export const LessonConversation = ({
                       parentContentItem?.audioTracks ?? [],
                     );
                     const canRequestAudio =
-                      !isPreparingLessonPdf &&
-                      !previewMode &&
-                      Boolean(parentElementBid);
+                      !isPreparingLessonPdf && Boolean(parentElementBid);
                     const hasAudioForElement =
                       hasAudioContentInTrack(parentPrimaryTrack);
                     const shouldAutoPlayElement =
@@ -1887,7 +1883,7 @@ export const LessonConversation = ({
                 ) : null}
               </>
             )}
-            {lessonPdfCourseUrl ? (
+            {!previewMode && lessonPdfCourseUrl ? (
               <footer
                 data-lesson-print-only='true'
                 data-lesson-print-course-qr='true'
@@ -1950,7 +1946,7 @@ export const LessonConversation = ({
           streamingSegments={mobileInteractionPrimaryTrack?.audioSegments}
           isStreaming={Boolean(mobileInteractionPrimaryTrack?.isAudioStreaming)}
           onRequestAudio={
-            !previewMode && mobileInteraction.elementBid
+            mobileInteraction.elementBid
               ? () => requestAudioForBlock(mobileInteraction.elementBid)
               : undefined
           }

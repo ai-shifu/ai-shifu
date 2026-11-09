@@ -148,8 +148,19 @@ jest.mock('@/store/use-system-store', () => ({
 
 jest.mock('../settings/CourseMemoryDialog', () => ({
   __esModule: true,
-  default: ({ courseId }: { courseId: string }) => (
-    <div data-testid='course-memory'>{courseId}</div>
+  default: ({
+    courseId,
+    previewMode,
+  }: {
+    courseId: string;
+    previewMode: boolean;
+  }) => (
+    <div
+      data-testid='course-memory'
+      data-preview={String(previewMode)}
+    >
+      {courseId}
+    </div>
   ),
 }));
 
@@ -1209,10 +1220,15 @@ describe('MainMenuModal', () => {
     },
   );
 
-  test.each([true, false])(
-    'opens course memory for member=%s with one dialog on double click',
-    member => {
+  test.each([
+    { member: true, previewMode: false },
+    { member: false, previewMode: false },
+    { member: true, previewMode: true },
+  ])(
+    'opens course memory once on double click (member=$member, preview=$previewMode)',
+    ({ member, previewMode }) => {
       mockUserStoreState.isLoggedIn = member;
+      mockSystemState.previewMode = previewMode;
       const close = jest.fn();
       render(
         <MainMenuModal
@@ -1226,17 +1242,19 @@ describe('MainMenuModal', () => {
       const entry = screen.getByRole('button', {
         name: 'module.settings.memoryTitle',
       });
+      expect(screen.queryByTestId('course-memory')).not.toBeInTheDocument();
       fireEvent.click(entry);
       fireEvent.click(entry);
-      expect(screen.getAllByTestId('course-memory')).toHaveLength(1);
+      const dialog = screen.getByTestId('course-memory');
+      expect(dialog).toHaveTextContent('course-id');
+      expect(dialog).toHaveAttribute('data-preview', String(previewMode));
       expect(close).toHaveBeenCalledTimes(1);
     },
   );
 
-  test.each(['admin', 'preview', 'no-course'])(
+  test.each(['admin', 'no-course'])(
     'excludes %s from memory management',
     excluded => {
-      mockSystemState.previewMode = excluded === 'preview';
       render(
         <MainMenuModal
           open

@@ -137,10 +137,21 @@ export interface StudyRecordItem {
   audio_segments?: AudioSegmentData[];
 }
 
+export type LessonFollowUpMode = 'text' | 'live_voice' | 'disabled';
+
+export interface OutlineItemUpdate {
+  outline_bid: string;
+  status: string;
+  title: string;
+  has_children: boolean;
+}
+
 export interface LessonStudyRecords {
   elements: StudyRecordItem[];
+  follow_up_mode?: LessonFollowUpMode | null;
   last_progress_updated_at?: string | null;
   has_content_update_for_current_user?: boolean;
+  outline_progress_updates?: OutlineItemUpdate[];
 }
 
 export interface GetLessonStudyRecordParams {

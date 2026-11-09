@@ -14,6 +14,7 @@ import { useCourseStore, useEnvStore } from '@/store';
 import { useSystemStore } from '@/store/use-system-store';
 
 let mockSearchParamsValue = '';
+let mockRouteCourseId = '123';
 const mockTrackEvent = jest.fn();
 
 jest.mock('sse.js', () => ({
@@ -21,7 +22,7 @@ jest.mock('sse.js', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  useParams: () => ({ id: ['123'] }),
+  useParams: () => ({ id: [mockRouteCourseId] }),
   useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
 }));
 
@@ -138,6 +139,7 @@ describe('C preview layout', () => {
   afterEach(() => {
     jest.useRealTimers();
     mockSearchParamsValue = '';
+    mockRouteCourseId = '123';
     mockTrackEvent.mockReset();
     window.localStorage.clear();
     window.location.href = originalHref;
@@ -261,6 +263,13 @@ describe('C preview layout', () => {
   });
 
   test('does not report a stored listen mode when TTS is unavailable', async () => {
+    mockedGetCourseInfo.mockResolvedValue({
+      ...buildCourseInfo(false, '123'),
+      course_tts_enabled: false,
+    });
+    act(() => {
+      useEnvStore.setState({ runtimeConfigLoaded: true, courseId: '123' });
+    });
     window.history.replaceState({}, '', '/c/123');
     window.localStorage.setItem('course_learning_mode:123', 'listen');
     act(() => {
@@ -282,8 +291,12 @@ describe('C preview layout', () => {
       </ChatLayout>,
     );
 
-    await act(async () => {});
-    expect(useSystemStore.getState().learningMode).toBe('read');
+    await waitFor(() => {
+      expect(useSystemStore.getState().learningMode).toBe('read');
+    });
+    expect(window.localStorage.getItem('course_learning_mode:123')).toBe(
+      'listen',
+    );
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
       'learner_last_learning_mode',
       expect.anything(),
@@ -291,6 +304,11 @@ describe('C preview layout', () => {
   });
 
   test('waits for TTS capability before reporting a stored listen mode', async () => {
+    const courseInfo = createDeferredCourseInfo();
+    mockedGetCourseInfo.mockReturnValue(courseInfo.promise);
+    act(() => {
+      useEnvStore.setState({ runtimeConfigLoaded: true, courseId: '123' });
+    });
     window.history.replaceState({}, '', '/c/123');
     window.localStorage.setItem('course_learning_mode:123', 'listen');
     act(() => {
@@ -318,11 +336,9 @@ describe('C preview layout', () => {
       expect.anything(),
     );
 
-    act(() => {
-      useCourseStore.getState().updateCourseSettings('123', {
-        ttsEnabled: true,
-        defaultListenModeEnabled: false,
-      });
+    await act(async () => {
+      courseInfo.resolve(buildCourseInfo(false, '123'));
+      await courseInfo.promise;
     });
 
     await waitFor(() => {
@@ -337,6 +353,11 @@ describe('C preview layout', () => {
   });
 
   test('does not report the initial stored mode after an explicit selection while capability is pending', async () => {
+    const courseInfo = createDeferredCourseInfo();
+    mockedGetCourseInfo.mockReturnValue(courseInfo.promise);
+    act(() => {
+      useEnvStore.setState({ runtimeConfigLoaded: true, courseId: '123' });
+    });
     window.history.replaceState({}, '', '/c/123');
     window.localStorage.setItem('course_learning_mode:123', 'listen');
     act(() => {
@@ -352,11 +373,12 @@ describe('C preview layout', () => {
       });
     });
 
-    render(
+    const layout = (
       <ChatLayout>
         <LearningModeSwitch />
-      </ChatLayout>,
+      </ChatLayout>
     );
+    const view = render(layout);
 
     await waitFor(() => {
       expect(useSystemStore.getState().learningMode).toBe('listen');
@@ -366,19 +388,18 @@ describe('C preview layout', () => {
         name: 'module.chat.learningModeRead',
       }),
     );
+    mockSearchParamsValue = 'mode=read';
+    view.rerender(React.cloneElement(layout));
     await waitFor(() => {
       expect(window.localStorage.getItem('course_learning_mode:123')).toBe(
         'read',
       );
     });
 
-    act(() => {
-      useCourseStore.getState().updateCourseSettings('123', {
-        ttsEnabled: true,
-        defaultListenModeEnabled: false,
-      });
+    await act(async () => {
+      courseInfo.resolve(buildCourseInfo(false, '123'));
+      await courseInfo.promise;
     });
-    await act(async () => {});
 
     expect(useSystemStore.getState().learningMode).toBe('read');
     expect(window.localStorage.getItem('course_learning_mode:123')).toBe(
@@ -537,6 +558,7 @@ describe('C preview layout', () => {
   });
 
   test('ignores stale course info responses after course navigation', async () => {
+    mockRouteCourseId = 'course-a';
     const firstCourseInfo = createDeferredCourseInfo();
     const secondCourseInfo = createDeferredCourseInfo();
     mockedGetCourseInfo.mockImplementation(courseId => {
@@ -552,11 +574,12 @@ describe('C preview layout', () => {
       useCourseStore.setState({ courseDescription: 'Previous description' });
     });
 
-    render(
+    const layout = (
       <ChatLayout>
         <div>{contentLabel}</div>
-      </ChatLayout>,
+      </ChatLayout>
     );
+    const view = render(layout);
 
     await waitFor(() =>
       expect(mockedGetCourseInfo).toHaveBeenCalledWith(
@@ -567,9 +590,9 @@ describe('C preview layout', () => {
     );
     expect(useCourseStore.getState().courseDescription).toBe('');
 
-    act(() => {
-      useEnvStore.setState({ courseId: 'course-b' });
-    });
+    // The route changes before the shared course store catches up.
+    mockRouteCourseId = 'course-b';
+    view.rerender(React.cloneElement(layout));
     await waitFor(() =>
       expect(mockedGetCourseInfo).toHaveBeenCalledWith(
         'course-b',

@@ -31,6 +31,7 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.learn.progress_ordering import progress_record_rank
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_RESET
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -582,7 +583,9 @@ def _dedupe_progress_records_by_block_position(
         else:
             key = ("position", str(int(block_position)))
         current = latest_by_key.get(key)
-        if current is None or int(progress_record.id or 0) >= int(current.id or 0):
+        if current is None or progress_record_rank(
+            progress_record
+        ) >= progress_record_rank(current):
             latest_by_key[key] = progress_record
     return sorted(
         latest_by_key.values(),
@@ -862,9 +865,7 @@ def get_listen_element_record(
             latest_progress_updated_at_dt = updated_at
     latest_progress_updated_at = to_utc_iso(latest_progress_updated_at_dt)
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
-    latest_progress = max(
-        progress_records, key=lambda record: int(record.id or 0), default=None
-    )
+    latest_progress = max(progress_records, key=progress_record_rank, default=None)
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid
     ]
@@ -889,7 +890,7 @@ def get_listen_element_record(
             build_legacy_record_for_progress_fn=build_legacy_record_for_progress_fn,
         )
         if collected_elements:
-            # Only the latest attempt can navigate. The legacy builder also checks the current
+            # Only the active attempt can navigate. The legacy builder also checks the current
             # outline, so a hidden or removed successor invalidates even a persisted control.
             navigation_records = (
                 [

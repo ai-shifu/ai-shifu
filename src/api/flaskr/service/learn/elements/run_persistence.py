@@ -107,6 +107,8 @@ def _describe_desynced_connection(result: object, connection: object) -> str:
 class ListenElementRunPersistenceMixin:
     """Provide persistence operations for listen-mode element runs."""
 
+    _deferred_follow_up_rows: list[LearnGeneratedElement] | None = None
+
     _ACTIVE_ELEMENT_ROW_ID_SQL = text(
         """
         SELECT id
@@ -123,6 +125,21 @@ class ListenElementRunPersistenceMixin:
         ORDER BY id ASC
         """
     ).bindparams(bindparam("element_bids", expanding=True))
+
+    def defer_follow_up_persistence(self) -> None:
+        """Keep one follow-up's snapshots in memory until its final write."""
+        self._deferred_follow_up_rows = []
+
+    def bind_follow_up_block(self, block: LearnGeneratedBlock) -> None:
+        """Make a follow-up block's metadata available before it is persisted."""
+        self._block_meta_cache[block.generated_block_bid] = BlockMeta(
+            progress_record_bid=block.progress_record_bid,
+            role=_role_value_to_name(block.role),
+        )
+
+    def stage_follow_up_elements(self) -> None:
+        """Join the caller's final write for the follow-up's history."""
+        db.session.add_all(self._deferred_follow_up_rows or ())
 
     def _next_seq(self) -> int:
         self._run_event_seq += 1
@@ -252,6 +269,20 @@ class ListenElementRunPersistenceMixin:
         generated_block_bid: str,
         element_bids: list[str],
     ) -> None:
+        pending = self._deferred_follow_up_rows
+        if pending is not None:
+            # Follow-up elements belong to newly generated blocks in this run.
+            for row in pending:
+                if (
+                    row.generated_block_bid == generated_block_bid
+                    and row.event_type == "element"
+                    and (
+                        row.element_bid in element_bids
+                        or row.target_element_bid in element_bids
+                    )
+                ):
+                    row.status = 0
+            return
         row_ids = self._find_active_element_row_ids(
             generated_block_bid=generated_block_bid,
             element_bids=element_bids,
@@ -337,8 +368,11 @@ class ListenElementRunPersistenceMixin:
             deleted=0,
             status=1,
         )
-        db.session.add(row)
-        db.session.flush()
+        if self._deferred_follow_up_rows is not None:
+            self._deferred_follow_up_rows.append(row)
+        else:
+            db.session.add(row)
+            db.session.flush()
 
     def _element_message(self, element: ElementDTO) -> RunElementSSEMessageDTO:
         self._persist_element(element)

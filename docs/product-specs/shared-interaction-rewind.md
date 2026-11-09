@@ -33,10 +33,9 @@ and the newly submitted answer.
 
 ## Storage and compatibility
 
-The planner and engine are shared; storage ownership remains separate. Learner
-progress is durable, full-course preview belongs to its draft generation, and
-editor Debug uses an expiring cache scoped to teacher, course, lesson and Debug
-session. Debug checkpoints never become learner progress or profile writes.
+Ordinary draft and published classrooms use the same durable lesson attempt
+and its source version. Editor Debug uses an expiring cache scoped to teacher,
+course, lesson and Debug session. Debug checkpoints stay in that cache.
 
 Editor Debug accepts optional `reload_element_bid` with the existing
 `reload_generated_block_bid` and `user_input` fields. Exact interaction plus
@@ -60,7 +59,7 @@ There is no database migration. Debug cache entries expire after 30 minutes.
 
 ## Replaying pending questions
 
-A published lesson can redisplay a pending question while the learner answers
+A classroom lesson can redisplay a pending question while the learner answers
 another question from the same turn. Durable turn records associate emitted
 controls and accepted input with the engine's question identities. History
 shows the original control and its answer, and attaches follow-ups from later
