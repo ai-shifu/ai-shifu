@@ -1667,12 +1667,16 @@ function useLessonConversation({
         if (chapterId) {
           setLoadedChapterId(chapterId);
         }
+        // Follow-ups can appear after a pending interaction in history.
+        const lastTeachingElement = recordResp.elements
+          .filter(
+            record =>
+              !isAskOrAnswerElementType(resolveRecordElementType(record)),
+          )
+          .at(-1);
         if (
-          recordResp.elements[recordResp.elements.length - 1].element_type !==
+          resolveRecordElementType(lastTeachingElement) !==
           ELEMENT_TYPE.INTERACTION
-          //   ||
-          // recordResp.elements[recordResp.elements.length - 1].element_type ===
-          //   BLOCK_TYPE.ERROR
         ) {
           if (autoRunStartedForRef.current !== outlineBid) {
             autoRunStartedForRef.current = outlineBid;
