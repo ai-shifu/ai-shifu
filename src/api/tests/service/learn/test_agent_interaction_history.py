@@ -224,6 +224,78 @@ def test_unrelated_or_unproven_inputs_stay_empty(classroom: str, boundary: str) 
     db.session.commit()
 
 
+@pytest.mark.parametrize(
+    "boundary",
+    [
+        "none",
+        "no_acceptance_id",
+        "other_attempt",
+        "intervening_turn",
+        "multiple_controls",
+        "duplicate_pending_id",
+        "multiple_pending",
+        "different_control",
+        "no_values",
+        "invalid_value",
+        "rejected",
+        "unrecognized_question_checkpoint",
+    ],
+)
+def test_reload_projects_only_proven_answers_to_old_native_controls(
+    classroom: str, boundary: str
+) -> None:
+    spec = InteractionSpec(
+        type="single", prompt="Question", options=[{"display": "A", "value": "a"}]
+    )
+    question = _block(classroom, classroom + "-q", 0, block_content_conf="")
+    _control(classroom, question, render_interaction(spec))
+    pending = [{"tool_call_id": "call-q", "spec": spec.model_dump()}]
+    values = ["a"]
+    if boundary == "intervening_turn":
+        _block(classroom, classroom + "-intervening", 1)
+    elif boundary == "multiple_controls":
+        _control(classroom, question, render_interaction(spec), 1)
+    elif boundary == "duplicate_pending_id":
+        pending.append(pending[0])
+    elif boundary == "multiple_pending":
+        pending.append({**pending[0], "tool_call_id": "other-call"})
+    elif boundary == "different_control":
+        pending[0]["spec"]["options"] = [{"display": "Other", "value": "a"}]
+    elif boundary == "no_values":
+        values = []
+    elif boundary == "invalid_value":
+        values = ["unknown"]
+    elif boundary == "unrecognized_question_checkpoint":
+        question.block_content_conf = '{"agent_turn": {"version": 999}}'
+    answer = json.loads(_record(pending, values))
+    if boundary != "no_acceptance_id":
+        answer["agent_turn"]["answered_question_id"] = (
+            None if boundary == "rejected" else "call-q"
+        )
+    _block(
+        classroom,
+        classroom + "-a",
+        2 if boundary == "intervening_turn" else 1,
+        block_content_conf=json.dumps(answer),
+        progress_record_bid="unrelated" if boundary == "other_attempt" else classroom,
+    )
+    db.session.commit()
+    db.session.expire_all()
+
+    elements = get_final_elements_for_generated_block(
+        generated_block_bid=question.generated_block_bid
+    )
+    assert len(elements) == (2 if boundary == "multiple_controls" else 1)
+    if boundary in {"none", "no_acceptance_id"}:
+        assert json.loads(elements[0].payload.user_input) == {
+            "selectedValues": ["a"],
+            "inputText": "",
+            "buttonText": "a",
+        }
+    else:
+        assert all(not element.payload.user_input for element in elements)
+
+
 @pytest.mark.parametrize("reused_call_id", [False, True])
 def test_same_named_control_keeps_each_historical_answer(
     classroom: str, reused_call_id: bool
