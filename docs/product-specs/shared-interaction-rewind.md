@@ -18,7 +18,8 @@ lesson, keeps that question and its preceding teaching. The new answer runs
 from the checkpoint before the old one. Later teaching and session answers
 are discarded, and teaching pauses normally at the next interaction. All
 three surfaces use exact element anchors to distinguish multiple questions
-from one turn. Ordinary learning ignores repeated unchanged answers.
+from one turn. Ordinary learning ignores repeats of a settled answer. After a
+failed edit, learners can retry the edit or submit the original answer again.
 
 A control rendered from narration can be edited when its adjacent saved turn
 received the old answer as a message. The planner checks the original control,

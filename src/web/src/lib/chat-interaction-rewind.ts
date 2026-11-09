@@ -71,7 +71,8 @@ export const classifyLearnerInteraction = (
     } catch {
       // Older lesson history stores the joined answer as plain text.
     }
-    if (identical) return 'repeat';
+    // An unconfirmed edit may already have changed the saved answer.
+    if (identical && beforeSubmission === undefined) return 'repeat';
     if (!isStreaming) return 'rewind';
   }
   return requiresInteractionRewind(items, elementBid) ? 'rewind' : 'continue';

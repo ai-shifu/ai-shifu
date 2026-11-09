@@ -4003,9 +4003,14 @@ describe('useLessonConversation stream cleanup', () => {
     expect(result.current.reGenerateConfirm.open).toBe(false);
   });
 
-  it.each([false, true])(
-    'ignores repeats and rewinds a changed final answer after reload (preview=%s)',
-    async previewMode => {
+  it.each([
+    [false, 'A'],
+    [false, 'B'],
+    [true, 'A'],
+    [true, 'B'],
+  ])(
+    'recovers a failed final answer edit (preview=%s, retry=%s)',
+    async (previewMode, recoveryAnswer) => {
       mockGetLessonStudyRecord.mockResolvedValueOnce({
         mdflow: '',
         elements: [
@@ -4078,14 +4083,61 @@ describe('useLessonConversation stream cleanup', () => {
           : [],
       );
 
-      // A failed optimistic replacement may be retried against the same saved answer.
+      // A failed edit can be retried or changed back to the original answer.
       await act(async () => {
         activeRun?.onError(new Error('network down'));
       });
       await act(async () => {
-        result.current.onSend({ selectedValues: ['B'] }, 'last-question');
+        result.current.onSend(
+          { selectedValues: [recoveryAnswer] },
+          'last-question',
+        );
       });
       expect(result.current.reGenerateConfirm.open).toBe(true);
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(count + 1);
+      await act(async () => {
+        result.current.reGenerateConfirm.onConfirm();
+      });
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(count + 2);
+      expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+        input: { input: [recoveryAnswer] },
+        reload_element_bid: 'last-question',
+        reload_generated_block_bid: 'question-turn',
+      });
+      expect(
+        result.current.items.find(item => item.element_bid === 'last-question')
+          ?.user_input,
+      ).toBe(recoveryAnswer);
+      await act(async () => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          is_terminal: true,
+          content: '',
+        });
+      });
+      const resultEvent = 'teacher_preview_rewind_result';
+      const outcomes = trackEvent.mock.calls.filter(
+        ([name]) => name === resultEvent,
+      );
+      expect(
+        trackEvent.mock.calls.filter(([name]) => name === previewEvent),
+      ).toEqual(previewMode ? [attempts[0], attempts[0]] : []);
+      expect(outcomes).toEqual(
+        previewMode
+          ? ['failed', 'success'].map(outcome => [
+              resultEvent,
+              { ...attempts[0][1], result: outcome },
+            ])
+          : [],
+      );
+      await act(async () => {
+        result.current.onSend(
+          { selectedValues: [recoveryAnswer] },
+          'last-question',
+        );
+      });
+      expect(result.current.reGenerateConfirm.open).toBe(false);
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(count + 2);
     },
   );
 
