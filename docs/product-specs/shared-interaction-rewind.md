@@ -2,7 +2,7 @@
 title: Shared Interaction Rewind
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-11-01
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -57,6 +57,17 @@ question after a draft edit starts a fresh Debug session. Expired sessions, unkn
 missing checkpoints and old cache entries without exact interaction ownership
 report the existing localized errors; they do not silently restart the lesson.
 There is no database migration. Debug cache entries expire after 30 minutes.
+
+## Replaying pending questions
+
+A published lesson can redisplay a pending question while the learner answers
+another question from the same turn. Durable turn records associate emitted
+controls and accepted input with the engine's question identities. History
+shows the original control and its answer, and attaches follow-ups from later
+displays to that control in the page, event replay and model history. This
+requires evidence that the same question was still pending in the same learner,
+course, lesson and progress record. Distinct questions remain separate even
+when their text matches. Records with insufficient evidence keep their controls.
 
 ## Verification and analytics
 

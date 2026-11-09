@@ -15,7 +15,7 @@ from markdownflow import InteractionParser
 from pydantic import ValidationError
 
 from .legacy_protocol import render_interaction
-from .rewind import read_turn_learner_values, read_turn_record
+from .rewind import read_turn_learner_values, read_turn_record, recorded_question_ids
 
 if TYPE_CHECKING:
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
@@ -79,6 +79,11 @@ def _unanswered_call_ids(block: LearnGeneratedBlock) -> set[str]:
     ):
         return set()
     ids = {question["tool_call_id"] for question in pending}
+    if "answered_question_id" in record:
+        accepted = record["answered_question_id"]
+        if isinstance(accepted, str):
+            ids.discard(accepted)
+        return ids
     try:
         spec = InteractionSpec.model_validate(pending[0].get("spec"))
     except ValidationError:
@@ -91,8 +96,43 @@ def _unanswered_call_ids(block: LearnGeneratedBlock) -> set[str]:
     return ids
 
 
+def _scope(
+    row: LearnGeneratedBlock | LearnGeneratedElement,
+) -> tuple[str, str, str, str]:
+    return row.user_bid, row.shifu_bid, row.outline_item_bid, row.progress_record_bid
+
+
+def _project_repeated_controls(
+    blocks: list[LearnGeneratedBlock],
+    controls: dict[str, dict[str, LearnGeneratedElement]],
+    repeated: dict[str, dict[str, str]],
+) -> None:
+    visible: dict[tuple[str, str, str, str], dict[str, str]] = {}
+    for block in blocks:
+        scope = _scope(block)
+        identities = controls.get(block.generated_block_bid, {})
+        question_ids = recorded_question_ids(read_turn_record(block), len(identities))
+        if (
+            not block.progress_record_bid
+            or question_ids is None
+            or any(_scope(row) != scope for row in identities.values())
+        ):
+            visible.pop(scope, None)
+            continue
+        shown = visible.setdefault(scope, {})
+        for finished_id in shown.keys() - _unanswered_call_ids(block):
+            del shown[finished_id]
+        for identity, question_id in zip(identities, question_ids, strict=True):
+            original = shown.setdefault(question_id, identity)
+            if original != identity:
+                repeated.setdefault(block.progress_record_bid, {})[identity] = original
+
+
 def project_interaction_inputs(
-    blocks: list[LearnGeneratedBlock], rows: list[LearnGeneratedElement]
+    blocks: list[LearnGeneratedBlock],
+    rows: list[LearnGeneratedElement],
+    *,
+    repeated_controls: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, str]:
     """Read answers from checkpoint inputs, keyed by the original interaction element.
 
@@ -119,16 +159,14 @@ def project_interaction_inputs(
         if identity:
             controls.setdefault(row.generated_block_bid, {})[identity] = row
 
+    if repeated_controls is not None:
+        _project_repeated_controls(blocks, controls, repeated_controls)
+
     previous_by_scope: dict[tuple[str, str, str, str], LearnGeneratedBlock] = {}
     questions_by_scope: dict[tuple[str, str, str, str], dict[str, list[str]]] = {}
     result: dict[str, str] = {}
     for block in blocks:
-        scope = (
-            block.user_bid,
-            block.shifu_bid,
-            block.outline_item_bid,
-            block.progress_record_bid,
-        )
+        scope = _scope(block)
         previous = previous_by_scope.get(scope)
         previous_by_scope[scope] = block
         record = read_turn_record(block)
@@ -144,7 +182,24 @@ def project_interaction_inputs(
             if old_id not in remaining:
                 del questions[old_id]
         previous_controls = controls.get(previous.generated_block_bid, {})
-        if len(previous_controls) <= len(pending):
+        recorded = recorded_question_ids(
+            read_turn_record(previous), len(previous_controls)
+        )
+        if recorded is not None:
+            pending_ids = {
+                item["tool_call_id"]
+                for item in pending
+                if isinstance(item, dict) and isinstance(item.get("tool_call_id"), str)
+            }
+            for identity, question_id in zip(previous_controls, recorded, strict=True):
+                if (
+                    question_id in pending_ids
+                    and _scope(previous_controls[identity]) == scope
+                ):
+                    identities = questions.setdefault(question_id, [])
+                    if identity not in identities:
+                        identities.append(identity)
+        elif len(previous_controls) <= len(pending):
             for (identity, row), question in zip(
                 previous_controls.items(), pending, strict=False
             ):
@@ -171,6 +226,11 @@ def project_interaction_inputs(
             not isinstance(first, dict)
             or not isinstance(first.get("tool_call_id"), str)
             or not values
+        ):
+            continue
+        if (
+            "answered_question_id" in record
+            and record["answered_question_id"] != first["tool_call_id"]
         ):
             continue
         identities = questions.get(first.get("tool_call_id"), [])

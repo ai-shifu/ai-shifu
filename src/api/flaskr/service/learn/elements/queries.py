@@ -32,6 +32,31 @@ def _load_latest_active_element_row(
     )
 
 
+def _repeated_anchor_aliases(anchor: LearnGeneratedElement) -> dict[str, str]:
+    if anchor.element_type != ElementType.INTERACTION.value:
+        return {}
+
+    from flaskr.service.learn.elements.history import (
+        _load_interaction_user_input_by_block_bid,
+    )
+
+    controls = LearnGeneratedElement.query.filter_by(
+        progress_record_bid=anchor.progress_record_bid,
+        user_bid=anchor.user_bid,
+        shifu_bid=anchor.shifu_bid,
+        outline_item_bid=anchor.outline_item_bid,
+        event_type="element",
+        element_type=ElementType.INTERACTION.value,
+        deleted=0,
+        status=1,
+    ).all()
+    aliases_by_progress: dict[str, dict[str, str]] = {}
+    _load_interaction_user_input_by_block_bid(
+        controls, repeated_controls=aliases_by_progress
+    )
+    return aliases_by_progress.get(anchor.progress_record_bid, {})
+
+
 def find_follow_up_element_rows(
     progress_record_bid: str,
     anchor_element_bid: str,
@@ -39,9 +64,15 @@ def find_follow_up_element_rows(
     """Read anchor sidecars in turn order, not run-local generation order."""
     if not progress_record_bid or not anchor_element_bid:
         return []
+    anchor = _load_latest_active_element_row(anchor_element_bid)
+    if anchor is None or anchor.progress_record_bid != progress_record_bid:
+        return []
     rows = (
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.progress_record_bid == progress_record_bid,
+            LearnGeneratedElement.user_bid == anchor.user_bid,
+            LearnGeneratedElement.shifu_bid == anchor.shifu_bid,
+            LearnGeneratedElement.outline_item_bid == anchor.outline_item_bid,
             LearnGeneratedElement.event_type == "element",
             LearnGeneratedElement.element_type.in_(
                 [ElementType.ASK.value, ElementType.ANSWER.value]
@@ -52,13 +83,24 @@ def find_follow_up_element_rows(
         .order_by(LearnGeneratedElement.id.asc())
         .all()
     )
-    matched_rows: list[LearnGeneratedElement] = []
-    payloads = {}
-    for row in rows:
-        payload = _deserialize_payload(row.payload or "")
-        if (payload.anchor_element_bid or "") == anchor_element_bid:
-            matched_rows.append(row)
-            payloads[row.id] = payload
+    payloads = {row.id: _deserialize_payload(row.payload or "") for row in rows}
+    aliases = (
+        _repeated_anchor_aliases(anchor)
+        if any(
+            payload.anchor_element_bid != anchor_element_bid
+            for payload in payloads.values()
+        )
+        else {}
+    )
+    original_anchor = aliases.get(anchor_element_bid, anchor_element_bid)
+    matched_rows = [
+        row
+        for row in rows
+        if aliases.get(
+            payloads[row.id].anchor_element_bid, payloads[row.id].anchor_element_bid
+        )
+        == original_anchor
+    ]
     ask_order = {
         row.element_bid: row.id
         for row in matched_rows

@@ -51,6 +51,8 @@ if TYPE_CHECKING:
 
 def _load_interaction_user_input_by_block_bid(
     rows: list[LearnGeneratedElement],
+    *,
+    repeated_controls: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, str]:
     interaction_block_bids = {
         row.generated_block_bid or ""
@@ -161,7 +163,9 @@ def _load_interaction_user_input_by_block_bid(
             .all()
         )
         interaction_user_input_by_block_bid.update(
-            project_interaction_inputs(turn_blocks, rows)
+            project_interaction_inputs(
+                turn_blocks, rows, repeated_controls=repeated_controls
+            )
         )
     return interaction_user_input_by_block_bid
 
@@ -676,6 +680,13 @@ def _attach_follow_up_history_to_anchor_payload(
     return elements
 
 
+def _remap_follow_up_anchor(element: ElementDTO, aliases: dict[str, str]) -> None:
+    if element.element_type not in {ElementType.ASK, ElementType.ANSWER}:
+        return
+    if element.payload and element.payload.anchor_element_bid in aliases:
+        element.payload.anchor_element_bid = aliases[element.payload.anchor_element_bid]
+
+
 def _merge_progress_elements(
     *,
     progress_records: list[LearnProgressRecord],
@@ -701,8 +712,9 @@ def _merge_progress_elements(
             continue
         rows_by_progress.setdefault(progress_bid, []).append(row)
 
+    repeated_controls: dict[str, dict[str, str]] = {}
     interaction_user_input_by_block_bid = _load_interaction_user_input_by_block_bid(
-        rows
+        rows, repeated_controls=repeated_controls
     )
 
     collected_elements: list[ElementDTO] = []
@@ -713,11 +725,22 @@ def _merge_progress_elements(
         progress_bid = progress_record.progress_record_bid or ""
         progress_rows = rows_by_progress.get(progress_bid, [])
         active_blocks = active_blocks_by_progress_bid.get(str(progress_bid), [])
+        aliases = repeated_controls.get(progress_bid, {})
         persisted_elements, persisted_events = _build_final_elements_from_rows(
-            progress_rows,
+            [
+                row
+                for row in progress_rows
+                if row.element_type != ElementType.INTERACTION.value
+                or (row.target_element_bid or row.element_bid) not in aliases
+            ],
             interaction_user_input_by_block_bid=interaction_user_input_by_block_bid,
             include_non_navigable=include_non_navigable,
         )
+        for element in persisted_elements:
+            _remap_follow_up_anchor(element, aliases)
+        for event in persisted_events or ():
+            if isinstance(event.content, ElementDTO):
+                _remap_follow_up_anchor(event.content, aliases)
         persisted_block_bids = {
             row.generated_block_bid or ""
             for row in progress_rows
