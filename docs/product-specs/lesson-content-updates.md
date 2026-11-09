@@ -10,8 +10,8 @@ canonical: true
 
 A started or completed MarkdownFlow 2.0 lesson recommends a retake when its
 current lesson content revision differs from the revision saved with the first
-messages of that learning attempt. Published learning uses the published
-revision; teacher preview uses the draft revision.
+messages or with automatic completion of an empty lesson. Published learning
+uses the published revision; teacher preview uses the draft revision.
 
 Here, **lesson content** means the lesson's MarkdownFlow script stored in its
 `content` field, excluding the title and settings. **Learning attempt** means
@@ -32,7 +32,7 @@ Continuing, asking a follow-up question or reading history never advances the
 attempt's baseline. Both entry points compare the same active attempt with the
 version selected by the request. Retaking retires that shared attempt; its
 replacement records the selected version's baseline when its first nonempty
-message history is saved.
+message history is saved or the empty lesson is completed.
 
 ## Revision and API contract
 
@@ -43,9 +43,9 @@ message history is saved.
   session JSON.
 - The only new database column is nullable `BIGINT`
   `LearnAgentSession.content_revision`. A new attempt records its baseline at
-  the first save of a nonempty message history, after the source is reserved.
-  A positive value is a known baseline; `0` means messages were
-  saved while the source revision was unknown. `NULL` means a legacy or unstarted
+  the first save of a nonempty message history or on completion without a
+  script, after the source is reserved. A positive value is a known baseline.
+  `0` means the source revision was unknown. `NULL` means a legacy or unstarted
   session. Existing legacy sessions retain `NULL` and are never backfilled,
   including when they resume.
 - A notice requires an active, correctly scoped session, known positive

@@ -7,6 +7,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent.models import (
+    AGENT_SESSION_NO_HISTORY_VERSION,
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
     active_key_for,
@@ -144,13 +145,14 @@ def test_identity_is_required_by_both_paths(
 
 
 @pytest.mark.parametrize("preview", [False, True])
-@pytest.mark.parametrize("schema_version", [0, AGENT_SESSION_SCHEMA_VERSION + 1])
 @pytest.mark.parametrize("baseline", [None, 11])
 @pytest.mark.parametrize(
-    ("turn", "finished", "expected"),
+    ("schema_version", "turn", "finished"),
     [
-        (1, 0, LessonContentState(started=True)),
-        (0, 1, LessonContentState(started=True, finished=True)),
+        (AGENT_SESSION_NO_HISTORY_VERSION, 1, 0),
+        (AGENT_SESSION_NO_HISTORY_VERSION, 1, 1),
+        (AGENT_SESSION_SCHEMA_VERSION + 1, 1, 0),
+        (AGENT_SESSION_SCHEMA_VERSION + 1, 0, 1),
     ],
 )
 def test_unknown_schema_keeps_scalar_progress_but_cannot_recommend_updates(
@@ -160,7 +162,6 @@ def test_unknown_schema_keeps_scalar_progress_but_cannot_recommend_updates(
     baseline: int | None,
     turn: int,
     finished: int,
-    expected: LessonContentState,
 ) -> None:
     with app.app_context():
         fixture = _seed(
@@ -168,6 +169,7 @@ def test_unknown_schema_keeps_scalar_progress_but_cannot_recommend_updates(
         )
         with unit_of_work():
             fixture.row.schema_version = schema_version
+        expected = LessonContentState(started=True, finished=bool(finished))
         assert _load(fixture)[fixture.outline_bid] == expected
         assert _loaded_state(fixture) == expected
 

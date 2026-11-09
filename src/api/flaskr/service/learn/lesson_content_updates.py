@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.learn.agent.models import (
+    AGENT_SESSION_NO_HISTORY_VERSION,
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
     active_key_for,
@@ -33,15 +34,23 @@ def _content_state(
     finished: int,
     schema_version: int,
 ) -> LessonContentState:
-    # A persisted revision (including unknown=0) means actual messages were saved.
+    # A persisted revision marks a saved turn or a completion without a script.
     # Legacy sessions retain their scalar progress even without a known baseline.
     # An unreadable document schema only disqualifies the update recommendation.
     started = baseline is not None or turn > 0 or finished == 1
+    completed_without_history = (
+        schema_version == AGENT_SESSION_NO_HISTORY_VERSION
+        and turn == 0
+        and finished == 1
+    )
     return LessonContentState(
         started=started,
         finished=started and finished == 1,
         has_content_update=bool(
-            schema_version == AGENT_SESSION_SCHEMA_VERSION
+            (
+                schema_version == AGENT_SESSION_SCHEMA_VERSION
+                or completed_without_history
+            )
             and baseline
             and baseline > 0
             and current

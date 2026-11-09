@@ -148,11 +148,12 @@ def draft_only(
         prompts = [f"Question {number}?"]
         if number == 1 and first_turn_questions == 2:
             prompts.append("Deferred question?")
+        yield "\n\n" + "\n\n".join(prompts)
         yield {
             index: DeltaToolCall(
                 name="interact",
                 tool_call_id=f"question-{number}-{index}",
-                json_args=json.dumps({"type": "text", "prompt": prompt}),
+                json_args=json.dumps({"type": "text", "question": prompt}),
             )
             for index, prompt in enumerate(prompts)
         }

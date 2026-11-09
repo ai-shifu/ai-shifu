@@ -100,13 +100,14 @@ def test_nonstreaming_completion_uses_the_engine_interaction_schema(
     assert content_type == "application/json"
     assert completion["object"] == "chat.completion"
     assert completion["choices"][0]["finish_reason"] == "tool_calls"
-    (call,) = completion["choices"][0]["message"]["tool_calls"]
+    message = completion["choices"][0]["message"]
+    assert message["content"] == "e2e_answer"
+    (call,) = message["tool_calls"]
     assert call["type"] == "function"
     assert call["function"]["name"] == "interact"
     assert json.loads(call["function"]["arguments"]) == {
         "type": "single",
-        "prompt": "Choose a learning path",
-        "variable": "e2e_answer",
+        "question": "e2e_answer",
         "options": [
             {"display": "Visible A", "value": "a"},
             {"display": "Visible B", "value": "b"},
@@ -133,6 +134,7 @@ def test_stream_contains_indexed_tool_deltas_and_a_terminal_marker(
     assert all(chunk["object"] == "chat.completion.chunk" for chunk in chunks)
     delta = chunks[0]["choices"][0]["delta"]
     assert delta["role"] == "assistant"
+    assert delta["content"] == "e2e_answer"
     assert delta["tool_calls"][0]["index"] == 0
     assert delta["tool_calls"][0]["function"]["name"] == "interact"
     assert chunks[1]["choices"][0]["finish_reason"] == "tool_calls"

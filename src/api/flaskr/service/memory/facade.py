@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from flaskr.service.memory.course_memory import (
     course_memory_deletion_state,
     course_memory_value_versions,
+    load_referenced_course_memory,
 )
 from flaskr.service.memory.course_references import is_course_reference
 from flaskr.service.memory.course_values import get_user_profiles, save_user_profiles
@@ -17,6 +18,7 @@ from flaskr.service.profile.api import (
     global_profile_value_versions,
 )
 from flaskr.service.profile.dtos import ProfileToSave
+from markdownflow import MarkdownFlowDocument
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -47,6 +49,21 @@ def load_memory(
         else {}
     )
     variables.update(resolved)
+    if include_course_variables and reference_text:
+        documents = (
+            (reference_text,) if isinstance(reference_text, str) else reference_text
+        )
+        referenced = {
+            key
+            for document in documents
+            if document
+            for key in MarkdownFlowDocument(document=document).extract_variables()
+        }
+        variables.update(
+            load_referenced_course_memory(
+                user_bid, shifu_bid, referenced - variables.keys()
+            )
+        )
     _, deleted = course_memory_deletion_state(user_bid, shifu_bid)
     for key in deleted:
         if not is_course_reference(key):

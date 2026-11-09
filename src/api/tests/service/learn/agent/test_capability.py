@@ -49,7 +49,7 @@ def _gateway(monkeypatch: pytest.MonkeyPatch, chunks: object) -> dict:
 def _call(
     index: int = 0,
     name: str = "interact",
-    arguments: str = '{"type":"confirm","prompt":"Continue?"}',
+    arguments: str = '{"type":"text","question":"What would you like to learn?"}',
 ) -> dict:
     return {"index": index, "name": name, "arguments": arguments}
 
@@ -64,6 +64,10 @@ def test_a_model_that_calls_the_tool_can_teach(monkeypatch: pytest.MonkeyPatch) 
     # different request than the one a turn makes.
     assert asked["emit_tool_calls"] is True
     assert asked["tools"][0]["function"]["name"] == "interact"
+    assert asked["tools"][0]["function"]["parameters"]["required"] == [
+        "type",
+        "question",
+    ]
     assert asked["model"] == "ark/some-model"
 
 
@@ -74,9 +78,11 @@ def test_arguments_split_across_chunks_are_stitched_back_together(
     _gateway(
         monkeypatch,
         [
-            _Chunk(tool_call_deltas=[_call(arguments='{"type":"conf')]),
+            _Chunk(tool_call_deltas=[_call(arguments='{"type":"te')]),
             _Chunk(
-                tool_call_deltas=[{"index": 0, "arguments": 'irm","prompt":"Go on?"}'}]
+                tool_call_deltas=[
+                    {"index": 0, "arguments": 'xt","question":"What is your goal?"}'}
+                ]
             ),
         ],
     )
@@ -96,7 +102,7 @@ def test_a_call_that_never_completes_is_not_good_enough(
         monkeypatch,
         [
             _Chunk(
-                tool_call_deltas=[_call(arguments='{"type":"conf')],
+                tool_call_deltas=[_call(arguments='{"type":"te')],
                 finish_reason="tool_calls",
             )
         ],
@@ -159,16 +165,16 @@ def test_a_model_that_cannot_be_reached_cannot_teach(
 @pytest.mark.parametrize(
     "arguments",
     [
-        pytest.param('{"type":"confirm","prompt":1}', id="number"),
-        pytest.param('{"type":"confirm","prompt":{"text":"Go on?"}}', id="object"),
-        pytest.param('{"type":"confirm","prompt":"   "}', id="blank"),
-        pytest.param('{"type":"confirm"}', id="missing"),
+        pytest.param('{"type":"text","question":1}', id="number"),
+        pytest.param('{"type":"text","question":{"text":"Goal?"}}', id="object"),
+        pytest.param('{"type":"text","question":"   "}', id="blank"),
+        pytest.param('{"type":"text"}', id="missing"),
     ],
 )
-def test_a_prompt_that_is_not_a_question_is_not_good_enough(
+def test_a_call_without_a_question_is_not_good_enough(
     monkeypatch: pytest.MonkeyPatch, arguments: str
 ) -> None:
-    """The tool declares `prompt` as a string; anything else is not a question to ask."""
+    """The tool requires a nonblank question string for a text answer."""
     _gateway(monkeypatch, [_Chunk(tool_call_deltas=[_call(arguments=arguments)])])
 
     assert capability.probe_model(_App(), "m").can_teach is False

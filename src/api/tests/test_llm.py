@@ -4605,7 +4605,7 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     from flaskr.api.langfuse import MockClient
     from flaskr.api.llm import model_selection
     from flaskr.api.markdownflow import ScriptBundle, Session
-    from flaskr.dao import db
+    from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.agent import lesson_entry
     from pydantic_ai.models import ModelRequestParameters
 
@@ -4661,13 +4661,17 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     with app.test_request_context():
         outline_type, course_type = lesson_entry._models(preview)
         course_bid, outline_bid = uuid4().hex, uuid4().hex
-        course = course_type(shifu_bid=course_bid, llm=selection, llm_temperature=0.4)
+        course = course_type(
+            shifu_bid=course_bid,
+            created_user_bid="selection-user",
+            llm=selection,
+            llm_temperature=0.4,
+        )
         outline = outline_type(
             shifu_bid=course_bid, outline_item_bid=outline_bid, content="Teach."
         )
-        db.session.add_all([course, outline])
-        db.session.flush()
-        db.session.commit()
+        with unit_of_work():
+            db.session.add_all([course, outline])
         list(
             lesson_entry.agent_lesson_events(
                 app,
@@ -4893,13 +4897,13 @@ async def test_real_chat_gateway_preserves_cache_observations_and_billing(
 
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
-@pytest.mark.parametrize("course_table", ["draft", "published"])
+@pytest.mark.parametrize("owner_table", ["draft", "published"])
 def test_agent_entry_attributes_all_model_usage_to_the_course(
     monkeypatch: pytest.MonkeyPatch,
     app: object,
     preview_mode: bool,
     learning_mode: str,
-    course_table: str,
+    owner_table: str,
 ) -> None:
     """Exercise entry, all three real adapters, shared chat normalization and persistence."""
     import asyncio
@@ -4908,28 +4912,18 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
     from flaskr.api import langfuse_markdownflow
     from flaskr.api.langfuse import MockClient
     from flaskr.api.llm import markdownflow_model as gateway_model
+    from flaskr.api.llm import model_selection
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.billing import ownership
     from flaskr.service.learn.agent import lesson_entry
-    from flaskr.service.learn.llmsetting import LLMSettings
     from flaskr.service.metering import recorder
     from flaskr.service.metering.models import BillUsageRecord
-    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+    from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
     from pydantic_ai.models import ModelRequestParameters
 
     _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
     identity = uuid.uuid4().hex
-    monkeypatch.setattr(
-        lesson_entry,
-        "_resolve",
-        lambda *_args, **_kwargs: (
-            "script",
-            "",
-            LLMSettings(model="gpt-test", temperature=0.25),
-            None,
-            False,
-        ),
-    )
     monkeypatch.setattr(langfuse_markdownflow, "get_langfuse_client", MockClient)
     monkeypatch.setattr(
         recorder, "_enqueue_usage_settlement", lambda *_args, **_kw: None
@@ -4973,9 +4967,38 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
     with app.app_context():
         course_bid = uuid.uuid4().hex
         owner_bid = uuid.uuid4().hex
-        table = DraftShifu if course_table == "draft" else PublishedShifu
+        outline_type, course_type = lesson_entry._models(preview_mode)
+        owner_type = DraftShifu if owner_table == "draft" else PublishedShifu
         with unit_of_work():
-            db.session.add(table(shifu_bid=course_bid, created_user_bid=owner_bid))
+            db.session.add_all(
+                [
+                    course_type(
+                        shifu_bid=course_bid,
+                        created_user_bid=owner_bid if owner_type is course_type else "",
+                        llm="1",
+                        llm_temperature=0.25,
+                    ),
+                    outline_type(
+                        shifu_bid=course_bid,
+                        outline_item_bid="course-usage-lesson",
+                        content="Teach.",
+                    ),
+                ]
+            )
+            if owner_type is not course_type:
+                # Billing can resolve the owner from the other course version.
+                db.session.add(
+                    owner_type(shifu_bid=course_bid, created_user_bid=owner_bid)
+                )
+            if preview_mode:
+                db.session.add(
+                    AiCourseAuth(
+                        course_id=course_bid,
+                        user_id=identity,
+                        auth_type="view",
+                        status=1,
+                    )
+                )
         assert (
             list(
                 lesson_entry.agent_lesson_events(

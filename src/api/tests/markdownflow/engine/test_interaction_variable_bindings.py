@@ -207,7 +207,15 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
         elif calls == 2:
             name, arguments = (
                 "interact",
-                spec.model_dump(exclude={"labelled_by_engine"}, exclude_none=True),
+                spec.model_dump(
+                    by_alias=True,
+                    exclude={
+                        "labelled_by_engine",
+                        "question_owns_memory",
+                        "structured_correction",
+                    },
+                    exclude_none=True,
+                ),
             )
         else:
             yield "Continue with the learner's answer."

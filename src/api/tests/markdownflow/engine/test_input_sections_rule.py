@@ -24,12 +24,11 @@ def test_the_first_message_s_sections_are_not_written_back() -> None:
     assert "a tool call, or a tool's arguments" in rule
 
 
-def test_remember_is_the_only_way_to_store_and_answers_are_stored_already() -> None:
-    """The leaked note recorded an answer `interact` had already stored under its variable."""
+def test_question_answers_are_stored_before_any_separate_remember_call() -> None:
+    """The leaked note recorded an answer that `interact` had already stored."""
     rule = _rule(4)
-    assert "Calling `remember` is the only way to store anything" in rule
-    assert "already stored" in rule
-    assert "do not store it again" in rule
+    assert "An accepted answer to `interact` is stored under its `question`" in rule
+    assert "Use `remember` only for other writes allowed by the memory policy" in rule
 
 
 def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
@@ -39,12 +38,16 @@ def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
         assert tag in script_source
 
 
-def test_the_notation_says_a_variable_is_collected_by_interact_not_remember() -> None:
-    """The system prompt says an `interact` variable is already stored; the notation must agree."""
+def test_the_notation_uses_one_question_for_display_and_storage() -> None:
+    """The syntax and system instructions agree on what identifies an answer."""
     notation = (_PROMPTS / "syntax.md").read_text()
-    assert "as the `variable` of the `interact` call" in notation
-    assert "do not `remember` it as well" in notation
-    assert "call `remember` with that name as the key" not in notation
+    assert (
+        "use that exact text in the lesson prose and in `interact.question`" in notation
+    )
+    assert "?[{{a question}} ...]" in notation
+    assert "{{What would you like to learn?}}" in notation
+    assert 'question="What would you like to learn?"' in notation
+    assert "The answer is saved under `What would you like to learn?`" in notation
 
 
 def test_the_notation_says_how_to_read_an_escape_in_an_option() -> None:

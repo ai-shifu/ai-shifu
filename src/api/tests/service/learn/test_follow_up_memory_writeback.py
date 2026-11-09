@@ -213,20 +213,26 @@ def test_plain_question_does_not_add_admission_model_requests() -> None:
 
 
 @pytest.mark.parametrize(
-    ("snapshot", "expected"),
+    ("snapshot", "value_offset", "expected"),
     [
-        ({"analogy": "bus station"}, {"status": "found", "value": "bus station"}),
-        ({}, {"status": "unavailable"}),
-        ({"analogy": "x" * 9000}, {"status": "too_large"}),
+        ({"analogy": "bus station"}, None, {"status": "found", "value": "bus station"}),
+        ({}, None, {"status": "unavailable"}),
+        ({"analogy": "x" * 9000}, None, {"status": "too_large"}),
         (
             {"analogy": "\u754c" * 2721},
+            None,
             {"status": "found", "value": "\u754c" * 2721},
         ),
-        ({"analogy": "\u754c" * 2721 + "x"}, {"status": "too_large"}),
+        ({"analogy": "\u754c" * 2721 + "x"}, None, {"status": "too_large"}),
+        (
+            {"analogy": "x" * 9000 + "bus station"},
+            9000,
+            {"status": "value_page", "value": "bus station", "next_value_offset": None},
+        ),
     ],
 )
 def test_follow_up_reads_current_memory_instead_of_old_answer(
-    snapshot: dict[str, str], expected: dict[str, str]
+    snapshot: dict[str, str], value_offset: int | None, expected: dict[str, object]
 ) -> None:
     checker = AsyncMock()
     patch = FollowUpMemoryPatch()
@@ -281,7 +287,14 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
             )
             yield "Current memory checked."
         else:
-            yield {0: DeltaToolCall(name="recall", json_args='{"key":"analogy"}')}
+            yield {
+                0: DeltaToolCall(
+                    name="recall",
+                    json_args=json.dumps(
+                        {"key": "analogy", "value_offset": value_offset}
+                    ),
+                )
+            }
 
     run = FollowUpMemoryRun(
         FunctionModel(stream_function=stream),

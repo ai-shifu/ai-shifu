@@ -1,3 +1,3 @@
 # Memory policy
 
-When the script says to record, remember, store, or save something about the learner, call `remember` with a short key and the learner's own words as the value. Also call `remember` when the learner states a preference or a request that should shape the rest of the session. A script may name an `interact` variable with a leading `?[{{name}} ...]` binding or a natural instruction such as "store it as X".
+Accepted answers to `interact` are stored under their `question`. When a control has a leading `?[{{key}} ...]` binding, `key` is the exact question and can be referenced later with `{{key}}`. Use `remember` for other facts the script asks you to record or when the learner states a preference or a request that should shape the rest of the session.

@@ -73,6 +73,27 @@ def course_memory_value_versions(
     return {row.key: row.id for row in query.all()}
 
 
+def load_referenced_course_memory(
+    user_bid: str, shifu_bid: str, keys: set[str]
+) -> dict[str, str]:
+    """Read explicitly referenced questions, including older live answers."""
+    requested = [key.encode("utf-8") for key in keys if not is_course_reference(key)]
+    if not shifu_bid or not requested:
+        return {}
+    exact_key = cast(VariableValue.key, LargeBinary)
+    heads = (
+        _course_rows(user_bid, shifu_bid)
+        .filter(VariableValue.deleted == 0, exact_key.in_(requested))
+        .with_entities(func.max(VariableValue.id))
+        .group_by(exact_key)
+        .subquery()
+    )
+    return {
+        row.key: row.value
+        for row in VariableValue.query.filter(VariableValue.id.in_(select(heads)))
+    }
+
+
 def list_course_memory(
     user_bid: str, shifu_bid: str, *, before: int | None = None
 ) -> dict:

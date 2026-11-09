@@ -1019,29 +1019,34 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps).not.toHaveProperty('playerTexts');
   });
 
-  it.each(['listen', 'classroom'] as const)(
-    'uses each interaction question as its title when navigating %s history',
-    variant => {
+  it.each([
+    ['listen', false],
+    ['classroom', false],
+    ['listen', true],
+    ['classroom', true],
+  ] as const)(
+    'uses each interaction question as its title in %s with history %s',
+    (variant, isHistory) => {
       const items: ChatContentItem[] = [
         {
           element_bid: 'first-question',
           type: 'interaction',
           content: '?[A | B]',
-          isHistory: true,
+          isHistory,
           payload: { interaction_question: 'Q?' },
         },
         {
           element_bid: 'second-question',
           type: 'interaction',
           content: '?[C | D]',
-          isHistory: true,
+          isHistory,
           payload: { interaction_question: 'Which example comes second?' },
         },
         {
           element_bid: 'legacy-question',
           type: 'interaction',
           content: '?[E | F]',
-          isHistory: true,
+          isHistory,
         },
       ];
       render(

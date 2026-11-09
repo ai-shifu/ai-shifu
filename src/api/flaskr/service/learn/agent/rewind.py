@@ -43,6 +43,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
 )
 from flaskr.util.datetime import now_utc
+from pydantic_ai.messages import ToolCallPart
 
 if TYPE_CHECKING:
     from flaskr.api.markdownflow import Session
@@ -177,8 +178,20 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     from flaskr.api.markdownflow import Session as SessionClass
 
     state = session.to_dict()
+    message_count = int(checkpoint.get("messages") or 0)
+    retained_calls = {
+        part.tool_call_id
+        for message in session.messages[:message_count]
+        for part in message.parts
+        if isinstance(part, ToolCallPart) and part.tool_name == "interact"
+    }
     state.update(
         memory=checkpoint.get("memory") or {},
+        interaction_specs={
+            call_id: spec
+            for call_id, spec in state.get("interaction_specs", {}).items()
+            if call_id in retained_calls
+        },
         pending=checkpoint.get("pending") or [],
         answers=checkpoint.get("answers") or {},
         request_inputs=checkpoint.get("request_inputs") or [],
@@ -186,7 +199,7 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
         finished=bool(checkpoint.get("finished", False)),
         interrupted=bool(checkpoint.get("interrupted", False)),
     )
-    state["messages"] = state["messages"][: int(checkpoint.get("messages") or 0)]
+    state["messages"] = state["messages"][:message_count]
     if "answer_hashes" in checkpoint:
         state["answer_hashes"] = checkpoint["answer_hashes"]
     else:
@@ -194,6 +207,7 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     restored = SessionClass.from_dict(state)
     session.messages = restored.messages
     session.memory = restored.memory
+    session.interaction_specs = restored.interaction_specs
     session.answer_hashes = restored.answer_hashes
     # Restored memory reflects the deletions seen when the checkpoint was taken, so later
     # deletions are refreshed again. Older checkpoints refresh every deleted-once key.

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field, replace
+from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any, Literal
 
+from markdown_it import MarkdownIt
 from pydantic import ValidationError
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
 from pydantic_ai.messages import (
@@ -58,6 +61,7 @@ class Deps:
     history_len: int = 0
     # Transient request guidance; never persisted as learner evidence or a grade.
     resuming_interaction: bool = False
+    legacy_interact_args: bool = False
     authored_text: str = ""
     authored_answer_reference: str | None = None
     direction_answers: dict[str, str] = field(default_factory=dict)
@@ -75,11 +79,15 @@ class Deps:
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
+    question_text_filter: Callable[[str], str] | None = None
+    question_text_context: Callable[[str], str] | None = None
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in MarkdownFlow notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
     # Authored text-input questions, used only to repair an extra placeholder button.
     script_text_inputs: tuple[_Question, ...] = ()
+    script_questions: tuple[_Question, ...] = ()
+    translated_controls: bool = False
     literal_interaction_markup: frozenset[str] = frozenset()
     interaction_markup_pending: bool = False
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
@@ -89,6 +97,7 @@ class Deps:
     # None preserves a portable host's existing unrestricted memory contract.
     memory_keys: frozenset[str] | None = None
     memory_reserved_keys: frozenset[str] = frozenset()
+    allowed_authored_question_keys: frozenset[str] = frozenset()
     memory_readonly_prefixes: tuple[str, ...] = ()
     memory_deleted_keys: frozenset[str] = frozenset()
     request_inputs: tuple[str, ...] = ()
@@ -269,6 +278,7 @@ class _Question:
     placeholder: str | None
     written_placeholder: str | None
     multi: bool
+    preceding_line: str = ""
 
 
 def _script_questions(script_text: str) -> list[_Question]:
@@ -284,7 +294,18 @@ def _script_question_spans(script_text: str) -> list[tuple[int, int, _Question]]
     """Return each question with its source span, from the shared marker scanner."""
     text = script_text
     questions: list[tuple[int, int, _Question]] = []
+    lines = iter(text.splitlines(keepends=True))
+    line = next(lines, "")
+    line_start = 0
+    preceding_line = ""
     for start, end_exclusive in analyze_marker_context(text).controls:
+        while line and line_start + len(line) <= start:
+            preceding_line = line.strip() or preceding_line
+            line_start += len(line)
+            line = next(lines, "")
+        inline_prefix = line[
+            max(0, start - line_start - _MEMORY_KEY_LIMIT) : start - line_start
+        ]
         end = end_exclusive - 1
         raw = text[start + 2 : end]
         variable = read_interaction_variable(raw)
@@ -322,6 +343,7 @@ def _script_question_spans(script_text: str) -> list[tuple[int, int, _Question]]
                     if ellipsis >= 0
                     else None,
                     multi=multi,
+                    preceding_line=inline_prefix.strip() or preceding_line,
                 ),
             )
         )
@@ -333,87 +355,204 @@ def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
     return tuple(q for q in _script_questions(script_text) if q.placeholder)
 
 
+def authored_interaction_questions(script_text: str) -> tuple[_Question, ...]:
+    """Read the lesson's authored controls for new question-only tool calls."""
+    return tuple(_script_questions(script_text))
+
+
+def _authored_choice_values(question: _Question) -> list[str]:
+    return [
+        _unescape(_split_unescaped(choice, "//")[:2][-1].strip())
+        for choice in question.choices
+        if choice.strip()
+    ]
+
+
+def _authored_controls_match(
+    authored: _Question,
+    kind: InteractionType,
+    options: list[Option],
+    placeholder: str | None,
+    *,
+    ignore_placeholder: bool = False,
+) -> bool:
+    choices = _authored_choice_values(authored)
+    if choices != [option.stored for option in options]:
+        return False
+    hint_matches = ignore_placeholder or placeholder in (
+        authored.placeholder,
+        authored.written_placeholder,
+    )
+    if kind == "text":
+        return authored.text and not choices and hint_matches
+    if authored.text:
+        return (
+            kind == ("multi_or_text" if authored.multi else "single_or_text")
+            and hint_matches
+        )
+    return kind == ("multi" if authored.multi else "single")
+
+
+def _authored_binding(
+    deps: Deps,
+    kind: InteractionType,
+    question: str,
+    options: list[Option],
+    placeholder: str | None,
+    *,
+    allow_different_hint: bool = False,
+) -> tuple[set[str | None], bool, bool]:
+    matches = [
+        item
+        for item in deps.script_questions
+        if _authored_controls_match(item, kind, options, placeholder)
+    ]
+    if not matches and (
+        allow_different_hint
+        or not (placeholder or "").strip()
+        or deps.translated_controls
+    ):
+        # The input hint may change while its authored control shape stays the same.
+        matches = [
+            item
+            for item in deps.script_questions
+            if _authored_controls_match(
+                item, kind, options, placeholder, ignore_placeholder=True
+            )
+        ]
+    if options and (not matches or question):
+        repaired = [
+            item
+            for item in deps.script_text_inputs
+            if (
+                candidate := _script_text_input_candidate(
+                    item, kind, options, placeholder, restore_missing_input=True
+                )
+            )
+            is not None
+            and (candidate[0] != kind or len(candidate[1]) < len(options))
+        ]
+        if not matches or any(
+            question in (item.variable, item.preceding_line) for item in repaired
+        ):
+            matches.extend(repaired)
+    exact = [item for item in matches if question and question == item.variable]
+    preceding = [
+        item for item in matches if question and question == item.preceding_line
+    ]
+    matches = exact or preceding or matches
+    names = {item.variable for item in matches}
+    navigation = (
+        kind == "single"
+        and len(options) == 1
+        and bool(matches)
+        and names == {None}
+        and not any(
+            item.text
+            or _markdown_prose(item.preceding_line)
+            .rstrip()
+            .endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
+            for item in matches
+        )
+    )
+    return names, navigation, bool(matches) and all(item.text for item in matches)
+
+
+def _script_text_input_candidate(
+    question: _Question,
+    kind: InteractionType,
+    options: list[Option],
+    placeholder: str | None,
+    *,
+    restore_missing_input: bool = False,
+) -> tuple[InteractionType, list[Option], str | None] | None:
+    kinds = (
+        ("multi", "multi_or_text")
+        if question.multi
+        else ("single", "single_or_text", "text")
+    )
+    if kind not in kinds:
+        return None
+    authored = _authored_choice_values(question)
+    hint = question.placeholder or ""
+    forms = {hint, question.written_placeholder or hint}
+    extras = {
+        marker + value
+        for marker in ("", "...")
+        for value in forms
+        if marker + value not in authored
+    }
+    display_hints = {
+        hint
+        if option.display in forms or option.display.removeprefix("...") in forms
+        else option.display.removeprefix("...")
+        for option in options
+        if option.stored in extras
+    }
+    if placeholder not in (None, "", *forms, *display_hints):
+        return None
+    mixed: InteractionType = "multi_or_text" if question.multi else "single_or_text"
+    if [option.stored for option in options] == authored:
+        if restore_missing_input and authored:
+            return mixed, options, placeholder or hint
+        return kind, options, placeholder
+    remaining = [option for option in options if option.stored not in extras]
+    if [option.stored for option in remaining] != authored or len(display_hints) != 1:
+        return None
+    # The duplicate's stable value identifies its display, including localized hints.
+    restored_hint = next(iter(display_hints))
+    if not restored_hint.strip():
+        return None
+    return mixed if authored else "text", remaining, restored_hint
+
+
 def normalize_script_text_input(
     spec: InteractionSpec,
     questions: tuple[_Question, ...],
+    *,
+    restore_missing_input: bool = False,
 ) -> InteractionSpec:
     """Restore a missing text hint or remove its duplicate generated choice.
 
     The remaining stored values must be the author's exact ordered choices; display text
     may be translated. A hint stored as a real choice or a model-created value is kept.
     Text-only questions must match the copied prompt and the same variable.
-    Ambiguous questions and unrelated explicit placeholders are left unchanged.
+    Restore an entirely missing input only after the caller rules out a matching
+    plain choice. Ambiguous questions and unrelated explicit placeholders stay unchanged.
     """
+    if spec.generated_control:
+        return spec
+    question_key = spec.source_question or spec.variable
+    authored_inputs = [q for q in questions if q.variable == question_key]
+    if spec.question_owns_memory and not authored_inputs:
+        authored_inputs = [q for q in questions if q.variable is None]
     if spec.type == "text" and not spec.options and not spec.placeholder:
         hints = {
             q.placeholder
-            for q in questions
-            if q.variable == spec.variable
-            and not any(c.strip() for c in q.choices)
-            and spec.prompt.strip() in (q.placeholder, q.written_placeholder)
+            for q in authored_inputs
+            if not any(c.strip() for c in q.choices)
+            and (
+                spec.question.strip() in (q.placeholder, q.written_placeholder)
+                or (spec.question_owns_memory and q.variable is not None)
+            )
         }
         if len(hints) == 1 and (hint := next(iter(hints))):
             return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
-    submitted = [o.stored for o in spec.options]
-    for question in questions:
-        if question.variable != spec.variable:
-            continue
-        kinds = (
-            ("multi", "multi_or_text")
-            if question.multi
-            else ("single", "single_or_text", "text")
+    for question in authored_inputs:
+        control = _script_text_input_candidate(
+            question,
+            spec.type,
+            spec.options,
+            spec.placeholder,
+            restore_missing_input=restore_missing_input,
         )
-        if spec.type not in kinds:
+        if control is None:
             continue
-        authored: list[str] = []
-        for choice in question.choices:
-            if not choice.strip():
-                continue
-            halves = [
-                _unescape(half.strip()) for half in _split_unescaped(choice, "//")[:2]
-            ]
-            authored.append(halves[1] if len(halves) > 1 else halves[0])
-        hint = question.placeholder or ""
-        forms = {hint, question.written_placeholder or hint}
-        extras = {
-            marker + value
-            for marker in ("", "...")
-            for value in forms
-            if marker + value not in authored
-        }
-        duplicate_hints = [o for o in spec.options if o.stored in extras]
-        display_hints = {
-            hint
-            if o.display in forms or o.display.removeprefix("...") in forms
-            else o.display.removeprefix("...")
-            for o in duplicate_hints
-        }
-        if spec.placeholder not in (None, "", *forms, *display_hints):
-            continue
-        remaining = [value for value in submitted if value not in extras]
-        if submitted == authored:
-            candidate = spec
-        elif remaining == authored and len(remaining) < len(submitted):
-            # A stable hint value identifies its translated display. Do not restore
-            # an authored-language placeholder over it or guess between translations.
-            if len(display_hints) != 1:
-                continue
-            restored_hint = next(iter(display_hints))
-            if not restored_hint.strip():
-                continue
-            kind: InteractionType = (
-                "multi_or_text" if question.multi else "single_or_text"
-            )
-            candidate = spec.model_copy(
-                update={
-                    "type": kind if authored else "text",
-                    "options": [o for o in spec.options if o.stored not in extras],
-                    "placeholder": restored_hint,
-                }
-            )
-        else:
-            continue
+        kind, options, placeholder = control
+        candidate = spec.model_copy(
+            update={"type": kind, "options": options, "placeholder": placeholder}
+        )
         candidates[candidate.model_dump_json()] = candidate
     return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
@@ -514,11 +653,11 @@ def _asked(call: ToolCallPart, written: dict[str, str]) -> tuple[object, ...] | 
         return None
     return _question(
         args.get("type"),
-        args.get("prompt") or "",
+        args.get("question") or args.get("prompt") or "",
         args.get("variable"),
         options,
         args.get("placeholder"),
-        written,
+        {} if args.get("generated_control") is True else written,
     )
 
 
@@ -529,6 +668,8 @@ def asks_the_answered_question_again(
     variable: str | None,
     options: list[Option] | None = None,
     placeholder: str | None = None,
+    *,
+    generated_control: bool = False,
 ) -> bool:
     """Whether this call repeats, word for word, the turn that asked a question just answered.
 
@@ -549,7 +690,14 @@ def asks_the_answered_question_again(
     if len(now) < _LOOP_FLOOR_CHARS:
         return False
     written = ctx.deps.script_options
-    question = _question(kind, prompt, variable, options, placeholder, written)
+    question = _question(
+        kind,
+        prompt,
+        variable,
+        options,
+        placeholder,
+        {} if generated_control else written,
+    )
     for index in range(min(start, len(messages)) - 1, -1, -1):
         msg = messages[index]
         if not isinstance(msg, ModelResponse):
@@ -616,6 +764,94 @@ def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
         ),
         None,
     )
+
+
+_HIDDEN_INLINE_STYLE = re.compile(
+    r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))"
+    r"\s*(?:!important\s*)?(?:;|$)",
+    re.IGNORECASE,
+)
+_VOID_HTML_TAGS = frozenset(
+    {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    }
+)
+
+
+class _QuestionHTMLVisibility(HTMLParser):
+    """Track actual HTML tags while Markdown tokens distinguish literal markup."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.hidden_tags: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _VOID_HTML_TAGS:
+            return
+        if (
+            self.hidden_tags
+            or tag in ("script", "style", "template")
+            or any(
+                name == "hidden"
+                or (name == "style" and _HIDDEN_INLINE_STYLE.search(value or ""))
+                for name, value in attrs
+            )
+        ):
+            self.hidden_tags.append(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        for index in range(len(self.hidden_tags) - 1, -1, -1):
+            if self.hidden_tags[index] == tag:
+                del self.hidden_tags[index:]
+                break
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        # HTML ignores the self-closing slash on non-void elements.
+        self.handle_starttag(tag, attrs)
+
+
+def _markdown_prose(text: str) -> str:
+    """Read visible prose from Markdown source."""
+    html = _QuestionHTMLVisibility()
+    visible: list[str] = []
+    for token in MarkdownIt("commonmark", {"html": True}).parse(text):
+        if token.type == "html_block":
+            html.feed(token.content)
+        if token.type != "inline" or not token.children:
+            continue
+        line: list[str] = []
+        for child in token.children:
+            if child.type == "html_inline":
+                html.feed(child.content)
+            elif not html.hidden_tags:
+                if child.type in ("text", "code_inline"):
+                    line.append(child.content)
+                elif child.type in ("softbreak", "hardbreak"):
+                    line.append(" ")
+        visible.append("".join(line))
+    return "\n".join(visible)
+
+
+def _question_prose(deps: Deps, text: str) -> str:
+    """Read question prose after applying the host's content filter."""
+    if deps.question_text_context is not None:
+        text = deps.question_text_context(text)
+    if deps.question_text_filter is not None:
+        text = deps.question_text_filter(text)
+    return _markdown_prose(text)
 
 
 def validate_direction_call(
@@ -743,13 +979,16 @@ def feedback_response_problem(
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
-    prompt: str,
+    question: str = "",
     options: list[Option] | None = None,
-    variable: str | None = None,
     placeholder: str | None = None,
+    generated_control: bool = False,
     direction: DirectionFeedback | None = None,
     review: FeedbackReview | None = None,
     feedback: DirectionFeedback | FeedbackReview | None = None,
+    *,
+    prompt: str | None = None,
+    variable: str | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -758,13 +997,13 @@ async def interact(
     `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
     without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
-    A `confirm` never takes a `variable`: pressing it says "go on", not an answer, and it is
-    dropped. To have the learner check something you wrote, ask it as `single`, or write the
-    read-back as content and pause with a plain `confirm`.
-    Give `options` for every type except `text`. `variable` is ONLY for a memory key the script
-    explicitly names; follow the host memory policy for eligible declarations. Leave it empty
-    otherwise. Copy its exact internal text, including spaces and punctuation; only surrounding
-    whitespace is trimmed. Do not translate, rename or collapse spaces in a declared name.
+    For an ordinary answer interaction, ask the complete question in visible prose first, then
+    call this tool with the same wording in `question`. The host stores the answer under that
+    wording. If the control starts with a `{{...}}` binding, use its exact text as the question,
+    even if it is short. Use an empty question only for a pause or an authored navigation-only control.
+    Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
+    it false for any control from the script, even when you formulate the question yourself.
+    Give `options` for every type except `text`.
     The learner's answer is returned as the tool result; then continue the script.
     Before personal feedback and the next interaction, cite the original submission
     supporting each claimed misconception. A quoted denial of prior storage does not
@@ -812,9 +1051,9 @@ async def interact(
     authored acknowledgement, or []. Only accepted/contradicted answer quotes and
     unanswered questions are displayed; diagnoses/criteria stay internal. The host
     checks provenance, not correctness or semantic focus.
-    Use type `text`, an empty `prompt`, and the same authored placeholder and eligible
-    variable as the answered input. Do not add another tool call or any free
-    content to that model response. This collects the correction directly, without
+    Use type `text` and the original authored placeholder. In `question`, copy the guiding
+    questions exactly in their order with a single space between them. Do not add another tool
+    call or any free content to that model response. This collects the correction directly, without
     a planning request. For passing answers, later authored help, navigation,
     clarification, stages without an authored count, multiple questions within one
     aspect, or an input without an
@@ -838,22 +1077,120 @@ async def interact(
             review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
-    if variable is not None and not variable.strip():
-        # An empty optional argument means the answer has no memory key.
-        variable = None
-    if variable is not None:
-        normalized_variable = normalize_variable_name(variable)
-        if normalized_variable is None:
-            message = "Use a nonblank variable name without control characters or a closing brace pair."
-            raise ModelRetry(message)
-        variable = normalized_variable
-    if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
-        message = "This variable is a read-only reference. Ask using a local variable instead."
+    if (
+        prompt is not None or variable is not None
+    ) and not ctx.deps.legacy_interact_args:
+        message = "Use question for the full learner-facing question. The former prompt and variable fields are no longer accepted."
         raise ModelRetry(message)
-    if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
-        variable = None
+    legacy_call = prompt is not None
+    source_question = None
+    owns_memory = False
+    restore_missing_input = False
+    if legacy_call:
+        question = prompt or ""
+        if variable is not None and not variable.strip():
+            variable = None
+        if variable is not None:
+            normalized_variable = normalize_variable_name(variable)
+            if normalized_variable is None:
+                message = "Use a nonblank variable name without control characters or a closing brace pair."
+                raise ModelRetry(message)
+            variable = normalized_variable
+        if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
+            message = "This variable is a read-only reference. Ask using a local variable instead."
+            raise ModelRetry(message)
+        if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
+            variable = None
+    else:
+        question = question.strip()
+        normalized_options = [
+            _as_the_script_writes_it(option, ctx.deps.script_options)
+            for option in options or []
+        ]
+        if generated_control:
+            if (
+                type == "confirm"
+                or direction is not None
+                or any(
+                    question == control.variable
+                    for control in ctx.deps.script_questions
+                )
+            ):
+                message = "Use generated_control only for a new answer control without an authored binding."
+                raise ModelRetry(message)
+            authored_questions, navigation = set(), False
+        else:
+            authored_questions, navigation, restore_missing_input = _authored_binding(
+                ctx.deps,
+                type,
+                question,
+                normalized_options,
+                placeholder,
+                allow_different_hint=True,
+            )
+        owns_memory = type != "confirm" and (direction is not None or not navigation)
+        if not owns_memory:
+            question = ""
+        variable = question if owns_memory else None
+        if owns_memory:
+            if (
+                direction is None
+                and authored_questions
+                and None not in authored_questions
+                and question not in authored_questions
+            ):
+                authored_wordings = sorted(
+                    wording for wording in authored_questions if wording is not None
+                )
+                message = (
+                    "Use the exact text of the intended authored question from these matching controls, and ask it in prose: "
+                    + json.dumps(authored_wordings, ensure_ascii=False)
+                )
+                raise ModelRetry(message)
+            if (
+                not question
+                or normalize_variable_name(question) is None
+                or len(question) > _MEMORY_KEY_LIMIT
+            ):
+                message = "Provide the complete question on one line, using 1 to 255 characters without a closing brace pair."
+                raise ModelRetry(message)
+            trusted_question = (
+                direction is None
+                and not generated_control
+                and question in ctx.deps.allowed_authored_question_keys
+                and question
+                in _authored_binding(
+                    ctx.deps, type, question, normalized_options, placeholder
+                )[0]
+            )
+            if question.startswith(ctx.deps.memory_readonly_prefixes) or (
+                not trusted_question
+                and (
+                    question.startswith("sys_")
+                    or question in ctx.deps.memory_reserved_keys
+                )
+            ):
+                message = "Ask a learner-facing question without using a reserved or read-only memory key as its wording."
+                raise ModelRetry(message)
+            if (
+                direction is not None or question not in authored_questions
+            ) and contains_interaction_markup(
+                question, ctx.deps.literal_interaction_markup
+            ):
+                message = "Provide only the question in question. Send answer controls through the tool's other fields."
+                raise ModelRetry(message)
+        if direction is not None and (
+            previous := ctx.deps.direction_inputs.get(direction.answer_id)
+        ):
+            source_question = previous.source_question or previous.variable
     if type != "confirm" and asks_the_answered_question_again(
-        ctx, type, prompt, variable, options, placeholder
+        ctx,
+        type,
+        question,
+        variable if legacy_call else None,
+        options,
+        placeholder,
+        generated_control=generated_control and not legacy_call,
     ):
         # Not a flat refusal: a script can ask again after a wrong answer, with the same
         # correction each time. Put that way, it is said to this answer and so reads differently.
@@ -884,18 +1221,28 @@ async def interact(
         # Not while a question written as text is owed: that pause would leave it owed, with
         # `finish` withheld and text refused, so the pause is asked for real and settles it.
         return NO_PAUSE
-    if ctx.deps.script_options:
+    if ctx.deps.script_options and (legacy_call or not generated_control):
         options = [
             _as_the_script_writes_it(o, ctx.deps.script_options) for o in options or []
         ]
     spec = InteractionSpec(
         type=type,
-        prompt=prompt,
+        question=question,
         options=options or [],
         variable=variable,
         placeholder=placeholder,
+        question_owns_memory=owns_memory,
+        generated_control=generated_control and not legacy_call,
+        structured_correction=direction is not None and not legacy_call,
+        source_question=source_question,
     )
-    spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
+    if legacy_call or owns_memory:
+        spec = normalize_script_text_input(
+            spec,
+            ctx.deps.script_text_inputs,
+            restore_missing_input=restore_missing_input,
+        )
+    direction_text = direction.render() if direction is not None else ""
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
         if direction.answer_id not in ctx.deps.direction_sections:
@@ -914,17 +1261,39 @@ async def interact(
         if not problem and (
             previous is None
             or spec.type != "text"
-            or spec.prompt != ""
             or spec.placeholder != previous.placeholder
-            or spec.variable != previous.variable
+        ):
+            problem = "direction requires the original text input placeholder"
+        if (
+            not problem
+            and previous is not None
+            and (
+                (
+                    legacy_call
+                    and (spec.question != "" or spec.variable != previous.variable)
+                )
+                or (
+                    not legacy_call
+                    and spec.question
+                    != " ".join(focus.guiding_question for focus in direction.focuses)
+                )
+            )
         ):
             problem = (
                 "direction requires an empty prompt and the original text input binding"
+                if legacy_call
+                else "direction requires question to contain the exact guiding questions in order, joined by one space"
             )
         if not problem and contains_interaction_markup(
-            direction.render(), ctx.deps.literal_interaction_markup
+            direction_text, ctx.deps.literal_interaction_markup
         ):
             problem = "direction must not contain unexecuted interaction markup"
+        if not problem and ctx.deps.question_text_filter is not None:
+            visible = _question_prose(ctx.deps, direction_text)
+            if any(
+                focus.guiding_question not in visible for focus in direction.focuses
+            ):
+                problem = "Each guiding question must be visible Markdown prose outside any hidden block"
         if not problem and (
             response is None
             or any(
@@ -947,9 +1316,17 @@ async def interact(
             "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
         )
         raise ModelRetry(msg)
+    if owns_memory and direction is None:
+        before_call = "".join(_text_up_to([response], ctx.tool_call_id))
+        if spec.question not in _question_prose(ctx.deps, before_call):
+            message = (
+                "Ask the exact question in visible Markdown prose before calling interact. "
+                "Repeat the question in the response, outside any hidden block."
+            )
+            raise ModelRetry(message)
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
-        ctx.deps.direction_rendered[ctx.tool_call_id] = direction.render()
+        ctx.deps.direction_rendered[ctx.tool_call_id] = direction_text
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
@@ -1026,6 +1403,28 @@ async def prepare_feedback_tool(
     """Expose the current reply's required branch without changing native validation."""
     schema = definition.parameters_json_schema
     properties = dict(schema["properties"])
+    if definition.name == "interact":
+        # The validator can still read old calls; the provider receives only the new contract.
+        properties.pop("prompt", None)
+        properties.pop("variable", None)
+        question_schema = dict(properties["question"])
+        question_schema.pop("default", None)
+        question_schema["description"] = (
+            "Complete learner-facing question. Send an empty string only for a pause or an "
+            "authored navigation-only control."
+        )
+        properties["question"] = question_schema
+        properties["generated_control"] = {
+            **properties["generated_control"],
+            "description": (
+                "True only for a newly created answer control. Leave false for any "
+                "authored control, including an unbound one whose question you formulate."
+            ),
+        }
+        schema = {
+            **schema,
+            "required": list(dict.fromkeys([*schema.get("required", []), "question"])),
+        }
     if (
         not ctx.deps.feedback_contract
         or not ctx.deps.direction_sections
@@ -1113,7 +1512,7 @@ async def remember(
     100 or more entries accepts updates to existing keys only. Each scope has a budget of 32768
     characters of pretty-printed JSON. A larger existing scope accepts only non-growing updates.
     A refused note changes nothing; continue teaching instead of repeatedly trying to store it.
-    Existing history and answers recorded by `interact(variable=...)` are preserved without
+    Existing history and answers recorded by `interact` are preserved without
     these model-note limits.
     Record required notes before `finish`; a finished lesson accepts no further model notes.
 

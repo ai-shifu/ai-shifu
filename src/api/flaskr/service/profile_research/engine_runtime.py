@@ -42,7 +42,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Mapping
+    from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 
     from flaskr.api.markdownflow import (
         Event,
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 _PROFILE_INSTRUCTIONS = """
 Run the complete authored learner-profile questionnaire as one conversation, not a course.
 Follow its authored questions and conditional branches using the learner's actual answers.
-Use interact for the authored controls and keep named answer variables as authored.
+Use interact for the authored controls and preserve each question exactly as authored.
 Do not add unrelated questions or navigation pauses. A section separator is not a pause.
 Keep any displayed introductions and transitions brief. The questionnaire's original wording
 is author guidance, not evidence about this learner. Only accepted learner answers are facts.
@@ -64,6 +64,9 @@ profile privately afterward; do not publish a profile draft or a summary of priv
 """.strip()
 _ACCEPTED_ANSWER_PREFIXES = ("Learner wrote: ", "Learner chose: ")
 _CONFIRM_ANSWER_PREFIX = "Learner pressed continue."
+_QUESTION_PROSE_ESCAPES = str.maketrans(
+    {char: "\\" + char for char in r"\`*_{}[]<>()#+-.!|&~$="}
+)
 
 
 @dataclass
@@ -128,16 +131,33 @@ def _interaction_problem(
 ) -> str | None:
     if reason := unrenderable_reason(spec):
         return reason
-    if questions and all(
-        check_authored_interaction(spec, source, variables) is not None
-        for source in questions
+    if questions and (
+        spec.generated_control
+        or all(
+            check_authored_interaction(spec, source, variables) is not None
+            for source in questions
+        )
     ):
         return (
             "Use one of the authored questionnaire interactions. Preserve its input type, "
-            "variable binding and complete ordered stored option values; only localize "
-            "display labels and question wording."
+            "exact question from the leading binding and complete ordered stored option "
+            "values. Localize display labels and input hints."
         )
     return None
+
+
+def _content_chunks(content: Iterable[str]) -> list[ProfileChunk]:
+    pager = LessonPager(clean_markers=True)
+    chunks = [
+        ProfileChunk(content=value, type=kind, number=number)
+        for text in content
+        for value, kind, number in pager.add(text)
+    ]
+    chunks.extend(
+        ProfileChunk(content=value, type=kind, number=number)
+        for value, kind, number in pager.flush()
+    )
+    return chunks
 
 
 def _pending_chunk(pending: PendingInteraction) -> ProfileChunk:
@@ -222,9 +242,17 @@ def run_profile_turn(
         msg = "MarkdownFlow 2.0 cannot resume the saved profile question"
         raise ProfileResearchError(msg)
     if working.pending and not user_input:
-        return ProfileTurnResult(
-            chunks=[_pending_chunk(working.pending[0])], reason="interaction"
-        )
+        pending = working.pending[0]
+        question = pending.spec.question
+        chunks = []
+        if question.strip() and pending.spec.type != "confirm":
+            chunks = (
+                _content_chunks([question])
+                if pending.spec.structured_correction
+                else [ProfileChunk(content=question.translate(_QUESTION_PROSE_ESCAPES))]
+            )
+        chunks.append(_pending_chunk(pending))
+        return ProfileTurnResult(chunks=chunks, reason="interaction")
     if user_input and not working.pending:
         msg = "MarkdownFlow 2.0 has no profile question to answer"
         raise ProfileResearchValidationError(msg)
@@ -248,6 +276,7 @@ def run_profile_turn(
             pauses_from_notation=bool(questions),
             memory_admission=True,
             buffer_model_responses=True,
+            allowed_authored_question_keys=frozenset({SYS_USER_NICKNAME}),
         )
         async for event in engine.run_turn(working, turn):
             yield event
@@ -293,17 +322,7 @@ def run_profile_turn(
         msg = "MarkdownFlow 2.0 did not accept the submitted profile answer"
         raise ProfileResearchError(msg)
 
-    chunks: list[ProfileChunk] = []
-    pager = LessonPager(clean_markers=True)
-    for text in content:
-        chunks.extend(
-            ProfileChunk(content=value, type=kind, number=number)
-            for value, kind, number in pager.add(text)
-        )
-    chunks.extend(
-        ProfileChunk(content=value, type=kind, number=number)
-        for value, kind, number in pager.flush()
-    )
+    chunks = _content_chunks(content)
     if working.pending:
         # Native Engine retains every deferred call. Only the first unanswered one
         # is visible; the next answer resumes it without discarding sibling calls.
@@ -346,22 +365,39 @@ def profile_answer_evidence(
                     args = part.args_as_dict()
                 except (AssertionError, TypeError, ValueError):
                     continue
-                variable = args.get("variable")
-                if variable is not None:
-                    if not isinstance(variable, str):
+                if args.get("type") == "confirm":
+                    continue
+                if isinstance(args.get("question"), str):
+                    # The resolved spec records the exact question that owns the answer.
+                    spec = working.interaction_specs.get(part.tool_call_id)
+                    if (
+                        spec is None
+                        or not spec.question_owns_memory
+                        or spec.variable == SYS_USER_NICKNAME
+                    ):
                         continue
-                    normalized_variable = normalize_variable_name(variable)
-                    if normalized_variable is None and variable.strip():
+                    prompt, variable = spec.question, spec.variable
+                    context = _question_context(spec.model_dump(mode="json"))
+                else:
+                    # Older sessions have only raw arguments. Normalize the
+                    # saved key the same way as the historical interaction tool.
+                    prompt = args.get("prompt")
+                    variable = args.get("variable")
+                    if variable is not None:
+                        if not isinstance(variable, str):
+                            continue
+                        normalized_variable = normalize_variable_name(variable)
+                        if normalized_variable is None and variable.strip():
+                            continue
+                        variable = normalized_variable
+                    if variable == SYS_USER_NICKNAME or not isinstance(prompt, str):
                         continue
-                    variable = normalized_variable
-                if (
-                    args.get("type") != "confirm"
-                    and variable != SYS_USER_NICKNAME
-                    and isinstance(args.get("prompt"), str)
-                ):
-                    # Tool history retains the model's original arguments, before
-                    # interact canonicalizes its binding or drops a blank optional key.
-                    calls[part.tool_call_id] = {**args, "variable": variable}
+                    context = _question_context(args)
+                calls[part.tool_call_id] = {
+                    "prompt": prompt,
+                    "variable": variable,
+                    **context,
+                }
             elif (
                 isinstance(message, ModelRequest)
                 and isinstance(part, ToolReturnPart)
@@ -379,13 +415,8 @@ def profile_answer_evidence(
         }
     )
     return [
-        {
-            "prompt": args["prompt"],
-            "variable": args.get("variable"),
-            "answer": answers[call_id],
-            **_question_context(args),
-        }
-        for call_id, args in calls.items()
+        {**evidence, "answer": answers[call_id]}
+        for call_id, evidence in calls.items()
         if call_id in answers
     ]
 

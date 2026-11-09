@@ -252,19 +252,19 @@ async def test_oversized_pending_answer_survives_snapshot_and_successful_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen = []
+    question = "What would you like to learn?"
 
     def chat(**kwargs: object) -> Iterator[FakeChunk]:
         seen.append(kwargs["messages"])
         if len(seen) == 1:
+            yield FakeChunk(result=f"{question}\n")
             yield FakeChunk(
                 tool_call_deltas=[
                     {
                         "index": 0,
                         "id": "q",
                         "name": "interact",
-                        "arguments": json.dumps(
-                            {"type": "text", "prompt": "Your goal?", "variable": "goal"}
-                        ),
+                        "arguments": json.dumps({"type": "text", "question": question}),
                     }
                 ],
                 finish_reason="tool_calls",
@@ -274,7 +274,7 @@ async def test_oversized_pending_answer_survives_snapshot_and_successful_retry(
 
     monkeypatch.setattr(gw, "chat_llm", chat)
     engine = Engine(_model(), memory_context_limit=32768)
-    session = await engine.new_session("Ask %{{goal}} and explain.")
+    session = await engine.new_session("Ask about the learner's goal and explain.")
     _ = [event async for event in engine.run_turn(session)]
     history = session.to_dict()["messages"]
     answer = "complete learner answer " + "z" * INPUT_BUDGET_BYTES
@@ -288,7 +288,7 @@ async def test_oversized_pending_answer_survives_snapshot_and_successful_retry(
     assert len(seen) == 1
     assert isinstance(events[-1], ErrorEvent)
     assert events[-1].code == "input_budget_exceeded"
-    assert session.memory["goal"] == answer
+    assert session.memory[question] == answer
     assert session.answers
     assert session.to_dict()["messages"] == history
     assert not session.finished
@@ -297,7 +297,7 @@ async def test_oversized_pending_answer_survives_snapshot_and_successful_retry(
     events = [event async for event in retry.run_turn(session, ContinueTurn())]
     assert isinstance(events[-1], TurnDone)
     assert answer in seen[-1][-1]["content"]
-    assert session.memory["goal"] == answer
+    assert session.memory[question] == answer
     assert not session.answers
     assert session.to_dict()["messages"][: len(history)] == history
 
