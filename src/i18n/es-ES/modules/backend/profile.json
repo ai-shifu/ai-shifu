@@ -2,7 +2,7 @@
   "__namespace__": "server.profile",
   "__flat__": {
     "keyInvalid": "No se pudo guardar la memoria: la pregunta no puede estar vacía ni contener caracteres de control o «}}».",
-    "keyReserved": "Las preguntas no pueden empezar por sys_; este prefijo está reservado para el sistema.",
+    "keyReserved": "El prefijo sys_ está reservado para los campos del sistema.",
     "language": "Idioma",
     "learnerProfileOptimizationEmptyResponse": "La IA no ha devuelto contenido optimizado. Inténtalo de nuevo.",
     "learnerProfileOptimizationFailed": "Se ha producido un error en el servicio de optimización con IA. Inténtalo más tarde.",

@@ -229,9 +229,14 @@ def test_risk_rejection_rolls_back_new_revision_outline_deletions_and_history(
 
 @pytest.mark.parametrize("replace_existing", [False, True])
 @pytest.mark.parametrize(
-    "content", ["?[{{ sys_custom }} ...Answer]", "?[%{{sys_custom}} Yes | No]"]
+    "content",
+    [
+        "?[{{ sys_custom }} ...Answer]",
+        "?[%{{sys_custom}} Yes | No]",
+        "Remember a name in %{{sys_user_nickname}}.",
+    ],
 )
-def test_import_rejects_system_question_keys_before_risk_checks_or_persistence(
+def test_import_rejects_system_declarations_before_risk_checks_or_persistence(
     app: object,
     import_owner: str,
     monkeypatch: pytest.MonkeyPatch,

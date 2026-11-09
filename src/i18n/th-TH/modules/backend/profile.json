@@ -2,7 +2,7 @@
   "__namespace__": "server.profile",
   "__flat__": {
     "keyInvalid": "ไม่สามารถบันทึกความจำได้: คำถามต้องไม่ว่างและต้องไม่มีอักขระควบคุมหรือ “}}”",
-    "keyReserved": "คำถามต้องไม่ขึ้นต้นด้วย sys_ เนื่องจากคำนำหน้านี้สงวนไว้สำหรับระบบ",
+    "keyReserved": "คำนำหน้า sys_ สงวนไว้สำหรับฟิลด์ของระบบ",
     "language": "ภาษา",
     "learnerProfileOptimizationEmptyResponse": "AI ไม่ได้ส่งเนื้อหาที่ปรับปรุงแล้วกลับมา โปรดลองอีกครั้ง",
     "learnerProfileOptimizationFailed": "บริการปรับปรุงโดย AI ขัดข้อง โปรดลองอีกครั้งภายหลัง",

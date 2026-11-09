@@ -17,6 +17,7 @@ from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.question_validation import (
     assert_course_question_names_allowed,
+    assert_no_new_system_declarations,
 )
 from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_draft_meta,
@@ -165,6 +166,8 @@ def save_shifu_mdflow(
     outline_bid: str,
     content: str,
     base_revision: int | None = None,
+    *,
+    _restored_version: DraftOutlineItem | None = None,
 ) -> DraftSaveResponse:
     """Save shifu mdflow."""
     content = content or ""
@@ -202,6 +205,9 @@ def save_shifu_mdflow(
 
         markdown_flow = MarkdownFlowDocument(content)
         assert_course_question_names_allowed(markdown_flow)
+        assert_no_new_system_declarations(
+            content, (_restored_version or preflight_outline).content or ""
+        )
 
         # Risk control writes and commits its own audit row, so it must run before
         # the outline write lock is acquired. The locked transaction below always
@@ -240,6 +246,7 @@ def save_shifu_mdflow(
                     DraftOutlineItem.outline_item_bid == outline_bid,
                 )
                 .order_by(DraftOutlineItem.id.desc())
+                .with_for_update()
                 .first()
             )
             if not outline_item:
@@ -254,6 +261,10 @@ def save_shifu_mdflow(
             if normalize_outline_content(
                 outline_item.content
             ) != normalize_outline_content(content):
+                # Recheck against the committed revision after taking the write lock.
+                assert_no_new_system_declarations(
+                    content, (_restored_version or outline_item).content or ""
+                )
                 new_outline: DraftOutlineItem = outline_item.clone()
                 new_outline.content = content
                 new_outline.updated_user_bid = user_id
@@ -324,6 +335,8 @@ def parse_shifu_mdflow(
             mdflow = data
         markdown_flow = MarkdownFlowDocument(mdflow)
         assert_course_question_names_allowed(markdown_flow)
+        if data:
+            assert_no_new_system_declarations(data, outline_item.content or "")
         blocks = markdown_flow.get_all_blocks()
 
         raw_variables = markdown_flow.extract_variables() or []
@@ -530,6 +543,7 @@ def restore_shifu_mdflow_history_version(
             outline_bid,
             target_content,
             base_revision=effective_base_revision,
+            _restored_version=target_version,
         )
         if result.get("conflict"):
             return {"conflict": True, "meta": result.get("meta")}

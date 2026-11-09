@@ -61,6 +61,10 @@ missing definitions, and supplementary reads exclude undefined `sys_` keys.
 Active system declarations in retained published lessons keep their canonical
 profile mapping semantics.
 Canonical account fields remain authoritative. There is no cross-course sharing.
+An edited draft can carry forward a percent-prefixed system declaration already
+present in its previous revision. Restoring a stored version preserves those
+declarations from the selected version. Imports create new lesson identities and
+cannot introduce system declarations.
 Only the agent's memory reader opts into additional current-course variable rows;
 other consumers retain definition-based runtime resolution. The supplementary
 projection considers only the newest 100 unresolved course keys and includes whole
