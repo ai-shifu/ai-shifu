@@ -25,7 +25,7 @@ def test_complete_control_does_not_supply_optional_requirements() -> None:
     assert "peripheral" not in answer
 
 
-async def test_bare_question_label_is_not_a_visible_question() -> None:
+async def test_bare_label_does_not_match_the_expected_question() -> None:
     calls = 0
 
     async def labels_only(
@@ -35,15 +35,12 @@ async def test_bare_question_label_is_not_a_visible_question() -> None:
         calls += 1
         if calls == 2:
             yield "That answer passes."
+        label = "FEATURES" if calls == 1 else "PERIPHERALS"
+        yield label
         yield {
             0: DeltaToolCall(
                 name="interact",
-                json_args=json.dumps(
-                    {
-                        "type": "text",
-                        "prompt": "FEATURES" if calls == 1 else "PERIPHERALS",
-                    }
-                ),
+                json_args=json.dumps({"type": "text", "question": label}),
                 tool_call_id=f"label-{calls}",
             )
         }
@@ -67,18 +64,13 @@ async def test_continues_setup_once_without_resubmitting_an_answer(mode: str) ->
             yield "   " if mode == "whitespace" else QUESTION_PROMPTS["FEATURES"]
             return
         if calls == 3:
-            yield "The submitted answer passes."
+            yield "The submitted answer passes.\n\n"
+        question = QUESTION_PROMPTS["FEATURES" if calls == 2 else "PERIPHERALS"]
+        yield question
         yield {
             0: DeltaToolCall(
                 name="interact",
-                json_args=json.dumps(
-                    {
-                        "type": "text",
-                        "prompt": QUESTION_PROMPTS[
-                            "FEATURES" if calls == 2 else "PERIPHERALS"
-                        ],
-                    }
-                ),
+                json_args=json.dumps({"type": "text", "question": question}),
                 tool_call_id=f"setup-{calls}",
             )
         }
@@ -125,18 +117,13 @@ async def test_scores_observed_question_and_feedback(
             "your hint or explanation does not supply that submission" in instructions
         )
         if calls == 2 and feedback:
-            yield "Feedback on the submitted answer."
+            yield "Feedback on the submitted answer.\n\n"
+        question_text = QUESTION_PROMPTS["FEATURES" if calls == 1 else question]
+        yield question_text
         yield {
             0: DeltaToolCall(
                 name="interact",
-                json_args=json.dumps(
-                    {
-                        "type": "text",
-                        "prompt": QUESTION_PROMPTS[
-                            "FEATURES" if calls == 1 else question
-                        ],
-                    }
-                ),
+                json_args=json.dumps({"type": "text", "question": question_text}),
                 tool_call_id=f"question-{calls}",
             )
         }
@@ -145,8 +132,9 @@ async def test_scores_observed_question_and_feedback(
     result = await evaluate_grading(case, FunctionModel(stream_function=scripted))
     assert result["passed"] is expected
     assert result["error"] is None
+    assert result["checks"]["feedback_present"] is feedback
     assert result["checks"]["history_preserved"]
-    assert result["checks"]["memory_unchanged"]
+    assert result["checks"]["answer_recorded"]
     assert calls == 2
 
 
