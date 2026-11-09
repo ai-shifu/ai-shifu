@@ -82,9 +82,26 @@ describe('learningModeUrl', () => {
     setLearningModeInUrl('classroom');
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?preview=true&mode=classroom#slide-2',
+    );
+  });
+
+  it('does not pass internal Next.js state back when changing the mode', () => {
+    const historyState = jest.spyOn(window.history, 'state', 'get');
+    historyState.mockReturnValue({
+      __NA: true,
+      __PRIVATE_NEXTJS_INTERNALS_TREE: [],
+    });
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+
+    setLearningModeInUrl('read');
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      null,
+      '',
+      '/c/course-1?mode=read',
     );
   });
 
@@ -97,7 +114,7 @@ describe('learningModeUrl', () => {
     setLearningModeInUrl('read');
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?preview=true&mode=read',
     );
@@ -106,7 +123,7 @@ describe('learningModeUrl', () => {
     setLearningModeInUrl('listen');
 
     expect(replaceStateSpy).toHaveBeenLastCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?mode=listen',
     );
@@ -124,7 +141,7 @@ describe('learningModeUrl', () => {
     });
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?preview=true&mode=listen',
     );
@@ -150,7 +167,7 @@ describe('learningModeUrl', () => {
     });
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?mode=listen',
     );
@@ -166,7 +183,7 @@ describe('learningModeUrl', () => {
     });
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?mode=read',
     );

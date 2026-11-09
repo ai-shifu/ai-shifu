@@ -116,7 +116,7 @@ describe('LearningModeSwitch', () => {
 
       expect(eventsInOrder).toEqual(['mode:listen']);
       expect(replaceStateSpy).toHaveBeenCalledWith(
-        window.history.state,
+        null,
         '',
         '/c/course-1?mode=listen',
       );
@@ -148,7 +148,7 @@ describe('LearningModeSwitch', () => {
 
     expect(mockTrackEvent).not.toHaveBeenCalled();
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?mode=read',
     );
@@ -169,7 +169,7 @@ describe('LearningModeSwitch', () => {
     );
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?mode=listen',
     );
@@ -337,7 +337,7 @@ describe('LearningModeSwitch', () => {
 
     expect(useSystemStore.getState().learningMode).toBe('classroom');
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?mode=classroom',
     );
@@ -362,7 +362,7 @@ describe('LearningModeSwitch', () => {
 
     expect(useSystemStore.getState().learningMode).toBe('read');
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?mode=read',
     );
@@ -385,7 +385,7 @@ describe('LearningModeSwitch', () => {
     );
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
+      null,
       '',
       '/c/course-1?preview=true&mode=classroom',
     );

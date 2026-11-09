@@ -1,5 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 
+import { callHarnessApi } from './harness-auth';
 import {
   attachRuntimeHarnessDiagnostics,
   type NetworkEntry,
@@ -121,5 +122,85 @@ test.describe('agent-first smoke harness', () => {
     await expect(page.getByTestId('course-chat-page')).toBeVisible();
     await learnerBootstrap;
     expectNoServerErrors(diagnostics.serverErrorEntries);
+  });
+
+  test('saves the first learning mode selected from the course page', async ({
+    page,
+  }) => {
+    await page.goto('/admin/operations');
+    await expect(page.getByTestId('admin-operations-page')).toBeVisible();
+    const { bid: courseId } = await callHarnessApi<{ bid: string }>(
+      page,
+      'PUT',
+      '/api/shifu/shifus',
+      {
+        name: 'Learning mode preference regression',
+        description: 'Runtime test course',
+      },
+    );
+    const editorPath = `/api/shifu/shifus/${courseId}`;
+    const outlines = await callHarnessApi<{ children: { bid: string }[] }[]>(
+      page,
+      'GET',
+      `${editorPath}/outlines`,
+    );
+    const lesson = outlines[0].children[0];
+    await callHarnessApi(
+      page,
+      'POST',
+      `${editorPath}/outlines/${lesson.bid}/mdflow`,
+      { data: 'Review the course learning modes.' },
+    );
+    await callHarnessApi(page, 'POST', `${editorPath}/publish`);
+
+    const coursePath = `/c/${courseId}`;
+    const storageKey = `course_learning_mode:${courseId}`;
+
+    // Enable the Listen option independently of TTS provider configuration.
+    await page.route(
+      url => url.pathname === `/api/learn/shifu/${courseId}`,
+      async route => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        if (payload.code !== 0) {
+          await route.fulfill({ response });
+          return;
+        }
+        await route.fulfill({
+          response,
+          json: {
+            ...payload,
+            data: {
+              ...payload.data,
+              tts_enabled: true,
+              default_listen_mode_enabled: false,
+            },
+          },
+        });
+      },
+    );
+
+    const learnerBootstrap = waitForLearnerBootstrap(page, courseId);
+    await page.goto(coursePath);
+    for (const response of await learnerBootstrap) {
+      expect((await response.json()).code).toBe(0);
+    }
+    const read = page.getByRole('radio', { name: /^(Read|阅读)$/ });
+    const listen = page.getByRole('radio', { name: /^(Listen|听课)$/ });
+    await expect(read).toBeChecked();
+    expect(
+      await page.evaluate(key => localStorage.getItem(key), storageKey),
+    ).toBeNull();
+
+    await listen.click();
+    await expect(page).toHaveURL(
+      url => url.searchParams.get('mode') === 'listen',
+    );
+    await expect
+      .poll(() => page.evaluate(key => localStorage.getItem(key), storageKey))
+      .toBe('listen');
+
+    await page.goto(coursePath);
+    await expect(listen).toBeChecked();
   });
 });
