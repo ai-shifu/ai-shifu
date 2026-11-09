@@ -35,13 +35,13 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
         "b52cf9c8d4f001aa4e2734c47a0646fde63eba85e1923069d7ccdffc87aae04b"
     )
     hashes["v1_syntax"] = (
-        "1c38ed938477cb9bf06d85c21a979f2dde2ca54f1f6bcc99e006f4b3537e616b"
+        "61f3f14c529cd8d1c69e748b88bf5442041424429578567cf4142d29e5c934cc"
     )
     hashes["memory_policy"] = (
-        "0765c14a6a30b9e31b37da6551d0e91a300b7eee226e448b82adb57a25b3621a"
+        "029a5cc7f0e74456df4c5a8b263f3b48a65758283d95ae11a66c8752f4d9d1dd"
     )
     hashes["memory_unrestricted"] = (
-        "4a5db0ea0489b1c1cd74342b3681e41b4940aebc8a090c07d818912b29408e35"
+        "26f8f7ab22952281f88eea3025553b2ba18f2d01a50e4919036d9bf4a96a13cd"
     )
     hashes["answer_review"] = (
         "24405941f019dfd09ec49114b0e70261eefeda2bf8cbaace7ead55e6a788458a"

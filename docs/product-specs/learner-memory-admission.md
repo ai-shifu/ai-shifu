@@ -14,9 +14,10 @@ instructions for other hosts; system and tool instructions select the same polic
 profile writer and the session's unit of work remain responsible for persistence.
 
 The model supplies `question` for each answer interaction. For a leading
-`?[{{key}} ...]` binding, trim leading and trailing whitespace inside the braces
+`?[{{question}} ...]` binding, trim leading and trailing whitespace inside the braces
 and use the resulting text as the exact question and storage key. This applies
-to short labels as well. A later `{{key}}` reference reads that same entry.
+to short labels as well. A later `{{question}}` reference with the same question
+text reads that entry.
 For exercises without a binding, the model supplies the question from the
 lesson prose or context. Reusing the exact question updates the current
 answer. Navigation and confirmation clicks do not record answers. Existing
