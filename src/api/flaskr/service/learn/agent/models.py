@@ -28,6 +28,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 # Bumped whenever a change to the engine makes previously stored sessions unreadable -- a renamed
 # tool, a changed argument, a different event shape. Rows that do not match are not resumed.
 AGENT_SESSION_SCHEMA_VERSION = 1
+AGENT_SESSION_NO_HISTORY_VERSION = 0
 
 
 class LearnAgentSession(db.Model):
@@ -98,7 +99,7 @@ class LearnAgentSession(db.Model):
     schema_version = Column(
         Integer,
         nullable=False,
-        default=0,
+        default=AGENT_SESSION_NO_HISTORY_VERSION,
         comment="Engine session schema version this row was written with",
     )
     pydantic_ai_version = Column(

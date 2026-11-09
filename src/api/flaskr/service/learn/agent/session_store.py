@@ -30,6 +30,7 @@ from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of
 from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent.models import (
+    AGENT_SESSION_NO_HISTORY_VERSION,
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
     active_key_for,
@@ -151,9 +152,14 @@ def _is_attempt_reservation_conflict(error: IntegrityError) -> bool:
 
 
 def stage_lesson_attempt_source(
-    *, user_bid: str, shifu_bid: str, outline_bid: str, source: LessonAttemptSource
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    source: LessonAttemptSource,
+    complete_without_script: bool = False,
 ) -> bool:
-    """Pin a new attempt while its progress row is locked, before making history visible."""
+    """Pin a new attempt or record a scriptless completion under the progress lock."""
     query = _shared_session_query(
         user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
     )
@@ -168,23 +174,32 @@ def stage_lesson_attempt_source(
         if current.outline_row_id is None:
             # A legacy published session has no physical source to relabel.
             return not source.preview_mode
-        return current == source
-    row = LearnAgentSession(
-        agent_session_bid=uuid.uuid4().hex,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_item_bid=outline_bid,
-        active_key=active_key_for(user_bid, outline_bid),
-    )
-    bind_lesson_attempt_source(row, source)
-    try:
-        with db.session.begin_nested():
-            db.session.add(row)
-            db.session.flush()
-    except IntegrityError as error:
-        if not _is_attempt_reservation_conflict(error):
-            raise
-        return False
+        if current != source:
+            return False
+    else:
+        row = LearnAgentSession(
+            agent_session_bid=uuid.uuid4().hex,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            active_key=active_key_for(user_bid, outline_bid),
+        )
+        bind_lesson_attempt_source(row, source)
+        try:
+            with db.session.begin_nested():
+                db.session.add(row)
+                db.session.flush()
+        except IntegrityError as error:
+            if not _is_attempt_reservation_conflict(error):
+                raise
+            return False
+    if (
+        complete_without_script
+        and row.schema_version == AGENT_SESSION_NO_HISTORY_VERSION
+        and not row.finished
+    ):
+        row.content_revision = max(source.content_revision or 0, 0)
+        row.finished = 1
     return True
 
 
@@ -230,8 +245,11 @@ def _load(
     ).first()
     if row is None:
         return None
-    if not row.schema_version and _ATTEMPT_SOURCE_KEY in row.session_data:
-        # The host has already pinned the source but the engine has no messages yet.
+    if (
+        row.schema_version == AGENT_SESSION_NO_HISTORY_VERSION
+        and _ATTEMPT_SOURCE_KEY in row.session_data
+    ):
+        # The host pinned the source without creating an engine conversation.
         return None
     if row.schema_version != AGENT_SESSION_SCHEMA_VERSION:
         msg = (

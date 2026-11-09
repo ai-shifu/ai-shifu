@@ -173,6 +173,7 @@ def complete_empty_lesson(
     from flaskr.service.learn.agent.lesson_record import (
         active_progress_record,
         claim_for_writing,
+        mark_lesson_finished,
     )
     from flaskr.service.learn.agent.run_agent import _outline_progression
 
@@ -191,6 +192,9 @@ def complete_empty_lesson(
             outline_bid=outline_bid,
             preview_mode=preview_mode,
         )
+        if (lesson_version.outline.content or "").strip():
+            # The selected version can change between detecting no script and completing it.
+            return
         with unit_of_work():
             progress_record_bid = lesson_version.progress_record_bid
             if not progress_record_bid:
@@ -210,10 +214,13 @@ def complete_empty_lesson(
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,
                 source=lesson_version.source,
+                complete_without_script=record.status != LEARN_STATUS_COMPLETED,
             ):
                 with unit_of_work(discard=True):
                     return
             already_completed = record.status == LEARN_STATUS_COMPLETED
+            if not already_completed:
+                mark_lesson_finished(record)
     if already_completed:
         # Reopened after it was completed: its outline updates and next-lesson button are
         # already recorded and come back through history, as with any finished lesson.
