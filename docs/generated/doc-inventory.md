@@ -280,6 +280,7 @@
 | `docs/exec-plans/completed/verification-code-login-reuse.md` | Reuse Email and SMS Verification Login | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/index.md` | Execution Plans | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `-` | `true` |
+| `docs/generated/doc-inventory.md` | Repository Knowledge Inventory | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/history/admin-pagination-component.md` | Admin Pagination Component | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/admin-time-display.md` | Admin Time Display | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/backend-inventory-2026-07.md` | Backend Inventory 2026-07 (Phase 1) | `history` | `historical` | `repo` | `-` | `false` |
