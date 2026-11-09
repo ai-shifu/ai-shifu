@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -13,8 +14,10 @@ from flaskr.service.learn.ask.context import (
     build_follow_up_conversation_context,
     load_follow_up_history,
 )
+from flaskr.service.learn.elements.history import get_listen_element_record
+from flaskr.service.learn.elements.legacy_record_builder import LegacyLearnRecord
 from flaskr.service.learn.elements.payloads import _serialize_payload
-from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+from flaskr.service.learn.learn_dtos import ElementDTO, ElementPayloadDTO
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -26,6 +29,7 @@ from flaskr.service.shifu.consts import (
 from tests.common.fixtures.model_factories import (
     make_generated_block,
     make_generated_element,
+    make_progress_record,
 )
 
 if TYPE_CHECKING:
@@ -133,6 +137,168 @@ def test_anchor_includes_prior_teaching_and_real_answers_only(
             LearnGeneratedBlock.query.count(),
             LearnGeneratedElement.query.count(),
         ) == before
+
+
+@pytest.mark.parametrize("identified", [True, False])
+def test_follow_up_history_includes_sidecars_from_repeated_controls(
+    app: Flask, identified: bool
+) -> None:
+    """Asking on the reloaded original includes the earlier reply on its alias."""
+    ids = [uuid.uuid4().hex for _ in range(8)]
+    progress, user, course, lesson, original, repeated, first_block, next_block = ids
+    scope = {
+        "progress_record_bid": progress,
+        "user_bid": user,
+        "shifu_bid": course,
+        "outline_item_bid": lesson,
+    }
+    with app.app_context():
+        with unit_of_work():
+            db.session.add(make_progress_record(**scope))
+            for index, (element_bid, block_bid) in enumerate(
+                ((original, first_block), (repeated, next_block))
+            ):
+                checkpoint = {
+                    "pending": [{"tool_call_id": "question"}] if index else []
+                }
+                db.session.add(
+                    make_generated_block(
+                        **scope,
+                        generated_block_bid=block_bid,
+                        type=BLOCK_TYPE_MDCONTENT_VALUE,
+                        status=1,
+                        block_content_conf=json.dumps(
+                            {
+                                "agent_turn": {
+                                    "version": 1,
+                                    "checkpoint": checkpoint,
+                                    "answered_question_id": None,
+                                    **(
+                                        {"question_ids": ["question"]}
+                                        if identified
+                                        else {}
+                                    ),
+                                }
+                            }
+                        ),
+                    )
+                )
+                db.session.add(
+                    make_generated_element(
+                        **scope,
+                        element_bid=element_bid,
+                        generated_block_bid=block_bid,
+                        element_type="interaction",
+                        content_text="A pending question",
+                        is_final=1,
+                    )
+                )
+            for anchor_bid, kind, content in (
+                (original, "ask", "Earlier question"),
+                (original, "answer", "Earlier reply"),
+                (repeated, "ask", "Question on the repeated control"),
+                (repeated, "answer", "Reply on the repeated control"),
+                (uuid.uuid4().hex, "answer", "Unrelated reply"),
+            ):
+                db.session.add(
+                    make_generated_element(
+                        **scope,
+                        element_bid=uuid.uuid4().hex,
+                        element_type=kind,
+                        content_text=content,
+                        is_final=1,
+                        payload=_serialize_payload(
+                            ElementPayloadDTO(anchor_element_bid=anchor_bid)
+                        ),
+                    )
+                )
+            other_progress = uuid.uuid4().hex
+            db.session.add(
+                make_progress_record(
+                    **{**scope, "progress_record_bid": other_progress},
+                    block_position=1,
+                )
+            )
+            for field in scope:
+                db.session.add(
+                    make_generated_element(
+                        **{
+                            **scope,
+                            field: other_progress
+                            if field == "progress_record_bid"
+                            else uuid.uuid4().hex,
+                        },
+                        element_bid=uuid.uuid4().hex,
+                        element_type="answer",
+                        content_text=f"Foreign {field}",
+                        is_final=1,
+                        payload=_serialize_payload(
+                            ElementPayloadDTO(anchor_element_bid=repeated)
+                        ),
+                    )
+                )
+        messages = load_follow_up_history(
+            progress_record_bid=progress,
+            anchor_element_bid=original,
+            max_history_messages=10,
+        )
+        assert [item["content"] for item in messages] == [
+            "A pending question",
+            "Earlier question",
+            "Earlier reply",
+        ] + (
+            ["Question on the repeated control", "Reply on the repeated control"]
+            if identified
+            else []
+        )
+
+        def no_legacy_record(*_args: object, **_kwargs: object) -> LegacyLearnRecord:
+            return LegacyLearnRecord(records=[])
+
+        record = get_listen_element_record(
+            app=app,
+            shifu_bid=course,
+            outline_bid=lesson,
+            user_bid=user,
+            include_non_navigable=True,
+            build_record_from_legacy=lambda _record: pytest.fail(
+                "Expected stored elements"
+            ),
+            load_fallback_record=no_legacy_record,
+            build_legacy_record_for_progress_fn=no_legacy_record,
+        )
+        assert record.events is not None
+        replay_elements = [
+            event.content
+            for event in record.events
+            if isinstance(event.content, ElementDTO)
+        ]
+        assert (
+            repeated in [element.element_bid for element in replay_elements]
+        ) is not identified
+        assert (
+            repeated in [element.element_bid for element in record.elements]
+        ) is not identified
+        original_control = next(
+            element for element in record.elements if element.element_bid == original
+        )
+        assert [item["content"] for item in original_control.payload.asks] == [
+            "Earlier question",
+            "Earlier reply",
+        ] + (
+            ["Question on the repeated control", "Reply on the repeated control"]
+            if identified
+            else []
+        )
+        replay_anchors = {
+            element.content_text: element.payload.anchor_element_bid
+            for element in replay_elements
+            if element.payload is not None
+        }
+        expected_anchor = original if identified else repeated
+        assert replay_anchors["Question on the repeated control"] == expected_anchor
+        assert replay_anchors["Reply on the repeated control"] == expected_anchor
+        assert replay_anchors["Foreign progress_record_bid"] == repeated
 
 
 @pytest.mark.parametrize("limit", [-1, 0, 1, 2, 3, 4])

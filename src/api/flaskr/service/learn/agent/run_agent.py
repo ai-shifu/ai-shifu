@@ -75,6 +75,7 @@ from flaskr.service.learn.agent.rewind import (
     retire_abandoned_turns,
     stage_retirement,
     turn_record,
+    with_turn_interactions,
 )
 from flaskr.service.learn.agent.session_store import (
     PreviewGenerationDiscardedError,
@@ -920,7 +921,7 @@ def _stream_turn(
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
-    preview_question_ids: list[str] = []
+    question_ids: list[str] = []
     taught: list[str] = []
     persisted = False
     # A question the model typed into its narration instead of asking for one. Held aside while
@@ -951,7 +952,7 @@ def _stream_turn(
                         generated_block_bid=generated_block_bid,
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
-                        question_ids=preview_question_ids
+                        question_ids=question_ids
                         or [p.tool_call_id for p in session.pending],
                         course_updates=_debug_course_updates(pending_memory),
                     )
@@ -972,7 +973,7 @@ def _stream_turn(
                         rewind=session_holder.get("rewind"),
                         memory_generations=session_holder.get("memory_generations"),
                         preview_generation=session_holder.get("preview_generation"),
-                        preview_question_ids=[p.tool_call_id for p in session.pending],
+                        question_ids=[p.tool_call_id for p in session.pending],
                     )
                 if not kept:
                     if tracing is not None:
@@ -1042,7 +1043,7 @@ def _stream_turn(
                 user_bid=user_bid,
             ):
                 if question_payload.type == GeneratedType.INTERACTION:
-                    preview_question_ids.append(event.id)
+                    question_ids.append(event.id)
                 yield question_payload
             continue
 
@@ -1066,7 +1067,7 @@ def _stream_turn(
                         generated_block_bid=generated_block_bid,
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
-                        question_ids=preview_question_ids,
+                        question_ids=question_ids,
                         course_updates=_debug_course_updates(pending_memory),
                     )
                     kept = True
@@ -1087,7 +1088,7 @@ def _stream_turn(
                         memory_generations=session_holder.get("memory_generations"),
                         preview_generation=session_holder.get("preview_generation"),
                         content_revision=session_holder.get("content_revision"),
-                        preview_question_ids=preview_question_ids,
+                        question_ids=question_ids,
                     )
                 pending_memory = []
                 if tracing is not None:
@@ -1200,7 +1201,7 @@ def _stream_turn(
                 generated_block_bid=generated_block_bid,
                 turn_record=session_holder.get("turn_record", ""),
                 rewind=session_holder.get("rewind"),
-                question_ids=preview_question_ids,
+                question_ids=question_ids,
             )
         else:
             discarded = not _persist(
@@ -1219,7 +1220,7 @@ def _stream_turn(
                 memory_generations=session_holder.get("memory_generations"),
                 preview_generation=session_holder.get("preview_generation"),
                 content_revision=session_holder.get("content_revision"),
-                preview_question_ids=preview_question_ids,
+                question_ids=question_ids,
             )
 
     if tracing is not None and session_holder.get("reason") is None:
@@ -1282,7 +1283,7 @@ def _persist(
     rewind: RewindPlan | None = None,
     memory_generations: dict[str, int] | None = None,
     preview_generation: str | None = None,
-    preview_question_ids: list[str] | None = None,
+    question_ids: list[str] | None = None,
     content_revision: int | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
@@ -1326,7 +1327,7 @@ def _persist(
                 session=session,
                 generated_block_bid=generated_block_bid,
                 turn_record=turn_record,
-                question_ids=preview_question_ids,
+                question_ids=question_ids,
             )
         if not preview_mode:
             record = claim_for_writing(
@@ -1391,7 +1392,9 @@ def _persist(
             record_turn_content(
                 generated_block_bid=generated_block_bid,
                 content=taught,
-                turn_record=turn_record,
+                turn_record=with_turn_interactions(
+                    turn_record, session=session, question_ids=question_ids or []
+                ),
             )
             if session.finished:
                 mark_lesson_finished(record)

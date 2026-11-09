@@ -238,6 +238,7 @@
 | `docs/exec-plans/completed/remove-minimax-in-product-voice-cloning.md` | Remove In-Product MiniMax Voice Cloning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/rename-lesson-debug.md` | Name editor Debug code by responsibility | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/repeated-classroom-questions.md` | Repeated Classroom Questions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/reserve-system-question-prefix.md` | Reserve System Question Names | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/restrict-learner-order-actions.md` | Restrict learner order actions to their owner | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -319,7 +320,7 @@
 | `docs/product-specs/outline-learning-permission-default.md` | Backend-owned outline learning permission default | `product-spec` | `implemented` | `shared` | `2026-10-11` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-10-31` | `true` |
 | `docs/product-specs/profile-onboarding-startup.md` | Profile onboarding startup | `product-spec` | `implemented` | `frontend` | `2026-11-07` | `true` |
-| `docs/product-specs/shared-interaction-rewind.md` | Shared Interaction Rewind | `product-spec` | `implemented` | `shared` | `2026-11-01` | `true` |
+| `docs/product-specs/shared-interaction-rewind.md` | Shared Interaction Rewind | `product-spec` | `implemented` | `shared` | `2026-11-09` | `true` |
 | `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-23` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |

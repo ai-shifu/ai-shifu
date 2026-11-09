@@ -100,6 +100,11 @@ def plan_turn_rewind(
                     break
                 continue
             record = turns[i].get("record")
+            if isinstance(record, dict) and "answered_question_id" in record:
+                if record["answered_question_id"] == question_id:
+                    target = i
+                    break
+                continue
             checkpoint = record.get("checkpoint") if isinstance(record, dict) else None
             pending = (
                 checkpoint.get("pending") if isinstance(checkpoint, dict) else None
@@ -208,6 +213,44 @@ def turn_record(checkpoint: dict[str, Any], values: list[str]) -> str:
         {_KEY: {"version": _VERSION, "checkpoint": checkpoint, "values": values}},
         ensure_ascii=False,
     )
+
+
+def with_turn_interactions(
+    turn: str, *, session: Session, question_ids: list[str]
+) -> str:
+    """Record the emitted controls and which pending question actually accepted input."""
+    if not turn:
+        return turn
+    document = json.loads(turn)
+    record = document[_KEY]
+    pending = record["checkpoint"].get("pending", [])
+    accepted_id = None
+    if pending and isinstance(pending[0], dict) and record["values"]:
+        first = pending[0].get("tool_call_id")
+        if isinstance(first, str) and first:
+            remaining = {item.tool_call_id for item in session.pending}
+            if first not in remaining or first in session.answers:
+                accepted_id = first
+    record["question_ids"] = question_ids
+    record["answered_question_id"] = accepted_id
+    return json.dumps(document, ensure_ascii=False)
+
+
+def recorded_question_ids(
+    record: dict[str, Any] | None, control_count: int
+) -> list[str] | None:
+    """Return the emitted identities only when every control has an unambiguous ID."""
+    ids = record.get("question_ids") if record else None
+    if (
+        not isinstance(ids, list)
+        or len(ids) != control_count
+        or any(
+            not isinstance(question_id, str) or not question_id for question_id in ids
+        )
+        or len(set(ids)) != control_count
+    ):
+        return None
+    return ids
 
 
 def read_turn_record(block: LearnGeneratedBlock) -> dict[str, Any] | None:
@@ -340,6 +383,9 @@ def _question_for_control(
             selected = identities.index(identity)
     if selected is None:
         return None
+    ids = recorded_question_ids(turns[0].get("record"), len(identities))
+    if ids is not None:
+        return ids[selected]
     control_text = next(
         (
             row.content_text
