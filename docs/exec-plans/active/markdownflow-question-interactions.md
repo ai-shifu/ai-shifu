@@ -42,6 +42,9 @@ response. Preserve earlier named answers, short references and pending turns.
 - [x] 2026-11-08 11:40 UTC: Added bounded recall for long answers, restored
   pending Profile question prose, repaired authored input and navigation
   controls, and checked question visibility after HTML and tool filtering.
+- [x] 2026-11-09 09:50 UTC: Rebased on the shared course-version runtime.
+  Kept the existing preview, attempt, and history rules, and migrated the new
+  classroom integration fixtures to the question tool contract.
 
 ## Surprises & Discoveries
 

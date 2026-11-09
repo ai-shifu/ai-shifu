@@ -69,11 +69,12 @@ def test_multiple_deferred_questions_keep_controls_and_individual_answers(
             }
             return
         yield "Teaching before both questions."
+        yield "\n\n" + "\n\n".join(prompts)
         yield {
             index: DeltaToolCall(
                 name="interact",
                 tool_call_id=f"question-{index}",
-                json_args=json.dumps({"type": "text", "prompt": prompt}),
+                json_args=json.dumps({"type": "text", "question": prompt}),
             )
             for index, prompt in enumerate(prompts)
         }
