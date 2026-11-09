@@ -246,11 +246,62 @@ async def test_reserved_question_requires_a_trusted_exact_authored_control(
 
 
 @pytest.mark.anyio
+async def test_visible_html_question_is_delivered_before_its_control() -> None:
+    question = "What would you like to learn & practice?"
+    prose = "<p>What would you like to <strong>learn &amp; practice</strong>?</p>"
+    attempts = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal attempts
+        attempts += 1
+        yield prose
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"html-question-{attempts}",
+                json_args=json.dumps(
+                    {"type": "text", "question": question, "placeholder": "Answer"}
+                ),
+            )
+        }
+
+    engine = Engine(
+        FunctionModel(stream_function=model), render="none", buffer_model_responses=True
+    )
+    session = await engine.new_session("?[...Answer]")
+    events = [event async for event in engine.run_turn(session)]
+
+    (interaction,) = [
+        event for event in events if isinstance(event, InteractionRequest)
+    ]
+    assert interaction.id == "html-question-1"
+    assert interaction.spec.question == question
+    assert (
+        "".join(
+            event.text
+            for event in events[: events.index(interaction)]
+            if isinstance(event, ContentDelta)
+        )
+        == prose
+    )
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("listen_mode", [False, True])
 @pytest.mark.parametrize("bound", [False, True])
 @pytest.mark.parametrize(
     "failure",
-    ["no-prose", "unrelated", "hidden", "hidden-span", "hidden-style", "after-tool"],
+    [
+        "no-prose",
+        "unrelated",
+        "hidden",
+        "hidden-span",
+        "hidden-style",
+        "hidden-block",
+        "after-tool",
+    ],
 )
 async def test_answer_controls_wait_for_visible_question_prose(
     listen_mode: bool, bound: bool, failure: str
@@ -279,6 +330,8 @@ async def test_answer_controls_wait_for_visible_question_prose(
             yield f"Review the examples. <span hidden><span>{question}</span></span>"
         elif failure == "hidden-style":
             yield f'Review the examples. <span style="display: none">{question}</span>'
+        elif failure == "hidden-block":
+            yield f"<div hidden><p>{question}</p></div>"
         yield {
             0: DeltaToolCall(
                 name="interact",
