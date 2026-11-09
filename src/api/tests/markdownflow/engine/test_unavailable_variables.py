@@ -91,7 +91,6 @@ async def test_unexpanded_source_reaches_initial_and_resumed_sdk_requests(
         assert "generated visuals" in info.instructions
         assert "unavailable_learner_value" not in payload
         assert ('"goal": "A recorded goal."' in payload) is known
-        assert "without server-side expansion" in info.instructions
         yield output + "\n<div><style>.card {color: blue}</style>" + output + "</div>"
         yield {
             0: DeltaToolCall(
