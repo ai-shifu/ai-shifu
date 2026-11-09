@@ -26,6 +26,7 @@ import {
   StudyRecordItem,
   AudioCompleteData,
   AudioSegmentData,
+  type LessonFollowUpMode,
   type ListenSlideData,
   getRunMessage,
   SSE_INPUT_TYPE,
@@ -334,6 +335,10 @@ function useLessonConversation({
   const [isLoading, setIsLoading] = useState(true);
   const isInitHistoryRef = useRef(true);
   const [showLessonUpdateNotice, setShowLessonUpdateNotice] = useState(false);
+  const [attemptFollowUp, setAttemptFollowUp] = useState<{
+    scope: string;
+    mode: LessonFollowUpMode;
+  } | null>(null);
   // const [lastInteractionBlock, setLastInteractionBlock] =
   //   useState<ChatContentItem | null>(null);
   const [loadedChapterId, setLoadedChapterId] = useState('');
@@ -1467,13 +1472,23 @@ function useLessonConversation({
   );
 
   useEffect(() => {
+    // A lesson restored at an unanswered question might not start a new stream.
+    setIsOutputInProgress(false);
+    setCurrentStreamingElementBid('');
+    setCurrentTypewriterElementBid('');
     return () => {
+      // A late history response must not start teaching after leaving this
+      // lesson and content version.
+      refreshDataSerialRef.current += 1;
+      sseRunSerialRef.current += 1;
       clearRunStreamTimeout();
       previewRewindResultRef.current?.('cancelled');
-      sseRef.current?.close();
+      const source = sseRef.current;
+      sseRef.current = null;
+      source?.close();
       isStreamingRef.current = false;
     };
-  }, [clearRunStreamTimeout]);
+  }, [clearRunStreamTimeout, lessonRunContentCacheKey]);
 
   useEffect(() => {
     const handleStopActiveLessonStream = (
@@ -1626,6 +1641,7 @@ function useLessonConversation({
     hasScrolledToBottomRef.current = false;
     isInitHistoryRef.current = true;
     setShowLessonUpdateNotice(false);
+    setAttemptFollowUp(null);
 
     try {
       const recordResp = await getLessonStudyRecord({
@@ -1639,6 +1655,23 @@ function useLessonConversation({
       setShowLessonUpdateNotice(
         recordResp?.has_content_update_for_current_user === true,
       );
+      for (const {
+        outline_bid,
+        status,
+        has_children,
+      } of recordResp?.outline_progress_updates ?? []) {
+        if (!outline_bid) continue;
+        const patch = { id: outline_bid, status, status_value: status };
+        if (has_children) {
+          chapterUpdate?.(patch);
+        } else {
+          lessonUpdate?.(patch, { refreshMissingLesson: true });
+        }
+      }
+      const mode = recordResp?.follow_up_mode;
+      if (mode === 'text' || mode === 'live_voice' || mode === 'disabled') {
+        setAttemptFollowUp({ scope: lessonRunContentCacheKey, mode });
+      }
 
       if (recordResp?.elements?.length > 0) {
         const contentRecords = mapRecordsToContent(recordResp.elements);
@@ -1717,8 +1750,10 @@ function useLessonConversation({
     }
   }, [
     chapterId,
+    chapterUpdate,
     creditInsufficientAudience,
     getLessonFeedbackDefaults,
+    lessonUpdate,
     mapRecordsToContent,
     openLessonFeedbackPopup,
     outlineBid,
@@ -1849,6 +1884,7 @@ function useLessonConversation({
   }, [
     creditInsufficientAudience,
     lessonId,
+    lessonRunContentCacheKey,
     hasResetLandedForOpenLesson,
     isResettingOpenLesson,
   ]);
@@ -2807,6 +2843,10 @@ function useLessonConversation({
 
   return {
     items,
+    attemptFollowUpMode:
+      attemptFollowUp?.scope === lessonRunContentCacheKey
+        ? attemptFollowUp.mode
+        : undefined,
     isLoading,
     isOutputInProgress,
     hasRunFailed,

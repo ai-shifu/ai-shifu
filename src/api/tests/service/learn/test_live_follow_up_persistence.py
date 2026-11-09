@@ -32,12 +32,16 @@ from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedEleme
 from flaskr.service.learn.utils_v2 import FollowUpInfo
 from flaskr.service.memory import MemorySnapshot
 from flaskr.service.metering import BillUsageRecord
+from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
 )
 
-from tests.common.fixtures.model_factories import make_generated_element
+from tests.common.fixtures.model_factories import (
+    make_generated_element,
+    make_progress_record,
+)
 
 
 def _persistence_context(*, session_bid: str) -> LiveTurnPersistenceContext:
@@ -56,6 +60,15 @@ def _persistence_context(*, session_bid: str) -> LiveTurnPersistenceContext:
 
 
 def _insert_anchor(context: LiveTurnPersistenceContext) -> None:
+    db.session.add(
+        make_progress_record(
+            progress_record_bid=context.progress_record_bid,
+            user_bid=context.user_bid,
+            shifu_bid=context.shifu_bid,
+            outline_item_bid=context.outline_item_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+        )
+    )
     db.session.add(
         make_generated_element(
             element_bid=context.anchor_element_bid,
@@ -212,6 +225,7 @@ def test_live_turn_saves_the_played_answer_transcript(app: Flask) -> None:
     )
 
     with app.app_context():
+        _insert_anchor(context)
         result = persist_live_follow_up_turn(app, context, turn)
         answer_block = LearnGeneratedBlock.query.filter_by(
             generated_block_bid=result.answer_block_bid
@@ -382,6 +396,7 @@ def test_live_turn_retry_after_usage_failure_is_idempotent(app: Flask) -> None:
     usage_bid = deterministic_live_turn_bid(session_bid, 4, "usage")
 
     with app.app_context():
+        _insert_anchor(context)
         with (
             patch(
                 "flaskr.service.learn.live_follow_up_persistence.record_llm_usage",
@@ -606,3 +621,38 @@ def test_live_payload_round_trip_rejects_invalid_metadata_types() -> None:
     assert invalid.interaction_mode is None
     assert invalid.live_turn_index is None
     assert invalid.interrupted is None
+
+
+@pytest.mark.parametrize(
+    "reset", [False, True], ids=["rewound-anchor", "reset-attempt"]
+)
+def test_live_turn_keeps_usage_but_drops_stale_history(app: Flask, reset: bool) -> None:
+    from flaskr.service.learn.models import LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_RESET
+
+    session_bid = str(uuid.uuid4())
+    context = _persistence_context(session_bid=session_bid)
+    turn = LiveTurnPersistenceInput(
+        turn_index=1,
+        user_transcript="A late question",
+        played_answer_transcript="A late answer",
+        interrupted=False,
+    )
+    with app.app_context():
+        _insert_anchor(context)
+        if reset:
+            LearnProgressRecord.query.filter_by(
+                progress_record_bid=context.progress_record_bid
+            ).one().status = LEARN_STATUS_RESET
+        else:
+            LearnGeneratedElement.query.filter_by(
+                element_bid=context.anchor_element_bid
+            ).one().deleted = 1
+        db.session.commit()
+
+        result = persist_live_follow_up_turn(app, context, turn)
+        assert not result.history_saved
+        assert not LearnGeneratedBlock.query.filter_by(
+            progress_record_bid=context.progress_record_bid
+        ).count()
+        assert load_persisted_live_follow_up_turn(session_bid, 1) == result

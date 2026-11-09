@@ -8,6 +8,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from dataclasses import replace
+from typing import Literal
 
 from flask import Flask, has_request_context, request
 from flaskr.api.llm import is_live_follow_up_model_available
@@ -54,6 +55,7 @@ from flaskr.service.learn.learn_dtos import (
     LearnShifuInfoDTO,
     LearnStatus,
     LikeStatus,
+    OutlineItemUpdateDTO,
     OutlineType,
     RunMarkdownFlowDTO,
 )
@@ -68,6 +70,7 @@ from flaskr.service.learn.lesson_reset_limit import (
     get_lesson_reset_limit,
     is_lesson_reset_exempt,
     is_reset_receipt_conflict,
+    is_unavailable_draft_attempt,
     normalize_reset_request_id,
     record_lesson_reset,
     require_reset_lesson,
@@ -81,6 +84,7 @@ from flaskr.service.learn.models import (
     LearnLessonResetRecord,
     LearnProgressRecord,
 )
+from flaskr.service.learn.progress_ordering import progress_record_order
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
@@ -293,7 +297,7 @@ def get_shifu_info(
         )
 
 
-def _is_lesson_outline(item: HistoryItem) -> bool:
+def is_lesson_outline(item: HistoryItem) -> bool:
     """Legacy block children belong to a lesson; outline children make a chapter."""
     return item.type == "outline" and not any(
         child.type == "outline" for child in item.children
@@ -316,7 +320,7 @@ def get_current_lesson_outline(
     pending = [HistoryItem.from_json(row.struct)]
     while pending:
         item = pending.pop()
-        if item.bid == outline_bid and _is_lesson_outline(item):
+        if item.bid == outline_bid and is_lesson_outline(item):
             return item
         pending.extend(item.children)
     return None
@@ -330,6 +334,20 @@ def get_current_lesson_outline_id(
         shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
     )
     return item.id if item else None
+
+
+def available_follow_up_mode(
+    ask_mode: int, model_id: str
+) -> Literal["text", "live_voice", "disabled"]:
+    """Return the available follow-up interaction for a course version."""
+    if ask_mode == ASK_MODE_DISABLE:
+        return "disabled"
+    interaction_mode = get_follow_up_interaction_mode(model_id)
+    if interaction_mode == "live_voice" and not is_live_follow_up_model_available(
+        model_id
+    ):
+        return "disabled"
+    return interaction_mode
 
 
 def get_outline_item_tree(
@@ -395,6 +413,7 @@ def get_outline_item_tree(
         outline_items_bids = [i.bid for i in outline_items]
         outline_items_dbs = outline_item_model.query.filter(
             outline_item_model.id.in_(outline_items_ids),
+            outline_item_model.shifu_bid == shifu_bid,
             outline_item_model.deleted == 0,
         ).all()
         outline_items_db_map = {item.id: item for item in outline_items_dbs}
@@ -414,91 +433,47 @@ def get_outline_item_tree(
                 if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
                     effective_ask_mode = configured_item.ask_enabled_status
                     break
-            if effective_ask_mode == ASK_MODE_DISABLE:
-                return "disabled"
-            interaction_mode = get_follow_up_interaction_mode(effective_model)
-            if (
-                interaction_mode == "live_voice"
-                and not is_live_follow_up_model_available(effective_model)
-            ):
-                return "disabled"
-            return interaction_mode
-
-        from flaskr.service.learn.agent.preview_history import (
-            outlines_with_agent_history,
-        )
+            return available_follow_up_mode(effective_ask_mode, effective_model)
 
         candidate_outline_ids = {
             item.bid: item.id
             for item in outline_items
-            if _is_lesson_outline(item)
+            if is_lesson_outline(item)
             and item.id in outline_items_db_map
             and outline_items_db_map[item.id].shifu_bid == shifu_bid
             and outline_items_db_map[item.id].outline_item_bid == item.bid
             and not outline_items_db_map[item.id].hidden
         }
-        # A cleared 2.0 draft must stay isolated even after its session is reset.
-        # Scriptless lessons without draft history keep their recorded progress.
-        scoped_empty_previews = (
-            outlines_with_agent_history(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bids=[
-                    bid
-                    for bid, row_id in candidate_outline_ids.items()
-                    if not (outline_items_db_map[row_id].content or "").strip()
-                ],
-            )
-            if preview_mode
-            else set()
-        )
-        progress_outline_bids = (
-            [
-                item.bid
-                for item in outline_items
-                if item.id in outline_items_db_map
-                and not (outline_items_db_map[item.id].content or "").strip()
-                and item.bid not in scoped_empty_previews
-            ]
-            if preview_mode
-            else outline_items_bids
-        )
         progress_records = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.user_bid == user_bid,
                 LearnProgressRecord.shifu_bid == shifu_bid,
-                LearnProgressRecord.outline_item_bid.in_(progress_outline_bids),
+                LearnProgressRecord.outline_item_bid.in_(outline_items_bids),
                 LearnProgressRecord.status != LEARN_STATUS_RESET,
                 LearnProgressRecord.deleted == 0,
-            ).all()
-            if progress_outline_bids
+            )
+            .order_by(*progress_record_order())
+            .all()
+            if outline_items_bids
             else []
         )
         progress_records_map: dict[str, LearnProgressRecord] = {}
         for progress_record in progress_records:
-            current_status_record = progress_records_map.get(
-                progress_record.outline_item_bid
+            progress_records_map.setdefault(
+                progress_record.outline_item_bid, progress_record
             )
-            if (
-                current_status_record is None
-                or progress_record.id > current_status_record.id
-            ):
-                progress_records_map[progress_record.outline_item_bid] = progress_record
 
         eligible_outline_ids = {
             bid: row_id
             for bid, row_id in candidate_outline_ids.items()
-            if preview_mode
-            or (
-                bid in progress_records_map
-                and progress_records_map[bid].status
-                in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
-            )
+            if bid in progress_records_map
+            and progress_records_map[bid].status
+            in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
         }
         content_states = load_lesson_content_states(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
-            preview_mode=preview_mode,
+            preview_mode=False,
             outline_revisions={
                 item.bid: item.content_revision
                 for item in outline_items
@@ -514,7 +489,11 @@ def get_outline_item_tree(
             outline_item: DraftOutlineItem | PublishedOutlineItem = (
                 outline_items_db_map.get(item.id)
             )
-            if not outline_item or outline_item.hidden == 1:
+            if (
+                not outline_item
+                or outline_item.outline_item_bid != item.bid
+                or outline_item.hidden == 1
+            ):
                 return None
             progress_record = progress_records_map.get(outline_item.outline_item_bid)
             if not progress_record:
@@ -524,18 +503,7 @@ def get_outline_item_tree(
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
             content_state = content_states.get(outline_item.outline_item_bid)
-            if preview_mode and (
-                (outline_item.content or "").strip()
-                or outline_item.outline_item_bid in scoped_empty_previews
-            ):
-                status = LEARN_STATUS_NOT_STARTED
-                if content_state is not None and content_state.started:
-                    status = (
-                        LEARN_STATUS_COMPLETED
-                        if content_state.finished
-                        else LEARN_STATUS_IN_PROGRESS
-                    )
-            is_lesson_node = _is_lesson_outline(item)
+            is_lesson_node = is_lesson_outline(item)
             has_content_update_for_current_user = bool(
                 is_lesson_node and content_state and content_state.has_content_update
             )
@@ -788,7 +756,7 @@ def reset_learn_record(
     preview_mode: bool = False,
     reset_request_id: str | None = None,
 ) -> bool:
-    """Reset learner progress, or only the explicitly selected draft preview.
+    """Reset the account's active lesson across course versions.
 
     An effective reset is recorded in ``learn_lesson_reset_records`` inside the same
     transaction; ordinary learners are refused once their recorded resets for this lesson
@@ -824,18 +792,18 @@ def reset_learn_record(
         if not (receipt_conflict or quota_reached):
             raise
         # An earlier snapshot can miss the winner's receipt even when a locking
-        # quota count sees the winner used the last reset. Rollback gives the
-        # readback a fresh snapshot and leaves any newer attempt untouched.
+        # quota count sees the winner used the last reset. After rollback, a fresh
+        # snapshot can see the receipt and the newer attempt stays untouched.
         with app_context_scope(app), unit_of_work():
             receipt = find_reset_receipt(user_bid, request_id)
             if receipt is not None and _reset_receipt_matches(
-                receipt, shifu_bid, outline_bid, preview_mode=preview_mode
+                receipt, shifu_bid, outline_bid
             ):
                 return True
         if receipt is None or not receipt_conflict:
             raise
-        # A different lesson or learning mode owns the ID. Apply this request
-        # without it and reevaluate the target scope in a fresh transaction.
+        # The ID belongs to another lesson. Follow the ordinary reset path
+        # without it, with a new quota check for the requested lesson.
         return _reset_learn_record_once(
             app,
             shifu_bid,
@@ -847,17 +815,9 @@ def reset_learn_record(
 
 
 def _reset_receipt_matches(
-    receipt: LearnLessonResetRecord,
-    shifu_bid: str,
-    outline_bid: str,
-    *,
-    preview_mode: bool,
+    receipt: LearnLessonResetRecord, shifu_bid: str, outline_bid: str
 ) -> bool:
-    return (
-        receipt.shifu_bid == shifu_bid
-        and receipt.outline_item_bid == outline_bid
-        and bool(receipt.preview_mode) == preview_mode
-    )
+    return receipt.shifu_bid == shifu_bid and receipt.outline_item_bid == outline_bid
 
 
 def _reset_learn_record_once(
@@ -873,81 +833,44 @@ def _reset_learn_record_once(
         from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 
         limit = get_lesson_reset_limit()
-        limited = (
-            limit > 0
-            and not preview_mode
-            and not is_lesson_reset_exempt(app, user_bid, shifu_bid)
-        )
-        if limited:
-            require_reset_lesson(shifu_bid, outline_bid)
+        limited = limit > 0 and not is_lesson_reset_exempt(app, user_bid, shifu_bid)
+        if limited and not preview_mode:
+            require_reset_lesson(shifu_bid, outline_bid, preview_mode=False)
         # A retry of a reset that already landed must not clear the learning the
         # learner has started since, nor spend a second use. This holds for exempt
         # and unlimited resets too, including requests that found nothing to reset.
         receipt = find_reset_receipt(user_bid, request_id)
         if receipt is not None:
-            if _reset_receipt_matches(
-                receipt, shifu_bid, outline_bid, preview_mode=preview_mode
-            ):
+            if _reset_receipt_matches(receipt, shifu_bid, outline_bid):
                 return True
-            # The receipt key is unique per user. Use no ID for a different scope.
+            # Same trace id reused for another lesson: not a retry, and the receipt
+            # column is unique per user, so this reset is recorded without one.
             request_id = None
 
-        if preview_mode:
-            from flaskr.service.learn.agent.preview_history import (
-                uses_preview_session_history,
-            )
-
-            if not DraftOutlineItem.query.filter_by(
+        if (
+            preview_mode
+            and not DraftOutlineItem.query.filter_by(
                 shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
-            ).first():
-                # A published lesson can acquire a draft after this accepted
-                # no-op. Unknown lesson IDs do not get reset receipts.
-                if (
-                    request_id is not None
-                    and PublishedOutlineItem.query.filter_by(
-                        shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
-                    ).first()
-                ):
-                    record_lesson_reset(
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                        preview_mode=True,
-                        counted=False,
-                        request_id=request_id,
-                    )
-                return True
-            if uses_preview_session_history(
-                app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+            ).first()
+        ):
+            # This accepted no-op can be retried after the lesson acquires a
+            # draft. An unknown lesson ID has no reset scope to record.
+            if (
+                request_id is not None
+                and PublishedOutlineItem.query.filter_by(
+                    shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+                ).first()
             ):
-                preview_session = (
-                    LearnAgentSession.query.filter(
-                        LearnAgentSession.user_bid == user_bid,
-                        LearnAgentSession.shifu_bid == shifu_bid,
-                        LearnAgentSession.outline_item_bid == outline_bid,
-                        LearnAgentSession.deleted == 0,
-                        LearnAgentSession.active_key
-                        == active_key_for(user_bid, outline_bid, preview_mode=True),
-                    )
-                    .with_for_update()
-                    .first()
-                )
-                stage_agent_session_discard(
+                record_lesson_reset(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
-                    outline_item_bid=outline_bid,
+                    outline_bid=outline_bid,
                     preview_mode=True,
+                    counted=False,
+                    request_id=request_id,
                 )
-                if preview_session is not None or request_id is not None:
-                    record_lesson_reset(
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                        preview_mode=True,
-                        counted=False,
-                        request_id=request_id,
-                    )
-                return True
+            return True
+
         progress_records = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.user_bid == user_bid,
@@ -964,16 +887,17 @@ def _reset_learn_record_once(
             .with_for_update()
             .all()
         )
-        # Only the published-scope session says whether a learner has something to reset;
-        # a leftover draft preview session must not spend a learner's allowance.
+        session_keys = [
+            active_key_for(user_bid, outline_bid),
+            active_key_for(user_bid, outline_bid, preview_mode=True),
+        ]
         live_session = (
             LearnAgentSession.query.filter(
                 LearnAgentSession.user_bid == user_bid,
                 LearnAgentSession.shifu_bid == shifu_bid,
                 LearnAgentSession.outline_item_bid == outline_bid,
                 LearnAgentSession.deleted == 0,
-                LearnAgentSession.active_key
-                == active_key_for(user_bid, outline_bid, preview_mode=preview_mode),
+                LearnAgentSession.active_key.in_(session_keys),
             )
             .with_for_update()
             .first()
@@ -984,7 +908,20 @@ def _reset_learn_record_once(
         has_learning = live_session is not None or any(
             record.status != LEARN_STATUS_NOT_STARTED for record in progress_records
         )
-        charged = limited and has_learning
+        charged = (
+            limited
+            and has_learning
+            and (
+                preview_mode
+                or not is_unavailable_draft_attempt(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    for_update=True,
+                )
+            )
+        )
         # Two concurrent resets serialize on the row locks above and the second usually finds
         # nothing live. It can still see learning that started after the first one committed,
         # so the admission count must be a locking read: a plain count would reuse this
@@ -997,17 +934,11 @@ def _reset_learn_record_once(
             raise_error("server.learn.resetLimitReached")
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET
-        # A 2.0 lesson keeps its conversation in its own table, which resetting the progress
-        # records does not touch. Left behind, the next run resumes a session that may hold
-        # `finished=True` -- it would report the lesson complete immediately and never start it
-        # again, which also breaks taking a course back off the allowlist as a way out.
-        # A learner's reset retires only the published scope so an author's draft preview of
-        # the same lesson survives; an explicit preview reset retires only the draft.
+        # Retire the shared session and any legacy draft snapshot together.
         stage_agent_session_discard(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
-            preview_mode=preview_mode,
         )
         if effective or request_id is not None:
             record_lesson_reset(
@@ -1178,16 +1109,15 @@ def _resolve_shifu_tts_settings(
     *,
     shifu_bid: str,
     preview_mode: bool,
+    course_row_id: int | None = None,
 ) -> tuple[str, str, VoiceSettings, AudioSettings]:
     shifu_model = DraftShifu if preview_mode else PublishedShifu
-    shifu = (
-        shifu_model.query.filter(
-            shifu_model.shifu_bid == shifu_bid,
-            shifu_model.deleted == 0,
-        )
-        .order_by(shifu_model.id.desc())
-        .first()
-    )
+    query = shifu_model.query.filter(shifu_model.shifu_bid == shifu_bid)
+    if course_row_id is None:
+        query = query.filter(shifu_model.deleted == 0)
+    else:
+        query = query.filter(shifu_model.id == course_row_id)
+    shifu = query.order_by(shifu_model.id.desc()).first()
     if not shifu:
         raise_error("server.shifu.shifuNotFound")
 
@@ -1959,13 +1889,54 @@ def stream_generated_block_audio(
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
+        from flaskr.service.learn.agent.lesson_entry import (
+            require_requested_lesson_access,
+        )
+        from flaskr.service.learn.agent.session_store import load_lesson_attempt_source
+        from flaskr.service.learn.preview_permissions import (
+            require_shifu_preview_permission,
+        )
+
+        progress = LearnProgressRecord.query.filter_by(
+            progress_record_bid=generated_block.progress_record_bid,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=generated_block.outline_item_bid,
+        ).first()
+        if progress is not None and (
+            progress.deleted or progress.status == LEARN_STATUS_RESET
+        ):
+            raise_error("server.learn.generatedBlockNotFound")
+        source = load_lesson_attempt_source(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=generated_block.outline_item_bid,
+        )
+        if source is not None and source.preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
+            if not preview_mode:
+                require_requested_lesson_access(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=generated_block.outline_item_bid,
+                    preview_mode=False,
+                )
+
         raw_text = generated_block.generated_content or ""
 
         provider, tts_model, voice_settings, _audio_settings = (
             _resolve_shifu_tts_settings(
                 app,
                 shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
+                preview_mode=source.preview_mode
+                if source is not None
+                else preview_mode,
+                **(
+                    {"course_row_id": source.course_row_id}
+                    if source is not None and source.course_row_id is not None
+                    else {}
+                ),
             )
         )
 
@@ -2044,100 +2015,6 @@ def stream_generated_block_audio(
                 body=_generate_single_audio,
             )
 
-        def _yield_preview_single_block_audio() -> Iterator[object]:
-            cleaned_text = preprocess_for_tts(raw_text)
-            if not cleaned_text or len(cleaned_text.strip()) < 2:
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text available for TTS synthesis",
-                )
-
-            audio_bid = uuid.uuid4().hex
-            usage_context = _build_tts_usage_context(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                audio_bid=audio_bid,
-                usage_scene=BILL_USAGE_SCENE_PREVIEW,
-                outline_item_bid=generated_block.outline_item_bid,
-                progress_record_bid=generated_block.progress_record_bid,
-                generated_block_bid=generated_block.generated_block_bid,
-                learning_mode="listen" if listen else "read",
-            )
-            parent_usage_bid = generate_id(app)
-            usage_metadata = _build_tts_usage_metadata(
-                voice_settings=voice_settings,
-                audio_settings=_audio_settings,
-            )
-            stats = {"segment_count": 0, "total_word_count": 0}
-            audio_parts: list[bytes] = []
-            subtitle_cues: list[dict] = []
-
-            def _generate_preview_audio() -> Iterator[object]:
-                yield from _yield_stream_tts_audio_segments(
-                    app=app,
-                    text=raw_text,
-                    provider=provider,
-                    tts_model=tts_model,
-                    voice_settings=voice_settings,
-                    audio_settings=_audio_settings,
-                    usage_context=usage_context,
-                    parent_usage_bid=parent_usage_bid,
-                    usage_metadata=usage_metadata,
-                    outline_bid=generated_block.outline_item_bid or "",
-                    generated_block_bid=generated_block.generated_block_bid or "",
-                    audio_parts=audio_parts,
-                    subtitle_cues=subtitle_cues,
-                    stats=stats,
-                )
-                segment_count = int(stats.get("segment_count", 0))
-                total_word_count = int(stats.get("total_word_count", 0))
-                total_output_chars = int(stats.get("total_output_chars", 0))
-
-                oss_url, duration_ms = _finalize_tts_stream_audio(
-                    app,
-                    audio_parts=audio_parts,
-                    subtitle_cues=subtitle_cues,
-                    audio_bid=audio_bid,
-                    audio_settings=_audio_settings,
-                    voice_settings=voice_settings,
-                    tts_model=tts_model,
-                    cleaned_text=cleaned_text,
-                    segment_count=segment_count,
-                    persist_audio=False,
-                )
-
-                _record_stream_summary_usage(
-                    app,
-                    usage_context,
-                    usage_bid=parent_usage_bid,
-                    provider=provider,
-                    tts_model=tts_model,
-                    raw_text=raw_text,
-                    cleaned_text=cleaned_text,
-                    total_word_count=total_word_count,
-                    total_output_chars=total_output_chars,
-                    duration_ms=int(duration_ms or 0),
-                    segment_count=segment_count,
-                    usage_metadata=usage_metadata,
-                )
-
-                yield _build_audio_complete_message(
-                    outline_bid=generated_block.outline_item_bid or "",
-                    generated_block_bid=generated_block.generated_block_bid or "",
-                    audio_url=oss_url,
-                    audio_bid=audio_bid,
-                    duration_ms=int(duration_ms or 0),
-                    subtitle_cues=subtitle_cues,
-                )
-
-            yield from _yield_tts_synthesis(
-                app,
-                user_bid=user_bid,
-                outline_bid=generated_block.outline_item_bid or "",
-                unknown_error_log="Preview listen fallback TTS synthesis failed",
-                body=_generate_preview_audio,
-            )
-
         if listen:
             from flaskr.service.learn.elements.history import (
                 get_final_elements_for_generated_block,
@@ -2153,25 +2030,16 @@ def stream_generated_block_audio(
                 str(element.content_text or "") for element in speakable_elements
             ]
             if not speakable_segments:
-                if preview_mode:
-                    existing_audio = _resolve_existing_single_block_audio()
-                    if existing_audio:
-                        yield from _yield_existing_single_block_audio(existing_audio)
-                        yield _build_tts_done_message(
-                            outline_bid=generated_block.outline_item_bid or "",
-                            generated_block_bid=generated_block_bid,
-                        )
-                        return
-                    yield from _yield_preview_single_block_audio()
+                existing_audio = _resolve_existing_single_block_audio()
+                if existing_audio:
+                    yield from _yield_existing_single_block_audio(existing_audio)
                     yield _build_tts_done_message(
                         outline_bid=generated_block.outline_item_bid or "",
                         generated_block_bid=generated_block_bid,
                     )
                     return
 
-                # Non-preview historical blocks may have generated_content but
-                # no learn_generated_elements. Fall back to synthesizing audio
-                # from the raw block text instead of failing.
+                # Older blocks can have text without element snapshots.
                 if not _has_speakable_tts_segment(raw_text):
                     app.logger.info(
                         "skip listen-mode TTS for non-speakable generated block | shifu_bid=%s | generated_block_bid=%s | user_bid=%s",
@@ -2447,8 +2315,12 @@ def stream_preview_tts_audio(
 
 
 def resolve_outline_progression(
-    app: Flask, *, shifu_bid: str, outline_bid: str, preview_mode: bool
-) -> list:
+    app: Flask,
+    *,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+) -> list[OutlineItemUpdateDTO]:
     """Read the course outline and work out what a finished 2.0 lesson changed in it.
 
     Here rather than beside the rest of the 2.0 lesson code because reading a course's outline is
@@ -2461,6 +2333,42 @@ def resolve_outline_progression(
     """
     from flaskr.service.learn.agent.outline_progression import plan_lesson_completion
 
+    catalog = _outline_progression_catalog(
+        app, shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+    )
+    if catalog is None:
+        return []
+    structure, hidden, titles = catalog
+    return plan_lesson_completion(structure, outline_bid, hidden, titles)
+
+
+def resolve_outline_reconciliation(
+    app: Flask, *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> tuple[list[OutlineItemUpdateDTO], dict[str, set[str]]]:
+    """Resolve a hand-off and its reachable chapter lessons in one catalog snapshot."""
+    from flaskr.service.learn.agent.outline_progression import (
+        plan_lesson_completion,
+        reachable_lessons_by_chapter,
+    )
+
+    catalog = _outline_progression_catalog(
+        app, shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+    )
+    if catalog is None:
+        return [], {}
+    structure, hidden, titles = catalog
+    updates = plan_lesson_completion(structure, outline_bid, hidden, titles)
+    chapter_bids = {
+        update.outline_bid
+        for update in updates
+        if update.has_children and update.status == LearnStatus.COMPLETED
+    }
+    return updates, reachable_lessons_by_chapter(structure, hidden, chapter_bids)
+
+
+def _outline_progression_catalog(
+    app: Flask, *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> tuple[HistoryItem, dict[str, bool], dict[str, str]] | None:
     struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
     outline_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
     row = (
@@ -2471,25 +2379,26 @@ def resolve_outline_progression(
         .first()
     )
     if row is None:
-        return []
-    struct = HistoryItem.from_json(row.struct)
+        return None
+    structure = HistoryItem.from_json(row.struct)
     # By row, not by bid. One bid can have several rows kept at once -- a draft clone carries the
     # bid over, and publishing writes a fresh row per node -- and the structure names the exact
     # row it was built from, so asking by bid can answer from a revision never served.
     bid_of_row: dict[int, str] = {}
-    pending = [struct]
+    pending = [structure]
     while pending:
         item = pending.pop()
         if item.type == "outline":
             bid_of_row[item.id] = item.bid
         pending.extend(item.children)
-    rows = (
-        outline_model.query.with_entities(
-            outline_model.id, outline_model.hidden, outline_model.title
-        )
-        .filter(outline_model.id.in_(bid_of_row), outline_model.deleted == 0)
-        .all()
+    query = outline_model.query.with_entities(
+        outline_model.id, outline_model.hidden, outline_model.title
+    ).filter(
+        outline_model.shifu_bid == shifu_bid,
+        outline_model.id.in_(bid_of_row),
+        outline_model.deleted == 0,
     )
+    rows = query.all()
     hidden = {bid_of_row[row]: bool(is_hidden) for row, is_hidden, _title in rows}
     titles = {bid_of_row[row]: title or "" for row, _hidden, title in rows}
     app.logger.debug(
@@ -2498,4 +2407,4 @@ def resolve_outline_progression(
         outline_bid,
         len(bid_of_row),
     )
-    return plan_lesson_completion(struct, outline_bid, hidden, titles)
+    return structure, hidden, titles

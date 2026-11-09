@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.api.markdownflow import Engine, GatewayModel
+from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.agent.langfuse_tracing import (
@@ -24,9 +25,14 @@ from flaskr.service.learn.agent.langfuse_tracing import (
     CourseTrace,
 )
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
+from flaskr.service.learn.agent.lesson_source import (
+    resolve_lesson_source,
+    resolve_requested_lesson_source,
+)
 from flaskr.service.learn.agent.memory_admission import make_request_check
 from flaskr.service.learn.agent.rewind import RewindUnavailableError, plan_rewind
 from flaskr.service.learn.agent.run_agent import learner_values, run_agent_lesson
+from flaskr.service.learn.agent.session_store import stage_lesson_attempt_source
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.memory.api import COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX
@@ -51,6 +57,7 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
+    from flaskr.service.learn.agent.lesson_source import ResolvedLessonSource
     from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
 
 
@@ -92,34 +99,43 @@ def _resolve(
     preview_mode: bool,
     require_script: bool = True,
     on_resolved: Callable[..., None] | None = None,
+    lesson_version: ResolvedLessonSource | None = None,
 ) -> tuple[str, str, LLMSettings, int | None, bool]:
     """Read the script, the author's teaching brief, and the model settings for this lesson.
 
     Model resolution follows 1.0: use the course selection with runtime fallback.
     """
     outline_model, shifu_model = _models(preview_mode)
-    # Bound to the course as well as the lesson: a course selected for 2.0 paired with another
-    # course's outline would otherwise teach that course's script under this course's settings.
-    outline = _latest(outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid)
+    if lesson_version is None:
+        outline = _latest(
+            outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid
+        )
+        shifu = _latest(shifu_model, shifu_bid=shifu_bid)
+        from flaskr.service.learn.learn_funcs import get_current_lesson_outline
+
+        current = get_current_lesson_outline(
+            shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+        )
+        content_revision = (
+            current.content_revision
+            if current and outline and current.id == outline.id
+            else None
+        )
+        _require_access(
+            app,
+            user_bid=user_bid,
+            shifu=shifu,
+            outline=outline,
+            preview_mode=preview_mode,
+        )
+    else:
+        outline, shifu = lesson_version.outline, lesson_version.course
+        outline_model = type(outline)
+        content_revision = lesson_version.source.content_revision
     if outline is None or (require_script and not (outline.content or "").strip()):
         message = f"outline {outline_bid!r} has no script in course {shifu_bid!r}"
         raise LessonNotTeachable(message)
 
-    shifu = _latest(shifu_model, shifu_bid=shifu_bid)
-    _require_access(
-        app, user_bid=user_bid, shifu=shifu, outline=outline, preview_mode=preview_mode
-    )
-
-    from flaskr.service.learn.learn_funcs import get_current_lesson_outline
-
-    current = get_current_lesson_outline(
-        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
-    )
-    # Bind the revision to the exact physical row supplying this turn's script.
-    # A concurrent publish/edit or legacy structure leaves the baseline unknown.
-    content_revision = (
-        current.content_revision if current and current.id == outline.id else None
-    )
     course_model = selection_model(shifu)
     brief = _teaching_brief(shifu)
     if on_resolved is not None:
@@ -152,37 +168,59 @@ def complete_empty_lesson(
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Complete a lesson that has no script, handing the learner on to the next one.
 
-    1.0 ran such a lesson as zero blocks and went straight to its end. This keeps that: the
-    lesson is marked complete, the outline moves on, and the next lesson's button is offered.
-    Access is checked first, so an empty lesson cannot carry a learner past a lesson they have
-    not paid for. A preview changes no progress, as with any finished 2.0 preview.
+    Access is checked before marking the shared progress complete.
     """
-    from flaskr.service.learn.agent.lesson_record import active_progress_record
+    from flaskr.service.learn.agent.lesson_record import (
+        active_progress_record,
+        claim_for_writing,
+        mark_lesson_finished,
+    )
     from flaskr.service.learn.agent.run_agent import _outline_progression
 
     with app_context_scope(app):
-        outline_model, shifu_model = _models(preview_mode)
-        outline = _latest(
-            outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid
-        )
-        if outline is None:
-            raise_error("server.shifu.lessonNotFoundInCourse")
-        shifu = _latest(shifu_model, shifu_bid=shifu_bid)
-        _require_access(
+        lesson_version = resolve_lesson_source(
             app,
             user_bid=user_bid,
-            shifu=shifu,
-            outline=outline,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
             preview_mode=preview_mode,
         )
-        if preview_mode:
+        require_requested_lesson_access(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
+        )
+        if (lesson_version.outline.content or "").strip():
+            # The selected version can change between detecting no script and completing it.
             return
         with unit_of_work():
-            record = active_progress_record(
-                app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+            progress_record_bid = lesson_version.progress_record_bid
+            if not progress_record_bid:
+                progress = active_progress_record(
+                    app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+                )
+                progress_record_bid = progress.progress_record_bid
+                db.session.flush()
+            record = claim_for_writing(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=progress_record_bid,
             )
-            progress_record_bid = record.progress_record_bid
+            if record is None or not stage_lesson_attempt_source(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                source=lesson_version.source,
+                complete_without_script=record.status != LEARN_STATUS_COMPLETED,
+            ):
+                with unit_of_work(discard=True):
+                    return
             already_completed = record.status == LEARN_STATUS_COMPLETED
+            if not already_completed:
+                mark_lesson_finished(record)
     if already_completed:
         # Reopened after it was completed: its outline updates and next-lesson button are
         # already recorded and come back through history, as with any finished lesson.
@@ -194,19 +232,6 @@ def complete_empty_lesson(
         outline_bid=outline_bid,
         progress_record_bid=progress_record_bid,
         preview_mode=preview_mode,
-    )
-
-
-def require_teachable_preview(
-    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
-) -> None:
-    """Reject the 1.0 fallback before reserving any agent preview presentation."""
-    _resolve(
-        app,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        preview_mode=True,
     )
 
 
@@ -262,6 +287,32 @@ def _require_access(
         raise PaidError
 
 
+def require_requested_lesson_access(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> None:
+    """Check the entry's purchase requirements independently of the attempt's source."""
+    requested = resolve_requested_lesson_source(
+        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+    )
+    _require_access(
+        app,
+        user_bid=user_bid,
+        shifu=requested.course,
+        outline=requested.outline,
+        preview_mode=preview_mode,
+    )
+
+
+def _resolve_ordinary_lesson(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> ResolvedLessonSource:
+    """Admit the selected entry before resolving the active learning attempt."""
+    scope = {"user_bid": user_bid, "shifu_bid": shifu_bid, "outline_bid": outline_bid}
+    with app_context_scope(app):
+        require_requested_lesson_access(app, **scope, preview_mode=preview_mode)
+        return resolve_lesson_source(app, **scope, preview_mode=preview_mode)
+
+
 def agent_lesson_events(
     app: Flask,
     *,
@@ -278,7 +329,6 @@ def agent_lesson_events(
     script_override: str | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, object] | None = None,
-    preview_generation: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
 
@@ -294,47 +344,45 @@ def agent_lesson_events(
     The reload identifiers take the lesson back to an earlier turn first, as a 1.0 reload does
     (see `agent.rewind`). A lesson that cannot be taken back says so rather than going to 1.0.
     """
+    lesson_version = (
+        _resolve_ordinary_lesson(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
+        )
+        if debug_store is None
+        else None
+    )
     rewind = None
     anchor = reload_element_bid or reload_generated_block_bid
     if anchor:
         try:
             with app_context_scope(app):
-                if preview_mode:
-                    from flaskr.service.learn.agent.preview_rewind import (
-                        plan_preview_rewind,
-                    )
-
-                    if debug_store is not None:
-                        if script_override is None:
-                            raise_error("server.learn.agentRewindUnavailable")
-                        rewind = debug_store.plan_rewind(
-                            script=script_override,
-                            block_bid=reload_generated_block_bid or anchor,
-                            answering=bool(learner_values(user_input)),
-                            element_bid=reload_element_bid,
-                        )
-                    elif preview_generation is None:
+                if debug_store is not None:
+                    if script_override is None:
                         raise_error("server.learn.agentRewindUnavailable")
-                    else:
-                        rewind = plan_preview_rewind(
-                            app,
-                            user_bid=user_bid,
-                            shifu_bid=shifu_bid,
-                            outline_bid=outline_bid,
-                            anchor=anchor,
-                            answering=bool(learner_values(user_input)),
-                        )
-                        if (
-                            rewind is not None
-                            and rewind.generation != preview_generation
-                        ):
-                            raise_error("server.learn.agentRewindUnavailable")
+                    rewind = debug_store.plan_rewind(
+                        script=script_override,
+                        block_bid=reload_generated_block_bid or anchor,
+                        answering=bool(learner_values(user_input)),
+                        element_bid=reload_element_bid,
+                    )
                 else:
                     rewind = plan_rewind(
                         user_bid=user_bid,
                         outline_bid=outline_bid,
                         anchor=anchor,
                         answering=bool(learner_values(user_input)),
+                        **(
+                            {}
+                            if lesson_version is None
+                            else {
+                                "shifu_bid": shifu_bid,
+                                "progress_record_bid": lesson_version.progress_record_bid,
+                            }
+                        ),
                     )
         except RewindUnavailableError:
             raise_error("server.learn.agentRewindUnavailable")
@@ -357,6 +405,7 @@ def agent_lesson_events(
         preview_mode=preview_mode,
         require_script=debug_store is None,
         on_resolved=tracing.resolved,
+        lesson_version=lesson_version,
     )
     if debug_store is not None:
         if not preview_mode or script_override is None:
@@ -399,6 +448,11 @@ def agent_lesson_events(
         return model
 
     def bind_turn_usage(progress_record_bid: str, generated_block_bid: str) -> None:
+        nonlocal lesson_version
+        if lesson_version is not None and lesson_version.progress_record_bid is None:
+            lesson_version = replace(
+                lesson_version, progress_record_bid=progress_record_bid
+            )
         # The host has opened the actual attempt and block, but its native producer
         # has not started. Rebind all auxiliary models on automatic continuation too.
         context = replace(
@@ -451,8 +505,6 @@ def agent_lesson_events(
                     if debug_store is not None
                     else {}
                 )
-                if preview_generation is not None:
-                    debug_options["preview_generation"] = preview_generation
                 outcome = yield from tracing.capture(
                     run_agent_lesson(
                         app,
@@ -467,7 +519,16 @@ def agent_lesson_events(
                         user_input=user_input,
                         listen=listen,
                         preview_mode=preview_mode,
-                        shifu_model=_models(preview_mode)[1],
+                        shifu_model=(
+                            type(lesson_version.course)
+                            if lesson_version is not None
+                            else _models(preview_mode)[1]
+                        ),
+                        **(
+                            {}
+                            if lesson_version is None
+                            else {"lesson_version": lesson_version}
+                        ),
                         heartbeat_interval=heartbeat_interval,
                         rewind=rewind,
                         on_turn_opened=bind_turn_usage,

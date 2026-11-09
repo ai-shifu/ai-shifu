@@ -2,7 +2,7 @@
 title: Lesson Content Update Recommendations
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-10-12
+last_reviewed: 2026-11-08
 canonical: true
 ---
 
@@ -10,8 +10,8 @@ canonical: true
 
 A started or completed MarkdownFlow 2.0 lesson recommends a retake when its
 current lesson content revision differs from the revision saved with the first
-messages of that learning attempt. Published learning uses the published
-revision; teacher preview uses the draft revision.
+messages or with automatic completion of an empty lesson. Published learning
+uses the published revision; teacher preview uses the draft revision.
 
 Here, **lesson content** means the lesson's MarkdownFlow script stored in its
 `content` field, excluding the title and settings. **Learning attempt** means
@@ -29,10 +29,10 @@ means the lesson was revised since this attempt began, not that its present
 text necessarily differs from the content at the start of learning.
 
 Continuing, asking a follow-up question or reading history never advances the
-attempt's baseline. Retaking retires that scoped session; its replacement
-records a new baseline when its first nonempty message history is saved. Formal
-learning and preview do not read or retire each other's baselines, including
-when draft content has been cleared.
+attempt's baseline. Both entry points compare the same active attempt with the
+version selected by the request. Retaking retires that shared attempt; its
+replacement records the selected version's baseline when its first nonempty
+message history is saved or the empty lesson is completed.
 
 ## Revision and API contract
 
@@ -43,16 +43,15 @@ when draft content has been cleared.
   session JSON.
 - The only new database column is nullable `BIGINT`
   `LearnAgentSession.content_revision`. A new attempt records its baseline at
-  the first save of a nonempty message history, never when merely reserving a
-  preview session. A positive value is a known baseline; `0` means messages were
-  saved while the source revision was unknown. `NULL` means a legacy or unstarted
+  the first save of a nonempty message history or on completion without a
+  script, after the source is reserved. A positive value is a known baseline.
+  `0` means the source revision was unknown. `NULL` means a legacy or unstarted
   session. Existing legacy sessions retain `NULL` and are never backfilled,
   including when they resume.
 - A notice requires an active, correctly scoped session, known positive
-  current and baseline revisions, and unequal revisions. Formal learning also
-  requires current in-progress or completed progress. Unknown revisions,
-  legacy 1.0 records and reset/unstarted attempts do not produce a notice.
-  Existing preview progress display retains its `turn`/`finished` fallback.
+  current and baseline revisions, unequal revisions, and in-progress or
+  completed progress. Unknown revisions, legacy 1.0 records and reset or
+  unstarted attempts do not produce a notice.
 - If existing runtime compatibility handling starts a new engine session,
   its new document ID establishes a new attempt and baseline. Resuming the
   same engine session preserves even an unknown legacy baseline.
@@ -124,5 +123,5 @@ Old clients retain the outline boolean contract; new clients hide the notice
 on older records responses. An application rollback can leave the nullable
 column and optional JSON metadata in place. Do not remove the column while
 running code still reads or writes it. Engine routing and 1.0 storage remain
-unchanged; preview history/reset isolation does not redefine the existing
-scriptless 1.0 execution fallback.
+unchanged. Empty scripts follow the same completion rule for both classroom
+entry points.

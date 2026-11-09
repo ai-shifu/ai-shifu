@@ -11,14 +11,14 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.agent.lesson_record import claim_for_writing
+from flaskr.service.learn.ask.context import claim_follow_up_anchor
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.elements.element_types import ELEMENT_TYPE_CODES
 from flaskr.service.learn.elements.payloads import _serialize_payload
-from flaskr.service.learn.elements.queries import (
-    _load_latest_active_element_row,
-)
 from flaskr.service.learn.learn_dtos import ElementPayloadDTO, ElementType
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
 from flaskr.service.metering.api import (
     BillUsageRecord,
     UsageContext,
@@ -121,6 +121,7 @@ class LiveTurnPersistenceContext:
     learning_mode: str
     request_id: str = ""
     trace_id: str = ""
+    source_is_draft: bool = False
 
 
 @dataclass(frozen=True)
@@ -266,6 +267,7 @@ def _new_element(
 
 
 def _persist_transcript_history(
+    app: Flask,
     context: LiveTurnPersistenceContext,
     turn: LiveTurnPersistenceInput,
 ) -> tuple[str, str, str, str, bool]:
@@ -288,6 +290,27 @@ def _persist_transcript_history(
     )
 
     with unit_of_work():
+        if (
+            claim_for_writing(
+                user_bid=context.user_bid,
+                shifu_bid=context.shifu_bid,
+                outline_bid=context.outline_item_bid,
+                progress_record_bid=context.progress_record_bid,
+            )
+            is None
+        ):
+            return "", "", "", "", False
+        if context.preview_mode or context.source_is_draft:
+            require_shifu_preview_permission(app, context.user_bid, context.shifu_bid)
+        anchor_element = claim_follow_up_anchor(
+            context.anchor_element_bid,
+            user_bid=context.user_bid,
+            shifu_bid=context.shifu_bid,
+            outline_bid=context.outline_item_bid,
+            progress_record_bid=context.progress_record_bid,
+        )
+        if anchor_element is None:
+            return "", "", "", "", False
         existing_blocks = {
             row.generated_block_bid
             for row in LearnGeneratedBlock.query.filter(
@@ -313,16 +336,6 @@ def _persist_transcript_history(
             .scalar()
             or 0
         )
-        max_element_index = int(
-            db.session.query(func.max(LearnGeneratedElement.element_index))
-            .filter(
-                LearnGeneratedElement.progress_record_bid
-                == context.progress_record_bid,
-                LearnGeneratedElement.deleted == 0,
-            )
-            .scalar()
-            or 0
-        )
         max_sequence_number = int(
             db.session.query(func.max(LearnGeneratedElement.sequence_number))
             .filter(
@@ -333,13 +346,7 @@ def _persist_transcript_history(
             .scalar()
             or 0
         )
-        anchor_element = _load_latest_active_element_row(context.anchor_element_bid)
-        anchor_element_index = max_element_index
-        if (
-            anchor_element is not None
-            and anchor_element.progress_record_bid == context.progress_record_bid
-        ):
-            anchor_element_index = int(anchor_element.element_index or 0)
+        anchor_element_index = int(anchor_element.element_index or 0)
 
         if ask_block_bid not in existing_blocks:
             db.session.add(
@@ -561,7 +568,7 @@ def persist_live_follow_up_turn(
         ask_element_bid,
         answer_element_bid,
         history_saved,
-    ) = _persist_transcript_history(context, turn)
+    ) = _persist_transcript_history(app, context, turn)
     usage_bid = _persist_usage(
         app,
         context,

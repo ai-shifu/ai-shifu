@@ -9,8 +9,11 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent.lesson_entry import complete_empty_lesson
+from flaskr.service.learn.agent.lesson_source import resolve_lesson_source
+from flaskr.service.learn.elements.run_adapter import get_listen_element_record
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType, LearnStatus
+from flaskr.service.learn.learn_funcs import get_outline_item_tree, reset_learn_record
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
@@ -18,10 +21,13 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
     LogPublishedStruct,
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 from tests.service.learn.test_resolve_outline_progression import (
     CHAPTER,
@@ -34,17 +40,28 @@ from tests.service.learn.test_resolve_outline_progression import (
 )
 
 
-def _publish(shifu_bid: str, *, price: int = 0) -> None:
-    """Publish a chapter whose first lesson is empty, followed by another lesson."""
+def _publish(shifu_bid: str, *, price: int = 0, draft_owner: str | None = None) -> None:
+    """Create a chapter whose first lesson is empty, followed by another lesson."""
     with unit_of_work():
-        db.session.add(PublishedShifu(shifu_bid=shifu_bid, price=price))
-        chapter = _outline_row(PublishedOutlineItem, shifu_bid, CHAPTER, title="Ch")
-        lesson = _outline_row(PublishedOutlineItem, shifu_bid, LESSON, title="Empty")
-        following = _outline_row(PublishedOutlineItem, shifu_bid, NEXT, title="Next")
+        course = (
+            DraftShifu(shifu_bid=shifu_bid, price=price, created_user_bid=draft_owner)
+            if draft_owner
+            else PublishedShifu(shifu_bid=shifu_bid, price=price)
+        )
+        db.session.add(course)
+        model = DraftOutlineItem if draft_owner else PublishedOutlineItem
+        chapter = _outline_row(model, shifu_bid, CHAPTER, title="Ch")
+        lesson = _outline_row(model, shifu_bid, LESSON, title="Empty")
+        following = _outline_row(model, shifu_bid, NEXT, title="Next")
+        struct = HistoryItem.from_json(
+            _structure(shifu_bid, chapter, {LESSON: lesson, NEXT: following})
+        )
+        struct.id = course.id
+        struct.children[0].children[0].content_revision = lesson
         _store_structure(
-            LogPublishedStruct,
+            LogDraftStruct if draft_owner else LogPublishedStruct,
             shifu_bid,
-            _structure(shifu_bid, chapter, {LESSON: lesson, NEXT: following}),
+            struct.to_json(),
         )
 
 
@@ -105,17 +122,17 @@ def test_an_unbought_paid_lesson_is_not_completed(
         assert _records(course, learner) == {}
 
 
-def test_a_preview_changes_no_progress(
+def test_an_empty_draft_lesson_completes_without_a_publication(
     app: object,
     course: str,  # noqa: F811 - pytest fixture
 ) -> None:
     learner = uuid.uuid4().hex
     with app.app_context():
-        _publish(course)
-        with unit_of_work():
-            _outline_row(DraftOutlineItem, course, LESSON, title="Draft")
-        assert _complete(app, course, learner, preview=True) == []
-        assert _records(course, learner) == {}
+        _publish(course, draft_owner=learner)
+        events = _complete(app, course, learner, preview=True)
+        assert events[-1].type == GeneratedType.INTERACTION
+        assert _records(course, learner)[LESSON] == LEARN_STATUS_COMPLETED
+        assert _records(course, learner)[NEXT] == LEARN_STATUS_IN_PROGRESS
 
 
 def test_a_missing_lesson_is_reported_not_completed(
@@ -147,3 +164,46 @@ def test_reopening_a_completed_empty_lesson_replays_nothing(
 
         assert _complete(app, course, learner) == []
         assert _records(course, learner) == records
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_completed_empty_lesson_recommends_retaking_after_content_is_added(
+    app: object,
+    course: str,  # noqa: F811 - pytest fixture
+    preview: bool,
+) -> None:
+    learner = uuid.uuid4().hex
+    with app.app_context():
+        _publish(course, draft_owner=learner if preview else None)
+        assert _complete(app, course, learner, preview=preview)
+        original = get_listen_element_record(app, course, LESSON, learner, preview)
+        assert not original.has_content_update_for_current_user
+
+        model = DraftOutlineItem if preview else PublishedOutlineItem
+        struct_model = LogDraftStruct if preview else LogPublishedStruct
+        with unit_of_work():
+            previous = struct_model.query.filter_by(shifu_bid=course).one()
+            updated = HistoryItem.from_json(previous.struct)
+            new_id = _outline_row(model, course, LESSON, title="With content")
+            model.query.filter_by(id=new_id).one().content = "New lesson content"
+            lesson = updated.children[0].children[0]
+            lesson.id = lesson.content_revision = new_id
+            _store_structure(struct_model, course, updated.to_json())
+
+        record = get_listen_element_record(app, course, LESSON, learner, preview)
+        assert record.has_content_update_for_current_user
+        outline = get_outline_item_tree(app, course, learner, preview)
+        assert outline.outline_items[0].children[0].has_content_update_for_current_user
+        assert _complete(app, course, learner, preview=preview) == []
+
+        reset_learn_record(app, course, LESSON, learner, preview_mode=preview)
+        assert _complete(app, course, learner, preview=preview) == []
+        assert _records(course, learner).get(LESSON) != LEARN_STATUS_COMPLETED
+        source = resolve_lesson_source(
+            app,
+            user_bid=learner,
+            shifu_bid=course,
+            outline_bid=LESSON,
+            preview_mode=preview,
+        )
+        assert source.outline.content == "New lesson content"

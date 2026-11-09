@@ -579,6 +579,77 @@ describe('useLessonConversation stream cleanup', () => {
     );
   });
 
+  it('does not leave the next lesson generating when its history ends in a question', async () => {
+    const pendingQuestion = {
+      element_bid: 'lesson-2-question',
+      generated_block_bid: 'lesson-2-block',
+      element_type: 'interaction',
+      content: '?[Continue]',
+    };
+    mockGetLessonStudyRecord
+      .mockResolvedValueOnce({ elements: [] })
+      .mockResolvedValueOnce({ elements: [pendingQuestion] });
+    const params = buildBaseParams();
+    const { result, rerender } = renderHook(
+      ({ lessonId }) =>
+        useLessonConversation({ ...params, lessonId, outlineBid: lessonId }),
+      { wrapper, initialProps: { lessonId: 'lesson-1' } },
+    );
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
+    const previousRun = activeRun!;
+    await act(async () => {
+      await previousRun.onMessage({
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'old-streaming-content',
+          generated_block_bid: 'old-streaming-block',
+          element_type: 'content',
+          content: 'Still teaching',
+          like_status: 'none',
+        },
+      });
+    });
+    expect(result.current.currentStreamingElementBid).toBe(
+      'old-streaming-content',
+    );
+
+    rerender({ lessonId: 'lesson-2' });
+
+    await waitFor(() => {
+      expect(result.current.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ element_bid: 'lesson-2-question' }),
+        ]),
+      );
+    });
+    expect(previousRun.source.close).toHaveBeenCalled();
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+    expect(result.current.isOutputInProgress).toBe(false);
+    expect(result.current.currentStreamingElementBid).toBe('');
+    expect(result.current.currentTypewriterElementBid).toBe('');
+  });
+
+  it('cannot start teaching from history that arrives after leaving the version', async () => {
+    const staleRecord = createDeferred<{ elements: never[] }>();
+    mockGetLessonStudyRecord.mockReturnValueOnce(staleRecord.promise);
+    const draft = renderHook(
+      () => useLessonConversation({ ...buildBaseParams(), previewMode: true }),
+      { wrapper },
+    );
+    await waitFor(() => expect(mockGetLessonStudyRecord).toHaveBeenCalled());
+    draft.unmount();
+    renderHook(() => useLessonConversation(buildBaseParams()), { wrapper });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      staleRecord.resolve({ elements: [] });
+      await staleRecord.promise;
+    });
+
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+    expect(mockGetRunMessage.mock.calls[0]?.[2]).toBe(false);
+  });
+
   it('waits for preview ownership before starting generation', async () => {
     globalThis.__chatHookIsCurrentUserCourseOwner__ = null;
     const studyRecord = createDeferred<{
@@ -3796,58 +3867,61 @@ describe('useLessonConversation stream cleanup', () => {
     expect(activeRun?.source.close).toHaveBeenCalled();
   });
 
-  it('keeps interaction elements that arrive after lesson completion updates', async () => {
-    const { result } = renderHook(
-      () => useLessonConversation(buildBaseParams()),
-      {
-        wrapper,
-      },
-    );
-
-    await waitFor(() => expect(activeRun).toBeDefined());
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
-        content: {
-          outline_bid: 'lesson-1',
-          title: 'Lesson 1',
-          status: 'completed',
-          has_children: false,
+  it.each([true, false])(
+    'keeps the next lesson control after completion (draft=%s)',
+    async previewMode => {
+      const { result } = renderHook(
+        () => useLessonConversation({ ...buildBaseParams(), previewMode }),
+        {
+          wrapper,
         },
-      });
-      await activeRun?.onMessage({
-        generated_block_bid: 'interaction-after-complete',
-        type: SSE_OUTPUT_TYPE.ELEMENT,
-        content: {
-          element_bid: 'interaction-after-complete',
+      );
+
+      await waitFor(() => expect(activeRun).toBeDefined());
+
+      await act(async () => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+          content: {
+            outline_bid: 'lesson-1',
+            title: 'Lesson 1',
+            status: 'completed',
+            has_children: false,
+          },
+        });
+        await activeRun?.onMessage({
           generated_block_bid: 'interaction-after-complete',
-          element_type: 'interaction',
-          content: '?[下一节//_sys_next_chapter]',
-          is_marker: true,
-          is_new: true,
-          is_renderable: false,
-          is_speakable: false,
-          user_input: '',
-          like_status: 'none',
-        },
+          type: SSE_OUTPUT_TYPE.ELEMENT,
+          content: {
+            element_bid: 'interaction-after-complete',
+            generated_block_bid: 'interaction-after-complete',
+            element_type: 'interaction',
+            content: '?[下一节//_sys_next_chapter]',
+            is_marker: true,
+            is_new: true,
+            is_renderable: false,
+            is_speakable: false,
+            user_input: '',
+            like_status: 'none',
+          },
+        });
       });
-    });
 
-    await waitFor(() =>
-      expect(
-        result.current.items.find(
-          item => item.element_bid === 'interaction-after-complete',
+      await waitFor(() =>
+        expect(
+          result.current.items.find(
+            item => item.element_bid === 'interaction-after-complete',
+          ),
+        ).toEqual(
+          expect.objectContaining({
+            element_bid: 'interaction-after-complete',
+            type: ChatContentItemType.INTERACTION,
+            content: '?[下一节//_sys_next_chapter]',
+          }),
         ),
-      ).toEqual(
-        expect.objectContaining({
-          element_bid: 'interaction-after-complete',
-          type: ChatContentItemType.INTERACTION,
-          content: '?[下一节//_sys_next_chapter]',
-        }),
-      ),
-    );
-  });
+      );
+    },
+  );
 
   it('marks the active run failed when the connection drops before a new completion update', async () => {
     const { result } = renderHook(
@@ -4685,12 +4759,74 @@ describe('useLessonConversation stream cleanup', () => {
       },
     );
 
+    const outlineProgressUpdates = [
+      {
+        outline_bid: 'chapter-1',
+        status: 'completed',
+        title: 'Chapter',
+        has_children: true,
+      },
+      {
+        outline_bid: 'lesson-2',
+        status: 'in_progress',
+        title: 'Next lesson',
+        has_children: false,
+      },
+    ];
+
+    it('applies persisted outline statuses without selecting the successor', async () => {
+      const lessonUpdate = jest.fn();
+      const chapterUpdate = jest.fn();
+      const onGoChapter = jest.fn();
+      const updateSelectedLesson = jest.fn();
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: historyElements,
+        outline_progress_updates: outlineProgressUpdates,
+      });
+      const { result } = renderHook(
+        () =>
+          useLessonConversation({
+            ...buildBaseParams(),
+            chapterUpdate,
+            lessonUpdate,
+            onGoChapter,
+            updateSelectedLesson,
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(chapterUpdate.mock.calls).toEqual([
+        [
+          {
+            id: 'chapter-1',
+            status: 'completed',
+            status_value: 'completed',
+          },
+        ],
+      ]);
+      expect(lessonUpdate.mock.calls).toEqual([
+        [
+          {
+            id: 'lesson-2',
+            status: 'in_progress',
+            status_value: 'in_progress',
+          },
+          { refreshMissingLesson: true },
+        ],
+      ]);
+      expect(onGoChapter).not.toHaveBeenCalled();
+      expect(updateSelectedLesson).not.toHaveBeenCalled();
+    });
+
     it.each([false, true])(
       'ignores stale update responses after lesson navigation in preview mode %s',
       async previewMode => {
+        const lessonUpdate = jest.fn();
+        const chapterUpdate = jest.fn();
         const staleRecord = createDeferred<{
           elements: Array<Record<string, unknown>>;
           has_content_update_for_current_user: boolean;
+          outline_progress_updates: typeof outlineProgressUpdates;
         }>();
         mockGetLessonStudyRecord.mockImplementation(({ outline_bid }) => {
           if (outline_bid === 'lesson-1') return staleRecord.promise;
@@ -4706,6 +4842,8 @@ describe('useLessonConversation stream cleanup', () => {
               outlineBid,
               lessonId,
               previewMode,
+              lessonUpdate,
+              chapterUpdate,
             }),
           {
             wrapper,
@@ -4722,25 +4860,30 @@ describe('useLessonConversation stream cleanup', () => {
           staleRecord.resolve({
             elements: historyElements,
             has_content_update_for_current_user: true,
+            outline_progress_updates: outlineProgressUpdates,
           });
           await staleRecord.promise;
         });
         expect(result.current.showLessonUpdateNotice).toBe(false);
+        expect(lessonUpdate).not.toHaveBeenCalled();
+        expect(chapterUpdate).not.toHaveBeenCalled();
         expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
       },
     );
 
     it.each([false, true])(
-      'ignores the previous scope response after switching preview from %s',
+      'keeps current history metadata after switching preview from %s',
       async initialPreviewMode => {
         const staleRecord = createDeferred<{
           elements: Array<Record<string, unknown>>;
+          follow_up_mode: string;
           has_content_update_for_current_user: boolean;
         }>();
         mockGetLessonStudyRecord.mockImplementation(({ preview_mode }) => {
           if (preview_mode === initialPreviewMode) return staleRecord.promise;
           return Promise.resolve({
             elements: historyElements,
+            follow_up_mode: 'live_voice',
             has_content_update_for_current_user: false,
           });
         });
@@ -4757,25 +4900,31 @@ describe('useLessonConversation stream cleanup', () => {
             preview_mode: !initialPreviewMode,
           });
         });
+        await waitFor(() =>
+          expect(result.current.attemptFollowUpMode).toBe('live_voice'),
+        );
         await act(async () => {
           staleRecord.resolve({
             elements: historyElements,
+            follow_up_mode: 'disabled',
             has_content_update_for_current_user: true,
           });
           await staleRecord.promise;
         });
         expect(result.current.showLessonUpdateNotice).toBe(false);
+        expect(result.current.attemptFollowUpMode).toBe('live_voice');
       },
     );
 
     it.each([false, true])(
-      'clears the notice after the open lesson is reset in preview mode %s',
+      'clears pinned history metadata when the open lesson is reset (draft=%s)',
       async previewMode => {
         const courseState = globalThis.__chatHookCourseState__!;
         courseState.resetedLessonId = null;
         mockGetLessonStudyRecord
           .mockResolvedValueOnce({
             elements: historyElements,
+            follow_up_mode: 'disabled',
             has_content_update_for_current_user: true,
           })
           .mockResolvedValue({
@@ -4789,6 +4938,7 @@ describe('useLessonConversation stream cleanup', () => {
         );
         await waitFor(() => {
           expect(result.current.showLessonUpdateNotice).toBe(true);
+          expect(result.current.attemptFollowUpMode).toBe('disabled');
         });
         try {
           courseState.resetedLessonId = 'lesson-1';
@@ -4802,6 +4952,7 @@ describe('useLessonConversation stream cleanup', () => {
           rerender();
           await waitFor(() => expect(result.current.isLoading).toBe(false));
           expect(result.current.showLessonUpdateNotice).toBe(false);
+          expect(result.current.attemptFollowUpMode).toBeUndefined();
           expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
         } finally {
           courseState.resetedLessonId = null;

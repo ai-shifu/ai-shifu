@@ -276,6 +276,11 @@ combine pre/post windows as unchanged connection or microphone adoption funnels.
 New input events begin at v2 deployment, without backfill or legacy aliases;
 never interpret missing historical rows as zero input usage. Ordinary
 `learner_follow_up_submit` remains text-provider-only; no Live dual write.
+Resumed lesson history resolves text, Live, or disabled follow-up from the
+active learning attempt's content version. The selected catalog version
+provides the fallback before an attempt starts. This keeps text and Live
+events tied to the interaction the learner can actually start. Existing
+surface eligibility and payloads still apply.
 
 Readiness exposures begin at the actual readiness-telemetry deployment timestamp
 per environment, without backfill or dual write. Existing attempts still measure

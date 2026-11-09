@@ -428,6 +428,13 @@ def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         routes,
+        "resolve_lesson_source",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            source=SimpleNamespace(preview_mode=False), progress_record_bid="progress-1"
+        ),
+    )
+    monkeypatch.setattr(
+        routes,
         "_resolve_live_config",
         lambda *_args, **_kwargs: (
             SimpleNamespace(ask_model=routes.GEMINI_LIVE_MODEL_ID),

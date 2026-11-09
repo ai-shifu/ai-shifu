@@ -2,18 +2,20 @@
 title: Course Memory Management
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-30
+last_reviewed: 2026-11-08
 canonical: true
 ---
 
 # Course Memory Management
 
 Learners can inspect and individually delete their persistent course memory entries
-in the current course from the learner user menu. Guest sessions are eligible;
-teacher/admin and preview surfaces are excluded. Account fields remain managed
-by personal settings. No other learner, global scope, or other course is exposed.
-The list includes stored values even when the prompt budget omits them. It is
-paginated rather than silently capped, and displays values as plain text.
+in the current course from the learner user menu. Published learning supports
+member and guest sessions. The manager also appears in the full-course preview
+menu and reads or deletes the current account's own course memory across both
+versions. Draft content access is authorized separately. Editor Debug uses its own
+simulated memory. Account fields remain managed by personal settings. The list contains
+only the current user's custom values for the current course, including values
+omitted by the prompt budget. It is paginated and displays values as plain text.
 
 The overall feature is "Memory"; "Course memory" names the learner's course-scoped
 collection. Keep that scoped label and the existing deletion-scope explanation.
@@ -42,28 +44,41 @@ recognized safely. Unrecognized legacy sections remain classroom history.
 Conversation messages, original
 answers, progress, and historical tool results remain available as classroom
 history; this is deletion of persistent course memory, not erasure of all past
-conversation. The interface explains this before confirmation. Account settings,
-other courses, and preview data are unaffected. There is no schema migration.
+conversation. The interface explains this before confirmation. Deleting a
+course memory applies to both published learning and full-course preview.
+Account settings and other courses are unaffected. There is no schema migration.
 
 ## Analytics contract
 
-- Business question: do learners inspect course memory and successfully remove it?
-- Metric: weekly distinct learners opening the manager, and successful deletion
-  results / deletion attempts; delivery is best-effort, not an audit source.
-- Events: `learner_course_memory_opened`, `learner_course_memory_delete_attempt`,
-  `learner_course_memory_delete_result`.
-- Trigger: first committed open per dialog lifecycle; accepted confirmed delete;
-  confirmed API success or terminal failure, respectively.
-- Population: learner members and guests in a course, excluding preview/admin.
-- Count unit: dialog open or delete attempt. Single-flight guards suppress repeats.
-- Deduplication: component lifecycle open flag and synchronous pending ref.
-- Correlation: course opaque record version identifier only; no memory identifier, key, value,
-  free text, raw error, profile data, token, or URL is collected. Aggregate ratios
-  do not promise exact per-attempt joins.
-- Consumers: product adoption analysis; no existing dashboards require migration.
-- Compatibility: additive new event family, no backfill or legacy dual write.
+- Business question: do users inspect and remove course memory in published
+  learning and full-course preview? Compare adoption separately to see whether
+  users managing memory while testing a draft encounter more deletion failures.
+- Metric: weekly distinct users opening the manager and successful deletion
+  results divided by deletion attempts, grouped by course and event family.
+- Published learning events: `learner_course_memory_opened`,
+  `learner_course_memory_delete_attempt`, `learner_course_memory_delete_result`.
+- Full-course preview events: `teacher_preview_course_memory_opened`,
+  `teacher_preview_course_memory_delete_attempt`,
+  `teacher_preview_course_memory_delete_result`.
+- Trigger: first committed open per dialog lifecycle, accepted confirmed delete,
+  and confirmed API success or terminal failure (including stale version
+  conflict), respectively. Opening or dismissing confirmation emits no delete
+  event. Pending responses after unmount or identity replacement emit no result.
+- Population: members and guests in published learning, and users opening
+  the manager from the full-course preview menu. Teacher/admin menus and editor Debug are excluded.
+  Delivery follows shared account-level analytics exclusions.
+- Deduplication: one event per dialog mount and one attempt with at most one
+  result per confirmed deletion. Single-flight guards suppress repeated clicks
+  while pending. Reopening the dialog or explicitly retrying counts separately.
+- Payload: only the course ID and the outcome where applicable. Do not include
+  memory identifiers, keys, values, course content, free text, raw errors,
+  profile data, tokens, or URLs. Aggregate ratios are best-effort.
+- Consumers and compatibility: product adoption analysis uses the same learner
+  event series and the additive preview series separately. No backfill, dual
+  write, or consumer migration.
 - Verification: UI tests cover population, timing, retries, pending state,
-  repeated clicks, privacy allowlist, stale results, and tracking failure isolation.
+  repeated clicks, exact allowlisted payloads, stale results, and continued use
+  when analytics throws or rejects.
 
 | Field | Type | Allowed values | Cardinality | Privacy | Purpose |
 | --- | --- | --- | --- | --- | --- |

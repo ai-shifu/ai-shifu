@@ -1,5 +1,7 @@
 """Exercise live follow-up access checks and conversation configuration boundaries."""
 
+from contextlib import nullcontext
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -9,6 +11,10 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn import live_follow_up_routes as live
 from flaskr.service.learn.learn_dtos import OutlineType
 from flaskr.service.shifu.consts import ASK_MODE_DISABLE
+
+from tests.service.learn import published_course
+
+runtime_dependencies = published_course.runtime_dependencies
 
 
 @pytest.mark.parametrize(
@@ -274,3 +280,218 @@ def test_live_conversation_rejects_unavailable_learner_before_building_context(
             follow_up_info=object(),
         )
     builder.assert_not_called()
+
+
+def test_first_publication_keeps_draft_voice_anchor_and_source(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, runtime_dependencies: object
+) -> None:
+    """Keep the draft voice context after publication and honor revocation."""
+    from uuid import uuid4
+
+    from flaskr.dao import db
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn import utils_v2
+    from flaskr.service.learn.agent.session_store import stage_lesson_attempt_source
+    from flaskr.service.learn.gemini_live_token import GeminiLiveEphemeralToken
+    from flaskr.service.learn.live_follow_up_admission import (
+        AdmissionRequest,
+        AdmissionResult,
+    )
+    from flaskr.service.learn.live_follow_up_capacity import LiveFollowUpCapacityLease
+    from flaskr.service.learn.live_follow_up_session_store import (
+        LiveFollowUpTurnReservation,
+        _decode_session,
+    )
+    from flaskr.service.learn.models import LearnGeneratedElement
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+    from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+    from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
+    from flaskr.service.user.repository import create_user_entity
+    from flaskr.service.user.utils import generate_token
+    from flaskr.util.datetime import now_utc
+
+    from tests.common.fixtures.model_factories import (
+        make_generated_element,
+        make_progress_record,
+    )
+
+    _ = runtime_dependencies
+    course = published_course._seed_course(app, publish=False)
+    learner_bid, anchor_bid, progress_bid = (uuid4().hex for _ in range(3))
+    scope = {
+        "shifu_bid": course.course_bid,
+        "outline_bid": course.outline_bid,
+        "user_bid": learner_bid,
+    }
+
+    def select_draft_model(shifu_info: object, *, follow_up: bool) -> str:
+        assert isinstance(shifu_info, DraftShifu)
+        assert follow_up
+        return live.GEMINI_LIVE_MODEL_ID
+
+    monkeypatch.setattr(utils_v2, "selection_model", select_draft_model)
+    monkeypatch.setattr(live, "is_live_follow_up_model_available", lambda *_: True)
+
+    with app.app_context():
+        with unit_of_work():
+            create_user_entity(
+                user_bid=learner_bid, identify=learner_bid, nickname="Learner"
+            )
+            permission = AiCourseAuth(
+                course_id=course.course_bid,
+                user_id=learner_bid,
+                auth_type="view",
+                status=1,
+            )
+            db.session.add(permission)
+            token = generate_token(app, learner_bid)
+            db.session.add(
+                make_progress_record(
+                    progress_record_bid=progress_bid,
+                    user_bid=learner_bid,
+                    shifu_bid=course.course_bid,
+                    outline_item_bid=course.outline_bid,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                )
+            )
+            db.session.add(
+                make_generated_element(
+                    element_bid=anchor_bid,
+                    user_bid=learner_bid,
+                    shifu_bid=course.course_bid,
+                    outline_item_bid=course.outline_bid,
+                    progress_record_bid=progress_bid,
+                    element_type="text",
+                    event_type="element",
+                    content_text="A draft classroom example.",
+                )
+            )
+        source = live.resolve_lesson_source(app, **scope, preview_mode=True)
+        with unit_of_work():
+            assert stage_lesson_attempt_source(**scope, source=source.source)
+        assert not PublishedShifu.query.filter_by(shifu_bid=course.course_bid).count()
+
+    issued_at_ms = int(now_utc().timestamp() * 1000)
+
+    def begin_admission(
+        _app: Flask, operation: AdmissionRequest, **_kw: object
+    ) -> AdmissionResult:
+        return AdmissionResult(
+            data={
+                "admission_revision": "test-revision",
+                "request_bid": operation.request_bid,
+            },
+            lease=LiveFollowUpCapacityLease("test-lease", learner_bid, "test-worker"),
+            issued_at_ms=issued_at_ms,
+            deadline_ms=issued_at_ms + 15_000,
+        )
+
+    session_payloads = []
+    monkeypatch.setattr(live, "is_gemini_live_enabled", lambda: True)
+    monkeypatch.setattr(live, "is_gemini_live_rotation_enabled", lambda: False)
+    monkeypatch.setattr(
+        live,
+        "get_config",
+        lambda key, default=None: "test-key" if key == "GEMINI_API_KEY" else default,
+    )
+    monkeypatch.setattr(live, "begin_admission", begin_admission)
+    monkeypatch.setattr(
+        live,
+        "mint_gemini_live_ephemeral_token",
+        lambda *, current_time, **_kw: GeminiLiveEphemeralToken(
+            token="auth_tokens/test",
+            expires_at=current_time + timedelta(minutes=15),
+            new_session_expires_at=current_time + timedelta(seconds=30),
+        ),
+    )
+    monkeypatch.setattr(
+        live,
+        "complete_admission",
+        lambda *_a, session_payload: session_payloads.append(session_payload) or True,
+    )
+    monkeypatch.setattr(live, "admission_time", lambda: issued_at_ms / 1000)
+
+    origin = "https://learn.example.com"
+    headers = {"Origin": origin, "Token": token}
+    client = app.test_client()
+
+    def post(path: str, payload: dict[str, object]) -> dict[str, object]:
+        return client.post(
+            path, json=payload, base_url=origin, headers=headers
+        ).get_json()
+
+    create_path = f"/api/learn/shifu/{course.course_bid}/live-follow-up/{course.outline_bid}/session"
+    for index, preview_mode in enumerate((True, False), start=1):
+        if not preview_mode:
+            publish_shifu_draft(
+                app, course.user_bid, course.course_bid, "", sync_summary=True
+            )
+        response = post(
+            create_path,
+            {
+                "request_bid": f"01990000-0000-7000-8000-{index:012d}",
+                "anchor_element_bid": anchor_bid,
+                "preview_mode": preview_mode,
+                "learning_mode": "read",
+                "surface": "teacher_preview" if preview_mode else "read_content",
+            },
+        )
+        assert response["code"] == 0
+        data = response["data"]
+        history = data["history"]["clientContent"]["turns"]
+        assert [turn["parts"][0]["text"] for turn in history] == [
+            "A draft classroom example."
+        ]
+        session_bid = data["session_bid"]
+        stored = _decode_session(session_payloads.pop())
+        assert stored.binding.session_bid == session_bid
+        assert stored.binding.preview_mode is preview_mode
+        assert stored.binding.source_is_draft is (not preview_mode)
+
+    monkeypatch.setattr(live, "load_live_follow_up_session", lambda *_a, **_kw: stored)
+    monkeypatch.setattr(live, "current_admission", lambda *_a, **_kw: True)
+    monkeypatch.setattr(live, "touch_live_follow_up_session", Mock())
+    monkeypatch.setattr(
+        live, "live_follow_up_persistence_lock", lambda *_: nullcontext()
+    )
+    monkeypatch.setattr(
+        live,
+        "reserve_live_follow_up_turn",
+        lambda _app, *, session_bid, turn_index, **_kw: LiveFollowUpTurnReservation(
+            session_bid, turn_index, "test-claim"
+        ),
+    )
+    monkeypatch.setattr(live, "commit_live_follow_up_turn_reservation", Mock())
+    release = Mock()
+    monkeypatch.setattr(live, "release_live_follow_up_turn_reservation", release)
+    monkeypatch.setattr(live, "LiveFollowUpTrace", Mock(return_value=Mock(trace_id="")))
+
+    session_path = f"/api/learn/live-follow-up/session/{session_bid}"
+    assert post(f"{session_path}/heartbeat", {})["code"] == 0
+    turn_report = {
+        "user_transcript": "Question about the draft",
+        "played_answer_transcript": "An answer about the draft",
+        "interrupted": False,
+    }
+    accepted = post(f"{session_path}/turn", {**turn_report, "turn_index": 1})
+    assert accepted["code"] == 0
+    assert accepted["data"]["history_saved"] is True
+
+    with app.app_context(), unit_of_work():
+        AiCourseAuth.query.filter_by(
+            course_id=course.course_bid, user_id=learner_bid
+        ).one().status = 0
+
+    heartbeat = post(f"{session_path}/heartbeat", {})
+    assert heartbeat["code"] == ERROR_CODE["server.shifu.noPermission"]
+
+    denied = post(f"{session_path}/turn", {**turn_report, "turn_index": 2})
+    assert denied["code"] == ERROR_CODE["server.common.paramsError"]
+    release.assert_called_once()
+    with app.app_context():
+        assert (
+            LearnGeneratedElement.query.filter_by(
+                progress_record_bid=progress_bid
+            ).count()
+            == 3
+        )

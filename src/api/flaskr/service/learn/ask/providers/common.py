@@ -6,8 +6,10 @@ from collections.abc import Iterable
 from functools import lru_cache
 
 import requests
-from flask import Flask
+from flask import Flask, has_app_context
 from flaskr.common.safe_outbound import OutboundUrlPolicy, SafeOutboundClient
+from flaskr.dao import db
+from flaskr.dao.uow import in_unit_of_work, unit_of_work
 from flaskr.service.config import get_config
 from flaskr.util.prompt_loader import load_prompt_template
 
@@ -119,9 +121,18 @@ def apply_knowledge_to_messages(
     return updated
 
 
+def _read_timeout_config(key: str) -> str:
+    # A cache miss can open a DB transaction. End an independent read here,
+    # before the provider makes its HTTP call, while respecting a caller's UoW.
+    if not has_app_context() or in_unit_of_work() or db.session().in_transaction():
+        return get_config(key)
+    with unit_of_work(discard=True):
+        return get_config(key)
+
+
 def provider_timeout_seconds() -> int:
     """Return provider timeout seconds."""
-    raw = get_config("ASK_PROVIDER_TIMEOUT_SECONDS")
+    raw = _read_timeout_config("ASK_PROVIDER_TIMEOUT_SECONDS")
     try:
         value = int(raw)
     except (TypeError, ValueError):
@@ -131,7 +142,7 @@ def provider_timeout_seconds() -> int:
 
 def provider_total_timeout_seconds() -> int:
     """Return the wall-clock budget for one provider request or stream."""
-    raw = get_config("ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS")
+    raw = _read_timeout_config("ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS")
     if raw is None:
         return 300
     try:

@@ -143,6 +143,9 @@ def _entry(
 
     monkeypatch.setattr(lesson_entry, "_resolve", resolve)
     monkeypatch.setattr(
+        lesson_entry, "_resolve_ordinary_lesson", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(
         course_tracing,
         "_lesson_context",
         lambda *_a, **_kw: (

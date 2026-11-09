@@ -1,6 +1,6 @@
 """Moderate learner text with the configured LLM guardrail."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from flask import Flask
 from flaskr.api.check import (
@@ -40,6 +40,8 @@ def check_text_with_llm_response(
     usage_context: UsageContext,
     chapter_title: str = "",
     scene: str = "lesson_runtime",
+    *,
+    defer_block: Callable[[LearnGeneratedBlock], None] | None = None,
 ) -> Iterator[str | None]:
     """Check text with LLM response."""
     res = check_text(app, log_script.generated_block_bid, user_input, user_info.user_id)
@@ -109,8 +111,11 @@ def check_text_with_llm_response(
         )
         log_script.generated_content = response_text
         log_script.role = ROLE_TEACHER
-        db.session.add(log_script)
-        db.session.flush()
+        if defer_block is None:
+            db.session.add(log_script)
+            db.session.flush()
+        else:
+            defer_block(log_script)
 
     else:
         app.logger.info("check_text_by_%s is None", res.provider)

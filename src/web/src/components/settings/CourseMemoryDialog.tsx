@@ -25,10 +25,27 @@ import {
   type CourseMemoryEntry,
 } from '@/api/course-memory';
 
-type Props = { courseId: string; onClose: () => void };
+type Props = { courseId: string; previewMode?: boolean; onClose: () => void };
 
-/** Mounted only for an eligible learner open; unmounting invalidates pending results. */
-export default function CourseMemoryDialog({ courseId, onClose }: Props) {
+const MEMORY_EVENTS = {
+  learning: {
+    opened: 'learner_course_memory_opened',
+    deleteAttempt: 'learner_course_memory_delete_attempt',
+    deleteResult: 'learner_course_memory_delete_result',
+  },
+  preview: {
+    opened: 'teacher_preview_course_memory_opened',
+    deleteAttempt: 'teacher_preview_course_memory_delete_attempt',
+    deleteResult: 'teacher_preview_course_memory_delete_result',
+  },
+} as const;
+
+/** Mounted from an eligible course menu; unmounting invalidates pending results. */
+export default function CourseMemoryDialog({
+  courseId,
+  previewMode = false,
+  onClose,
+}: Props) {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const [items, setItems] = useState<CourseMemoryEntry[]>([]);
@@ -44,10 +61,14 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
   const opened = useRef(false);
   const current = () =>
     alive.current && identity.current === getTrackingIdentityGeneration();
-  const track = (name: string, outcome?: 'success' | 'failed') => {
+  const events = MEMORY_EVENTS[previewMode ? 'preview' : 'learning'];
+  const track = (
+    event: keyof typeof events,
+    outcome?: 'success' | 'failed',
+  ) => {
     try {
       void Promise.resolve(
-        trackEvent(name, {
+        trackEvent(events[event], {
           course_id: courseId,
           ...(outcome ? { outcome } : {}),
         }),
@@ -79,13 +100,13 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
     alive.current = true;
     if (!opened.current) {
       opened.current = true;
-      track('learner_course_memory_opened');
+      track('opened');
     }
     void load();
     return () => {
       alive.current = false;
     };
-    // The parent keys this mounted dialog by course and learner identity.
+    // The parent keys this dialog by course, learner identity and preview mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -94,12 +115,12 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
     pending.current = true;
     setDeleting(true);
     setError('');
-    track('learner_course_memory_delete_attempt');
+    track('deleteAttempt');
     try {
       const result = await deleteCourseMemory(courseId, selected.value_id);
       if (!current()) return;
       if (result.conflict) {
-        track('learner_course_memory_delete_result', 'failed');
+        track('deleteResult', 'failed');
         setSelected(null);
         await load();
         if (current()) setError('memoryChanged');
@@ -108,12 +129,12 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
           previous.filter(item => item.value_id !== selected.value_id),
         );
         setSelected(null);
-        track('learner_course_memory_delete_result', 'success');
+        track('deleteResult', 'success');
       }
     } catch {
       if (current()) {
         setError('memoryDeleteFailed');
-        track('learner_course_memory_delete_result', 'failed');
+        track('deleteResult', 'failed');
       }
     } finally {
       pending.current = false;

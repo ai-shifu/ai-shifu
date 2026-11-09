@@ -18,6 +18,7 @@ let mockLogoHorizontal = '';
 let mockLogoWideUrl = '';
 let mockOfficialSiteUrl = 'https://official.example.com';
 let mockReadFeedbackElementBid = '';
+let mockAttemptFollowUpMode: 'disabled' | 'live_voice' | undefined;
 let mockLessonPdfReady = false;
 let mockLessonPdfPreparing = false;
 const mockPrintLessonPdf = jest.fn();
@@ -342,15 +343,18 @@ jest.mock(
     function MockListenModeSlideRenderer({
       titleLanguage,
       contentLanguage,
+      followUpMode,
     }: {
       titleLanguage?: string;
       contentLanguage?: string;
+      followUpMode?: string;
     }) {
       return (
         <div
           data-testid='listen-mode-renderer'
           data-title-language={titleLanguage}
           data-content-language={contentLanguage}
+          data-follow-up-mode={followUpMode}
         />
       );
     },
@@ -384,6 +388,7 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
 
 const setMockChatLogicItems = (items: Array<Record<string, unknown>>) => {
   mockUseChatLogicHook.mockReturnValue({
+    attemptFollowUpMode: mockAttemptFollowUpMode,
     currentStreamingElementBid: '',
     currentTypewriterElementBid: '',
     isLoading: false,
@@ -512,6 +517,7 @@ describe('LessonConversation', () => {
     mockLogoWideUrl = '';
     mockOfficialSiteUrl = 'https://official.example.com';
     mockReadFeedbackElementBid = '';
+    mockAttemptFollowUpMode = undefined;
     mockLessonPdfReady = false;
     mockLessonPdfPreparing = false;
     documentVisibilityState = 'visible';
@@ -969,6 +975,21 @@ describe('LessonConversation', () => {
     );
   });
 
+  it.each(['disabled', 'live_voice'] as const)(
+    'prefers the attempt follow-up mode %s to the catalog default',
+    mode => {
+      mockAttemptFollowUpMode = mode;
+      mockLearningMode = 'listen';
+
+      renderLessonConversation(jest.fn(), jest.fn(), [], true);
+
+      expect(screen.getByTestId('listen-mode-renderer')).toHaveAttribute(
+        'data-follow-up-mode',
+        mode,
+      );
+    },
+  );
+
   it('keeps the slide renderer mounted while preparing the read-mode print tree', async () => {
     mockLessonPdfReady = true;
     mockLessonPdfPreparing = true;
@@ -987,6 +1008,35 @@ describe('LessonConversation', () => {
         container.querySelector('[data-lesson-print-course-qr="true"]'),
       ).toBeInTheDocument();
     });
+  });
+
+  it('keeps the draft lesson PDF available without a public course QR code', async () => {
+    mockLearningMode = 'read';
+    mockLessonPdfReady = true;
+    mockLessonPdfPreparing = true;
+    const onLessonPdfActionChange = jest.fn();
+    const { container } = renderLessonConversation(
+      jest.fn(),
+      onLessonPdfActionChange,
+      [
+        {
+          content: 'Draft lesson text',
+          element_bid: 'draft-content',
+          type: 'content',
+        },
+      ],
+      true,
+    );
+
+    expect(
+      screen.getByTestId('content-block-draft-content'),
+    ).toBeInTheDocument();
+    expect(onLessonPdfActionChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ onDownload: mockPrintLessonPdf }),
+    );
+    expect(
+      container.querySelector('[data-lesson-print-course-qr="true"]'),
+    ).not.toBeInTheDocument();
   });
 
   it('ends the print tree with a QR code for the course page only', async () => {

@@ -68,6 +68,28 @@ describe('lesson reset transport', () => {
     expect(ids[2]).not.toBe(ids[1]);
   });
 
+  it('reuses the pending reset id after switching content versions', async () => {
+    (request.delete as jest.Mock).mockRejectedValueOnce(
+      new Error('response lost'),
+    );
+    await expect(
+      resetChapter({ lessonId: 'version-switch' }),
+    ).rejects.toThrow();
+
+    (useSystemStore.getState as jest.Mock).mockReturnValue({
+      previewMode: true,
+    });
+    await resetChapter({ lessonId: 'version-switch' });
+    const [[publishedUrl, publishedConfig], [draftUrl, draftConfig]] = (
+      request.delete as jest.Mock
+    ).mock.calls;
+    expect(publishedUrl).toContain('preview_mode=false');
+    expect(draftUrl).toContain('preview_mode=true');
+    expect(draftConfig.headers['X-Request-ID']).toBe(
+      publishedConfig.headers['X-Request-ID'],
+    );
+  });
+
   it('never reuses another account or lesson pending identity', async () => {
     (request.delete as jest.Mock).mockRejectedValueOnce(
       new Error('response lost'),

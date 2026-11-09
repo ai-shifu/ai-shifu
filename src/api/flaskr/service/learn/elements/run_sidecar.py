@@ -306,10 +306,8 @@ class ListenElementRunSidecarMixin:
                     self._block_meta_cache[generated_block_bid] = meta
             else:
                 # Likely the main run has not committed yet. Keep the
-                # frontend-supplied anchor_bid as-is and let the ask's own
-                # commit (gated on the main block's commit signal in
-                # runscript_v2._await_anchor_block_or_rollback) ensure the
-                # anchor row is durable by the time this row is observable.
+                # frontend-supplied anchor_bid as-is. The follow-up can
+                # commit only if the teaching element is durable by then.
                 self.app.logger.info(
                     "ASK anchor row not yet visible (likely uncommitted main run); "
                     "trusting frontend anchor_bid: anchor_bid=%s generated_block_bid=%s",

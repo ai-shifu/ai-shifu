@@ -73,7 +73,6 @@ def test_learning_resume_preserves_saved_inputs_and_answers_with_current_course_
             shifu_bid="course",
             outline_bid="lesson",
             script=bundle.script,
-            preview_mode=False,
             use_learner_language=True,
         )
         resumed = asyncio.run(factory())

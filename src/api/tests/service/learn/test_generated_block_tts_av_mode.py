@@ -1254,7 +1254,8 @@ class TestGeneratedBlockListenTtsElementFirst:
                 .order_by(self.LearnGeneratedAudio.position.asc())
                 .all()
             )
-            assert records == []
+            assert len(records) == 1
+            assert records[0].audio_bid == audio_complete_events[0].content.audio_bid
 
     def test_stream_generated_block_audio_preview_listen_reuses_cached_block_audio(
         self, monkeypatch: object

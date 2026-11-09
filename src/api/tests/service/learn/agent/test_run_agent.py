@@ -331,7 +331,6 @@ def test_deleted_named_answer_requires_new_submission_not_regeneration(
         user_bid=USER,
         shifu_bid=SHIFU,
         outline_bid=OUTLINE,
-        preview_mode=False,
         progress_record_bid=PROGRESS,
         generated_block_bid="block",
         taught="Lesson",
@@ -478,7 +477,6 @@ def test_usage_binding_precedes_session_creation_and_the_producer(
     monkeypatch.setattr(
         run_agent, "_open_turn", lambda *_a, **kw: opened.append(kw) or (PROGRESS, None)
     )
-    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-attempt")
 
     class Engine(_Engine):
         async def new_session(self, *args: object, **kwargs: object) -> _Session:
@@ -502,17 +500,14 @@ def test_usage_binding_precedes_session_creation_and_the_producer(
             iter_turn=drive,
         )
     )
-    assert bound[0][0] == ("preview-attempt" if preview_mode else PROGRESS)
-    if preview_mode:
-        assert opened == []
-    else:
-        assert bound[0][1] == opened[0]["generated_block_bid"]
-        assert (
-            next(kw for name, kw in calls if name == "record_content")[
-                "generated_block_bid"
-            ]
-            == bound[0][1]
-        )
+    assert bound[0][0] == PROGRESS
+    assert bound[0][1] == opened[0]["generated_block_bid"]
+    assert (
+        next(kw for name, kw in calls if name == "record_content")[
+            "generated_block_bid"
+        ]
+        == bound[0][1]
+    )
 
 
 def test_usage_binding_failure_retires_the_reserved_block(
@@ -1001,16 +996,13 @@ def test_a_finished_lesson_is_marked_where_progress_is_read(
     assert calls
 
 
-# --- previewing writes no learner progress -----------------------------------------------
+# --- ordinary preview uses the same progress; Editor Debug simulates it ------------------
 
 
-def test_previewing_a_lesson_writes_no_progress_for_the_learner(
+def test_previewing_a_lesson_writes_shared_progress(
     monkeypatch: pytest.MonkeyPatch, calls: list
 ) -> None:
-    """The author is the same person as the learner, with the same lesson identifier.
-
-    A progress record, a block or a completion written here would show up as a lesson they took.
-    """
+    """Draft teaching records the same learning progress as published teaching."""
     resolved: list[bool] = []
     monkeypatch.setattr(
         run_agent,
@@ -1034,12 +1026,12 @@ def test_previewing_a_lesson_writes_no_progress_for_the_learner(
         )
     )
 
-    assert resolved == []
-    assert [name for name, _ in calls] == ["save_session"]
+    assert resolved == [True]
+    assert {name for name, _ in calls} >= {"save_session", "record_content"}
 
 
-def test_previewing_still_stores_its_own_session(calls: list) -> None:
-    """Otherwise the preview would restart from the top on every turn."""
+def test_previewing_uses_the_canonical_session(calls: list) -> None:
+    """Continuing the lesson from either entry must find the same session."""
     engine = _Engine([TurnDone(reason="end")])
     list(
         run_agent.run_agent_lesson(
@@ -1055,7 +1047,7 @@ def test_previewing_still_stores_its_own_session(calls: list) -> None:
     )
 
     kwargs = next(kw for name, kw in calls if name == "save_session")
-    assert kwargs["preview_mode"] is True
+    assert "preview_mode" not in kwargs
 
 
 def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
@@ -1684,9 +1676,7 @@ def test_slide_continuations_keep_each_html_root_in_one_lesson_element(
         (("html", 3), question),
     ]
     recorded = [kwargs for name, kwargs in calls if name == "record_content"]
-    assert [record["content"] for record in recorded] == (
-        [] if preview_mode else ["".join(grouped.values())]
-    )
+    assert [record["content"] for record in recorded] == ["".join(grouped.values())]
     assert spoken == ({0: intro + "\n", 2: question_intro + "\n"} if listen else {})
     assert not _interactions(events)
 
@@ -2189,7 +2179,6 @@ def test_an_author_previewing_in_listening_mode_hears_the_lesson(
     monkeypatch.setattr(
         "flaskr.service.learn.agent.listen.create_tts_processor", _factory
     )
-    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
 
     class _App:
         import logging
@@ -2212,7 +2201,7 @@ def test_an_author_previewing_in_listening_mode_hears_the_lesson(
     )
 
     assert spoken, "the preview was silent"
-    assert asked["progress_record_bid"] == "preview-progress"
+    assert asked["progress_record_bid"] == PROGRESS
 
 
 @pytest.mark.usefixtures("calls")
@@ -2250,7 +2239,6 @@ def test_a_preview_s_audio_is_not_billed_as_a_lesson_taken(
     monkeypatch.setattr(
         "flaskr.service.learn.agent.listen.create_tts_processor", _factory
     )
-    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
     monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, None))
 
     class _App:
@@ -2526,10 +2514,10 @@ def test_changes_the_database_refused_are_not_reported_to_the_browser(
 
 
 @pytest.mark.usefixtures("calls")
-def test_a_preview_does_not_move_the_author_through_their_own_course(
+def test_a_preview_advances_shared_course_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The author is looking at a lesson, not taking one."""
+    """Completing draft teaching also advances the course outline."""
     asked: list[object] = []
     monkeypatch.setattr(
         run_agent,
@@ -2550,7 +2538,7 @@ def test_a_preview_does_not_move_the_author_through_their_own_course(
             iter_turn=_drive,
         )
     )
-    assert asked == []
+    assert asked == [1]
     assert [e.type for e in events] == [GeneratedType.DONE]
 
 
@@ -3085,6 +3073,7 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
         "First identify the learner's problem. Then choose a single useful outcome."
     )
     requests = 0
+    user_bid = f"interrupted-host-learner-{preview_mode}"
 
     async def stream(
         messages: list[ModelMessage], _info: AgentInfo
@@ -3119,7 +3108,7 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
                 engine=Engine(FunctionModel(stream_function=stream), render="none"),
                 script=SCRIPT,
                 content_revision=revision,
-                user_bid="interrupted-host-learner",
+                user_bid=user_bid,
                 shifu_bid=SHIFU,
                 outline_bid="interrupted-host-lesson",
                 preview_mode=preview_mode,
@@ -3130,17 +3119,15 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
     events = run(11)
     saved = session_store.load_agent_session(
         app,
-        "interrupted-host-learner",
+        user_bid,
         "interrupted-host-lesson",
-        preview_mode=preview_mode,
     )
     with app.app_context():
         assert (
             LearnAgentSession.query.filter_by(
                 active_key=active_key_for(
-                    "interrupted-host-learner",
+                    user_bid,
                     "interrupted-host-lesson",
-                    preview_mode=preview_mode,
                 )
             )
             .one()
@@ -3167,18 +3154,16 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
     events = run(12)
     saved = session_store.load_agent_session(
         app,
-        "interrupted-host-learner",
+        user_bid,
         "interrupted-host-lesson",
-        preview_mode=preview_mode,
     )
     assert saved is not None
     with app.app_context():
         assert (
             LearnAgentSession.query.filter_by(
                 active_key=active_key_for(
-                    "interrupted-host-learner",
+                    user_bid,
                     "interrupted-host-lesson",
-                    preview_mode=preview_mode,
                 )
             )
             .one()
@@ -3264,9 +3249,7 @@ def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
         )
 
     events = run()
-    saved = session_store.load_agent_session(
-        app, user_bid, "markup-host-lesson", preview_mode=preview_mode
-    )
+    saved = session_store.load_agent_session(app, user_bid, "markup-host-lesson")
     assert saved is not None
     assert not saved.finished
     assert not saved.pending
@@ -3279,9 +3262,7 @@ def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
     recover = True
     calls.clear()
     events = run()
-    saved = session_store.load_agent_session(
-        app, user_bid, "markup-host-lesson", preview_mode=preview_mode
-    )
+    saved = session_store.load_agent_session(app, user_bid, "markup-host-lesson")
     assert saved is not None
     assert not saved.finished
     assert len(saved.pending) == 1
@@ -3458,9 +3439,7 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
             break
     else:
         pytest.fail("No visible validated feedback")
-    saved = session_store.load_agent_session(
-        app, learner, lesson, preview_mode=preview_mode
-    )
+    saved = session_store.load_agent_session(app, learner, lesson)
     assert saved is not None
     assert saved.pending[0].tool_call_id == "correction"
     assert not saved.answers
@@ -3474,17 +3453,13 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
         response.close()
     else:
         list(response)
-    restored = session_store.load_agent_session(
-        app, learner, lesson, preview_mode=preview_mode
-    )
+    restored = session_store.load_agent_session(app, learner, lesson)
     assert restored is not None
     assert restored.pending[0].tool_call_id == "correction"
     if not preview_mode:
         assert len([c for c in calls if c[0] == "record_content"]) == 1
     list(run("Prepare the program in memory before automatic execution."))
-    accepted = session_store.load_agent_session(
-        app, learner, lesson, preview_mode=preview_mode
-    )
+    accepted = session_store.load_agent_session(app, learner, lesson)
     assert accepted is not None
     assert accepted.pending[0].tool_call_id == "next"
     assert requests == (4 if prefix else 3)

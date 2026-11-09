@@ -70,7 +70,6 @@ def test_resuming_updates_bundle_without_rewriting_initialized_history(
         outline_bid="lesson",
         script="A newer revision must not replace the saved lesson.",
         teaching_brief=current_prompt,
-        preview_mode=False,
     )
     resumed = asyncio.run(factory())
 
@@ -104,7 +103,6 @@ def test_new_session_initializes_with_the_current_course_prompt(
         outline_bid="lesson",
         script="Teach the current lesson.",
         teaching_brief=current_prompt,
-        preview_mode=False,
     )
 
     async def start() -> Session:

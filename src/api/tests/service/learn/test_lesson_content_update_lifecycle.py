@@ -27,14 +27,13 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.util.datetime import now_utc
-from sqlalchemy import event
 
 from tests.common.fixtures.model_factories import make_progress_record
 
 
 @pytest.fixture
 def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
-    """Create independent formal/preview baselines and current physical versions."""
+    """Create two physical versions and one learning baseline."""
     identity = uuid4().hex
     # Rendering is covered by the classroom and listen-history suites. Keep the
     # formal integration focused on routing, current physical versions and flags.
@@ -44,9 +43,9 @@ def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         lambda **_kw: LearnElementRecordDTO(),
     )
     with app.app_context(), unit_of_work():
-        for preview, course_model, outline_model, struct_model in [
-            (False, PublishedShifu, PublishedOutlineItem, LogPublishedStruct),
-            (True, DraftShifu, DraftOutlineItem, LogDraftStruct),
+        for course_model, outline_model, struct_model in [
+            (PublishedShifu, PublishedOutlineItem, LogPublishedStruct),
+            (DraftShifu, DraftOutlineItem, LogDraftStruct),
         ]:
             course = course_model(shifu_bid=identity, title="Course")
             outline = outline_model(
@@ -76,23 +75,23 @@ def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
                     ).to_json(),
                 )
             )
-            db.session.add(
-                LearnAgentSession(
-                    agent_session_bid=uuid4().hex,
-                    user_bid=identity,
-                    shifu_bid=identity,
-                    outline_item_bid=identity,
-                    active_key=active_key_for(identity, identity, preview_mode=preview),
-                    schema_version=1,
-                    content_revision=11,
-                    session_data=json.dumps(
-                        {
-                            "script": {"script": "Original"},
-                            "messages": [{"kind": "request"}],
-                        }
-                    ),
-                )
+        db.session.add(
+            LearnAgentSession(
+                agent_session_bid=uuid4().hex,
+                user_bid=identity,
+                shifu_bid=identity,
+                outline_item_bid=identity,
+                active_key=active_key_for(identity, identity),
+                schema_version=1,
+                content_revision=11,
+                session_data=json.dumps(
+                    {
+                        "script": {"script": "Original"},
+                        "messages": [{"kind": "request"}],
+                    }
+                ),
             )
+        )
         db.session.add(
             make_progress_record(
                 progress_record_bid=uuid4().hex,
@@ -139,10 +138,10 @@ def test_content_changes_reverts_and_resume_do_not_move_the_baseline(
     identity, app = lesson.identity, lesson.app
     with app.app_context(), unit_of_work():
         row = LearnAgentSession.query.filter_by(
-            active_key=active_key_for(identity, identity, preview_mode=preview)
+            active_key=active_key_for(identity, identity)
         ).one()
         row.finished = int(finished)
-        if finished and not preview:
+        if finished:
             LearnProgressRecord.query.filter_by(user_bid=identity).one().status = 603
     _assert_flags(lesson, preview, expected=False)
     _change_body(lesson, preview, "original")  # Equal length and case-only change.
@@ -150,7 +149,7 @@ def test_content_changes_reverts_and_resume_do_not_move_the_baseline(
     _assert_flags(lesson, not preview, expected=False)
     with app.app_context(), unit_of_work():
         row = LearnAgentSession.query.filter_by(
-            active_key=active_key_for(identity, identity, preview_mode=preview)
+            active_key=active_key_for(identity, identity)
         ).one()
         document = json.loads(row.session_data)
         document["messages"].append({"kind": "response"})
@@ -204,66 +203,27 @@ def test_republishing_same_body_uses_the_current_struct_physical_record(
 
 
 @pytest.mark.parametrize("preview", [False, True])
-def test_cleared_body_retakes_are_scoped_and_new_sessions_establish_new_baselines(
+def test_cleared_body_retakes_clear_the_shared_attempt(
     lesson: SimpleNamespace, preview: bool
 ) -> None:
     identity, app = lesson.identity, lesson.app
     _change_body(lesson, preview, "")
     _assert_flags(lesson, preview, expected=True)
     reset_learn_record(app, identity, identity, identity, preview_mode=preview)
-    _assert_flags(lesson, preview, expected=False)
-    with app.app_context():
+    for surface in (False, True):
+        _assert_flags(lesson, surface, expected=False)
         assert (
-            LearnAgentSession.query.filter_by(
-                active_key=active_key_for(identity, identity, preview_mode=not preview)
-            )
-            .one()
-            .deleted
-            == 0
-        )
-        progress = LearnProgressRecord.query.filter_by(user_bid=identity).one()
-        assert progress.status == (
-            LEARN_STATUS_IN_PROGRESS if preview else LEARN_STATUS_RESET
-        )
-    if preview:
-        assert (
-            get_outline_item_tree(app, identity, identity, preview_mode=True)
+            get_outline_item_tree(app, identity, identity, surface)
             .outline_items[0]
             .status
             == LearnStatus.NOT_STARTED
         )
-    _change_body(lesson, preview, "New attempt")
-    with app.app_context(), unit_of_work():
-        struct_model = LogDraftStruct if preview else LogPublishedStruct
-        structure = struct_model.query.filter_by(shifu_bid=identity).one()
-        revision = HistoryItem.from_json(structure.struct).children[0].content_revision
-        db.session.add(
-            LearnAgentSession(
-                agent_session_bid=uuid4().hex,
-                user_bid=identity,
-                shifu_bid=identity,
-                outline_item_bid=identity,
-                active_key=active_key_for(identity, identity, preview_mode=preview),
-                schema_version=1,
-                content_revision=revision,
-                session_data=json.dumps(
-                    {"script": {"script": "New attempt"}, "messages": [{}]}
-                ),
-            )
+    with app.app_context():
+        assert LearnAgentSession.query.filter_by(user_bid=identity).one().deleted
+        assert (
+            LearnProgressRecord.query.filter_by(user_bid=identity).one().status
+            == LEARN_STATUS_RESET
         )
-        if not preview:
-            db.session.add(
-                make_progress_record(
-                    progress_record_bid=uuid4().hex,
-                    user_bid=identity,
-                    shifu_bid=identity,
-                    outline_item_bid=identity,
-                    status=LEARN_STATUS_IN_PROGRESS,
-                )
-            )
-    _assert_flags(lesson, preview, expected=False)
-    _change_body(lesson, preview, "Changed again")
-    _assert_flags(lesson, preview, expected=True)
 
 
 @pytest.mark.parametrize("baseline", [None, 0])
@@ -275,7 +235,7 @@ def test_unknown_baselines_never_infer_a_version_from_history(
     _change_body(lesson, preview, "Changed")
     with lesson.app.app_context(), unit_of_work():
         LearnAgentSession.query.filter_by(
-            active_key=active_key_for(identity, identity, preview_mode=preview)
+            active_key=active_key_for(identity, identity)
         ).one().content_revision = baseline
     _assert_flags(lesson, preview, expected=False)
 
@@ -314,102 +274,15 @@ def test_records_query_only_the_requested_published_session(
     assert list(calls[0]) == [lesson.identity]
 
 
-def test_preview_without_its_own_session_never_borrows_published_history(
-    lesson: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    identity = lesson.identity
-    _change_body(lesson, preview=True, content="")
-    with lesson.app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(
-            active_key=active_key_for(identity, identity, preview_mode=True)
-        ).one()
-        db.session.delete(row)
-
-    def reject_legacy(**_kw: object) -> LearnElementRecordDTO:
-        pytest.fail("Cleared 2.0 draft read formal history")
-
-    monkeypatch.setattr(run_adapter, "_get_listen_element_record", reject_legacy)
-    _assert_flags(lesson, preview=True, expected=False)
-    reset_learn_record(lesson.app, identity, identity, identity, preview_mode=True)
-    with lesson.app.app_context():
+def test_both_versions_read_the_shared_progress(lesson: SimpleNamespace) -> None:
+    identity, app = lesson.identity, lesson.app
+    for preview in (False, True):
         assert (
-            LearnProgressRecord.query.filter_by(user_bid=identity).one().status
-            == LEARN_STATUS_IN_PROGRESS
+            get_outline_item_tree(app, identity, identity, preview)
+            .outline_items[0]
+            .status
+            == LearnStatus.IN_PROGRESS
         )
-
-
-def test_preview_classification_uses_the_struct_version_before_any_agent_session(
-    lesson: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    identity = lesson.identity
-    with lesson.app.app_context(), unit_of_work():
-        for row in LearnAgentSession.query.filter_by(user_bid=identity).all():
-            db.session.delete(row)
-        db.session.add(
-            DraftOutlineItem(shifu_bid=identity, outline_item_bid=identity, content="")
-        )
-
-    def reject_legacy(**_kw: object) -> LearnElementRecordDTO:
-        pytest.fail("An orphan blank draft redirected a current 2.0 preview")
-
-    monkeypatch.setattr(run_adapter, "_get_listen_element_record", reject_legacy)
-    _assert_flags(lesson, preview=True, expected=False)
-    reset_learn_record(lesson.app, identity, identity, identity, preview_mode=True)
-    with lesson.app.app_context():
-        assert (
-            LearnProgressRecord.query.filter_by(user_bid=identity).one().status
-            == LEARN_STATUS_IN_PROGRESS
-        )
-
-
-def test_preview_reuses_the_decoded_document(
-    lesson: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from flaskr.service.learn.agent import preview_history
-
-    calls = []
-    decode = json.loads
-
-    def capture(value: str, *args: object, **kwargs: object) -> object:
-        calls.append(value)
-        return decode(value, *args, **kwargs)
-
-    with lesson.app.app_context():
-        identity = lesson.identity
-        raw = (
-            LearnAgentSession.query.filter_by(
-                active_key=active_key_for(identity, identity, preview_mode=True)
-            )
-            .one()
-            .session_data
-        )
-        monkeypatch.setattr(preview_history.json, "loads", capture)
-        run_adapter.get_listen_element_record(
-            lesson.app, identity, identity, identity, preview_mode=True
-        )
-    assert calls.count(raw) == 1
-
-
-@pytest.mark.parametrize("content", ["Original", ""])
-def test_agent_preview_directory_does_not_read_formal_progress(
-    lesson: SimpleNamespace, content: str
-) -> None:
-    _change_body(lesson, preview=True, content=content)
-    statements = []
-
-    def capture(_conn: object, _cursor: object, statement: str, *_args: object) -> None:
-        statements.append(statement)
-
-    with lesson.app.app_context():
-        engine = db.engine
-        event.listen(engine, "before_cursor_execute", capture)
-        try:
-            get_outline_item_tree(
-                lesson.app, lesson.identity, lesson.identity, preview_mode=True
-            )
-        finally:
-            event.remove(engine, "before_cursor_execute", capture)
-    assert not any("learn_progress_records" in statement for statement in statements)
 
 
 def test_record_contract_defaults_to_false() -> None:
@@ -440,28 +313,6 @@ def test_current_physical_outline_must_be_visible_and_match_the_lesson(
     assert not any(
         item.has_content_update_for_current_user for item in tree.outline_items
     )
-
-
-@pytest.mark.parametrize(
-    ("turn", "finished", "expected"),
-    [(1, 0, LearnStatus.IN_PROGRESS), (0, 1, LearnStatus.COMPLETED)],
-)
-def test_unknown_legacy_preview_keeps_progress_without_an_update_notice(
-    lesson: SimpleNamespace, turn: int, finished: int, expected: LearnStatus
-) -> None:
-    _change_body(lesson, preview=True, content="Changed")
-    with lesson.app.app_context(), unit_of_work():
-        row = LearnAgentSession.query.filter_by(
-            active_key=active_key_for(
-                lesson.identity, lesson.identity, preview_mode=True
-            )
-        ).one()
-        row.content_revision, row.turn, row.finished = None, turn, finished
-    tree = get_outline_item_tree(
-        lesson.app, lesson.identity, lesson.identity, preview_mode=True
-    )
-    assert tree.outline_items[0].status == expected
-    _assert_flags(lesson, preview=True, expected=False)
 
 
 @pytest.mark.parametrize("preview", [False, True])

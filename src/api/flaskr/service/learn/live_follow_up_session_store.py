@@ -175,6 +175,7 @@ class LiveFollowUpSessionBinding:
     language: str
     learning_mode: str
     expires_at_epoch: float
+    source_is_draft: bool = False
 
 
 @dataclass(frozen=True)
@@ -244,7 +245,10 @@ def _validate_binding(binding: LiveFollowUpSessionBinding) -> None:
     )
     if any(not isinstance(value, str) or not value for value in strings):
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
-    if type(binding.preview_mode) is not bool:
+    if (
+        type(binding.preview_mode) is not bool
+        or type(binding.source_is_draft) is not bool
+    ):
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
     if not isinstance(binding.expires_at_epoch, (int, float)) or not math.isfinite(
         binding.expires_at_epoch
@@ -276,10 +280,14 @@ def _validate_turn_state(state: LiveFollowUpTurnState) -> None:
 def _serialize_session(session: StoredLiveFollowUpSession) -> str:
     _validate_binding(session.binding)
     _validate_turn_state(session.turn_state)
+    binding = asdict(session.binding)
+    if not session.binding.source_is_draft:
+        # Keep existing binding records readable by workers on the previous version.
+        binding.pop("source_is_draft")
     return json.dumps(
         {
             "version": _SESSION_RECORD_VERSION,
-            "binding": asdict(session.binding),
+            "binding": binding,
             "lease": asdict(session.lease),
             "turn_state": asdict(session.turn_state),
             "admission": asdict(session.admission) if session.admission else None,

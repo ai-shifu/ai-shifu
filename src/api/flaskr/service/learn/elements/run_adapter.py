@@ -5,6 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from flaskr.service.common.models import AppError
+from flaskr.service.learn.agent.session_store import (
+    LessonAttemptSource,
+    load_lesson_attempt_source,
+)
 from flaskr.service.learn.elements.history import (
     get_listen_element_record as _get_listen_element_record,
 )
@@ -26,15 +31,18 @@ from flaskr.service.learn.elements.run_stream import (
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnElementRecordDTO,
+    OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import (
+    available_follow_up_mode,
     get_current_lesson_outline,
     get_learn_record,
+    resolve_outline_reconciliation,
 )
 from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
-from flaskr.service.learn.models import LearnProgressRecord
+from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
 from flaskr.service.learn.type_state_machine import (
     TypeInput,
     TypeStateMachine,
@@ -42,12 +50,17 @@ from flaskr.service.learn.type_state_machine import (
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
-    LEARN_STATUS_RESET,
 )
-from flaskr.service.shifu.models import PublishedOutlineItem
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    LogDraftStruct,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from typing import Literal
 
     from flask import Flask
     from flaskr.service.learn.elements.run_state import (
@@ -198,6 +211,106 @@ class ListenElementRunAdapter(
                 continue
 
 
+def _require_draft_history_access(
+    app: Flask, *, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
+) -> None:
+    from flaskr.service.learn.agent.lesson_entry import require_requested_lesson_access
+
+    require_shifu_preview_permission(app, user_bid, shifu_bid)
+    if not preview_mode:
+        require_requested_lesson_access(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=False,
+        )
+
+
+def _retained_follow_up_mode(
+    app: Flask, shifu_bid: str, outline_bid: str, source: LessonAttemptSource
+) -> Literal["text", "live_voice", "disabled"]:
+    from flaskr.service.learn.agent.lesson_source import resolve_requested_lesson_source
+    from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
+    from flaskr.service.shifu.api import HistoryItem, get_shifu_struct
+
+    try:
+        if source.structure_row_id is None:
+            # The pre-sharing canonical key belongs to published learning.
+            current = resolve_requested_lesson_source(
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                preview_mode=source.preview_mode,
+            )
+            structure = current.structure or get_shifu_struct(
+                app, shifu_bid, source.preview_mode
+            )
+        else:
+            model = LogDraftStruct if source.preview_mode else LogPublishedStruct
+            row = model.query.filter_by(
+                id=source.structure_row_id, shifu_bid=shifu_bid
+            ).first()
+            if row is None:
+                return "disabled"
+            structure = HistoryItem.from_json(row.struct)
+        info = get_follow_up_info_v2(
+            app,
+            shifu_bid,
+            outline_bid,
+            "",
+            is_preview=source.preview_mode,
+            struct=structure,
+            allow_retired_draft=source.preview_mode,
+        )
+    except AppError:
+        # Missing historical configuration must not hide saved teaching.
+        return "disabled"
+    return available_follow_up_mode(info.ask_mode, info.ask_model)
+
+
+def _reconcile_completed_outline(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    progress_record_bid: str,
+    preview_mode: bool,
+) -> list[OutlineItemUpdateDTO]:
+    """Apply the selected catalog's hand-off and return its durable progress."""
+    from flaskr.service.learn.agent.lesson_entry import require_requested_lesson_access
+    from flaskr.service.learn.agent.lesson_record import reconcile_outline_progression
+
+    scope = {"user_bid": user_bid, "shifu_bid": shifu_bid, "outline_bid": outline_bid}
+    try:
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
+        require_requested_lesson_access(app, **scope, preview_mode=preview_mode)
+    except AppError:
+        # Saved history can remain readable even when the selected lesson cannot be run.
+        return []
+    try:
+        updates, chapter_lessons = resolve_outline_reconciliation(
+            app, shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+        )
+        if updates:
+            return reconcile_outline_progression(
+                app,
+                **scope,
+                progress_record_bid=progress_record_bid,
+                updates=updates,
+                chapter_lessons=chapter_lessons,
+            )
+    except Exception:
+        app.logger.warning(
+            "could not reconcile completed lesson progression: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+            exc_info=True,
+        )
+    return []
+
+
 def get_listen_element_record(
     app: Flask,
     shifu_bid: str,
@@ -206,23 +319,28 @@ def get_listen_element_record(
     preview_mode: bool,
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
-    """Return listen element record."""
-    if preview_mode:
-        from flaskr.service.learn.agent.preview_history import (
-            get_preview_record,
-            uses_preview_session_history,
+    """Read the active learning attempt, comparing it to the requested version."""
+    source = load_lesson_attempt_source(
+        user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    )
+    if source is not None and source.preview_mode:
+        _require_draft_history_access(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=preview_mode,
         )
 
-        if uses_preview_session_history(
-            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
-        ):
-            return get_preview_record(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                include_non_navigable=include_non_navigable,
-            )
+    from flaskr.service.learn.agent.lesson_record import find_active_progress_record
+
+    progress = find_active_progress_record(
+        user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    )
+    started = progress is not None and progress.status in (
+        LEARN_STATUS_IN_PROGRESS,
+        LEARN_STATUS_COMPLETED,
+    )
     record = _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,
@@ -242,46 +360,43 @@ def get_listen_element_record(
             progress_record_bid=progress_record_bid,
         ),
     )
-    if not preview_mode:
-        progress = (
-            LearnProgressRecord.query.with_entities(LearnProgressRecord.status)
-            .filter(
-                LearnProgressRecord.user_bid == user_bid,
-                LearnProgressRecord.shifu_bid == shifu_bid,
-                LearnProgressRecord.outline_item_bid == outline_bid,
-                LearnProgressRecord.deleted == 0,
-                LearnProgressRecord.status != LEARN_STATUS_RESET,
-            )
-            .order_by(LearnProgressRecord.id.desc())
-            .first()
+    if source is not None:
+        record.follow_up_mode = _retained_follow_up_mode(
+            app, shifu_bid, outline_bid, source
         )
-        if progress and progress.status in (
-            LEARN_STATUS_IN_PROGRESS,
-            LEARN_STATUS_COMPLETED,
-        ):
-            current = get_current_lesson_outline(
-                shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=False
+    if started:
+        current = get_current_lesson_outline(
+            shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+        )
+        model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+        visible = (
+            model.query.with_entities(model.id)
+            .filter_by(
+                id=current.id,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                deleted=0,
+                hidden=0,
             )
-            visible = (
-                PublishedOutlineItem.query.with_entities(PublishedOutlineItem.id)
-                .filter_by(
-                    id=current.id,
+            .first()
+            if current
+            else None
+        )
+        if visible and current is not None:
+            if source is not None and progress.status == LEARN_STATUS_COMPLETED:
+                record.outline_progress_updates = _reconcile_completed_outline(
+                    app,
+                    user_bid=user_bid,
                     shifu_bid=shifu_bid,
-                    outline_item_bid=outline_bid,
-                    deleted=0,
-                    hidden=0,
+                    outline_bid=outline_bid,
+                    progress_record_bid=progress.progress_record_bid,
+                    preview_mode=preview_mode,
                 )
-                .first()
-                if current
-                else None
-            )
             states = load_lesson_content_states(
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 preview_mode=False,
-                outline_revisions={outline_bid: current.content_revision}
-                if visible
-                else {},
+                outline_revisions={outline_bid: current.content_revision},
             )
             state = states.get(outline_bid)
             record.has_content_update_for_current_user = bool(

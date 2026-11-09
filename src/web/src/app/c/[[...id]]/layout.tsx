@@ -41,7 +41,6 @@ import {
   normalizeLegacyListenModeInUrl,
   parseBooleanQueryParam,
   parseLearningModeQueryParam,
-  setLearningModeInUrl,
 } from './components/learning-mode-url';
 
 const CLASSROOM_ACCESS_DENIAL_STATUSES = new Set([401, 403, 404]);
@@ -123,7 +122,6 @@ export default function ChatLayout({
     updateShowLearningModeToggle,
     canUseClassroomMode,
     updateCanUseClassroomMode,
-    learningMode,
     updateLearningMode,
   } = useSystemStore() as SystemStoreState;
 
@@ -134,6 +132,9 @@ export default function ChatLayout({
   const [classroomAccessCourseId, setClassroomAccessCourseId] = useState<
     string | null
   >(null);
+  const [loadedCourseVersion, setLoadedCourseVersion] = useState<string | null>(
+    null,
+  );
 
   const courseId = useEnvStore((state: EnvStoreState) => state.courseId);
   const updateCourseId = useEnvStore(
@@ -204,10 +205,12 @@ export default function ChatLayout({
   const listenModeParam = parseBooleanQueryParam(queryListen);
   const urlModeParam = parseLearningModeQueryParam(queryMode);
   const hasListenModeOverride = listenModeParam !== null;
-  const hasClassroomModeOverride = urlModeParam === 'classroom';
+  const courseVersion = JSON.stringify([storageCourseId, isPreviewMode]);
   const canUseClassroomModeForCourse =
     classroomAccessCourseId === storageCourseId ? canUseClassroomMode : null;
-  const courseSettingsMatchStorage = courseSettingsCourseId === storageCourseId;
+  const courseSettingsMatchStorage =
+    courseSettingsCourseId === storageCourseId &&
+    loadedCourseVersion === courseVersion;
   const courseTtsEnabledForMode = courseSettingsMatchStorage
     ? courseTtsEnabled
     : null;
@@ -348,21 +351,6 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    if (!hasClassroomModeOverride) {
-      return;
-    }
-
-    if (canUseClassroomModeForCourse === false) {
-      setLearningModeInUrl('read');
-      updateLearningMode('read');
-    }
-  }, [
-    canUseClassroomModeForCourse,
-    hasClassroomModeOverride,
-    updateLearningMode,
-  ]);
-
-  useEffect(() => {
     if (
       !storageCourseId ||
       initializedLearningModeStorageCoursesRef.current.has(storageCourseId)
@@ -477,35 +465,30 @@ export default function ChatLayout({
       return;
     }
 
-    const storedLearningMode = readLearningModeFromStorage(storageCourseId);
-    const hasPendingClassroomResolution =
-      canUseClassroomModeForCourse === null &&
-      learningMode === 'read' &&
-      (urlModeParam === 'classroom' ||
-        (!urlModeParam && storedLearningMode === 'classroom'));
-
-    if (hasPendingClassroomResolution) {
+    const requestedMode =
+      urlModeParam ??
+      (listenModeParam === null ? null : listenModeParam ? 'listen' : 'read');
+    if (requestedMode === null) {
       return;
     }
-
-    if (storedLearningMode === learningMode) {
+    if (requestedMode === 'listen' && !isCourseListenModeAvailable) {
       return;
     }
-
     if (
-      !urlModeParam &&
-      !hasListenModeOverride &&
-      storedLearningMode === null
+      requestedMode === 'classroom' &&
+      canUseClassroomModeForCourse !== true
     ) {
       return;
     }
 
-    // Keep the course-scoped preference synced after auto resolution or manual toggles.
-    writeLearningModeToStorage(storageCourseId, learningMode);
+    if (readLearningModeFromStorage(storageCourseId) !== requestedMode) {
+      // Persist the chosen mode. A fallback for this version must not replace it.
+      writeLearningModeToStorage(storageCourseId, requestedMode);
+    }
   }, [
     canUseClassroomModeForCourse,
-    hasListenModeOverride,
-    learningMode,
+    isCourseListenModeAvailable,
+    listenModeParam,
     storageCourseId,
     urlModeParam,
   ]);
@@ -520,7 +503,7 @@ export default function ChatLayout({
 
     const fetchCourseInfo = async (attempt = 0) => {
       if (!envDataInitialized) return;
-      if (courseId) {
+      if (storageCourseId) {
         const isRetry = attempt > 0;
         if (!isRetry) {
           updateIsCurrentUserCourseOwner(null);
@@ -530,7 +513,7 @@ export default function ChatLayout({
           });
         }
         debugInfo('[course-info] request start', {
-          courseId,
+          courseId: storageCourseId,
           previewMode: isPreviewMode,
           attempt,
           path:
@@ -540,7 +523,7 @@ export default function ChatLayout({
         });
         try {
           const resp = await getCourseInfo(
-            courseId,
+            storageCourseId,
             isPreviewMode,
             isRetry
               ? {
@@ -552,7 +535,7 @@ export default function ChatLayout({
             return;
           }
           debugInfo('[course-info] request success', {
-            courseId,
+            courseId: storageCourseId,
             previewMode: isPreviewMode,
             courseName: resp.course_name,
             coursePrice: resp.course_price,
@@ -563,13 +546,14 @@ export default function ChatLayout({
           updateCourseName(resp.course_name);
           updateCourseDescription(resp.course_desc ?? '');
           updateCourseAvatar(resp.course_avatar);
-          updateCourseSettings(courseId, {
+          updateCourseSettings(storageCourseId, {
             ttsEnabled: resp.course_tts_enabled ?? null,
             defaultListenModeEnabled: resp.default_listen_mode_enabled ?? null,
           });
+          setLoadedCourseVersion(courseVersion);
           updateIsCurrentUserCourseOwner(resp.course_is_owner === true);
           if (isPreviewMode) {
-            setClassroomAccessCourseId(courseId);
+            setClassroomAccessCourseId(storageCourseId);
             updateCanUseClassroomMode(true);
           }
           const titleSuffix = t('common.core.brandName');
@@ -602,7 +586,7 @@ export default function ChatLayout({
             return;
           }
           debugError('[course-info] request failed', {
-            courseId,
+            courseId: storageCourseId,
             previewMode: isPreviewMode,
             isCourseNotFound,
             errorMessage:
@@ -616,7 +600,7 @@ export default function ChatLayout({
           }
           if (isDefinitiveClassroomAccessDenial(error)) {
             debugWarn('[course-info] stop retry after access denial', {
-              courseId,
+              courseId: storageCourseId,
               attempt,
               error,
             });
@@ -625,7 +609,7 @@ export default function ChatLayout({
 
           // Keep users on page for transient failures instead of forcing 404.
           debugWarn('[course-info] skip 404 redirect for non-notfound error', {
-            courseId,
+            courseId: storageCourseId,
             attempt,
             error,
           });
@@ -652,7 +636,8 @@ export default function ChatLayout({
       }
     };
   }, [
-    courseId,
+    courseVersion,
+    storageCourseId,
     envDataInitialized,
     setShowVip,
     t,
@@ -694,7 +679,7 @@ export default function ChatLayout({
 
   return (
     <CourseWechatAuthorizationProvider value={wechatAuthorization}>
-      <UserProvider>{children}</UserProvider>
+      <UserProvider key={courseVersion}>{children}</UserProvider>
     </CourseWechatAuthorizationProvider>
   );
 }

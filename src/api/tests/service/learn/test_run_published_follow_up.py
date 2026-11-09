@@ -38,9 +38,14 @@ def follow_up_dependencies(
     monkeypatch: pytest.MonkeyPatch, runtime_dependencies: object
 ) -> SimpleNamespace:
     _ = runtime_dependencies
-    calls = SimpleNamespace(guardrails=[], providers=[], llm=[])
+    calls = SimpleNamespace(
+        guardrails=[],
+        providers=[],
+        llm=[],
+        run_guardrail=handle_input_ask._run_guardrail,
+    )
 
-    def guardrail(*args: object) -> list:
+    def guardrail(*args: object, **_kwargs: object) -> list:
         calls.guardrails.append(args[8])
         return []
 
@@ -172,10 +177,12 @@ def _ask(
     )
 
 
-def test_follow_up_preview_and_publication_use_their_own_bound_rows(
+@pytest.mark.parametrize("starts_in_draft", [False, True])
+def test_follow_up_uses_first_source_across_entry_points(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     follow_up_dependencies: SimpleNamespace,
+    starts_in_draft: bool,
 ) -> None:
     course = revision._seed_course(app)
     old_provider = _configure_follow_up(
@@ -188,52 +195,28 @@ def test_follow_up_preview_and_publication_use_their_own_bound_rows(
         app, course, label="Draft", model="8", temperature="0.7"
     )
     with app.app_context():
-        formal = _bound(app, course)
-        preview = _bound(app, course, preview=True)
-        for is_preview in (False, True):
+        source = _bound(app, course, preview=starts_in_draft)
+        for is_preview in (starts_in_draft, not starts_in_draft):
             _ask(app, monkeypatch, course, preview=is_preview)
-        formal_info, preview_info = follow_up_dependencies.guardrails
-        assert formal_info.ask_model == "1"
-        assert formal_info.model_args == {"temperature": Decimal(0)}
-        assert formal_info.ask_provider_config == old_provider
-        assert (
-            formal_info.usage_metadata["model_selection_table"]
-            == PublishedShifu.__tablename__
-        )
-        assert (
-            formal_info.usage_metadata["model_selection_record_id"] == formal._struct.id
-        )
-        assert preview_info.ask_model == "8"
-        assert preview_info.model_args == {"temperature": Decimal("0.7")}
-        assert preview_info.ask_provider_config == draft_provider
-        assert (
-            preview_info.ask_prompt
-            == "Draft lesson follow-up prompt::{shifu_system_message}"
-        )
-        assert (
-            preview_info.usage_metadata["model_selection_table"]
-            == DraftShifu.__tablename__
-        )
-        assert (
-            preview_info.usage_metadata["model_selection_record_id"]
-            == preview._struct.id
-        )
-        assert (
-            "Old course teaching prompt"
-            in follow_up_dependencies.llm[0]["messages"][0]["content"]
-        )
-        assert (
-            "Draft course teaching prompt"
-            not in follow_up_dependencies.llm[0]["messages"][0]["content"]
-        )
-        assert (
-            "Draft course teaching prompt"
-            in follow_up_dependencies.llm[1]["messages"][0]["content"]
-        )
-        assert (
-            "Old course teaching prompt"
-            not in follow_up_dependencies.llm[1]["messages"][0]["content"]
-        )
+        assert len(follow_up_dependencies.guardrails) == 2
+        for info in follow_up_dependencies.guardrails:
+            assert info.ask_model == ("8" if starts_in_draft else "1")
+            assert info.model_args == {
+                "temperature": Decimal("0.7" if starts_in_draft else "0")
+            }
+            assert info.ask_provider_config == (
+                draft_provider if starts_in_draft else old_provider
+            )
+            assert info.usage_metadata["model_selection_table"] == (
+                DraftShifu.__tablename__
+                if starts_in_draft
+                else PublishedShifu.__tablename__
+            )
+            assert info.usage_metadata["model_selection_record_id"] == source._struct.id
+        for call in follow_up_dependencies.llm:
+            prompt = call["messages"][0]["content"]
+            assert ("Draft course teaching prompt" in prompt) is starts_in_draft
+            assert ("Old course teaching prompt" in prompt) is not starts_in_draft
 
 
 @pytest.mark.parametrize(

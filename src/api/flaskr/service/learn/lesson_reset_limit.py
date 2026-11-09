@@ -16,8 +16,15 @@ from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope
 from flaskr.service.common.models import raise_error
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+from flaskr.service.learn.agent.session_store import (
+    UnreadableLessonAttemptSourceError,
+    load_lesson_attempt_source,
+)
 from flaskr.service.learn.models import LearnLessonResetRecord, LearnProgressRecord
-from flaskr.service.learn.preview_permissions import has_shifu_staff_permission
+from flaskr.service.learn.preview_permissions import (
+    has_shifu_staff_permission,
+    is_builtin_demo_shifu,
+)
 from flaskr.service.order.consts import LEARN_STATUS_NOT_STARTED, LEARN_STATUS_RESET
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 
@@ -39,9 +46,44 @@ def is_lesson_reset_exempt(app: Flask, user_bid: str, shifu_bid: str) -> bool:
     return has_shifu_staff_permission(app, user_bid, shifu_bid)
 
 
-def require_reset_lesson(shifu_bid: str, outline_bid: str) -> None:
-    """Reject a lesson from another course before touching progress or counters."""
-    for model in (PublishedOutlineItem, DraftOutlineItem):
+def is_unavailable_draft_attempt(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    for_update: bool = False,
+) -> bool:
+    """Let a learner discard a private attempt after losing draft access."""
+    try:
+        source = load_lesson_attempt_source(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            for_update=for_update,
+        )
+    except UnreadableLessonAttemptSourceError:
+        # Damaged provenance cannot grant the draft recovery exemption. The
+        # ordinary reset allowance still lets the owner discard the attempt.
+        return False
+    # Callers already applied the owner and collaborator reset exemption.
+    return bool(
+        source is not None
+        and source.preview_mode
+        and not is_builtin_demo_shifu(app, shifu_bid)
+    )
+
+
+def require_reset_lesson(
+    shifu_bid: str, outline_bid: str, *, preview_mode: bool | None = None
+) -> None:
+    """Check lesson membership in the requested course version."""
+    models = (
+        (PublishedOutlineItem, DraftOutlineItem)
+        if preview_mode is None
+        else (DraftOutlineItem if preview_mode else PublishedOutlineItem,)
+    )
+    for model in models:
         if model.query.filter_by(
             shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
         ).first():
@@ -135,8 +177,12 @@ def has_learning_state(user_bid: str, shifu_bid: str, outline_bid: str) -> bool:
             LearnAgentSession.shifu_bid == shifu_bid,
             LearnAgentSession.outline_item_bid == outline_bid,
             LearnAgentSession.deleted == 0,
-            LearnAgentSession.active_key
-            == active_key_for(user_bid, outline_bid, preview_mode=False),
+            LearnAgentSession.active_key.in_(
+                [
+                    active_key_for(user_bid, outline_bid),
+                    active_key_for(user_bid, outline_bid, preview_mode=True),
+                ]
+            ),
         )
         .first()
         is not None
@@ -180,12 +226,17 @@ def get_lesson_reset_status(
 ) -> dict[str, bool]:
     """Tell the client whether a reset would be admitted, without exposing counts."""
     with app_context_scope(app):
-        require_reset_lesson(shifu_bid, outline_bid)
+        require_reset_lesson(shifu_bid, outline_bid, preview_mode=preview_mode)
         limit = get_lesson_reset_limit()
         if (
             limit == 0
-            or preview_mode
             or is_lesson_reset_exempt(app, user_bid, shifu_bid)
+            or (
+                not preview_mode
+                and is_unavailable_draft_attempt(
+                    app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+                )
+            )
         ):
             return {"can_reset": True}
         # A reset that would retire nothing chargeable is always admitted, so the

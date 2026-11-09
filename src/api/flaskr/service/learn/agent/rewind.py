@@ -65,6 +65,8 @@ class RewindPlan:
     # The learner input to run the restored turn with; None means the request's own input.
     replay_values: list[str] | None
     retired_block_bids: list[str] = field(default_factory=list)
+    source_block_bids: list[str] = field(default_factory=list)
+    progress_record_bid: str | None = None
 
 
 def plan_turn_rewind(
@@ -285,30 +287,34 @@ def read_turn_learner_values(block: LearnGeneratedBlock) -> list[str]:
 
 
 def _anchor_block(
-    *, user_bid: str, outline_bid: str, anchor: str
+    *, user_bid: str, outline_bid: str, anchor: str, shifu_bid: str | None = None
 ) -> LearnGeneratedBlock | None:
     """Find the block the learner went back to, by element or by block identifier.
 
     The browser sends a block identifier in both reload fields for a question and an element's
     for content, and 1.0 accepts either; so does this.
     """
-    element = (
-        LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.element_bid == anchor,
-            LearnGeneratedElement.user_bid == user_bid,
-            LearnGeneratedElement.deleted == 0,
-        )
-        .order_by(LearnGeneratedElement.id.desc())
-        .first()
+    elements = LearnGeneratedElement.query.filter_by(
+        element_bid=anchor,
+        user_bid=user_bid,
+        outline_item_bid=outline_bid,
+        status=1,
+        deleted=0,
     )
+    if shifu_bid is not None:
+        elements = elements.filter_by(shifu_bid=shifu_bid)
+    element = elements.order_by(LearnGeneratedElement.id.desc()).first()
     block_bid = (element.generated_block_bid or "") if element else anchor
-    block = LearnGeneratedBlock.query.filter(
-        LearnGeneratedBlock.generated_block_bid == block_bid,
-        LearnGeneratedBlock.user_bid == user_bid,
-        LearnGeneratedBlock.outline_item_bid == outline_bid,
-        LearnGeneratedBlock.status == 1,
-        LearnGeneratedBlock.deleted == 0,
-    ).first()
+    blocks = LearnGeneratedBlock.query.filter_by(
+        generated_block_bid=block_bid,
+        user_bid=user_bid,
+        outline_item_bid=outline_bid,
+        status=1,
+        deleted=0,
+    )
+    if shifu_bid is not None:
+        blocks = blocks.filter_by(shifu_bid=shifu_bid)
+    block = blocks.first()
     if block is None:
         return None
     # Only a block of the attempt still being taken: one from before a reset is history.
@@ -433,6 +439,8 @@ def plan_rewind(
     outline_bid: str,
     anchor: str,
     answering: bool,
+    shifu_bid: str | None = None,
+    progress_record_bid: str | None = None,
 ) -> RewindPlan | None:
     """Work out how to take the lesson back to the block the learner chose.
 
@@ -441,8 +449,17 @@ def plan_rewind(
     that was never answered is simply being answered now. Raises `RewindUnavailableError` when the
     block cannot be returned to.
     """
-    block = _anchor_block(user_bid=user_bid, outline_bid=outline_bid, anchor=anchor)
-    if block is None or block.type != BLOCK_TYPE_MDCONTENT_VALUE:
+    block = _anchor_block(
+        user_bid=user_bid, outline_bid=outline_bid, anchor=anchor, shifu_bid=shifu_bid
+    )
+    if (
+        block is None
+        or block.type != BLOCK_TYPE_MDCONTENT_VALUE
+        or (
+            progress_record_bid is not None
+            and block.progress_record_bid != progress_record_bid
+        )
+    ):
         raise RewindUnavailableError
     blocks = _turn_blocks_from(block, include_it=True)
     after_anchor = {b.generated_block_bid for b in blocks[1:]}
@@ -471,10 +488,32 @@ def plan_rewind(
         answering=answering,
         question_id=question_id,
     )
+    if plan is None and question_id is not None:
+        # Without an accepting checkpoint only the next unanswered control is
+        # actionable. Missing old metadata must not turn an edit into a new answer.
+        from flaskr.service.learn.agent.session_store import (
+            StoredSessionUnusable,
+            load_agent_session,
+        )
+
+        try:
+            session = load_agent_session(current_app, user_bid, outline_bid)
+        except StoredSessionUnusable:
+            raise RewindUnavailableError from None
+        if (
+            session is None
+            or not session.pending
+            or session.pending[0].tool_call_id != question_id
+        ):
+            raise RewindUnavailableError
     if plan is not None:
         plan.retired_block_bids.extend(
             bid for bid in abandoned if bid not in plan.retired_block_bids
         )
+        plan.source_block_bids = [
+            t["block_bid"] for t in turns if t["record"] is not None
+        ]
+        plan.progress_record_bid = block.progress_record_bid
     return plan
 
 
@@ -569,18 +608,74 @@ def retire_abandoned_turns(
         )
 
 
+def _attached_follow_up_blocks(
+    *, user_bid: str, outline_bid: str, progress_record_bid: str, retired: list[str]
+) -> set[str]:
+    scope = {
+        "user_bid": user_bid,
+        "outline_item_bid": outline_bid,
+        "progress_record_bid": progress_record_bid,
+        "status": 1,
+        "deleted": 0,
+    }
+    elements = LearnGeneratedElement.query.filter_by(**scope)
+    retired_elements = set()
+    for row in elements.filter(
+        LearnGeneratedElement.generated_block_bid.in_(retired)
+    ).all():
+        retired_elements.update((row.element_bid, row.target_element_bid))
+    retired_elements.discard("")
+    retired_elements.discard(None)
+    linked = set()
+    for row in elements.filter(
+        LearnGeneratedElement.element_type.in_(["ask", "answer"])
+    ).all():
+        try:
+            payload = json.loads(row.payload or "{}")
+        except ValueError:
+            continue
+        if (
+            isinstance(payload, dict)
+            and payload.get("anchor_element_bid") in retired_elements
+        ):
+            linked.add(row.generated_block_bid)
+    return linked
+
+
 def stage_retirement(plan: RewindPlan, *, user_bid: str, outline_bid: str) -> None:
     """Deactivate the blocks and elements the rewind superseded, as 1.0's reload does."""
     if not plan.retired_block_bids:
         return
+    retired = set(plan.retired_block_bids)
+    if plan.progress_record_bid and plan.source_block_bids:
+        anchor = _anchor_block(
+            user_bid=user_bid, outline_bid=outline_bid, anchor=plan.source_block_bids[0]
+        )
+        if anchor is None or anchor.progress_record_bid != plan.progress_record_bid:
+            raise RewindUnavailableError
+        active = [
+            block.generated_block_bid
+            for block in _turn_blocks_from(anchor, include_it=True)
+            if read_turn_record(block) is not None
+        ]
+        if active != plan.source_block_bids:
+            raise RewindUnavailableError
+        retired.update(
+            _attached_follow_up_blocks(
+                user_bid=user_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=plan.progress_record_bid,
+                retired=plan.retired_block_bids,
+            )
+        )
     LearnGeneratedBlock.query.filter(
-        LearnGeneratedBlock.generated_block_bid.in_(plan.retired_block_bids),
+        LearnGeneratedBlock.generated_block_bid.in_(retired),
         LearnGeneratedBlock.user_bid == user_bid,
         LearnGeneratedBlock.outline_item_bid == outline_bid,
         LearnGeneratedBlock.status == 1,
     ).update({LearnGeneratedBlock.status: 0}, synchronize_session=False)
     LearnGeneratedElement.query.filter(
-        LearnGeneratedElement.generated_block_bid.in_(plan.retired_block_bids),
+        LearnGeneratedElement.generated_block_bid.in_(retired),
         LearnGeneratedElement.user_bid == user_bid,
         LearnGeneratedElement.outline_item_bid == outline_bid,
         LearnGeneratedElement.status == 1,

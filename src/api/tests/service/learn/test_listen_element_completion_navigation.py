@@ -19,7 +19,11 @@ from flaskr.service.learn.learn_dtos import (
     LikeStatus,
 )
 from flaskr.service.learn.models import LearnProgressRecord
-from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_IN_PROGRESS
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_NOT_STARTED,
+)
 
 from tests.common.fixtures.model_factories import make_progress_record
 
@@ -38,13 +42,22 @@ def _element(
     )
 
 
-@pytest.mark.parametrize("already_persisted", [False, True])
-@pytest.mark.parametrize("has_successor", [False, True])
+@pytest.mark.parametrize(
+    ("already_persisted", "has_successor", "newer_placeholder"),
+    [
+        (False, False, False),
+        (False, True, False),
+        (True, False, False),
+        (True, True, False),
+        pytest.param(True, True, True, id="completed-before-newer-placeholder"),
+    ],
+)
 def test_completed_element_history_has_one_next_lesson_control(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     already_persisted: bool,
     has_successor: bool,
+    newer_placeholder: bool,
 ) -> None:
     """Only a current successor permits one control, including for older completions."""
     user_bid = uuid.uuid4().hex
@@ -94,6 +107,18 @@ def test_completed_element_history_has_one_next_lesson_control(
                 status=LEARN_STATUS_COMPLETED,
             )
         )
+        if newer_placeholder:
+            db.session.flush()
+            db.session.add(
+                make_progress_record(
+                    progress_record_bid=uuid.uuid4().hex,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    user_bid=user_bid,
+                    block_position=1,
+                    status=LEARN_STATUS_NOT_STARTED,
+                )
+            )
         db.session.commit()
         try:
             result = history.get_listen_element_record(

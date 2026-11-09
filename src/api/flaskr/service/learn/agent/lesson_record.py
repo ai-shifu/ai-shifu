@@ -16,11 +16,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from flaskr.dao import db
+from flaskr.dao import db, retry_on_deadlock
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT, ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import LearnStatus, OutlineItemUpdateDTO
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.progress_ordering import progress_record_order
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
@@ -62,7 +63,25 @@ def _this_turn_s_record(
             LearnProgressRecord.deleted == 0,
             LearnProgressRecord.status != LEARN_STATUS_RESET,
         )
+        .populate_existing()
         .with_for_update()
+        .first()
+    )
+
+
+def find_active_progress_record(
+    *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> LearnProgressRecord | None:
+    """Prefer the started attempt over a parallel follow-up's placeholder."""
+    return (
+        LearnProgressRecord.query.filter(
+            LearnProgressRecord.user_bid == user_bid,
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.outline_item_bid == outline_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        )
+        .order_by(*progress_record_order())
         .first()
     )
 
@@ -75,20 +94,19 @@ def active_progress_record(
     Staged, not committed: the caller owns the transaction, so the record lands with the session
     and the turn's elements or not at all.
     """
-    record = (
-        LearnProgressRecord.query.filter(
-            LearnProgressRecord.user_bid == user_bid,
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.outline_item_bid == outline_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .order_by(LearnProgressRecord.id.desc())
-        .first()
+    record = find_active_progress_record(
+        user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
     )
     if record is not None:
         return record
+    return _stage_progress_record(
+        app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    )
 
+
+def _stage_progress_record(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> LearnProgressRecord:
     record = LearnProgressRecord()
     record.progress_record_bid = generate_id(app)
     record.user_bid = user_bid
@@ -98,6 +116,68 @@ def active_progress_record(
     record.block_position = 0
     db.session.add(record)
     return record
+
+
+def _progress_for_reconciliation(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> LearnProgressRecord | None:
+    """Read current progress under lock and preserve deliberate retakes on reopen."""
+    records = (
+        LearnProgressRecord.query.filter_by(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            deleted=0,
+        )
+        .order_by(*progress_record_order())
+        .populate_existing()
+        .with_for_update()
+        .all()
+    )
+    active = next(
+        (record for record in records if record.status != LEARN_STATUS_RESET), None
+    )
+    if any(record.status == LEARN_STATUS_RESET for record in records) and (
+        active is None
+        or active.status not in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
+    ):
+        return None
+    return active or _stage_progress_record(
+        app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    )
+
+
+def _unfinished_retakes(
+    *, user_bid: str, shifu_bid: str, outline_bids: set[str]
+) -> set[str]:
+    """Find visible chapter lessons with an unfinished deliberate retake."""
+    if not outline_bids:
+        return set()
+    progress = LearnProgressRecord.query.with_entities(
+        LearnProgressRecord.outline_item_bid, LearnProgressRecord.status
+    ).filter_by(user_bid=user_bid, shifu_bid=shifu_bid, deleted=0)
+    retired = {
+        bid
+        for bid, _ in progress.filter(
+            LearnProgressRecord.outline_item_bid.in_(outline_bids),
+            LearnProgressRecord.status == LEARN_STATUS_RESET,
+        ).with_for_update()
+    }
+    if not retired:
+        return set()
+    # A normal completed sibling never needs an active-row lock here.
+    records = (
+        progress.filter(
+            LearnProgressRecord.outline_item_bid.in_(retired),
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        )
+        .order_by(*progress_record_order())
+        .with_for_update()
+    )
+    active: dict[str, int] = {}
+    for bid, status in records:
+        active.setdefault(bid, status)
+    return {bid for bid in retired if active.get(bid) != LEARN_STATUS_COMPLETED}
 
 
 def claim_for_writing(
@@ -117,20 +197,19 @@ def claim_for_writing(
     """
     if not progress_record_bid:
         return None
-    record = (
+    return (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid == outline_bid,
             LearnProgressRecord.progress_record_bid == progress_record_bid,
             LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
         )
+        .populate_existing()
         .with_for_update()
         .first()
     )
-    if record is None or record.status == LEARN_STATUS_RESET:
-        return None
-    return record
 
 
 def mark_lesson_finished(record: LearnProgressRecord) -> None:
@@ -243,26 +322,66 @@ def apply_outline_progression(
     progress_record_bid: str,
     updates: list[OutlineItemUpdateDTO],
 ) -> bool:
-    """Record the outline changes a finished lesson caused, so a reload agrees with the page.
+    """Write ordinary completion progress while the finished attempt is active."""
+    return (
+        _write_outline_progression(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            updates=updates,
+        )
+        is not None
+    )
 
-    The browser is told about them as they happen, but a learner who comes back tomorrow is told
-    by the database instead. Without this the chapter a learner watched tick over would be back
-    to unfinished on their next visit, and the lesson they were handed on to would not know it
-    had started.
 
-    Chapters are included: a chapter's own record is what the outline reads its state from, and
-    nothing else writes it on this path.
+@retry_on_deadlock(max_attempts=2)
+def reconcile_outline_progression(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    progress_record_bid: str,
+    updates: list[OutlineItemUpdateDTO],
+    chapter_lessons: dict[str, set[str]],
+) -> list[OutlineItemUpdateDTO]:
+    """Reconcile a reopened attempt and return the selected outline's durable statuses."""
+    return (
+        _write_outline_progression(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            updates=updates,
+            chapter_lessons=chapter_lessons,
+        )
+        or []
+    )
 
-    The finished lesson's own record is found, never created. This runs in a transaction of its
-    own, after the turn that finished the lesson has committed, and a reset can commit in the gap
-    between the two. The reset marks every record of the lesson as reset; creating a fresh one
-    here and marking it complete would hand the learner back the very completion they had just
-    cleared, and carry them past the lesson they asked to retake. When no live record is left,
-    nothing is written at all -- not the hand-over either, since the learner is not moving on --
-    and False is returned so the caller does not report changes that were never made. Records
-    for the lesson being handed to and for chapters may still be created: nothing else writes
-    them on this path, and a reset does not touch them.
+
+def _write_outline_progression(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    progress_record_bid: str,
+    updates: list[OutlineItemUpdateDTO],
+    chapter_lessons: dict[str, set[str]] | None = None,
+) -> list[OutlineItemUpdateDTO] | None:
+    """Apply progress only if the attempt that finished is still active.
+
+    A reset can commit after the turn finishes and before its catalog updates.
+    Lock the exact attempt so progression cannot revive it or advance past it.
+    Reopening respects independent retakes of later items, since this visit
+    completed no new teaching. It includes unchanged active statuses so a
+    catalog loaded before the history request can still render current progress.
     """
+    reconcile = chapter_lessons is not None
+    persisted_updates = []
     with app_context_scope(app), unit_of_work():
         lesson = _this_turn_s_record(
             user_bid=user_bid,
@@ -277,24 +396,59 @@ def apply_outline_progression(
                 user_bid,
                 outline_bid,
             )
-            return False
+            return None
+        if reconcile and lesson.status != LEARN_STATUS_COMPLETED:
+            return None
+        blocked_chapters = set()
+        if chapter_lessons:
+            unfinished = _unfinished_retakes(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bids=set().union(*chapter_lessons.values()) - {outline_bid},
+            )
+            blocked_chapters = {
+                chapter_bid
+                for chapter_bid, lessons in chapter_lessons.items()
+                if lessons & unfinished
+            }
         for update in updates:
             if update.outline_bid == outline_bid:
                 record = lesson
             else:
-                record = active_progress_record(
+                select_progress = (
+                    _progress_for_reconciliation
+                    if reconcile
+                    else active_progress_record
+                )
+                record = select_progress(
                     app,
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     outline_bid=update.outline_bid,
                 )
-            if update.status == LearnStatus.COMPLETED:
-                record.status = LEARN_STATUS_COMPLETED
-            elif record.status != LEARN_STATUS_COMPLETED:
-                # A lesson already finished is not reopened by being handed to again: the learner
-                # may be revisiting it, and reporting it unfinished would lose a completion.
-                record.status = LEARN_STATUS_IN_PROGRESS
-    return True
+                if record is None:
+                    persisted_updates.append(
+                        update.model_copy(update={"status": LearnStatus.NOT_STARTED})
+                    )
+                    continue
+            # Handing the learner to a finished lesson preserves its completion.
+            status = (
+                LearnStatus.COMPLETED
+                if record.status == LEARN_STATUS_COMPLETED
+                or (
+                    update.status == LearnStatus.COMPLETED
+                    and update.outline_bid not in blocked_chapters
+                )
+                else LearnStatus.IN_PROGRESS
+            )
+            record.status = (
+                LEARN_STATUS_COMPLETED
+                if status == LearnStatus.COMPLETED
+                else LEARN_STATUS_IN_PROGRESS
+            )
+            if reconcile:
+                persisted_updates.append(update.model_copy(update={"status": status}))
+    return persisted_updates
 
 
 def record_next_lesson_interaction(

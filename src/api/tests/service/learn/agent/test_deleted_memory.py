@@ -148,7 +148,6 @@ def test_actual_host_drops_pre_delete_turn_write_and_allows_a_fresh_request(
             shifu_bid=course,
             outline_bid=lesson,
             script=kwargs["script"],
-            preview_mode=False,
         )
         resumed = asyncio.run(factory())
         assert "pace" not in resumed.all_memory()
@@ -173,7 +172,6 @@ def test_actual_host_drops_pre_delete_turn_write_and_allows_a_fresh_request(
             shifu_bid=course,
             outline_bid=lesson,
             script=kwargs["script"],
-            preview_mode=False,
         )
         old_lesson = asyncio.run(factory())
         assert old_lesson.all_memory()["pace"] == "fresh requested note"

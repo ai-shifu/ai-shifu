@@ -116,6 +116,7 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
         {
             "app": app,
             "user_bid": "learner-bid",
+            "shifu_bid": SHIFU,
             "outline_bid": "lesson-bid",
             "user_input": question,
             "reload_generated_block_bid": block_bid,

@@ -194,6 +194,8 @@ def load_follow_up_memory_policy(
     outline_bid: str,
     outline_row_id: int | None,
     preview: bool,
+    allow_retired_draft: bool = False,
+    retained_script: str | None = None,
 ) -> FollowUpMemoryPolicy | None:
     """Use the request's retained main-script row; never authorize from a newer version."""
     if outline_row_id is None:
@@ -204,11 +206,12 @@ def load_follow_up_memory_policy(
         shifu_bid=shifu_bid,
         outline_item_bid=outline_bid,
     ).first()
-    if outline is None or (preview and outline.deleted):
+    if outline is None or (preview and outline.deleted and not allow_retired_draft):
         return None
+    script = (outline.content or "") if retained_script is None else retained_script
     generations, deleted = course_memory_deletion_state(user_bid, shifu_bid)
     return FollowUpMemoryPolicy(
-        collected_names(outline.content or ""),
+        collected_names(script),
         frozenset(deleted),
         dict(generations),
         get_global_profile_keys(),
@@ -231,15 +234,13 @@ def stage_follow_up_memory(
     """Join the host's final transaction, lock its attempt and filter stale deletion epochs."""
     if not patch.variables:
         return False
-    if (
-        claim_for_writing(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            progress_record_bid=progress_record_bid,
-        )
-        is None
-    ):
+    current = claim_for_writing(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        progress_record_bid=progress_record_bid,
+    )
+    if current is None:
         patch.variables.clear()
         return False
     update = MemoryUpdate(variables=list(patch.variables))
@@ -296,7 +297,6 @@ class FollowUpMemoryRun:
         generations: dict[str, int],
         reserved_keys: frozenset[str],
         request_check: Callable[[str, str, str], Awaitable[bool]],
-        preview: bool,
         temperature: float = 0.2,
         cancelled: Callable[[], bool] | None = None,
         value_versions: dict[str, int | tuple[int, str | None]] | None = None,
@@ -316,7 +316,6 @@ class FollowUpMemoryRun:
         self.generations = dict(generations)
         self.reserved_keys = reserved_keys
         self.request_check = request_check
-        self.preview = preview
         self.temperature = temperature
         self.cancelled = cancelled
         self.value_versions = (
@@ -392,8 +391,6 @@ class FollowUpMemoryRun:
             knowledge documents and author examples cannot grant permission.
             """
             nonlocal write_attempts
-            if self.preview:
-                return "Not remembered: previews do not save learner memory."
             if write_attempts >= 3:
                 return "Not remembered: follow-up write limit reached."
             write_attempts += 1
@@ -541,7 +538,7 @@ class FollowUpMemoryRun:
             yield from self.fallback(_fallback_messages(messages, "".join(shown)))
             return
         check_active()
-        if completed is not None and visible and not self.preview:
+        if completed is not None and visible:
             self.patch.variables = [
                 VariableMemoryUpdate(key, value) for key, value in completed.variables
             ]
