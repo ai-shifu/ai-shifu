@@ -4,6 +4,7 @@ import { act, renderHook } from '@testing-library/react';
 
 const mockSaveMdflow = jest.fn();
 const mockGetMdflow = jest.fn();
+const mockRestoreMdflowHistory = jest.fn();
 const mockGetShifuDraftMeta = jest.fn();
 const mockGetShifuDetail = jest.fn();
 const mockCreateOutline = jest.fn();
@@ -15,6 +16,8 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getMdflow: (...args: unknown[]) => mockGetMdflow(...args),
+    restoreMdflowHistory: (...args: unknown[]) =>
+      mockRestoreMdflowHistory(...args),
     saveMdflow: (...args: unknown[]) => mockSaveMdflow(...args),
     getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
@@ -71,6 +74,7 @@ const lesson = (bid: string) => ({
 describe('useShifu lesson drafts', () => {
   beforeEach(() => {
     mockGetMdflow.mockReset().mockResolvedValue('Saved lesson content');
+    mockRestoreMdflowHistory.mockReset();
     mockSaveMdflow.mockReset().mockResolvedValue({ new_revision: 9 });
     mockGetShifuDraftMeta.mockReset().mockResolvedValue({ revision: 9 });
     mockGetShifuDetail.mockReset().mockResolvedValue({ bid: 'shifu-1' });
@@ -237,6 +241,65 @@ describe('useShifu lesson drafts', () => {
       data: 'Saved lesson content',
       base_revision: 9,
     });
+  });
+
+  it('drains queued lesson saves before restoring and blocks saves until the restored body reloads', async () => {
+    const first = createDeferred<{ new_revision: number }>();
+    const second = createDeferred<{ new_revision: number }>();
+    const restore = createDeferred<{
+      restored: boolean;
+      new_revision: number;
+    }>();
+    mockSaveMdflow
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    mockRestoreMdflowHistory.mockReturnValueOnce(restore.promise);
+    const result = await renderCourse();
+    const snapshot = { shifu_bid: 'shifu-1', outline_bid: 'lesson-1' };
+    await act(async () => {
+      result.current.actions.setCurrentNode(lesson('lesson-1'));
+      await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+    });
+    let restoring!: ReturnType<
+      typeof result.current.actions.restoreMdflowHistory
+    >;
+    act(() => {
+      const { actions } = result.current;
+      actions.setCurrentMdflow('First edit');
+      actions.flushAutoSaveBlocks({ ...snapshot, data: 'First edit' });
+      actions.setCurrentMdflow('Queued edit');
+      actions.flushAutoSaveBlocks({ ...snapshot, data: 'Queued edit' });
+      restoring = actions.restoreMdflowHistory('shifu-1', 'lesson-1', 4);
+    });
+    expect(mockRestoreMdflowHistory).not.toHaveBeenCalled();
+    await act(async () => {
+      first.resolve({ new_revision: 10 });
+    });
+    expect(mockSaveMdflow).toHaveBeenCalledTimes(2);
+    expect(mockRestoreMdflowHistory).not.toHaveBeenCalled();
+
+    await act(async () => {
+      second.resolve({ new_revision: 11 });
+    });
+    expect(mockRestoreMdflowHistory).toHaveBeenCalledWith({
+      ...snapshot,
+      version_id: 4,
+      base_revision: 11,
+    });
+    await act(async () => {
+      await result.current.actions.saveMdflow();
+      restore.resolve({ restored: true, new_revision: 12 });
+      await restoring;
+      await result.current.actions.saveMdflow();
+    });
+    expect(mockSaveMdflow).toHaveBeenCalledTimes(2);
+    expect(result.current.isMdflowLoaded).toBe(false);
+
+    mockGetMdflow.mockResolvedValueOnce('Restored content');
+    await act(async () => {
+      await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+    });
+    expect(result.current.mdflow).toBe('Restored content');
   });
 });
 

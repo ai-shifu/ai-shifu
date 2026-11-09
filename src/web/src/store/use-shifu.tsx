@@ -186,6 +186,9 @@ export const ShifuProvider = ({
   const savesByOutlineRef = useRef(
     new Map<string, { data: string; promise: Promise<void> }>(),
   );
+  const restoresByOutlineRef = useRef(
+    new Map<string, Promise<MdflowHistoryRestoreResult>>(),
+  );
   const mdflowRequestRef = useRef(0);
   const profileDefinitionCacheRef = useRef<
     Record<
@@ -535,9 +538,13 @@ export const ShifuProvider = ({
       const pending = savesByOutlineRef.current.get(outlineId);
       if (pending) {
         await pending.promise.catch(() => undefined);
-        if (!isLatest()) {
-          return false;
-        }
+      }
+      const restore = restoresByOutlineRef.current.get(outlineId);
+      if (restore) {
+        await restore.catch(() => undefined);
+      }
+      if (!isLatest()) {
+        return false;
       }
       const initialContent = currentMdflow.current;
       const initialPersisted = draft.persisted;
@@ -550,6 +557,7 @@ export const ShifuProvider = ({
         initialContent !== currentMdflow.current ||
         initialPersisted !== draft.persisted ||
         savesByOutlineRef.current.has(outlineId) ||
+        restoresByOutlineRef.current.has(outlineId) ||
         (options?.canApply && !options.canApply())
       ) {
         return false;
@@ -672,7 +680,13 @@ export const ShifuProvider = ({
       versionId: number,
       revision?: number | null,
     ) => {
-      if (!shifuId || !outlineId || versionId == null) {
+      const restores = restoresByOutlineRef.current;
+      if (
+        !shifuId ||
+        !outlineId ||
+        versionId == null ||
+        restores.has(outlineId)
+      ) {
         return null;
       }
       // Prevent pending debounced saves from overwriting restored content.
@@ -682,7 +696,12 @@ export const ShifuProvider = ({
         lessonDraftRef.current === draft &&
         draft?.outlineId === outlineId &&
         draft.shifuId === shifuId;
-      try {
+      const restore = (async () => {
+        // Let submitted writes finish before intentionally replacing the draft.
+        const pending = savesByOutlineRef.current.get(outlineId);
+        if (pending) {
+          await pending.promise.catch(() => undefined);
+        }
         const resolvedBaseRevision =
           revision ??
           (isCurrentTarget() ? draft?.revision : undefined) ??
@@ -693,10 +712,20 @@ export const ShifuProvider = ({
           version_id: versionId,
           base_revision: resolvedBaseRevision,
         })) as MdflowHistoryRestoreResult;
-        if (isCurrentTarget() && typeof result?.new_revision === 'number') {
-          setBaseRevision(result.new_revision);
+        if (draft && isCurrentTarget()) {
+          if (result?.restored) {
+            draft.persisted = undefined;
+            setIsMdflowLoaded(false);
+          }
+          if (typeof result?.new_revision === 'number') {
+            setBaseRevision(result.new_revision);
+          }
         }
         return result;
+      })();
+      restores.set(outlineId, restore);
+      try {
+        return await restore;
       } catch (error: any) {
         if (error?.code === 4007) {
           await loadDraftMeta(shifuId, outlineId);
@@ -709,6 +738,8 @@ export const ShifuProvider = ({
         }
         console.error('Failed to restore mdflow history', error);
         throw error;
+      } finally {
+        restores.delete(outlineId);
       }
     },
     [loadDraftMeta, setBaseRevision],
@@ -1610,6 +1641,7 @@ export const ShifuProvider = ({
       draft?.persisted === undefined ||
       autosavePaused ||
       draft.conflicted ||
+      restoresByOutlineRef.current.has(draft.outlineId) ||
       (payload?.outline_bid ?? currentNode?.bid) !== draft.outlineId ||
       (payload?.shifu_bid ?? currentShifu?.bid) !== draft.shifuId
     ) {
