@@ -184,7 +184,10 @@ export const ShifuProvider = ({
   const currentMdflow = useRef<string>('');
   const lessonDraftRef = useRef<LessonDraft | null>(null);
   const savesByOutlineRef = useRef(
-    new Map<string, { data: string; promise: Promise<void> }>(),
+    new Map<
+      string,
+      { draft: LessonDraft; data: string; promise: Promise<void> }
+    >(),
   );
   const restoresByOutlineRef = useRef(
     new Map<string, Promise<MdflowHistoryRestoreResult>>(),
@@ -1703,7 +1706,7 @@ export const ShifuProvider = ({
         }
       }
     })();
-    saves.set(outlineId, { data, promise: save });
+    saves.set(outlineId, { draft, data, promise: save });
     try {
       await save;
     } finally {
@@ -1718,8 +1721,26 @@ export const ShifuProvider = ({
     if (save) {
       // This snapshot also covers edits waiting on the debounce timer.
       debouncedAutoSaveRef.current.cancel();
-      await save();
     }
+    const savingCurrentLesson = save?.();
+    if (payload) {
+      await savingCurrentLesson;
+      return;
+    }
+
+    // Course preview and publish consume saved drafts from every lesson.
+    const pendingCourseSaves = [...savesByOutlineRef.current.values()].filter(
+      ({ draft }) => draft.shifuId === currentShifu?.bid,
+    );
+    await Promise.all([
+      savingCurrentLesson,
+      ...pendingCourseSaves.map(async ({ draft, promise }) => {
+        await promise;
+        if (draft.conflicted) {
+          throw new Error('A pending lesson save conflicted');
+        }
+      }),
+    ]);
   };
 
   const setCurrentMdflow = (value: string) => {

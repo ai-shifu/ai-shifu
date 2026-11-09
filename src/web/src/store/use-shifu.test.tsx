@@ -210,6 +210,64 @@ describe('useShifu lesson drafts', () => {
     expect(result.current.mdflow).toBe('Saved lesson content');
   });
 
+  it.each(['saved', 'failed', 'conflicted'])(
+    'waits for an outgoing lesson write before course actions when it %s',
+    async outcome => {
+      const pending = createDeferred<{ new_revision: number }>();
+      mockSaveMdflow.mockReturnValueOnce(pending.promise);
+      const consoleError = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      try {
+        const result = await renderCourse();
+        await act(async () => {
+          result.current.actions.setCurrentNode(lesson('lesson-1'));
+          await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+        });
+        act(() => {
+          const { actions } = result.current;
+          actions.setCurrentMdflow('Outgoing edit');
+          actions.flushAutoSaveBlocks({
+            shifu_bid: 'shifu-1',
+            outline_bid: 'lesson-1',
+            data: 'Outgoing edit',
+          });
+          actions.setCurrentNode({ ...lesson('chapter-1'), depth: 0 });
+        });
+
+        let courseSaveResult: 'ready' | 'blocked' | undefined;
+        const courseSave = result.current.actions.saveMdflow().then(
+          () => {
+            courseSaveResult = 'ready';
+          },
+          () => {
+            courseSaveResult = 'blocked';
+          },
+        );
+        await act(async () => {});
+        expect(courseSaveResult).toBeUndefined();
+        await act(async () => {
+          if (outcome === 'saved') {
+            pending.resolve({ new_revision: 10 });
+          } else {
+            pending.reject(
+              Object.assign(new Error('Save failed'), {
+                code: outcome === 'conflicted' ? 4007 : 500,
+              }),
+            );
+          }
+          await courseSave;
+        });
+        expect(courseSaveResult).toBe(
+          outcome === 'saved' ? 'ready' : 'blocked',
+        );
+        expect(mockSaveMdflow).toHaveBeenCalledTimes(1);
+      } finally {
+        consoleError.mockRestore();
+      }
+    },
+  );
+
   it('waits for an in-flight autosave and saves a subsequent edit with the returned revision', async () => {
     const pending = createDeferred<{ new_revision: number }>();
     mockSaveMdflow.mockReturnValueOnce(pending.promise);
