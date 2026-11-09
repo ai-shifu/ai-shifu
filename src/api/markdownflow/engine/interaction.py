@@ -63,6 +63,9 @@ class InteractionSpec(BaseModel):
         serialization_alias="prompt",
         description="The complete question the learner is asked.",
     )
+    display_question: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     options: list[Option] = Field(
         default_factory=list, description="Choices; empty for text."
     )
@@ -91,6 +94,11 @@ class InteractionSpec(BaseModel):
     def prompt(self) -> str:
         """Read the question through the pre-migration application interface."""
         return self.question
+
+    @property
+    def presented_question(self) -> str:
+        """Return the wording the learner saw, with a fallback for saved questions."""
+        return self.display_question or self.question
 
     @model_validator(mode="after")
     def _check(self) -> InteractionSpec:

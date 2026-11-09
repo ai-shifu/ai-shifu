@@ -147,9 +147,13 @@ def test_localized_profile_keeps_distinct_bound_questions_with_shared_input_shap
     session = _session("?[{{goal}}...Your answer]\n\n?[{{background}}...Your answer]")
     session.output_language = "fr-FR"
     placeholder = "Votre réponse"
+    translations = {
+        "goal": "Quel est votre objectif d’apprentissage ?",
+        "background": "Quelle est votre expérience ?",
+    }
 
     async def script(messages: list[ModelMessage], info: AgentInfo) -> Stream:
-        assert "Do not translate a question written in a leading {{...}} binding" in (
+        assert "Keep the exact authored text in interact.question" in (
             info.instructions or ""
         )
         if _returns(messages, "finish"):
@@ -160,17 +164,23 @@ def test_localized_profile_keeps_distinct_bound_questions_with_shared_input_shap
             yield _finish()
             return
         question = "background" if answers else "goal"
-        yield question
-        yield _text_input(f"ask-{question}", question, placeholder)
+        yield translations[question]
+        yield _text_input(
+            f"ask-{question}",
+            question,
+            placeholder,
+            display_question=translations[question],
+        )
 
     model = FunctionModel(stream_function=script)
     first = run_profile_turn(session, {}, model)
+    restored = run_profile_turn(session, {}, model)
     second = run_profile_turn(session, {"goal": ["Apprendre la géométrie"]}, model)
     final = run_profile_turn(session, {"background": ["Enseignement"]}, model)
 
-    for turn, question in [(first, "goal"), (second, "background")]:
+    for turn, question in [(first, "goal"), (restored, "goal"), (second, "background")]:
         question_chunk, input_chunk = turn.chunks
-        assert question_chunk.content == question
+        assert question_chunk.content == translations[question]
         assert input_chunk.interaction_id == f"ask-{question}"
         assert input_chunk.interaction.endswith(f"...{placeholder}]")
     assert final.finished

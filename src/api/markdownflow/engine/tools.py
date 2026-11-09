@@ -987,6 +987,7 @@ async def interact(
     review: FeedbackReview | None = None,
     feedback: DirectionFeedback | FeedbackReview | None = None,
     *,
+    display_question: str | None = None,
     prompt: str | None = None,
     variable: str | None = None,
 ) -> str:
@@ -999,8 +1000,9 @@ async def interact(
     and only after you have presented content in this turn (a confirm on its own is rejected).
     For an ordinary answer interaction, ask the complete question in visible prose first, then
     call this tool with the same wording in `question`. The host stores the answer under that
-    wording. If the control starts with a `{{...}}` binding, use its exact text as the question,
-    even if it is short. Use an empty question only for a pause or an authored navigation-only control.
+    wording. If the control starts with a `{{...}}` binding, use its exact text as `question`,
+    even if it is short. When localizing that question, use `display_question` for the translation
+    you asked in prose. Use an empty question only for a pause or an authored navigation-only control.
     Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
     it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.
@@ -1086,6 +1088,7 @@ async def interact(
     source_question = None
     owns_memory = False
     restore_missing_input = False
+    authored_questions: set[str | None] = set()
     if legacy_call:
         question = prompt or ""
         if variable is not None and not variable.strip():
@@ -1118,7 +1121,7 @@ async def interact(
             ):
                 message = "Use generated_control only for a new answer control without an authored binding."
                 raise ModelRetry(message)
-            authored_questions, navigation = set(), False
+            navigation = False
         else:
             authored_questions, navigation, restore_missing_input = _authored_binding(
                 ctx.deps,
@@ -1143,7 +1146,7 @@ async def interact(
                     wording for wording in authored_questions if wording is not None
                 )
                 message = (
-                    "Use the exact text of the intended authored question from these matching controls, and ask it in prose: "
+                    "Set question to the exact text of the intended authored question from these matching controls: "
                     + json.dumps(authored_wordings, ensure_ascii=False)
                 )
                 raise ModelRetry(message)
@@ -1225,9 +1228,20 @@ async def interact(
         options = [
             _as_the_script_writes_it(o, ctx.deps.script_options) for o in options or []
         ]
+    localized_binding = (
+        ctx.deps.translated_controls
+        and direction is None
+        and question in authored_questions
+    )
+    if display_question is not None:
+        display_question = display_question.strip()
+        if not localized_binding or len(display_question.splitlines()) != 1:
+            message = "Use display_question only for the complete, single-line translation of a leading authored question binding."
+            raise ModelRetry(message)
     spec = InteractionSpec(
         type=type,
         question=question,
+        display_question=display_question,
         options=options or [],
         variable=variable,
         placeholder=placeholder,
@@ -1318,11 +1332,13 @@ async def interact(
         raise ModelRetry(msg)
     if owns_memory and direction is None:
         before_call = "".join(_text_up_to([response], ctx.tool_call_id))
-        if spec.question not in _question_prose(ctx.deps, before_call):
+        if spec.presented_question not in _question_prose(ctx.deps, before_call):
             message = (
                 "Ask the exact question in visible Markdown prose before calling interact. "
                 "Repeat the question in the response, outside any hidden block."
             )
+            if localized_binding:
+                message += " Put the visible translation in display_question and keep the original in question."
             raise ModelRetry(message)
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
@@ -1410,10 +1426,20 @@ async def prepare_feedback_tool(
         question_schema = dict(properties["question"])
         question_schema.pop("default", None)
         question_schema["description"] = (
-            "Complete learner-facing question. Send an empty string only for a pause or an "
-            "authored navigation-only control."
+            "Complete question. For a leading binding, keep the exact authored text. "
+            "Send an empty string only for a pause or an authored navigation-only control."
         )
         properties["question"] = question_schema
+        if ctx.deps.translated_controls:
+            properties["display_question"] = {
+                **properties["display_question"],
+                "description": (
+                    "For a leading authored binding only, the translated question exactly as "
+                    "asked in prose, as plain text. Keep the original in question."
+                ),
+            }
+        else:
+            properties.pop("display_question", None)
         properties["generated_control"] = {
             **properties["generated_control"],
             "description": (
