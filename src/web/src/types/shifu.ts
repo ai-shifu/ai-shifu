@@ -149,6 +149,7 @@ export interface ShifuState {
   currentNode: Outline | null;
   models: ModelOption[];
   mdflow: string;
+  isMdflowLoaded: boolean;
   variables: string[];
   hiddenVariables: string[];
   systemVariables: Record<string, string>[];

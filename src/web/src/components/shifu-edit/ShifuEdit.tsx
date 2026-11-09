@@ -169,6 +169,7 @@ const ScriptEditor = ({
     chapters,
     actions,
     isLoading,
+    isMdflowLoaded,
     variables,
     systemVariables,
     hiddenVariables,
@@ -1429,6 +1430,7 @@ const ScriptEditor = ({
 
   const canDebug = Boolean(
     creditInsufficientAudience !== null &&
+    isMdflowLoaded &&
     currentNode?.depth &&
     currentNode.depth > 0 &&
     currentShifu?.bid,
@@ -1896,7 +1898,7 @@ const ScriptEditor = ({
                         i18n.resolvedLanguage ?? i18n.language,
                       )}
                       lang=''
-                      disabled={currentShifu?.readonly}
+                      disabled={currentShifu?.readonly || !isMdflowLoaded}
                       content={editorContent}
                       onChange={onChangeMdflow}
                       editMode={editMode}
