@@ -63,7 +63,16 @@ export const classifyLearnerInteraction = (
     try {
       const saved = JSON.parse(previous) as OnSendContentParams | null;
       if (saved && Array.isArray(saved.selectedValues)) {
-        const oldValues = resolveInteractionSubmission(saved).values;
+        // History may contain duplicate choices from another client.
+        const savedChoices = saved.selectedValues
+          .map(value => `${value ?? ''}`.trim())
+          .filter(Boolean);
+        const oldValues = [
+          ...savedChoices,
+          ...resolveInteractionSubmission(saved).values.filter(
+            value => !savedChoices.includes(value),
+          ),
+        ];
         identical =
           oldValues.length === submission.values.length &&
           oldValues.every((value, i) => value === submission.values[i]);

@@ -52,6 +52,24 @@ it('only suppresses a multi-select repeat when the choice order matches', () => 
   ).toBe('rewind');
 });
 
+it('allows a learner to remove a duplicate choice saved by an API client', () => {
+  const question = {
+    ...items[1],
+    user_input: JSON.stringify({
+      selectedValues: ['A', 'A'],
+      inputText: 'Explanation',
+    }),
+  };
+  expect(
+    classifyLearnerInteraction(
+      [question],
+      'q1',
+      { selectedValues: ['A'], inputText: 'Explanation' },
+      { isStreaming: false },
+    ),
+  ).toBe('rewind');
+});
+
 it('keeps the exact question and prefix with repeated variable names', () => {
   const result = updateInteractionItems(
     items,
