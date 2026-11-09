@@ -84,8 +84,8 @@ Show four summary cards at the top of the page:
 - `涉及节数`
 - `最近追问时间`
 
-These cards should be computed from the filtered course scope, not from a
-global operator scope.
+The cards show whole-course totals and stay stable when filters change.
+The filters narrow the table and its result count.
 
 ### 3. Filter area
 
@@ -227,8 +227,9 @@ ask's position, skipping unrelated blocks between the question and answer.
 - `source_status` (optional, `resolved` or `missing`)
 - `start_time`
 - `end_time`
-- `include_summary` (defaults to true). The UI can omit summary calculation
-  when paging within the same filter scope.
+- `include_summary` (defaults to true). The API computes the filtered
+  summary when requested. The page requests it only with default filters
+  to populate the whole-course cards.
 
 #### Suggested response
 
@@ -345,8 +346,9 @@ ask's position, skipping unrelated blocks between the question and answer.
 
 ## Summary and Source Resolution
 
-The summary uses the active filter scope. The operator detail reads the source
-snapshot where available and reuses the shared answer resolution. The API
+The API summary uses the active filter scope when requested. The four page
+cards use the summary from the unfiltered request. The detail drawer reads the
+source snapshot where available and reuses the shared answer resolution. The API
 serializes timestamps as UTC ISO-8601.
 
 ## Verification
