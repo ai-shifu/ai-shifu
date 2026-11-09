@@ -61,7 +61,7 @@ import {
   resolveInteractionSubmission,
 } from '@/lib/interaction-user-input';
 import {
-  requiresInteractionRewind,
+  classifyLearnerInteraction,
   updateInteractionItems,
 } from '@/lib/chat-interaction-rewind';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
@@ -342,6 +342,10 @@ function useLessonConversation({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const pendingInteractionAnchorBidRef = useRef('');
+  const unconfirmedAnswerRef = useRef<{
+    elementBid: string;
+    previousAnswer: string;
+  } | null>(null);
   const runRef = useRef<
     | ((
         params: SSEParams,
@@ -1283,6 +1287,7 @@ function useLessonConversation({
                 didReachTerminal = true;
                 if (!didStreamFail) {
                   finishPreviewRewind?.('success');
+                  unconfirmedAnswerRef.current = null;
                   setHasRunFailed(false);
                 }
                 cleanupRunStreamState();
@@ -1616,6 +1621,7 @@ function useLessonConversation({
     const isCurrentRefresh = () =>
       refreshSerial === refreshDataSerialRef.current;
 
+    unconfirmedAnswerRef.current = null;
     resetLessonRunContent(lessonRunContentCacheKey);
     setTrackedContentList(() => []);
     resetLessonFeedbackPopup();
@@ -1988,16 +1994,6 @@ function useLessonConversation({
       if (creditInsufficientAudience === null) {
         return;
       }
-      // Re-selecting an earlier interaction needs to bypass the streaming
-      // guard and pop the regenerate-confirm dialog. Compute the flag
-      // up front so the streaming / running-check branches below can
-      // short-circuit only for non-regenerate submissions.
-      // Unlike Debug, learner checkpoints are not durable before first output.
-      const isReGenerate = requiresInteractionRewind(
-        contentListRef.current,
-        blockBid,
-      );
-
       const { variableName, buttonText, inputText } = content;
       const sourceBlockBid = resolveSourceGeneratedBlockBid(blockBid);
       const currentInteractionItem = contentListRef.current.find(
@@ -2138,6 +2134,27 @@ function useLessonConversation({
         return;
       }
 
+      // Keep the active-run guard for the current question before first output;
+      // its accepting checkpoint may not be durable yet.
+      const pendingAnswer = unconfirmedAnswerRef.current;
+      const beforeSubmission =
+        pendingAnswer?.elementBid === blockBid
+          ? pendingAnswer.previousAnswer
+          : undefined;
+      const submission = classifyLearnerInteraction(
+        contentListRef.current,
+        blockBid,
+        content,
+        {
+          isStreaming: isStreamingRef.current,
+          beforeSubmission: isStreamingRef.current
+            ? undefined
+            : beforeSubmission,
+        },
+      );
+      if (submission === 'repeat') return;
+      const isReGenerate = submission === 'rewind';
+
       if (isReGenerate && !options?.skipConfirm) {
         setPendingRegenerate({ content, blockBid });
         setShowRegenerateConfirm(true);
@@ -2159,6 +2176,14 @@ function useLessonConversation({
         stopActiveRunStream();
       }
 
+      if (currentInteractionItem?.type === ChatContentItemType.INTERACTION) {
+        // The optimistic answer is not evidence of acceptance if the stream fails.
+        unconfirmedAnswerRef.current = {
+          elementBid: blockBid,
+          previousAnswer:
+            beforeSubmission ?? currentInteractionItem.user_input ?? '',
+        };
+      }
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
         content,
         blockBid,

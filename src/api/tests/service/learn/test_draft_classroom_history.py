@@ -174,7 +174,12 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
 
     monkeypatch.setattr(bridge, "iter_turn", drive)
 
-    def run(answer: str | None = None, *, anchor: str | None = None) -> list:
+    def run(
+        answer: str | None = None,
+        *,
+        anchor: str | None = None,
+        preview_mode: bool = True,
+    ) -> list:
         with app.app_context():
             adapter = ListenElementRunAdapter(
                 app,
@@ -195,21 +200,23 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
                     reload_element_bid=anchor,
                     listen=False,
                     learning_mode="read",
-                    preview_mode=True,
+                    preview_mode=preview_mode,
                     stop_event=None,
                     element_adapter=adapter,
                     heartbeat_interval=0.5,
                 )
             )
 
-    def history(**overrides: str) -> LearnElementRecordDTO:
+    def history(
+        *, preview_mode: bool = True, **overrides: str
+    ) -> LearnElementRecordDTO:
         with app.app_context():
             return get_listen_element_record(
                 app,
                 overrides.get("course", identity),
                 overrides.get("lesson", identity),
                 overrides.get("user", identity),
-                preview_mode=True,
+                preview_mode=preview_mode,
             )
 
     return identity, run, history, calls

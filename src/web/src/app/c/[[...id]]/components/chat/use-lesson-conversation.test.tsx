@@ -4003,6 +4003,92 @@ describe('useLessonConversation stream cleanup', () => {
     expect(result.current.reGenerateConfirm.open).toBe(false);
   });
 
+  it.each([false, true])(
+    'ignores repeats and rewinds a changed final answer after reload (preview=%s)',
+    async previewMode => {
+      mockGetLessonStudyRecord.mockResolvedValueOnce({
+        mdflow: '',
+        elements: [
+          {
+            block_type: 'interaction',
+            element_type: 'interaction',
+            content: '?[A | B]',
+            generated_block_bid: 'question-turn',
+            element_bid: 'last-question',
+            like_status: 'none',
+            user_input: JSON.stringify({
+              selectedValues: ['A'],
+              inputText: '',
+              buttonText: 'A',
+            }),
+          },
+        ],
+        slides: [],
+        records: [],
+      });
+      const trackEvent = jest.fn();
+      const { result } = renderHook(
+        () =>
+          useLessonConversation({
+            ...buildBaseParams(),
+            previewMode,
+            trackEvent,
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      const count = mockGetRunMessage.mock.calls.length;
+
+      await act(async () => {
+        result.current.onSend({ selectedValues: ['A'] }, 'last-question');
+      });
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(count);
+      expect(result.current.reGenerateConfirm.open).toBe(false);
+
+      await act(async () => {
+        result.current.onSend({ selectedValues: ['B'] }, 'last-question');
+      });
+      expect(result.current.reGenerateConfirm.open).toBe(true);
+      await act(async () => {
+        result.current.reGenerateConfirm.onConfirm();
+      });
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(count + 1);
+      expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+        input: { input: ['B'] },
+        reload_element_bid: 'last-question',
+        reload_generated_block_bid: 'question-turn',
+      });
+      const previewEvent = 'teacher_preview_rewind_start';
+      const attempts = trackEvent.mock.calls.filter(
+        ([name]) => name === previewEvent,
+      );
+      expect(attempts).toEqual(
+        previewMode
+          ? [
+              [
+                previewEvent,
+                {
+                  shifu_bid: 'shifu-1',
+                  outline_bid: 'lesson-1',
+                  operation: 'answer_edit',
+                  learning_mode: 'read',
+                },
+              ],
+            ]
+          : [],
+      );
+
+      // A failed optimistic replacement may be retried against the same saved answer.
+      await act(async () => {
+        activeRun?.onError(new Error('network down'));
+      });
+      await act(async () => {
+        result.current.onSend({ selectedValues: ['B'] }, 'last-question');
+      });
+      expect(result.current.reGenerateConfirm.open).toBe(true);
+    },
+  );
+
   it('updates the submitted variable-free interaction by block id', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

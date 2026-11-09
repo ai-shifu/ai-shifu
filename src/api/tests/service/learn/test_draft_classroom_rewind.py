@@ -10,7 +10,12 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
-from flaskr.service.learn.agent import lesson_entry, preview_history, preview_rewind
+from flaskr.service.learn.agent import (
+    lesson_entry,
+    preview_history,
+    preview_rewind,
+    rewind,
+)
 from flaskr.service.learn.agent.models import LearnAgentSession
 from flaskr.service.learn.agent.session_store import (
     load_agent_session,
@@ -83,6 +88,193 @@ def test_editing_an_old_draft_answer_replaces_only_its_future(
     with app.app_context():
         assert LearnProgressRecord.query.filter_by(user_bid=identity).count() == 0
         assert LearnGeneratedBlock.query.filter_by(user_bid=identity).count() == 0
+
+
+@pytest.mark.parametrize("preview_mode", [False, True], ids=["published", "preview"])
+@pytest.mark.parametrize("legacy", [False, True], ids=["current", "legacy"])
+def test_editing_narrated_question_replays_message_before_next_native_question(
+    app: Flask,
+    classroom: tuple,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    legacy: bool,
+) -> None:
+    identity, run, history, _calls = classroom
+
+    async def model(messages: list, _info: object) -> AsyncIterator:
+        parts = [part for message in messages for part in message.parts]
+        if any(
+            isinstance(part, ToolCallPart) and part.tool_name == "finish"
+            for part in parts
+        ):
+            return
+        if any(
+            isinstance(part, ToolCallPart) and part.tool_name == "interact"
+            for part in parts
+        ):
+            yield "Finished with the native answer."
+            yield {0: DeltaToolCall(name="finish", json_args='{"summary":"Done"}')}
+            return
+        answer = next(
+            (
+                v
+                for v in ("Old choice", "New choice")
+                if any(v == getattr(part, "content", None) for part in parts)
+            ),
+            None,
+        )
+        if answer is None:
+            yield "Pick a starting point.\n?[Old choice | New choice]\n"
+            return
+        yield f"Teaching for {answer}."
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="native-next",
+                json_args='{"type":"text","prompt":"Next question?"}',
+            )
+        }
+
+    class Gateway(FunctionModel):
+        def set_usage_context(self, _context: object) -> None:
+            pass
+
+    gateway = Gateway(stream_function=model)
+    monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
+    run(preview_mode=preview_mode)
+    initial = history(preview_mode=preview_mode)
+    first = next(
+        e for e in initial.elements if e.element_type == ElementType.INTERACTION
+    )
+    run("Old choice", preview_mode=preview_mode)
+    old = history(preview_mode=preview_mode)
+    old_native = [e for e in old.elements if e.element_type == ElementType.INTERACTION][
+        -1
+    ]
+    assert old_native.element_bid != first.element_bid
+    assert _shown(old.elements[1].payload.user_input) == "Old choice"
+    run("Old native answer", preview_mode=preview_mode)
+    assert load_agent_session(
+        app, identity, identity, preview_mode=preview_mode
+    ).finished
+
+    if legacy:
+        # Checkpoints written before this fix have no engine session identity.
+        with app.app_context(), unit_of_work():
+            if preview_mode:
+                row = LearnAgentSession.query.filter_by(user_bid=identity).one()
+                data = json.loads(row.session_data)
+                for turn in data["ai_shifu_preview_presentation"]["turns"]:
+                    turn["record"]["checkpoint"].pop("session_id")
+                row.session_data = json.dumps(data)
+            else:
+                for block in LearnGeneratedBlock.query.filter_by(user_bid=identity):
+                    data = json.loads(block.block_content_conf)
+                    data["agent_turn"]["checkpoint"].pop("session_id")
+                    block.block_content_conf = json.dumps(data)
+
+    # The same counts and answer text cannot authorize restoring a different session.
+    with app.app_context():
+        if preview_mode:
+            plan = preview_rewind.plan_preview_rewind(
+                app,
+                user_bid=identity,
+                shifu_bid=identity,
+                outline_bid=identity,
+                anchor=first.element_bid,
+                answering=True,
+            )
+        else:
+            plan = rewind.plan_rewind(
+                user_bid=identity,
+                outline_bid=identity,
+                anchor=first.element_bid,
+                answering=True,
+            )
+    assert plan is not None
+    other = load_agent_session(app, identity, identity, preview_mode=preview_mode)
+    if legacy:
+        other.messages[plan.narrated.start : plan.checkpoint["messages"]] = (
+            other.messages[:1] * (plan.checkpoint["messages"] - plan.narrated.start)
+        )
+    else:
+        other.id = uuid.uuid4().hex
+    with pytest.raises(rewind.RewindUnavailableError):
+        rewind.validate_narrated_rewind(other, plan)
+
+    run("New choice", anchor=first.element_bid, preview_mode=preview_mode)
+    restored = history(preview_mode=preview_mode).elements
+    controls = [e for e in restored if e.element_type == ElementType.INTERACTION]
+    assert len(controls) == 2
+    assert controls[0].element_bid == first.element_bid
+    assert _shown(controls[0].payload.user_input) == "New choice"
+    assert controls[1].element_bid != old_native.element_bid
+    assert not controls[1].payload.user_input
+    assert any("Teaching for New choice" in e.content for e in restored)
+    assert all("Teaching for Old choice" not in e.content for e in restored)
+    session = load_agent_session(app, identity, identity, preview_mode=preview_mode)
+    assert not session.finished
+    assert [item.tool_call_id for item in session.pending] == ["native-next"]
+    assert "Old native answer" not in session.dumps()
+
+
+@pytest.mark.parametrize("preview_mode", [False, True], ids=["published", "preview"])
+def test_completed_lesson_keeps_revised_last_native_answer_on_reload(
+    app: Flask, classroom: tuple, monkeypatch: pytest.MonkeyPatch, preview_mode: bool
+) -> None:
+    identity, run, history, _calls = classroom
+
+    async def model(messages: list, _info: object) -> AsyncIterator:
+        calls = [
+            part.tool_name
+            for message in messages
+            for part in message.parts
+            if isinstance(part, ToolCallPart)
+        ]
+        if "finish" in calls:
+            return
+        if "interact" in calls:
+            yield {0: DeltaToolCall(name="finish", json_args='{"summary":"Done"}')}
+        else:
+            yield "Choose A or B."
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    tool_call_id="last-question",
+                    json_args='{"type":"single","prompt":"","options":[{"display":"A"},{"display":"B"}]}',
+                )
+            }
+
+    class Gateway(FunctionModel):
+        def set_usage_context(self, _context: object) -> None:
+            pass
+
+    gateway = Gateway(stream_function=model)
+    monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
+    run(preview_mode=preview_mode)
+    first = history(preview_mode=preview_mode).elements[-1]
+    assert first.element_type == ElementType.INTERACTION
+    run("A", preview_mode=preview_mode)
+    finished = load_agent_session(app, identity, identity, preview_mode=preview_mode)
+    assert finished.finished
+    before = next(
+        element
+        for element in history(preview_mode=preview_mode).elements
+        if element.element_type == ElementType.INTERACTION
+    )
+    assert before.element_bid == first.element_bid
+    assert _shown(before.payload.user_input) == "A"
+    run("B", anchor=first.element_bid, preview_mode=preview_mode)
+    after = next(
+        element
+        for element in history(preview_mode=preview_mode).elements
+        if element.element_type == ElementType.INTERACTION
+    )
+    assert after.element_bid == first.element_bid
+    assert _shown(after.payload.user_input) == "B"
+    saved = load_agent_session(app, identity, identity, preview_mode=preview_mode)
+    assert saved.finished
+    assert saved.id == finished.id
 
 
 def test_draft_content_regeneration_reuses_the_original_answer(

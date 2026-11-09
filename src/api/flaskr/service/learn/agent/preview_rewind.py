@@ -13,6 +13,7 @@ from flaskr.service.learn.agent.rewind import (
     RewindUnavailableError,
     plan_turn_rewind,
     restore,
+    validate_narrated_rewind,
 )
 from flaskr.service.learn.agent.session_store import (
     PREVIEW_PRESENTATION_KEY,
@@ -82,7 +83,7 @@ def plan_preview_rewind(
     ).all()
     if not block_rows:
         raise RewindUnavailableError
-    question_id = None
+    question_id = narrated_control = None
     if answering:
         controls, _events = _build_final_elements_from_rows(
             block_rows,
@@ -97,9 +98,14 @@ def plan_preview_rewind(
             )
         else:
             offset = 0 if len(controls) == 1 else None
-        if offset is None or offset >= len(ids):
+        if offset is None:
             raise RewindUnavailableError
-        question_id = ids[offset]
+        if offset < len(ids):
+            question_id = ids[offset]
+        elif not ids and len(controls) == 1:
+            narrated_control = controls[0].content or ""
+        else:
+            raise RewindUnavailableError
         if (
             session.pending
             and session.pending[0].tool_call_id == question_id
@@ -115,10 +121,15 @@ def plan_preview_rewind(
     ):
         raise RewindUnavailableError
     plan = plan_turn_rewind(
-        turns, block_bid=block_bid, answering=answering, question_id=question_id
+        turns,
+        block_bid=block_bid,
+        answering=answering,
+        question_id=question_id,
+        narrated_control=narrated_control,
     )
     if plan is None or plan.checkpoint["messages"] > len(session.messages):
         raise RewindUnavailableError
+    validate_narrated_rewind(session, plan)
     try:
         restore(Session.from_dict(session.to_dict()), plan.checkpoint)
     except (KeyError, TypeError, ValueError, AttributeError) as exc:
@@ -127,6 +138,7 @@ def plan_preview_rewind(
         checkpoint=plan.checkpoint,
         replay_values=plan.replay_values,
         retired_block_bids=plan.retired_block_bids,
+        narrated=plan.narrated,
         generation=row.agent_session_bid,
         source_blocks=[turn["block_bid"] for turn in turns],
     )

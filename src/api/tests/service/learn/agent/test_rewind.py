@@ -430,7 +430,9 @@ def test_an_unrecorded_next_turn_does_not_borrow_a_later_turns_question(
             _plan("control-0", answering=True)
 
 
-def test_a_confirmation_in_the_queue_keeps_the_block_boundary(app: object) -> None:
+def test_a_confirmation_in_the_queue_does_not_rewind_to_another_question(
+    app: object,
+) -> None:
     """A confirmation shows no control, so positions cannot name the question."""
     with app.app_context():
         _clean()
@@ -451,11 +453,9 @@ def test_a_confirmation_in_the_queue_keeps_the_block_boundary(app: object) -> No
             row.element_type = "interaction"
             row.content_text = render_interaction(_QUESTION)
         db.session.commit()
-        plan = _plan("control-q2", answering=True)
-    # By position the second control would pair with the confirmation and restore
-    # answer-1. It cannot be told, so the old block boundary applies.
-    assert plan is not None
-    assert plan.retired_block_bids == ["answer-0", "answer-1", "answer-2"]
+        # The second visible control does not identify the first queued question.
+        with pytest.raises(rewind.RewindUnavailableError):
+            _plan("control-q2", answering=True)
 
 
 def test_a_legacy_question_only_turn_without_a_record_is_not_skipped(

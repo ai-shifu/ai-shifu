@@ -14,7 +14,7 @@ Going back to a block is then a restore plus a turn:
 
 * regenerating content in block B restores B's own checkpoint and runs B's input again;
 * answering a question asked in B differently restores the checkpoint of the turn after B -- the
-  one that received the old answer, which began with exactly that question pending -- and runs it
+  one that received the old answer, as a pending interaction or as a message -- and runs it
   with the new answer.
 
 Turns written before checkpoints existed cannot be taken back. That is said to the learner, never
@@ -43,6 +43,8 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
 )
 from flaskr.util.datetime import now_utc
+from markdownflow import InteractionParser
+from pydantic_ai.messages import ModelRequest, TextPart, UserPromptPart
 
 if TYPE_CHECKING:
     from flaskr.api.markdownflow import Session
@@ -57,6 +59,64 @@ class RewindUnavailableError(Exception):
     """The block the learner went back to cannot be returned to."""
 
 
+@dataclass(frozen=True)
+class NarratedAnswer:
+    """Evidence that a saved message was the reply to one rendered control."""
+
+    control: str
+    start: int
+    values: list[str]
+    session_id: str | None
+    user_input: str
+
+
+def narrated_answer(
+    original: dict[str, Any] | None,
+    accepting: dict[str, Any] | None,
+    control: str,
+) -> NarratedAnswer | None:
+    """Recognize only the immediate answer to a single non-native control."""
+    if (
+        not isinstance(original, dict)
+        or original.get("version") != _VERSION
+        or not isinstance(accepting, dict)
+        or accepting.get("version") != _VERSION
+    ):
+        return None
+    before = original.get("checkpoint")
+    after = accepting.get("checkpoint")
+    values = accepting.get("values")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return None
+    start, end = before.get("messages"), after.get("messages")
+    prior_turn = before.get("turn")
+    original_id, accepting_id = before.get("session_id"), after.get("session_id")
+    if (
+        not isinstance(start, int)
+        or not isinstance(end, int)
+        or not 0 <= start < end
+        or not isinstance(prior_turn, int)
+        or after.get("turn") != prior_turn + 1
+        or after.get("pending") != []
+        or after.get("answers") != {}
+        or after.get("finished") is not False
+        or after.get("interrupted", False)
+        or (original_id and accepting_id and original_id != accepting_id)
+        or not isinstance(values, list)
+        or not values
+        or any(not isinstance(value, str) or not value.strip() for value in values)
+    ):
+        return None
+    from .interaction_history import narrated_user_input
+
+    user_input = narrated_user_input(control, values)
+    if user_input is None:
+        return None
+    return NarratedAnswer(
+        control, start, values, accepting_id or original_id, user_input
+    )
+
+
 @dataclass
 class RewindPlan:
     """What going back to a block takes: the state to restore and the rows to retire."""
@@ -65,6 +125,7 @@ class RewindPlan:
     # The learner input to run the restored turn with; None means the request's own input.
     replay_values: list[str] | None
     retired_block_bids: list[str] = field(default_factory=list)
+    narrated: NarratedAnswer | None = None
 
 
 def plan_turn_rewind(
@@ -73,6 +134,7 @@ def plan_turn_rewind(
     block_bid: str,
     answering: bool,
     question_id: str | None = None,
+    narrated_control: str | None = None,
 ) -> RewindPlan | None:
     """Select and validate the same rewind for every course session store.
 
@@ -86,11 +148,25 @@ def plan_turn_rewind(
     if anchor is None:
         raise RewindUnavailableError
     target = anchor
-    if answering:
+    narrated = None
+    if answering and narrated_control is not None:
+        # Never search forward for a non-native answer. A later turn may belong
+        # to a different question, or even a different engine session.
+        target = anchor + 1
+        if target == len(turns):
+            raise RewindUnavailableError
+        narrated = narrated_answer(
+            turns[anchor].get("record"),
+            turns[target].get("record"),
+            narrated_control,
+        )
+        if narrated is None:
+            raise RewindUnavailableError
+    elif answering:
         target = None
         for i in range(anchor + 1, len(turns)):
-            # Published learning keeps its existing next-turn boundary. Draft
-            # presentation metadata names the turn that actually accepted input.
+            # Legacy block-only requests keep their immediate successor.
+            # Draft presentation can name the turn that accepted the input.
             if question_id is None:
                 target = i
                 break
@@ -129,7 +205,7 @@ def plan_turn_rewind(
         or any(not isinstance(q, dict) for q in checkpoint["pending"])
         or not isinstance(values, list)
         or any(not isinstance(value, str) for value in values)
-        or (answering and not checkpoint["pending"])
+        or (answering and narrated is None and not checkpoint["pending"])
         or (
             answering
             and question_id is not None
@@ -141,7 +217,60 @@ def plan_turn_rewind(
         checkpoint=checkpoint,
         replay_values=None if answering else list(values),
         retired_block_bids=[turn["block_bid"] for turn in turns[target:]],
+        narrated=narrated,
     )
+
+
+def validate_narrated_rewind(session: Session, plan: RewindPlan) -> None:
+    """Prove the control and the accepted input exist at this session's boundary."""
+    evidence = plan.narrated
+    if evidence is None:
+        return
+    end = plan.checkpoint["messages"]
+    if end >= len(session.messages) or (
+        evidence.session_id and evidence.session_id != session.id
+    ):
+        raise RewindUnavailableError
+    request = session.messages[end]
+    old_answer = ",".join(evidence.values)
+    if not isinstance(request, ModelRequest) or not any(
+        isinstance(part, UserPromptPart)
+        and isinstance(part.content, str)
+        and (
+            part.content == old_answer
+            or (
+                part.content.startswith("<memory_context>Host memory revalidation")
+                and part.content.endswith(f"</memory_context>\n\n{old_answer}")
+            )
+        )
+        for part in request.parts
+    ):
+        raise RewindUnavailableError
+
+    # Historical checkpoints lack a session ID. Verify the originating markup
+    # in the saved model response as well as the reply at the exact boundary.
+    from .interaction_syntax import InteractionSyntaxFilter
+
+    syntax = InteractionSyntaxFilter()
+    syntax.feed(
+        "".join(
+            part.content
+            for message in session.messages[evidence.start : end]
+            for part in message.parts
+            if isinstance(part, TextPart)
+        )
+    )
+    syntax.flush()
+    if not syntax.spans:
+        raise RewindUnavailableError
+    parser = InteractionParser()
+    original = parser.parse(syntax.spans[-1])
+    shown = parser.parse(evidence.control)
+    if original.get("question") == "":
+        # The host may have inserted a localized placeholder at render time.
+        original["question"] = shown.get("question", "")
+    if original != shown:
+        raise RewindUnavailableError
 
 
 def checkpoint_of(session: Session) -> dict[str, Any]:
@@ -149,6 +278,7 @@ def checkpoint_of(session: Session) -> dict[str, Any]:
     state = session.to_dict()
     return {
         "messages": len(session.messages),
+        "session_id": state.get("id"),
         "memory": state["memory"],
         "answer_hashes": state.get("answer_hashes", {}),
         "memory_generations": state.get("memory_generations", {}),
@@ -246,8 +376,8 @@ def _anchor_block(
 ) -> LearnGeneratedBlock | None:
     """Find the block the learner went back to, by element or by block identifier.
 
-    The browser sends a block identifier in both reload fields for a question and an element's
-    for content, and 1.0 accepts either; so does this.
+    Current clients identify a specific rendered control or content element.
+    Legacy clients can supply the block identifier.
     """
     element = (
         LearnGeneratedElement.query.filter(
@@ -299,21 +429,16 @@ def _turn_blocks_from(
     )
 
 
-def _question_for_control(
-    block: LearnGeneratedBlock, element_bid: str, turns: list[dict[str, Any]]
-) -> str | None:
-    """Name the question a control of `block` asked, or None when it cannot be told.
-
-    A turn may ask several questions at once. Its controls, in emission order, match the
-    pending queue of the turn that followed it (as `interaction_history` reads answers).
-    Without that question an answer edit would restore the first question's turn and the
-    new value would answer the first question instead of the one the learner changed.
-    """
+def _controls_for_block(
+    block: LearnGeneratedBlock,
+) -> dict[str, LearnGeneratedElement]:
+    """Read the final active controls of a turn in emission order."""
     rows = (
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.generated_block_bid == block.generated_block_bid,
             LearnGeneratedElement.user_bid == block.user_bid,
             LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
             LearnGeneratedElement.event_type == "element",
             LearnGeneratedElement.element_type == "interaction",
         )
@@ -324,61 +449,56 @@ def _question_for_control(
         )
         .all()
     )
-    identities: list[str] = []
-    selected = None
+    controls = {}
     for row in rows:
         identity = (
             row.target_element_bid
             if not row.is_new and row.target_element_bid
             else row.element_bid
         )
-        if not identity:
-            continue
-        if identity not in identities:
-            identities.append(identity)
-        if element_bid in (row.element_bid, identity):
-            selected = identities.index(identity)
-    if selected is None:
-        return None
-    control_text = next(
-        (
-            row.content_text
-            for row in rows
-            if element_bid
-            in (
-                row.element_bid,
-                row.target_element_bid
-                if not row.is_new and row.target_element_bid
-                else row.element_bid,
-            )
-        ),
-        "",
-    )
+        if identity:
+            controls[identity] = row
+    return controls
+
+
+def _question_for_control(
+    controls: dict[str, LearnGeneratedElement],
+    selected: int,
+    turns: list[dict[str, Any]],
+) -> str | None:
+    """Map the control's emission position to the original pending queue."""
     # Only the turn right after this one received these questions. A later turn's queue
     # belongs to other questions, so an unrecorded next turn means "cannot tell".
     following = turns[1].get("record") if len(turns) > 1 else None
     checkpoint = following.get("checkpoint") if isinstance(following, dict) else None
     pending = checkpoint.get("pending") if isinstance(checkpoint, dict) else None
-    if not isinstance(pending, list) or len(identities) > len(pending):
+    if not isinstance(pending, list) or len(controls) > len(pending):
         return None
-    question = pending[selected]
-    tool_call_id = question.get("tool_call_id") if isinstance(question, dict) else None
-    if not isinstance(tool_call_id, str) or not tool_call_id:
-        return None
-    # Pairing by position holds only while each control renders its question. A
-    # confirmation shows no control and shifts the queue; any mismatch means "cannot tell".
+    # A hidden confirmation can shift the queue. Check the whole prefix
+    # before trusting the selected position, even when controls look alike.
     from flaskr.api.markdownflow import InteractionSpec
     from pydantic import ValidationError
 
     from .interaction_history import _matches_control
 
-    try:
-        spec = InteractionSpec.model_validate(question.get("spec"))
-        if spec.type == "confirm" or not _matches_control(spec, control_text or ""):
+    for offset, control in enumerate(controls.values()):
+        question = pending[offset]
+        if not isinstance(question, dict):
             return None
-    except (ValidationError, ValueError):
-        return None
-    return tool_call_id
+        tool_call_id = question.get("tool_call_id")
+        if not isinstance(tool_call_id, str) or not tool_call_id:
+            return None
+        try:
+            spec = InteractionSpec.model_validate(question.get("spec"))
+            if spec.type == "confirm" or not _matches_control(
+                spec, control.content_text or ""
+            ):
+                return None
+        except (ValidationError, ValueError):
+            return None
+        if offset == selected:
+            return tool_call_id
+    return None
 
 
 def plan_rewind(
@@ -414,16 +534,34 @@ def plan_rewind(
         for b in blocks
         if b.generated_block_bid not in abandoned
     ]
-    question_id = (
-        _question_for_control(block, anchor, turns)
-        if answering and anchor != block.generated_block_bid
-        else None
-    )
+    question_id = narrated_control = None
+    if answering:
+        controls = _controls_for_block(block)
+        selected = next(
+            (
+                i
+                for i, (bid, row) in enumerate(controls.items())
+                if anchor in (bid, row.element_bid)
+            ),
+            None,
+        )
+        if anchor == block.generated_block_bid and len(controls) == 1:
+            selected = 0
+        if len(turns) > 1 and selected is not None:
+            question_id = _question_for_control(controls, selected, turns)
+            if question_id is None:
+                if len(controls) != 1:
+                    raise RewindUnavailableError
+                narrated_control = next(iter(controls.values())).content_text or ""
+        elif len(turns) > 1 and controls:
+            # Only a known control can disambiguate a block with multiple questions.
+            raise RewindUnavailableError
     plan = plan_turn_rewind(
         turns,
         block_bid=block.generated_block_bid,
         answering=answering,
         question_id=question_id,
+        narrated_control=narrated_control,
     )
     if plan is not None:
         plan.retired_block_bids.extend(

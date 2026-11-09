@@ -9,6 +9,7 @@ from flaskr.api import markdownflow as application
 from flaskr.api.llm import markdownflow_model as gateway
 from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry, run_agent
+from flaskr.service.learn.agent.rewind import RewindPlan
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnStatus,
@@ -567,7 +568,7 @@ def test_empty_course_input_records_the_actual_session_action(
     if action != "start":
         monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: session)
     if action == "regenerate":
-        rewind = SimpleNamespace(checkpoint={}, replay_values=None)
+        rewind = RewindPlan(checkpoint={}, replay_values=None)
         monkeypatch.setattr(lesson_entry, "plan_rewind", lambda **_kw: rewind)
         monkeypatch.setattr(run_agent, "restore", lambda *_args: None)
         monkeypatch.setattr(run_agent, "_persist", lambda *_args, **_kw: True)

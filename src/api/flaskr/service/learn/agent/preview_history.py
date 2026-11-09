@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import uuid
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of_work
 from flaskr.service.learn.agent.interaction_history import structured_user_input
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+from flaskr.service.learn.agent.rewind import narrated_answer
 from flaskr.service.learn.agent.session_store import (
     PREVIEW_PRESENTATION_KEY,
     StoredSessionUnusable,
@@ -277,6 +279,36 @@ def get_preview_record(
                     elements.append(element)
                 if events is not None:
                     events.extend(current_events or [])
+            # Narrated controls have no tool call ID. Read the following turn's
+            # input using the same evidence as the rewind planner.
+            narrated_controls = {}
+            for element in elements:
+                if element.element_type == ElementType.INTERACTION and not presentation[
+                    "questions"
+                ].get(element.generated_block_bid):
+                    narrated_controls.setdefault(
+                        element.generated_block_bid, []
+                    ).append(element)
+            turns = presentation.get("turns")
+            turns = turns if isinstance(turns, list) else []
+            for original, accepting in pairwise(turns):
+                if not isinstance(original, dict) or not isinstance(accepting, dict):
+                    continue
+                block_bid = original.get("block_bid")
+                if not isinstance(block_bid, str):
+                    continue
+                controls = narrated_controls.get(block_bid, [])
+                if len(controls) != 1:
+                    continue
+                control = controls[0]
+                answer = narrated_answer(
+                    original.get("record"),
+                    accepting.get("record"),
+                    control.content or "",
+                )
+                if answer is not None:
+                    control.payload = control.payload or ElementPayloadDTO()
+                    control.payload.user_input = answer.user_input
             # ASK runs have an independent semaphore and do not advance the lesson session.
             # Their exact active-generation anchor, rather than their run, owns presentation.
             anchor_bids = {element.element_bid for element in elements}

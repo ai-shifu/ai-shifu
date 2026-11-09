@@ -75,6 +75,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Speed Up Backend Pull Request Feedback](./completed/ci-backend-speed-stack.md)
 - [Consolidate shared admin primitives](./completed/consolidate-admin-primitives.md)
+- [Restore course answer edits](./completed/course-answer-rewind.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [Explicit same-owner course memory reads](./completed/course-memory-references.md)
 - [Course-only models and temperatures](./completed/course-only-llm-settings.md)

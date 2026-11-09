@@ -13,11 +13,19 @@ checkpoint planner in `flaskr/service/learn/agent/rewind.py`. The learner and
 Debug interfaces share `src/web/src/lib/chat-interaction-rewind.ts` for locating
 an interaction, replacing its displayed answer and truncating later items.
 
-Changing an earlier answer keeps that question and its preceding teaching,
-restores the checkpoint before its old answer was received, and supplies the
-new answer. Later teaching and session answers are discarded, and teaching
-pauses normally at the next interaction. Debug distinguishes multiple questions
-in one turn using exact interaction ownership. Published learning retains its existing block-based replay boundary.
+Changing a submitted answer, including the last question of a completed
+lesson, keeps that question and its preceding teaching. The new answer runs
+from the checkpoint before the old one. Later teaching and session answers
+are discarded, and teaching pauses normally at the next interaction. All
+three surfaces use exact element anchors to distinguish multiple questions
+from one turn. Ordinary learning ignores repeated unchanged answers.
+
+A control rendered from narration can be edited when its adjacent saved turn
+received the old answer as a message. The planner checks the original control,
+saved input and active session history before restoring. The replay stays a
+message; it cannot answer a later native interaction. History shows the
+replacement on the original control. Old progress with sufficient evidence
+works without migration; ambiguous or missing history stays unavailable.
 
 Editor Debug can confirm an answer change while output is streaming, including
 before its first content arrives: it saves the accepting checkpoint before output.

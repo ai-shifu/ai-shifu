@@ -75,6 +75,7 @@ from flaskr.service.learn.agent.rewind import (
     retire_abandoned_turns,
     stage_retirement,
     turn_record,
+    validate_narrated_rewind,
 )
 from flaskr.service.learn.agent.session_store import (
     PreviewGenerationDiscardedError,
@@ -287,6 +288,7 @@ def _load_or_start(
             raise RewindUnavailableError
         # Taken back before the turn is built, so the turn is whatever this state calls for: the
         # question the learner is now answering differently, or the turn being regenerated.
+        validate_narrated_rewind(stored, rewind)
         restore(stored, rewind.checkpoint)
         if debug_store is not None:
             stored.user_memory = dict(rewind.checkpoint["user_memory"])
