@@ -44,6 +44,20 @@ def _value_page(value: str, start: int) -> str:
     return result
 
 
+def oversized_value_recall_calls(value: str, limit: int) -> int:
+    """Count one lookup and its exact value pages, up to the caller's allowance."""
+    if limit <= 0 or (
+        len(value) <= RECALL_RESULT_BYTES
+        and _fits(_encode({"status": "found", "value": value}))
+    ):
+        return 0
+    offset, calls = 0, 1
+    while offset is not None and calls < limit:
+        offset = json.loads(_value_page(value, offset))["next_value_offset"]
+        calls += 1
+    return calls
+
+
 async def recall(
     ctx: RunContext[Deps],
     key: str | None = None,
