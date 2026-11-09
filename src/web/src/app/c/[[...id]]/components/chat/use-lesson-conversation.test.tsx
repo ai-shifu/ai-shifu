@@ -701,6 +701,65 @@ describe('useLessonConversation stream cleanup', () => {
     );
   });
 
+  it.each([
+    { tailType: 'interaction', expectedRuns: 0 },
+    { tailType: 'text', expectedRuns: 1 },
+  ])(
+    'uses the last teaching element ($tailType) when follow-up replies end the history',
+    async ({ tailType, expectedRuns }) => {
+      mockGetLessonStudyRecord.mockResolvedValueOnce({
+        mdflow: '',
+        elements: [
+          {
+            element_type: tailType,
+            content:
+              tailType === 'interaction' ? '?[...Question B]' : 'Lesson text',
+            generated_block_bid: 'lesson-block',
+            element_bid: 'lesson-element',
+            like_status: 'none',
+            user_input: '',
+          },
+          {
+            element_type: 'ask',
+            content: 'Can you explain?',
+            generated_block_bid: 'ask-block',
+            element_bid: 'ask-element',
+            payload: { anchor_element_bid: 'lesson-element' },
+          },
+          {
+            element_type: 'answer',
+            content: 'Here is the explanation.',
+            generated_block_bid: 'answer-block',
+            element_bid: 'answer-element',
+            payload: {
+              anchor_element_bid: 'lesson-element',
+              ask_element_bid: 'ask-element',
+            },
+          },
+        ],
+        slides: [],
+        records: [],
+      });
+
+      const { result } = renderHook(
+        () => useLessonConversation(buildBaseParams()),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(expectedRuns);
+      const followUp = result.current.items.find(
+        item => item.type === ChatContentItemType.ASK,
+      );
+      expect(followUp?.parent_element_bid).toBe('lesson-element');
+      expect(followUp?.ask_list?.map(item => item.type)).toEqual([
+        'ask',
+        'answer',
+      ]);
+    },
+  );
+
   it('starts one run when the open lesson is reset', async () => {
     // Measured on a reset before this was fixed: the reset subscription started a run, then the
     // lesson effect closed it as the reset was cleared and started the same run again. Closing
