@@ -22,9 +22,14 @@ from flaskr.api.tts import (
     synthesize_text,
 )
 from flaskr.dao import retry_on_deadlock
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of_work
 from flaskr.i18n import _
-from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.common import (
+    ERROR_CODE,
+    AppError,
+    raise_error,
+    raise_error_with_args,
+)
 from flaskr.service.learn.agent.session_store import (
     stage_agent_session_discard,
 )
@@ -62,6 +67,7 @@ from flaskr.service.learn.lesson_reset_limit import (
     find_reset_receipt,
     get_lesson_reset_limit,
     is_lesson_reset_exempt,
+    is_reset_receipt_conflict,
     normalize_reset_request_id,
     record_lesson_reset,
     require_reset_lesson,
@@ -72,6 +78,7 @@ from flaskr.service.learn.live_follow_up_config import (
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
+    LearnLessonResetRecord,
     LearnProgressRecord,
 )
 from flaskr.service.metering import UsageContext, record_tts_usage
@@ -146,6 +153,7 @@ from flaskr.util import generate_id
 from markdownflow import (
     InteractionParser,
 )
+from sqlalchemy.exc import IntegrityError
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -784,13 +792,83 @@ def reset_learn_record(
 
     An effective reset is recorded in ``learn_lesson_reset_records`` inside the same
     transaction; ordinary learners are refused once their recorded resets for this lesson
-    reach ``LESSON_RESET_LIMIT``. Nothing is written or counted for an empty reset.
+    reach ``LESSON_RESET_LIMIT``. An empty reset with a request ID keeps an uncounted
+    receipt so its retry cannot clear learning started after it.
 
     The whole transaction is retried on a MySQL deadlock: the locking quota count takes
     a gap lock on the ledger index, and two first-ever resets whose empty ranges share a
     gap can each block the other's insert. MySQL rolls one back; rerunning it from the
     top re-reads every receipt and lock, so a retry cannot double-apply anything.
     """
+    require_transaction_owner("reset_learn_record", app)
+    request_id = normalize_reset_request_id(reset_request_id)
+    try:
+        return _reset_learn_record_once(
+            app,
+            shifu_bid,
+            outline_bid,
+            user_bid,
+            preview_mode=preview_mode,
+            request_id=request_id,
+        )
+    except (AppError, IntegrityError) as error:
+        if request_id is None:
+            raise
+        receipt_conflict = isinstance(
+            error, IntegrityError
+        ) and is_reset_receipt_conflict(error)
+        quota_reached = (
+            isinstance(error, AppError)
+            and error.code == ERROR_CODE["server.learn.resetLimitReached"]
+        )
+        if not (receipt_conflict or quota_reached):
+            raise
+        # An earlier snapshot can miss the winner's receipt even when a locking
+        # quota count sees the winner used the last reset. Rollback gives the
+        # readback a fresh snapshot and leaves any newer attempt untouched.
+        with app_context_scope(app), unit_of_work():
+            receipt = find_reset_receipt(user_bid, request_id)
+            if receipt is not None and _reset_receipt_matches(
+                receipt, shifu_bid, outline_bid, preview_mode=preview_mode
+            ):
+                return True
+        if receipt is None or not receipt_conflict:
+            raise
+        # A different lesson or learning mode owns the ID. Apply this request
+        # without it and reevaluate the target scope in a fresh transaction.
+        return _reset_learn_record_once(
+            app,
+            shifu_bid,
+            outline_bid,
+            user_bid,
+            preview_mode=preview_mode,
+            request_id=None,
+        )
+
+
+def _reset_receipt_matches(
+    receipt: LearnLessonResetRecord,
+    shifu_bid: str,
+    outline_bid: str,
+    *,
+    preview_mode: bool,
+) -> bool:
+    return (
+        receipt.shifu_bid == shifu_bid
+        and receipt.outline_item_bid == outline_bid
+        and bool(receipt.preview_mode) == preview_mode
+    )
+
+
+def _reset_learn_record_once(
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    *,
+    preview_mode: bool,
+    request_id: str | None,
+) -> bool:
     with app_context_scope(app), unit_of_work():
         from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 
@@ -804,18 +882,14 @@ def reset_learn_record(
             require_reset_lesson(shifu_bid, outline_bid)
         # A retry of a reset that already landed must not clear the learning the
         # learner has started since, nor spend a second use. This holds for exempt
-        # and unlimited resets too, so every effective reset keeps its receipt.
-        request_id = normalize_reset_request_id(reset_request_id)
+        # and unlimited resets too, including requests that found nothing to reset.
         receipt = find_reset_receipt(user_bid, request_id)
         if receipt is not None:
-            if (
-                receipt.shifu_bid == shifu_bid
-                and receipt.outline_item_bid == outline_bid
-                and bool(receipt.preview_mode) == preview_mode
+            if _reset_receipt_matches(
+                receipt, shifu_bid, outline_bid, preview_mode=preview_mode
             ):
                 return True
-            # Same trace id reused for another lesson: not a retry, and the receipt
-            # column is unique per user, so this reset is recorded without one.
+            # The receipt key is unique per user. Use no ID for a different scope.
             request_id = None
 
         if preview_mode:
@@ -826,6 +900,22 @@ def reset_learn_record(
             if not DraftOutlineItem.query.filter_by(
                 shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
             ).first():
+                # A published lesson can acquire a draft after this accepted
+                # no-op. Unknown lesson IDs do not get reset receipts.
+                if (
+                    request_id is not None
+                    and PublishedOutlineItem.query.filter_by(
+                        shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+                    ).first()
+                ):
+                    record_lesson_reset(
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=True,
+                        counted=False,
+                        request_id=request_id,
+                    )
                 return True
             if uses_preview_session_history(
                 app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
@@ -848,7 +938,7 @@ def reset_learn_record(
                     outline_item_bid=outline_bid,
                     preview_mode=True,
                 )
-                if preview_session is not None:
+                if preview_session is not None or request_id is not None:
                     record_lesson_reset(
                         user_bid=user_bid,
                         shifu_bid=shifu_bid,
@@ -919,7 +1009,7 @@ def reset_learn_record(
             outline_item_bid=outline_bid,
             preview_mode=preview_mode,
         )
-        if effective:
+        if effective or request_id is not None:
             record_lesson_reset(
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
