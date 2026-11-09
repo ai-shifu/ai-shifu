@@ -1,8 +1,8 @@
 ---
 title: Operator Course Users Section
-status: needs-review
+status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -24,7 +24,7 @@ Add an operator-facing user data section to the course detail page under `运营
 The list should include the union of users who are related to the current course via:
 
 - active course permissions (`ai_course_auth`)
-- successful paid orders
+- successful course orders, including zero-paid redemptions
 - non-reset learning progress records
 - the current course creator
 
@@ -82,7 +82,9 @@ Recommended response payload:
 - Treat learning progress as distinct visible lesson records with non-reset progress entries
 - Derive learning status from learned lesson count vs total lesson count
 - Use `user_token.created` as the current best available login timestamp source
-- Derive `joined_at` from the earliest available timestamp across paid order, active course permission, and learning progress record
+- Derive `joined_at` from the earliest applicable successful order, active
+  course permission, or learning progress. The current creator's course
+  creation timestamp also participates.
 
 ### Frontend Notes
 
@@ -93,6 +95,6 @@ Recommended response payload:
 
 ### Verification
 
-- Add focused backend tests for the new operator course users route and filter behavior
-- Add focused frontend tests for the new user section rendering and search trigger behavior
-- Run focused frontend lint/test and focused backend pytest coverage for touched files
+- `admin_operations/courses_users.py` implements the operator user list.
+- `test_admin_course_detail.py` covers the related-user union, filters, and
+  redemption orders. The Cook Web course-detail suite covers the users tab.

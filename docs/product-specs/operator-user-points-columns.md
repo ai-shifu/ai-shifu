@@ -1,8 +1,8 @@
 ---
 title: Operator User Points
-status: needs-review
+status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -19,7 +19,7 @@ wallet bucket / ledger model.
 
 ## Confirmed Product Scope
 
-This branch now covers the following operator-facing flow:
+The operator read surface covers the following flow:
 
 - user list keeps only two credits columns:
   - `available_credits`
@@ -31,12 +31,8 @@ This branch now covers the following operator-facing flow:
   - credits detail list
   - tabs to keep the page length manageable
 
-This branch still does **not** cover:
-
-- manual credit issuance UI
-- new write-side billing APIs
-- editing expiry during manual adjustments
-- a standalone credits page outside the user detail route
+The separate [operator grant specification](operator-user-points-grant.md)
+covers write actions and validity entry.
 
 ## Ledger Detail Interpretation
 
@@ -81,11 +77,12 @@ expansion.
 
 ### User List
 
-- `available_credits` means the current active creator credits total
-- `credits_expire_at` means the earliest `effective_to` among current active
-  credit buckets with remaining balance
-- if the user has active credits and none of those buckets has an expiry, the
-  frontend should show a long-term-valid label
+- `available_credits` counts the currently consumable balance. Locked top-up
+  credits can still appear in the top-up breakdown.
+- `credits_expire_at` prefers the active subscription's period end. Without
+  one, it uses the earliest expiry among qualifying manual-grant buckets.
+- if the user has a positive usable balance and no display expiry, the
+  frontend shows a long-term-valid label
 - if the user is not a creator and has no billing credits, the list should show
   an empty state instead of a misleading zero
 
@@ -122,14 +119,10 @@ the following are true:
 - `effective_from <= now` when present
 - `effective_to > now` or `effective_to is null`
 
-Expiry aggregation rule:
-
-- choose the earliest non-null `effective_to` among counted buckets
-- if no counted bucket has `effective_to`, treat the current credits as
-  long-term valid on the frontend
-
-This keeps the display accurate even if future manual adjustments introduce
-credits without a unified expiry.
+The effective window filters eligible buckets. The summary then applies the
+subscription-first expiry rule above. It returns `null` when no display expiry
+is available. These rules live in `admin_user_credits.py` and are covered by
+`test_admin_users.py` and `test_admin_user_credit_queries.py`.
 
 ## Frontend Plan
 
@@ -161,6 +154,3 @@ credits without a unified expiry.
   - `cd src/api && pytest tests/service/shifu/test_admin_users.py -q`
   - `cd src/web && npm run test -- src/app/admin/operations/users/page.test.tsx 'src/app/admin/operations/users/[user_bid]/page.test.tsx'`
   - `cd src/web && npm run lint`
-- expected existing limitation:
-  - `cd src/web && npm run type-check` may still be blocked by the known
-    legacy `markdown-flow-ui/slide` type errors under `src/app/c/[[...id]]/`

@@ -1,14 +1,24 @@
 ---
 title: 积分通知中心需求文档
-status: needs-review
+status: implemented
 owner_surface: backend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
 # 积分通知中心需求文档
 
-更新时间：2026-05-22
+初版需求日期：2026-05-22
+
+## 当前范围
+
+下文的短信模板、费用和预算规则适用于 SMS 渠道。运营后台还支持
+SMTP 邮件模板、邮件规则配置和通知记录查询。邮件沿用积分发放、
+即将过期和低余额三类触发，按账户语言选模板，以英文模板回退。
+海外邮件界面不显示 SMS 专用费用和预算控件。历史 SMS 规则迁移需
+运营确认，迁移后规则保持禁用，等待绑定邮件模板。
+详见[邮件发送计划](../exec-plans/active/credit-notification-email-delivery.md)
+和[通知管理埋点契约](notification-management-analytics.md)。
 
 ## 目标
 

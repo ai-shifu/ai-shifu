@@ -23,23 +23,23 @@
 | `docs/RELIABILITY.md` | Reliability | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/SECURITY.md` | Security | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/design-docs/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `design-doc` | `implemented` | `repo` | `2026-09-20` | `true` |
-| `docs/design-docs/agent-first-harness.md` | Agent-First Harness Migration | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
+| `docs/design-docs/agent-first-harness.md` | Agent-First Harness Migration | `design-doc` | `implemented` | `repo` | `2026-11-09` | `true` |
 | `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-09-20` | `true` |
 | `docs/design-docs/billing-credit-domain-terminology.md` | Billing Credit Domain Terminology | `design-doc` | `accepted` | `backend` | `2026-07-29` | `true` |
-| `docs/design-docs/billing-credit-notifications-technical-design.md` | 积分通知中心技术设计 | `design-doc` | `needs-review` | `backend` | `-` | `true` |
-| `docs/design-docs/billing-subscription-design.md` | Billing 设计文档 | `design-doc` | `needs-review` | `backend` | `-` | `true` |
-| `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `proposed` | `backend` | `2026-05-25` | `true` |
-| `docs/design-docs/billing-subscription-purchase-sms.md` | Billing Subscription Purchase SMS Design | `design-doc` | `needs-review` | `backend` | `-` | `true` |
+| `docs/design-docs/billing-credit-notifications-technical-design.md` | 积分通知中心技术设计 | `design-doc` | `implemented` | `backend` | `2026-11-09` | `true` |
+| `docs/design-docs/billing-subscription-design.md` | Billing 设计文档 | `design-doc` | `needs-review` | `backend` | `2026-11-09` | `true` |
+| `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `implemented` | `backend` | `2026-11-09` | `true` |
+| `docs/design-docs/billing-subscription-purchase-sms.md` | Billing Subscription Purchase SMS Design | `design-doc` | `implemented` | `backend` | `2026-11-09` | `true` |
 | `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-11-02` | `true` |
-| `docs/design-docs/fresh-mysql-migration.md` | Fresh MySQL Migration Replay Repair | `design-doc` | `needs-review` | `backend` | `-` | `true` |
+| `docs/design-docs/fresh-mysql-migration.md` | Fresh MySQL Migration Replay Repair | `design-doc` | `implemented` | `backend` | `2026-11-09` | `true` |
 | `docs/design-docs/index.md` | Design Docs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-10-27` | `true` |
 | `docs/design-docs/learner-follow-up-input-shortcuts.md` | Learner follow-up input shortcuts | `design-doc` | `implemented` | `learner-web` | `2026-09-04` | `true` |
 | `docs/design-docs/markdownflow-engine-library.md` | MarkdownFlow engine library | `design-doc` | `implemented` | `backend` | `2026-10-26` | `true` |
-| `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `needs-review` | `backend` | `-` | `true` |
+| `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `implemented` | `backend` | `2026-11-09` | `true` |
 | `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-27` | `true` |
-| `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `needs-review` | `frontend` | `-` | `true` |
-| `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
+| `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `implemented` | `frontend` | `2026-11-09` | `true` |
+| `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-11-09` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/accurate-lesson-content-updates.md` | Lesson content revision tracking with one nullable column | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/admin-mdf2-preview.md` | Use the 2.0 lesson runtime in teacher debug preview | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -137,6 +137,7 @@
 | `docs/exec-plans/completed/ghcr-image-publication.md` | Publish repository Docker images to GHCR | `exec-plan-completed` | `completed` | `repository` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/global-billing-pricing-page.md` | Global Billing Pricing Page | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/google-email-linking.md` | Authenticate Google subjects without trusting unverified email | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/harness-gardening-document-review.md` | Harness Gardening Document Review | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/harness-health-local-report.md` | Keep harness health reports out of pull request conflicts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -288,11 +289,12 @@
 | `docs/history/knowledge-cleanup-delivery-2026-09-26.md` | Repository knowledge cleanup delivery — 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/knowledge-review-2026-09-26.md` | Repository knowledge review — 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/mdf2-legacy-runtime-inventory-2026-10-09.md` | MarkdownFlow 1.0 runtime inventory — 2026-10-09 | `history` | `historical` | `repo` | `-` | `false` |
+| `docs/history/mdflow-element-backfill.md` | MDFlow Element Backfill | `history` | `historical` | `shared` | `2026-11-09` | `false` |
 | `docs/history/ruff-rule-minimization-through-2026-09-26.md` | Ruff rule delivery journal through 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/shared-admin-table-component.md` | Shared Admin Table Component | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/product-specs/account-session-analytics.md` | Account Session Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-09-28` | `true` |
 | `docs/product-specs/atomic-sibling-reorder.md` | Atomic Sibling Reorder | `product-spec` | `implemented` | `api` | `2026-09-28` | `true` |
-| `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `needs-review` | `backend` | `-` | `true` |
+| `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `implemented` | `backend` | `2026-11-09` | `true` |
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
 | `docs/product-specs/course-action-help.md` | Course action menu help | `product-spec` | `implemented` | `frontend` | `2026-10-26` | `true` |
 | `docs/product-specs/course-activation-import.md` | Course activation import | `product-spec` | `implemented` | `frontend` | `2026-10-27` | `true` |
@@ -302,30 +304,29 @@
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |
 | `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-16` | `true` |
 | `docs/product-specs/index.md` | Product Specs | `generated-doc` | `generated` | `repo` | `-` | `false` |
-| `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
+| `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
 | `docs/product-specs/learner-listen-playback.md` | Learner Listen Playback and Timeline | `product-spec` | `implemented` | `frontend` | `2026-11-04` | `true` |
 | `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-11-08` | `true` |
 | `docs/product-specs/lesson-content-updates.md` | Lesson Content Update Recommendations | `product-spec` | `implemented` | `shared` | `2026-11-08` | `true` |
 | `docs/product-specs/lesson-memory-context.md` | Lesson Memory Context | `product-spec` | `implemented` | `backend` | `2026-10-07` | `true` |
-| `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
-| `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
-| `docs/product-specs/notification-management-analytics.md` | Notification Management Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
-| `docs/product-specs/operator-course-detail-page.md` | Operator Course Detail Page | `product-spec` | `implemented` | `shared` | `2026-05-13` | `true` |
-| `docs/product-specs/operator-course-follow-up-page.md` | Operator Course Follow-Up Page | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
-| `docs/product-specs/operator-course-users.md` | Operator Course Users Section | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
-| `docs/product-specs/operator-order-management.md` | Operator Order Management | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
-| `docs/product-specs/operator-promotions.md` | Operator Promotions | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
-| `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
+| `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `proposed` | `frontend` | `2026-11-09` | `true` |
+| `docs/product-specs/notification-management-analytics.md` | Notification Management Analytics | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-course-detail-page.md` | Operator Course Detail Page | `product-spec` | `implemented` | `shared` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-course-follow-up-page.md` | Operator Course Follow-Up Page | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-course-users.md` | Operator Course Users Section | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-order-management.md` | Operator Order Management | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-promotions.md` | Operator Promotions | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-11-09` | `true` |
 | `docs/product-specs/operator-user-management.md` | Operator User Management | `product-spec` | `implemented` | `shared` | `2026-09-08` | `true` |
-| `docs/product-specs/operator-user-points-columns.md` | Operator User Points | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
-| `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
+| `docs/product-specs/operator-user-points-columns.md` | Operator User Points | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
 | `docs/product-specs/outline-learning-permission-default.md` | Backend-owned outline learning permission default | `product-spec` | `implemented` | `shared` | `2026-10-11` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-10-31` | `true` |
 | `docs/product-specs/profile-onboarding-startup.md` | Profile onboarding startup | `product-spec` | `implemented` | `frontend` | `2026-11-07` | `true` |
 | `docs/product-specs/shared-interaction-rewind.md` | Shared Interaction Rewind | `product-spec` | `implemented` | `shared` | `2026-11-09` | `true` |
 | `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-23` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
-| `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
+| `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-11-09` | `true` |
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-11-03` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |

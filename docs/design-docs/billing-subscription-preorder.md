@@ -1,8 +1,8 @@
 ---
 title: Billing Subscription Preorder
-status: proposed
+status: implemented
 owner_surface: backend
-last_reviewed: 2026-05-25
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -22,6 +22,14 @@ This design is based on the external requirement artifact named
 repository, so the assumptions needed for implementation are captured directly
 in this document. This design extends the existing billing model documented in
 `docs/design-docs/billing-subscription-design.md`.
+
+## Implementation Status
+
+The repository implements local next-cycle preorders and paid preorder
+absorption on immediate upgrade. See `billing/checkout.py`, `preorders.py`,
+`subscriptions.py`, and `renewal.py` under the backend billing service.
+The sections below describe the original design. The implementation decisions
+at the end record where the current behavior is more specific.
 
 ## Goals
 
@@ -55,12 +63,10 @@ amount.
 | Price | `BillingProduct.price_amount` | Used for payable amount and preorder credit offset. |
 | Cycle | `billing_interval`, `billing_interval_count` | Each plan defines its own cycle; cycles do not inherit or concatenate. |
 | Credits | `BillingProduct.credit_amount` | Granted per effective subscription cycle. |
-| Tier | proposed `BillingProduct.metadata.plan_tier` or a dedicated column | Drives upgrade, renewal, and downgrade decisions. Do not infer tier from price. |
+| Tier | `BillingProduct.metadata.plan_tier` with legacy `sort_order` fallback | Drives upgrade, renewal, and downgrade decisions. Do not infer tier from price. |
 
-`sort_order` may stay a display ordering hint, but preorder business logic
-should use a tier value. If a dedicated column is too disruptive for the first
-iteration, use `metadata.plan_tier` and add a read helper so the decision point
-is explicit and testable.
+The checkout uses `resolve_plan_tier`. An explicit metadata tier takes
+precedence over the legacy display order.
 
 ## Subscription States
 
@@ -411,13 +417,12 @@ Recommended checks:
 python scripts/check_repo_harness.py
 ```
 
-## Open Decisions
+## Implementation Decisions
 
-- Whether plan tier should be a first-class `bill_products.plan_tier` column or
-  a required `metadata.plan_tier` field for v1.
-- Whether same-tier preorder renewal should reuse `subscription_renewal` or get
-  a new explicit order type such as `subscription_preorder`.
-- Whether preorder credits should always be represented as `reserved_credits` at
-  payment time, or granted only at cycle-end application.
-- Whether Stripe should hide preorder entirely or offer a non-recurring preorder
-  mode for manually managed subscriptions.
+- Preorder identity is stored as `checkout_type=subscription_preorder` in order
+  metadata. The local renewal and upgrade order types remain in use.
+- A paid preorder stages reserved credits. The renewal task applies them at the
+  next cycle boundary. A paid immediate upgrade can absorb the preorder once.
+- Recurring Stripe subscriptions do not use the local manual-provider preorder
+  path. A legacy Ping++ subscription can preorder with an eligible native
+  provider. See `test_manual_payment_migration.py` for that compatibility case.

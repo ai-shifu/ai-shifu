@@ -1,8 +1,8 @@
 ---
 title: Fresh MySQL Migration Replay Repair
-status: needs-review
+status: implemented
 owner_surface: backend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -10,20 +10,14 @@ canonical: true
 
 ## Context
 
-Fresh MySQL upgrades currently fail while replaying the full Alembic history.
-The failure occurs in revision `6b603528dac8_add_system_profile.py`, which
-imports current runtime helpers from the profile service. Those helpers no
-longer match the legacy schema that exists at that revision, so the migration
-is no longer replayable on an empty database.
+Fresh MySQL upgrades used to fail at revision `6b603528dac8_add_system_profile.py`.
+That revision depended on current profile-service helpers that no longer matched
+the legacy schema. The repaired revision is self-contained, and the smoke test
+replays the full Alembic history against an isolated MySQL schema.
 
-The rest of the migration chain can still reach head once this revision is
-made self-contained. This should therefore be handled as a repair to the
-broken historical revision, not as a new baseline or a replacement bootstrap
-flow.
+## Historical Repair
 
-## Decision
-
-- Repair the existing migration history in place.
+- This repair was applied to the broken historical revision to restore fresh replay.
 - Rewrite revision `6b603528dac8` to use only Alembic and SQLAlchemy Core.
 - Preserve the original intent of the revision by inserting the system profile
   rows directly into the legacy tables.

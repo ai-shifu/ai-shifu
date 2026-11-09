@@ -105,6 +105,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Publish repository Docker images to GHCR](./completed/ghcr-image-publication.md)
 - [Global Billing Pricing Page](./completed/global-billing-pricing-page.md)
 - [Authenticate Google subjects without trusting unverified email](./completed/google-email-linking.md)
+- [Harness Gardening Document Review](./completed/harness-gardening-document-review.md)
 - [Keep harness health reports out of pull request conflicts](./completed/harness-health-local-report.md)
 - [Hide `sys_user_style` From Course Authoring UI](./completed/hide-sys-user-style-from-authoring-ui.md)
 - [Keep common payment synchronization idempotent](./completed/idempotent-payment-sync.md)

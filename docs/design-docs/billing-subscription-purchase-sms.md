@@ -1,14 +1,14 @@
 ---
 title: Billing Subscription Purchase SMS Design
-status: needs-review
+status: implemented
 owner_surface: backend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
 # Billing Subscription Purchase SMS Design
 
-Updated: 2026-04-20
+Original design: 2026-04-20
 
 ## Goal
 
@@ -27,12 +27,9 @@ Covered order types:
 
 ## Trigger Source of Truth
 
-Only billing payment success truth sources may enqueue the SMS task:
-
-- `src/api/flaskr/service/billing/webhooks.py`
-- `src/api/flaskr/service/billing/checkout.py` via `sync_billing_order`
-
-The route layer and payment provider adapters must not send SMS directly.
+The shared paid-order side effects in `billing/paid_side_effects.py` stage the
+notification when billing confirms payment. Webhook and sync flows dispatch
+it after commit. Payment adapters and callback routes do not send SMS.
 
 ## Design
 
@@ -57,8 +54,9 @@ The route layer and payment provider adapters must not send SMS directly.
 ### Worker behavior
 
 - Add Celery task `billing.send_subscription_purchase_sms`.
-- The task loads the order with a row lock and only processes
-  `pending` or `failed_provider`.
+- The worker claims a `pending` or `failed_provider` notification under a
+  row lock and commits its `processing` state. The provider call runs outside
+  the transaction. The worker then locks the order again to finalize the result.
 - Resolve SMS payload from:
   - phone: `load_user_aggregate(order.creator_bid).mobile`
   - product: translated `BillingProduct.display_name_i18n_key`, falling back to
@@ -79,11 +77,14 @@ Only provider failures should retry automatically.
 
 ## Compensation
 
-- Add an internal helper and CLI command to re-enqueue one billing order when
-  the SMS notification state is `pending` or `failed_provider`.
+- Use `flask console billing requeue-subscription-purchase-sms` to re-enqueue
+  an order in `pending` or `failed_provider` state.
 - No new public HTTP endpoint is required.
 
 ## Tests
+
+`src/api/tests/service/billing/test_billing_subscription_sms.py` covers the
+checkout sync, webhook, task, and requeue paths.
 
 - SMS contract tests for the generic helper and the verification-code wrapper
 - Billing webhook tests for first-paid enqueue and duplicate suppression

@@ -1,14 +1,24 @@
 ---
 title: 积分通知中心技术设计
-status: needs-review
+status: implemented
 owner_surface: backend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
 # 积分通知中心技术设计
 
-更新时间：2026-05-21
+初版设计日期：2026-05-21
+
+## 当前实现
+
+下文记录 SMS 初版的数据、扫描和发送设计。现行实现还支持 SMTP 邮件。
+`credit_notifications.py` 负责托管规则、模板、触发、发送与运营查询。
+新配置使用 `rules`，兼容旧 `types`。规则按渠道绑定模板，邮件发送在
+账户语言没有对应模板时回退到 `en-US`，发送结果写回通知记录。
+旧 SMS 规则可由运营明确确认后迁移为禁用的邮件规则。
+邮件扩展与 devus 验收状态见
+[邮件发送计划](../exec-plans/active/credit-notification-email-delivery.md)。
 
 ## 目标
 
@@ -42,7 +52,7 @@ canonical: true
 | --- | --- |
 | `notification_bid` | 通知记录业务 ID |
 | `notification_type` | `credit_expiring`、`credit_granted`、`low_balance` |
-| `channel` | v1 固定为 `sms` |
+| `channel` | `sms` 或 `email` |
 | `creator_bid` | 积分所属老师 |
 | `target_user_bid` | 实际接收通知的用户 |
 | `mobile_snapshot` | 本次投递解析到的手机号快照 |

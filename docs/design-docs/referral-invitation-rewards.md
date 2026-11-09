@@ -2,7 +2,7 @@
 title: 老带新邀请奖励
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-06-11
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -23,12 +23,17 @@ canonical: true
 
 ## 当前实现状态
 
-2026-06-09 的实现已覆盖本设计的核心 v1 链路：
+仓库已实现本设计的核心 v1 链路：
 
 - 后端新增 campaign-aware referral 表、活动规则、邀请码、邀请事件、关系绑定、奖励审计、post-auth 绑定和 billing reward helper。
 - 前端新增老师邀请页、被邀请人落地页、登录 payload 透传、运营 referral 页面和共享 i18n 文案。
 - 运营侧提供列表、详情、overview、状态更新和带备注的人工调整 API；人工调整复用审计化 status/adjustment payload，不直接删除 billing 事实。
-- Reward grant 失败时先保留 relation/reward 行，并提供幂等 retry helper 修复缺失的 billing artifacts。
+- 奖励发放失败时保留邀请关系和奖励记录，幂等重试可补齐计费记录。
+- 运营优惠活动页还提供邀请活动配置与邀请、绑定记录查询。后端活动
+  配置在 `service/referral/campaign_admin.py`，注册奖励与补偿在
+  `service/referral/service.py` 和 `reward_queue.py`。
+- `test_referral_runtime_contracts.py` 验证配置金额、奖励上限和重试幂等，
+  `test_referral_campaign_admin_routes.py` 验证运营活动接口。
 
 dev02 的活动配置、真实 product code 校验、真实注册合成用例和 DB 对账仍是发布验证步骤，不能用本地单测替代。
 

@@ -2,7 +2,7 @@
 title: Operator Course Creator Transfer
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-05-12
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -36,12 +36,14 @@ permissions.
 
 ## Data Scope
 
-Update only top-level course ownership records:
+Update ownership on top-level course records:
 
 - `shifu_draft_shifus.created_user_bid`
 - `shifu_published_shifus.created_user_bid`
 
-Do not rewrite content/history provenance tables:
+Record the operator as the updater and save a course history entry for the
+transfer. Existing content, historical author provenance, and sharing are
+preserved:
 
 - `shifu_draft_outline_items`
 - `shifu_published_outline_items`
@@ -92,9 +94,8 @@ Response body:
    remember whether the creator role was granted by this transfer.
 9. Update all rows for the shifu bid in `DraftShifu` and `PublishedShifu` so
    legacy creator checks do not keep matching stale draft revisions.
-10. Commit the ownership update first, then clear both the shifu permission
-    cache for the previous and new creator and the cached shifu-creator
-    mapping used by request context hydration.
+10. Clear the previous and new owners' permission caches and the course creator
+    cache after the ownership transaction commits.
 11. If step 8 granted creator access for the first time, run creator-grant
     post-auth extensions so billing can create the free trial credits.
 
@@ -123,8 +124,8 @@ Reuse the shared-permission and activation-order helpers for:
 ### Frontend Wiring
 
 - Add one new API entry in `src/web/src/api/endpoint-definitions.ts`.
-- Keep the implementation inside `src/app/admin/operations/page.tsx` for the
-  first version; extract later only if the dialog grows.
+- The course-list entry is `src/web/src/app/admin/operations/page.tsx`. The
+  backend implementation is `admin_operations/courses_transfer_copy.py`.
 - Refresh the current course list after success.
 
 ## Verification

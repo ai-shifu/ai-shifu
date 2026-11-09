@@ -1,8 +1,8 @@
 ---
 title: Operator Order Management
-status: needs-review
+status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -11,6 +11,19 @@ canonical: true
 ## Goal
 
 Add a new operator-only global order management page under `Operations`, while keeping the existing creator-facing `/admin/orders` page unchanged.
+
+## Current Implementation
+
+The operator page and its list, detail, and overview endpoints are implemented.
+It has separate learning-order and credit-order views. Learning-order
+aggregates count non-deleted course orders and sum successful paid amounts.
+The independent-payment attribution and platform/teacher collection split
+below are proposed reporting extensions. The current learning-order query does
+not filter by order surface, settlement owner, or payment integration.
+
+The current paths are `src/api/flaskr/service/order/admin.py` and the Cook Web
+`admin/operations/orders/page.tsx`. Coverage lives in `test_admin_orders.py`,
+`test_open_api_operator_permissions.py`, and the Cook Web orders page suite.
 
 ## Scope
 
@@ -42,7 +55,7 @@ stored in `order_orders`, but the default platform-domain operator view should
 not silently mix them in once checkout captures domain attribution. Operator
 audit/search can expose them through an explicit source filter.
 
-## Independent payment scope
+## Proposed independent payment scope
 
 The first order-management upgrade targets the case where a teacher has no
 custom domain but has a configured independent payment channel.
@@ -82,8 +95,6 @@ Supported filters:
 - `status`
 - `order_source`
 - `payment_channel`
-- `settlement_owner`
-- `payment_integration`: platform credentials or teacher-owned credentials
 - `start_time`
 - `end_time`
 
@@ -107,7 +118,7 @@ Suggested mapping:
 
 Extend the existing admin order summary/detail DTO payloads instead of creating a parallel incompatible shape, so the new operator detail drawer can reuse existing display patterns.
 
-Add non-secret payment attribution fields to list and detail DTOs:
+The proposed attribution extension adds these non-secret fields:
 
 - `settlement_owner`
 - `settlement_owner_key`
@@ -200,8 +211,6 @@ Match existing operator pages:
 - status
 - order source
 - payment channel
-- settlement owner: platform collection / teacher collection
-- payment credential scope: platform credentials / teacher independent payment
 - order created time range
 
 ### Table fields
@@ -214,16 +223,14 @@ Match existing operator pages:
 - status
 - amount block (`paid`, `payable`, `discount`)
 - payment channel
-- settlement owner
-- payment credential scope
 - coupon / redemption code summary
 - updated at
 - action
 
 ### Metrics
 
-Overview cards should avoid treating teacher-collected orders as platform
-collections. Recommended cards:
+The proposed attribution-aware overview separates collection amounts. Its
+recommended cards are:
 
 - total order count
 - paid GMV

@@ -1,8 +1,8 @@
 ---
 title: Native China Payments
-status: needs-review
+status: implemented
 owner_surface: backend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -30,7 +30,11 @@ Channel resolution is intentionally conservative:
 - `stripe:*` stays on Stripe.
 - Unsupported provider/channel combinations fail with `server.pay.payChannelNotSupport`.
 
-Default behavior does not change for existing deployments because the default remains `pingxx,stripe`.
+The default provider list remains `pingxx,stripe`. On the legacy course-order
+path, explicit provider hints and the availability of configured credentials
+can affect selection. The resolver also accepts additional providers scoped to
+the course owner. The channel fallback above describes the implicit provider
+selection. See `payment_channel_resolution.py` under the order service.
 
 ## Backend Integration
 
@@ -69,7 +73,11 @@ New callbacks:
 - `POST /api/callback/alipay-notify`
 - `POST /api/callback/wechatpay-notify`
 
-Each callback verifies and normalizes the provider payload through the shared provider adapter. The route then tries billing first. If no billing order is matched, it falls back to the legacy learner order flow.
+The callback handlers in `src/api/flaskr/route/callback.py` verify and normalize
+the provider payload through the shared adapter. Each tries billing first and
+then the legacy learner order flow if billing did not match. A verified
+notification with no local match is acknowledged and logged. Validation or
+processing errors return the provider-specific failure response.
 
 Both flows are idempotent:
 

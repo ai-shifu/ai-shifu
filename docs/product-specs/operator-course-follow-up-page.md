@@ -1,8 +1,8 @@
 ---
 title: Operator Course Follow-Up Page
-status: needs-review
+status: implemented
 owner_surface: frontend
-last_reviewed: ""
+last_reviewed: 2026-11-09
 canonical: true
 ---
 
@@ -99,6 +99,8 @@ First version filters:
     - nickname
 - `chapter_keyword`
   - fuzzy match against chapter title or lesson title
+- `source_status`
+  - filter resolved or missing follow-up sources
 - `start_time`
   - follow-up created-at lower bound
 - `end_time`
@@ -185,7 +187,8 @@ one row in `learn_generated_blocks` that satisfies:
 - `role = ROLE_STUDENT`
 
 This is the same business definition currently used by the operator course
-detail `follow_up_count` metric in `src/api/flaskr/service/shifu/admin.py`.
+detail `follow_up_count` metric. Both views use the shared course reporting
+query in `src/api/flaskr/service/learn/course_reporting.py`.
 
 ### Summary definitions
 
@@ -201,20 +204,13 @@ detail `follow_up_count` metric in `src/api/flaskr/service/shifu/admin.py`.
 ### Turn index definition
 
 - `turn_index` = the 1-based position of the current student follow-up within
-  the same `progress_record_bid`, ordered by follow-up creation time ascending
+  the same `progress_record_bid`, ordered by creation time and then row ID
 
 ### Answer matching definition
 
-For the first version, answer resolution should reuse the existing
-`LearnGeneratedBlock` pairing behavior already used by the follow-up backfill
-logic:
-
-- prefer the immediately following `BLOCK_TYPE_MDANSWER_VALUE`
-- allow the teacher-side content block with the same position as the ask block
-  when that is how the answer was recorded
-
-This keeps the detail drawer aligned with the current runtime storage model
-without forcing an early migration to a more complex event-only query path.
+The shared course-reporting helper searches forward until the next student
+follow-up. It takes the first answer block or a teacher content block at the
+ask's position, skipping unrelated blocks between the question and answer.
 
 ## Backend API Contract
 
@@ -228,8 +224,11 @@ without forcing an early migration to a more complex event-only query path.
 - `page_size`
 - `keyword`
 - `chapter_keyword`
+- `source_status` (optional, `resolved` or `missing`)
 - `start_time`
 - `end_time`
+- `include_summary` (defaults to true). The UI can omit summary calculation
+  when paging within the same filter scope.
 
 #### Suggested response
 
@@ -239,7 +238,7 @@ without forcing an early migration to a more complex event-only query path.
     "follow_up_count": 120,
     "user_count": 35,
     "lesson_count": 18,
-    "latest_follow_up_at": "2026-04-21 10:20:30"
+    "latest_follow_up_at": "2026-04-21T10:20:30Z"
   },
   "page": 1,
   "page_size": 20,
@@ -259,7 +258,7 @@ without forcing an early migration to a more complex event-only query path.
       "lesson_title": "Lesson 1",
       "follow_up_content": "Why is this value calculated like this?",
       "turn_index": 3,
-      "created_at": "2026-04-21 10:20:30"
+      "created_at": "2026-04-21T10:20:30Z"
     }
   ]
 }
@@ -284,7 +283,7 @@ without forcing an early migration to a more complex event-only query path.
     "shifu_bid": "course-a",
     "chapter_title": "Chapter 1",
     "lesson_title": "Lesson 1",
-    "created_at": "2026-04-21 10:20:30",
+    "created_at": "2026-04-21T10:20:30Z",
     "turn_index": 3
   },
   "current_record": {
@@ -300,13 +299,13 @@ without forcing an early migration to a more complex event-only query path.
     {
       "role": "student",
       "content": "First follow-up question",
-      "created_at": "2026-04-21 10:00:00",
+      "created_at": "2026-04-21T10:00:00Z",
       "is_current": false
     },
     {
       "role": "teacher",
       "content": "First follow-up answer",
-      "created_at": "2026-04-21 10:00:03",
+      "created_at": "2026-04-21T10:00:03Z",
       "is_current": false
     }
   ]
@@ -344,17 +343,17 @@ without forcing an early migration to a more complex event-only query path.
 - make the follow-up metric card clickable as a full-card affordance, not just
   a small inline button
 
-## Open Questions For Implementation
+## Summary and Source Resolution
 
-- whether the list summary should reflect the full course scope only or the
-  active filter scope
-  - recommended first version: reflect the active filter scope so operators can
-    immediately understand filtered subsets
-- whether follow-up content in the drawer should support copy-to-clipboard in
-  v1
-  - recommended first version: optional, can be deferred
+The summary uses the active filter scope. The operator detail reads the source
+snapshot where available and reuses the shared answer resolution. The API
+serializes timestamps as UTC ISO-8601.
 
 ## Verification
+
+`test_admin_course_detail.py` covers the filtered list, timeline, and answer
+pairing across intervening blocks. The adjacent Cook Web follow-up page suite
+covers rendering and drawer behavior.
 
 - add focused backend tests for:
   - list route basic response
