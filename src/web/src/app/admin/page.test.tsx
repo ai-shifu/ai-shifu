@@ -101,14 +101,6 @@ jest.mock('@/lib/onboarding-targets', () => ({
   buildGuideCourseTargetId: () => undefined,
 }));
 
-jest.mock('@/lib/shifu-permissions', () => ({
-  canManageArchive: () => true,
-  canManageOwnerCourseAction: (
-    shifu: { created_user_bid?: string } | null | undefined,
-    currentUserId: string,
-  ) => shifu?.created_user_bid === currentUserId,
-}));
-
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: mockT,
@@ -172,7 +164,7 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
       onSelect?: (event: { stopPropagation: () => void }) => void;
     }
   >(function MockDropdownMenuItem(
-    { asChild, children, onSelect, onClick, ...props },
+    { asChild, children, disabled, onSelect, onClick, ...props },
     ref,
   ) {
     if (asChild) return children;
@@ -180,6 +172,7 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
       <button
         type='button'
         ref={ref}
+        disabled={disabled}
         {...props}
         onClick={event => {
           onClick?.(event);
@@ -942,7 +935,7 @@ describe('AdminPage', () => {
     );
   });
 
-  test('offers the learning link without owner-only actions for shared courses', async () => {
+  test('offers the learning link while disabling owner-only actions for shared courses', async () => {
     mockGetShifuList.mockResolvedValue({
       items: [
         {
@@ -954,6 +947,7 @@ describe('AdminPage', () => {
           avatar: '',
           is_favorite: false,
           created_user_bid: 'owner-1',
+          can_manage_archive: true,
           can_manage_permissions: false,
         },
       ],
@@ -977,18 +971,26 @@ describe('AdminPage', () => {
       }),
     ).toHaveAttribute('href', '/c/course-shared-1');
     expect(
-      screen.queryByRole('button', {
+      screen.getByRole('button', {
         name: 'module.order.importActivation.action',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
-      screen.queryByRole('button', {
+      screen.getByRole('button', {
         name: 'module.order.redemptionCodes.action',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.shifuSetting.permissionManage',
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.getByRole('button', { name: 'module.shifuSetting.archive' }),
+    ).not.toHaveAttribute('aria-disabled');
   });
 
-  test('offers the learning link without enrollment actions for unpublished courses', async () => {
+  test('disables enrollment actions while keeping management actions available to draft owners', async () => {
     mockGetShifuList.mockResolvedValue({
       items: [
         {
@@ -1023,14 +1025,22 @@ describe('AdminPage', () => {
       }),
     ).toHaveAttribute('href', '/c/course-draft-1');
     expect(
-      screen.queryByRole('button', {
+      screen.getByRole('button', {
         name: 'module.order.importActivation.action',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
-      screen.queryByRole('button', {
+      screen.getByRole('button', {
         name: 'module.order.redemptionCodes.action',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.shifuSetting.permissionManage',
+      }),
+    ).not.toHaveAttribute('aria-disabled');
+    expect(
+      screen.getByRole('button', { name: 'module.shifuSetting.archive' }),
+    ).not.toHaveAttribute('aria-disabled');
   });
 });

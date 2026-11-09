@@ -110,6 +110,11 @@
   },
   "askProviderSelect": "选择追问方式",
   "askTitle": "追问的知识来源",
+  "courseActionBlocked": {
+    "courseAccessRequired": "需要此课程的后台访问权限",
+    "ownerRequired": "仅课程负责人可操作",
+    "publicationRequired": "课程发布后可操作"
+  },
   "defaultListenModeDescription": "开启后，学员默认进入听课模式学习",
   "defaultListenModeTitle": "默认进入听课",
   "draftConflictDescription": "课程已被 {phone} 修改，请加载最新内容获取最新记录",

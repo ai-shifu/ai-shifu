@@ -711,9 +711,10 @@ const ScriptManagementPage = () => {
           <div className='flex-1 overflow-auto'>
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
               {shifus.map(shifu => {
-                const canManagePublishedOwnerActions =
-                  canManageOwnerCourseAction(shifu, currentUserId) &&
-                  shifu.state === SHIFU_STATE_PUBLISHED;
+                const isOwner = canManageOwnerCourseAction(
+                  shifu,
+                  currentUserId,
+                );
 
                 return (
                   <ShifuCard
@@ -726,17 +727,20 @@ const ScriptManagementPage = () => {
                     archived={Boolean(shifu.archived)}
                     canManageArchive={canManageArchive(shifu)}
                     canManagePermissions={canManagePermissions(shifu)}
+                    enrollmentActionBlockReason={
+                      !isOwner
+                        ? 'owner_required'
+                        : shifu.state !== SHIFU_STATE_PUBLISHED
+                          ? 'publication_required'
+                          : undefined
+                    }
                     onArchiveRequest={() => handleArchiveRequest(shifu)}
                     onPermissionRequest={() => handlePermissionRequest(shifu)}
-                    onImportActivationRequest={
-                      canManagePublishedOwnerActions
-                        ? () => handleImportActivationRequest(shifu)
-                        : undefined
+                    onImportActivationRequest={() =>
+                      handleImportActivationRequest(shifu)
                     }
-                    onRedemptionCodeRequest={
-                      canManagePublishedOwnerActions
-                        ? () => handleRedemptionCodeRequest(shifu)
-                        : undefined
+                    onRedemptionCodeRequest={() =>
+                      handleRedemptionCodeRequest(shifu)
                     }
                     onboardingTargetId={
                       shifu.bid === onboardingStatus?.guide_course.bid

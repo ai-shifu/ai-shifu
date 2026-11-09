@@ -110,6 +110,11 @@
   },
   "askProviderSelect": "Choose how follow-up answers are generated",
   "askTitle": "Knowledge source for follow-up questions",
+  "courseActionBlocked": {
+    "courseAccessRequired": "This action requires access to this course in the admin panel.",
+    "ownerRequired": "Only the course owner can use this action.",
+    "publicationRequired": "This action is available after the course is published."
+  },
   "defaultListenModeDescription": "When enabled, learners start this course in listen mode by default",
   "defaultListenModeTitle": "Open in listen by default",
   "draftConflictDescription": "This course was updated by {phone}. Load the latest content to continue editing safely.",
