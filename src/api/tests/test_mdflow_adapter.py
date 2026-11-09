@@ -627,7 +627,10 @@ def test_restore_shifu_mdflow_history_passes_base_revision(
     )
     _add_outline_version(app, shifu_bid, outline_bid, "Version 2", "user-restore-3", 1)
 
-    captured: dict[str, int | None] = {"base_revision": None}
+    captured: dict[str, int | None] = {
+        "base_revision": None,
+        "restored_version_id": None,
+    }
 
     def _fake_save(
         _app: object,
@@ -636,8 +639,12 @@ def test_restore_shifu_mdflow_history_passes_base_revision(
         _outline_bid: object,
         _content: object,
         base_revision: object = None,
+        *,
+        _restored_version: DraftOutlineItem | None = None,
     ) -> object:
         captured["base_revision"] = base_revision
+        assert _restored_version is not None
+        captured["restored_version_id"] = int(_restored_version.id)
         return {"conflict": True, "meta": {"revision": 99}}
 
     monkeypatch.setattr(
@@ -654,6 +661,7 @@ def test_restore_shifu_mdflow_history_passes_base_revision(
         base_revision=42,
     )
     assert captured["base_revision"] == 42
+    assert captured["restored_version_id"] == old_version_id
     assert result["conflict"] is True
 
 
