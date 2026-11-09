@@ -567,6 +567,7 @@ describe('ShifuEdit draft conflict checks', () => {
     fireEvent.click(debugButton);
     expect(baseActions.saveMdflow).not.toHaveBeenCalled();
     expect(baseActions.prepareDebugSession).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
 
     mockShifuState.isMdflowLoaded = true;
     rerender(<ScriptEditor id='shifu-1' />);

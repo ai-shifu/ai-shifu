@@ -3,7 +3,7 @@ import {
   SimpleTreeItemWrapper,
   TreeItemComponentProps,
 } from '../dnd-kit-sortable-tree';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LessonCreationSettings, Outline } from '@/types/shifu';
 import { LearningPermission } from '@/api/learning';
 import guestIcon from '../chapter-setting/icons/svg-guest.svg';
@@ -34,6 +34,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/Tooltip';
 import { Input } from '../ui/Input';
+import { useTracking } from '@/hooks/use-tracking';
 
 export type TreeItemProps = {
   currentNode?: Outline;
@@ -47,7 +48,16 @@ const MinimalTreeItemComponent = React.forwardRef<
   HTMLDivElement,
   TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-  const { actions, cataData, currentNode, currentShifu } = useShifu();
+  const {
+    actions,
+    cataData,
+    currentNode,
+    currentShifu,
+    isLoading,
+    isMdflowLoaded,
+  } = useShifu();
+  const { trackEvent } = useTracking();
+  const retryInFlight = useRef(false);
   // Pull custom TreeItemProps out of the spread so they are not forwarded onto
   // the underlying <li> DOM node (React warns on unknown attributes).
   const { addLessonTargetId, forceShowAddLessonAction, ...wrapperProps } =
@@ -226,6 +236,27 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
 
     if (currentNode?.id === props.item.id) {
+      const shifuBid = currentShifu?.bid;
+      const outlineBid = props.item.bid;
+      if (
+        isChapterNode ||
+        isLoading ||
+        isMdflowLoaded ||
+        retryInFlight.current ||
+        !shifuBid ||
+        !outlineBid
+      ) {
+        return;
+      }
+      retryInFlight.current = true;
+      try {
+        const applied = await actions.loadMdflow(outlineBid, shifuBid);
+        void trackEvent('creator_lesson_load_retry_result', {
+          outcome: applied ? 'applied' : 'not_applied',
+        });
+      } finally {
+        retryInFlight.current = false;
+      }
       return;
     }
 

@@ -172,9 +172,9 @@ keys, labels, personal information, answers and memory contents are excluded.
   a memory write. Historical rows missing the field remain `legacy_unknown` and
   are excluded from this denominator, never inferred as false; no backfill is
   performed and existing preview-count consumers may continue counting all rows.
-- Editor Debug eligibility remains the existing `canDebug`, course-ID and
-  lesson-ID handler guards, including eligible read-only course previews.
-  Chapters, unresolved preview eligibility and missing IDs emit nothing. The
+- Editor Debug requires a loaded lesson body in addition to course and lesson
+  IDs and preview eligibility, including for read-only course previews.
+  Chapters, unloaded bodies and missing eligibility or IDs emit nothing. The
   event fires once per accepted handler invocation, before saving or parsing;
   render, re-render and disabled/rejected clicks emit nothing. Repeated accepted
   clicks count separately, with no persisted deduplication. The complete payload
@@ -205,6 +205,29 @@ their editors, read legacy prompt values, or submit prompt fields. Teaching and
 follow-up instruction resolution use the course prompt exclusively;
 see [Course Prompts](course-prompts.md). Existing chapter and
 lesson settings retain their title, permission, and visibility behavior.
+
+### Lesson body retry outcomes
+
+- Business question: how often does selecting the same lesson again recover
+  the editor after the initial lesson body could not be loaded?
+- Metric: per UTC day, count recorded retry results by `outcome` and divide
+  `applied` results by all recorded results to measure recovery per retry.
+- Trigger and population: emit `creator_lesson_load_retry_result` when a retry
+  from the selected lesson row settles in the course editor, including read-only
+  access. The selected lesson must have a course ID and lesson ID, an unloaded
+  body, and no load in progress. Ordinary navigation, initial loads, chapters,
+  placeholders, loaded lessons, and learner surfaces are excluded.
+- Count and deduplication: one result per accepted retry. The row holds an
+  in-flight guard until the load settles. Later accepted retries count
+  separately. There is no persisted deduplication or cross-event join.
+- Payload: only the low-cardinality, non-personal string `outcome`.
+  `applied` means the body load succeeded for the selection.
+  `not_applied` includes a failed request or a response superseded by navigation.
+- Consumer and compatibility: product analytics can use the additive outcome
+  series for editor recovery reporting. Existing preview events remain separate
+  and there is no backfill.
+- Verification: cover accepted retries, their outcomes, ignored clicks during
+  load and after recovery, exact payload, and recovery with unavailable tracking.
 
 ### Chapter and lesson settings save outcomes (2026-11-04)
 
