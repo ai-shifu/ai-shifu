@@ -1,6 +1,6 @@
 import React from 'react';
 import type { LearningPermission } from '@/api/learning';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 const mockSaveMdflow = jest.fn();
 const mockGetMdflow = jest.fn();
