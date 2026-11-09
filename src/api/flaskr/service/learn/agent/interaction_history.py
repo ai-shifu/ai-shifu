@@ -170,21 +170,35 @@ def project_interaction_inputs(
         previous = previous_by_scope.get(scope)
         previous_by_scope[scope] = block
         record = read_turn_record(block)
-        if previous is None or record is None or read_turn_record(previous) is None:
+        if previous is None or record is None:
             questions_by_scope.pop(scope, None)
             continue
+        previous_record = read_turn_record(previous)
+        if previous_record is None:
+            questions_by_scope.pop(scope, None)
         pending = record["checkpoint"].get("pending")
         if not isinstance(pending, list) or not pending:
             continue
-        questions = questions_by_scope.setdefault(scope, {})
-        remaining = _unanswered_call_ids(previous)
-        for old_id in list(questions):
-            if old_id not in remaining:
-                del questions[old_id]
         previous_controls = controls.get(previous.generated_block_bid, {})
-        recorded = recorded_question_ids(
-            read_turn_record(previous), len(previous_controls)
-        )
+        if previous_record is None:
+            # Older native turn blocks have an empty config. An inferred match is
+            # local to this pair of turns and must not seed repeated-control tracking.
+            if (
+                previous.block_content_conf
+                or not block.progress_record_bid
+                or len(previous_controls) != 1
+                or len(pending) != 1
+                or any(_scope(row) != scope for row in previous_controls.values())
+            ):
+                continue
+            questions = {}
+        else:
+            questions = questions_by_scope.setdefault(scope, {})
+            remaining = _unanswered_call_ids(previous)
+            for old_id in list(questions):
+                if old_id not in remaining:
+                    del questions[old_id]
+        recorded = recorded_question_ids(previous_record, len(previous_controls))
         if recorded is not None:
             pending_ids = {
                 item["tool_call_id"]
