@@ -14,8 +14,9 @@ canonical: true
 
 下文记录 SMS 初版的数据、扫描和发送设计。现行实现还支持 SMTP 邮件。
 `credit_notifications.py` 负责托管规则、模板、触发、发送与运营查询。
-新配置使用 `rules`，兼容旧 `types`。规则按渠道绑定模板，邮件发送在
-账户语言没有对应模板时回退到 `en-US`，发送结果写回通知记录。
+新配置使用 `rules`，兼容旧 `types`。运营界面只支持新建和绑定
+`en-US` 邮件模板。发送时仍兼容已有规则的多语言模板绑定，未匹配
+账户语言时使用英文模板。发送结果写回通知记录。
 旧 SMS 规则可由运营明确确认后迁移为禁用的邮件规则。
 邮件扩展与 devus 验收状态见
 [邮件发送计划](../exec-plans/active/credit-notification-email-delivery.md)。
