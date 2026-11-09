@@ -20,6 +20,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from markdownflow.syntax.parser.document_blocks import HTML_BLOCK_TAGS
 from markdownflow.syntax.parser.marker_context import (
     analyze_marker_context,
 )
@@ -792,18 +793,31 @@ _VOID_HTML_TAGS = frozenset(
 
 
 class _QuestionHTMLVisibility(HTMLParser):
-    """Track actual HTML tags while Markdown tokens distinguish literal markup."""
+    """Track hidden elements and read visible text inside HTML blocks."""
 
     def __init__(self) -> None:
         super().__init__()
         self.hidden_tags: list[str] = []
+        self._visible_text: list[str] = []
+
+    def read_block(self, content: str) -> str:
+        """Extract one block while preserving the parser's visibility state."""
+        self._visible_text.clear()
+        self.feed(content)
+        return "".join(self._visible_text).strip()
+
+    def handle_data(self, data: str) -> None:
+        if not self.hidden_tags:
+            self._visible_text.append(data)
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in _VOID_HTML_TAGS:
+            if tag == "br" and not self.hidden_tags:
+                self._visible_text.append(" ")
             return
         if (
             self.hidden_tags
-            or tag in ("script", "style", "template")
+            or tag in ("head", "iframe", "script", "style", "template", "title")
             or any(
                 name == "hidden"
                 or (name == "style" and _HIDDEN_INLINE_STYLE.search(value or ""))
@@ -811,8 +825,12 @@ class _QuestionHTMLVisibility(HTMLParser):
             )
         ):
             self.hidden_tags.append(tag)
+        elif tag in HTML_BLOCK_TAGS:
+            self._visible_text.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        if not self.hidden_tags and tag in HTML_BLOCK_TAGS:
+            self._visible_text.append("\n")
         for index in range(len(self.hidden_tags) - 1, -1, -1):
             if self.hidden_tags[index] == tag:
                 del self.hidden_tags[index:]
@@ -829,7 +847,7 @@ def _markdown_prose(text: str) -> str:
     visible: list[str] = []
     for token in MarkdownIt("commonmark", {"html": True}).parse(text):
         if token.type == "html_block":
-            html.feed(token.content)
+            visible.append(html.read_block(token.content))
         if token.type != "inline" or not token.children:
             continue
         line: list[str] = []
