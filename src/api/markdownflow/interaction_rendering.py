@@ -203,7 +203,7 @@ def _as_sent(
     # Stripped only to decide whether there is a question at all: the text itself goes out as
     # the model wrote it, because the frontend renders it as Markdown and leading indentation
     # or a trailing hard break changes what the learner sees.
-    prompt = spec.question
+    prompt = spec.presented_question
     # Before the rewrite below, not after: that rewrite puts the model's own words on the
     # button, and a model that wrote `Continue` would otherwise have them taken for the
     # engine's default and replaced.

@@ -41,9 +41,7 @@ def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
 def test_the_notation_uses_one_question_for_display_and_storage() -> None:
     """The syntax and system instructions agree on what identifies an answer."""
     notation = (_PROMPTS / "syntax.md").read_text()
-    assert (
-        "use that exact text in the lesson prose and in `interact.question`" in notation
-    )
+    assert "use that exact text in `interact.question`" in notation
     assert "?[{{question}} ...]" in notation
     assert "{{What would you like to learn?}}" in notation
     assert 'question="What would you like to learn?"' in notation

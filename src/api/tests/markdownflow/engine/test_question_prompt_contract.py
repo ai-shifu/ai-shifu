@@ -49,7 +49,9 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         )
         assert "question" in schema["properties"]
         assert "question" in schema["required"]
-        assert not {"prompt", "variable"}.intersection(schema["properties"])
+        assert not {"prompt", "variable", "display_question"}.intersection(
+            schema["properties"]
+        )
         assert "ask the question in visible Markdown prose" in (info.instructions or "")
         yield f"{teaching}\n\n{question}"
         yield {
@@ -115,8 +117,9 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
 async def test_bound_control_retries_rewritten_question_with_localized_or_omitted_hint(
     wrong_question: str, competing_control: bool, placeholder: str | None
 ) -> None:
-    """The bound label itself is the visible question and the only key for its answer."""
+    """A localized question uses the original binding as the only answer key."""
     question = "learning_goal"
+    translation = "What would you like to learn?"
     attempts = 0
 
     async def model(
@@ -134,11 +137,11 @@ async def test_bound_control_retries_rewritten_question_with_localized_or_omitte
                 and question in str(part.content)
                 for part in messages[-1].parts
             )
-        assert "Do not translate a question written in a leading {{...}} binding" in (
+        assert "Keep the exact authored text in interact.question" in (
             info.instructions or ""
         )
         wording = wrong_question if attempts == 1 else question
-        yield wording
+        yield translation
         yield {
             0: DeltaToolCall(
                 name="interact",
@@ -147,6 +150,7 @@ async def test_bound_control_retries_rewritten_question_with_localized_or_omitte
                     {
                         "type": "text",
                         "question": wording,
+                        "display_question": translation,
                         "placeholder": placeholder,
                     }
                 ),
@@ -166,7 +170,10 @@ async def test_bound_control_retries_rewritten_question_with_localized_or_omitte
     events = [event async for event in engine.run_turn(session)]
     (interaction,) = [e for e in events if isinstance(e, InteractionRequest)]
     assert interaction.id == "attempt-2"
-    assert "".join(e.text for e in events if isinstance(e, ContentDelta)) == question
+    assert "".join(e.text for e in events if isinstance(e, ContentDelta)) == translation
+    session = Session.loads(session.dumps())
+    assert session.pending[0].spec.question == question
+    assert session.pending[0].spec.presented_question == translation
     events = [
         e
         async for e in engine.run_turn(session, InteractionResponseTurn(text="Graphs"))

@@ -55,7 +55,8 @@ if TYPE_CHECKING:
 _PROFILE_INSTRUCTIONS = """
 Run the complete authored learner-profile questionnaire as one conversation, not a course.
 Follow its authored questions and conditional branches using the learner's actual answers.
-Use interact for the authored controls and preserve each question exactly as authored.
+Use interact for the authored controls. Preserve bound question text in interact.question
+and follow the output-language instructions for what the learner sees.
 Do not add unrelated questions or navigation pauses. A section separator is not a pause.
 Keep any displayed introductions and transitions brief. The questionnaire's original wording
 is author guidance, not evidence about this learner. Only accepted learner answers are facts.
@@ -243,7 +244,7 @@ def run_profile_turn(
         raise ProfileResearchError(msg)
     if working.pending and not user_input:
         pending = working.pending[0]
-        question = pending.spec.question
+        question = pending.spec.presented_question
         chunks = []
         if question.strip() and pending.spec.type != "confirm":
             chunks = (

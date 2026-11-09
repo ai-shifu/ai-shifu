@@ -18,6 +18,8 @@ The model supplies `question` for each answer interaction. For a leading
 and use the resulting text as the exact question and storage key. This applies
 to short labels as well. A later `{{question}}` reference with the same question
 text reads that entry.
+With a selected output language, the learner sees the translated question and
+the original question remains the memory key.
 For exercises without a binding, the model supplies the question from the
 lesson prose or context. Reusing the exact question updates the current
 answer. Navigation and confirmation clicks do not record answers. Existing

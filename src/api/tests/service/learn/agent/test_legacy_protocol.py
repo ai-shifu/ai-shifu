@@ -648,6 +648,19 @@ def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
     assert translated[0].interaction_question is None
 
 
+def test_a_localized_question_uses_its_translation_as_the_control_title() -> None:
+    spec = InteractionSpec(
+        type="text",
+        question="What would you like to learn?",
+        display_question="Que voulez-vous apprendre ?",
+        variable="What would you like to learn?",
+        placeholder="Votre réponse",
+    )
+    (control,) = _translate(InteractionRequest(id="i1", spec=spec))
+    assert control.interaction_question == "Que voulez-vous apprendre ?"
+    assert control.content == "?[%{{ What would you like to learn? }} ...Votre réponse]"
+
+
 def test_a_long_confirm_prompt_becomes_a_control_title() -> None:
     """A long instruction is the control title; the button is labelled by the host."""
     translated = _translate(
