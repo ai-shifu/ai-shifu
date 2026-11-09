@@ -1,8 +1,10 @@
 import React from 'react';
 import type { LearningPermission } from '@/api/learning';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 const mockSaveMdflow = jest.fn();
+const mockGetMdflow = jest.fn();
+const mockRestoreMdflowHistory = jest.fn();
 const mockGetShifuDraftMeta = jest.fn();
 const mockGetShifuDetail = jest.fn();
 const mockCreateOutline = jest.fn();
@@ -13,6 +15,9 @@ const mockTrackEvent = jest.fn();
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getMdflow: (...args: unknown[]) => mockGetMdflow(...args),
+    restoreMdflowHistory: (...args: unknown[]) =>
+      mockRestoreMdflowHistory(...args),
     saveMdflow: (...args: unknown[]) => mockSaveMdflow(...args),
     getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
@@ -57,11 +62,310 @@ const createDeferred = <T,>() => {
   return { promise, resolve, reject };
 };
 
+const lesson = (bid: string) => ({
+  id: bid,
+  bid,
+  parent_bid: 'chapter-1',
+  name: bid,
+  position: '',
+  depth: 1,
+});
+
+describe('useShifu lesson drafts', () => {
+  beforeEach(() => {
+    mockGetMdflow.mockReset().mockResolvedValue('Saved lesson content');
+    mockRestoreMdflowHistory.mockReset();
+    mockSaveMdflow.mockReset().mockResolvedValue({ new_revision: 9 });
+    mockGetShifuDraftMeta.mockReset().mockResolvedValue({ revision: 9 });
+    mockGetShifuDetail.mockReset().mockResolvedValue({ bid: 'shifu-1' });
+    mockGetProfileItemDefinitions.mockReset().mockResolvedValue([]);
+    mockGetProfileVariableUsage.mockReset().mockResolvedValue({});
+  });
+
+  const renderCourse = async () => {
+    const hook = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await hook.result.current.actions.loadShifu('shifu-1');
+    });
+    return hook.result;
+  };
+
+  it('skips unchanged content and persists edits, including clearing the lesson', async () => {
+    const result = await renderCourse();
+    await act(async () => {
+      result.current.actions.setCurrentNode(lesson('lesson-1'));
+      await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+    });
+
+    await act(async () => {
+      await result.current.actions.saveMdflow();
+    });
+    expect(mockSaveMdflow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.actions.setBaseRevision(8);
+      result.current.actions.setCurrentMdflow('Updated lesson');
+      await result.current.actions.saveMdflow();
+      result.current.actions.setCurrentMdflow('');
+      expect(result.current.actions.hasUnsavedMdflow('lesson-1')).toBe(true);
+      await result.current.actions.saveMdflow();
+    });
+    expect(mockSaveMdflow.mock.calls).toEqual([
+      [
+        {
+          shifu_bid: 'shifu-1',
+          outline_bid: 'lesson-1',
+          data: 'Updated lesson',
+          base_revision: 8,
+        },
+      ],
+      [
+        {
+          shifu_bid: 'shifu-1',
+          outline_bid: 'lesson-1',
+          data: '',
+          base_revision: 9,
+        },
+      ],
+    ]);
+    expect(result.current.actions.hasUnsavedMdflow('lesson-1')).toBe(false);
+    expect(result.current.latestDraftMeta?.revision).toBe(9);
+  });
+
+  it('ignores an earlier load even after switching away and back to the same lesson', async () => {
+    const earlier = createDeferred<string>();
+    const latest = createDeferred<string>();
+    mockGetMdflow
+      .mockReturnValueOnce(earlier.promise)
+      .mockResolvedValueOnce('Another lesson')
+      .mockReturnValueOnce(latest.promise);
+
+    const result = await renderCourse();
+    let earlierLoad: Promise<boolean>;
+    let latestLoad: Promise<boolean>;
+    await act(async () => {
+      result.current.actions.setCurrentNode(lesson('lesson-1'));
+      earlierLoad = result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+      result.current.actions.setCurrentNode(lesson('lesson-2'));
+      await result.current.actions.loadMdflow('lesson-2', 'shifu-1');
+      result.current.actions.setCurrentNode(lesson('lesson-1'));
+      latestLoad = result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+      expect(
+        result.current.actions.retryMdflow('lesson-1', 'shifu-1'),
+      ).toBeUndefined();
+    });
+    await act(async () => {
+      earlier.resolve('Stale body');
+      expect(await earlierLoad).toBe(false);
+      await result.current.actions.saveMdflow();
+    });
+    expect(result.current.isMdflowLoaded).toBe(false);
+    expect(mockSaveMdflow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      latest.resolve('Latest body');
+      expect(await latestLoad).toBe(true);
+      expect(
+        result.current.actions.retryMdflow('lesson-1', 'shifu-1'),
+      ).toBeUndefined();
+    });
+    expect(result.current.mdflow).toBe('Latest body');
+  });
+
+  it('uses the outgoing lesson revision for a flushed save and leaves the next lesson revision alone', async () => {
+    const pending = createDeferred<{ new_revision: number }>();
+    mockSaveMdflow.mockReturnValueOnce(pending.promise);
+    const result = await renderCourse();
+    await act(async () => {
+      result.current.actions.setCurrentNode(lesson('lesson-1'));
+      await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+    });
+
+    await act(async () => {
+      result.current.actions.setBaseRevision(8);
+      result.current.actions.setCurrentMdflow('');
+      const snapshot = {
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+        data: '',
+      };
+      void result.current.actions.autoSaveBlocks(snapshot);
+      result.current.actions.flushAutoSaveBlocks(snapshot);
+      result.current.actions.setCurrentNode(lesson('lesson-2'));
+      await result.current.actions.loadMdflow('lesson-2', 'shifu-1');
+      result.current.actions.setBaseRevision(3);
+    });
+    expect(mockSaveMdflow).toHaveBeenCalledWith({
+      shifu_bid: 'shifu-1',
+      outline_bid: 'lesson-1',
+      data: '',
+      base_revision: 8,
+    });
+
+    await act(async () => {
+      pending.resolve({ new_revision: 9 });
+      await pending.promise;
+    });
+    expect(result.current.baseRevision).toBe(3);
+    expect(result.current.mdflow).toBe('Saved lesson content');
+  });
+
+  it.each(['saved', 'failed', 'conflicted'])(
+    'waits for an outgoing lesson write before course actions when it %s',
+    async outcome => {
+      const pending = createDeferred<{ new_revision: number }>();
+      mockSaveMdflow.mockReturnValueOnce(pending.promise);
+      const consoleError = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      try {
+        const result = await renderCourse();
+        await act(async () => {
+          result.current.actions.setCurrentNode(lesson('lesson-1'));
+          await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+        });
+        act(() => {
+          const { actions } = result.current;
+          actions.setCurrentMdflow('Outgoing edit');
+          actions.flushAutoSaveBlocks({
+            shifu_bid: 'shifu-1',
+            outline_bid: 'lesson-1',
+            data: 'Outgoing edit',
+          });
+          actions.setCurrentNode({ ...lesson('chapter-1'), depth: 0 });
+        });
+
+        let courseSaveResult: 'ready' | 'blocked' | undefined;
+        const courseSave = result.current.actions.saveMdflow().then(
+          () => {
+            courseSaveResult = 'ready';
+          },
+          () => {
+            courseSaveResult = 'blocked';
+          },
+        );
+        await act(async () => {});
+        expect(courseSaveResult).toBeUndefined();
+        await act(async () => {
+          if (outcome === 'saved') {
+            pending.resolve({ new_revision: 10 });
+          } else {
+            pending.reject(
+              Object.assign(new Error('Save failed'), {
+                code: outcome === 'conflicted' ? 4007 : 500,
+              }),
+            );
+          }
+          await courseSave;
+        });
+        expect(courseSaveResult).toBe(
+          outcome === 'saved' ? 'ready' : 'blocked',
+        );
+        expect(mockSaveMdflow).toHaveBeenCalledTimes(1);
+      } finally {
+        consoleError.mockRestore();
+      }
+    },
+  );
+
+  it('waits for an in-flight autosave and saves a subsequent edit with the returned revision', async () => {
+    const pending = createDeferred<{ new_revision: number }>();
+    mockSaveMdflow.mockReturnValueOnce(pending.promise);
+    const result = await renderCourse();
+    await act(async () => {
+      result.current.actions.setCurrentNode(lesson('lesson-1'));
+      await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+    });
+    let save: Promise<void>;
+    await act(async () => {
+      result.current.actions.setBaseRevision(8);
+      result.current.actions.setCurrentMdflow('Autosaved edit');
+      result.current.actions.flushAutoSaveBlocks({
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+        data: 'Autosaved edit',
+      });
+      result.current.actions.setCurrentMdflow('Saved lesson content');
+      save = result.current.actions.saveMdflow();
+    });
+    expect(mockSaveMdflow).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pending.resolve({ new_revision: 9 });
+      await save;
+    });
+    expect(mockSaveMdflow).toHaveBeenLastCalledWith({
+      shifu_bid: 'shifu-1',
+      outline_bid: 'lesson-1',
+      data: 'Saved lesson content',
+      base_revision: 9,
+    });
+  });
+
+  it('drains queued lesson saves before restoring and blocks saves until the restored body reloads', async () => {
+    const first = createDeferred<{ new_revision: number }>();
+    const second = createDeferred<{ new_revision: number }>();
+    const restore = createDeferred<{
+      restored: boolean;
+      new_revision: number;
+    }>();
+    mockSaveMdflow
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    mockRestoreMdflowHistory.mockReturnValueOnce(restore.promise);
+    const result = await renderCourse();
+    const snapshot = { shifu_bid: 'shifu-1', outline_bid: 'lesson-1' };
+    await act(async () => {
+      result.current.actions.setCurrentNode(lesson('lesson-1'));
+      await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+    });
+    let restoring!: ReturnType<
+      typeof result.current.actions.restoreMdflowHistory
+    >;
+    act(() => {
+      const { actions } = result.current;
+      actions.setCurrentMdflow('First edit');
+      actions.flushAutoSaveBlocks({ ...snapshot, data: 'First edit' });
+      actions.setCurrentMdflow('Queued edit');
+      actions.flushAutoSaveBlocks({ ...snapshot, data: 'Queued edit' });
+      restoring = actions.restoreMdflowHistory('shifu-1', 'lesson-1', 4);
+    });
+    expect(mockRestoreMdflowHistory).not.toHaveBeenCalled();
+    await act(async () => {
+      first.resolve({ new_revision: 10 });
+    });
+    expect(mockSaveMdflow).toHaveBeenCalledTimes(2);
+    expect(mockRestoreMdflowHistory).not.toHaveBeenCalled();
+
+    await act(async () => {
+      second.resolve({ new_revision: 11 });
+    });
+    expect(mockRestoreMdflowHistory).toHaveBeenCalledWith({
+      ...snapshot,
+      version_id: 4,
+      base_revision: 11,
+    });
+    await act(async () => {
+      await result.current.actions.saveMdflow();
+      restore.resolve({ restored: true, new_revision: 12 });
+      await restoring;
+      await result.current.actions.saveMdflow();
+    });
+    expect(mockSaveMdflow).toHaveBeenCalledTimes(2);
+    expect(result.current.isMdflowLoaded).toBe(false);
+
+    mockGetMdflow.mockResolvedValueOnce('Restored content');
+    await act(async () => {
+      await result.current.actions.loadMdflow('lesson-1', 'shifu-1');
+    });
+    expect(result.current.mdflow).toBe('Restored content');
+  });
+});
+
 describe('useShifu draft meta handling', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset();
     mockGetShifuDraftMeta.mockReset();
-    mockGetShifuDetail.mockReset();
+    mockGetShifuDetail.mockReset().mockResolvedValue({ bid: 'shifu-1' });
     mockCreateOutline.mockReset();
     mockTrackEvent.mockReset();
   });
@@ -74,6 +378,9 @@ describe('useShifu draft meta handling', () => {
     });
 
     const { result } = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await result.current.actions.loadShifu('shifu-1');
+    });
 
     await act(async () => {
       result.current.actions.setCurrentNode({
@@ -90,43 +397,6 @@ describe('useShifu draft meta handling', () => {
     expect(result.current.latestDraftMeta?.updated_at).toBe(
       '2026-06-30T05:37:42Z',
     );
-  });
-
-  it('refreshes draft meta after saving mdflow successfully', async () => {
-    mockSaveMdflow.mockResolvedValue({ new_revision: 9 });
-    mockGetShifuDraftMeta.mockResolvedValue({
-      revision: 9,
-      updated_at: '2026-06-30T05:37:42Z',
-      updated_user: null,
-    });
-
-    const { result } = renderHook(() => useShifu(), { wrapper });
-
-    await act(async () => {
-      result.current.actions.setCurrentNode({
-        bid: 'lesson-1',
-        depth: 1,
-      } as any);
-      await result.current.actions.saveMdflow({
-        shifu_bid: 'shifu-1',
-        outline_bid: 'lesson-1',
-        data: 'updated content',
-      });
-    });
-
-    expect(mockSaveMdflow).toHaveBeenCalledWith({
-      shifu_bid: 'shifu-1',
-      outline_bid: 'lesson-1',
-      data: 'updated content',
-      base_revision: undefined,
-    });
-    await waitFor(() => {
-      expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
-        shifu_bid: 'shifu-1',
-        outline_bid: 'lesson-1',
-      });
-      expect(result.current.latestDraftMeta?.revision).toBe(9);
-    });
   });
 
   it('does not clear current draft meta when a stale outline request fails', async () => {
@@ -146,6 +416,9 @@ describe('useShifu draft meta handling', () => {
     });
 
     const { result } = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await result.current.actions.loadShifu('shifu-1');
+    });
 
     let lessonOnePromise: Promise<unknown> | null = null;
     await act(async () => {

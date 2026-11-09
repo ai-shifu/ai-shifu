@@ -149,6 +149,7 @@ export interface ShifuState {
   currentNode: Outline | null;
   models: ModelOption[];
   mdflow: string;
+  isMdflowLoaded: boolean;
   variables: string[];
   hiddenVariables: string[];
   systemVariables: Record<string, string>[];
@@ -232,6 +233,10 @@ export interface ShifuActions {
     shifuId: string,
     options?: LoadMdflowOptions,
   ) => Promise<boolean>;
+  retryMdflow: (
+    outlineId: string,
+    shifuId: string,
+  ) => Promise<boolean> | undefined;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
   loadDraftMeta: (
     shifuId: string,

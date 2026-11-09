@@ -34,6 +34,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/Tooltip';
 import { Input } from '../ui/Input';
+import { useTracking } from '@/hooks/use-tracking';
 
 export type TreeItemProps = {
   currentNode?: Outline;
@@ -48,6 +49,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
   const { actions, cataData, currentNode, currentShifu } = useShifu();
+  const { trackEvent } = useTracking();
   // Pull custom TreeItemProps out of the spread so they are not forwarded onto
   // the underlying <li> DOM node (React warns on unknown attributes).
   const { addLessonTargetId, forceShowAddLessonAction, ...wrapperProps } =
@@ -226,6 +228,18 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
 
     if (currentNode?.id === props.item.id) {
+      const shifuBid = currentShifu?.bid;
+      const outlineBid = props.item.bid;
+      if (isChapterNode || !shifuBid || !outlineBid) {
+        return;
+      }
+      const retry = actions.retryMdflow(outlineBid, shifuBid);
+      if (retry) {
+        const applied = await retry;
+        void trackEvent('creator_lesson_load_retry_result', {
+          outcome: applied ? 'applied' : 'not_applied',
+        });
+      }
       return;
     }
 

@@ -48,6 +48,15 @@ import {
   OUTLINE_CREATE_EVENT,
 } from './shifu-analytics';
 
+interface LessonDraft {
+  shifuId: string;
+  outlineId: string;
+  persisted: string | undefined;
+  revision: number | null;
+  conflicted: boolean;
+  loading: boolean;
+}
+
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 const PROFILE_CACHE_TTL = 5000; // 5s
 const HIDDEN_STORAGE_PREFIX = 'hidden_profile_variables';
@@ -161,30 +170,29 @@ export const ShifuProvider = ({
   const [currentNode, setCurrentNode] = useState<Outline | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [mdflow, setMdflow] = useState<string>('');
+  const [isMdflowLoaded, setIsMdflowLoaded] = useState(false);
   const [variables, setVariables] = useState<string[]>([]);
   const [hiddenVariables, setHiddenVariables] = useState<string[]>([]);
   const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
   const [hideUnusedMode, setHideUnusedMode] = useState(false);
-  const [baseRevision, setBaseRevision] = useState<number | null>(null);
+  const [baseRevision, setBaseRevisionState] = useState<number | null>(null);
   const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(
     null,
   );
   const [hasDraftConflict, setHasDraftConflict] = useState(false);
   const [autosavePaused, setAutosavePaused] = useState(false);
   const currentMdflow = useRef<string>('');
-  const lastPersistedMdflowRef = useRef<Record<string, string>>({});
-  const saveMdflowLockRef = useRef<{
-    inflight: boolean;
-    outlineId: string | null;
-  }>({
-    inflight: false,
-    outlineId: null,
-  });
-  const mdflowRequestRef = useRef<{ id: number; outlineId: string | null }>({
-    id: 0,
-    outlineId: null,
-  });
-  const mdflowCacheRef = useRef<Record<string, string>>({});
+  const lessonDraftRef = useRef<LessonDraft | null>(null);
+  const savesByOutlineRef = useRef(
+    new Map<
+      string,
+      { draft: LessonDraft; data: string; promise: Promise<void> }
+    >(),
+  );
+  const restoresByOutlineRef = useRef(
+    new Map<string, Promise<MdflowHistoryRestoreResult>>(),
+  );
+  const mdflowRequestRef = useRef(0);
   const profileDefinitionCacheRef = useRef<
     Record<
       string,
@@ -199,27 +207,55 @@ export const ShifuProvider = ({
   const [systemVariables, setSystemVariables] = useState<
     Record<string, string>[]
   >([]);
-  const currentOutlineRef = useRef<string | null>(null);
+  const setBaseRevision = useCallback((revision: number | null) => {
+    if (lessonDraftRef.current) {
+      lessonDraftRef.current.revision = revision;
+    }
+    setBaseRevisionState(revision);
+  }, []);
 
-  const internalSetCurrentNode = (node: Outline | null) => {
+  const setDraftConflict = (conflicted: boolean) => {
+    if (lessonDraftRef.current) {
+      lessonDraftRef.current.conflicted = conflicted;
+    }
+    setHasDraftConflict(conflicted);
+  };
+
+  const internalSetCurrentNode = (
+    node: Outline | null,
+    shifuId = currentShifu?.bid ?? '',
+  ) => {
     setCurrentNode(node);
-    currentOutlineRef.current = node?.bid || null;
-    const cacheKey = node?.bid;
-    if (cacheKey && mdflowCacheRef.current[cacheKey] !== undefined) {
-      const cached = mdflowCacheRef.current[cacheKey];
-      currentMdflow.current = cached;
-      setMdflow(cached);
+    const draft = lessonDraftRef.current;
+    if (draft && draft.outlineId === node?.bid && draft.shifuId === shifuId) {
       return;
     }
-    if (currentMdflow.current !== '') {
-      currentMdflow.current = '';
-      setMdflow('');
-    }
+    // Submit pending edits for the outgoing lesson before changing identity.
+    debouncedAutoSaveRef.current.flush();
+    lessonDraftRef.current =
+      shifuId && node?.bid && node.bid !== 'new_lesson' && (node.depth ?? 0) > 0
+        ? {
+            shifuId,
+            outlineId: node.bid,
+            persisted: undefined,
+            revision: null,
+            conflicted: false,
+            loading: false,
+          }
+        : null;
+    mdflowRequestRef.current += 1;
+    setIsMdflowLoaded(false);
+    setBaseRevision(null);
+    currentMdflow.current = '';
+    setMdflow('');
+    setIsLoading(false);
   };
-  // Debounced autosave for mdflow; kept stable via ref
+
   const debouncedAutoSaveRef = useRef(
-    debounce(async (payload?: SaveMdflowPayload) => {
-      await saveMdflow(payload);
+    debounce((save: () => Promise<void>) => {
+      void save().catch(error =>
+        console.error('Failed to autosave lesson', error),
+      );
     }, 3000),
   );
 
@@ -242,6 +278,12 @@ export const ShifuProvider = ({
       const shifu = await api.getShifuDetail({
         shifu_bid: shifuId,
       });
+      if (
+        lessonDraftRef.current &&
+        lessonDraftRef.current.shifuId !== shifuId
+      ) {
+        internalSetCurrentNode(null);
+      }
       setCurrentShifu(normalizeShifuDetail(shifu) as Shifu | null);
     } catch (error) {
       console.error(error);
@@ -482,43 +524,54 @@ export const ShifuProvider = ({
     shifuId: string,
     options?: LoadMdflowOptions,
   ) => {
-    if (
-      outlineId === '' ||
-      outlineId === 'new_lesson' ||
-      outlineId === 'new_chapter'
-    ) {
+    const draft = lessonDraftRef.current;
+    if (draft?.outlineId !== outlineId || draft.shifuId !== shifuId) {
       return false;
     }
-    const requestId = mdflowRequestRef.current.id + 1;
-    mdflowRequestRef.current = { id: requestId, outlineId };
+    const requestId = ++mdflowRequestRef.current;
+    const isLatest = () =>
+      lessonDraftRef.current === draft &&
+      mdflowRequestRef.current === requestId;
+    draft.loading = true;
     setIsLoading(true);
     setError(null);
-    const isLatest = () =>
-      mdflowRequestRef.current.id === requestId &&
-      mdflowRequestRef.current.outlineId === outlineId;
 
     try {
+      // A lesson can be reselected while its outgoing save is still pending.
+      const pending = savesByOutlineRef.current.get(outlineId);
+      if (pending) {
+        await pending.promise.catch(() => undefined);
+      }
+      const restore = restoresByOutlineRef.current.get(outlineId);
+      if (restore) {
+        await restore.catch(() => undefined);
+      }
+      if (!isLatest()) {
+        return false;
+      }
+      const initialContent = currentMdflow.current;
+      const initialPersisted = draft.persisted;
       const mdflow = await api.getMdflow({
         shifu_bid: shifuId,
         outline_bid: outlineId,
       });
-      mdflowCacheRef.current[outlineId] = mdflow || '';
-      if (!isLatest()) {
+      if (
+        !isLatest() ||
+        initialContent !== currentMdflow.current ||
+        initialPersisted !== draft.persisted ||
+        savesByOutlineRef.current.has(outlineId) ||
+        restoresByOutlineRef.current.has(outlineId) ||
+        (options?.canApply && !options.canApply())
+      ) {
         return false;
       }
-      if (currentOutlineRef.current !== outlineId) {
-        lastPersistedMdflowRef.current[outlineId] = mdflow || '';
-        return false;
-      }
-      if (options?.canApply && !options.canApply()) {
-        lastPersistedMdflowRef.current[outlineId] = mdflow || '';
-        return false;
-      }
-      setMdflow(mdflow);
-      setCurrentMdflow(mdflow);
-      lastPersistedMdflowRef.current[outlineId] = mdflow || '';
-      await parseMdflow(mdflow, shifuId, outlineId);
-      return true;
+      const loadedContent: string = mdflow ?? '';
+      draft.persisted = loadedContent;
+      currentMdflow.current = loadedContent;
+      setMdflow(loadedContent);
+      setIsMdflowLoaded(true);
+      await refreshProfileDefinitions(shifuId).catch(console.error);
+      return isLatest();
     } catch (error) {
       if (isLatest()) {
         console.error(error);
@@ -527,9 +580,23 @@ export const ShifuProvider = ({
       return false;
     } finally {
       if (isLatest()) {
+        draft.loading = false;
         setIsLoading(false);
       }
     }
+  };
+
+  const retryMdflow = (outlineId: string, shifuId: string) => {
+    const draft = lessonDraftRef.current;
+    if (
+      draft?.outlineId !== outlineId ||
+      draft.shifuId !== shifuId ||
+      draft.loading ||
+      draft.persisted !== undefined
+    ) {
+      return;
+    }
+    return loadMdflow(outlineId, shifuId);
   };
 
   const loadDraftMeta = useCallback(
@@ -538,19 +605,26 @@ export const ShifuProvider = ({
         setLatestDraftMeta(null);
         return null;
       }
+      const draft = lessonDraftRef.current;
+      const isCurrentTarget = () =>
+        !outlineId ||
+        (lessonDraftRef.current === draft &&
+          draft?.outlineId === outlineId &&
+          draft.shifuId === shifuId);
       try {
         const payload: Record<string, string> = { shifu_bid: shifuId };
         if (outlineId) {
           payload.outline_bid = outlineId;
         }
         const meta = await api.getShifuDraftMeta(payload);
-        if (!outlineId || currentOutlineRef.current === outlineId) {
-          setLatestDraftMeta(meta as DraftMeta);
+        if (!isCurrentTarget()) {
+          return null;
         }
+        setLatestDraftMeta(meta as DraftMeta);
         return meta as DraftMeta;
       } catch (error) {
         console.error('Failed to load draft meta', error);
-        if (!outlineId || currentOutlineRef.current === outlineId) {
+        if (isCurrentTarget()) {
           setLatestDraftMeta(null);
         }
         return null;
@@ -609,35 +683,69 @@ export const ShifuProvider = ({
       versionId: number,
       revision?: number | null,
     ) => {
-      if (!shifuId || !outlineId || versionId == null) {
+      const restores = restoresByOutlineRef.current;
+      if (
+        !shifuId ||
+        !outlineId ||
+        versionId == null ||
+        restores.has(outlineId)
+      ) {
         return null;
       }
       // Prevent pending debounced saves from overwriting restored content.
       debouncedAutoSaveRef.current.cancel();
-      try {
-        const resolvedBaseRevision = revision ?? baseRevision ?? undefined;
+      const draft = lessonDraftRef.current;
+      const isCurrentTarget = () =>
+        lessonDraftRef.current === draft &&
+        draft?.outlineId === outlineId &&
+        draft.shifuId === shifuId;
+      const restore = (async () => {
+        // Let submitted writes finish before intentionally replacing the draft.
+        const pending = savesByOutlineRef.current.get(outlineId);
+        if (pending) {
+          await pending.promise.catch(() => undefined);
+        }
+        const resolvedBaseRevision =
+          revision ??
+          (isCurrentTarget() ? draft?.revision : undefined) ??
+          undefined;
         const result = (await api.restoreMdflowHistory({
           shifu_bid: shifuId,
           outline_bid: outlineId,
           version_id: versionId,
           base_revision: resolvedBaseRevision,
         })) as MdflowHistoryRestoreResult;
-        if (typeof result?.new_revision === 'number') {
-          setBaseRevision(result.new_revision);
+        if (draft && isCurrentTarget()) {
+          if (result?.restored) {
+            draft.persisted = undefined;
+            setIsMdflowLoaded(false);
+          }
+          if (typeof result?.new_revision === 'number') {
+            setBaseRevision(result.new_revision);
+          }
         }
         return result;
+      })();
+      restores.set(outlineId, restore);
+      try {
+        return await restore;
       } catch (error: any) {
         if (error?.code === 4007) {
           await loadDraftMeta(shifuId, outlineId);
-          setHasDraftConflict(true);
-          setAutosavePaused(true);
+          if (isCurrentTarget() && draft) {
+            draft.conflicted = true;
+            setHasDraftConflict(true);
+            setAutosavePaused(true);
+          }
           return null;
         }
         console.error('Failed to restore mdflow history', error);
         throw error;
+      } finally {
+        restores.delete(outlineId);
       }
     },
-    [baseRevision, loadDraftMeta],
+    [loadDraftMeta, setBaseRevision],
   );
 
   const loadChapters = async (
@@ -653,6 +761,12 @@ export const ShifuProvider = ({
         api.getShifuDetail({ shifu_bid: shifuId }),
         api.getShifuOutlineTree({ shifu_bid: shifuId }),
       ]);
+      if (
+        lessonDraftRef.current &&
+        lessonDraftRef.current.shifuId !== shifuId
+      ) {
+        internalSetCurrentNode(null);
+      }
       setCurrentShifu(normalizeShifuDetail(shifuInfo) as Shifu | null);
       const list = remapOutlineTree(chaptersData);
       const preferredLessonNode = preferredLessonBid
@@ -660,7 +774,7 @@ export const ShifuProvider = ({
         : null;
 
       if (preferredLessonNode && (preferredLessonNode.depth || 0) > 0) {
-        internalSetCurrentNode(preferredLessonNode);
+        internalSetCurrentNode(preferredLessonNode, shifuId);
         await loadMdflow(preferredLessonNode.bid, shifuId);
       } else if (autoSelectFirstLesson && list.length > 0) {
         // Find the first lesson to select by default
@@ -669,16 +783,13 @@ export const ShifuProvider = ({
         )?.children?.[0];
 
         if (firstLesson) {
-          internalSetCurrentNode(firstLesson);
+          internalSetCurrentNode(firstLesson, shifuId);
           await loadMdflow(firstLesson.bid, shifuId);
           // await loadBlocks(firstLesson.bid, shifuId);
         }
       } else if (!autoSelectFirstLesson) {
         debouncedAutoSaveRef.current.cancel();
         internalSetCurrentNode(null);
-        setMdflow('');
-        currentMdflow.current = '';
-        setBaseRevision(null);
         setLatestDraftMeta(null);
         setHasDraftConflict(false);
         setAutosavePaused(false);
@@ -819,10 +930,10 @@ export const ShifuProvider = ({
   const autoSaveBlocks = (
     payload?: SaveMdflowPayload,
   ): Promise<ApiResponse<SaveBlockListResult> | null> => {
-    if (autosavePaused || hasDraftConflict) {
-      return Promise.resolve(null);
+    const save = getMdflowSave(payload);
+    if (save) {
+      debouncedAutoSaveRef.current(save);
     }
-    debouncedAutoSaveRef.current(payload);
     return Promise.resolve(null);
   };
 
@@ -831,7 +942,10 @@ export const ShifuProvider = ({
       return;
     }
     if (payload) {
-      debouncedAutoSaveRef.current(payload);
+      const save = getMdflowSave(payload);
+      if (save) {
+        debouncedAutoSaveRef.current(save);
+      }
     }
     debouncedAutoSaveRef.current.flush();
   };
@@ -1524,82 +1638,139 @@ export const ShifuProvider = ({
     ],
   );
 
-  const saveMdflow = async (payload?: SaveMdflowPayload) => {
-    if (autosavePaused || hasDraftConflict) {
+  const getMdflowSave = (payload?: SaveMdflowPayload) => {
+    const draft = lessonDraftRef.current;
+    if (
+      draft?.persisted === undefined ||
+      autosavePaused ||
+      draft.conflicted ||
+      restoresByOutlineRef.current.has(draft.outlineId) ||
+      (payload?.outline_bid ?? currentNode?.bid) !== draft.outlineId ||
+      (payload?.shifu_bid ?? currentShifu?.bid) !== draft.shifuId
+    ) {
       return;
     }
-    const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
-    const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
-    const data = payload?.data ?? currentMdflow.current ?? '';
-    const resolvedBaseRevision =
-      payload?.base_revision ?? baseRevision ?? undefined;
-    if (!shifu_bid || !outline_bid) {
+    const data = payload?.data ?? currentMdflow.current;
+    if (data !== currentMdflow.current) {
       return;
     }
-    if (saveMdflowLockRef.current.inflight) {
-      if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
-        // When another outline save is in-flight, skip cross-outline saves
+    return () => persistMdflow(draft, data, payload?.base_revision);
+  };
+
+  const persistMdflow = async (
+    draft: LessonDraft,
+    data: string,
+    revision?: number,
+  ) => {
+    const { shifuId, outlineId } = draft;
+    const saves = savesByOutlineRef.current;
+    const previousSave = saves.get(outlineId);
+    if (!previousSave && data === draft.persisted) {
+      return;
+    }
+    const save = (async () => {
+      if (previousSave) {
+        await previousSave.promise.catch(() => undefined);
+      }
+      if (draft.conflicted || data === draft.persisted) {
         return;
       }
-    }
-    saveMdflowLockRef.current = {
-      inflight: true,
-      outlineId: outline_bid || null,
-    };
-    let keepLock = false;
+      try {
+        const result = await api.saveMdflow({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          data,
+          base_revision: revision ?? draft.revision ?? undefined,
+        });
+        draft.persisted = data;
+        if (typeof result?.new_revision === 'number') {
+          draft.revision = result.new_revision;
+          if (lessonDraftRef.current === draft) {
+            setBaseRevision(draft.revision);
+          }
+        }
+        setLastSaveTime(new Date());
+        if (lessonDraftRef.current === draft) {
+          await loadDraftMeta(shifuId, outlineId);
+        }
+      } catch (error: any) {
+        if (error?.code !== 4007) {
+          throw error;
+        }
+        draft.conflicted = true;
+        if (lessonDraftRef.current === draft) {
+          setHasDraftConflict(true);
+          setAutosavePaused(true);
+          debouncedAutoSaveRef.current.cancel();
+          await loadDraftMeta(shifuId, outlineId);
+        }
+      }
+    })();
+    saves.set(outlineId, { draft, data, promise: save });
     try {
-      const result = await api.saveMdflow({
-        shifu_bid,
-        outline_bid,
-        data,
-        base_revision: resolvedBaseRevision,
-      });
-      if (result && typeof result.new_revision === 'number') {
-        setBaseRevision(result.new_revision);
-      }
-      if (outline_bid) {
-        mdflowCacheRef.current[outline_bid] = data || '';
-        lastPersistedMdflowRef.current[outline_bid] = data || '';
-      }
-      setLastSaveTime(new Date());
-      await loadDraftMeta(shifu_bid, outline_bid);
-    } catch (error: any) {
-      if (error?.code === 4007) {
-        await loadDraftMeta(shifu_bid, outline_bid);
-        setHasDraftConflict(true);
-        setAutosavePaused(true);
-        debouncedAutoSaveRef.current.cancel();
-        keepLock = true;
-        return;
-      }
-      throw error;
+      await save;
     } finally {
-      if (!keepLock) {
-        saveMdflowLockRef.current = { inflight: false, outlineId: null };
+      if (saves.get(outlineId)?.promise === save) {
+        saves.delete(outlineId);
       }
     }
+  };
+
+  const saveMdflow = async (payload?: SaveMdflowPayload) => {
+    const save = getMdflowSave(payload);
+    if (save) {
+      // This snapshot also covers edits waiting on the debounce timer.
+      debouncedAutoSaveRef.current.cancel();
+    }
+    const savingCurrentLesson = save?.();
+    if (payload) {
+      await savingCurrentLesson;
+      return;
+    }
+
+    // Course preview and publish consume saved drafts from every lesson.
+    const pendingCourseSaves = [...savesByOutlineRef.current.values()].filter(
+      ({ draft }) => draft.shifuId === currentShifu?.bid,
+    );
+    await Promise.all([
+      savingCurrentLesson,
+      ...pendingCourseSaves.map(async ({ draft, promise }) => {
+        await promise;
+        if (draft.conflicted) {
+          throw new Error('A pending lesson save conflicted');
+        }
+      }),
+    ]);
   };
 
   const setCurrentMdflow = (value: string) => {
-    currentMdflow.current = value;
-    setMdflow(value || '');
-    if (currentOutlineRef.current) {
-      mdflowCacheRef.current[currentOutlineRef.current] = value || '';
+    const draft = lessonDraftRef.current;
+    if (
+      draft?.persisted === undefined ||
+      draft.outlineId !== currentNode?.bid ||
+      draft.shifuId !== currentShifu?.bid
+    ) {
+      return;
     }
+    currentMdflow.current = value;
+    setMdflow(value);
   };
 
-  const getCurrentMdflow = () => {
-    return currentMdflow.current;
-  };
+  const getCurrentMdflow = () => currentMdflow.current;
 
   const hasUnsavedMdflow = (outlineId?: string, value?: string) => {
-    const targetOutlineId = outlineId || currentOutlineRef.current || '';
-    if (!targetOutlineId) {
+    const draft = lessonDraftRef.current;
+    if (
+      draft?.persisted === undefined ||
+      (outlineId && outlineId !== draft.outlineId)
+    ) {
       return false;
     }
-    const latest = value ?? currentMdflow.current ?? '';
-    const last = lastPersistedMdflowRef.current[targetOutlineId] ?? '';
-    return latest !== last;
+    const latest = value ?? currentMdflow.current;
+    const pending = savesByOutlineRef.current.get(draft.outlineId);
+    return (
+      latest !== draft.persisted || Boolean(pending && pending.data !== latest)
+    );
   };
 
   const removePlaceholderLessons = (nodes: Outline[] = []): Outline[] => {
@@ -1715,6 +1886,7 @@ export const ShifuProvider = ({
     currentNode,
     models,
     mdflow,
+    isMdflowLoaded,
     variables,
     hiddenVariables,
     systemVariables,
@@ -1744,6 +1916,7 @@ export const ShifuProvider = ({
       loadModels,
       reorderOutlineTree,
       loadMdflow,
+      retryMdflow,
       saveMdflow,
       loadDraftMeta,
       loadMdflowHistory,
@@ -1751,7 +1924,7 @@ export const ShifuProvider = ({
       restoreMdflowHistory,
       setBaseRevision,
       setLatestDraftMeta,
-      setDraftConflict: setHasDraftConflict,
+      setDraftConflict,
       setAutosavePaused,
       parseMdflow,
       prepareDebugSession,

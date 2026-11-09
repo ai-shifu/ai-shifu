@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -10,6 +11,9 @@ import api from '@/api';
 import { AlertProvider } from '@/components/ui/AlertProvider';
 import Header from './Header';
 
+import { ShifuProvider, useShifu } from '@/store/use-shifu';
+
+let mockUseRealShifu = false;
 const mockSaveMdflow = jest.fn();
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -27,19 +31,27 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     publishShifu: jest.fn(),
+    getShifuDetail: jest.fn(),
+    getMdflow: jest.fn(),
+    saveMdflow: jest.fn(),
+    getProfileItemDefinitions: jest.fn(),
+    getProfileVariableUsage: jest.fn(),
   },
 }));
 
 jest.mock('@/store', () => ({
-  useShifu: () => ({
-    isSaving: false,
-    error: null,
-    currentShifu: mockCurrentShifu,
-    actions: {
-      saveMdflow: mockSaveMdflow,
-      loadShifu: jest.fn(),
-    },
-  }),
+  useShifu: () =>
+    mockUseRealShifu
+      ? jest.requireActual('@/store/use-shifu').useShifu()
+      : {
+          isSaving: false,
+          error: null,
+          currentShifu: mockCurrentShifu,
+          actions: {
+            saveMdflow: mockSaveMdflow,
+            loadShifu: jest.fn(),
+          },
+        },
 }));
 
 jest.mock('@/hooks/use-toast', () => ({
@@ -145,6 +157,7 @@ const renderHeader = (props: React.ComponentProps<typeof Header> = {}) =>
 
 describe('Header publish success link', () => {
   beforeEach(() => {
+    mockUseRealShifu = false;
     mockSaveMdflow.mockReset().mockResolvedValue(undefined);
     mockToast.mockReset();
     mockTrackEvent.mockReset();
@@ -192,6 +205,65 @@ describe('Header publish success link', () => {
       expect(href).not.toMatch(/^javascript:/i);
     }
   };
+
+  it('starts publishing without writing a draft while lesson content is loading', async () => {
+    mockUseRealShifu = true;
+    (api.getShifuDetail as jest.Mock).mockResolvedValue(mockCurrentShifu);
+    (api.getProfileItemDefinitions as jest.Mock).mockResolvedValue([]);
+    (api.getProfileVariableUsage as jest.Mock).mockResolvedValue({});
+    (api.saveMdflow as jest.Mock).mockClear();
+    let resolveContent!: (content: string) => void;
+    (api.getMdflow as jest.Mock).mockReturnValue(
+      new Promise<string>(resolve => {
+        resolveContent = resolve;
+      }),
+    );
+
+    let actions!: ReturnType<typeof useShifu>['actions'];
+    function CourseEditor() {
+      actions = useShifu().actions;
+      return (
+        <AlertProvider>
+          <Header />
+        </AlertProvider>
+      );
+    }
+    render(
+      <ShifuProvider>
+        <CourseEditor />
+      </ShifuProvider>,
+    );
+    await act(async () => {
+      await actions.loadShifu(mockCurrentShifu.bid);
+    });
+    let loading!: Promise<boolean>;
+    act(() => {
+      actions.setCurrentNode({
+        id: 'lesson-1',
+        bid: 'lesson-1',
+        depth: 1,
+        name: 'Lesson',
+        position: '',
+      });
+      loading = actions.loadMdflow('lesson-1', mockCurrentShifu.bid);
+    });
+    expect(api.getMdflow).toHaveBeenCalledWith({
+      shifu_bid: mockCurrentShifu.bid,
+      outline_bid: 'lesson-1',
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.publish' }),
+    );
+    await waitFor(() => expect(api.publishShifu).toHaveBeenCalledTimes(1));
+    expect(api.saveMdflow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveContent('Existing lesson content');
+      expect(await loading).toBe(true);
+    });
+    expect(api.saveMdflow).not.toHaveBeenCalled();
+  });
 
   test('keeps one accessible tooltip on the lesson history link', async () => {
     const historyUrl = '/shifu/course-1/history?lessonid=lesson-1';

@@ -335,6 +335,7 @@ const baseActions = {
 
 const mockShifuState = {
   mdflow: '',
+  isMdflowLoaded: true,
   chapters: [],
   actions: baseActions,
   isLoading: false,
@@ -397,6 +398,7 @@ describe('ShifuEdit draft conflict checks', () => {
   };
 
   beforeEach(() => {
+    mockShifuState.isMdflowLoaded = true;
     jest.mocked(toast).mockClear();
     mockMarkdownFlowEditor.mockReset();
     mockDebugPanel.mockReset();
@@ -551,6 +553,25 @@ describe('ShifuEdit draft conflict checks', () => {
       'shifu-1',
       'lesson-1',
     );
+  });
+
+  test('disables lesson debug until the draft content loads', () => {
+    setLessonNode();
+    mockShifuState.isMdflowLoaded = false;
+    const { rerender } = render(<ScriptEditor id='shifu-1' />);
+    const debugButton = screen.getByRole('button', {
+      name: 'module.shifu.previewArea.action',
+    });
+
+    expect(debugButton).toBeDisabled();
+    fireEvent.click(debugButton);
+    expect(baseActions.saveMdflow).not.toHaveBeenCalled();
+    expect(baseActions.prepareDebugSession).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    mockShifuState.isMdflowLoaded = true;
+    rerender(<ScriptEditor id='shifu-1' />);
+    expect(debugButton).toBeEnabled();
   });
 
   test('passes the collaborator credit audience for another owner course', () => {

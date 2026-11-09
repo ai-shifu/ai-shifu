@@ -11,6 +11,9 @@ import { useBillingOverview } from '@/hooks/use-billing-data';
 import PreviewSettingsModal from './Preview';
 import { showCreditInsufficientToast } from '@/lib/credit-insufficient-toast';
 
+import { ShifuProvider, useShifu } from '@/store/use-shifu';
+
+let mockUseRealShifu = false;
 const mockSaveMdflow = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
@@ -33,6 +36,11 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     previewShifu: jest.fn(),
+    getShifuDetail: jest.fn(),
+    getMdflow: jest.fn(),
+    saveMdflow: jest.fn(),
+    getProfileItemDefinitions: jest.fn(),
+    getProfileVariableUsage: jest.fn(),
   },
 }));
 
@@ -64,13 +72,16 @@ jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (selector: (state: { billingEnabled: string }) => unknown) =>
     selector({ billingEnabled: 'true' }),
-  useShifu: () => ({
-    currentNode: mockCurrentNode,
-    currentShifu: mockCurrentShifu,
-    actions: {
-      saveMdflow: mockSaveMdflow,
-    },
-  }),
+  useShifu: () =>
+    mockUseRealShifu
+      ? jest.requireActual('@/store/use-shifu').useShifu()
+      : {
+          currentNode: mockCurrentNode,
+          currentShifu: mockCurrentShifu,
+          actions: {
+            saveMdflow: mockSaveMdflow,
+          },
+        },
   useUserStore: (
     selector: (state: { userInfo: typeof ownerUserInfo | null }) => unknown,
   ) => selector({ userInfo: mockUserInfo }),
@@ -90,6 +101,7 @@ jest.mock('react-i18next', () => ({
 
 describe('PreviewSettingsModal', () => {
   beforeEach(() => {
+    mockUseRealShifu = false;
     mockSaveMdflow.mockReset();
     mockTrackEvent.mockReset();
     (api.previewShifu as jest.Mock).mockReset();
@@ -98,6 +110,62 @@ describe('PreviewSettingsModal', () => {
     mockCurrentNode.depth = 1;
     mockCurrentShifu.created_user_bid = 'user-1';
     mockUserInfo = ownerUserInfo;
+  });
+
+  it('starts preview without writing a draft while lesson content is loading', async () => {
+    mockUseRealShifu = true;
+    mockUseBillingOverview.mockReturnValue({ data: { debug_allowed: true } });
+    (api.getShifuDetail as jest.Mock).mockResolvedValue(mockCurrentShifu);
+    (api.getProfileItemDefinitions as jest.Mock).mockResolvedValue([]);
+    (api.getProfileVariableUsage as jest.Mock).mockResolvedValue({});
+    (api.saveMdflow as jest.Mock).mockClear();
+    let resolveContent!: (content: string) => void;
+    (api.getMdflow as jest.Mock).mockReturnValue(
+      new Promise<string>(resolve => {
+        resolveContent = resolve;
+      }),
+    );
+
+    let actions!: ReturnType<typeof useShifu>['actions'];
+    function CourseEditor() {
+      actions = useShifu().actions;
+      return <PreviewSettingsModal />;
+    }
+    render(
+      <ShifuProvider>
+        <CourseEditor />
+      </ShifuProvider>,
+    );
+    await act(async () => {
+      await actions.loadShifu(mockCurrentShifu.bid);
+    });
+    let loading!: Promise<boolean>;
+    act(() => {
+      actions.setCurrentNode({
+        id: 'lesson-1',
+        bid: 'lesson-1',
+        depth: 1,
+        name: 'Lesson',
+        position: '',
+      });
+      loading = actions.loadMdflow('lesson-1', mockCurrentShifu.bid);
+    });
+    expect(api.getMdflow).toHaveBeenCalledWith({
+      shifu_bid: mockCurrentShifu.bid,
+      outline_bid: 'lesson-1',
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.preview.previewAll' }),
+    );
+    await waitFor(() => expect(api.previewShifu).toHaveBeenCalledTimes(1));
+    expect(api.saveMdflow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveContent('Existing lesson content');
+      expect(await loading).toBe(true);
+    });
+    expect(api.saveMdflow).not.toHaveBeenCalled();
   });
 
   it('shows a permanent purchase toast when billing softlimit blocks debug', async () => {
