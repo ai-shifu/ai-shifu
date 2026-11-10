@@ -228,14 +228,16 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
                 return [first, *events]
             return list(events)
 
-    def history(**overrides: str) -> LearnElementRecordDTO:
+    def history(
+        *, preview_mode: bool = True, **overrides: str
+    ) -> LearnElementRecordDTO:
         with app.app_context():
             return get_listen_element_record(
                 app,
                 overrides.get("course", identity),
                 overrides.get("lesson", identity),
                 overrides.get("user", identity),
-                preview_mode=True,
+                preview_mode=preview_mode,
             )
 
     return identity, run, history, calls
