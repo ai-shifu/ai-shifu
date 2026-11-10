@@ -224,6 +224,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Session Langfuse Traces](./completed/session-langfuse-traces.md)
 - [Share course memory across preview and learning](./completed/share-course-preview-memory.md)
 - [Write explicit named answers back to same-owner course variables](./completed/shared-answer-writeback.md)
+- [Restore answer edits in the shared classroom](./completed/shared-course-answer-rewind.md)
 - [Share learning across course versions](./completed/shared-course-version-learning.md)
 - [Shared Interaction Rewind](./completed/shared-interaction-rewind.md)
 - [Share lesson request completion](./completed/shared-lesson-request-lifecycle.md)

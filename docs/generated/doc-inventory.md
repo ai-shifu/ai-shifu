@@ -256,6 +256,7 @@
 | `docs/exec-plans/completed/session-langfuse-traces.md` | Session Langfuse Traces | `exec-plan-completed` | `completed` | `backend` | `2026-10-27` | `false` |
 | `docs/exec-plans/completed/share-course-preview-memory.md` | Share course memory across preview and learning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-answer-writeback.md` | Write explicit named answers back to same-owner course variables | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/shared-course-answer-rewind.md` | Restore answer edits in the shared classroom | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-course-version-learning.md` | Share learning across course versions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-interaction-rewind.md` | Shared Interaction Rewind | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-lesson-request-lifecycle.md` | Share lesson request completion | `exec-plan-completed` | `completed` | `backend` | `2026-10-26` | `false` |

@@ -29,6 +29,9 @@ from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from tests.common.fixtures.model_factories import make_generated_element
 from tests.service.learn.test_draft_classroom_history import (
+    _stage_published_classroom,
+)
+from tests.service.learn.test_draft_classroom_history import (
     classroom as classroom,  # noqa: PLC0414 - pytest fixture re-export.
 )
 
@@ -79,6 +82,188 @@ def test_editing_an_old_draft_answer_replaces_only_its_future(
             block.progress_record_bid == progress.progress_record_bid
             for block in blocks
         )
+
+
+@pytest.mark.parametrize("mode", ["published", "preview", "publish-after-answer"])
+@pytest.mark.parametrize("legacy", [False, True], ids=["current", "legacy"])
+def test_editing_narrated_question_replays_message_before_next_native_question(
+    app: Flask,
+    classroom: tuple,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    legacy: bool,
+) -> None:
+    identity, run, history, _calls = classroom
+    preview_mode = mode != "published"
+    if not preview_mode:
+        with app.app_context(), unit_of_work():
+            _stage_published_classroom(identity)
+
+    async def model(messages: list, _info: object) -> AsyncIterator:
+        parts = [part for message in messages for part in message.parts]
+        if any(
+            isinstance(part, ToolCallPart) and part.tool_name == "finish"
+            for part in parts
+        ):
+            return
+        if any(
+            isinstance(part, ToolCallPart) and part.tool_name == "interact"
+            for part in parts
+        ):
+            yield "Finished with the native answer."
+            yield {0: DeltaToolCall(name="finish", json_args='{"summary":"Done"}')}
+            return
+        answer = next(
+            (
+                v
+                for v in ("Old choice", "New choice")
+                if any(v == getattr(part, "content", None) for part in parts)
+            ),
+            None,
+        )
+        if answer is None:
+            yield "Pick a starting point.\n?[Old choice | New choice]\n"
+            return
+        yield f"Teaching for {answer}."
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="native-next",
+                json_args='{"type":"text","prompt":"Next question?"}',
+            )
+        }
+
+    class Gateway(FunctionModel):
+        def set_usage_context(self, _context: object) -> None:
+            pass
+
+    gateway = Gateway(stream_function=model)
+    monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
+    run(preview_mode=preview_mode)
+    initial = history(preview_mode=preview_mode)
+    first = next(
+        e for e in initial.elements if e.element_type == ElementType.INTERACTION
+    )
+    run("Old choice", preview_mode=preview_mode)
+    old = history(preview_mode=preview_mode)
+    old_native = [e for e in old.elements if e.element_type == ElementType.INTERACTION][
+        -1
+    ]
+    assert old_native.element_bid != first.element_bid
+    assert _shown(old.elements[1].payload.user_input) == "Old choice"
+    run("Old native answer", preview_mode=preview_mode)
+    finished = load_agent_session(app, identity, identity)
+    assert finished.finished
+    if mode == "publish-after-answer":
+        with app.app_context(), unit_of_work():
+            _stage_published_classroom(identity)
+        preview_mode = False
+
+    if legacy:
+        # Older turn records did not include engine session IDs.
+        with app.app_context(), unit_of_work():
+            for block in LearnGeneratedBlock.query.filter_by(user_bid=identity):
+                data = json.loads(block.block_content_conf)
+                data["agent_turn"]["checkpoint"].pop("session_id", None)
+                block.block_content_conf = json.dumps(data)
+
+    # A different native session must not be rewound using these rows.
+    with app.app_context():
+        plan = rewind.plan_rewind(
+            user_bid=identity,
+            outline_bid=identity,
+            anchor=first.element_bid,
+            answering=True,
+        )
+    assert plan is not None
+    other = load_agent_session(app, identity, identity)
+    if legacy:
+        # Historical checkpoints lack a session ID; the original model output
+        # must still match even when the answer and message counts happen to match.
+        start, end = plan.narrated.start, plan.checkpoint["messages"]
+        other.messages[start:end] = other.messages[:1] * (end - start)
+    else:
+        other.id = uuid.uuid4().hex
+    with pytest.raises(rewind.RewindUnavailableError):
+        rewind.validate_narrated_rewind(other, plan)
+
+    run("New choice", anchor=first.element_bid, preview_mode=preview_mode)
+    restored = history(preview_mode=preview_mode).elements
+    controls = [e for e in restored if e.element_type == ElementType.INTERACTION]
+    assert len(controls) == 2
+    assert controls[0].element_bid == first.element_bid
+    assert _shown(controls[0].payload.user_input) == "New choice"
+    assert controls[1].element_bid != old_native.element_bid
+    assert not controls[1].payload.user_input
+    assert any("Teaching for New choice" in e.content for e in restored)
+    assert all("Teaching for Old choice" not in e.content for e in restored)
+    session = load_agent_session(app, identity, identity)
+    assert not session.finished
+    assert session.id == finished.id
+    assert [item.tool_call_id for item in session.pending] == ["native-next"]
+    assert "Old native answer" not in session.dumps()
+
+
+@pytest.mark.parametrize("preview_mode", [False, True], ids=["published", "preview"])
+def test_completed_lesson_keeps_revised_last_native_answer_on_reload(
+    app: Flask, classroom: tuple, monkeypatch: pytest.MonkeyPatch, preview_mode: bool
+) -> None:
+    identity, run, history, _calls = classroom
+    if not preview_mode:
+        with app.app_context(), unit_of_work():
+            _stage_published_classroom(identity)
+
+    async def model(messages: list, _info: object) -> AsyncIterator:
+        calls = [
+            part.tool_name
+            for message in messages
+            for part in message.parts
+            if isinstance(part, ToolCallPart)
+        ]
+        if "finish" in calls:
+            return
+        if "interact" in calls:
+            yield {0: DeltaToolCall(name="finish", json_args='{"summary":"Done"}')}
+        else:
+            yield "Choose A or B."
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    tool_call_id="last-question",
+                    json_args='{"type":"single","prompt":"","options":[{"display":"A"},{"display":"B"}]}',
+                )
+            }
+
+    class Gateway(FunctionModel):
+        def set_usage_context(self, _context: object) -> None:
+            pass
+
+    gateway = Gateway(stream_function=model)
+    monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
+    run(preview_mode=preview_mode)
+    first = history(preview_mode=preview_mode).elements[-1]
+    assert first.element_type == ElementType.INTERACTION
+    run("A", preview_mode=preview_mode)
+    finished = load_agent_session(app, identity, identity)
+    assert finished.finished
+    before = next(
+        element
+        for element in history(preview_mode=preview_mode).elements
+        if element.element_type == ElementType.INTERACTION
+    )
+    assert before.element_bid == first.element_bid
+    assert _shown(before.payload.user_input) == "A"
+    run("B", anchor=first.element_bid, preview_mode=preview_mode)
+    after = next(
+        element
+        for element in history(preview_mode=preview_mode).elements
+        if element.element_type == ElementType.INTERACTION
+    )
+    assert after.element_bid == first.element_bid
+    assert _shown(after.payload.user_input) == "B"
+    saved = load_agent_session(app, identity, identity)
+    assert saved.finished
+    assert saved.id == finished.id
 
 
 def test_draft_content_regeneration_reuses_the_original_answer(
