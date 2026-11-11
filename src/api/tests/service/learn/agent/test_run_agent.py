@@ -3330,22 +3330,20 @@ def test_narrated_controls_with_authored_hints_or_choices_stay_exact(span: str) 
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("inside_memory", [False, True])
-def test_answer_control_waits_for_question_outside_echoed_memory_across_recall(
+def test_echoed_memory_is_hidden_across_recall_without_rejecting_the_control(
     app: object, inside_memory: bool
 ) -> None:
-    """The actual Course filter keeps a memory block open across a model tool result."""
+    """The Course filter hides memory across tool hops without gating the control."""
     import json
 
-    from flaskr.service.learn.agent.echoed_memory import strip_echoed_memory
     from markdownflow.engine import Engine
-    from pydantic_ai.messages import RetryPromptPart
     from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
     question = "Which example applies here?"
     attempts = 0
 
     async def stream(
-        messages: list[ModelMessage], _info: AgentInfo
+        _messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         nonlocal attempts
         attempts += 1
@@ -3357,17 +3355,11 @@ def test_answer_control_waits_for_question_outside_echoed_memory_across_recall(
                 )
             }
             return
-        if attempts == 2 and inside_memory:
+        assert attempts == 2
+        if inside_memory:
             yield f"{question}\n</memory>\n"
-        elif attempts == 2:
-            yield f"</memory>\n\n{question}"
         else:
-            assert attempts == 3
-            assert any(
-                isinstance(part, RetryPromptPart) and part.tool_name == "interact"
-                for part in messages[-1].parts
-            )
-            yield question
+            yield f"</memory>\n\n{question}"
         yield {
             0: DeltaToolCall(
                 name="interact",
@@ -3383,7 +3375,6 @@ def test_answer_control_waits_for_question_outside_echoed_memory_across_recall(
                 FunctionModel(stream_function=stream),
                 render="none",
                 memory_recall=True,
-                question_text_filter=strip_echoed_memory,
                 legacy_interact_args=False,
             ),
             script="Review the examples, then ask which applies.",
@@ -3397,21 +3388,16 @@ def test_answer_control_waits_for_question_outside_echoed_memory_across_recall(
         event for event in response if event.type == GeneratedType.INTERACTION
     ]
     before = response[: response.index(interaction)]
-    assert (
-        "".join(
-            str(event.content)
-            for event in before
-            if event.type == GeneratedType.CONTENT
-        ).strip()
-        == question
-    )
-    assert attempts == (3 if inside_memory else 2)
+    assert "".join(
+        str(event.content) for event in before if event.type == GeneratedType.CONTENT
+    ).strip() == ("" if inside_memory else question)
+    assert attempts == 2
 
 
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("disconnect", [False, True])
 @pytest.mark.parametrize("prefix", [False, True])
-@pytest.mark.parametrize("filter_buffered", [False, True])
+@pytest.mark.parametrize("invalid_direction", [False, True])
 def test_validated_direction_is_durable_before_first_visible_feedback(
     app: object,
     calls: list,
@@ -3419,13 +3405,12 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     preview_mode: bool,
     disconnect: bool,
     prefix: bool,
-    filter_buffered: bool,
+    invalid_direction: bool,
 ) -> None:
     """Use the real bridge/store so a disconnect restores the correction, not its old input."""
     import json
 
     from flaskr.service.learn.agent import session_store
-    from flaskr.service.learn.agent.echoed_memory import strip_echoed_memory
     from markdownflow import bridge
     from markdownflow.engine import Engine
     from pydantic_ai.messages import RetryPromptPart
@@ -3439,13 +3424,15 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     )
     wrong = "A program executes without prior memory storage."
     original_question = "What must happen before a program runs?"
-    question = "Where does the processor obtain its first instruction?"
+    question = "Where does the processor obtain its *first instruction*?"
     rendered = "> " + wrong + "\n\n" + question
     first_correction = 3 if prefix else 2
-    valid_correction = first_correction + int(filter_buffered)
+    valid_correction = first_correction + int(invalid_direction)
     requests = 0
-    learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
-    lesson = f"direction-lesson-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
+    learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}-{invalid_direction}"
+    lesson = (
+        f"direction-lesson-{preview_mode}-{disconnect}-{prefix}-{invalid_direction}"
+    )
     monkeypatch.setattr(bridge, "BUFFER_LIMIT", 1)
     monkeypatch.setattr(
         run_agent, "save_agent_session", session_store.save_agent_session
@@ -3473,15 +3460,14 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
             }
             return
         if first_correction <= requests <= valid_correction:
-            hidden = requests < valid_correction
-            if filter_buffered and not hidden:
+            invalid = requests < valid_correction
+            if invalid_direction and not invalid:
                 assert any(
                     isinstance(part, RetryPromptPart)
-                    and "visible Markdown prose" in str(part.content)
+                    and "criterion must copy original author text" in str(part.content)
                     for part in messages[-1].parts
                 )
-            guiding_question = f"<memory>{question}</memory>" if hidden else question
-            args["question"] = guiding_question
+            args["question"] = question
             args["direction"] = {
                 "answer_id": "original",
                 "rule_quote": rule,
@@ -3489,14 +3475,16 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
                 "accepted_quotes": [],
                 "focuses": [
                     {
-                        "criterion_quote": criterion,
+                        "criterion_quote": "Unrelated criterion."
+                        if invalid
+                        else criterion,
                         "submission_quote": wrong,
                         "observed_issue": "Your answer denies prior storage.",
-                        "guiding_question": guiding_question,
+                        "guiding_question": question,
                     }
                 ],
             }
-            call_id = "hidden" if hidden else "correction"
+            call_id = "invalid" if invalid else "correction"
         elif requests == valid_correction + 1:
             yield "Accepted."
             args = {"type": "single", "question": "", "options": [{"display": "Next"}]}
@@ -3515,7 +3503,6 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
                 FunctionModel(stream_function=stream),
                 render="none",
                 memory_recall=True,
-                question_text_filter=strip_echoed_memory,
                 legacy_interact_args=False,
             ),
             script=script,

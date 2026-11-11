@@ -13,9 +13,60 @@ from markdownflow.engine import (
     MemoryUpdated,
     Session,
 )
-from markdownflow.engine.tools import Deps, _question_prose
 from pydantic_ai.messages import ModelMessage, RetryPromptPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+
+@pytest.mark.anyio
+async def test_interact_accepts_a_question_supplied_only_in_its_arguments() -> None:
+    """The opening lesson can show its controls without first repeating the question."""
+    opening = "欢迎来到 AI 师傅因材施教体验课！"
+    question = "您想让后续课节怎样选题？"
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            yield "That is how we will choose a topic."
+            return
+        yield opening
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="topic",
+                json_args=json.dumps(
+                    {
+                        "type": "single_or_text",
+                        "question": question,
+                        "options": [{"display": "Let the teacher choose"}],
+                        "placeholder": "Name a topic",
+                    }
+                ),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session(
+        opening + "\n?[{{ " + question + " }} Let the teacher choose | ...Name a topic]"
+    )
+    events = [event async for event in engine.run_turn(session)]
+
+    assert calls == 1
+    assert not any(event.type == "error" for event in events)
+    (interaction,) = [e for e in events if isinstance(e, InteractionRequest)]
+    assert interaction.spec.question == question
+    assert [e.text for e in events if isinstance(e, ContentDelta)] == [opening]
+    events = [
+        e
+        async for e in engine.run_turn(
+            session, InteractionResponseTurn(id="topic", text="Recursion")
+        )
+    ]
+    assert not any(event.type == "error" for event in events)
+    assert session.all_memory() == {question: "Recursion"}
 
 
 @pytest.mark.anyio
@@ -52,7 +103,6 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         assert not {"prompt", "variable", "display_question"}.intersection(
             schema["properties"]
         )
-        assert "ask the question in visible Markdown prose" in (info.instructions or "")
         yield f"{teaching}\n\n{question}"
         yield {
             0: DeltaToolCall(
@@ -285,93 +335,6 @@ async def test_visible_html_question_is_delivered_before_its_control() -> None:
             if isinstance(event, ContentDelta)
         )
         == prose
-    )
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("listen_mode", [False, True])
-@pytest.mark.parametrize("bound", [False, True])
-@pytest.mark.parametrize(
-    "failure",
-    [
-        "no-prose",
-        "unrelated",
-        "hidden",
-        "hidden-span",
-        "hidden-style",
-        "hidden-block",
-        "after-tool",
-    ],
-)
-async def test_answer_controls_wait_for_visible_question_prose(
-    listen_mode: bool, bound: bool, failure: str
-) -> None:
-    """Retry a questionless response before publishing its input."""
-    question = "Which example applies here?"
-    attempts = 0
-
-    async def model(
-        messages: list[ModelMessage], info: AgentInfo
-    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
-        nonlocal attempts
-        attempts += 1
-        assert "ask the question in visible Markdown prose" in (info.instructions or "")
-        if attempts == 2:
-            assert any(
-                isinstance(part, RetryPromptPart) and part.tool_name == "interact"
-                for part in messages[-1].parts
-            )
-            yield f"**{question}**"
-        elif failure == "unrelated":
-            yield "Review the examples."
-        elif failure == "hidden":
-            yield f"<!-- {question} -->"
-        elif failure == "hidden-span":
-            yield f"Review the examples. <span hidden><span>{question}</span></span>"
-        elif failure == "hidden-style":
-            yield f'Review the examples. <span style="display: none">{question}</span>'
-        elif failure == "hidden-block":
-            yield f"<div hidden><p>{question}</p></div>"
-        yield {
-            0: DeltaToolCall(
-                name="interact",
-                tool_call_id=f"example-{attempts}",
-                json_args=json.dumps(
-                    {"type": "text", "question": question, "placeholder": "Answer"}
-                ),
-            )
-        }
-        if attempts == 1 and failure == "after-tool":
-            yield question
-
-    engine = Engine(FunctionModel(stream_function=model), buffer_model_responses=True)
-    binding = f"{{{{{question}}}}}" if bound else ""
-    session = await engine.new_session(
-        f"?[{binding}...Answer]", listen_mode=listen_mode
-    )
-    events = [event async for event in engine.run_turn(session)]
-    assert not any(event.type == "error" for event in events)
-    (interaction,) = [
-        event for event in events if isinstance(event, InteractionRequest)
-    ]
-    assert interaction.id == "example-2"
-    assert interaction.spec.question == question
-    text_event = "narration.delta" if listen_mode else "content.delta"
-    visible_before = "".join(
-        event.text
-        for event in events[: events.index(interaction)]
-        if event.type == text_event
-    )
-    assert visible_before == (question if listen_mode else f"**{question}**")
-
-
-def test_question_prose_keeps_escaped_and_code_html_visible() -> None:
-    assert (
-        _question_prose(
-            Deps(memory={}, user_memory={}),
-            r"Compare `<span hidden>` and \<span hidden\>. <span hidden>Invisible</span> Which tag applies?",
-        )
-        == "Compare <span hidden> and <span hidden>.  Which tag applies?"
     )
 
 

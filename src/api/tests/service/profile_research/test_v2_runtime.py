@@ -152,10 +152,9 @@ def test_pending_reload_restores_question_before_the_same_controls(
 ) -> None:
     calls = 0
 
-    async def script(_messages: list[ModelMessage], info: AgentInfo) -> StreamChunks:
+    async def script(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         nonlocal calls
         calls += 1
-        assert "ask the question in visible Markdown prose" in (info.instructions or "")
         yield display_question
         yield {
             0: DeltaToolCall(

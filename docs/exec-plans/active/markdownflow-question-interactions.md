@@ -2,7 +2,7 @@
 title: Use one question for MarkdownFlow answers
 status: active
 owner_surface: learner
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-11
 canonical: false
 ---
 
@@ -46,12 +46,17 @@ response. Preserve earlier named answers, short references and pending turns.
   Kept the existing preview, attempt, and history rules, and migrated the new
   classroom integration fixtures to the question tool contract.
 
+- [x] 2026-11-11: Removed both question visibility checks and added a
+  FunctionModel regression for a valid question supplied only in tool arguments.
+
 ## Surprises & Discoveries
 
 The old title was not rendered in reading mode. Simply renaming the field
 would leave readers reliant on a separately generated question. The current
 runtime also serializes raw calls and pending controls independently. Exact
 authored question text distinguishes otherwise identical bound controls.
+Retrying a valid control solely because the question was absent from the
+body caused the already streamed introduction and options to appear twice.
 
 ## Decision Log
 
@@ -60,9 +65,11 @@ authored question text distinguishes otherwise identical bound controls.
 - 2026-11-08: The model asks each ordinary question in prose before calling the
   tool with the same wording. The runtime emits controls after the question
   and carries the wording in the interaction title metadata.
-- 2026-11-08: An answer control waits for visible model-authored question prose.
-  Retry missing or filtered questions. On Profile reload, restore saved structured
-  guidance ahead of its pending correction control.
+- 2026-11-08: On Profile reload, restore saved structured guidance ahead of its
+  pending correction control.
+- 2026-11-11: Do not validate tool fields against the visible prose, for either
+  ordinary questions or structured direction. Keep tool validation and exact
+  answer bindings.
 - 2026-11-08: After trimming leading and trailing whitespace, the text inside
   an authored binding is the question and storage key, even when it is a short
   label. Remove the unreleased alias table and use exact keys across courses,
@@ -113,10 +120,10 @@ after updating the plan and canonical references.
 ## Validation and Acceptance
 
 The model supplies `question` for answer controls and controls with a nonempty
-leading binding. Other controls may omit it. The model's question appears before
-the controls, and an accepted submission is recorded under that exact question.
-A bound short label is used verbatim in prose, the tool call, and the memory key
-after trimming its outer whitespace. Legacy sessions and Profile evidence
+leading binding. Other controls may omit it. A valid tool call is accepted even
+if the prose does not repeat its question. An accepted submission is recorded under the exact
+question; for a binding, this is the authored text after trimming its outer
+whitespace. Legacy sessions and Profile evidence
 continue to restore and resume.
 
 ## Idempotence and Recovery

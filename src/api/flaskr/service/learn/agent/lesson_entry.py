@@ -19,7 +19,6 @@ from flaskr.api.markdownflow import Engine, GatewayModel
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import AppError, raise_error
-from flaskr.service.learn.agent.echoed_memory import strip_echoed_memory
 from flaskr.service.learn.agent.langfuse_tracing import (
     MEMORY_ADMISSION_GENERATION_NAME,
     TEACHING_GENERATION_NAME,
@@ -498,7 +497,6 @@ def agent_lesson_events(
                 # through, it reached the learner as text with no controls under it, the lesson waited
                 # for an answer that could not be given, and each return to the lesson asked it again.
                 interaction_check=unrenderable_reason,
-                question_text_filter=strip_echoed_memory,
                 # Every lesson here is written in MarkdownFlow, and a MarkdownFlow lesson pauses only where
                 # its author put a button. Left to decide, the model added pauses the author never wrote:
                 # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of
