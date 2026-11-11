@@ -484,6 +484,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
 
                       return (
                         <ContentBlock
+                          learnerImagesEnabled
                           item={item}
                           mobileStyle={false}
                           blockBid={

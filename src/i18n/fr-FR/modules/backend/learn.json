@@ -16,6 +16,8 @@
     "defaultLearnerName": "Apprenant",
     "freeTextPlaceholder": "Votre réponse",
     "generatedBlockNotFound": "Bloc généré introuvable",
+    "imageInputInvalid": "Ajoutez au plus 4 images JPEG, PNG ou WebP de 5 Mo maximum chacune.",
+    "imageProviderUnsupported": "Ce service de questions ne prend pas en charge les images. Envoyez du texte ou contactez le créateur du cours pour utiliser un modèle visuel.",
     "invalidAction": "Action non valide",
     "lessonFeedbackCommentPlaceholder": "Facultatif : laissez votre commentaire",
     "liveFollowUpCapacityExceeded": "La capacité des conversations vocales est atteinte. Veuillez réessayer plus tard.",

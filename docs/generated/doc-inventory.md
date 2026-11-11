@@ -61,6 +61,7 @@
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/interaction-variable-pr-series.md` | Integrate standard interaction bindings | `exec-plan-active` | `active` | `learner` | `2026-10-29` | `true` |
 | `docs/exec-plans/active/json-api-response-safety.md` | Serve shared API envelopes as inert JSON | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/learner-image-input.md` | Learner image input | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/lesson-reset-limit.md` | Lesson reset limit backed by SQL | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/listen-classroom-question-titles.md` | Show interaction titles in listen and classroom modes | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |

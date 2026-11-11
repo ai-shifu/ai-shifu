@@ -11,6 +11,11 @@ from flaskr.api.langfuse import (
     update_langfuse_trace,
 )
 from flaskr.api.llm import chat_llm
+from flaskr.api.llm.learner_images import (
+    map_learner_messages,
+    materialize_local_images,
+    split_learner_images,
+)
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -286,6 +291,14 @@ def handle_input_ask(
         ask_max_history_len = 10
 
     raw_input = user_input
+    ask_provider_config = get_effective_ask_provider_config(
+        getattr(follow_up_info, "ask_provider_config", {})
+    )
+    if (
+        split_learner_images(raw_input)[1]
+        and ask_provider_config.get("provider", ASK_PROVIDER_LLM) != ASK_PROVIDER_LLM
+    ):
+        raise_param_error(_("server.learn.imageProviderUnsupported"))
     normalized_trace_input = normalize_langfuse_input_value(raw_input)
     if normalized_trace_input and not trace_args.get("input"):
         trace_args["input"] = normalized_trace_input
@@ -495,9 +508,6 @@ def handle_input_ask(
         ask_scene,
         "user_follow_ask",
     )
-    ask_provider_config = get_effective_ask_provider_config(
-        getattr(follow_up_info, "ask_provider_config", {})
-    )
     ask_provider = ask_provider_config.get("provider", ASK_PROVIDER_LLM)
     ask_provider_mode = ask_provider_config.get(
         "mode",
@@ -539,7 +549,11 @@ def handle_input_ask(
                     "temperature"
                 ],  # Use configured temperature parameter
                 generation_name=generation_name,
-                messages=stream_messages if plain_messages is None else plain_messages,
+                messages=materialize_local_images(
+                    map_learner_messages(
+                        stream_messages if plain_messages is None else plain_messages
+                    )
+                ),
                 usage_context=usage_context,
                 usage_scene=usage_scene,
             )

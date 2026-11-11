@@ -1090,6 +1090,77 @@ def _use_follow_up_selection(monkeypatch: object, module: object, config: dict) 
     monkeypatch.setattr(module, "get_follow_up_info_v2", lambda *_args: info)
 
 
+@pytest.mark.parametrize("provider", ["llm", "coze"])
+def test_image_follow_up_reaches_native_llm_or_rejects_before_writes(
+    app: object, monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    """Never degrade an image-only question into a URL-only provider question."""
+    from unittest.mock import Mock
+
+    from flaskr.api.llm import model_selection
+    from flaskr.service.common.models import AppError
+    from flaskr.service.learn.ask import handler as module
+
+    config = {"provider": provider, "mode": "provider_only", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
+    monkeypatch.setattr(
+        model_selection, "resolve_selection", lambda *_: ("vision-model", {})
+    )
+    monkeypatch.setattr(
+        "flaskr.api.llm.learner_images.get_config", lambda _: "https://images.example"
+    )
+    writes = Mock(wraps=module.init_generated_block)
+    monkeypatch.setattr(module, "init_generated_block", writes)
+    captured = []
+
+    def chat(*_args: object, **kwargs: object) -> object:
+        captured.append(kwargs["messages"])
+        yield _LLMChunk("The image is red.")
+
+    def stream(**kwargs: object) -> object:
+        return (
+            types.SimpleNamespace(content=chunk.result)
+            for chunk in kwargs["runtime"].llm_stream_factory()
+        )
+
+    monkeypatch.setattr(module, "chat_llm", chat)
+    monkeypatch.setattr(module, "stream_ask_provider_response", stream)
+    url = "https://images.example/learner-images/" + "a" * 32 + ".png"
+
+    def run() -> list:
+        return list(
+            module.handle_input_ask(
+                app=app,
+                context=_Context(),
+                user_info=types.SimpleNamespace(user_id="image-user"),
+                attend_id="image-attend",
+                user_input=f"![learner-image]({url})",
+                outline_item_info=types.SimpleNamespace(
+                    shifu_bid="image-course",
+                    bid="image-outline",
+                    title="Outline",
+                    position=1,
+                ),
+                trace_args={},
+                trace=_DummyTrace(),
+            )
+        )
+
+    with app.app_context():
+        if provider != "llm":
+            with pytest.raises(AppError):
+                run()
+            writes.assert_not_called()
+            assert not captured
+        else:
+            assert _collect_content_chunks(run()) == ["The image is red."]
+            assert captured[0][-1]["content"][-1] == {
+                "type": "image_url",
+                "image_url": {"url": url},
+            }
+
+
 @pytest.mark.parametrize("provider", ["dify", "coze"])
 @pytest.mark.parametrize("mode", ["provider_only", "provider_then_llm"])
 @pytest.mark.parametrize("provider_fails", [False, True])

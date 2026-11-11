@@ -6,7 +6,6 @@ import json
 from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import (
-    InteractionAnswer,
     InteractionSpec,
     answer_is_usable,
     normalize_answer,
@@ -14,6 +13,7 @@ from flaskr.api.markdownflow import (
 from markdownflow import InteractionParser
 from pydantic import ValidationError
 
+from .image_answers import answer_with_images
 from .legacy_protocol import render_interaction
 from .rewind import (
     narrated_answer,
@@ -38,12 +38,14 @@ def structured_user_input(raw_spec: object, values: list[str]) -> str | None:
         return None
     if spec.type == "confirm":
         return None
-    answer = normalize_answer(spec, InteractionAnswer(values=values))
+    answer = normalize_answer(spec, answer_with_images(spec, values))
     if not answer_is_usable(spec, answer):
         return None
     option_values = {option.stored for option in spec.options}
     selected = [value for value in answer.values if value in option_values]
     free_text = [value for value in answer.values if value not in option_values]
+    if answer.text:
+        free_text.append(answer.text)
     return json.dumps(
         {
             "selectedValues": selected,
@@ -117,7 +119,7 @@ def _unanswered_call_ids(block: LearnGeneratedBlock) -> set[str]:
     except ValidationError:
         return set()
     answer = normalize_answer(
-        spec, InteractionAnswer(values=read_turn_learner_values(block))
+        spec, answer_with_images(spec, read_turn_learner_values(block))
     )
     if answer_is_usable(spec, answer):
         ids.discard(pending[0]["tool_call_id"])

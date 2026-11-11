@@ -16,6 +16,8 @@
     "defaultLearnerName": "同学",
     "freeTextPlaceholder": "请输入你的回答",
     "generatedBlockNotFound": "生成的块未找到",
+    "imageInputInvalid": "最多添加 4 张 JPEG、PNG 或 WebP 图片，每张不超过 5 MB。",
+    "imageProviderUnsupported": "当前追问服务不支持图片，请发送文字，或联系课程负责人使用支持图片的模型。",
     "invalidAction": "无效的操作",
     "lessonFeedbackCommentPlaceholder": "选填：告诉我们你的建议",
     "liveFollowUpCapacityExceeded": "当前语音会话已达上限，请稍后重试。",

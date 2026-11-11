@@ -1,8 +1,15 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import type {
+  ImageInputOptions,
+  OnSendContentParams,
+} from 'markdown-flow-ui/renderer';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import ContentBlock from './ContentBlock';
+import { uploadLearnerImage } from '@/api/learning';
+import { waitFor } from '@testing-library/react';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 
 jest.mock('@/api/learning', () => ({
+  uploadLearnerImage: jest.fn(),
   LESSON_FEEDBACK_INTERACTION_MARKER: 'sys_lesson_feedback_score',
   SYS_INTERACTION_TYPE: {
     NEXT_CHAPTER: '_sys_next_chapter',
@@ -12,6 +19,7 @@ jest.mock('@/api/learning', () => ({
 }));
 
 let mockLanguage = 'es-ES';
+const mockRendererProps = jest.fn();
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -26,21 +34,30 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     locale,
     lang,
     onPlaceholderAccepted,
+    ...props
   }: {
     content: string;
     locale: string;
     lang: string;
     onPlaceholderAccepted?: () => void;
-  }) => (
-    <div
-      data-testid='course-content'
-      data-locale={locale}
-      lang={lang}
-    >
-      {content}
-      <button onClick={onPlaceholderAccepted}>accept hint</button>
-    </div>
-  ),
+    imageInput?: ImageInputOptions;
+    showImageInput?: boolean;
+    userInput?: string;
+    readonly?: boolean;
+    onSend?: (value: OnSendContentParams) => void;
+  }) => {
+    mockRendererProps(props);
+    return (
+      <div
+        data-testid='course-content'
+        data-locale={locale}
+        lang={lang}
+      >
+        {content}
+        <button onClick={onPlaceholderAccepted}>accept hint</button>
+      </div>
+    );
+  },
 }));
 
 const guideContent: ChatContentItem = {
@@ -151,6 +168,61 @@ describe('ContentBlock content language', () => {
       'en-US',
     );
   });
+});
+
+it('sends an image-only answer and restores thumbnails without raw markers in history', async () => {
+  const url =
+    'https://images.example/learner-images/' + 'a'.repeat(32) + '.png';
+  jest.mocked(uploadLearnerImage).mockResolvedValueOnce(url);
+  const item: ChatContentItem = {
+    ...guideInteraction,
+    content: '?[...Your answer]',
+  };
+  const { container, rerender } = render(
+    <ContentBlock
+      learnerImagesEnabled
+      item={item}
+      mobileStyle={false}
+      blockBid={item.element_bid}
+      onSend={onSend}
+    />,
+  );
+  const latest = () =>
+    mockRendererProps.mock.calls.at(-1)![0] as {
+      imageInput: ImageInputOptions;
+      showImageInput: boolean;
+      userInput: string;
+      onSend: (content: OnSendContentParams) => void;
+    };
+  expect(latest().showImageInput).toBe(true);
+  await act(async () => {
+    await latest().imageInput.onSelect?.([
+      new File(['image'], 'homework.png', { type: 'image/png' }),
+    ]);
+  });
+  await waitFor(() => expect(latest().imageInput.images).toEqual([url]));
+  act(() => latest().onSend({ inputText: '', images: [url] }));
+  expect(onSend).toHaveBeenLastCalledWith(
+    { inputText: `![learner-image](${url})` },
+    item.element_bid,
+  );
+  rerender(
+    <ContentBlock
+      learnerImagesEnabled
+      item={{
+        ...item,
+        readonly: true,
+        user_input: JSON.stringify({ inputText: `![learner-image](${url})` }),
+      }}
+      mobileStyle={false}
+      blockBid={item.element_bid}
+      onSend={onSend}
+    />,
+  );
+  expect(latest().showImageInput).toBe(false);
+  expect(latest().imageInput.images).toEqual([url]);
+  expect(latest().userInput).toBe('');
+  expect(container.textContent).not.toContain('learner-image');
 });
 
 it('forwards acceptance, updates memoized observers and excludes readonly/print output', () => {

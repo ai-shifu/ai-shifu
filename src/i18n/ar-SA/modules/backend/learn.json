@@ -16,6 +16,8 @@
     "defaultLearnerName": "المتعلم",
     "freeTextPlaceholder": "إجابتك",
     "generatedBlockNotFound": "لم يتم العثور على الكتلة المُنشأة",
+    "imageInputInvalid": "أضف حتى 4 صور JPEG أو PNG أو WebP، بحد أقصى 5 ميغابايت لكل صورة.",
+    "imageProviderUnsupported": "خدمة الأسئلة هذه لا تدعم الصور. أرسل نصًا أو اطلب من منشئ الدورة استخدام نموذج يدعم الصور.",
     "invalidAction": "عملية غير صالحة",
     "lessonFeedbackCommentPlaceholder": "اختياري: أخبرنا باقتراحك",
     "liveFollowUpCapacityExceeded": "تم بلوغ الحد الأقصى للمحادثات الصوتية. يرجى المحاولة مرة أخرى لاحقًا.",
