@@ -51,8 +51,8 @@ gateway reads the verified local file and sends its data as a model image part.
 ## Outcomes & Retrospective
 
 The local preview confirmed that the model interpreted uploaded images and
-history reloaded with thumbnails. The merge-ready application dependency
-update depends on the published MarkdownFlow UI release.
+history reloaded with thumbnails. The application pins the published
+MarkdownFlow UI 0.3.12 release.
 
 ## Context and Orientation
 
