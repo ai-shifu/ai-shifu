@@ -83,11 +83,11 @@ def _local_image_data_url(url: str) -> str | None:
     if key_match is None:
         return None
     key = key_match[0]
-    path = get_local_storage_path("courses", key)
     try:
+        path = get_local_storage_path("courses", key)
         with path.open("rb") as stream:
             data = stream.read(MAX_IMAGE_BYTES + 1)
-    except FileNotFoundError:
+    except (OSError, ValueError):
         return None
     if not data or len(data) > MAX_IMAGE_BYTES:
         return None

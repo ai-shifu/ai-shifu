@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from flask import Request
 from flask.testing import FlaskClient
 from flaskr.api.llm import learner_images
 from flaskr.common.cache_provider import InMemoryCacheProvider
@@ -12,6 +13,7 @@ from flaskr.service.common.models import AppError
 from flaskr.service.learn import image_upload
 from PIL import Image
 from werkzeug.datastructures import FileStorage
+from werkzeug.test import EnvironBuilder
 
 
 def raster(image_format: str = "PNG", size: tuple[int, int] = (8, 8)) -> bytes:
@@ -150,8 +152,9 @@ def test_local_images_are_inlined_without_network_or_mutating_history(
     assert messages[1]["content"][1]["image_url"]["url"] == url
 
 
+@pytest.mark.parametrize("failure_mode", ["deleted", "unreadable", "rejected_path"])
 def test_unavailable_historical_images_preserve_the_next_question(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_mode: str
 ) -> None:
     old_url = "https://old.example/learner-images/" + "a" * 32 + ".png"
     missing_url = "/api/storage/courses/learner-images/" + "b" * 32 + ".png"
@@ -164,9 +167,14 @@ def test_unavailable_historical_images_preserve_the_next_question(
         "build_local_storage_url",
         lambda profile, key: f"/api/storage/{profile}/{key}",
     )
-    monkeypatch.setattr(
-        learner_images, "get_local_storage_path", lambda *_: tmp_path / "deleted.png"
-    )
+
+    def local_path(*_args: object) -> Path:
+        if failure_mode == "rejected_path":
+            message = "Invalid storage path"
+            raise ValueError(message)
+        return tmp_path if failure_mode == "unreadable" else tmp_path / "deleted.png"
+
+    monkeypatch.setattr(learner_images, "get_local_storage_path", local_path)
     messages = learner_images.map_learner_messages(
         [
             {
@@ -279,3 +287,26 @@ def test_upload_route_caps_attempts_per_learner_before_storage(
     clock.time = lambda: 7200
     assert upload()["code"] == 0
     assert len(stored) == 4
+
+
+def test_oversized_multipart_is_rejected_before_authentication(
+    test_client: FlaskClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The shared route policy checks size before any middleware parses the upload."""
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda *_: pytest.fail("Oversized multipart reached authentication"),
+    )
+    body = io.BytesIO()
+    environment = EnvironBuilder(
+        path="/api/learn/images",
+        method="POST",
+        content_type="multipart/form-data; boundary=test",
+        headers={"Token": "test-token"},
+    ).get_environ()
+    environment["wsgi.input"] = body
+    environment["CONTENT_LENGTH"] = str(learner_images.MAX_IMAGE_BYTES + 64 * 1024 + 1)
+    response = test_client.open(Request(environment))
+    assert response.get_json()["code"] == 413
+    assert response.headers["Cache-Control"] == "no-store"
+    assert body.tell() == 0
