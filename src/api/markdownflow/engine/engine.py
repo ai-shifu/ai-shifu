@@ -167,12 +167,14 @@ class _InteractRetryText:
         return bool(self.prefix) and self.matched == len(self.prefix)
 
     def next_response(self, *, retry: bool) -> None:
+        """Start comparing a response only after a rejected interaction."""
         # Consecutive retries can repeat both the original prefix and later additions.
         self.prefix = self.prefix + "".join(self.sent) if retry else ""
         self.matched = 0
         self.sent.clear()
 
     def take(self, text: str) -> str:
+        """Keep new text and wait for enough of a possible replay to confirm it."""
         remaining = len(self.prefix) - self.matched
         if remaining:
             size = min(remaining, len(text))
@@ -185,6 +187,15 @@ class _InteractRetryText:
                 text = self.prefix[: self.matched] + text
                 self.prefix = ""
                 self.matched = 0
+        return text
+
+    def release_partial(self) -> str:
+        """Return a shorter response whose full replay was never confirmed."""
+        if not 0 < self.matched < len(self.prefix):
+            return ""
+        text = self.prefix[: self.matched]
+        self.prefix = ""
+        self.matched = 0
         return text
 
 
@@ -1417,7 +1428,10 @@ class Engine:
             return released
 
         def _flush_markup() -> list[Event]:
-            return _markup_output(markup.flush())
+            events = _markup_output(markup.flush())
+            if partial := retry_text.release_partial():
+                events.extend(_display(partial))
+            return events
 
         def _settle_markup() -> list[Event]:
             return _markup_output(markup.settle())
