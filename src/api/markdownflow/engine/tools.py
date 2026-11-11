@@ -907,12 +907,13 @@ async def interact(
     `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
     without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
-    Decide whether the control collects an answer from its purpose in the script, regardless
-    of punctuation or the number of options. Supply the complete `question` when the control
-    collects an answer or has a nonempty leading `{{...}}` binding. Otherwise omit it.
-    For a binding, pass its exact text. When localizing bound text, use `display_question` for
-    its translation. An accepted submission to any control with a nonempty `question` is
-    stored under that wording.
+    For an ordinary answer interaction, ask the complete question in visible prose first, then
+    call this tool with the same wording in `question`. Decide whether the control collects an
+    answer from its purpose in the script, regardless of punctuation or the number of options.
+    Supply `question` when the control collects an answer or has a nonempty leading `{{...}}`
+    binding. Otherwise omit it. For a binding, present and pass its exact text. When localizing
+    bound text, use `display_question` for the translation you presented. An accepted submission
+    to any control with a nonempty `question` is stored under that wording.
     Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
     it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.

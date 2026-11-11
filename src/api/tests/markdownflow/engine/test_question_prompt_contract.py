@@ -19,7 +19,7 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 @pytest.mark.anyio
 async def test_interact_accepts_a_question_supplied_only_in_its_arguments() -> None:
-    """The opening lesson can show its controls without first repeating the question."""
+    """An omitted question in prose does not trigger a runtime retry."""
     opening = "欢迎来到 AI 师傅因材施教体验课！"
     question = "您想让后续课节怎样选题？"
     calls = 0
@@ -102,6 +102,9 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         assert "question" not in schema.get("required", [])
         assert not {"prompt", "variable", "display_question"}.intersection(
             schema["properties"]
+        )
+        assert "MUST ask the question in visible Markdown prose" in (
+            info.instructions or ""
         )
         yield f"{teaching}\n\n{question}"
         yield {
