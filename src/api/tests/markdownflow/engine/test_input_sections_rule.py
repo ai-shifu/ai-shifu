@@ -27,7 +27,7 @@ def test_the_first_message_s_sections_are_not_written_back() -> None:
 def test_question_answers_are_stored_before_any_separate_remember_call() -> None:
     """The leaked note recorded an answer that `interact` had already stored."""
     rule = _rule(4)
-    assert "An accepted answer to `interact` is stored under its `question`" in rule
+    assert "with a nonempty `question` is stored under that exact wording" in rule
     assert "Use `remember` only for other writes allowed by the memory policy" in rule
 
 

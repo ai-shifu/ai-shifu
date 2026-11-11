@@ -115,8 +115,9 @@ after updating the plan and canonical references.
 A new answer call without `question` is rejected. The model's question appears
 before the controls, and an accepted answer is recorded under that exact
 question. A bound short label is used verbatim in prose, the tool call, and
-the memory key after trimming its outer whitespace. Continue and navigation
-clicks do not update memory. Legacy
+the memory key after trimming its outer whitespace. The model supplies an empty
+`question` for pauses and unbound navigation. Navigation with a nonempty binding
+stores its submitted value under that binding. Legacy
 sessions and Profile evidence continue to restore and resume.
 
 ## Idempotence and Recovery

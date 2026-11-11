@@ -22,13 +22,26 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("prelude", [None, "incorrect", "clarification submission"])
-@pytest.mark.parametrize("nav_question", ["", "Ready to proceed?"])
+@pytest.mark.parametrize(
+    ("nav_prose", "nav_binding"),
+    [
+        ("Continue to practice.", ""),
+        ("Ready to proceed?", ""),
+        ("Practice step", "Practice step"),
+    ],
+    ids=["navigation", "question-mark-navigation", "bound-navigation"],
+)
 @pytest.mark.parametrize(
     ("label", "value"),
     [("Next question", "next"), ("Begin practice", "begin_practice")],
 )
 async def test_authored_navigation_waits_for_click_after_answer_and_reload(
-    reload: bool, prelude: str | None, nav_question: str, label: str, value: str
+    reload: bool,
+    prelude: str | None,
+    nav_prose: str,
+    nav_binding: str,
+    label: str,
+    value: str,
 ) -> None:
     """Check policy delivery and pending controls, including non-selection messages."""
     calls = 0
@@ -63,11 +76,10 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
                 in interaction_tool.description
             )
             yield "Correct; here is the required explanation."
-            if nav_question:
-                yield "\n\n" + nav_question
+            yield "\n\n" + nav_prose
             spec = {
                 "type": "single",
-                "question": nav_question,
+                "question": nav_binding,
                 "options": [{"display": label, "value": value}],
             }
         else:
@@ -87,7 +99,8 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
         }
 
     engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
-    script = f"First question?\n?[...Answer]\nExplain the accepted answer.\n?[{label}//{value}]\nSecond question?\n?[...Answer two]\n?[{{{{practice_feedback}}}}...{value}]\n?[...{value}]"
+    binding = f"{{{{{nav_binding}}}}} " if nav_binding else ""
+    script = f"First question?\n?[...Answer]\n{nav_prose}\n?[{binding}{label}//{value}]\nSecond question?\n?[...Answer two]\n?[{{{{practice_feedback}}}}...{value}]\n?[...{value}]"
     session = await engine.new_session(script)
     await _events(engine.run_turn(session))
     if correcting:
@@ -114,13 +127,14 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     interactions = [e for e in events if isinstance(e, InteractionRequest)]
     assert len(interactions) == 1
     assert session.pending[0].spec.type == "single"
-    assert not session.pending[0].spec.question
+    assert session.pending[0].spec.question == nav_binding
     assert session.pending[0].spec.options[0].stored == value
     before = calls
     await _events(engine.run_turn(session, ContinueTurn()))
     assert calls == before
     if reload:
         session = Session.loads(session.dumps())
+    assert session.pending[0].spec.type == "single"
     pending = (session.pending[0].tool_call_id, session.pending[0].spec.model_dump())
     answers = dict(session.answers)
     side_question = await _events(
@@ -146,20 +160,27 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     )
     assert session.pending[0].spec.type == "text"
     assert session.pending[0].spec.placeholder == "Answer two"
-    assert session.memory == memory
-    assert not any(isinstance(event, MemoryUpdated) for event in events)
+    assert session.memory == ({**memory, nav_binding: value} if nav_binding else memory)
+    assert [
+        (event.key, event.value) for event in events if isinstance(event, MemoryUpdated)
+    ] == ([(nav_binding, value)] if nav_binding else [])
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "preceding",
-    [None, "{question}", "**{question}**", "[{question}](https://example.com)"],
-    ids=["bound", "plain", "bold", "link"],
+    ("preceding", "question"),
+    [
+        (None, "What color is the sky?"),
+        ("{question}", "What color is the sky?"),
+        ("**{question}**", "What color is the sky?"),
+        ("[{question}](https://example.com)", "What color is the sky?"),
+        ("{question}", "Choose the sky color."),
+    ],
+    ids=["bound", "plain", "bold", "link", "instruction"],
 )
 async def test_an_authored_single_choice_can_still_record_an_answer(
-    preceding: str | None,
+    preceding: str | None, question: str
 ) -> None:
-    question = "What color is the sky?"
     script = (
         f"?[{{{{{question}}}}} Blue]"
         if preceding is None

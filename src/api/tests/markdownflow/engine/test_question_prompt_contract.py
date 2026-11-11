@@ -385,9 +385,9 @@ def test_question_prose_keeps_escaped_and_code_html_visible() -> None:
 async def test_answer_control_without_a_real_question_is_retried(
     missing_question: dict[str, str], single_choice: bool
 ) -> None:
-    """A single answer option is not enough to make a question a navigation control."""
+    """A leading binding or a text input requires a complete question."""
     question = "What color is the sky?"
-    script = question + ("\n?[Blue]" if single_choice else "\n?[...Your answer]")
+    script = f"?[{{{{{question}}}}} Blue]" if single_choice else "?[...Your answer]"
     control = (
         {"type": "single", "options": [{"display": "Blue"}]}
         if single_choice

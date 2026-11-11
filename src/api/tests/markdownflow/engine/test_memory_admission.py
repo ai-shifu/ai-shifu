@@ -614,12 +614,14 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
         "`remember` may use the exact question text from a leading "
         "`?[{{question}} ...]` binding in the main script as its `key`."
     )
-    assert "An accepted answer to `interact` is stored under its `question`" in (
+    assert "with a nonempty `question` is stored under that exact wording" in (
         instructions
     )
     assert (declared_key_rule in instructions) is enabled
     if enabled:
-        assert "including exercises with no declared binding" in instructions
+        assert (
+            "exercises without a binding and navigation with a binding" in instructions
+        )
         assert "complete verbatim free-text input" in instructions
         assert "before your next `interact` or `finish`" in instructions
         assert "when the learner states a preference" not in instructions

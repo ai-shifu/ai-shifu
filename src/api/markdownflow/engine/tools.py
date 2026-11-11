@@ -402,7 +402,7 @@ def _authored_binding(
     placeholder: str | None,
     *,
     allow_different_hint: bool = False,
-) -> tuple[set[str | None], bool, bool]:
+) -> tuple[set[str | None], bool]:
     matches = [
         item
         for item in deps.script_questions
@@ -442,21 +442,9 @@ def _authored_binding(
         item for item in matches if question and question == item.preceding_line
     ]
     matches = exact or preceding or matches
-    names = {item.variable for item in matches}
-    navigation = (
-        kind == "single"
-        and len(options) == 1
-        and bool(matches)
-        and names == {None}
-        and not any(
-            item.text
-            or _markdown_prose(item.preceding_line)
-            .rstrip()
-            .endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
-            for item in matches
-        )
+    return {item.variable for item in matches}, bool(matches) and all(
+        item.text for item in matches
     )
-    return names, navigation, bool(matches) and all(item.text for item in matches)
 
 
 def _script_text_input_candidate(
@@ -524,9 +512,23 @@ def normalize_script_text_input(
     if spec.generated_control:
         return spec
     question_key = spec.source_question or spec.variable
-    authored_inputs = [q for q in questions if q.variable == question_key]
+    authored_inputs = [
+        q for q in questions if q.placeholder and q.variable == question_key
+    ]
+    if not restore_missing_input and any(
+        not q.text
+        and (
+            q.variable == question_key
+            or (
+                spec.question_owns_memory and q.variable is None and not authored_inputs
+            )
+        )
+        and _authored_controls_match(q, spec.type, spec.options, spec.placeholder)
+        for q in questions
+    ):
+        return spec
     if spec.question_owns_memory and not authored_inputs:
-        authored_inputs = [q for q in questions if q.variable is None]
+        authored_inputs = [q for q in questions if q.placeholder and q.variable is None]
     if spec.type == "text" and not spec.options and not spec.placeholder:
         hints = {
             q.placeholder
@@ -997,7 +999,7 @@ def feedback_response_problem(
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
-    question: str = "",
+    question: str | None = None,
     options: list[Option] | None = None,
     placeholder: str | None = None,
     generated_control: bool = False,
@@ -1017,10 +1019,12 @@ async def interact(
     without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
     For an ordinary answer interaction, ask the complete question in visible prose first, then
-    call this tool with the same wording in `question`. The host stores the answer under that
-    wording. If the control starts with a `{{...}}` binding, use its exact text as `question`,
-    even if it is short. When localizing that question, use `display_question` for the translation
-    you asked in prose. Use an empty question only for a pause or an authored navigation-only control.
+    call this tool with the same wording in `question`. Decide whether the control collects an
+    answer from its purpose in the script, regardless of punctuation or the number of options.
+    Use `question=""` for pauses and navigation without a binding. Always present and pass the
+    exact text of a nonempty leading `{{...}}` binding, including for navigation. When localizing
+    bound text, use `display_question` for the translation you presented. A submission to any
+    control with a nonempty `question` is stored under that wording.
     Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
     it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.
@@ -1123,7 +1127,15 @@ async def interact(
         if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
             variable = None
     else:
+        if question is None:
+            message = 'Pass question explicitly. Use question="" for a pause or unbound navigation.'
+            raise ModelRetry(message)
         question = question.strip()
+        if type == "confirm" and question:
+            message = (
+                'Use question="" for a pause. Put a custom button label in options.'
+            )
+            raise ModelRetry(message)
         normalized_options = [
             _as_the_script_writes_it(option, ctx.deps.script_options)
             for option in options or []
@@ -1139,9 +1151,8 @@ async def interact(
             ):
                 message = "Use generated_control only for a new answer control without an authored binding."
                 raise ModelRetry(message)
-            navigation = False
-        else:
-            authored_questions, navigation, restore_missing_input = _authored_binding(
+        elif type != "confirm":
+            authored_questions, restore_missing_input = _authored_binding(
                 ctx.deps,
                 type,
                 question,
@@ -1149,28 +1160,33 @@ async def interact(
                 placeholder,
                 allow_different_hint=True,
             )
-        owns_memory = type != "confirm" and (direction is not None or not navigation)
-        if not owns_memory:
-            question = ""
-        variable = question if owns_memory else None
+        if (
+            direction is None
+            and authored_questions
+            and None not in authored_questions
+            and question not in authored_questions
+        ):
+            authored_wordings = sorted(
+                wording for wording in authored_questions if wording is not None
+            )
+            message = (
+                "Set question to the exact text of the intended authored question from these matching controls: "
+                + json.dumps(authored_wordings, ensure_ascii=False)
+            )
+            raise ModelRetry(message)
+        if not question and (
+            type in ("text", "single_or_text", "multi_or_text")
+            or restore_missing_input
+            or generated_control
+            or direction is not None
+        ):
+            message = "Provide the complete question for this answer control."
+            raise ModelRetry(message)
+        owns_memory = bool(question)
+        variable = question or None
         if owns_memory:
             if (
-                direction is None
-                and authored_questions
-                and None not in authored_questions
-                and question not in authored_questions
-            ):
-                authored_wordings = sorted(
-                    wording for wording in authored_questions if wording is not None
-                )
-                message = (
-                    "Set question to the exact text of the intended authored question from these matching controls: "
-                    + json.dumps(authored_wordings, ensure_ascii=False)
-                )
-                raise ModelRetry(message)
-            if (
-                not question
-                or normalize_variable_name(question) is None
+                normalize_variable_name(question) is None
                 or len(question) > _MEMORY_KEY_LIMIT
             ):
                 message = "Provide the complete question on one line, using 1 to 255 characters without a closing brace pair."
@@ -1271,7 +1287,7 @@ async def interact(
     if legacy_call or owns_memory:
         spec = normalize_script_text_input(
             spec,
-            ctx.deps.script_text_inputs,
+            ctx.deps.script_questions,
             restore_missing_input=restore_missing_input,
         )
     direction_text = direction.render() if direction is not None else ""
@@ -1441,13 +1457,15 @@ async def prepare_feedback_tool(
         # The validator can still read old calls; the provider receives only the new contract.
         properties.pop("prompt", None)
         properties.pop("variable", None)
-        question_schema = dict(properties["question"])
-        question_schema.pop("default", None)
-        question_schema["description"] = (
-            "Complete question. For a leading binding, keep the exact authored text. "
-            "Send an empty string only for a pause or an authored navigation-only control."
-        )
-        properties["question"] = question_schema
+        properties["question"] = {
+            "type": "string",
+            "description": (
+                "Complete question for an answer control. Always pass the exact text of a "
+                "nonempty leading binding, including for navigation. Use an empty string for "
+                "pauses and unbound navigation. A nonempty question stores the submission "
+                "under that wording."
+            ),
+        }
         if ctx.deps.translated_controls:
             properties["display_question"] = {
                 **properties["display_question"],

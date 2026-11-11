@@ -15,8 +15,8 @@ from markdownflow.syntax.variable_names import read_interaction_variable
 from .interaction import InteractionSpec
 from .tools import (
     _script_question_spans,
+    authored_interaction_questions,
     normalize_script_text_input,
-    script_text_inputs,
 )
 
 if TYPE_CHECKING:
@@ -219,7 +219,7 @@ def authored_answer_reference(
         and not spec.question_owns_memory
     ):
         spec = spec.model_copy(update={"variable": None})
-    spec = normalize_script_text_input(spec, script_text_inputs(script))
+    spec = normalize_script_text_input(spec, authored_interaction_questions(script))
     scope = _authored_answer_scope(script, spec)
     if scope is None:
         return None

@@ -22,8 +22,11 @@ With a selected output language, the learner sees the translated question and
 the original question remains the memory key.
 For exercises without a binding, the model supplies the question from the
 lesson prose or context. Reusing the exact question updates the current
-answer. Navigation and confirmation clicks do not record answers. Existing
-percent-prefixed declarations have the same meaning. Earlier questions and
+answer. The model determines whether an unbound control collects an answer
+from its purpose in the lesson. Pauses and unbound navigation use an empty
+`question`. Every accepted submission with a nonempty `question` is stored,
+including navigation with a nonempty binding. Existing percent-prefixed
+declarations have the same meaning. Earlier questions and
 answers keep their original storage keys and history.
 
 For writes through `remember`, a key declared by a leading binding in the main

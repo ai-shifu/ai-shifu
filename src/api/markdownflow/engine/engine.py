@@ -847,7 +847,7 @@ class Engine:
             question for question in script_questions if question.placeholder
         )
         for pending in session.pending:
-            pending.spec = normalize_script_text_input(pending.spec, text_inputs)
+            pending.spec = normalize_script_text_input(pending.spec, script_questions)
         deps = Deps(
             authored_text=session.script.all_text(),
             legacy_interact_args=self.legacy_interact_args,
@@ -1082,7 +1082,7 @@ class Engine:
                         and not spec.question_owns_memory
                     ):
                         spec = spec.model_copy(update={"variable": None})
-                    spec = normalize_script_text_input(spec, text_inputs)
+                    spec = normalize_script_text_input(spec, script_questions)
                     if spec.type != "text":
                         continue
                     # Eligibility comes from the original text control, not the
