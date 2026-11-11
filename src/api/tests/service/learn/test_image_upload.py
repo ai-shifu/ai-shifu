@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from flask.testing import FlaskClient
 from flaskr.api.llm import learner_images
+from flaskr.common.cache_provider import InMemoryCacheProvider
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import image_upload
 from PIL import Image
@@ -103,6 +104,7 @@ def test_local_images_are_inlined_without_network_or_mutating_history(
 ) -> None:
     key = "learner-images/" + "a" * 32 + ".png"
     url = "/api/storage/courses/" + key
+    older_url = "/api/storage/courses/learner-images/" + "b" * 32 + ".png"
     path = tmp_path / "image.png"
     path.write_bytes(raster())
     monkeypatch.setattr(
@@ -114,21 +116,77 @@ def test_local_images_are_inlined_without_network_or_mutating_history(
             else pytest.fail("Unexpected path")
         ),
     )
-    monkeypatch.setattr(learner_images, "build_local_storage_url", lambda *_: url)
+    monkeypatch.setattr(
+        learner_images,
+        "build_local_storage_url",
+        lambda profile, object_key: f"/api/storage/{profile}/{object_key}",
+    )
     messages = [
         {
             "role": "user",
             "content": learner_images.learner_content(
-                f"What color?\n![learner-image]({url})"
+                f"Earlier question\n![learner-image]({older_url})"
             ),
-        }
+        },
+        {
+            "role": "user",
+            "content": learner_images.learner_content(
+                "What color?\n" + f"![learner-image]({url})\n" * 4
+            ),
+        },
     ]
     result = learner_images.materialize_local_images(messages)
-    assert result[0]["content"][0] == {"type": "text", "text": "What color?"}
-    assert result[0]["content"][1]["image_url"]["url"].startswith(
-        "data:image/png;base64,iVBOR"
+    assert result[0]["content"] == [
+        {"type": "text", "text": "Earlier question"},
+        {"type": "text", "text": "[Earlier image attachment omitted]"},
+    ]
+    assert result[1]["content"][0] == {"type": "text", "text": "What color?"}
+    assert len(result[1]["content"][1:]) == 4
+    assert all(
+        part["image_url"]["url"].startswith("data:image/png;base64,iVBOR")
+        for part in result[1]["content"][1:]
     )
-    assert messages[0]["content"][1]["image_url"]["url"] == url
+    assert messages[0]["content"][1]["image_url"]["url"] == older_url
+    assert messages[1]["content"][1]["image_url"]["url"] == url
+
+
+def test_unavailable_historical_images_preserve_the_next_question(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_url = "https://old.example/learner-images/" + "a" * 32 + ".png"
+    missing_url = "/api/storage/courses/learner-images/" + "b" * 32 + ".png"
+    new_url = "https://images.example/learner-images/" + "c" * 32 + ".png"
+    monkeypatch.setattr(
+        learner_images, "get_config", lambda _: "https://images.example"
+    )
+    monkeypatch.setattr(
+        learner_images,
+        "build_local_storage_url",
+        lambda profile, key: f"/api/storage/{profile}/{key}",
+    )
+    monkeypatch.setattr(
+        learner_images, "get_local_storage_path", lambda *_: tmp_path / "deleted.png"
+    )
+    messages = learner_images.map_learner_messages(
+        [
+            {
+                "role": "user",
+                "content": (
+                    f"Earlier question\n![learner-image]({old_url})"
+                    f"\n![learner-image]({missing_url})"
+                ),
+            },
+            {"role": "assistant", "content": "Earlier reply"},
+            {"role": "user", "content": f"New question\n![learner-image]({new_url})"},
+        ]
+    )
+    result = learner_images.materialize_local_images(messages)
+    assert result[0]["content"] == [
+        {"type": "text", "text": "Earlier question"},
+        {"type": "text", "text": "[Image attachment unavailable]"},
+        {"type": "text", "text": "[Image attachment unavailable]"},
+    ]
+    assert result[1:] == messages[1:]
 
 
 def test_ordinary_markdown_and_assistant_images_are_not_promoted() -> None:
@@ -178,3 +236,46 @@ def test_upload_route_uses_response_envelope_and_rejects_invalid_bytes(
     ).get_json()
     assert invalid["code"] != 0
     assert len(stored) == 1
+
+
+def test_upload_route_caps_attempts_per_learner_before_storage(
+    test_client: FlaskClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Apply the upload budget per authenticated learner and hour."""
+    user = SimpleNamespace(
+        user_id="quota-learner", is_creator=False, is_operator=False, language="en-US"
+    )
+    monkeypatch.setattr("flaskr.route.user.validate_user", lambda *_: user)
+    monkeypatch.setattr(image_upload, "get_redis_client", lambda: None)
+    monkeypatch.setattr(image_upload, "cache", InMemoryCacheProvider())
+    monkeypatch.setattr(image_upload, "UPLOADS_PER_HOUR", 2)
+    clock = SimpleNamespace(time=lambda: 3600)
+    monkeypatch.setattr(image_upload, "time", clock)
+    stored = []
+
+    def store(_app: object, **kwargs: object) -> SimpleNamespace:
+        stored.append(kwargs)
+        return SimpleNamespace(url="stored-image")
+
+    monkeypatch.setattr(image_upload, "upload_to_storage", store)
+
+    def upload() -> dict:
+        return test_client.post(
+            "/api/learn/images",
+            headers={"Token": "test-token"},
+            data={"file": (io.BytesIO(raster()), "photo.png")},
+        ).get_json()
+
+    assert upload()["code"] == 0
+    assert upload()["code"] == 0
+    refused = upload()
+    assert refused["code"] != 0
+    assert "Image upload limit reached" in refused["message"]
+    assert len(stored) == 2
+
+    user.user_id = "another-learner"
+    assert upload()["code"] == 0
+    user.user_id = "quota-learner"
+    clock.time = lambda: 7200
+    assert upload()["code"] == 0
+    assert len(stored) == 4

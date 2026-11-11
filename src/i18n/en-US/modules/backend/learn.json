@@ -18,6 +18,7 @@
     "generatedBlockNotFound": "Generated block not found",
     "imageInputInvalid": "Use up to 4 JPEG, PNG or WebP images, at most 5 MB each.",
     "imageProviderUnsupported": "This follow-up service does not support images. Please send text or ask the course owner to use a vision-capable model.",
+    "imageUploadRateLimited": "Image upload limit reached. Please try again later.",
     "invalidAction": "Invalid action",
     "lessonFeedbackCommentPlaceholder": "Optional: leave your feedback",
     "liveFollowUpCapacityExceeded": "Voice conversation capacity has been reached. Please try again later.",

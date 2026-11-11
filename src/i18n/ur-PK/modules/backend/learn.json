@@ -18,6 +18,7 @@
     "generatedBlockNotFound": "تیار کردہ بلاک نہیں ملا",
     "imageInputInvalid": "زیادہ سے زیادہ 4 JPEG، PNG یا WebP تصاویر شامل کریں، ہر تصویر 5 MB تک ہو۔",
     "imageProviderUnsupported": "سوالات کی یہ سروس تصاویر کو سپورٹ نہیں کرتی۔ متن بھیجیں یا کورس کے تخلیق کار سے تصویری ماڈل استعمال کرنے کو کہیں۔",
+    "imageUploadRateLimited": "تصاویر اپ لوڈ کرنے کی حد پوری ہو گئی ہے۔ براہِ کرم بعد میں دوبارہ کوشش کریں۔",
     "invalidAction": "غلط آپریشن",
     "lessonFeedbackCommentPlaceholder": "اختیاری: ہمیں اپنی تجاویز بتائیں",
     "liveFollowUpCapacityExceeded": "موجودہ صوتی سیشن کی حد پوری ہو گئی ہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",

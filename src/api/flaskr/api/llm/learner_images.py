@@ -13,6 +13,8 @@ from flaskr.service.common.storage import (
 )
 from flaskr.service.config import get_config
 
+MAX_LEARNER_IMAGES = 4
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
 IMAGE_MARKER = re.compile(r"!\[learner-image\]\(([^\s()]+)\)")
 IMAGE_KEY = re.compile(r"learner-images/[0-9a-f]{32}\.(?:jpg|png|webp)$")
 
@@ -76,12 +78,49 @@ def map_learner_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]
     ]
 
 
+def _local_image_data_url(url: str) -> str | None:
+    key_match = IMAGE_KEY.search(url)
+    if key_match is None:
+        return None
+    key = key_match[0]
+    path = get_local_storage_path("courses", key)
+    try:
+        with path.open("rb") as stream:
+            data = stream.read(MAX_IMAGE_BYTES + 1)
+    except FileNotFoundError:
+        return None
+    if not data or len(data) > MAX_IMAGE_BYTES:
+        return None
+    mime = "jpeg" if key.endswith(".jpg") else key.rsplit(".", 1)[1]
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:image/{mime};base64,{encoded}"
+
+
+def _materialize_image(part: dict[str, Any]) -> dict[str, Any]:
+    url = part.get("image_url", {}).get("url", "")
+    if is_stored_learner_image(url):
+        if not url.startswith("/"):
+            return part
+        data_url = _local_image_data_url(url)
+        if data_url:
+            return {**part, "image_url": {"url": data_url}}
+    return {"type": "text", "text": "[Image attachment unavailable]"}
+
+
 def materialize_local_images(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Inline only our bounded local image objects, without fetching remote URLs.
 
-    Run after checking the text-envelope budget: base64 is transport encoding,
-    not text tokens. Each object was bounded to 5 MiB by the upload endpoint.
+    Retain the newest attachments within one submission-sized budget. Older
+    turns keep their text and attachment notices, and their files are not read.
+    Base64 is transport encoding, so this runs after the text-envelope check.
     """
+    image_count = sum(
+        part.get("type") == "image_url"
+        for message in messages
+        if isinstance(content := message.get("content"), list)
+        for part in content
+    )
+    skip_images = max(0, image_count - MAX_LEARNER_IMAGES)
     output = []
     for message in messages:
         content = message.get("content")
@@ -90,32 +129,15 @@ def materialize_local_images(messages: list[dict[str, Any]]) -> list[dict[str, A
             continue
         parts = []
         for part in content:
-            mapped_part = part
-            url = part.get("image_url", {}).get("url", "")
-            if part.get("type") == "image_url" and not is_stored_learner_image(url):
-                message_text = "invalid learner image storage location"
-                raise ValueError(message_text)
-            if part.get("type") == "image_url" and url.startswith("/"):
-                key_match = IMAGE_KEY.search(url)
-                if key_match is None:
-                    message_text = "invalid local learner image"
-                    raise ValueError(message_text)
-                key = key_match[0]
-                if url != build_local_storage_url("courses", key):
-                    message_text = "invalid local learner image location"
-                    raise ValueError(message_text)
-                path = get_local_storage_path("courses", key)
-                with path.open("rb") as stream:
-                    data = stream.read(5 * 1024 * 1024 + 1)
-                if len(data) > 5 * 1024 * 1024:
-                    message_text = "learner image exceeds size limit"
-                    raise ValueError(message_text)
-                mime = "jpeg" if key.endswith(".jpg") else key.rsplit(".", 1)[1]
-                encoded = base64.b64encode(data).decode("ascii")
-                mapped_part = {
-                    **part,
-                    "image_url": {"url": f"data:image/{mime};base64,{encoded}"},
-                }
-            parts.append(mapped_part)
+            if part.get("type") != "image_url":
+                parts.append(part)
+                continue
+            if skip_images:
+                parts.append(
+                    {"type": "text", "text": "[Earlier image attachment omitted]"}
+                )
+                skip_images -= 1
+                continue
+            parts.append(_materialize_image(part))
         output.append({**message, "content": parts})
     return output

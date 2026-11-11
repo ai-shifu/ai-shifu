@@ -1126,7 +1126,27 @@ def test_image_follow_up_reaches_native_llm_or_rejects_before_writes(
 
     monkeypatch.setattr(module, "chat_llm", chat)
     monkeypatch.setattr(module, "stream_ask_provider_response", stream)
-    url = "https://images.example/learner-images/" + "a" * 32 + ".png"
+    urls = [
+        "https://images.example/learner-images/" + digit * 32 + ".png"
+        for digit in "abcd"
+    ]
+    older_url = "https://images.example/learner-images/" + "e" * 32 + ".png"
+    build_conversation = module.build_follow_up_conversation_context
+
+    def build_context(*args: object, **kwargs: object) -> object:
+        conversation = build_conversation(*args, **kwargs)
+        conversation.llm_messages.extend(
+            [
+                {
+                    "role": "user",
+                    "content": f"Earlier question\n![learner-image]({older_url})",
+                },
+                {"role": "assistant", "content": "Earlier reply"},
+            ]
+        )
+        return conversation
+
+    monkeypatch.setattr(module, "build_follow_up_conversation_context", build_context)
 
     def run() -> list:
         return list(
@@ -1135,7 +1155,7 @@ def test_image_follow_up_reaches_native_llm_or_rejects_before_writes(
                 context=_Context(),
                 user_info=types.SimpleNamespace(user_id="image-user"),
                 attend_id="image-attend",
-                user_input=f"![learner-image]({url})",
+                user_input="\n".join(f"![learner-image]({url})" for url in urls),
                 outline_item_info=types.SimpleNamespace(
                     shifu_bid="image-course",
                     bid="image-outline",
@@ -1155,10 +1175,15 @@ def test_image_follow_up_reaches_native_llm_or_rejects_before_writes(
             assert not captured
         else:
             assert _collect_content_chunks(run()) == ["The image is red."]
-            assert captured[0][-1]["content"][-1] == {
-                "type": "image_url",
-                "image_url": {"url": url},
-            }
+            assert captured[0][-3]["content"][0]["text"] == "Earlier question"
+            assert captured[0][-2]["content"] == "Earlier reply"
+            assert [
+                part["image_url"]["url"]
+                for message in captured[0]
+                if isinstance(message["content"], list)
+                for part in message["content"]
+                if part["type"] == "image_url"
+            ] == urls
 
 
 @pytest.mark.parametrize("provider", ["dify", "coze"])

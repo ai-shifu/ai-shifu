@@ -217,11 +217,13 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(path_prefix + "/images", methods=["POST"])
     def upload_image() -> Response:
         """Upload a verified image using the existing learner authentication gate."""
+        from flaskr.api.llm.learner_images import MAX_IMAGE_BYTES
         from flaskr.service.learn.image_upload import (
-            MAX_IMAGE_BYTES,
+            reserve_learner_image_upload,
             upload_learner_image,
         )
 
+        reserve_learner_image_upload(app, request.user.user_id)
         request.max_content_length = MAX_IMAGE_BYTES + 64 * 1024
         return make_common_response(
             upload_learner_image(app, request.files.get("file"))

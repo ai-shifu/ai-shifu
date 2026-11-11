@@ -99,6 +99,10 @@ async def test_image_answers_reach_the_gateway_after_all_tool_results(
 ) -> None:
     """Preserve tool ordering and native image parts through the actual gateway call."""
     image_url = "https://images.example/learner-images/" + "a" * 32 + ".png"
+    older_urls = [
+        "https://images.example/learner-images/" + digit * 32 + ".png"
+        for digit in "bcde"
+    ]
     monkeypatch.setattr(
         "flaskr.api.llm.learner_images.get_config", lambda _: "https://images.example"
     )
@@ -116,7 +120,12 @@ async def test_image_answers_reach_the_gateway_after_all_tool_results(
         span=FakeSpan(),
         input_budget_bytes=262144,
     )
+    older_answer = "Earlier learner text\n" + "\n".join(
+        f"![learner-image]({url})" for url in older_urls
+    )
     messages = [
+        ModelRequest(parts=[UserPromptPart(older_answer)]),
+        ModelResponse(parts=[TextPart("Earlier reply")]),
         ModelResponse(
             parts=[
                 ToolCallPart("interact", {"type": "text"}, "first"),
@@ -138,14 +147,22 @@ async def test_image_answers_reach_the_gateway_after_all_tool_results(
     assert response.parts[0].content == "It is red."
     mapped = captured["messages"]
     assert [message["role"] for message in mapped] == [
+        "user",
+        "assistant",
         "assistant",
         "tool",
         "tool",
         "user",
     ]
-    assert mapped[1]["content"] == "Learner wrote: What color?\n"
-    assert mapped[2]["tool_call_id"] == "second"
-    assert mapped[3]["content"][-1] == {
+    assert mapped[0]["content"][0]["text"] == "Earlier learner text"
+    assert [
+        part["image_url"]["url"]
+        for part in mapped[0]["content"]
+        if part["type"] == "image_url"
+    ] == older_urls[1:]
+    assert mapped[3]["content"] == "Learner wrote: What color?\n"
+    assert mapped[4]["tool_call_id"] == "second"
+    assert mapped[5]["content"][-1] == {
         "type": "image_url",
         "image_url": {"url": image_url},
     }

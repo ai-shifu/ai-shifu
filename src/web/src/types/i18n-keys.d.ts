@@ -3792,6 +3792,7 @@ export type I18nKey =
   | 'server.learn.generatedBlockNotFound'
   | 'server.learn.imageInputInvalid'
   | 'server.learn.imageProviderUnsupported'
+  | 'server.learn.imageUploadRateLimited'
   | 'server.learn.invalidAction'
   | 'server.learn.lessonFeedbackCommentPlaceholder'
   | 'server.learn.liveFollowUpCapacityExceeded'

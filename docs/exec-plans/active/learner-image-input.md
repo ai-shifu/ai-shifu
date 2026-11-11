@@ -5,8 +5,8 @@ title: Learner image input
 ## Purpose / Big Picture
 
 Learners can attach up to four JPEG, PNG or WebP images (5 MiB each) to a
-text-bearing lesson answer or text follow-up. Images appear in saved history
-and reach the configured vision-capable LLM as native image parts.
+lesson answer or text follow-up, with or without text. Images appear in saved
+history and reach the configured vision-capable LLM as native image parts.
 
 ## Progress
 
@@ -38,10 +38,14 @@ gateway reads the verified local file and sends its data as a model image part.
   provider's tool-call/result ordering. Persisted string answers need no migration.
 - Use existing storage providers. Verify actual raster bytes, dimensions and size
   before upload; local files are materialized as data URLs only after the text
-  envelope budget check. Never fetch arbitrary image URLs on the API server.
+  envelope budget check. Keep the four newest images in model requests,
+  preserving text and saved attachments in earlier turns. Use a text notice
+  for missing local files and old storage locations. Never fetch arbitrary
+  image URLs on the API server.
 - Accept only the configured course-storage base URL or the exact local storage
   path with an opaque image key. Reject forged storage locations and more than
-  four attachments on both learner and Debug request routes.
+  four attachments on both learner and Debug request routes. Cap upload
+  attempts at 32 per learner per hour before decoding or persisting files.
 - Preserve editable inputs while an upload is in progress and block submission
   until it settles. Text and images share the existing send control.
 - Existing model selection remains authoritative. Vision requires a compatible
@@ -76,8 +80,9 @@ architecture and repository harness checks. Inspect the final diff for scope.
 Image-only and image-plus-text answers reach the gateway with `image_url` parts;
 multiple interaction results remain contiguous; old text inputs remain byte-stable.
 Uploaded files with invalid bytes, unsupported formats or excessive size fail
-before storage. Pending images remain available on upload failure. History shows
-thumbnails instead of marker source. Analytics failure never prevents uploads.
+before storage. Successfully uploaded attachments remain available if a later
+file fails to upload. Learners can reselect the failed file to retry. History
+shows thumbnails instead of marker source. Analytics failure never prevents uploads.
 
 ### Image upload analytics contract
 
@@ -104,7 +109,8 @@ See [Frontend Product Analytics](../../references/frontend-product-analytics.md)
 ## Idempotence and Recovery
 
 Uploads use random object identifiers. Retrying creates another object, never
-overwrites an existing upload. Unsent uploads follow existing storage retention.
+overwrites an existing upload. Unsent uploads remain subject to the configured
+storage retention policy.
 Reverting this feature leaves historical markers as valid Markdown strings.
 
 ## Interfaces and Dependencies
