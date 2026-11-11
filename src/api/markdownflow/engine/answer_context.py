@@ -10,14 +10,17 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 from pydantic_ai.messages import ModelRequest, ToolCallPart
 
+from markdownflow.syntax.variable_names import read_interaction_variable
+
 from .interaction import InteractionSpec
 from .tools import (
     _script_question_spans,
+    authored_interaction_questions,
     normalize_script_text_input,
-    script_text_inputs,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from collections.abc import Set as AbstractSet
 
     from pydantic_ai.messages import ModelMessage
@@ -67,7 +70,7 @@ def _authored_answer_scope(
     choose a grade or define new requirements. Unsupported controls retain the
     full script without a focused copy.
     """
-    if spec.type != "text" or not spec.placeholder:
+    if spec.generated_control or spec.type != "text" or not spec.placeholder:
         return None
     lines = _masked_lines(script)
     questions = _script_question_spans(script)
@@ -84,23 +87,28 @@ def _authored_answer_scope(
             if offset <= start and end <= offset + len(line.rstrip("\r\n"))
         ]
         if len(on_line) == 1 and on_line[0][0] == opening:
-            controls.append((offset, on_line[0][1]))
+            controls.append((offset, opening, on_line[0][1]))
         offset += len(line)
     # Multiline or inline controls cannot establish exact standalone boundaries.
     if len(questions) != len(controls):
         return None
+    question_key = spec.source_question or spec.variable
     matches = [
         i
-        for i, (_, q) in enumerate(controls)
+        for i, (_, _, q) in enumerate(controls)
         if q.text
         and not any(c.strip() for c in q.choices)
         and q.placeholder == spec.placeholder
-        and q.variable == spec.variable
+        and (
+            q.variable == question_key
+            or (spec.question_owns_memory and q.variable is None)
+        )
     ]
+    matches = [i for i in matches if controls[i][2].variable == question_key] or matches
     if len(matches) != 1:
         return None
     index = matches[0]
-    anchor = controls[index][0]
+    anchor, opening, question = controls[index]
     next_control = controls[index + 1][0] if index + 1 < len(controls) else len(script)
     candidates = [(0, next_control)]
     for i, (start, level) in enumerate(headings):
@@ -112,15 +120,21 @@ def _authored_answer_scope(
     candidates = [
         (start, end)
         for start, end in candidates
-        if sum(start <= pos < end for pos, _ in controls) == 1
+        if sum(start <= pos < end for pos, _, _ in controls) == 1
     ]
     if not candidates:
         return None
     start, end = max(candidates, key=lambda bounds: bounds[1] - bounds[0])
     section = script[start:end]
     # Do not re-render variables from a newer memory snapshot or reinsert an old
-    # fact near the current answer. Existing script/memory handling remains in charge.
-    if "{{" in section:
+    # fact near the current answer. A resolved answer's own binding is a declaration.
+    substitution_text = section
+    if spec.question_owns_memory and question.variable is not None:
+        binding_start = opening + 2 - start
+        binding = read_interaction_variable(section, binding_start)
+        if binding is not None and binding.name == question_key:
+            substitution_text = section[:binding_start] + section[binding.end :]
+    if "{{" in substitution_text:
         return None
     # Do not clip a large section down to just its question and lose acceptance.
     if len(section.encode("utf-8")) > _SECTION_BYTES:
@@ -128,7 +142,10 @@ def _authored_answer_scope(
     # A later question's nearest section is not the complete scope of its rules.
     # Copy introductions before the first heading/control in each ancestor,
     # excluding sibling exercises and keeping original Markdown boundaries.
-    preamble_ranges = [(0, min([p for p, _ in [*headings, *controls]] + [len(script)]))]
+    control_anchors = [pos for pos, _, _ in controls]
+    preamble_ranges = [
+        (0, min([p for p, _ in headings] + control_anchors + [len(script)]))
+    ]
     for i, (pos, level) in enumerate(headings):
         stop = next(
             (p for p, depth in headings[i + 1 :] if depth <= level), len(script)
@@ -139,7 +156,7 @@ def _authored_answer_scope(
                     pos,
                     min(
                         [p for p, _ in headings if p > pos]
-                        + [p for p, _ in controls if p >= pos]
+                        + [p for p in control_anchors if p >= pos]
                         + [len(script)]
                     ),
                 )
@@ -173,6 +190,7 @@ def authored_answer_reference(
     resumed: AbstractSet[str],
     *,
     memory_keys: AbstractSet[str] | None = None,
+    interaction_specs: Mapping[str, InteractionSpec] | None = None,
 ) -> str | None:
     """Build bounded current-turn instruction context, never learner history."""
     calls = [
@@ -186,16 +204,22 @@ def authored_answer_reference(
     if len(calls) != 1:
         return None
     call = calls[0]
-    try:
-        spec = InteractionSpec.model_validate(call.args_as_dict())
-    except (AssertionError, TypeError, ValueError, ValidationError):
-        return None
+    spec = interaction_specs.get(call.tool_call_id) if interaction_specs else None
+    if spec is None:
+        try:
+            spec = InteractionSpec.model_validate(call.args_as_dict())
+        except (AssertionError, TypeError, ValueError, ValidationError):
+            return None
     # Deferred-call arguments retain what the model originally sent, while the
     # displayed control has already dropped unadmitted keys and restored exact
     # authored input hints. Match the same control without rewriting evidence.
-    if memory_keys is not None and spec.variable not in memory_keys:
+    if (
+        memory_keys is not None
+        and spec.variable not in memory_keys
+        and not spec.question_owns_memory
+    ):
         spec = spec.model_copy(update={"variable": None})
-    spec = normalize_script_text_input(spec, script_text_inputs(script))
+    spec = normalize_script_text_input(spec, authored_interaction_questions(script))
     scope = _authored_answer_scope(script, spec)
     if scope is None:
         return None

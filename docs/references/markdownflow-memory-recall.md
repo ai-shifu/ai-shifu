@@ -26,7 +26,12 @@ with an exact key return `status=invalid_offset`; offsets past the list return a
 
 Every result is at most **8192 UTF-8 bytes** of compact JSON (`ensure_ascii=False`, separators
 `(',', ':')`), including status/structure and escaping. A larger complete value returns only
-`status=too_large`; no original value is shortened, summarized or removed. The terminal
+`status=too_large` on an ordinary lookup. To read oversized text, pass the exact
+key and `value_offset=0`, then pass each `next_value_offset` back as `value_offset`
+until it is null. Each `status=value_page` returns an exact contiguous slice at a
+Unicode character boundary. Keep `offset=0` when reading text and restart at zero
+after a write to that key or in a later turn. Invalid text offsets and paging a
+non-text value return `status=invalid_offset`. The terminal
 lesson guard returns the existing fixed lesson-over message without reading memory.
 Keys the main script collects again are excluded from discovery and reads until
 this lesson has accepted an answer. An accepted session answer makes that key
@@ -58,9 +63,12 @@ a new learner submission can answer it anew under the existing write policy.
 Instructions ask for relevant missing facts only and treat returned values as data, never
 as author instructions or write authorization. Tool returns stay in model/session history,
 not classroom text. Recall does not change the initial 32768-character memory projection,
-persistence, usage limits or the
+persistence or the
 [256 KiB complete model input budget](markdownflow-input-budget.md).
-Repeated tool results still consume that total budget. This increment provides exact-key
+Classroom follow-ups reserve up to 24 additional tool calls for exact lookups
+and pages of oversized text in the authorized snapshot.
+Read only needed pages within the tool-call and total input budgets. Repeated tool
+results still consume that total budget. This increment provides exact-key
 retrieval, not semantic search, historical conversation compression or automatic recovery
 from oversized overall inputs. Shared writes and independent teaching-quality acceptance
 remain separate work.
@@ -73,7 +81,8 @@ variable substitution. The separate memory block retains its existing budget,
 referenced-key priority, collection exclusions and values. The model may interpret
 `{{name}}` using that memory or `recall`; an absent value remains unknown. A value
 omitted from the memory block is no longer copied into the script through a separate
-substitution path. Recall's existing size limit still applies.
+substitution path. Explicitly referenced course answers remain in the authorized
+snapshot, where a long text answer can be read in bounded pages.
 
 An existing session keeps its saved prompt and interaction history. Already-expanded
 text is not restored to authored source, and old unavailable-value metadata still

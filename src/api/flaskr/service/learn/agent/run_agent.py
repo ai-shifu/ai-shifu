@@ -40,7 +40,6 @@ from flaskr.api.markdownflow import (
     ScriptBundle,
     StartTurn,
     TurnDone,
-    collected_names,
     rebase_initial_script,
 )
 from flaskr.dao import db
@@ -49,7 +48,10 @@ from flaskr.i18n import _, translate_for_language
 from flaskr.service.common.models import AppError
 from flaskr.service.learn.agent.course_references import discard_course_references
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
-from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
+from flaskr.service.learn.agent.echoed_memory import (
+    EchoedMemoryFilter,
+    strip_echoed_memory,
+)
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
@@ -401,12 +403,9 @@ def _load_or_start(
                 )
                 refresh_deleted_memory(stored, refreshed, current=user_memory)
                 stored.memory_generations = dict(generations)
-                # Named answers are durable course values. Retain the answered marker,
+                # Answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
-                for key in (
-                    collected_names(stored.script.script)
-                    & stored.answered_memory_keys()
-                ):
+                for key in stored.answered_memory_keys():
                     if key in user_memory:
                         stored.record_answer(key, user_memory[key])
             stored.user_memory = (
@@ -846,8 +845,7 @@ class _NarrationSyntax:
 
 def _prepared_lesson_text(text: str) -> str:
     """Project complete feedback through the same typed policy before committing it."""
-    echoes = EchoedMemoryFilter()
-    text = echoes.feed(text) + echoes.flush()
+    text = strip_echoed_memory(text)
     pager = LessonPager(clean_markers=True)
     narration = _NarrationSyntax(InteractionSyntaxFilter())
     pieces = narration.flush(narration.process(pager.add(text) + pager.flush()))

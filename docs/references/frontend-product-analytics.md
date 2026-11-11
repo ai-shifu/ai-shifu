@@ -534,9 +534,11 @@ included in analytics.
   availability or reuse by a later lesson.
 - Trigger: After processing the first `debug_variables_committed` event from
   the current stream with a nonempty `course_updates` map. A qualifying map
-  contains at least one server-saved named interaction answer or user-scoped
-  memory write. Automatic continuation and an accepted answer edit can
-  qualify within the same run.
+  contains at least one server-saved answer or user-scoped memory write.
+  MarkdownFlow 2.0 records answers under the complete question even without
+  a declared binding. Navigation and confirmation do not qualify. Automatic
+  continuation and an accepted answer edit can qualify
+  within the same run.
 - Population: Authorized teachers and collaborators using the course editor's
   Debug panel. Exclude optimistic answers, manual panel edits, rewind
   checkpoints, empty patches, obsolete streams, guests, published learning,
@@ -547,8 +549,9 @@ included in analytics.
   restart or opening Debug for another lesson starts a new run. Deduplication
   state stays in the browser. The Debug run ID is never sent to analytics.
 - Consumers and compatibility: Teacher authoring-quality weekly Umami reports
-  use this additive event. Existing preview click and answer-edit events and
-  historical queries keep their meanings and payloads.
+  use this event. The event name and payload are unchanged. Earlier releases
+  only recorded interaction answers that had a named binding, so segment
+  comparisons at the rollout when measuring changes in Debug activity.
 - Delivery and verification: Emit through `useTracking` without awaiting
   delivery. Tests cover exact payload, sensitive-field absence, trigger
   timing, exclusions, per-run deduplication and continued panel and cache

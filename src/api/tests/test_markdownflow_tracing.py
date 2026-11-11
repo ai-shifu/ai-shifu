@@ -331,10 +331,14 @@ def test_unresolved_tool_waits_for_the_authoritative_host_outcome(
         ToolCall(id="note-1", name="remember", args={"key": "pace", "value": "slow"})
     )
     trace.event(MemoryUpdated(key="pace", value="slow", source="tool"))
-    trace.event(ToolCall(id="question-1", name="interact", args={"prompt": "Next?"}))
+    trace.event(
+        ToolCall(
+            id="question-1", name="interact", args={"type": "confirm", "question": ""}
+        )
+    )
     trace.event(
         InteractionRequest(
-            id="question-1", spec=InteractionSpec(type="confirm", prompt="Next?")
+            id="question-1", spec=InteractionSpec(type="confirm", question="")
         )
     )
     trace.event(ToolCall(id="finish-1", name="finish", args={"summary": "Done"}))
@@ -356,7 +360,7 @@ def test_unresolved_tool_waits_for_the_authoritative_host_outcome(
         spans["recall"].attributes["langfuse.observation.metadata.outcome"]
         == "completed"
     )
-    assert _value(spans["interact"], "output")["prompt"] == "Next?"
+    assert _value(spans["interact"], "output")["question"] == ""
     assert (
         spans["interact"].attributes["langfuse.observation.metadata.outcome"]
         == "waiting"
@@ -381,13 +385,13 @@ def test_interaction_tool_captures_the_question_without_polluting_root_output(
         ToolCall(
             id="question-1",
             name="interact",
-            args={"type": "text", "prompt": "What is your goal?"},
+            args={"type": "text", "question": "What is your goal?"},
         )
     )
     trace.event(
         InteractionRequest(
             id="question-1",
-            spec=InteractionSpec(type="text", prompt="What is your goal?"),
+            spec=InteractionSpec(type="text", question="What is your goal?"),
         )
     )
     trace.append_output("What is your goal?\n[Text input]")
@@ -395,7 +399,7 @@ def test_interaction_tool_captures_the_question_without_polluting_root_output(
     trace.finish()
 
     spans = _spans(observations)
-    assert _value(spans["interact"], "output")["prompt"] == "What is your goal?"
+    assert _value(spans["interact"], "output")["question"] == "What is your goal?"
     assert (
         spans["interact"].attributes["langfuse.observation.metadata.outcome"]
         == "waiting"

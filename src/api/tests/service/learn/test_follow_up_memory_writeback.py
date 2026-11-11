@@ -213,20 +213,26 @@ def test_plain_question_does_not_add_admission_model_requests() -> None:
 
 
 @pytest.mark.parametrize(
-    ("snapshot", "expected"),
+    ("snapshot", "value_offset", "expected"),
     [
-        ({"analogy": "bus station"}, {"status": "found", "value": "bus station"}),
-        ({}, {"status": "unavailable"}),
-        ({"analogy": "x" * 9000}, {"status": "too_large"}),
+        ({"analogy": "bus station"}, None, {"status": "found", "value": "bus station"}),
+        ({}, None, {"status": "unavailable"}),
+        ({"analogy": "x" * 9000}, None, {"status": "too_large"}),
         (
             {"analogy": "\u754c" * 2721},
+            None,
             {"status": "found", "value": "\u754c" * 2721},
         ),
-        ({"analogy": "\u754c" * 2721 + "x"}, {"status": "too_large"}),
+        ({"analogy": "\u754c" * 2721 + "x"}, None, {"status": "too_large"}),
+        (
+            {"analogy": "x" * 9000 + "bus station"},
+            9000,
+            {"status": "value_page", "value": "bus station", "next_value_offset": None},
+        ),
     ],
 )
 def test_follow_up_reads_current_memory_instead_of_old_answer(
-    snapshot: dict[str, str], expected: dict[str, str]
+    snapshot: dict[str, str], value_offset: int | None, expected: dict[str, object]
 ) -> None:
     checker = AsyncMock()
     patch = FollowUpMemoryPatch()
@@ -281,7 +287,14 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
             )
             yield "Current memory checked."
         else:
-            yield {0: DeltaToolCall(name="recall", json_args='{"key":"analogy"}')}
+            yield {
+                0: DeltaToolCall(
+                    name="recall",
+                    json_args=json.dumps(
+                        {"key": "analogy", "value_offset": value_offset}
+                    ),
+                )
+            }
 
     run = FollowUpMemoryRun(
         FunctionModel(stream_function=stream),
@@ -300,6 +313,64 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
     assert run.snapshot == snapshot
     assert patch.variables == []
     checker.assert_not_awaited()
+
+
+def test_follow_up_can_read_two_oversized_saved_answers() -> None:
+    snapshot = {"first": "A" * 40_000, "second": "B" * 40_000}
+    remaining_keys = iter(snapshot)
+    key = next(remaining_keys)
+    slices: dict[str, list[str]] = {name: [] for name in snapshot}
+    question = "Compare my two saved answers."
+    patch = FollowUpMemoryPatch()
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal key
+        offset = None
+        for part in messages[-1].parts:
+            if not isinstance(part, ToolReturnPart):
+                continue
+            page = json.loads(part.content)
+            if page["status"] == "too_large":
+                offset = 0
+                continue
+            assert page["status"] == "value_page"
+            slices[key].append(page["value"])
+            offset = page["next_value_offset"]
+            if offset is None:
+                key = next(remaining_keys, "")
+        if not key:
+            yield "Both current answers were compared."
+            return
+        yield {
+            0: DeltaToolCall(
+                name="recall",
+                json_args=json.dumps({"key": key, "value_offset": offset}),
+            )
+        }
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input=question,
+        declared_keys=frozenset(),
+        snapshot=snapshot,
+        deleted_keys=frozenset(),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=AsyncMock(),
+    )
+    assert (
+        "".join(
+            chunk.result
+            for chunk in run.stream([{"role": "user", "content": question}])
+        )
+        == "Both current answers were compared."
+    )
+    assert {name: "".join(parts) for name, parts in slices.items()} == snapshot
+    assert all(len(parts) > 1 for parts in slices.values())
+    assert patch.variables == []
 
 
 def test_post_read_host_context_cannot_authorize_a_memory_write() -> None:

@@ -13,22 +13,27 @@ The portable engine retains its optional default and unrestricted recording
 instructions for other hosts; system and tool instructions select the same policy. The existing
 profile writer and the session's unit of work remain responsible for persistence.
 
-The overall product feature is "Memory", with question-and-answer pairs as its
-entry structure. Declared question keys and their values supply the two sides.
-A complete question may serve as the existing key; existing keys are not rewritten,
-and the displayed question remains separate from its binding. This product wording
-does not make every interaction eligible for persistent memory, change same-key
-reuse or overwrite behavior, or introduce a per-question memory switch. Information
-saved through an explicit request remains course memory. Presenting it in the same
-structure does not justify a fabricated original question or a claim that it was
-an original learner answer.
+The model supplies `question` for each answer interaction. For a leading
+`?[{{question}} ...]` binding, trim leading and trailing whitespace inside the braces
+and use the resulting text as the exact question and storage key. This applies
+to short labels as well. A later `{{question}}` reference with the same question
+text reads that entry.
+With a selected output language, the learner sees the translated question and
+the original question remains the memory key.
+For exercises without a binding, the model supplies the question from the
+lesson prose or context. Reusing the exact question updates the current
+answer. The model determines whether an unbound control collects an answer
+from its purpose in the lesson and omits `question` when it does not.
+Every accepted submission with a nonempty `question` is stored,
+including navigation with a nonempty binding. Existing percent-prefixed
+declarations have the same meaning. Earlier questions and
+answers keep their original storage keys and history.
 
-A lesson may record a key declared by a leading `?[{{key}} ...]` binding in its
-main script, outside fenced examples. Existing explicit percent-prefixed declarations
-remain compatible. Briefs, reference documents, ordinary `{{key}}` references and existing
-stored keys do not grant write permission. Named interaction answers require the
-same declaration and retain their exact original values and existing scope rules.
-An undeclared answer binding is dropped without dropping the question.
+For writes through `remember`, a key declared by a leading binding in the main
+script is eligible. Briefs, reference documents, ordinary `{{key}}` references,
+and existing stored keys do not themselves grant permission for those writes.
+Information saved by an explicit request remains course memory and does not
+acquire a fabricated question or answer provenance.
 
 An edited draft can carry forward a percent-prefixed system declaration already
 present in its previous revision. Restoring a stored version preserves those
@@ -73,7 +78,10 @@ projection considers only the newest 100 unresolved course keys and includes who
 values fitting 32768 JSON characters, counting escaping. Existing canonical/defined
 variable resolution remains exact and does not consume this allowance. Oversized or
 older supplementary values remain stored and available through the existing memory
-inspection reader, without fabricated provenance or a historical data purge.
+inspection reader. A later lesson that explicitly references an oversized text
+answer can use [bounded recall pages](../references/markdownflow-memory-recall.md)
+to read its original text when needed. Normal-sized references retain their
+existing behavior.
 
 Existing key/value/count and per-scope JSON growth limits also apply. After an
 asynchronous check, capacity and finished state are checked again before mutation.

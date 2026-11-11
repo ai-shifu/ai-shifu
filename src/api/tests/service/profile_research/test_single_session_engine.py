@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from flask import Flask
+from flaskr.api.markdownflow import Session
 from flaskr.common.cache_provider import InMemoryCacheProvider
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from flaskr.service.profile_research.engine_runtime import (
@@ -26,6 +27,7 @@ from flaskr.service.profile_research.session import (
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
+    RetryPromptPart,
     ToolReturnPart,
     UserPromptPart,
 )
@@ -102,28 +104,48 @@ def _content(result: ProfileTurnResult) -> str:
         ("Which value is largest?", "Which value is smallest?"),
     ],
 )
-def test_interaction_contains_only_controls_without_question_fallback(
+def test_question_argument_never_adds_to_model_prose(
     narration: str, question: str
 ) -> None:
     session = _session("Ask about the learner, then wait for the answer.")
+    retry_needed = question not in narration
+    calls = 0
 
-    async def script(_messages: list[ModelMessage], info: AgentInfo) -> Stream:
-        assert "ask the complete question in Markdown prose" in (
-            info.instructions or ""
-        )
-        if narration:
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            assert retry_needed
+            assert any(
+                isinstance(part, RetryPromptPart) and part.tool_name == "interact"
+                for part in messages[-1].parts
+            )
+            yield question
+        elif narration:
             yield narration
         yield {
-            0: _question("current", None, prompt=question, placeholder="Your answer")
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"attempt-{calls}",
+                json_args=json.dumps(
+                    {
+                        "type": "text",
+                        "question": question,
+                        "placeholder": "Your answer",
+                    }
+                ),
+            )
         }
 
     result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
     interaction = result.chunks[-1]
-    assert interaction.interaction_id == "current"
-    assert interaction.interaction == "?[...Your answer]"
-    assert _content(result).strip() == narration.strip()
-    assert session.engine_session["pending"][0]["tool_call_id"] == "current"
-    assert session.engine_session["pending"][0]["spec"]["prompt"] == question
+    assert calls == (2 if retry_needed else 1)
+    assert interaction.interaction_id == f"attempt-{calls}"
+    assert interaction.interaction.endswith("...Your answer]")
+    assert _content(result).strip() == (question if retry_needed else narration)
+    pending = Session.from_dict(session.engine_session).pending[0]
+    assert pending.tool_call_id == interaction.interaction_id
+    assert pending.spec.question == question
 
 
 def test_pending_queue_and_reload_return_only_controls_with_answer_identity() -> None:

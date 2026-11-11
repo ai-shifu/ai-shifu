@@ -2,7 +2,7 @@
 title: Learner Listen Playback and Timeline
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-11-04
+last_reviewed: 2026-11-08
 canonical: true
 ---
 
@@ -26,50 +26,23 @@ canonical: true
 
 ## Reading interaction questions and shared transport
 
-Native interaction questions travel with their controls in optional
-`payload.interaction_question` metadata. Reading and Debug do not append that
-question as lesson prose. Questions already present in authored narration remain
-unchanged. Short confirmation labels retain their existing button behavior.
+For an ordinary answer interaction, the model asks the question in visible
+Markdown prose and then calls `interact` with the same wording in `question`.
+When the control has a leading `{{...}}` binding, that question is the exact
+text inside the braces after trimming leading and trailing whitespace, even
+when it is a short label. The runtime uses `question` for memory and carries it
+with the interaction as `payload.interaction_question`. For structured
+direction, the runtime presents the guiding question within the structured
+feedback. Confirmation and authored navigation send an empty question. Custom
+navigation labels use the tool options.
 
-For ordinary answer-collecting interactions, the shared course/profile runtime
-must first ask the complete current question in visible teaching content, then
-call the real `interact` tool in the same turn and wait. A control title is
-not a replacement for asking the question. Preserve authored questions,
-choices, retries and input boundaries. Do not invent a new teaching question
-for authored navigation or confirmation controls. Structured direction keeps
-its dedicated tool-only contract: the host presents its feedback and
-unanswered question before the controls.
+Interaction `content` contains only the controls. Reading, Debug, and Profile
+display the question in the model's teaching content separately from the controls.
 
-Profile questionnaire interaction chunks contain only the rendered controls.
-Question wording comes from the model's ordinary visible content under the
-shared question-first instruction. The host never prepends the tool question,
-including when restoring pending input, rejecting an answer or exposing a queued
-interaction. It does not compare question text with prose to choose presentation.
-Interaction identities, stored answers and published prose remain unchanged.
-Exact request replays retain their saved event payloads; existing cached history
-is not rewritten.
-
-Interaction `content` contains only the original controls in memory, storage,
-streamed events and serialized history. The question is carried exclusively in
-`interaction_question` metadata. Serialization never prepends question text,
-and frontend consumers parse and render the control content directly.
-
-Use `question` for this presentation concept, distinct from model instructions
-such as a system or course prompt. The existing engine `interact(prompt=...)`
-tool and pending-session schema keep their compatibility contract; the host
-maps that wording to `interaction_question`. This optional presentation field
-is renamed before release, so no deployed-field alias or data migration is
-needed.
-
-Reading and Debug ignore the question metadata when rendering controls.
-Desktop, mobile and print share this display rule. Listen/classroom modes use
-the question metadata for their panel title; it never becomes part of the
-interaction body.
-
-This shared transport stops producing separate question CONTENT, audio and
-marker elements in every mode. Authored narration and its audio are preserved.
-Previously stored prose is not guessed or rewritten. No migration or library
-version bump is required.
+Historical `prompt` values remain readable as `payload.interaction_question`
+presentation metadata. Existing saved prose and exact request replay payloads
+keep their prior presentation.
+See [Learner Memory Admission](./learner-memory-admission.md) for storage rules.
 
 This changes existing-content placement, with no new action
 or analytics meaning. Question text must never be sent to analytics.
@@ -77,10 +50,10 @@ or analytics meaning. Question text must never be sent to analytics.
 ## Listen and classroom interaction titles
 
 Listen and classroom modes use a nonblank native `interaction_question` as the
-active interaction panel title. Its body shows only the controls. Moving to
-another interaction updates the title; changing only the metadata at the same
-element ID also invalidates the rendered-element cache. Historical questions
-and answered controls retain their corresponding title and answer.
+active interaction panel title on first display, timeline navigation, and
+history restore. Its body shows only the controls. Moving to another interaction
+updates the title. Changing only the metadata at the same element ID invalidates
+the rendered-element cache. Answered controls retain their corresponding answer.
 
 Titles display the original question as literal text. HTML and Markdown are not
 executed or rendered as rich content. Missing or blank questions, system
@@ -88,10 +61,9 @@ controls, and questions whose trimmed value is `sys_user_nickname`,
 `sys_user_language` or `sys_user_background` use the localized generic title.
 Short confirmation wording that already labels its button keeps that behavior.
 
-The question is not emitted again as a slide, lesson body or independent audio.
-Switching back to reading continues to hide the extra question. This consumer
-change depends on the reading/shared transport contract and introduces no new
-backend, database, dependency or analytics behavior.
+The panel title stays separate from the model's lesson body and audio. Reading
+uses the model's question prose. The title follows the existing interaction
+payload and slide navigation contracts.
 
 ### `learner_listen_resume_requested`
 

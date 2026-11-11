@@ -169,7 +169,7 @@ def _in_the_learner_s_language(
         return spec
     return InteractionSpec(
         type="confirm",
-        prompt=spec.prompt,
+        question=spec.question,
         options=[Option(display=labels.continue_label, value="continue")],
     )
 
@@ -203,7 +203,7 @@ def _as_sent(
     # Stripped only to decide whether there is a question at all: the text itself goes out as
     # the model wrote it, because the frontend renders it as Markdown and leading indentation
     # or a trailing hard break changes what the learner sees.
-    prompt = spec.prompt
+    prompt = spec.presented_question
     # Before the rewrite below, not after: that rewrite puts the model's own words on the
     # button, and a model that wrote `Continue` would otherwise have them taken for the
     # engine's default and replaced.
@@ -215,7 +215,7 @@ def _as_sent(
         # was not in. A longer prompt is an instruction to the learner and stays as text.
         spec = InteractionSpec(
             type="confirm",
-            prompt="",
+            question="",
             options=[Option(display=prompt.strip(), value="continue")],
         )
         prompt = ""

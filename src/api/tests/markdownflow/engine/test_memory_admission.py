@@ -610,30 +610,29 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
 
     engine = Engine(FunctionModel(stream_function=model), memory_admission=enabled)
     instructions = engine.compose_instructions()
+    declared_key_rule = (
+        "`remember` may use the exact question text from a leading "
+        "`?[{{question}} ...]` binding in the main script as its `key`."
+    )
+    assert "with a nonempty `question` is stored under that exact wording" in (
+        instructions
+    )
+    assert (declared_key_rule in instructions) is enabled
     if enabled:
-        assert "Only record variables the main script declares" in instructions
+        assert (
+            "exercises without a binding and navigation with a binding" in instructions
+        )
         assert "complete verbatim free-text input" in instructions
         assert "before your next `interact` or `finish`" in instructions
-        assert (
-            "Also call `remember` when the learner states a preference"
-            not in instructions
-        )
+        assert "when the learner states a preference" not in instructions
     else:
-        assert (
-            "Also call `remember` when the learner states a preference" in instructions
-        )
-        assert '"store it as X"' in instructions
-        assert "Only record variables the main script declares" not in instructions
+        assert "when the learner states a preference" in instructions
     session = await engine.new_session("Teach.")
     _ = [event async for event in engine.run_turn(session)]
     assert len(seen) == 2
     for description in seen:
-        assert (
-            "Only record variables the main script declares" in description
-        ) is enabled
-        assert (
-            "Also call `remember` when the learner states a preference" in description
-        ) is not enabled
+        assert (declared_key_rule in description) is enabled
+        assert ("when the learner states a preference" in description) is not enabled
 
 
 @pytest.mark.parametrize("replaying", [True, False])

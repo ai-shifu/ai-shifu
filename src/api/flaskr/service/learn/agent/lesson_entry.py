@@ -19,6 +19,7 @@ from flaskr.api.markdownflow import Engine, GatewayModel
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import AppError, raise_error
+from flaskr.service.learn.agent.echoed_memory import strip_echoed_memory
 from flaskr.service.learn.agent.langfuse_tracing import (
     MEMORY_ADMISSION_GENERATION_NAME,
     TEACHING_GENERATION_NAME,
@@ -465,6 +466,7 @@ def agent_lesson_events(
 
     with tracing:
         try:
+            system_keys = get_global_profile_keys()
             engine = Engine(
                 gateway(generation_name=TEACHING_GENERATION_NAME),
                 # No memory store: the engine runs on the bridge's producer thread, which has no app
@@ -478,7 +480,10 @@ def agent_lesson_events(
                 recall_history_compaction=False,
                 exercise_statistics=True,
                 feedback_contract=True,
-                memory_reserved_keys=get_global_profile_keys(),
+                memory_reserved_keys=system_keys,
+                # Retained lessons can have active system bindings. The engine
+                # allows these only on a matching authored control.
+                allowed_authored_question_keys=system_keys,
                 memory_readonly_prefixes=(
                     COURSE_REFERENCE_PREFIX,
                     SHARED_ANSWER_PREFIX,
@@ -493,6 +498,7 @@ def agent_lesson_events(
                 # through, it reached the learner as text with no controls under it, the lesson waited
                 # for an answer that could not be given, and each return to the lesson asked it again.
                 interaction_check=unrenderable_reason,
+                question_text_filter=strip_echoed_memory,
                 # Every lesson here is written in MarkdownFlow, and a MarkdownFlow lesson pauses only where
                 # its author put a button. Left to decide, the model added pauses the author never wrote:
                 # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of

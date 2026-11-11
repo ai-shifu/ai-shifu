@@ -1,7 +1,8 @@
 """Verify agent lesson lookup, course model identity, paid access, and trace closure."""
 
+import json
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from decimal import Decimal
 from unittest.mock import MagicMock, Mock
 
@@ -14,6 +15,7 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
+from flaskr.service.learn.agent.session_store import load_agent_session
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -24,6 +26,13 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.profile import learner_profile
+from flaskr.service.profile.api import (
+    SYS_USER_BACKGROUND,
+    SYS_USER_LANGUAGE,
+    SYS_USER_NICKNAME,
+)
+from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -34,7 +43,11 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.user.repository import create_user_entity, get_user_entity_by_bid
 from pydantic_ai.models import ModelRequestParameters
+
+from tests.service.learn.agent.test_gateway_model import FakeChunk
+from tests.service.learn.agent.test_memory_integration import _drive
 
 
 @pytest.mark.parametrize("preview_mode", [False, True])
@@ -479,11 +492,13 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         exercise_statistics=True,
         feedback_contract=True,
         memory_reserved_keys=entry.get_global_profile_keys(),
+        allowed_authored_question_keys=entry.get_global_profile_keys(),
         memory_readonly_prefixes=("course:", "share:"),
         memory_request_check=request_check.return_value,
         model_settings={"temperature": 0.25},
         # Without it, a question the controls cannot carry reaches the learner with no controls.
         interaction_check=entry.unrenderable_reason,
+        question_text_filter=entry.strip_echoed_memory,
         # Without it, the model pauses the lesson where the author wrote no button.
         pauses_from_notation=True,
     )
@@ -524,6 +539,106 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     runner = Mock(side_effect=lambda *_a, **_kw: iter(()))
     monkeypatch.setattr(entry, "run_agent_lesson", runner)
     return runner
+
+
+@pytest.mark.parametrize(
+    ("question", "field", "answer", "authored"),
+    [
+        (SYS_USER_NICKNAME, "nickname", "Taylor", True),
+        (SYS_USER_LANGUAGE, "language", "fr-FR", True),
+        (SYS_USER_BACKGROUND, "learner_profile", "I teach geometry.", True),
+        (SYS_USER_NICKNAME, "nickname", "Taylor", False),
+    ],
+)
+@pytest.mark.parametrize("preview_mode", [False, True], ids=["published", "preview"])
+def test_authored_system_answers_use_the_same_account_memory_in_both_modes(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    question: str,
+    field: str,
+    answer: str,
+    preview_mode: bool,
+    authored: bool,
+) -> None:
+    """An authored system binding updates the account in preview and published lessons."""
+    user, course, outline = (uuid.uuid4().hex for _ in range(3))
+    script = (
+        f"?[{{{{{question}}}}}...Enter your answer]"
+        if authored
+        else "?[...Enter your answer]"
+    )
+    engine, runner = entry.Engine, entry.run_agent_lesson
+    _entry_with_runner(monkeypatch)
+    settings = LLMSettings(model="2", temperature=0.25, usage_metadata={})
+    monkeypatch.setattr(
+        entry, "_resolve", lambda *_a, **_kw: (script, "", settings, None, False)
+    )
+    entry.CourseTrace.return_value.observe.side_effect = lambda events: events
+    monkeypatch.setattr(entry, "GatewayModel", gateway_module.GatewayModel)
+    monkeypatch.setattr(entry, "Engine", engine)
+    monkeypatch.setattr(
+        entry, "run_agent_lesson", lambda *a, **kw: runner(*a, **kw, iter_turn=_drive)
+    )
+    monkeypatch.setattr(learner_profile, "check_text_content", lambda *_a: True)
+    phase = 0
+
+    def chat(**_kwargs: object) -> Iterator[FakeChunk]:
+        nonlocal phase
+        phase += 1
+        if phase > 2:
+            yield FakeChunk(result=" ", finish_reason="stop")
+            return
+        if phase == 1:
+            yield FakeChunk(result=f"{question}\n")
+            name = "interact"
+            args = {
+                "type": "text",
+                "question": question,
+                "placeholder": "Enter your answer",
+            }
+        else:
+            name = "finish"
+            args = {"summary": "Lesson finished"}
+        yield FakeChunk(
+            tool_call_deltas=[
+                {
+                    "index": 0,
+                    "id": f"call-{phase}",
+                    "name": name,
+                    "arguments": json.dumps(args),
+                }
+            ]
+        )
+        yield FakeChunk(finish_reason="tool_calls")
+
+    monkeypatch.setattr(gateway_module, "chat_llm", chat)
+    with app.app_context():
+        with unit_of_work():
+            learner = create_user_entity(user_bid=user, identify=user, nickname="Alex")
+            original = getattr(learner, field)
+        params = {
+            "user_bid": user,
+            "shifu_bid": course,
+            "outline_bid": outline,
+            "preview_mode": preview_mode,
+        }
+        events = list(entry.agent_lesson_events(app, **params))
+        assert (
+            any(event.type == GeneratedType.INTERACTION for event in events) == authored
+        )
+        if authored:
+            list(entry.agent_lesson_events(app, user_input=answer, **params))
+            session = load_agent_session(app, user, outline)
+            assert session is not None
+            assert session.all_memory()[question] == answer
+        db.session.remove()
+        assert getattr(get_user_entity_by_bid(user), field) == (
+            answer if authored else original
+        )
+        rows = VariableValue.query.filter_by(user_bid=user, key=question).all()
+        assert [(row.shifu_bid, row.value) for row in rows] == (
+            [("", answer)] if authored else []
+        )
 
 
 @pytest.mark.parametrize("preview", [False, True])

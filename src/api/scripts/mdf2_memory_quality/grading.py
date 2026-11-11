@@ -24,8 +24,9 @@ def grading_script(case: dict[str, Any]) -> str:
     return (
         "Teach these two questions in order. Ask one text interaction at a time. "
         f"Use exactly {QUESTION_PROMPTS['FEATURES']!r} and "
-        f"{QUESTION_PROMPTS['PERIPHERALS']!r} as their interaction prompts, "
-        "including on retries, so the learner sees the actual question. "
+        f"{QUESTION_PROMPTS['PERIPHERALS']!r} as their question text, "
+        "including on retries. Ask the exact question in prose before calling "
+        "interact with the same wording in question. "
         "Do not finish before both answers pass. "
         "First, ask FEATURES: What are the main characteristics of a digital "
         "computer? The required points are automatic continuous operation under "
@@ -53,6 +54,7 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
         MemoryUpdated,
         Session,
         TurnDone,
+        plain_narration,
     )
     from pydantic_ai.messages import ModelMessagesTypeAdapter
 
@@ -79,11 +81,12 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
         setup.extend(
             [event async for event in engine.run_turn(session, ContinueTurn())]
         )
+    initial_question = QUESTION_PROMPTS["FEATURES"]
     setup_ok = (
         not any(isinstance(event, ErrorEvent) for event in setup)
         and len(session.pending) == 1
         and session.pending[0].spec.type == "text"
-        and session.pending[0].spec.prompt == QUESTION_PROMPTS["FEATURES"]
+        and session.pending[0].spec.question == initial_question
     )
     if not setup_ok:
         return {
@@ -107,13 +110,15 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
         )
     questions = [event for event in events if isinstance(event, InteractionRequest)]
     errors = [event for event in events if isinstance(event, ErrorEvent)]
+    text = "".join(event.text for event in events if isinstance(event, ContentDelta))
+    feedback = "\n".join(plain_narration(line) for line in text.splitlines())
+    for question in questions:
+        feedback = feedback.replace(question.spec.question, "")
     checks = {
         "expected_question": len(questions) == 1
         and questions[0].spec.type == "text"
-        and questions[0].spec.prompt == QUESTION_PROMPTS[case["expected_question"]],
-        "feedback_present": any(
-            isinstance(event, ContentDelta) and event.text.strip() for event in events
-        ),
+        and questions[0].spec.question == QUESTION_PROMPTS[case["expected_question"]],
+        "feedback_present": bool(feedback.strip()),
         "waiting_for_answer": not session.finished
         and len(session.pending) == 1
         and bool(events)
@@ -123,10 +128,15 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
             session.messages[:count]
         )
         == original,
-        "memory_unchanged": not session.memory
+        "answer_recorded": session.memory == {initial_question: case["answer"]}
         and not session.user_memory
-        and not session.answer_hashes
-        and not any(isinstance(event, MemoryUpdated) for event in events),
+        and session.answered_memory_keys() == {initial_question}
+        and [event for event in events if isinstance(event, MemoryUpdated)]
+        == [
+            MemoryUpdated(
+                key=initial_question, value=case["answer"], source="interaction"
+            )
+        ],
         "no_engine_errors": not errors,
     }
     return {

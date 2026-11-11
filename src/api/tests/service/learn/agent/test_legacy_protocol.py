@@ -214,6 +214,26 @@ def test_an_interaction_carries_its_question_as_control_metadata() -> None:
     assert controls.__json__()["content"] == controls.content
 
 
+def test_current_answer_control_carries_its_question_as_title() -> None:
+    question = "What would you like to learn?"
+    (controls,) = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="text",
+                question=question,
+                variable=question,
+                question_owns_memory=True,
+                placeholder="Share your goal",
+            ),
+        )
+    )
+    assert controls.type == GeneratedType.INTERACTION
+    assert controls.interaction_question == question
+    assert controls.__json__()["interaction_question"] == question
+    assert _parse(controls.content)["variable"] == question
+
+
 def test_a_question_reaches_the_learner_as_the_model_wrote_it() -> None:
     """Preserve the original question for the frontend's plain-text interaction title."""
     question = "    indented line\nsecond line  "
@@ -626,6 +646,19 @@ def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
     assert [e.type for e in translated] == [GeneratedType.INTERACTION]
     assert translated[0].content == "?[继续//continue]"
     assert translated[0].interaction_question is None
+
+
+def test_a_localized_question_uses_its_translation_as_the_control_title() -> None:
+    spec = InteractionSpec(
+        type="text",
+        question="What would you like to learn?",
+        display_question="Que voulez-vous apprendre ?",
+        variable="What would you like to learn?",
+        placeholder="Votre réponse",
+    )
+    (control,) = _translate(InteractionRequest(id="i1", spec=spec))
+    assert control.interaction_question == "Que voulez-vous apprendre ?"
+    assert control.content == "?[%{{ What would you like to learn? }} ...Votre réponse]"
 
 
 def test_a_long_confirm_prompt_becomes_a_control_title() -> None:

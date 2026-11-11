@@ -29,7 +29,7 @@ User-facing workflow and page behavior specifications live here.
 - [Language Selection Analytics](../product-specs/language-selection-analytics.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-11-09` | Canonical: `true`
 - [Learner Listen Playback and Timeline](../product-specs/learner-listen-playback.md)
-  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-11-04` | Canonical: `true`
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-11-08` | Canonical: `true`
 - [Learner Memory Admission](../product-specs/learner-memory-admission.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-11-08` | Canonical: `true`
 - [Lesson Content Update Recommendations](../product-specs/lesson-content-updates.md)

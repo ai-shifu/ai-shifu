@@ -185,6 +185,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
     """Exercise pausing, storing, answering and resuming through the real engine."""
     from markdownflow import Engine, InteractionResponseTurn, Session
 
+    question = "Could you show your work in an image?"
     url = "https://images.example/learner-images/" + "a" * 32 + ".png"
     monkeypatch.setattr(
         "flaskr.api.llm.learner_images.get_config", lambda _: "https://images.example"
@@ -194,6 +195,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
     def chat(**kwargs: object) -> Iterator[FakeChunk]:
         seen.append(kwargs["messages"])
         if len(seen) == 1:
+            yield FakeChunk(result=f"{question}\n")
             yield FakeChunk(
                 tool_call_deltas=[
                     {
@@ -203,8 +205,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
                         "arguments": json.dumps(
                             {
                                 "type": "text",
-                                "prompt": "Show your work",
-                                "variable": "work",
+                                "question": question,
                             }
                         ),
                     }
@@ -235,7 +236,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
         )
     ]
     assert second[-1].reason != "error"
-    assert restored.memory["work"] == f"![learner-image]({url})"
+    assert restored.memory[question] == f"![learner-image]({url})"
     assert any(
         part.get("type") == "image_url" and part["image_url"]["url"] == url
         for message in seen[-1]
@@ -450,11 +451,11 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
         TurnDone,
     )
 
+    question = "How do you feel?"
     spec = {
         "type": "single",
-        "prompt": "How do you feel?",
+        "question": question,
         "options": [{"display": "Good", "value": "good"}],
-        "variable": "feeling",
     }
     seen: list[list[dict]] = []
     turns = {"n": 0}
@@ -465,7 +466,15 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
         seen.append(kwargs["messages"])
         turns["n"] += 1
         if turns["n"] == 1:
-            yield FakeChunk(result="Hello.\n")
+            interact = next(
+                tool["function"]
+                for tool in kwargs["tools"]
+                if tool["function"]["name"] == "interact"
+            )
+            fields = interact["parameters"]["properties"]
+            assert "question" in fields
+            assert not {"prompt", "variable"} & fields.keys()
+            yield FakeChunk(result=f"{question}\n")
             yield FakeChunk(
                 tool_call_deltas=[
                     {
@@ -486,13 +495,14 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     span = FakeSpan()
     model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=span)
     engine = Engine(model)
-    session = await engine.new_session("Ask the learner how they feel.")
+    session = await engine.new_session(f"?[{{{{{question}}}}} Good//good]")
 
     first = [e async for e in engine.run_turn(session)]
     requests = [e for e in first if isinstance(e, InteractionRequest)]
     assert requests, [type(e).__name__ for e in first]
     request = requests[0]
-    assert request.spec.variable == "feeling"
+    assert request.spec.question == question
+    assert request.spec.variable == question
     assert isinstance(first[-1], TurnDone)
     assert first[-1].reason == "interaction"
 
@@ -502,8 +512,12 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
             session, InteractionResponseTurn(values=["Good"])
         )
     ]
-    assert any(isinstance(e, MemoryUpdated) and e.key == "feeling" for e in second)
-    assert session.memory["feeling"] == "good"
+    assert any(
+        isinstance(e, MemoryUpdated) and e.key == question and e.value == "good"
+        for e in second
+    )
+    assert session.memory == {question: "good"}
+    assert session.all_memory() == {question: "good"}
 
     # The resumed request carries the tool result back, keyed by the call it answers.
     resumed = seen[-1]

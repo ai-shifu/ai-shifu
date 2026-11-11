@@ -115,6 +115,7 @@ from .stream_html_context import pending_html_prefix
 from .tools import (
     NO_PAUSE,
     Deps,
+    authored_interaction_questions,
     feedback_response_problem,
     finish,
     interact,
@@ -126,7 +127,6 @@ from .tools import (
     remember,
     script_options,
     script_pauses,
-    script_text_inputs,
     validate_direction_call,
 )
 from .usage import accumulate_usage
@@ -491,9 +491,11 @@ class Engine:
         turn_limit: int = 200,
         model_settings: ModelSettings | None = None,
         interaction_check: Callable[[InteractionSpec], str | None] | None = None,
+        question_text_filter: Callable[[str], str] | None = None,
         pauses_from_notation: bool = False,
         memory_admission: bool = False,
         memory_reserved_keys: frozenset[str] = frozenset(),
+        allowed_authored_question_keys: frozenset[str] = frozenset(),
         memory_readonly_prefixes: tuple[str, ...] = (),
         memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None,
         memory_context_limit: int | None = None,
@@ -502,6 +504,7 @@ class Engine:
         exercise_statistics: bool = False,
         feedback_contract: bool = False,
         buffer_model_responses: bool = False,
+        legacy_interact_args: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -509,6 +512,9 @@ class Engine:
         `interact` call would defer, it returns None, or the reason the host cannot render it.
         A question it cannot render is refused to the model, which asks it again, rather than
         left pending with nothing on the learner's screen to answer it.
+
+        `question_text_filter` projects the host's visible prose before the engine checks
+        that the model has delivered an ordinary or structured question.
 
         `pauses_from_notation` is how a host says its scripts pause only where their notation puts
         a button (`?[继续]`), as a MarkdownFlow 1.0 lesson does: a lesson whose script has no such
@@ -527,6 +533,9 @@ class Engine:
         `memory_readonly_prefixes` prevents tools and named answers from overwriting
         host-owned references, even when a script declares them. Empty retains portable
         hosts' previous key contract.
+
+        `allowed_authored_question_keys` lets a trusted host collect a specific reserved
+        key only through a matching authored control with that exact question text.
 
         `memory_recall` offers bounded read-only access to the current session/user snapshot.
         The host must supply only authorized values and refresh deletions/references per turn.
@@ -551,9 +560,13 @@ class Engine:
         `buffer_model_responses` withholds each model response's text until its
         tools succeed or defer and discards the text if that response is retried.
         Successful tool steps keep their content. Off preserves immediate streaming.
+
+        `legacy_interact_args` permits portable callers to replay the former tool argument shape.
+        The provider schema always advertises the question-only contract.
         """
         self.feedback_contract = feedback_contract
         self.buffer_model_responses = buffer_model_responses
+        self.legacy_interact_args = legacy_interact_args
         self.feedback_instructions = (
             load_prompt("feedback_contract") if feedback_contract else ""
         )
@@ -563,12 +576,14 @@ class Engine:
         )
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
+        self.question_text_filter = question_text_filter
         self.pauses_from_notation = pauses_from_notation
         self.memory_instructions = load_prompt(
             "memory_policy" if memory_admission else "memory_unrestricted"
         )
         self.memory_admission = memory_admission
         self.memory_reserved_keys = memory_reserved_keys
+        self.allowed_authored_question_keys = allowed_authored_question_keys
         self.memory_readonly_prefixes = memory_readonly_prefixes
         self.memory_request_check = memory_request_check
         if memory_context_limit is not None and memory_context_limit < 2:
@@ -825,11 +840,17 @@ class Engine:
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
         script_text = session.script.all_text()
         uses_syntax = detect_syntax(script_text)
-        text_inputs = script_text_inputs(session.script.script) if uses_syntax else ()
+        script_questions = (
+            authored_interaction_questions(session.script.script) if uses_syntax else ()
+        )
+        text_inputs = tuple(
+            question for question in script_questions if question.placeholder
+        )
         for pending in session.pending:
-            pending.spec = normalize_script_text_input(pending.spec, text_inputs)
+            pending.spec = normalize_script_text_input(pending.spec, script_questions)
         deps = Deps(
             authored_text=session.script.all_text(),
+            legacy_interact_args=self.legacy_interact_args,
             memory_deleted_keys=memory_deleted_keys,
             memory_current_inputs=(turn.text,)
             if isinstance(turn, MessageTurn) and not replaying_input
@@ -842,8 +863,11 @@ class Engine:
             listen_mode=session.listen_mode,
             uses_syntax=uses_syntax,
             interaction_check=self.interaction_check,
+            question_text_filter=self.question_text_filter,
             script_options=script_options(script_text) if uses_syntax else {},
             script_text_inputs=text_inputs,
+            script_questions=script_questions,
+            translated_controls=bool(self.output_language),
             literal_interaction_markup=authored_interaction_markup(script_text),
             # The lesson's own script only: a brief or a reference document may show `?[继续]`
             # as an example of the notation, which is not a pause in this lesson.
@@ -856,6 +880,7 @@ class Engine:
                 else None
             ),
             memory_reserved_keys=self.memory_reserved_keys,
+            allowed_authored_question_keys=self.allowed_authored_question_keys,
             memory_readonly_prefixes=self.memory_readonly_prefixes,
             memory_request_check=self.memory_request_check,
             memory_recall_excluded_keys=collected_names(session.script.script),
@@ -904,8 +929,8 @@ class Engine:
             # question never shown, to be asked again in a form that can be.
             self._set_aside_unshowable(session)
             if session.pending:
-                nxt = session.pending[0]
-                yield InteractionRequest(id=nxt.tool_call_id, spec=nxt.spec)
+                pending = session.pending[0]
+                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
                 yield TurnDone(reason="interaction", usage=session.usage)
                 return
             kwargs["deferred_tool_results"] = DeferredToolResults(
@@ -954,13 +979,19 @@ class Engine:
                 and (
                     deps.memory_keys is None
                     or pending.spec.variable in deps.memory_keys
+                    or (
+                        pending.spec.question_owns_memory
+                        and pending.spec.variable == pending.spec.question
+                    )
                 )
             ):
                 value = stored_value(pending.spec, answer)
                 if value is not None:
                     session.record_answer(pending.spec.variable, value)
                     yield MemoryUpdated(
-                        key=pending.spec.variable, value=value, source="interaction"
+                        key=pending.spec.variable,
+                        value=value,
+                        source="interaction",
                     )
             session.pending = [
                 p for p in session.pending if p.tool_call_id != pending.tool_call_id
@@ -972,8 +1003,8 @@ class Engine:
                 # The model raised several interactions in one turn. Ask the next one and wait:
                 # pydantic-ai rejects a resume that leaves any deferred call unanswered, so the
                 # model only runs again once every one of them has an answer.
-                nxt = session.pending[0]
-                yield InteractionRequest(id=nxt.tool_call_id, spec=nxt.spec)
+                pending = session.pending[0]
+                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
                 yield TurnDone(reason="interaction", usage=session.usage)
                 return
             kwargs["deferred_tool_results"] = DeferredToolResults(
@@ -1039,16 +1070,19 @@ class Engine:
                     and part.tool_name == "interact"
                     and part.tool_call_id in resumed
                 ):
-                    try:
-                        spec = InteractionSpec.model_validate(part.args_as_dict())
-                    except (TypeError, ValueError):
-                        continue
+                    spec = session.interaction_specs.get(part.tool_call_id)
+                    if spec is None:
+                        try:
+                            spec = InteractionSpec.model_validate(part.args_as_dict())
+                        except (TypeError, ValueError):
+                            continue
                     if (
                         deps.memory_keys is not None
                         and spec.variable not in deps.memory_keys
+                        and not spec.question_owns_memory
                     ):
                         spec = spec.model_copy(update={"variable": None})
-                    spec = normalize_script_text_input(spec, text_inputs)
+                    spec = normalize_script_text_input(spec, script_questions)
                     if spec.type != "text":
                         continue
                     # Eligibility comes from the original text control, not the
@@ -1092,6 +1126,7 @@ class Engine:
                     session.script.script,
                     resumed,
                     memory_keys=deps.memory_keys,
+                    interaction_specs=session.interaction_specs,
                 )
             if self.memory_recall and prompt is not None:
                 notice = current_recall_notice(
@@ -1177,6 +1212,7 @@ class Engine:
         shown: list[str] = []
         response_index = 0
         shown_response = 0
+        shown_response_start = 0
         after_pause = False
         history_saved = False
         was_interrupted = session.interrupted
@@ -1217,9 +1253,11 @@ class Engine:
 
         def _out(text: str, response: int) -> list[Event]:
             """Deliver text and track what this turn has sent to the learner."""
-            nonlocal delivered, shown_response
-            if shown and response != shown_response:
-                text = _response_separator(shown, text) + text
+            nonlocal delivered, shown_response, shown_response_start
+            if response != shown_response:
+                shown_response_start = len(shown)
+                if shown:
+                    text = _response_separator(shown, text) + text
             shown_response = response
             delivered += _visible_length(text)
             said.append("".join(text.split()))
@@ -1228,6 +1266,28 @@ class Engine:
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
+
+        def _question_context(text: str) -> str:
+            # A host filter can keep a block open across tool hops. Replay the
+            # delivered prefix with the candidate, excluding this response's
+            # streamed text because the tool may precede part of that text.
+            prefix = (
+                shown[:shown_response_start]
+                if shown_response == response_index
+                else shown
+            )
+            if holding:
+                buffered = [
+                    chunk for response, chunk in held if response != response_index
+                ]
+                if buffered and text:
+                    text = _response_separator([*prefix, *buffered], text) + text
+                text = _after_the_repeat([*buffered, text], previous)
+            separator = _response_separator(prefix, text) if prefix and text else ""
+            return "".join(prefix) + separator + text
+
+        if self.question_text_filter is not None:
+            deps.question_text_context = _question_context
 
         def _release_held(remaining: str) -> list[Event]:
             """Release the retained suffix without losing its response boundaries."""
@@ -1564,6 +1624,10 @@ class Engine:
                                     session.pending.append(
                                         PendingInteraction(call.tool_call_id, spec)
                                     )
+                                    if spec.question_owns_memory:
+                                        session.interaction_specs[call.tool_call_id] = (
+                                            spec
+                                        )
                                     direction_pending.add(call.tool_call_id)
                         repeated = carried_on and _repeats_previous_turn(
                             session.messages,
@@ -1598,6 +1662,7 @@ class Engine:
                             for e in _release_held(released):
                                 yield e
                         held.clear()
+                        holding = False
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.
                         session.answers = {}
@@ -1633,12 +1698,13 @@ class Engine:
                                 spec = InteractionSpec.model_validate(
                                     result.output.metadata.get(call.tool_call_id, {})
                                 )
+                                pending = PendingInteraction(call.tool_call_id, spec)
                                 if call.tool_call_id not in direction_pending:
-                                    session.pending.append(
-                                        PendingInteraction(call.tool_call_id, spec)
-                                    )
+                                    session.pending.append(pending)
+                                if spec.question_owns_memory:
+                                    session.interaction_specs[call.tool_call_id] = spec
                                 yield InteractionRequest(
-                                    id=call.tool_call_id, spec=spec
+                                    id=pending.tool_call_id, spec=spec
                                 )
                             yield TurnDone(reason="interaction", usage=session.usage)
                         elif deps.finished is not None:

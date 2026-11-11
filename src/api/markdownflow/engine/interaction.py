@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -58,16 +58,26 @@ class InteractionSpec(BaseModel):
     """What the model is asking the learner for, and how to show it."""
 
     type: InteractionType
-    prompt: str = Field(
-        description="The question or instruction shown above the controls."
+    question: str = Field(
+        validation_alias=AliasChoices("question", "prompt"),
+        serialization_alias="prompt",
+        description="The complete question the learner is asked.",
+    )
+    display_question: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
     )
     options: list[Option] = Field(
         default_factory=list, description="Choices; empty for text."
     )
     variable: str | None = Field(
         default=None,
-        description="Memory key to store the answer under. Only when the script names one.",
+        description="Resolved memory key to store the answer under.",
     )
+    question_owns_memory: bool = False
+    generated_control: bool = Field(default=False, exclude_if=lambda value: not value)
+    structured_correction: bool = False
+    # Feedback may ask a narrower follow-up than the authored input it corrects.
+    source_question: str | None = None
     placeholder: str | None = Field(
         default=None, description="Placeholder for the text box."
     )
@@ -79,6 +89,16 @@ class InteractionSpec(BaseModel):
     # pending ones back from the session the same way, and a flag that did not survive that
     # round trip would tell the host nothing.
     labelled_by_engine: bool = False
+
+    @property
+    def prompt(self) -> str:
+        """Read the question through the pre-migration application interface."""
+        return self.question
+
+    @property
+    def presented_question(self) -> str:
+        """Return the wording the learner saw, with a fallback for saved questions."""
+        return self.display_question or self.question
 
     @model_validator(mode="after")
     def _check(self) -> InteractionSpec:
@@ -102,6 +122,9 @@ class InteractionSpec(BaseModel):
             # Models do attach a variable to it -- often the one the previous question filled --
             # and pressing continue then overwrites a real answer with the button's label.
             self.variable = None
+            self.question_owns_memory = False
+            self.structured_correction = False
+            self.source_question = None
         return self
 
 

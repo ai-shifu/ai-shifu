@@ -170,6 +170,26 @@ async def test_recall_preserves_json_types_and_session_precedence(
     assert session.user_memory == {"goal": "old"}
 
 
+async def test_text_page_offsets_use_the_same_scope_and_exclusions() -> None:
+    _, _, returned, _ = await _exercise(
+        [
+            ("recall", {"key": "collect_again", "value_offset": 0}),
+            ("recall", {"value_offset": 0}),
+            ("recall", {"key": "goal", "value_offset": -1}),
+            ("recall", {"key": "goal", "value_offset": 3}),
+            ("recall", {"key": "structured", "value_offset": 0}),
+            ("recall", {"key": "goal", "value_offset": 1}),
+        ],
+        user_memory={"collect_again": "Old", "goal": "Aé", "structured": ["a"]},
+        script="?[{{collect_again}}...Your answer]",
+    )
+    assert [json.loads(result) for result in returned] == [
+        {"status": "unavailable"},
+        *({"status": "invalid_offset"} for _ in range(4)),
+        {"status": "value_page", "value": "é", "next_value_offset": None},
+    ]
+
+
 async def test_sorted_pages_have_no_repeats_and_exclude_recollected_answers() -> None:
     values = {f"note_{i:03}": str(i) for i in reversed(range(53))}
     values["goal"] = "old answer"
