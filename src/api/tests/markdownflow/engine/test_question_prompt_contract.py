@@ -77,9 +77,8 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
     listen_mode: bool, render: Literal["sandbox", "none"], binding: str
 ) -> None:
     """Keep the model's question prose ahead of the controls and use its key for storage."""
-    question = (
-        "matching_examples" if binding == "short-label" else "Which examples match?"
-    )
+    learner_question = "Which examples match?"
+    question = "matching_examples" if binding == "short-label" else learner_question
     teaching = "Compare the examples."
     prefix = f"{{{{ {question} }}}} " if binding in ("question", "short-label") else ""
     options = [{"display": "A", "value": "a"}, {"display": "B", "value": "b"}]
@@ -106,7 +105,7 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         assert "MUST ask the question in visible Markdown prose" in (
             info.instructions or ""
         )
-        yield f"{teaching}\n\n{question}"
+        yield f"{teaching}\n\n{learner_question}"
         yield {
             0: DeltaToolCall(
                 name="interact",
@@ -127,7 +126,7 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         memory_admission=True,
         memory_recall=True,
     )
-    script = f"{teaching}\n?[{prefix}A//a || B//b]"
+    script = f"{teaching}\n{learner_question}\n?[{prefix}A//a || B//b]"
     if binding == "mixed":
         script += "\n?[{{extra_examples}} A//a || B//b]"
     session = await engine.new_session(script, listen_mode=listen_mode)
@@ -139,8 +138,8 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
         text = "".join(e.text for e in before if isinstance(e, ContentDelta))
     else:
         text = "".join(e.text for e in before if e.type == "narration.delta")
-    assert text.index(teaching) < text.index(question)
-    assert text.count(question) == 1
+    assert text.index(teaching) < text.index(learner_question)
+    assert text.count(learner_question) == 1
     assert interaction.spec.question == question
     assert interaction.spec.type == "multi"
     assert [option.model_dump() for option in interaction.spec.options] == options

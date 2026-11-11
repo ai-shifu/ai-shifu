@@ -29,13 +29,13 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Reference/binding and question-presentation guidance are reviewed changes;
+    # Reference/binding and learner-facing question guidance are reviewed changes;
     # retain every other copied prompt byte and keep the historical fixture intact.
     hashes["system"] = (
-        "52b7aa95d068f29c02ba08ab32c758d61deaacd3b73f3efb2d98d73599f1f74b"
+        "c0d9152a9beb2894352d0976fbe948bf89dde5e77f9abafc3a1d9ea7fcfe4f0f"
     )
     hashes["v1_syntax"] = (
-        "fd6f3d92fa5722087728ab937ba5f25d01ff6eb4707dc33b5ba08e15115639da"
+        "9bbb89a1a1593f9a32aa2864097283f3c86a48f9e4d11ea1d1bc28f039e315ea"
     )
     hashes["memory_policy"] = (
         "5d43ab143d4e0e625dbd1e8e6815fdb9bfbe93299b8959c3a497472b123a8d78"
