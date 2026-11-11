@@ -185,8 +185,6 @@ class _InteractRetryText:
                 text = self.prefix[: self.matched] + text
                 self.prefix = ""
                 self.matched = 0
-        if text:
-            self.sent.append(text)
         return text
 
 
@@ -1335,18 +1333,16 @@ class Engine:
             for response, group in groupby(held, key=lambda item: item[0]):
                 text = "".join(chunk for _, chunk in group)
                 if len(text) > skip:
-                    out.extend(_emit_after_retry_filter(text[skip:], response))
+                    out.extend(_emit(text[skip:], response))
                 skip = max(0, skip - len(text))
             held.clear()
             return out
 
-        def _emit_after_retry_filter(text: str, response: int) -> list[Event]:
-            """Remove a replay before assigning the response its display separator."""
+        def _emit(text: str, response: int) -> list[Event]:
+            """Record the text actually emitted by the current model response."""
             nonlocal shown_response
             if response == response_index:
-                text = retry_text.take(text)
-                if not text:
-                    return []
+                retry_text.sent.append(text)
                 if retry_text.continues:
                     # The suffix continues the already displayed response in place.
                     shown_response = response
@@ -1355,8 +1351,19 @@ class Engine:
         def _display(text: str) -> list[Event]:
             """Hold potential repeats until they are known or diverge into new content."""
             nonlocal holding, held_text
+            # The retry matcher needs the original prefix, before the broader
+            # continuation logic can trim complete sentences or lines.
+            text = retry_text.take(text)
+            if not text:
+                return []
             if not holding:
-                return _emit_after_retry_filter(text, response_index)
+                return _emit(text, response_index)
+            if retry_text.continues:
+                # The skipped pause and rejection can come from the same tool
+                # batch. The suffix of the exact replay is already known to be new.
+                holding = False
+                released = _release_held(_held_output(trim_repeat=True)) if held else []
+                return [*released, *_emit(text, response_index)]
             if held and held[-1][0] != response_index:
                 # Repeat trimming reads the same line boundaries as delivery.
                 prior_response, prior_chunk = held[-1]

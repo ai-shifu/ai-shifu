@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 from markdownflow.engine import ContentDelta, Engine, InteractionRequest, ToolCall
-from pydantic_ai.messages import RetryPromptPart
+from markdownflow.engine.tools import NO_PAUSE
+from pydantic_ai.messages import RetryPromptPart, ToolReturnPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 if TYPE_CHECKING:
@@ -115,9 +116,14 @@ async def test_lesson_opening_streams_while_interact_validates(retry: str) -> No
 
 
 @pytest.mark.anyio
-async def test_retry_continues_an_unfinished_word() -> None:
+@pytest.mark.parametrize("skip_pause", [False, True])
+async def test_retry_continues_an_unfinished_word(skip_pause: bool) -> None:
     """An exact replay resumes the previous text without inserting a line break."""
-    prefix = "Wel"
+    prefix = (
+        "This first sentence is already visible to the learner. Wel"
+        if skip_pause
+        else "Wel"
+    )
     suffix = "come to the lesson."
     question = "What should we study?"
     attempts = 0
@@ -136,13 +142,20 @@ async def test_retry_continues_an_unfinished_word() -> None:
         if attempts == 1:
             yield prefix
             assert content() == prefix
-            yield {
+            tools = {
                 0: DeltaToolCall(
                     name="interact",
                     tool_call_id="invalid",
                     json_args='{"type":"text","placeholder":"Answer"}',
                 )
             }
+            if skip_pause:
+                tools[1] = DeltaToolCall(
+                    name="interact",
+                    tool_call_id="pause",
+                    json_args='{"type":"confirm"}',
+                )
+            yield tools
             return
 
         assert attempts == 2
@@ -150,6 +163,11 @@ async def test_retry_continues_an_unfinished_word() -> None:
             isinstance(part, RetryPromptPart) and part.tool_call_id == "invalid"
             for part in messages[-1].parts
         )
+        if skip_pause:
+            assert any(
+                isinstance(part, ToolReturnPart) and part.content == NO_PAUSE
+                for part in messages[-1].parts
+            )
         yield prefix[:2]
         yield prefix[2:]
         yield suffix
