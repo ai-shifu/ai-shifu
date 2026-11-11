@@ -185,6 +185,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
     """Exercise pausing, storing, answering and resuming through the real engine."""
     from markdownflow import Engine, InteractionResponseTurn, Session
 
+    question = "Could you show your work in an image?"
     url = "https://images.example/learner-images/" + "a" * 32 + ".png"
     monkeypatch.setattr(
         "flaskr.api.llm.learner_images.get_config", lambda _: "https://images.example"
@@ -194,6 +195,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
     def chat(**kwargs: object) -> Iterator[FakeChunk]:
         seen.append(kwargs["messages"])
         if len(seen) == 1:
+            yield FakeChunk(result=f"{question}\n")
             yield FakeChunk(
                 tool_call_deltas=[
                     {
@@ -203,8 +205,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
                         "arguments": json.dumps(
                             {
                                 "type": "text",
-                                "prompt": "Show your work",
-                                "variable": "work",
+                                "question": question,
                             }
                         ),
                     }
@@ -235,7 +236,7 @@ async def test_image_only_answer_survives_a_real_engine_session_round_trip(
         )
     ]
     assert second[-1].reason != "error"
-    assert restored.memory["work"] == f"![learner-image]({url})"
+    assert restored.memory[question] == f"![learner-image]({url})"
     assert any(
         part.get("type") == "image_url" and part["image_url"]["url"] == url
         for message in seen[-1]
