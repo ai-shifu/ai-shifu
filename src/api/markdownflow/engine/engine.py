@@ -743,6 +743,13 @@ class Engine:
             self.prompts.base,
             self.memory_instructions,
         ]
+        if self.buffer_model_responses:
+            parts.append(
+                "This host buffers your prose until its tool calls pass validation. "
+                "If an ordinary answer interaction is rejected, the learner did not "
+                "see the prose from that response. Include any withheld teaching "
+                "with the corrected call, and include the complete question if withheld."
+            )
         if render == "sandbox":
             parts.append(self.prompts.html_display)
         elif render == "generic":

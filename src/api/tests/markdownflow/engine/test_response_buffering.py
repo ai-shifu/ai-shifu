@@ -14,7 +14,12 @@ from markdownflow.engine import (
     InteractionRequest,
     TurnDone,
 )
-from pydantic_ai.messages import ModelResponse, TextPart, ToolReturnPart
+from pydantic_ai.messages import (
+    ModelResponse,
+    RetryPromptPart,
+    TextPart,
+    ToolReturnPart,
+)
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 if TYPE_CHECKING:
@@ -84,6 +89,59 @@ async def test_response_buffering_discards_rejected_text_without_changing_defaul
     assert not any(isinstance(event, ErrorEvent) for event in events)
     if buffered:
         assert "Rejected draft" not in _history_text(session.messages)
+
+
+@pytest.mark.parametrize("buffered", [False, True], ids=["streamed", "buffered"])
+async def test_retry_guidance_preserves_question_and_teaching_once(
+    buffered: bool,
+) -> None:
+    teaching = "Choose a time for the workshop."
+    question = "Which session can you attend?"
+    prose = f"{teaching}\n\n{question}"
+    options = [
+        {"display": "Morning", "value": "am"},
+        {"display": "Evening", "value": "pm"},
+    ]
+    attempts = 0
+
+    async def script(messages: list[ModelMessage], info: AgentInfo) -> StreamChunks:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            yield prose
+            yield _call("interact", type="single", question=question, options=options)
+            return
+
+        assert attempts == 2
+        assert any(
+            isinstance(part, RetryPromptPart)
+            and part.tool_name == "interact"
+            and "availability" in str(part.content)
+            for part in messages[-1].parts
+        )
+        assert (prose in _history_text(messages)) is not buffered
+        # Follow the host's instruction to resend only prose the learner did not see.
+        if "This host buffers your prose" in (info.instructions or ""):
+            yield prose
+        yield _call("interact", type="single", question="availability", options=options)
+
+    engine = Engine(
+        FunctionModel(stream_function=script),
+        buffer_model_responses=buffered,
+        pauses_from_notation=True,
+    )
+    session = await engine.new_session(
+        f"{prose}\n?[%{{{{availability}}}} Morning//am | Evening//pm]"
+    )
+    events = [event async for event in engine.run_turn(session)]
+
+    assert attempts == 2
+    (interaction,) = [
+        event for event in events if isinstance(event, InteractionRequest)
+    ]
+    assert _text(events[: events.index(interaction)]) == _text(events) == prose
+    assert interaction.spec.question == "availability"
+    assert [option.model_dump() for option in interaction.spec.options] == options
 
 
 async def test_successful_tool_responses_keep_text_before_and_after_the_tool() -> None:
