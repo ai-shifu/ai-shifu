@@ -1818,6 +1818,8 @@ export const LessonConversation = ({
                         markdown-flow-ui never restarts it from the beginning.
                       */}
                       <ContentBlock
+                        learnerImagesEnabled
+                        previewMode={previewMode}
                         item={item}
                         contentLanguage={contentLanguage}
                         printMode={isPreparingLessonPdf && isCourseInteraction}

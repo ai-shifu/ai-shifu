@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
+from flaskr.api.markdownflow import InteractionSpec
 from flaskr.service.learn.agent.interaction_history import structured_user_input
+from flaskr.service.learn.agent.run_agent import _turn_input
 
 _MULTI = {
     "type": "multi_or_text",
@@ -16,6 +19,24 @@ _MULTI = {
     ],
     "placeholder": "Something else",
 }
+
+
+def test_single_choice_plus_image_survives_execution_and_history() -> None:
+    """A single choice must not truncate the attached free-text image answer."""
+    marker = (
+        "![learner-image](https://images.example/learner-images/" + "a" * 32 + ".png)"
+    )
+    spec = {**_MULTI, "type": "single_or_text"}
+    session = SimpleNamespace(
+        started=True,
+        pending=[SimpleNamespace(spec=InteractionSpec.model_validate(spec))],
+    )
+    turn = _turn_input(session, ["plums", "See this: " + marker])
+    assert turn.values == ["plums"]
+    assert turn.text == "See this: " + marker
+    saved = json.loads(structured_user_input(spec, ["plums", "See this: " + marker]))
+    assert saved["selectedValues"] == ["plums"]
+    assert saved["inputText"] == "See this: " + marker
 
 
 def test_choices_containing_commas_stay_separate_values() -> None:

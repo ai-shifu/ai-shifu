@@ -193,6 +193,7 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
 def test_runtime_config_dto_json_uses_public_aliases() -> None:
     dto = RuntimeConfigDTO(
         wechat_app_id="wechat-app-1",
+        learner_image_storage_prefixes=["https://cdn.example.com/learner-images/"],
         enable_wechat_code=True,
         billing_enabled=True,
         billing_credit_precision=2,
@@ -283,6 +284,9 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         "th-TH": "/legal/agreement/th",
         "ur-PK": "",
     }
+    assert payload["learnerImageStoragePrefixes"] == [
+        "https://cdn.example.com/learner-images/"
+    ]
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 2
     assert "courseId" not in payload
@@ -293,6 +297,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert dto.official_site_url == "https://official.example.com"
     assert set(payload) == {
         "wechatAppId",
+        "learnerImageStoragePrefixes",
         "enableWechatCode",
         "billingEnabled",
         "billingCreditPrecision",

@@ -22,6 +22,13 @@ import {
 } from '@/components/ui/Popover';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+import { useLearnerImages } from '@/hooks/use-learner-images';
+import {
+  serializeLearnerImageSubmission,
+  toMarkdownFlowImageUserInput,
+  splitInteractionImages,
+} from '@/lib/learner-images';
+
 import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
@@ -741,7 +748,9 @@ const buildSlideElementList = ({
       is_new: item.is_new ?? true,
       blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
-      user_input: isSystemInteraction ? '' : currentUserInput,
+      user_input: isSystemInteraction
+        ? ''
+        : (toMarkdownFlowImageUserInput(currentUserInput) ?? ''),
       ask_list: askList,
       readonly:
         !isSystemInteraction &&
@@ -1305,6 +1314,25 @@ const ListenModeSlideRenderer = ({
 
     return markerStepList[playbackState.currentStepIndex];
   }, [markerStepList, playbackState.currentStepIndex]);
+  const imageTarget = currentMarkerStepElement as
+    | ListenSlideElement
+    | undefined;
+  const savedImages = splitInteractionImages(
+    items.find(item => item.element_bid === imageTarget?.blockBid)?.user_input,
+  ).images;
+  const { imageInput } = useLearnerImages(
+    `${lessonId}:${imageTarget?.blockBid ?? ''}`,
+    'answer',
+    previewMode,
+    savedImages,
+  );
+  const imagesUploading = Boolean(imageInput.uploading);
+  const acceptsImages =
+    imageTarget?.type === 'interaction' &&
+    !imageTarget.readonly &&
+    !disableInteractionEdits &&
+    !isSystemInteractionContent(String(imageTarget.content ?? '')) &&
+    !isLessonFeedbackInteractionContent(String(imageTarget.content ?? ''));
   const currentMarkerStepKey = useMemo(() => {
     const markerIdentityKey = getListenMarkerIdentityKey(
       currentMarkerStepElement,
@@ -1445,11 +1473,14 @@ const ListenModeSlideRenderer = ({
         return;
       }
 
-      if (disableInteractionEdits) {
+      if (disableInteractionEdits || imagesUploading) {
         return;
       }
 
-      const submittedValue = resolveInteractionSubmission(content).userInput;
+      const submission = serializeLearnerImageSubmission(content);
+      const submittedValue = content.images?.length
+        ? JSON.stringify(content)
+        : resolveInteractionSubmission(submission).userInput;
       if (submittedValue) {
         setInteractionInputMap(prev => ({
           ...prev,
@@ -1457,9 +1488,9 @@ const ListenModeSlideRenderer = ({
         }));
       }
 
-      onSend?.(content, blockBid);
+      onSend?.(submission, blockBid);
     },
-    [disableInteractionEdits, onSend],
+    [disableInteractionEdits, onSend, imagesUploading],
   );
 
   const handleMobileAskToggle = useCallback(() => {
@@ -2547,6 +2578,10 @@ const ListenModeSlideRenderer = ({
             : desktopAskOverlay
           : null}
         <Slide
+          showImageInput={acceptsImages}
+          imageInput={
+            imageTarget?.type === 'interaction' ? imageInput : undefined
+          }
           className={cn(
             'h-full w-full listen-slide-root',
             isMobileFullscreen && 'listen-slide-root--landscape',

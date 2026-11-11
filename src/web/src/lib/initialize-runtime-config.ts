@@ -140,6 +140,12 @@ const loadRuntimeConfig = async () => {
 
   const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
+  useEnvStore.setState({
+    learnerImageStoragePrefixes: normalizeStringArray(
+      runtimeConfig?.learnerImageStoragePrefixes,
+      useEnvStore.getState().learnerImageStoragePrefixes,
+    ),
+  });
 
   const paymentChannels = normalizeStringArray(
     runtimeConfig?.paymentChannels,

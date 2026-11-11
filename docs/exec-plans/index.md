@@ -26,6 +26,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
 - [Integrate standard interaction bindings](./active/interaction-variable-pr-series.md)
 - [Serve shared API envelopes as inert JSON](./active/json-api-response-safety.md)
+- [Learner image input](./active/learner-image-input.md)
 - [Lesson reset limit backed by SQL](./active/lesson-reset-limit.md)
 - [Show interaction titles in listen and classroom modes](./active/listen-classroom-question-titles.md)
 - [Local storage response safety](./active/local-storage-response-safety.md)

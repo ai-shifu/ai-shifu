@@ -94,6 +94,156 @@ async def _drain(chunks: list[FakeChunk]) -> ModelResponse:
 # -- message mapping ---------------------------------------------------------------------
 
 
+async def test_image_answers_reach_the_gateway_after_all_tool_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Preserve tool ordering and native image parts through the actual gateway call."""
+    image_url = "https://images.example/learner-images/" + "a" * 32 + ".png"
+    older_urls = [
+        "https://images.example/learner-images/" + digit * 32 + ".png"
+        for digit in "bcde"
+    ]
+    monkeypatch.setattr(
+        "flaskr.api.llm.learner_images.get_config", lambda _: "https://images.example"
+    )
+    captured = {}
+
+    def chat(**kwargs: object) -> Iterator[FakeChunk]:
+        captured.update(kwargs)
+        yield FakeChunk(result="It is red.", finish_reason="stop")
+
+    monkeypatch.setattr(gw, "chat_llm", chat)
+    model = gw.GatewayModel(
+        None,
+        "test-model",
+        user_id="learner",
+        span=FakeSpan(),
+        input_budget_bytes=262144,
+    )
+    older_answer = "Earlier learner text\n" + "\n".join(
+        f"![learner-image]({url})" for url in older_urls
+    )
+    messages = [
+        ModelRequest(parts=[UserPromptPart(older_answer)]),
+        ModelResponse(parts=[TextPart("Earlier reply")]),
+        ModelResponse(
+            parts=[
+                ToolCallPart("interact", {"type": "text"}, "first"),
+                ToolCallPart("interact", {"type": "text"}, "second"),
+            ]
+        ),
+        ModelRequest(
+            parts=[
+                ToolReturnPart(
+                    "interact",
+                    f"Learner wrote: What color?\n![learner-image]({image_url})",
+                    "first",
+                ),
+                ToolReturnPart("interact", "Learner chose: red", "second"),
+            ]
+        ),
+    ]
+    response = await model.request(messages, None, _params())
+    assert response.parts[0].content == "It is red."
+    mapped = captured["messages"]
+    assert [message["role"] for message in mapped] == [
+        "user",
+        "assistant",
+        "assistant",
+        "tool",
+        "tool",
+        "user",
+    ]
+    assert mapped[0]["content"][0]["text"] == "Earlier learner text"
+    assert [
+        part["image_url"]["url"]
+        for part in mapped[0]["content"]
+        if part["type"] == "image_url"
+    ] == older_urls[1:]
+    assert mapped[3]["content"] == "Learner wrote: What color?\n"
+    assert mapped[4]["tool_call_id"] == "second"
+    assert mapped[5]["content"][-1] == {
+        "type": "image_url",
+        "image_url": {"url": image_url},
+    }
+
+
+async def test_image_only_user_message_is_native_content() -> None:
+    url = "https://images.example/learner-images/" + "a" * 32 + ".png"
+    mapped = gw.map_messages(
+        [ModelRequest(parts=[UserPromptPart(f"![learner-image]({url})")])]
+    )
+    assert mapped[0]["content"] == [
+        {"type": "text", "text": "See the attached images."},
+        {"type": "image_url", "image_url": {"url": url}},
+    ]
+
+
+async def test_image_only_answer_survives_a_real_engine_session_round_trip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exercise pausing, storing, answering and resuming through the real engine."""
+    from markdownflow import Engine, InteractionResponseTurn, Session
+
+    url = "https://images.example/learner-images/" + "a" * 32 + ".png"
+    monkeypatch.setattr(
+        "flaskr.api.llm.learner_images.get_config", lambda _: "https://images.example"
+    )
+    seen: list[list[dict]] = []
+
+    def chat(**kwargs: object) -> Iterator[FakeChunk]:
+        seen.append(kwargs["messages"])
+        if len(seen) == 1:
+            yield FakeChunk(
+                tool_call_deltas=[
+                    {
+                        "index": 0,
+                        "id": "image-question",
+                        "name": "interact",
+                        "arguments": json.dumps(
+                            {
+                                "type": "text",
+                                "prompt": "Show your work",
+                                "variable": "work",
+                            }
+                        ),
+                    }
+                ],
+                finish_reason="tool_calls",
+            )
+        else:
+            yield FakeChunk(result="The image is red.", finish_reason="stop")
+
+    monkeypatch.setattr(gw, "chat_llm", chat)
+    engine = Engine(
+        gw.GatewayModel(
+            None,
+            "vision-model",
+            user_id="u",
+            span=FakeSpan(),
+            input_budget_bytes=262144,
+        )
+    )
+    session = await engine.new_session("Ask the learner for an image of their work.")
+    first = [event async for event in engine.run_turn(session)]
+    assert first[-1].reason == "interaction"
+    restored = Session.from_dict(json.loads(json.dumps(session.to_dict())))
+    second = [
+        event
+        async for event in engine.run_turn(
+            restored, InteractionResponseTurn(values=[f"![learner-image]({url})"])
+        )
+    ]
+    assert second[-1].reason != "error"
+    assert restored.memory["work"] == f"![learner-image]({url})"
+    assert any(
+        part.get("type") == "image_url" and part["image_url"]["url"] == url
+        for message in seen[-1]
+        if isinstance(message.get("content"), list)
+        for part in message["content"]
+    )
+
+
 def test_system_parts_are_merged_into_one_leading_message() -> None:
     """Several providers reject a second system message, so they have to arrive as one."""
     messages = [

@@ -2,6 +2,7 @@
 
 from flask import Flask, Response, request
 
+from flaskr.api.llm.learner_images import learner_image_storage_prefixes
 from flaskr.common.config import ENV_VARS
 from flaskr.common.public_urls import build_google_oauth_callback_url
 from flaskr.common.shifu_context import (
@@ -223,6 +224,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
 
         config = RuntimeConfigDTO(
             wechat_app_id=wechat_app_id,
+            learner_image_storage_prefixes=learner_image_storage_prefixes(),
             enable_wechat_code=bool(wechat_app_id),
             billing_enabled=billing_enabled,
             billing_credit_precision=get_billing_credit_precision(),

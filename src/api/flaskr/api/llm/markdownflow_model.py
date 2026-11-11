@@ -47,6 +47,11 @@ from flaskr.api.llm import (
     chat_llm,
     resolve_llm_max_input_tokens,
 )
+from flaskr.api.llm.learner_images import (
+    learner_content,
+    materialize_local_images,
+    split_learner_images,
+)
 from flaskr.api.llm.markdownflow_budget import (
     check_input_budget,
     input_budget_bytes_for,
@@ -136,17 +141,37 @@ def map_messages(messages: list[ModelMessage]) -> list[dict[str, Any]]:
         system.append(current)
     for message in messages:
         if isinstance(message, ModelRequest):
+            interaction_images: list[dict[str, Any]] = []
             for part in message.parts:
                 if isinstance(part, SystemPromptPart):
                     system.append(_text_of(part.content))
                 elif isinstance(part, UserPromptPart):
-                    out.append({"role": "user", "content": _text_of(part.content)})
+                    out.append(
+                        {
+                            "role": "user",
+                            "content": learner_content(_text_of(part.content)),
+                        }
+                    )
                 elif isinstance(part, ToolReturnPart):
+                    content = _text_of(part.model_response_str())
+                    if part.tool_name == "interact":
+                        content, images = split_learner_images(content)
+                        if images:
+                            interaction_images.append(
+                                {
+                                    "type": "text",
+                                    "text": f"Images for learner answer {part.tool_call_id}: {content.strip()}",
+                                }
+                            )
+                            interaction_images.extend(
+                                {"type": "image_url", "image_url": {"url": url}}
+                                for url in images
+                            )
                     out.append(
                         {
                             "role": "tool",
                             "tool_call_id": part.tool_call_id,
-                            "content": _text_of(part.model_response_str()),
+                            "content": content,
                         }
                     )
                 elif isinstance(part, RetryPromptPart):
@@ -161,6 +186,19 @@ def map_messages(messages: list[ModelMessage]) -> list[dict[str, Any]]:
                         )
                     else:
                         out.append({"role": "user", "content": part.model_response()})
+            if interaction_images:
+                out.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Images attached to the learner's preceding answers.",
+                            },
+                            *interaction_images,
+                        ],
+                    }
+                )
         elif isinstance(message, ModelResponse):
             text = "".join(p.content for p in message.parts if isinstance(p, TextPart))
             calls = [p for p in message.parts if isinstance(p, ToolCallPart)]
@@ -404,6 +442,7 @@ class GatewayModel(Model):
         check_input_budget(
             mapped, kwargs.get("tools", []), limit=self._input_budget_bytes
         )
+        mapped = materialize_local_images(mapped)
         chunks = chat_llm(
             app=self._app,
             user_id=self._user_id,

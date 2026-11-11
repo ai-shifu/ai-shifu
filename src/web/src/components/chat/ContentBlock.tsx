@@ -24,6 +24,11 @@ import {
 } from '@/lib/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/ui-constants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { useLearnerImages } from '@/hooks/use-learner-images';
+import {
+  serializeLearnerImageSubmission,
+  splitInteractionImages,
+} from '@/lib/learner-images';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -40,6 +45,8 @@ interface ContentBlockProps {
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
   printMode?: boolean;
+  learnerImagesEnabled?: boolean;
+  previewMode?: boolean;
   onTypeFinished?: (blockBid: string, content: string) => void;
   enableStreamingTypewriter?: boolean;
 }
@@ -60,6 +67,8 @@ const ContentBlock = memo(
     onAudioEnded,
     showAudioAction = true,
     printMode = false,
+    learnerImagesEnabled = false,
+    previewMode = true,
     onTypeFinished,
     enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
@@ -84,12 +93,16 @@ const ContentBlock = memo(
       delay: 600,
     });
 
-    const _onSend = useCallback(
-      (content: OnSendContentParams) => {
-        onSend(content, blockBid);
-      },
-      [onSend, blockBid],
+    const savedInput = learnerImagesEnabled
+      ? splitInteractionImages(item.user_input)
+      : { text: item.user_input, images: [] };
+    const { imageInput } = useLearnerImages(
+      blockBid,
+      'answer',
+      previewMode,
+      savedInput.images,
     );
+    const imagesUploading = Boolean(imageInput.uploading);
 
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
@@ -109,7 +122,24 @@ const ContentBlock = memo(
       : isPayInteraction
         ? false
         : item.readonly;
-    const resolvedUserInput = isPayInteraction ? '' : item.user_input;
+    const resolvedUserInput = isPayInteraction ? '' : savedInput.text;
+    const acceptsImages =
+      learnerImagesEnabled &&
+      item.type === ChatContentItemType.INTERACTION &&
+      !resolvedReadonly &&
+      !isSystemInteractionContent(item.content);
+    const _onSend = useCallback(
+      (content: OnSendContentParams) => {
+        if (imagesUploading) return;
+        onSend(
+          learnerImagesEnabled
+            ? serializeLearnerImageSubmission(content)
+            : content,
+          blockBid,
+        );
+      },
+      [onSend, blockBid, imagesUploading, learnerImagesEnabled],
+    );
     const shouldEnableTypewriter =
       !printMode &&
       enableStreamingTypewriter &&
@@ -163,7 +193,15 @@ const ContentBlock = memo(
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
           }
+          showImageInput={acceptsImages}
+          imageInput={
+            learnerImagesEnabled &&
+            item.type === ChatContentItemType.INTERACTION
+              ? imageInput
+              : undefined
+          }
           readonly={resolvedReadonly}
+          beforeSend={() => !imagesUploading}
           onSend={_onSend}
           onPlaceholderAccepted={
             resolvedReadonly ? undefined : onPlaceholderAccepted
@@ -232,6 +270,8 @@ const ContentBlock = memo(
         Boolean(nextProps.showAudioAction) &&
       Boolean(prevProps.printMode) === Boolean(nextProps.printMode) &&
       prevProps.onSend === nextProps.onSend &&
+      prevProps.learnerImagesEnabled === nextProps.learnerImagesEnabled &&
+      prevProps.previewMode === nextProps.previewMode &&
       prevProps.onPlaceholderAccepted === nextProps.onPlaceholderAccepted &&
       prevProps.onClickCustomButtonAfterContent ===
         nextProps.onClickCustomButtonAfterContent &&
