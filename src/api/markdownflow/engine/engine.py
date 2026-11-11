@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -151,6 +151,38 @@ def _free_text_inputs(spec: InteractionSpec, submitted: InteractionAnswer) -> li
         }
         texts.extend(value for value in submitted.values if value not in choices)
     return texts
+
+
+@dataclass
+class _InteractRetryText:
+    """Suppress an exact replay of streamed text after an interact retry."""
+
+    prefix: str = ""
+    matched: int = 0
+    sent: list[str] = field(default_factory=list)
+
+    def next_response(self, *, retry: bool) -> None:
+        # Consecutive retries can repeat both the original prefix and later additions.
+        self.prefix = self.prefix + "".join(self.sent) if retry else ""
+        self.matched = 0
+        self.sent.clear()
+
+    def take(self, text: str) -> str:
+        remaining = len(self.prefix) - self.matched
+        if remaining:
+            size = min(remaining, len(text))
+            if self.prefix.startswith(text[:size], self.matched):
+                self.matched += size
+                text = text[size:]
+            else:
+                # A rewrite needs its opening to read as a whole. Only discard text
+                # that repeats the prior response from its start without a change.
+                text = self.prefix[: self.matched] + text
+                self.prefix = ""
+                self.matched = 0
+        if text:
+            self.sent.append(text)
+        return text
 
 
 # -- turn inputs ---------------------------------------------------------------------------
@@ -1215,6 +1247,8 @@ class Engine:
         shown_response_start = 0
         after_pause = False
         history_saved = False
+        retry_text = _InteractRetryText()
+        retry_interact = False
         was_interrupted = session.interrupted
         markup = InteractionMarkupFilter(deps.literal_interaction_markup)
         markup_noticed = False
@@ -1296,16 +1330,24 @@ class Engine:
             for response, group in groupby(held, key=lambda item: item[0]):
                 text = "".join(chunk for _, chunk in group)
                 if len(text) > skip:
-                    out.extend(_out(text[skip:], response))
+                    out.extend(_emit_after_retry_filter(text[skip:], response))
                 skip = max(0, skip - len(text))
             held.clear()
             return out
+
+        def _emit_after_retry_filter(text: str, response: int) -> list[Event]:
+            """Remove a replay before assigning the response its display separator."""
+            if response == response_index:
+                text = retry_text.take(text)
+                if not text:
+                    return []
+            return _out(text, response)
 
         def _display(text: str) -> list[Event]:
             """Hold potential repeats until they are known or diverge into new content."""
             nonlocal holding, held_text
             if not holding:
-                return _out(text, response_index)
+                return _emit_after_retry_filter(text, response_index)
             if held and held[-1][0] != response_index:
                 # Repeat trimming reads the same line boundaries as delivery.
                 prior_response, prior_chunk = held[-1]
@@ -1428,6 +1470,8 @@ class Engine:
                         # including one rejected by output validation with no tool event.
                         for e in _flush_markup():
                             yield e
+                        retry_text.next_response(retry=retry_interact)
+                        retry_interact = False
                         response_index += 1
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
                         # A later text part of the same response can still carry that
@@ -1495,6 +1539,10 @@ class Engine:
                     elif isinstance(ev, FunctionToolResultEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
+                        if ev.part.tool_name == "interact" and isinstance(
+                            ev.part, RetryPromptPart
+                        ):
+                            retry_interact = True
                         if feedback_response is not None:
                             calls = {
                                 p.tool_call_id: p
