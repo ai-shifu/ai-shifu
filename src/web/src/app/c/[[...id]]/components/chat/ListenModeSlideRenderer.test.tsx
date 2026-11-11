@@ -53,8 +53,7 @@ const mockIsLessonFeedbackInteractionContent = jest.fn(
 );
 
 it('adds pending images to the active listening answer and blocks sends during upload', () => {
-  const url =
-    'https://images.example/learner-images/' + 'a'.repeat(32) + '.png';
+  const url = '/api/storage/courses/learner-images/' + 'a'.repeat(32) + '.png';
   mockAttachedImages.push(url);
   const onSend = jest.fn();
   const props = {

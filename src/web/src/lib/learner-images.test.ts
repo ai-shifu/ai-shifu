@@ -1,3 +1,4 @@
+import { useEnvStore } from '@/store/env-store';
 import {
   composeLearnerImages,
   splitInteractionImages,
@@ -7,6 +8,39 @@ import {
 } from './learner-images';
 
 const url = 'https://images.example/learner-images/' + 'a'.repeat(32) + '.png';
+
+const originalPrefixes = useEnvStore.getState().learnerImageStoragePrefixes;
+beforeEach(() => {
+  useEnvStore.setState({
+    learnerImageStoragePrefixes: [
+      '/api/storage/courses/learner-images/',
+      'https://images.example/learner-images/',
+    ],
+  });
+});
+afterEach(() => {
+  useEnvStore.setState({ learnerImageStoragePrefixes: originalPrefixes });
+});
+
+it('keeps untrusted or malformed historical image markers as text', () => {
+  for (const source of [
+    'https://untrusted.example/pixel.png',
+    url.replace('images.example', 'untrusted.example'),
+    url.replace('/learner-images/', '/assets/'),
+    url + '?tracking=1',
+  ]) {
+    const marker = `![learner-image](${source})`;
+    expect(splitLearnerImages(marker)).toEqual({ text: marker, images: [] });
+  }
+  const localUrl =
+    '/api/storage/courses/learner-images/' + 'a'.repeat(32) + '.png';
+  expect(
+    splitLearnerImages(composeLearnerImages('Look', [localUrl, url])),
+  ).toEqual({
+    text: 'Look',
+    images: [localUrl, url],
+  });
+});
 
 it('keeps image-only history from becoming literal empty-default JSON in the input', () => {
   const saved = splitInteractionImages(

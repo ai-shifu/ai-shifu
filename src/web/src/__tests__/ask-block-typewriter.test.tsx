@@ -170,7 +170,7 @@ describe('AskBlock typewriter lifecycle', () => {
 
   it('sends an image-only question and restores attachments after an SSE refusal', async () => {
     const url =
-      'https://images.example/learner-images/' + 'a'.repeat(32) + '.png';
+      '/api/storage/courses/learner-images/' + 'a'.repeat(32) + '.png';
     jest.mocked(uploadLearnerImage).mockResolvedValueOnce(url);
     const { container } = render(
       <AskBlock

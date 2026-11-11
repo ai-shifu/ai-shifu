@@ -171,8 +171,7 @@ describe('ContentBlock content language', () => {
 });
 
 it('sends an image-only answer and restores thumbnails without raw markers in history', async () => {
-  const url =
-    'https://images.example/learner-images/' + 'a'.repeat(32) + '.png';
+  const url = '/api/storage/courses/learner-images/' + 'a'.repeat(32) + '.png';
   jest.mocked(uploadLearnerImage).mockResolvedValueOnce(url);
   const item: ChatContentItem = {
     ...guideInteraction,

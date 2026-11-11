@@ -44,13 +44,16 @@ gateway reads the verified local file and sends its data as a model image part.
   image URLs on the API server.
 - Accept only the configured course-storage base URL or the exact local storage
   path with an opaque image key. Reject forged storage locations and more than
-  four attachments on both learner and Debug request routes. Cap upload
-  attempts at 32 per learner per hour before decoding or persisting files.
+  four attachments on both learner and Debug request routes. Expose these
+  storage prefixes to the browser to verify image links when opening history.
+  Cap upload attempts at 32 per learner per hour before decoding or persisting
+  files.
 - Preserve editable inputs while an upload is in progress and block submission
   until it settles. Text and images share the existing send control.
 - Existing model selection remains authoritative. Vision requires a compatible
   configured model. Live voice and third-party workflow image transport are out
-  of scope; third-party workflows must reject images rather than silently lose them.
+  of scope. Third-party workflows reject new image submissions and receive
+  a text notice for earlier attachments, preserving earlier text.
 
 ## Outcomes & Retrospective
 

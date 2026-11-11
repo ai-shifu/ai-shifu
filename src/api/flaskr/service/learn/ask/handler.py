@@ -620,13 +620,27 @@ def handle_input_ask(
         ),
     )
 
+    def _text_only_provider_history() -> list[dict[str, Any]]:
+        history = []
+        for message in provider_messages:
+            if message["role"] == "user":
+                text, images = split_learner_images(message["content"])
+                if images:
+                    content = f"{text.strip()}\n[Earlier image attachment unavailable to this provider]"
+                    history.append({**message, "content": content.strip()})
+                    continue
+            history.append(message)
+        return history
+
     def _emit_provider_stream(
         provider_name: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Normalize visible provider text into the existing answer SSE stream."""
         nonlocal response_text
         provider_input_messages = (
-            llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
+            llm_messages
+            if provider_name == ASK_PROVIDER_LLM
+            else _text_only_provider_history()
         )
         provider_resp = stream_ask_provider_response(
             app=app,

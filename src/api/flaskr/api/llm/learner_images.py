@@ -45,16 +45,22 @@ def split_learner_images(text: str) -> tuple[str, list[str]]:
     return IMAGE_MARKER.sub(replace, text), images
 
 
+def learner_image_storage_prefixes() -> list[str]:
+    """Return the public URL prefixes for the configured learner image storage."""
+    prefixes = [build_local_storage_url("courses", "learner-images") + "/"]
+    base = str(get_config("ALIBABA_CLOUD_OSS_COURSES_URL") or "").rstrip("/")
+    if base:
+        prefixes.append(f"{base}/learner-images/")
+    return prefixes
+
+
 def is_stored_learner_image(url: str) -> bool:
     """Accept only configured storage locations and opaque learner image keys."""
     key_match = IMAGE_KEY.search(url)
     if key_match is None:
         return False
-    key = key_match[0]
-    if url.startswith("/"):
-        return url == build_local_storage_url("courses", key)
-    base = str(get_config("ALIBABA_CLOUD_OSS_COURSES_URL") or "").rstrip("/")
-    return bool(base) and url == f"{base}/{key}"
+    name = key_match[0].rsplit("/", 1)[1]
+    return any(url == prefix + name for prefix in learner_image_storage_prefixes())
 
 
 def learner_content(text: str) -> str | list[dict[str, Any]]:

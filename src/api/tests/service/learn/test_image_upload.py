@@ -310,3 +310,21 @@ def test_oversized_multipart_is_rejected_before_authentication(
     assert response.get_json()["code"] == 413
     assert response.headers["Cache-Control"] == "no-store"
     assert body.tell() == 0
+
+
+def test_runtime_config_uses_the_same_trusted_learner_storage_locations(
+    test_client: FlaskClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Expose only the public image path prefixes used by submission validation."""
+    monkeypatch.setattr(
+        learner_images, "get_config", lambda _: "https://images.example/courses/"
+    )
+    response = test_client.get("/api/runtime-config")
+    payload = response.get_json()["data"]
+    prefixes = payload["learnerImageStoragePrefixes"]
+    assert prefixes == [
+        "/api/storage/courses/learner-images/",
+        "https://images.example/courses/learner-images/",
+    ]
+    for prefix in prefixes:
+        assert learner_images.is_stored_learner_image(prefix + "a" * 32 + ".png")

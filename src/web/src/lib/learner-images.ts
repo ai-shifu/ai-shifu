@@ -1,16 +1,27 @@
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import { useEnvStore } from '@/store/env-store';
 import { getResolvedBaseURL } from './env-utils';
 
 export const MAX_LEARNER_IMAGES = 4;
 export const MAX_LEARNER_IMAGE_BYTES = 5 * 1024 * 1024;
 export const LEARNER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const learnerImageName = /^[0-9a-f]{32}\.(?:jpg|png|webp)$/;
 
 export const splitLearnerImages = (value: string) => {
   const images: string[] = [];
   const text = value.replace(
     /!\[learner-image\]\(([^\s()]+)\)/g,
     (marker, url: string) => {
-      if (!/^(?:https?:\/\/|\/(?!\/))/.test(url)) return marker;
+      const { learnerImageStoragePrefixes } = useEnvStore.getState();
+      if (
+        !learnerImageStoragePrefixes?.some(
+          prefix =>
+            url.startsWith(prefix) &&
+            learnerImageName.test(url.slice(prefix.length)),
+        )
+      ) {
+        return marker;
+      }
       images.push(url);
       return '';
     },

@@ -1186,6 +1186,49 @@ def test_image_follow_up_reaches_native_llm_or_rejects_before_writes(
             ] == urls
 
 
+def test_external_provider_keeps_history_text_without_image_urls(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.ask import handler as module
+
+    config = {"provider": "coze", "mode": "provider_only", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    build_conversation = module.build_follow_up_conversation_context
+    url = "https://images.example/learner-images/" + "a" * 32 + ".png"
+
+    def build_context(*args: object, **kwargs: object) -> object:
+        context = build_conversation(*args, **kwargs)
+        context.provider_messages.extend(
+            [
+                {
+                    "role": "user",
+                    "content": f"Earlier question\n![learner-image]({url})",
+                },
+                {"role": "assistant", "content": "Earlier answer"},
+            ]
+        )
+        return context
+
+    def stream(**kwargs: object) -> object:
+        assert kwargs["provider"] == "coze"
+        messages = kwargs["messages"]
+        assert url not in repr(messages)
+        assert messages[-3] == {
+            "role": "user",
+            "content": "Earlier question\n[Earlier image attachment unavailable to this provider]",
+        }
+        assert messages[-2]["content"] == "Earlier answer"
+        assert messages[-1]["content"].endswith("hello")
+        return iter([types.SimpleNamespace(content="external-answer")])
+
+    monkeypatch.setattr(module, "build_follow_up_conversation_context", build_context)
+    monkeypatch.setattr(module, "stream_ask_provider_response", stream)
+    with app.app_context():
+        assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
+            "external-answer"
+        ]
+
+
 @pytest.mark.parametrize("provider", ["dify", "coze"])
 @pytest.mark.parametrize("mode", ["provider_only", "provider_then_llm"])
 @pytest.mark.parametrize("provider_fails", [False, True])
