@@ -161,6 +161,11 @@ class _InteractRetryText:
     matched: int = 0
     sent: list[str] = field(default_factory=list)
 
+    @property
+    def continues(self) -> bool:
+        """Whether the response has replayed the entire displayed prefix."""
+        return bool(self.prefix) and self.matched == len(self.prefix)
+
     def next_response(self, *, retry: bool) -> None:
         # Consecutive retries can repeat both the original prefix and later additions.
         self.prefix = self.prefix + "".join(self.sent) if retry else ""
@@ -1337,10 +1342,14 @@ class Engine:
 
         def _emit_after_retry_filter(text: str, response: int) -> list[Event]:
             """Remove a replay before assigning the response its display separator."""
+            nonlocal shown_response
             if response == response_index:
                 text = retry_text.take(text)
                 if not text:
                     return []
+                if retry_text.continues:
+                    # The suffix continues the already displayed response in place.
+                    shown_response = response
             return _out(text, response)
 
         def _display(text: str) -> list[Event]:

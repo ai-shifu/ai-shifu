@@ -115,6 +115,70 @@ async def test_lesson_opening_streams_while_interact_validates(retry: str) -> No
 
 
 @pytest.mark.anyio
+async def test_retry_continues_an_unfinished_word() -> None:
+    """An exact replay resumes the previous text without inserting a line break."""
+    prefix = "Wel"
+    suffix = "come to the lesson."
+    question = "What should we study?"
+    attempts = 0
+    events: list[Event] = []
+
+    def content() -> str:
+        return "".join(
+            event.text for event in events if isinstance(event, ContentDelta)
+        )
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            yield prefix
+            assert content() == prefix
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    tool_call_id="invalid",
+                    json_args='{"type":"text","placeholder":"Answer"}',
+                )
+            }
+            return
+
+        assert attempts == 2
+        assert any(
+            isinstance(part, RetryPromptPart) and part.tool_call_id == "invalid"
+            for part in messages[-1].parts
+        )
+        yield prefix[:2]
+        yield prefix[2:]
+        yield suffix
+        assert content() == prefix + suffix
+        yield "\n\n" + question
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="valid",
+                json_args=json.dumps(
+                    {"type": "text", "question": question, "placeholder": "Answer"}
+                ),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session("Introduce the lesson.\n?[...Answer]")
+    async for event in engine.run_turn(session):
+        assert event.type != "error", event
+        events.append(event)
+
+    assert content() == prefix + suffix + "\n\n" + question
+    (interaction,) = [
+        event for event in events if isinstance(event, InteractionRequest)
+    ]
+    assert interaction.id == "valid"
+
+
+@pytest.mark.anyio
 async def test_repeat_after_a_successful_tool_is_kept() -> None:
     """An ordinary tool hop can intentionally repeat prose."""
     prose = "Compare the same two approaches."
