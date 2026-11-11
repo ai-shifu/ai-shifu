@@ -39,7 +39,6 @@ canonical: true
 
 - 现有支付成功短信位于 `src/api/flaskr/service/billing/notifications.py`，采用“业务事实落库后标记通知意图，commit 后 enqueue，worker 发送并落状态”的异步模式。
 - `billing.scan_low_balance_notifications` 生成符合规则的通知记录并入队。
-  `billing.send_low_balance_alert` 是委托给同一扫描逻辑的兼容入口。
 - 现有积分桶过期任务为 `billing.expire_wallet_buckets`，只负责过期账务处理，不负责发送到期提醒。
 - 现有短信供应商入口为 `send_sms_ali`。积分通知不得复用 `/api/user/send_sms_code`、`/api/user/console_send_sms_code` 或验证码短信模板。
 - 现有配置读取优先使用 `src/api/flaskr/service/config` 的 `get_config`，v1 运营策略可先放在 `sys_configs`。
@@ -262,7 +261,6 @@ BILL_CREDIT_NOTIFICATION_SMS_CONFIG
 7. 通知记录的模板参数快照保存 `threshold_kind`、`available_credits`、`trigger_days`、`lookback_days`、`avg_daily_consumption`、`estimated_remaining_days`。
 8. dry-run 返回每条候选的平均日消耗、预计剩余可用天数、回看天数和跳过原因。
 9. 成功创建 `pending` 记录后 enqueue 发送任务。
-10. 兼容入口 `billing.send_low_balance_alert` 委托给同一扫描逻辑。
 
 低余额扫描只负责通知，不负责阻止请求；hardlimit 仍由 billing admission 判断。
 
@@ -376,7 +374,6 @@ softlimit 采用前后端都拦截。前端负责禁用入口和展示提示，�
 - 没有有效日消耗汇总或平均日消耗为 `0` 时跳过自动阈值，不触发兜底发送；已有部分历史但有效消耗天数不足时，配置兜底值才按固定阈值判断。
 - 自动阈值 dry-run 返回 `avg_daily_consumption`、`estimated_remaining_days`、`lookback_days` 和跳过原因。
 - 历史已通知记录不会再次生成同一 `dedupe_key`。
-- 旧 `billing.send_low_balance_alert` 兼容入口返回可观测结果。
 
 ### 账务边界测试
 

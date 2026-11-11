@@ -54,7 +54,6 @@ from flaskr.service.billing.tasks import (
     replay_usage_settlement_task,
     retry_failed_renewal_task,
     run_renewal_event_task,
-    send_low_balance_alert_task,
     settle_usage_task,
     verify_domain_binding_task,
 )
@@ -1317,36 +1316,6 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     }
     assert payload["status"] == "paid"
     assert payload["task_name"] == "billing.reconcile_provider_reference"
-
-
-def test_send_low_balance_alert_task_preserves_legacy_name_and_delegates_scan(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake_app = Flask(__name__)
-    _install_fake_app_module(monkeypatch, fake_app)
-    captured: dict[str, object] = {}
-
-    monkeypatch.setattr(
-        "flaskr.service.billing.tasks._scan_low_balance_notifications",
-        lambda app, *, creator_bid="": (
-            captured.update({"app": app, "creator_bid": creator_bid})
-            or {
-                "status": "created",
-                "candidate_count": 1,
-                "created_count": 1,
-                "enqueued_count": 1,
-                "notifications": [{"notification_bid": "notification-1"}],
-            }
-        ),
-    )
-
-    payload = send_low_balance_alert_task(creator_bid="creator-task-alert")
-
-    assert captured == {"app": fake_app, "creator_bid": "creator-task-alert"}
-    assert payload["status"] == "created"
-    assert payload["created_count"] == 1
-    assert payload["enqueued_count"] == 1
-    assert payload["task_name"] == "billing.send_low_balance_alert"
 
 
 def test_dispatch_due_renewal_events_task_noops_when_disabled(
