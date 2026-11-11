@@ -66,7 +66,7 @@
 | `docs/exec-plans/active/listen-classroom-question-titles.md` | Show interaction titles in listen and classroom modes | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-authored-inputs.md` | Keep Authored Input Hints Out of Choice Buttons | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
-| `docs/exec-plans/active/markdownflow-question-interactions.md` | Use one question for MarkdownFlow answers | `exec-plan-active` | `active` | `learner` | `2026-11-08` | `true` |
+| `docs/exec-plans/active/markdownflow-question-interactions.md` | Use one question for MarkdownFlow answers | `exec-plan-active` | `active` | `learner` | `2026-11-11` | `true` |
 | `docs/exec-plans/active/markdownflow-total-input-budget.md` | MarkdownFlow total input budget | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-broader-classroom-acceptance.md` | MDF 2.0 Broader Classroom Acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field, replace
-from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any, Literal
 
-from markdown_it import MarkdownIt
 from pydantic import ValidationError
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
 from pydantic_ai.messages import (
@@ -20,7 +17,6 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from markdownflow.syntax.parser.document_blocks import HTML_BLOCK_TAGS
 from markdownflow.syntax.parser.marker_context import (
     analyze_marker_context,
 )
@@ -80,8 +76,6 @@ class Deps:
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
-    question_text_filter: Callable[[str], str] | None = None
-    question_text_context: Callable[[str], str] | None = None
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in MarkdownFlow notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
@@ -769,111 +763,6 @@ def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
     )
 
 
-_HIDDEN_INLINE_STYLE = re.compile(
-    r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))"
-    r"\s*(?:!important\s*)?(?:;|$)",
-    re.IGNORECASE,
-)
-_VOID_HTML_TAGS = frozenset(
-    {
-        "area",
-        "base",
-        "br",
-        "col",
-        "embed",
-        "hr",
-        "img",
-        "input",
-        "link",
-        "meta",
-        "param",
-        "source",
-        "track",
-        "wbr",
-    }
-)
-
-
-class _QuestionHTMLVisibility(HTMLParser):
-    """Track hidden elements and read visible text inside HTML blocks."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.hidden_tags: list[str] = []
-        self._visible_text: list[str] = []
-
-    def read_block(self, content: str) -> str:
-        """Extract one block while preserving the parser's visibility state."""
-        self._visible_text.clear()
-        self.feed(content)
-        return "".join(self._visible_text).strip()
-
-    def handle_data(self, data: str) -> None:
-        if not self.hidden_tags:
-            self._visible_text.append(data)
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in _VOID_HTML_TAGS:
-            if tag == "br" and not self.hidden_tags:
-                self._visible_text.append(" ")
-            return
-        if (
-            self.hidden_tags
-            or tag in ("head", "iframe", "script", "style", "template", "title")
-            or any(
-                name == "hidden"
-                or (name == "style" and _HIDDEN_INLINE_STYLE.search(value or ""))
-                for name, value in attrs
-            )
-        ):
-            self.hidden_tags.append(tag)
-        elif tag in HTML_BLOCK_TAGS:
-            self._visible_text.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        if not self.hidden_tags and tag in HTML_BLOCK_TAGS:
-            self._visible_text.append("\n")
-        for index in range(len(self.hidden_tags) - 1, -1, -1):
-            if self.hidden_tags[index] == tag:
-                del self.hidden_tags[index:]
-                break
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        # HTML ignores the self-closing slash on non-void elements.
-        self.handle_starttag(tag, attrs)
-
-
-def _markdown_prose(text: str) -> str:
-    """Read visible prose from Markdown source."""
-    html = _QuestionHTMLVisibility()
-    visible: list[str] = []
-    for token in MarkdownIt("commonmark", {"html": True}).parse(text):
-        if token.type == "html_block":
-            visible.append(html.read_block(token.content))
-        if token.type != "inline" or not token.children:
-            continue
-        line: list[str] = []
-        for child in token.children:
-            if child.type == "html_inline":
-                html.feed(child.content)
-            elif not html.hidden_tags:
-                if child.type in ("text", "code_inline"):
-                    line.append(child.content)
-                elif child.type in ("softbreak", "hardbreak"):
-                    line.append(" ")
-        visible.append("".join(line))
-    return "\n".join(visible)
-
-
-def _question_prose(deps: Deps, text: str) -> str:
-    """Read question prose after applying the host's content filter."""
-    if deps.question_text_context is not None:
-        text = deps.question_text_context(text)
-    if deps.question_text_filter is not None:
-        text = deps.question_text_filter(text)
-    return _markdown_prose(text)
-
-
 def validate_direction_call(
     ctx: RunContext[Deps], *_args: object, **_kwargs: object
 ) -> None:
@@ -1331,12 +1220,6 @@ async def interact(
             direction_text, ctx.deps.literal_interaction_markup
         ):
             problem = "direction must not contain unexecuted interaction markup"
-        if not problem and ctx.deps.question_text_filter is not None:
-            visible = _question_prose(ctx.deps, direction_text)
-            if any(
-                focus.guiding_question not in visible for focus in direction.focuses
-            ):
-                problem = "Each guiding question must be visible Markdown prose outside any hidden block"
         if not problem and (
             response is None
             or any(
@@ -1359,16 +1242,6 @@ async def interact(
             "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
         )
         raise ModelRetry(msg)
-    if owns_memory and direction is None:
-        before_call = "".join(_text_up_to([response], ctx.tool_call_id))
-        if spec.presented_question not in _question_prose(ctx.deps, before_call):
-            message = (
-                "Ask the exact question in visible Markdown prose before calling interact. "
-                "Repeat the question in the response, outside any hidden block."
-            )
-            if localized_binding:
-                message += " Put the visible translation in display_question and keep the original in question."
-            raise ModelRetry(message)
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
         ctx.deps.direction_rendered[ctx.tool_call_id] = direction_text

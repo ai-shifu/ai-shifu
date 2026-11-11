@@ -491,7 +491,6 @@ class Engine:
         turn_limit: int = 200,
         model_settings: ModelSettings | None = None,
         interaction_check: Callable[[InteractionSpec], str | None] | None = None,
-        question_text_filter: Callable[[str], str] | None = None,
         pauses_from_notation: bool = False,
         memory_admission: bool = False,
         memory_reserved_keys: frozenset[str] = frozenset(),
@@ -512,9 +511,6 @@ class Engine:
         `interact` call would defer, it returns None, or the reason the host cannot render it.
         A question it cannot render is refused to the model, which asks it again, rather than
         left pending with nothing on the learner's screen to answer it.
-
-        `question_text_filter` projects the host's visible prose before the engine checks
-        that the model has delivered an ordinary or structured question.
 
         `pauses_from_notation` is how a host says its scripts pause only where their notation puts
         a button (`?[继续]`), as a MarkdownFlow 1.0 lesson does: a lesson whose script has no such
@@ -576,7 +572,6 @@ class Engine:
         )
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
-        self.question_text_filter = question_text_filter
         self.pauses_from_notation = pauses_from_notation
         self.memory_instructions = load_prompt(
             "memory_policy" if memory_admission else "memory_unrestricted"
@@ -863,7 +858,6 @@ class Engine:
             listen_mode=session.listen_mode,
             uses_syntax=uses_syntax,
             interaction_check=self.interaction_check,
-            question_text_filter=self.question_text_filter,
             script_options=script_options(script_text) if uses_syntax else {},
             script_text_inputs=text_inputs,
             script_questions=script_questions,
@@ -1212,7 +1206,6 @@ class Engine:
         shown: list[str] = []
         response_index = 0
         shown_response = 0
-        shown_response_start = 0
         after_pause = False
         history_saved = False
         was_interrupted = session.interrupted
@@ -1253,11 +1246,9 @@ class Engine:
 
         def _out(text: str, response: int) -> list[Event]:
             """Deliver text and track what this turn has sent to the learner."""
-            nonlocal delivered, shown_response, shown_response_start
-            if response != shown_response:
-                shown_response_start = len(shown)
-                if shown:
-                    text = _response_separator(shown, text) + text
+            nonlocal delivered, shown_response
+            if response != shown_response and shown:
+                text = _response_separator(shown, text) + text
             shown_response = response
             delivered += _visible_length(text)
             said.append("".join(text.split()))
@@ -1266,28 +1257,6 @@ class Engine:
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
-
-        def _question_context(text: str) -> str:
-            # A host filter can keep a block open across tool hops. Replay the
-            # delivered prefix with the candidate, excluding this response's
-            # streamed text because the tool may precede part of that text.
-            prefix = (
-                shown[:shown_response_start]
-                if shown_response == response_index
-                else shown
-            )
-            if holding:
-                buffered = [
-                    chunk for response, chunk in held if response != response_index
-                ]
-                if buffered and text:
-                    text = _response_separator([*prefix, *buffered], text) + text
-                text = _after_the_repeat([*buffered, text], previous)
-            separator = _response_separator(prefix, text) if prefix and text else ""
-            return "".join(prefix) + separator + text
-
-        if self.question_text_filter is not None:
-            deps.question_text_context = _question_context
 
         def _release_held(remaining: str) -> list[Event]:
             """Release the retained suffix without losing its response boundaries."""

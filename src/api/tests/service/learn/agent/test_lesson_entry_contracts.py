@@ -498,7 +498,6 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         model_settings={"temperature": 0.25},
         # Without it, a question the controls cannot carry reaches the learner with no controls.
         interaction_check=entry.unrenderable_reason,
-        question_text_filter=entry.strip_echoed_memory,
         # Without it, the model pauses the lesson where the author wrote no button.
         pauses_from_notation=True,
     )
