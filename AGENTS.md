@@ -21,6 +21,14 @@ to.
   Keep the Copilot navigation file and the `GEMINI.md` link as minimal
   compatibility entry points.
 
+## AI Application Development Principle
+
+Do not chase 100% success when developing AI applications. Aim for normal,
+reliable behavior in the majority of cases, and ensure that the minority of
+abnormal cases cannot cause irreversible loss. Prefer practical reliability
+and bounded, recoverable failures over complexity added only to pursue
+perfect AI behavior.
+
 ## Do
 
 - Read the nearest `AGENTS.md` before editing and use `ARCHITECTURE.md` to
