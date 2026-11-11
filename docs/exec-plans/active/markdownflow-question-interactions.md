@@ -46,7 +46,7 @@ response. Preserve earlier named answers, short references and pending turns.
   Kept the existing preview, attempt, and history rules, and migrated the new
   classroom integration fixtures to the question tool contract.
 
-- [x] 2026-11-11: Removed both question visibility checks and added a
+- [x] 2026-11-11 06:18 UTC: Removed both question visibility checks and added a
   FunctionModel regression for a valid question supplied only in tool arguments.
 
 ## Surprises & Discoveries
