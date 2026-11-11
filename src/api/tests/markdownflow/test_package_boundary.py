@@ -32,13 +32,13 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     # Reference/binding and question-presentation guidance are reviewed changes;
     # retain every other copied prompt byte and keep the historical fixture intact.
     hashes["system"] = (
-        "e58da56713665795b7e765c4697e19554998d3171c924610f33ec17bedb14051"
+        "52b7aa95d068f29c02ba08ab32c758d61deaacd3b73f3efb2d98d73599f1f74b"
     )
     hashes["v1_syntax"] = (
-        "57d40342ff7fce96b64b986764bc9a117b1f7c5d1605b877fbc09d2bd3cfd116"
+        "fd6f3d92fa5722087728ab937ba5f25d01ff6eb4707dc33b5ba08e15115639da"
     )
     hashes["memory_policy"] = (
-        "20e045a103fc6a2488ac9852072b267bd8a1299d68429f8fc832b36117102386"
+        "5d43ab143d4e0e625dbd1e8e6815fdb9bfbe93299b8959c3a497472b123a8d78"
     )
     hashes["memory_unrestricted"] = (
         "0cce2b9128a3e996a8d901278bc9bc7893ce5a831fb4eedd2ea21a455f674256"

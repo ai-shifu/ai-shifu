@@ -48,7 +48,7 @@ async def test_question_is_shown_before_controls_and_keys_the_answer(
             if tool.name == "interact"
         )
         assert "question" in schema["properties"]
-        assert "question" in schema["required"]
+        assert "question" not in schema.get("required", [])
         assert not {"prompt", "variable", "display_question"}.intersection(
             schema["properties"]
         )

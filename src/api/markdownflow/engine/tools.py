@@ -505,7 +505,7 @@ def normalize_script_text_input(
 
     The remaining stored values must be the author's exact ordered choices; display text
     may be translated. A hint stored as a real choice or a model-created value is kept.
-    Text-only questions must match the copied prompt and the same variable.
+    Match authored hints using the question's binding or stored memory key.
     Restore an entirely missing input only after the caller rules out a matching
     plain choice. Ambiguous questions and unrelated explicit placeholders stay unchanged.
     """
@@ -1021,10 +1021,10 @@ async def interact(
     For an ordinary answer interaction, ask the complete question in visible prose first, then
     call this tool with the same wording in `question`. Decide whether the control collects an
     answer from its purpose in the script, regardless of punctuation or the number of options.
-    Use `question=""` for pauses and navigation without a binding. Always present and pass the
-    exact text of a nonempty leading `{{...}}` binding, including for navigation. When localizing
-    bound text, use `display_question` for the translation you presented. A submission to any
-    control with a nonempty `question` is stored under that wording.
+    Supply `question` when the control collects an answer or has a nonempty leading `{{...}}`
+    binding. Otherwise omit it. For a binding, present and pass its exact text. When localizing
+    bound text, use `display_question` for the translation you presented. An accepted submission
+    to any control with a nonempty `question` is stored under that wording.
     Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
     it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.
@@ -1127,14 +1127,9 @@ async def interact(
         if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
             variable = None
     else:
-        if question is None:
-            message = 'Pass question explicitly. Use question="" for a pause or unbound navigation.'
-            raise ModelRetry(message)
-        question = question.strip()
+        question = (question or "").strip()
         if type == "confirm" and question:
-            message = (
-                'Use question="" for a pause. Put a custom button label in options.'
-            )
+            message = "Omit question for confirm. Put a custom button label in options."
             raise ModelRetry(message)
         normalized_options = [
             _as_the_script_writes_it(option, ctx.deps.script_options)
@@ -1460,10 +1455,10 @@ async def prepare_feedback_tool(
         properties["question"] = {
             "type": "string",
             "description": (
-                "Complete question for an answer control. Always pass the exact text of a "
-                "nonempty leading binding, including for navigation. Use an empty string for "
-                "pauses and unbound navigation. A nonempty question stores the submission "
-                "under that wording."
+                "Supply the complete question when the control collects an answer or has a "
+                "nonempty leading binding. Use the exact authored text for a binding. Omit "
+                "question otherwise. A nonempty question stores the accepted submission under "
+                "that wording."
             ),
         }
         if ctx.deps.translated_controls:
@@ -1482,10 +1477,6 @@ async def prepare_feedback_tool(
                 "True only for a newly created answer control. Leave false for any "
                 "authored control, including an unbound one whose question you formulate."
             ),
-        }
-        schema = {
-            **schema,
-            "required": list(dict.fromkeys([*schema.get("required", []), "question"])),
         }
     if (
         not ctx.deps.feedback_contract

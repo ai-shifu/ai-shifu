@@ -23,8 +23,8 @@ the original question remains the memory key.
 For exercises without a binding, the model supplies the question from the
 lesson prose or context. Reusing the exact question updates the current
 answer. The model determines whether an unbound control collects an answer
-from its purpose in the lesson. Pauses and unbound navigation use an empty
-`question`. Every accepted submission with a nonempty `question` is stored,
+from its purpose in the lesson and omits `question` when it does not.
+Every accepted submission with a nonempty `question` is stored,
 including navigation with a nonempty binding. Existing percent-prefixed
 declarations have the same meaning. Earlier questions and
 answers keep their original storage keys and history.

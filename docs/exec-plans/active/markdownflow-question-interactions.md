@@ -112,13 +112,12 @@ after updating the plan and canonical references.
 
 ## Validation and Acceptance
 
-A new answer call without `question` is rejected. The model's question appears
-before the controls, and an accepted answer is recorded under that exact
-question. A bound short label is used verbatim in prose, the tool call, and
-the memory key after trimming its outer whitespace. The model supplies an empty
-`question` for pauses and unbound navigation. Navigation with a nonempty binding
-stores its submitted value under that binding. Legacy
-sessions and Profile evidence continue to restore and resume.
+The model supplies `question` for answer controls and controls with a nonempty
+leading binding. Other controls may omit it. The model's question appears before
+the controls, and an accepted submission is recorded under that exact question.
+A bound short label is used verbatim in prose, the tool call, and the memory key
+after trimming its outer whitespace. Legacy sessions and Profile evidence
+continue to restore and resume.
 
 ## Idempotence and Recovery
 

@@ -26,7 +26,7 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
     ("nav_prose", "nav_binding"),
     [
         ("Continue to practice.", ""),
-        ("Ready to proceed?", ""),
+        ("Ready to proceed?", None),
         ("Practice step", "Practice step"),
     ],
     ids=["navigation", "question-mark-navigation", "bound-navigation"],
@@ -39,7 +39,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     reload: bool,
     prelude: str | None,
     nav_prose: str,
-    nav_binding: str,
+    nav_binding: str | None,
     label: str,
     value: str,
 ) -> None:
@@ -79,9 +79,10 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
             yield "\n\n" + nav_prose
             spec = {
                 "type": "single",
-                "question": nav_binding,
                 "options": [{"display": label, "value": value}],
             }
+            if nav_binding is not None:
+                spec["question"] = nav_binding
         else:
             assert calls == (4 if correcting else 3)
             yield "Second question?"
@@ -127,7 +128,7 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     interactions = [e for e in events if isinstance(e, InteractionRequest)]
     assert len(interactions) == 1
     assert session.pending[0].spec.type == "single"
-    assert session.pending[0].spec.question == nav_binding
+    assert session.pending[0].spec.question == (nav_binding or "")
     assert session.pending[0].spec.options[0].stored == value
     before = calls
     await _events(engine.run_turn(session, ContinueTurn()))
