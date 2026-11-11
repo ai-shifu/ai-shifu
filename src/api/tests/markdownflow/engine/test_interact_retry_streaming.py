@@ -6,7 +6,13 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
-from markdownflow.engine import ContentDelta, Engine, InteractionRequest, ToolCall
+from markdownflow.engine import (
+    ContentDelta,
+    ContinueTurn,
+    Engine,
+    InteractionRequest,
+    ToolCall,
+)
 from markdownflow.engine.tools import NO_PAUSE
 from pydantic_ai.messages import RetryPromptPart, ToolReturnPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
@@ -194,6 +200,51 @@ async def test_retry_continues_an_unfinished_word(skip_pause: bool) -> None:
         event for event in events if isinstance(event, InteractionRequest)
     ]
     assert interaction.id == "valid"
+
+
+@pytest.mark.anyio
+async def test_retry_deduplicates_text_held_during_a_continue_turn() -> None:
+    """An interaction retry must not release two copies of a buffered question."""
+    question = "Which example applies here?"
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield "We will study examples before choosing a method."
+            return
+        yield question
+        args = {"type": "text", "placeholder": "Answer"}
+        if calls == 3:
+            args["question"] = question
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"call-{calls}",
+                json_args=json.dumps(args),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(
+        "Introduce the exercise and ask which example applies."
+    )
+    first = [event async for event in engine.run_turn(session)]
+    assert first[-1].type == "turn.done"
+    events = [event async for event in engine.run_turn(session, ContinueTurn())]
+
+    assert not any(event.type == "error" for event in events)
+    assert calls == 3
+    assert [event.text for event in events if isinstance(event, ContentDelta)] == [
+        question
+    ]
+    (interaction,) = [
+        event for event in events if isinstance(event, InteractionRequest)
+    ]
+    assert interaction.id == "call-3"
 
 
 @pytest.mark.anyio

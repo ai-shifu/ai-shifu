@@ -155,23 +155,23 @@ def _free_text_inputs(spec: InteractionSpec, submitted: InteractionAnswer) -> li
 
 @dataclass
 class _InteractRetryText:
-    """Suppress an exact replay of streamed text after an interact retry."""
+    """Suppress an exact replay of streamed or held text after an interact retry."""
 
     prefix: str = ""
     matched: int = 0
-    sent: list[str] = field(default_factory=list)
+    chunks: list[str] = field(default_factory=list)
 
     @property
     def continues(self) -> bool:
-        """Whether the response has replayed the entire displayed prefix."""
+        """Whether the response has replayed the entire preceding prefix."""
         return bool(self.prefix) and self.matched == len(self.prefix)
 
     def next_response(self, *, retry: bool) -> None:
         """Start comparing a response only after a rejected interaction."""
         # Consecutive retries can repeat both the original prefix and later additions.
-        self.prefix = self.prefix + "".join(self.sent) if retry else ""
+        self.prefix = self.prefix + "".join(self.chunks) if retry else ""
         self.matched = 0
-        self.sent.clear()
+        self.chunks.clear()
 
     def take(self, text: str) -> str:
         """Keep new text and wait for enough of a possible replay to confirm it."""
@@ -1350,13 +1350,10 @@ class Engine:
             return out
 
         def _emit(text: str, response: int) -> list[Event]:
-            """Record the text actually emitted by the current model response."""
+            """Publish a retry suffix as a continuation of the preceding text."""
             nonlocal shown_response
-            if response == response_index:
-                retry_text.sent.append(text)
-                if retry_text.continues:
-                    # The suffix continues the already displayed response in place.
-                    shown_response = response
+            if response == response_index and retry_text.continues:
+                shown_response = response
             return _out(text, response)
 
         def _display(text: str) -> list[Event]:
@@ -1367,15 +1364,17 @@ class Engine:
             text = retry_text.take(text)
             if not text:
                 return []
+            retry_text.chunks.append(text)
             if not holding:
                 return _emit(text, response_index)
-            if retry_text.continues:
-                # The skipped pause and rejection can come from the same tool
-                # batch. The suffix of the exact replay is already known to be new.
+            if retry_text.continues and not held:
+                # The skipped pause and rejection can come from the same tool batch.
+                # There is nothing buffered, so the suffix continues displayed prose.
                 holding = False
-                released = _release_held(_held_output(trim_repeat=True)) if held else []
-                return [*released, *_emit(text, response_index)]
-            if held and held[-1][0] != response_index:
+                return _emit(text, response_index)
+            # An exact replay can also continue a preceding response still on hold.
+            response = held[-1][0] if retry_text.continues else response_index
+            if held and held[-1][0] != response:
                 # Repeat trimming reads the same line boundaries as delivery.
                 prior_response, prior_chunk = held[-1]
                 previous_chunks = [*shown, *(chunk for _, chunk in held)]
@@ -1383,7 +1382,7 @@ class Engine:
                     prior_response,
                     prior_chunk + _response_separator(previous_chunks, text),
                 )
-            held.append((response_index, text))
+            held.append((response, text))
             held_text += "".join(text.split())
             if _closing_was_shown():
                 candidate = "".join(chunk for _, chunk in held)
