@@ -50,7 +50,10 @@ from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.api.tts.tencent_provider import TencentTTSProvider
 from flaskr.api.tts.tencent_texttovoice_provider import TencentTextToVoiceProvider
 from flaskr.api.tts.volcengine_http_provider import VolcengineHttpTTSProvider
-from flaskr.api.tts.volcengine_provider import VolcengineTTSProvider
+from flaskr.api.tts.volcengine_provider import (
+    VolcengineTTSProvider,
+    get_volcengine_tts_api_key_headers,
+)
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
@@ -150,7 +153,7 @@ def _auto_detect_provider_name() -> str:
     # Check Minimax first (existing behavior)
     if get_config("MINIMAX_API_KEY"):
         return "minimax"
-    if get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY"):
+    if get_volcengine_tts_api_key_headers():
         return "volcengine"
     if (
         get_config("VOLCENGINE_TTS_APP_KEY")

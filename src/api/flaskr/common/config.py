@@ -2117,18 +2117,25 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         ),
         group="tts",
     ),
-    # Volcengine TTS Configuration (shared by WebSocket + HTTP providers)
+    # Volcengine TTS Configuration
+    "VOLCENGINE_TTS_API_KEY": EnvVar(
+        name="VOLCENGINE_TTS_API_KEY",
+        default="",
+        description="Doubao Speech console API key for Volcengine WebSocket synthesis and cloned voice verification",
+        secret=True,
+        group="tts",
+    ),
     "VOLCENGINE_TTS_APP_KEY": EnvVar(
         name="VOLCENGINE_TTS_APP_KEY",
         default="",
-        description="Volcengine TTS app key/appid (used by both WebSocket and HTTP providers)",
+        description="Volcengine TTS app ID for HTTP v1/tts",
         secret=True,
         group="tts",
     ),
     "VOLCENGINE_TTS_ACCESS_KEY": EnvVar(
         name="VOLCENGINE_TTS_ACCESS_KEY",
         default="",
-        description="Volcengine TTS access key/token (used by both WebSocket and HTTP providers)",
+        description="Volcengine TTS access token for HTTP v1/tts",
         secret=True,
         group="tts",
     ),

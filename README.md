@@ -156,7 +156,14 @@ After Docker starts:
 
 ## Text-to-Speech (TTS)
 
-AI-Shifu supports multiple TTS providers. To enable Volcengine HTTP v1/tts, set:
+For the `volcengine` provider, set `VOLCENGINE_TTS_API_KEY` to the API key
+from your [Doubao Speech console project](https://docs.volcengine.com/docs/doubao-voice/console-guidance?lang=en).
+The provider uses this key for WebSocket synthesis, including
+`volcengine/seed-tts-2.0`, and for cloned voice verification. Enable the
+models you use in that project and make sure its voice library contains any
+cloned voices you use.
+
+To enable the `volcengine_http` provider for HTTP v1/tts, set:
 
 - `VOLCENGINE_TTS_APP_KEY` (AppID)
 - `VOLCENGINE_TTS_ACCESS_KEY` (Token used by `Authorization: Bearer;{token}`)
