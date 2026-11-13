@@ -26,7 +26,8 @@ pending interactions so the existing learner renderer displays the input.
 - [x] 2026-10-09T07:27:00Z: Final learning suite passes 2,854 tests, one skip,
   four subtests, including the unrelated-follow-up regression that failed before
   removal of the fallback. Add focused test/helper docstrings for review coverage.
-- [ ] Revalidate the final review fix in sim and reply to AI opinions.
+- [x] Revalidate the final review fix in sim and reply to AI opinions.
+  2026-11-13: #3061 merged on 2026-10-09. Text-input previews were exercised again by the preview answer-resubmission fixes #3333-#3337 (2026-11-04) and by the 2026-10-27 preview-mode acceptance.
 
 ## Surprises & Discoveries
 
@@ -56,6 +57,8 @@ The initial 2,853 learning regressions and repository gates pass, as do sim
 source-backed replay and browser input/submission checks. The review-identified
 unrelated-question boundary passes the final 2,854 learning tests; final sim
 revalidation is pending. Production evidence and course content remain private and read-only.
+
+Archived 2026-11-13: #3061 is merged, and text-input previews were exercised again by #3333-#3337 and the 2026-10-27 preview-mode acceptance.
 
 ## Context and Orientation
 

@@ -8,6 +8,9 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-11-13: Teaching-history compression was removed by #3343 (2026-11-05), so
+  the natural-compression part of this acceptance no longer applies. The open
+  acceptance is a fresh eleven-question lesson with statistics, report and billing.
 - [x] 2026-10-13: Independently scoped #3123/#3125 run on sim-f67afe0:
       both APIs match 69 files/pass 490 SDK/logging cases, integration passes
       3890 plus 50 subtests/two expected skips. New ordinary-HTTP learner stops

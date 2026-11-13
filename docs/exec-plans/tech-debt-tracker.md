@@ -18,11 +18,14 @@ Each item below identifies its dependency and next evidence needed.
   runtime, its `learn/run/` collaborators, the 1.0 preview and the
   `uses_agent_engine` routing switch with its 1.0 branches are deleted.
   `FLOW_ENGINE_V2_ENABLED` is unset in every deployment and unregistered.
-  Remaining: drop the `preview_engine` 1.0 handling in the editor and migrate
-  away the course `flow_engine` column.
+  The course `flow_engine` column is dropped (#3397). Remaining: drop the
+  `preview_engine` 1.0 handling in the editor.
 - Learning backend: extend deterministic golden fixtures for mid-stream errors
   and resume behavior, and add a 2.0 lesson `/run` transcript driven by a
   scripted model; choose cases from current `/run` contracts.
+- Learning frontend: content regenerate (`onRefresh`) has no visible trigger
+  in the reading UI and is covered by tests only. Decide whether learners need
+  it before adding a control. Source: archived `mdf2-agent-lesson-rewind`.
 - Frontend/product: shared-course editor permission affordances and French
   onboarding copy polish were deferred from the retired home-entry work. First
   confirm current editor behavior and intended scope; no implementation is queued.
