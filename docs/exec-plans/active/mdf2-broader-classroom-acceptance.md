@@ -1681,6 +1681,12 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Outcomes & Retrospective
 
+- 2026-11-13: #3343 removed teaching-history compression and `read_teaching`;
+  the full history now stays in context up to the model's input limit. The
+  natural-summary and compression results below are historical. Remaining
+  acceptance is a fresh eleven-question lesson with statistics, report and
+  billing, plus the multi-lesson memory, Ask, provider and cost checks.
+
 - 2026-10-12: The functional correction passes current CI and deployed SDK checks,
   but the nineteenth journey stops on factual teaching quality before exercises.
   Two settled generations/3.52 credits, stable history and exact original-output
@@ -1742,8 +1748,8 @@ boundary statement. Record each run and follow-up in Progress.
 
 ## Validation and Acceptance
 
-A compression run must show actual summary activity and correct retained lesson
-facts and attempt accounting. Provider and language results must identify the
+A fresh eleven-question lesson must keep the lesson facts in its full
+history and record correct statistics, report and attempt accounting. Provider and language results must identify the
 actual configuration tested. Multi-lesson memory and Ask must retain correct
 scope and history. Independent feedback and cost need their own observations;
 a scripted pass cannot close them.
