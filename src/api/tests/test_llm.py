@@ -1446,43 +1446,24 @@ def test_provider_patch_disables_thinking_and_preserves_extra_body(
     assert "drop_params" not in prepared
 
 
-def test_zai_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
-    adapter_supported_models = {
-        "glm-4.6",
-        "glm-4.7",
-        "glm-4.7-flash",
-        "glm-5",
-        "glm-5.1",
-        "glm-5-code",
-    }
+def test_zai_45_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
     monkeypatch.setattr(
         llm,
         "_litellm_minimum_thinking_params",
-        lambda model_id, *_args, **_kwargs: (
-            {"thinking": {"type": "disabled"}}
-            if model_id.casefold() in adapter_supported_models
-            else {}
-        ),
+        lambda *_args, **_kwargs: {},
     )
 
     patched_model_ids = (
-        "glm-4.5",
+        "GLM-4.5",
         "glm-4.5v",
         "glm-4.5-air",
         "glm-4.5-x",
         "glm-4.5-airx",
         "glm-4.5-flash",
-        "glm-4.6",
-        "GLM-4.7",
-        "glm-4.7-flash",
-        "glm-5",
-        "glm-5.1",
-        "glm-5-code",
-        "glm-5.2",
     )
     assert {
         model_id
-        for provider, model_id in llm._LITELLM_1106_COMPATIBILITY_PATCHES
+        for provider, model_id in llm._LITELLM_COMPATIBILITY_PATCHES
         if provider == "glm" and model_id is not None
     } == {model_id.casefold() for model_id in patched_model_ids}
 
@@ -1506,14 +1487,11 @@ def test_zai_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
             "thinking": {"type": "disabled"},
             "custom_field": "keep",
         }, model_id
-        assert prepared["allowed_openai_params"] == [
-            "tools",
-            "response_format",
-        ], model_id
+        assert prepared["allowed_openai_params"] == ["tools"], model_id
         assert "thinking" not in prepared["additional_drop_params"], model_id
 
 
-def test_zai_provider_patch_does_not_inject_thinking_for_legacy_models(
+def test_zai_request_preparation_keeps_legacy_models_without_thinking(
     monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(
@@ -1533,7 +1511,7 @@ def test_zai_provider_patch_does_not_inject_thinking_for_legacy_models(
         assert "thinking" not in prepared, model_id
         assert "extra_body" not in prepared, model_id
         assert "additional_drop_params" not in prepared, model_id
-        assert prepared["allowed_openai_params"] == ["response_format"], model_id
+        assert prepared["response_format"] == {"type": "json_object"}, model_id
 
 
 def test_ark_uses_litellm_thinking_and_provider_response_format_patch(
@@ -1601,14 +1579,12 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
     assert prepared["temperature"] == 0.3
     assert (
         "additional_drop_params"
-        not in llm._LITELLM_1106_COMPATIBILITY_PATCHES[
-            ("qwen", str(model_id).casefold())
-        ]
+        not in llm._LITELLM_COMPATIBILITY_PATCHES[("qwen", str(model_id).casefold())]
     )
     assert prepared["allowed_openai_params"] == ["response_format"]
-    assert llm._LITELLM_1106_COMPATIBILITY_PATCHES[
-        ("qwen", str(model_id).casefold())
-    ] == {"reasoning_effort": "low"}
+    assert llm._LITELLM_COMPATIBILITY_PATCHES[("qwen", str(model_id).casefold())] == {
+        "reasoning_effort": "low"
+    }
     assert prepared["additional_drop_params"][0] == "caller_only"
     assert prepared["additional_drop_params"].count("enable_thinking") == 1
     assert "reasoning" in prepared["additional_drop_params"]
@@ -1686,9 +1662,9 @@ def test_gemini_exact_minimum_patches(
     assert prepared["reasoning_effort"] == expected_effort
     assert ("temperature" in prepared) is expects_temperature
     if str(model_id).lower() == "gemini-3.8-flash":
-        assert llm._LITELLM_1106_COMPATIBILITY_PATCHES[
-            ("gemini", "gemini-3.8-flash")
-        ] == {"reasoning_effort": "low"}
+        assert llm._LITELLM_COMPATIBILITY_PATCHES[("gemini", "gemini-3.8-flash")] == {
+            "reasoning_effort": "low"
+        }
     assert "allowed_openai_params" not in prepared
 
 
@@ -1703,7 +1679,7 @@ def test_gemini_exact_minimum_patches(
         ("gpt-5.4-pro-2026-03-05", "medium"),
     ],
 )
-def test_openai_pro_patches_correct_litellm_1106_metadata(
+def test_openai_pro_patches_enforce_minimum_effort(
     monkeypatch: object, model_id: object, expected_effort: object
 ) -> None:
     monkeypatch.setattr(
@@ -1746,7 +1722,7 @@ def test_openai_55_pro_uses_native_minimum_without_patch(
         "openai", model_id, {"custom_llm_provider": "openai"}, {}
     )
 
-    assert ("openai", model_id) not in llm._LITELLM_1106_COMPATIBILITY_PATCHES
+    assert ("openai", model_id) not in llm._LITELLM_COMPATIBILITY_PATCHES
     assert prepared["reasoning_effort"] == "medium"
     assert "temperature" not in prepared
 
@@ -1814,12 +1790,12 @@ def test_gpt_6_keeps_minimum_reasoning_and_compatible_temperature(
 def test_only_gpt_6_astra_needs_an_exact_request_patch() -> None:
     assert {
         key: patch
-        for key, patch in llm._LITELLM_1106_COMPATIBILITY_PATCHES.items()
+        for key, patch in llm._LITELLM_COMPATIBILITY_PATCHES.items()
         if key[0] == "openai" and key[1] and key[1].startswith("gpt-6-")
     } == {("openai", "gpt-6-astra"): {"reasoning_effort": "low"}}
 
 
-LITELLM_CONTRACT_VERSION = "1.106.2"
+LITELLM_CONTRACT_VERSION = "1.109.1"
 
 
 def _installed_litellm_version() -> str | None:
@@ -1833,7 +1809,7 @@ def _installed_litellm_version() -> str | None:
     _installed_litellm_version() is None,
     reason="install requirements.txt to run the native LiteLLM adapter contract",
 )
-def test_litellm_1106_native_adapter_contracts() -> None:
+def test_litellm_native_adapter_contracts() -> None:
     assert _installed_litellm_version() == LITELLM_CONTRACT_VERSION
     script = textwrap.dedent(
         """
@@ -2086,14 +2062,14 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                     },
                 ),
             ),
-            "zai_native_thinking": adapter_contract(
+            "zai_45_thinking": adapter_contract(
                 "zai",
-                "glm-4.6",
+                "glm-4.5",
                 "https://open.bigmodel.cn/api/paas/v4",
                 prepared(
                     "glm",
                     "zai",
-                    "glm-4.6",
+                    "glm-4.5",
                     {
                         "thinking": {"type": "enabled"},
                         "extra_body": {"thinking": {"type": "enabled"}},
@@ -2239,6 +2215,23 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                 )
             },
         }
+        for model in (
+            "glm-4.6", "GLM-4.7", "glm-4.7-flash", "glm-5",
+            "glm-5.1", "glm-5-code",
+        ):
+            contracts[model] = adapter_contract(
+                "zai",
+                model,
+                "https://open.bigmodel.cn/api/paas/v4",
+                prepared(
+                    "glm", "zai", model,
+                    {
+                        "thinking": {"type": "enabled"},
+                        "extra_body": {"thinking": {"type": "enabled"}},
+                        "response_format": {"type": "json_object"},
+                    },
+                ),
+            )
         for model in ("glm-5.3", "GLM-5.3-Flash", "ZHIPU/GLM-5.3", "zhipu/glm-5.3-flash"):
             contracts[model] = adapter_contract(
                 "dashscope",
@@ -2295,11 +2288,18 @@ def test_litellm_1106_native_adapter_contracts() -> None:
         ),
         "volcengine": ("https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
         "zai": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-        "zai_native_thinking": (
-            "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-        ),
+        "zai_45_thinking": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "zai_legacy": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     }
+    native_zai_models = (
+        "glm-4.6",
+        "GLM-4.7",
+        "glm-4.7-flash",
+        "glm-5",
+        "glm-5.1",
+        "glm-5-code",
+    )
+    expected_urls.update(dict.fromkeys(native_zai_models, expected_urls["zai"]))
     for provider, expected_url in expected_urls.items():
         body = contracts[provider]["body"]
         assert contracts[provider]["url"] == expected_url
@@ -2332,7 +2332,12 @@ def test_litellm_1106_native_adapter_contracts() -> None:
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["zai"]["body"]["response_format"] == {"type": "json_object"}
-    assert contracts["zai_native_thinking"]["body"]["thinking"] == {"type": "disabled"}
+    assert contracts["zai_45_thinking"]["body"]["thinking"] == {"type": "disabled"}
+    for model in native_zai_models:
+        body = contracts[model]["body"]
+        assert body["model"] == model
+        assert body["thinking"] == {"type": "disabled"}
+        assert body["response_format"] == {"type": "json_object"}
     assert "thinking" not in contracts["zai_legacy"]["body"]
     assert contracts["zai_legacy"]["body"]["response_format"] == {"type": "json_object"}
     assert "thinking" not in contracts["zai_supported_params"]["glm-4.5"]

@@ -1,7 +1,9 @@
 """Verify LLM discovery degradation, numbered model isolation and gateway limits."""
 
-import asyncio
 import os
+import subprocess
+import sys
+import textwrap
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -498,49 +500,61 @@ def test_cache_token_usage_accepts_provider_dict_and_object_shapes(
     assert llm._extract_usage_value(usage, "absent") == 0
 
 
-def test_async_logging_inside_running_loop_keeps_task_until_completion(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    background = set()
-    monkeypatch.setattr(llm, "_background_asyncio_tasks", background)
-    completed = []
+def test_litellm_stream_logs_with_its_own_loop() -> None:
+    # A fresh process observes whether importing the gateway changes asyncio.run.
+    script = textwrap.dedent(
+        """
+        import asyncio
+        from queue import SimpleQueue
+        from threading import get_ident
+        from unittest.mock import patch
 
-    async def job() -> None:
-        completed.append("done")
+        original_run = asyncio.run
+        from flaskr.api import llm
+        from litellm.litellm_core_utils.litellm_logging import Logging
 
-    async def parent() -> None:
-        assert llm._safe_asyncio_run(job()) is None
-        assert len(background) == 1
-        await asyncio.gather(*background)
-        await asyncio.sleep(0)
-        assert completed == ["done"]
-        assert background == set()
+        assert asyncio.run is original_run
+        logging_threads = SimpleQueue()
 
-    llm._original_asyncio_run(parent())
+        async def observe_logging(*args, **kwargs):
+            logging_threads.put(get_ident())
 
+        async def consume_stream():
+            chunks = llm.litellm.completion(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": "hello"}],
+                stream=True,
+                mock_response="Hello world",
+            )
+            return "".join(
+                chunk.choices[0].delta.content or ""
+                for chunk in chunks if chunk.choices
+            )
 
-def test_async_logging_preserves_unrelated_runtime_errors(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    failure = RuntimeError("unrelated failure")
-    monkeypatch.setattr(llm, "_original_asyncio_run", Mock(side_effect=failure))
-    with pytest.raises(RuntimeError, match="unrelated failure") as caught:
-        llm._safe_asyncio_run(object())
-    assert caught.value is failure
-
-
-def test_async_logging_scheduler_failure_does_not_break_user_operation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        llm,
-        "_original_asyncio_run",
-        Mock(side_effect=RuntimeError("cannot be called from a running event loop")),
+        with patch.object(Logging, "async_success_handler", observe_logging):
+            assert asyncio.run(consume_stream()) == "Hello world"
+            assert logging_threads.get(timeout=5) != get_ident()
+        """
     )
-    loop = SimpleNamespace(create_task=Mock(side_effect=RuntimeError("loop closed")))
-    monkeypatch.setattr(llm.asyncio, "get_running_loop", lambda: loop)
-    assert llm._safe_asyncio_run(object()) is None
-    loop.create_task.assert_called_once()
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in LLM_PROVIDER_API_KEY_ENVS
+    }
+    env.update(
+        LITELLM_LOCAL_MODEL_COST_MAP="True",
+        PYTHON_DOTENV_DISABLED="1",
+        SKIP_LOAD_DOTENV="1",
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        env=env,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def test_startup_llm_check_covers_every_provider_api_key() -> None:
