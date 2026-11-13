@@ -657,7 +657,7 @@ def split_text_for_tts(
     units = _split_by_sentence_and_newline(cleaned)
     segments = _split_text_by_max_chars(units, max_chars=max_chars)
 
-    # Provider-declared byte constraints (e.g. Baidu GBK, Volcengine HTTP UTF-8).
+    # Apply provider-declared byte constraints after character segmentation.
     capabilities = get_provider_capabilities(provider_name)
     if capabilities.segment_max_bytes:
         segments = _split_text_by_max_bytes(

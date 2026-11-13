@@ -2117,34 +2117,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         ),
         group="tts",
     ),
-    # Volcengine TTS Configuration (shared by WebSocket + HTTP providers)
-    "VOLCENGINE_TTS_APP_KEY": EnvVar(
-        name="VOLCENGINE_TTS_APP_KEY",
+    # Volcengine TTS Configuration
+    "VOLCENGINE_TTS_API_KEY": EnvVar(
+        name="VOLCENGINE_TTS_API_KEY",
         default="",
-        description="Volcengine TTS app key/appid (used by both WebSocket and HTTP providers)",
+        description="Doubao Speech console API key for Volcengine WebSocket synthesis and cloned voice verification",
         secret=True,
-        group="tts",
-    ),
-    "VOLCENGINE_TTS_ACCESS_KEY": EnvVar(
-        name="VOLCENGINE_TTS_ACCESS_KEY",
-        default="",
-        description="Volcengine TTS access key/token (used by both WebSocket and HTTP providers)",
-        secret=True,
-        group="tts",
-    ),
-    "VOLCENGINE_TTS_CLUSTER_ID": EnvVar(
-        name="VOLCENGINE_TTS_CLUSTER_ID",
-        default="volcano_tts",
-        description="Volcengine TTS cluster for HTTP v1/tts (e.g., volcano_tts)",
-        group="tts",
-    ),
-    "VOLCENGINE_TTS_RESOURCE_ID": EnvVar(
-        name="VOLCENGINE_TTS_RESOURCE_ID",
-        default="",
-        description=(
-            "Legacy alias of VOLCENGINE_TTS_CLUSTER_ID. Used only when "
-            "VOLCENGINE_TTS_CLUSTER_ID is not explicitly set in the environment."
-        ),
         group="tts",
     ),
     "VOLCENGINE_TTS_SAMPLE_RATE": EnvVar(

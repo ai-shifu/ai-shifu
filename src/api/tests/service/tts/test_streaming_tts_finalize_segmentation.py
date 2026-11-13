@@ -469,7 +469,7 @@ class TestFinalizeSegmentation:
         [
             ("aliyun", "😀!", "😀😀"),
             ("baidu", "∞!", "∞∞"),
-            ("volcengine_http", "😀!", "--"),
+            ("aliyun", "😀!", "--"),
         ],
     )
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
@@ -503,7 +503,7 @@ class TestFinalizeSegmentation:
         [
             ("aliyun", ["”»"], False),
             ("baidu", ["”", "»"], False),
-            ("volcengine_http", ["”»!!"], True),
+            ("aliyun", ["”»!!"], True),
         ],
         ids=["whole-closers", "chunked-closers", "initial-punctuation"],
     )
@@ -540,7 +540,7 @@ class TestFinalizeSegmentation:
 
     @pytest.mark.parametrize(
         ("tts_provider", "tail"),
-        [("aliyun", "😀😀"), ("baidu", "∞∞"), ("volcengine_http", "--")],
+        [("aliyun", "😀😀"), ("baidu", "∞∞"), ("aliyun", "--")],
     )
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
@@ -626,9 +626,7 @@ class TestFinalizeSegmentation:
         assert [segment.index for segment in submitted_segments] == [0, 1, 2]
         assert processor._buffer == ""
 
-    @pytest.mark.parametrize(
-        "tts_provider", ["tencent", "aliyun", "baidu", "volcengine_http"]
-    )
+    @pytest.mark.parametrize("tts_provider", ["tencent", "aliyun", "baidu"])
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_finalize_does_not_submit_closing_quote_fragment(

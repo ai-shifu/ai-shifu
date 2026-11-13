@@ -47,6 +47,12 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 VOLCENGINE_TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"
 
 
+def get_volcengine_tts_api_key_headers() -> dict[str, str]:
+    """Return the shared authentication header for the Doubao Speech API key."""
+    api_key = (get_config("VOLCENGINE_TTS_API_KEY") or "").strip()
+    return {"X-Api-Key": api_key} if api_key else {}
+
+
 def _timestamp_seconds_to_ms(value: object) -> int:
     try:
         return max(round(float(value) * 1000), 0)
@@ -366,46 +372,13 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         return ""
 
-    def _get_credentials(self, resource_id: str = "") -> tuple[str, str, str]:
-        """Get Volcengine TTS credentials.
-
-        Uses VOLCENGINE_TTS_* config for authentication.
-
-        Notes:
-        - VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY are also used by
-          the HTTP v1/tts provider. Keeping the same vars avoids duplicated
-          secrets across providers.
-        - ARK_* fallback is kept for backward compatibility with legacy
-          deployments, but VOLCENGINE_TTS_* is preferred.
-
-        Returns:
-            tuple: (app_key, access_key, resource_id)
-
-        """
-        app_key = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
-        access_key = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
-
-        # Backward compatibility: historically Volcengine WebSocket TTS used ARK_*.
-        # Prefer VOLCENGINE_TTS_* to avoid coupling TTS auth with LLM auth.
-        if not app_key:
-            app_key = (get_config("ARK_ACCESS_KEY_ID") or "").strip()
-        if not access_key:
-            access_key = (get_config("ARK_SECRET_ACCESS_KEY") or "").strip()
-
-        # Resource ID (X-Api-Resource-Id) is required in the WebSocket handshake.
-        # The `model` argument is treated as a resource ID for this provider.
-        resource_id = (resource_id or "").strip() or "seed-tts-1.0"
-
-        return app_key, access_key, resource_id
-
     def is_configured(self) -> bool:
         """Check if Volcengine TTS is properly configured."""
         if not WEBSOCKET_AVAILABLE:
             logger.warning("websocket-client package is not installed")
             return False
 
-        app_key, access_key, _resource_id = self._get_credentials()
-        return bool(app_key and access_key)
+        return bool(get_volcengine_tts_api_key_headers())
 
     def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings.
@@ -474,9 +447,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             audio_settings = self.get_default_audio_settings()
 
         # Resource ID for handshake comes from `model` (provider-specific semantics).
-        app_key, access_key, resource_id = self._get_credentials(
-            resource_id=model or ""
-        )
+        resource_id = (model or "").strip() or "seed-tts-1.0"
         inferred_resource_id = self._infer_resource_id_for_voice(
             voice_settings.voice_id
         )
@@ -492,10 +463,11 @@ class VolcengineTTSProvider(BaseTTSProvider):
         # configured via env; use provider defaults.
         model_version = ""
 
-        if not app_key or not access_key or not resource_id:
+        auth_headers = get_volcengine_tts_api_key_headers()
+        if not auth_headers:
             exception_message = (
                 "Volcengine TTS credentials are not configured. "
-                "Set VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY."
+                "Set VOLCENGINE_TTS_API_KEY."
             )
             raise ValueError(exception_message)
 
@@ -514,8 +486,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         # Create WebSocket connection
         ws_headers = {
-            "X-Api-App-Key": app_key,
-            "X-Api-Access-Key": access_key,
+            **auth_headers,
             "X-Api-Resource-Id": resource_id,
             "X-Api-Connect-Id": connect_id,
         }

@@ -120,11 +120,7 @@ def websocket_scenario(monkeypatch: pytest.MonkeyPatch) -> object:
         monkeypatch.setattr(
             volc,
             "get_config",
-            lambda key: (
-                "key"
-                if key in {"VOLCENGINE_TTS_APP_KEY", "VOLCENGINE_TTS_ACCESS_KEY"}
-                else None
-            ),
+            lambda key: "key" if key == "VOLCENGINE_TTS_API_KEY" else None,
         )
         monkeypatch.setattr(volc, "WEBSOCKET_AVAILABLE", True)
         monkeypatch.setattr(
@@ -268,10 +264,16 @@ def test_empty_text_is_rejected_before_connecting(
         volc.VolcengineTTSProvider().synthesize(text)
 
 
-def test_missing_credentials_are_rejected_before_connecting(
+def test_missing_api_key_is_rejected_even_with_ark_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    legacy_credentials = {
+        "ARK_ACCESS_KEY_ID": "ark-app",
+        "ARK_SECRET_ACCESS_KEY": "ark-token",
+    }
     monkeypatch.setattr(volc, "WEBSOCKET_AVAILABLE", True)
-    monkeypatch.setattr(volc, "get_config", lambda _: None)
-    with pytest.raises(ValueError, match="credentials are not configured"):
-        volc.VolcengineTTSProvider().synthesize("hello")
+    monkeypatch.setattr(volc, "get_config", legacy_credentials.get)
+    provider = volc.VolcengineTTSProvider()
+    assert not provider.is_configured()
+    with pytest.raises(ValueError, match="Set VOLCENGINE_TTS_API_KEY"):
+        provider.synthesize("hello")
