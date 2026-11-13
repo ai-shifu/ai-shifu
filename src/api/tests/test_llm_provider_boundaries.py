@@ -170,6 +170,26 @@ def test_failed_discovery_keeps_static_and_extra_models_available(
     assert result.params["api_base"] == "https://llm.invalid/v1"
 
 
+def test_dashscope_catalog_uses_provider_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(llm, "get_config", {"QWEN_API_KEY": "test-key"}.get)
+    monkeypatch.setattr(
+        llm,
+        "_fetch_provider_models",
+        Mock(return_value=["qwen3.8-max-0902", "vanchin/deepseek-v3"]),
+    )
+    config = next(item for item in llm.LITELLM_PROVIDER_CONFIGS if item.key == "qwen")
+
+    result = llm._init_litellm_provider(config)
+
+    assert result.models == ["qwen/qwen3.8-max-0902", "qwen/vanchin/deepseek-v3"]
+    assert llm.MODEL_ALIAS_MAP["qwen/vanchin/deepseek-v3"] == (
+        "qwen",
+        "vanchin/deepseek-v3",
+    )
+
+
 def test_custom_model_loader_owns_discovery_and_gemini_uses_native_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
