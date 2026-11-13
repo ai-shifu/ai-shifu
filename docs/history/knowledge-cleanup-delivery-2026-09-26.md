@@ -190,7 +190,7 @@ acceptance remain explicit. The provider-attempt plan does not own those gaps.
 | [Email notification delivery](../exec-plans/active/credit-notification-email-delivery.md) | Dev-US migration/configuration and controlled SMTP delivery with saved result. |
 | [Live capacity](../exec-plans/active/gemini-live-configurable-capacity.md) | Approved US configuration rollout, every worker and Redis limit verified. |
 | [Live follow-up](../exec-plans/active/gemini-live-voice-follow-up.md) | Real provider, Redis/MySQL with recorded eviction policy and retention assumptions, controlled dev enablement and physical browser/audio matrix. |
-| [Lesson rewind](../exec-plans/completed/mdf2-agent-lesson-rewind.md) | Browser refresh acceptance currently lacks a visible onRefresh trigger; keep the coverage gap open. |
+| [Lesson rewind](../exec-plans/active/mdf2-agent-lesson-rewind.md) | Browser refresh acceptance currently lacks a visible onRefresh trigger; keep the coverage gap open. |
 | [Account cancellation](../exec-plans/active/operator-user-account-cancellation.md) | Combined dev02 acceptance with an approved disposable account and saved lifecycle state. |
 | [Payment attempts](../exec-plans/active/payment-attempt-lifecycle.md) | Real payment-provider smoke. |
 | [Referral rewards](../exec-plans/active/referral-invitation-rewards.md) | Dev02 saved-row and product-configuration acceptance. |

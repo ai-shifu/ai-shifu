@@ -36,9 +36,8 @@ that turn originally had). A lesson whose turns predate this change cannot be re
   history showed only the new branch; the session held `Learner chose: 数据` and the new question
   pending; the superseded blocks had status 0. A lesson from before checkpoints (6-3) showed the
   "use 重修" message and nothing changed server-side.
-- [x] Content regenerate (`onRefresh`) has no visible trigger in the reading UI today; covered by
+- [ ] Content regenerate (`onRefresh`) has no visible trigger in the reading UI today; covered by
   tests only.
-  2026-11-13: Not part of this plan's acceptance. Moved to docs/exec-plans/tech-debt-tracker.md as a learning frontend item.
 
 ## Surprises & Discoveries
 

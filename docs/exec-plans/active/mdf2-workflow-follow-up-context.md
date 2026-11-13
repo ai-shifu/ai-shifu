@@ -21,8 +21,7 @@ The durable contract belongs in [Follow-up Classroom Context](../../references/f
 - [x] 2026-10-09 16:47 CST: Fourteen outbound/configuration/privacy/actual-storage cases fail on the old runtime. Candidate focused tests pass; full learning regression passes 2,916 tests and four subtests with one expected skip.
 - [x] 2026-10-09 16:55 CST: Initial local gates and all technical CI pass. Created #3064; initial same-tree sim 147f6257d build 464 / deployments 2208-2209, two API replicas each 42 hashes and 36 isolated cases pass. A new demo learner completes two HTTP turns with usage attributed to actual progress/block IDs.
 - [x] 2026-10-09 17:03 CST: AI review exposed frontend saves dropping API-configured advanced bindings. Three regression cases fail before the fix; all 136 settings tests pass after it, including fail-open private analytics.
-- [x] 2026-10-09 17:03 CST: Push the settings-preservation fix after full gates and verify the final sim web/API image.
-  2026-11-13: #3064 merged on 2026-10-11.
+- [ ] 2026-10-09 17:03 CST: Push the settings-preservation fix after full gates and verify the final sim web/API image.
 - [x] 2026-10-09 16:42 CST: Audit AI feedback, reply in original discussions and record final CI.
   2026-11-13: #3064 merged on 2026-10-11 with review threads resolved.
 - [ ] 2026-10-09 16:42 CST: Separately accept a configured real workflow that consumes the declared context string.

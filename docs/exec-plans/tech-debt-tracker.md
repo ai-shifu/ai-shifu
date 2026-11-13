@@ -23,9 +23,6 @@ Each item below identifies its dependency and next evidence needed.
 - Learning backend: extend deterministic golden fixtures for mid-stream errors
   and resume behavior, and add a 2.0 lesson `/run` transcript driven by a
   scripted model; choose cases from current `/run` contracts.
-- Learning frontend: content regenerate (`onRefresh`) has no visible trigger
-  in the reading UI and is covered by tests only. Decide whether learners need
-  it before adding a control. Source: archived `mdf2-agent-lesson-rewind`.
 - Frontend/product: shared-course editor permission affordances and French
   onboarding copy polish were deferred from the retired home-entry work. First
   confirm current editor behavior and intended scope; no implementation is queued.
