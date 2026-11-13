@@ -34,10 +34,9 @@ for desktop and CLI clients.
   `POST /v1/responses`. Live US credentials completed a Responses request.
   The CN proxy forwarded the request and returned an upstream 401 without credentials. This establishes CN path forwarding, with authenticated
   generation still pending.
-- The pinned bridge does not preserve `stop`, `seed`,
-  `frequency_penalty`, or `presence_penalty` on Responses. OpenAI requires
-  at least 16 output tokens. The gateway validates these limits before
-  claiming the request.
+- The pinned bridge does not preserve `stop`, `seed`, `frequency_penalty`,
+  or `presence_penalty` on Responses. It raises output limits below 16 to
+  the upstream minimum.
 - A Responses tool result may carry an array of text parts. The runtime
   harness must replay both that shape and plain text to advance a lesson.
 - The US production database has exact GPT-6 Sol rates of 0.0006666700
@@ -49,8 +48,8 @@ for desktop and CLI clients.
 
 - Route by AI-Shifu's resolved provider key. Other providers can use LiteLLM's
   OpenAI adapter and retain their existing transport.
-- Send OpenAI text and tool requests to Responses. The gateway rejects OpenAI
-  requests that require fields the current adapter cannot represent.
+- Send OpenAI text and tool requests to Responses. Use shared gateway validation
+  and let the provider adapter prepare the upstream request.
 - Request `store=false` and preserve tool declarations, history,
   physical model IDs and metering. Keep model discovery on `GET /v1/models`.
   Embeddings, moderation, dedicated image generation, TTS, transcription and
@@ -98,9 +97,7 @@ configured proxies before promoting the US Quality model.
 For a capable OpenAI model, confirm `POST /v1/responses` for streamed and
 nonstreamed text generation, with function-call history, stable call IDs,
 tool arguments, finish reasons, structured output and final token usage.
-Confirm that unsupported gateway options are rejected before the request is
-claimed. Check a non-OpenAI provider and verify gateway response and usage
-contracts.
+Check a non-OpenAI provider and verify gateway response and usage contracts.
 US production acceptance requires ready replicas using `gpt-6.1-sol`,
 a successful interaction and a Quality multiplier of 10x. Record authenticated
 CN acceptance once working credentials are available.

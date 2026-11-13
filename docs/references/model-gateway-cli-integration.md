@@ -223,9 +223,6 @@ rated; it never switches to another model because model 1 is unavailable.
 
 The gateway sends OpenAI generation requests to the upstream Responses API.
 Clients use the Chat Completions request and response shapes in this guide.
-For OpenAI models, the gateway returns HTTP 400 for `stop`, `seed`,
-`frequency_penalty`, `presence_penalty`, participant names in messages,
-and output limits below 16 tokens.
 
 ## Non-streaming Chat Completions
 
