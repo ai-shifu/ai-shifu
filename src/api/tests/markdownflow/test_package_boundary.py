@@ -47,7 +47,7 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
         "9e862c8a0b35fe4a8131c83965a0fd084d427195034ee8877bfe137b3d17d110"
     )
     hashes["feedback_contract"] = (
-        "9ee05c453bcb5d71ba98af88d8713315f6ed66d177be0999c8428ac9505f584f"
+        "962566043d8e4ec24beb8f102f6b30f3755e1085fa6edfb723b3fbd72539fe64"
     )
     # Teaching history compaction was removed: its prompts are gone, and recall
     # guidance no longer points at the read_teaching tool.

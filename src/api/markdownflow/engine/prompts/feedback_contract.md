@@ -15,8 +15,11 @@ Copy learner excerpts exactly from that answer's returned input. Copy
 ## Structured checking direction
 
 Use this branch for a failed, uniquely anchored text answer at an authored
-checking-direction stage with a positive aspect or question count. Send one
-`interact` call with no free prose or sibling calls:
+checking-direction stage with a positive count of aspects or guiding questions.
+A count of clues, hints, or retries alone does not set that limit. For a short
+clue without a stated aspect or question count, use ordinary `authored_help`.
+For structured direction, send one `interact` call with no free prose or sibling
+calls:
 
 - Set `type` to `text`. Copy the original input hint into `placeholder`.
   Keep `generated_control` false and omit `options` and `display_question`.
