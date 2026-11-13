@@ -965,7 +965,8 @@ async def interact(
     unanswered questions are displayed; diagnoses/criteria stay internal. The host
     checks provenance, not correctness or semantic focus.
     Use type `text` and the original authored placeholder. In `question`, copy the guiding
-    questions exactly in their order with a single space between them. Do not add another tool
+    questions exactly in their order with a single space between them. The host renders
+    those questions and preserves the original binding. Do not add another tool
     call or any free content to that model response. This collects the correction directly, without
     a planning request. For passing answers, later authored help, navigation,
     clarification, stages without an authored count, multiple questions within one
@@ -1331,7 +1332,9 @@ async def prepare_feedback_tool(
                 "With a nonempty leading {{...}} or %{{...}} binding, copy only its exact "
                 "inner text, trimming outer whitespace. For an unbound answer control, use "
                 "the full learner-facing question from prose. For other unbound controls, "
-                "omit this field. A nonempty value is the storage key for the accepted answer."
+                "omit this field. A nonempty value is the storage key for the accepted answer. "
+                "For structured checking direction, instead copy the guiding questions in order, "
+                "joined by one space. The host preserves the original binding."
             ),
         }
         if ctx.deps.translated_controls:
