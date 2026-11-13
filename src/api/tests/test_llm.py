@@ -1788,6 +1788,7 @@ def test_litellm_native_adapter_contracts() -> None:
 
         import httpx
         import litellm
+        from flask import Flask
         from flaskr.api import llm as app_llm
         from litellm.completion_extras.litellm_responses_transformation.transformation import LiteLLMResponsesTransformationHandler
         from openai import OpenAI
@@ -1937,38 +1938,75 @@ def test_litellm_native_adapter_contracts() -> None:
                 kwargs or {},
             )
 
-        def openai_6_1_sol_responses_contract():
+        def openai_6_1_sol_responses_contract(stream):
             model = "gpt-6.1-sol"
-            provider_params = {"custom_llm_provider": "openai"}
             requests = []
+            tool_item = {
+                "type": "function_call",
+                "id": "fc_contract",
+                "call_id": "call_contract",
+                "name": "finish",
+                "arguments": "{}",
+                "status": "completed",
+            }
+            payload = {
+                "id": "resp_contract",
+                "object": "response",
+                "created_at": 1,
+                "model": model,
+                "status": "completed",
+                "output": [tool_item],
+                "usage": {
+                    "input_tokens": 8,
+                    "input_tokens_details": {"cached_tokens": 2},
+                    "output_tokens": 3,
+                    "output_tokens_details": {"reasoning_tokens": 1},
+                    "total_tokens": 11,
+                },
+            }
 
             def respond(request):
                 requests.append((str(request.url), json.loads(request.content)))
+                if not stream:
+                    return httpx.Response(200, request=request, json=payload)
+                events = [
+                    {
+                        "type": "response.created",
+                        "response": {
+                            **payload, "status": "in_progress", "output": [], "usage": None,
+                        },
+                    },
+                    {
+                        "type": "response.output_item.added",
+                        "output_index": 0,
+                        "item": {**tool_item, "arguments": "", "status": "in_progress"},
+                    },
+                    *[
+                        {
+                            "type": "response.function_call_arguments.delta",
+                            "output_index": 0,
+                            "item_id": tool_item["id"],
+                            "delta": fragment,
+                        }
+                        for fragment in ("{", "}")
+                    ],
+                    {
+                        "type": "response.output_item.done",
+                        "output_index": 0,
+                        "item": tool_item,
+                    },
+                    {"type": "response.completed", "response": payload},
+                ]
+                content = "".join(
+                    f"event: {event['type']}\\n"
+                    f"data: {json.dumps({**event, 'sequence_number': index})}\\n\\n"
+                    for index, event in enumerate(events)
+                )
                 return httpx.Response(
                     200,
                     request=request,
-                    json={
-                        "id": "resp_contract",
-                        "object": "response",
-                        "created_at": 1,
-                        "model": model,
-                        "status": "completed",
-                        "output": [{
-                            "type": "function_call",
-                            "id": "fc_contract",
-                            "call_id": "call_contract",
-                            "name": "finish",
-                            "arguments": "{}",
-                            "status": "completed",
-                        }],
-                        "usage": {
-                            "input_tokens": 8,
-                            "input_tokens_details": {"cached_tokens": 2},
-                            "output_tokens": 3,
-                            "output_tokens_details": {"reasoning_tokens": 1},
-                            "total_tokens": 11,
-                        },
-                    },
+                    headers={"content-type": "text/event-stream"},
+                    content=content,
                 )
 
             kwargs = prepared("openai", "openai", model, {
@@ -1984,34 +2022,69 @@ def test_litellm_native_adapter_contracts() -> None:
                     },
                 }],
             })
+            if stream:
+                kwargs["stream_options"] = {"include_usage": True}
             with httpx.Client(
                 transport=httpx.MockTransport(respond), trust_env=False
             ) as http:
-                completion = litellm.completion(
-                    model=app_llm._litellm_completion_model(model, "openai"),
-                    api_base="https://api.openai.com/v1",
-                    api_key="test-key",
-                    client=HTTPHandler(client=http),
-                    messages=messages,
-                    **provider_params,
-                    **kwargs,
-                )
+                provider_params = {
+                    "custom_llm_provider": "openai",
+                    "api_base": "https://api.openai.com/v1",
+                    "api_key": "test-key",
+                    "client": HTTPHandler(client=http),
+                }
+                if stream:
+                    chunks = list(app_llm._stream_litellm_completion(
+                        Flask("responses-contract"),
+                        model,
+                        model,
+                        messages,
+                        provider_params,
+                        kwargs,
+                        provider_key="openai",
+                    ))
+                else:
+                    completion = litellm.completion(
+                        model=app_llm._litellm_completion_model(model, "openai"),
+                        messages=messages,
+                        **provider_params,
+                        **kwargs,
+                    )
 
             (url, body), = requests
-            choice = completion.choices[0]
-            call = choice.message.tool_calls[0]
+            if stream:
+                choices = [choice for chunk in chunks for choice in chunk.choices]
+                deltas = [call for choice in choices for call in choice.delta.tool_calls or []]
+                assert [delta.function.arguments for delta in deltas if delta.function.arguments] == ["{", "}"]
+                (usage,) = [chunk.usage for chunk in chunks if getattr(chunk, "usage", None)]
+                (finish_reason,) = [
+                    choice.finish_reason for choice in choices if choice.finish_reason
+                ]
+                tool_call = [
+                    next(delta.id for delta in deltas if delta.id),
+                    "".join(delta.function.name or "" for delta in deltas),
+                    "".join(delta.function.arguments or "" for delta in deltas),
+                ]
+                result = chunks[-1]
+            else:
+                choice = completion.choices[0]
+                call = choice.message.tool_calls[0]
+                tool_call = [call.id, call.function.name, call.function.arguments]
+                finish_reason = choice.finish_reason
+                usage = completion.usage
+                result = completion
             return {
                 "url": url,
                 "body": body,
-                "object": completion.object,
-                "model": completion.model,
-                "finish_reason": choice.finish_reason,
-                "tool_call": [call.id, call.function.name, call.function.arguments],
+                "object": result.object,
+                "model": result.model,
+                "finish_reason": finish_reason,
+                "tool_call": tool_call,
                 "usage": [
-                    completion.usage.prompt_tokens,
-                    completion.usage.prompt_tokens_details.cached_tokens,
-                    completion.usage.completion_tokens,
-                    completion.usage.total_tokens,
+                    usage.prompt_tokens,
+                    usage.prompt_tokens_details.cached_tokens,
+                    usage.completion_tokens,
+                    usage.total_tokens,
                 ],
             }
 
@@ -2235,7 +2308,10 @@ def test_litellm_native_adapter_contracts() -> None:
                 model: native_reasoning_capabilities("openai", model)
                 for model in ("gpt-6-sol", "gpt-6-luna")
             },
-            "openai_6_1_sol": openai_6_1_sol_responses_contract(),
+            "openai_6_1_sol": {
+                "chat.completion": openai_6_1_sol_responses_contract(stream=False),
+                "chat.completion.chunk": openai_6_1_sol_responses_contract(stream=True),
+            },
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
             ),
@@ -2466,20 +2542,20 @@ def test_litellm_native_adapter_contracts() -> None:
         assert refreshed["request"]["body"]["reasoning_effort"] == "none"
         assert refreshed["request"]["body"]["temperature"] == 0.4
         assert refreshed["request"]["content"] == "Hello world"
-    sol_contract = contracts["openai_6_1_sol"]
-    assert sol_contract["url"] == "https://api.openai.com/v1/responses"
-    body = sol_contract["body"]
-    assert body["model"] == "gpt-6.1-sol"
-    assert body["reasoning"] == {"effort": "low"}
-    assert body["store"] is False
-    assert body["max_output_tokens"] == 128
-    assert "temperature" not in body
-    assert body["tools"][0]["name"] == "finish"
-    assert sol_contract["object"] == "chat.completion"
-    assert sol_contract["model"] == "gpt-6.1-sol"
-    assert sol_contract["finish_reason"] == "tool_calls"
-    assert sol_contract["tool_call"] == ["call_contract", "finish", "{}"]
-    assert sol_contract["usage"] == [8, 2, 3, 11]
+    for response_object, sol_contract in contracts["openai_6_1_sol"].items():
+        assert sol_contract["url"] == "https://api.openai.com/v1/responses"
+        body = sol_contract["body"]
+        assert body["model"] == "gpt-6.1-sol"
+        assert body["reasoning"] == {"effort": "low"}
+        assert body["store"] is False
+        assert body["max_output_tokens"] == 128
+        assert "temperature" not in body
+        assert body["tools"][0]["name"] == "finish"
+        assert sol_contract["object"] == response_object
+        assert sol_contract["model"] == "gpt-6.1-sol"
+        assert sol_contract["finish_reason"] == "tool_calls"
+        assert sol_contract["tool_call"] == ["call_contract", "finish", "{}"]
+        assert sol_contract["usage"] == [8, 2, 3, 11]
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
