@@ -33,6 +33,8 @@ _ALLOWED_PROVIDER_OPTIONS = {
     "tools",
     "top_p",
 }
+_UNSUPPORTED_OPENAI_OPTIONS = {"frequency_penalty", "presence_penalty", "seed", "stop"}
+_OPENAI_MIN_OUTPUT_TOKENS = 16
 _IDEMPOTENCY_KEY_MAX_LENGTH = 90
 
 
@@ -145,6 +147,7 @@ def prepare_gateway_chat_request(
 
     from flaskr.api.llm import (
         count_llm_chat_input_tokens,
+        get_litellm_params_and_model,
         resolve_llm_max_output_tokens,
     )
 
@@ -162,6 +165,19 @@ def prepare_gateway_chat_request(
         max_output_tokens = resolve_llm_max_output_tokens(
             model, payload.get("max_tokens")
         )
+        if (
+            any(payload.get(key) is not None for key in _UNSUPPORTED_OPENAI_OPTIONS)
+            or any(message.get("name") is not None for message in messages)
+            or (
+                max_output_tokens is not None
+                and max_output_tokens < _OPENAI_MIN_OUTPUT_TOKENS
+            )
+        ):
+            _, _, provider = get_litellm_params_and_model(model)
+            if provider == "openai":
+                raise GatewayRequestError(
+                    400, "invalid_request", "Options unsupported by OpenAI Responses"
+                )
         input_tokens = count_llm_chat_input_tokens(
             model, messages, tools=tools if isinstance(tools, list) else None
         )

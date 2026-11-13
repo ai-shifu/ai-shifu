@@ -9,7 +9,7 @@ last_reviewed: 2026-11-13
 
 ## Purpose / Big Picture
 
-Use Responses for supported OpenAI text generation across AI-Shifu. GPT-6.1
+Use Responses for all OpenAI text generation across AI-Shifu. GPT-6.1
 Sol requires that endpoint for course tools. Learning, authoring, background
 jobs and the model gateway share one transport policy. The gateway keeps its
 [Chat Completions contract](../../references/model-gateway-cli-integration.md)
@@ -35,8 +35,9 @@ for desktop and CLI clients.
   The CN proxy forwarded the request and returned an upstream 401 without credentials. This establishes CN path forwarding, with authenticated
   generation still pending.
 - The pinned bridge does not preserve `stop`, `seed`,
-  `frequency_penalty`, or `presence_penalty` on Responses. Its OpenAI
-  adapter would raise a requested output limit below 16 to 16 without explicit routing.
+  `frequency_penalty`, or `presence_penalty` on Responses. OpenAI requires
+  at least 16 output tokens. The gateway validates these limits before
+  claiming the request.
 - A Responses tool result may carry an array of text parts. The runtime
   harness must replay both that shape and plain text to advance a lesson.
 - The US production database has exact GPT-6 Sol rates of 0.0006666700
@@ -48,12 +49,9 @@ for desktop and CLI clients.
 
 - Route by AI-Shifu's resolved provider key. Other providers can use LiteLLM's
   OpenAI adapter and retain their existing transport.
-- Keep Responses as the default for supported OpenAI text and image input.
-  Use Chat Completions for models that only support that endpoint and for
-  incompatible options when the model supports Chat with the requested
-  features. Return an explicit error when neither endpoint can preserve the
-  request. Select the endpoint before sending the request.
-- Request `store=false` and preserve existing tool strictness, history,
+- Send OpenAI text and tool requests to Responses. The gateway rejects OpenAI
+  requests that require fields the current adapter cannot represent.
+- Request `store=false` and preserve tool declarations, history,
   physical model IDs and metering. Keep model discovery on `GET /v1/models`.
   Embeddings, moderation, dedicated image generation, TTS, transcription and
   Realtime are outside the shared text transport.
@@ -77,7 +75,7 @@ ConfigMap and rollout live in [deploy-config](https://github.com/ai-shifu/deploy
 
 ## Plan of Work
 
-Use the shared LiteLLM bridge for capable models. Cover generation, tool
+Use the shared LiteLLM bridge for OpenAI generation. Cover generation, tool
 argument deltas and returned tool results, structured output, and usage
 without changing consumers. Then verify the candidate image through the
 configured proxies before promoting the US Quality model.
@@ -100,8 +98,9 @@ configured proxies before promoting the US Quality model.
 For a capable OpenAI model, confirm `POST /v1/responses` for streamed and
 nonstreamed text generation, with function-call history, stable call IDs,
 tool arguments, finish reasons, structured output and final token usage.
-Confirm the explicit Chat or error behavior for incompatible requests and
-check a non-OpenAI provider. Verify gateway response and usage contracts.
+Confirm that unsupported gateway options are rejected before the request is
+claimed. Check a non-OpenAI provider and verify gateway response and usage
+contracts.
 US production acceptance requires ready replicas using `gpt-6.1-sol`,
 a successful interaction and a Quality multiplier of 10x. Record authenticated
 CN acceptance once working credentials are available.
@@ -116,7 +115,7 @@ independently of the model switch, restore the prior application release.
 ## Interfaces and Dependencies
 
 The application uses pinned LiteLLM 1.109.1. The configured OpenAI base URL
-must forward `/models`, `/responses`, and `/chat/completions` under its API version prefix.
+must forward `/models` and `/responses` under its API version prefix.
 Reference the [OpenAI migration guide](https://developers.openai.com/api/docs/guides/migrate-to-responses),
 [function calling guide](https://developers.openai.com/api/docs/guides/function-calling)
 and [GPT-6.1 Sol model contract](https://developers.openai.com/api/docs/models/gpt-6.1-sol).

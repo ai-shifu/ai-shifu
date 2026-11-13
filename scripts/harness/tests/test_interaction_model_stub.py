@@ -72,11 +72,9 @@ def _request(
         connection.close()
 
 
-def _post(
-    port: int, payload: dict[str, Any], *, path: str = "/v1/responses"
-) -> tuple[str, str]:
+def _post(port: int, payload: dict[str, Any]) -> tuple[str, str]:
     status, content_type, body = _request(
-        port, "POST", path, json.dumps(payload).encode()
+        port, "POST", "/v1/responses", json.dumps(payload).encode()
     )
     assert status == 200
     return content_type, body
@@ -219,22 +217,10 @@ def test_summary_requests_return_text_without_interactions(model_server: int) ->
     assert completion["status"] == "completed"
 
 
-def test_chat_completions_remains_available(model_server: int) -> None:
-    """The legacy path retains its wire protocol for Chat Completions clients."""
-    payload = {
-        "model": "gpt-test",
-        "messages": [{"role": "user", "content": "Summarize"}],
-        "stream": True,
-        "stream_options": {"include_usage": True},
-    }
-    content_type, body = _post(model_server, payload, path="/v1/chat/completions")
-    frames = [frame.removeprefix("data: ") for frame in body.strip().split("\n\n")]
-    assert content_type == "text/event-stream"
-    assert frames.pop() == "[DONE]"
-    chunks = [json.loads(frame) for frame in frames]
-    assert all(chunk["object"] == "chat.completion.chunk" for chunk in chunks)
-    assert chunks[1]["choices"][0]["finish_reason"] == "stop"
-    assert chunks[-1]["usage"]["total_tokens"] == 2
+def test_chat_completions_is_unavailable(model_server: int) -> None:
+    """An accidental fallback to Chat Completions cannot pass the harness."""
+    status, _, _ = _request(model_server, "POST", "/v1/chat/completions", b"{}")
+    assert status == 404
 
 
 @pytest.mark.parametrize("body", ["not-json", "[]"])

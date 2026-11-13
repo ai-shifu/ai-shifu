@@ -87,6 +87,49 @@ def test_prepare_gateway_request_uses_admission_not_reservation(
     assert not hasattr(gateway_request, "reservation_bid")
 
 
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"seed": 7},
+        {"stop": ["END"]},
+        {"frequency_penalty": 0.5},
+        {"presence_penalty": 0.5},
+        {"messages": [{"role": "user", "name": "learner", "content": "hello"}]},
+        {"max_tokens": 15},
+    ],
+)
+def test_openai_gateway_rejects_unsupported_options_before_claiming_request(
+    monkeypatch: pytest.MonkeyPatch, options: dict[str, object]
+) -> None:
+    from unittest.mock import Mock
+
+    claim = Mock()
+    count = Mock()
+    monkeypatch.setattr(runtime, "admit_creator_usage", Mock())
+    monkeypatch.setattr(runtime, "has_complete_llm_rates", lambda _model: True)
+    monkeypatch.setattr(runtime, "_claim_gateway_request", claim)
+    monkeypatch.setattr("flaskr.api.llm.count_llm_chat_input_tokens", count)
+    monkeypatch.setattr(
+        "flaskr.api.llm.get_litellm_params_and_model",
+        lambda model: ({"api_key": "test"}, model, "openai"),
+    )
+
+    with pytest.raises(runtime.GatewayRequestError) as raised:
+        runtime.prepare_gateway_chat_request(
+            Flask(__name__),
+            creator_bid="user-1",
+            idempotency_key="request-1",
+            payload={
+                "model": "gpt-6.1-sol",
+                "messages": [{"role": "user", "content": "hello"}],
+                **options,
+            },
+        )
+    assert (raised.value.status_code, raised.value.code) == (400, "invalid_request")
+    claim.assert_not_called()
+    count.assert_not_called()
+
+
 def test_prepare_gateway_request_rejects_oversized_idempotency_key() -> None:
     with pytest.raises(runtime.GatewayRequestError) as raised:
         runtime.prepare_gateway_chat_request(

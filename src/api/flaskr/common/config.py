@@ -606,7 +606,7 @@ Default: "phone".""",
         name="OPENAI_BASE_URL",
         description=(
             "OpenAI API base URL. A proxy must forward /responses for text generation, "
-            "/models for discovery, and /chat/completions for compatibility requests."
+            "and /models for discovery."
         ),
         group="llm",
     ),

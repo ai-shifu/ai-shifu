@@ -239,6 +239,7 @@ def map_tools(parameters: ModelRequestParameters) -> list[dict[str, Any]]:
                 "name": d.name,
                 "description": d.description or "",
                 "parameters": d.parameters_json_schema,
+                **({"strict": d.strict} if d.strict is not None else {}),
             },
         }
         for d in definitions

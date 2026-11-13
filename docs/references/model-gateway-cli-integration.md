@@ -221,13 +221,11 @@ The `ai-shifu-default` alias uses the physical binding of numbered model 1.
 The alias is listed only when that binding is configured, routable and fully
 rated; it never switches to another model because model 1 is unavailable.
 
-The gateway uses the OpenAI Responses API upstream for compatible OpenAI
-generation. Clients continue to use the Chat Completions request and response
-shapes in this guide. The gateway keeps the OpenAI Chat route for supported
-requests that need options its Responses adapter cannot preserve (such as
-`stop`, `seed`, or named message participants) or an output limit below 16 tokens.
-Models that cannot serve such a request through Chat return an error. The
-gateway uses the selected model and its configured credit rates on either route.
+The gateway sends OpenAI generation requests to the upstream Responses API.
+Clients use the Chat Completions request and response shapes in this guide.
+For OpenAI models, the gateway returns HTTP 400 for `stop`, `seed`,
+`frequency_penalty`, `presence_penalty`, participant names in messages,
+and output limits below 16 tokens.
 
 ## Non-streaming Chat Completions
 
@@ -252,10 +250,10 @@ Content-Type: application/json
 }
 ```
 
-The response follows the OpenAI Chat Completions JSON shape. Supported optional
-request fields are `temperature`, `top_p`, `stop`, `seed`, `presence_penalty`,
-`frequency_penalty`, `response_format`, `tools`, `tool_choice`, and
-`parallel_tool_calls`.
+The response follows the OpenAI Chat Completions JSON shape. Optional fields
+include `temperature`, `top_p`, `response_format`, `tools`, `tool_choice`,
+and `parallel_tool_calls`. Non-OpenAI providers can also accept `stop`,
+`seed`, `presence_penalty`, and `frequency_penalty`, depending on the model.
 
 `max_tokens` must be a positive JSON integer (booleans, strings and fractions
 are rejected). Gateway and learning calls share default resolution and provider

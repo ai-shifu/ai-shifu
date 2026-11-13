@@ -9,7 +9,6 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-USAGE = {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
 RESPONSES_USAGE = {
     "input_tokens": 1,
     "input_tokens_details": {"cached_tokens": 0},
@@ -28,25 +27,41 @@ QUESTION = {
 }
 
 
-def response_message(payload: dict[str, Any]) -> dict[str, Any]:
+def responses_text(content: str | list[dict[str, Any]]) -> str:
+    """Read plain text from Responses strings or text part arrays."""
+    if isinstance(content, str):
+        return content
+    return "".join(part.get("text", "") for part in content)
+
+
+def responses_output(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Ask once, then finish only after the engine returns the learner's answer."""
-    tools = {tool["function"]["name"] for tool in payload.get("tools", [])}
-    messages = payload.get("messages", [])
+    tools = {
+        tool["name"]
+        for tool in payload.get("tools", [])
+        if tool.get("type") == "function"
+    }
+    items = payload.get("input", [])
+    if isinstance(items, str):
+        items = [{"role": "user", "content": items}]
     authored = any(
-        re.search(r"\?\[\s*%?\{\{\s*e2e_answer\s*\}\}", str(message.get("content", "")))
-        for message in messages
-        if message.get("role") == "user"
+        re.search(
+            r"\?\[\s*%?\{\{\s*e2e_answer\s*\}\}",
+            responses_text(item.get("content", "")),
+        )
+        for item in items
+        if item.get("role") == "user"
     )
     calls = {
-        call["id"]: call["function"]["name"]
-        for message in messages
-        for call in message.get("tool_calls", [])
+        item["call_id"]: item["name"]
+        for item in items
+        if item.get("type") == "function_call"
     }
     returned = {
-        calls.get(message.get("tool_call_id"))
-        for message in messages
-        if message.get("role") == "tool"
-        and str(message.get("content", "")).startswith(
+        calls.get(item.get("call_id"))
+        for item in items
+        if item.get("type") == "function_call_output"
+        and responses_text(item["output"]).startswith(
             ("Learner chose:", "Learner wrote:", "finished.")
         )
     }
@@ -57,84 +72,26 @@ def response_message(payload: dict[str, Any]) -> dict[str, Any]:
         content = QUESTION["question"]
     elif "finish" in tools and "interact" in returned and "finish" not in returned:
         name, arguments = "finish", {"summary": "Learning path recorded"}
-    message: dict[str, Any] = {
-        "role": "assistant",
-        "content": content,
-    }
-    if name:
-        message["tool_calls"] = [
-            {
-                "id": f"call_harness_{name}",
-                "type": "function",
-                "function": {"name": name, "arguments": json.dumps(arguments)},
-            }
-        ]
-    return message
-
-
-def responses_text(content: str | list[dict[str, Any]]) -> str:
-    """Read plain text from Responses strings or text part arrays."""
-    if isinstance(content, str):
-        return content
-    return "".join(part.get("text", "") for part in content)
-
-
-def responses_output(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """Replay Responses input items through the same deterministic lesson fixture."""
-    messages = []
-    input_items = payload.get("input", [])
-    if isinstance(input_items, str):
-        input_items = [{"role": "user", "content": input_items}]
-    for item in input_items:
-        if item.get("type") == "function_call":
-            messages.append(
-                {
-                    "role": "assistant",
-                    "tool_calls": [
-                        {"id": item["call_id"], "function": {"name": item["name"]}}
-                    ],
-                }
-            )
-        elif item.get("type") == "function_call_output":
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": item["call_id"],
-                    "content": responses_text(item["output"]),
-                }
-            )
-        elif item.get("role"):
-            messages.append(
-                {**item, "content": responses_text(item.get("content", ""))}
-            )
-    tools = [
-        {"function": {"name": tool["name"]}}
-        for tool in payload.get("tools", [])
-        if tool.get("type") == "function"
-    ]
-    message = response_message({"messages": messages, "tools": tools})
-    output = [
+    output: list[dict[str, Any]] = [
         {
             "type": "message",
             "id": "msg_harness",
             "role": "assistant",
             "status": "completed",
-            "content": [
-                {"type": "output_text", "text": message["content"], "annotations": []}
-            ],
+            "content": [{"type": "output_text", "text": content, "annotations": []}],
         }
     ]
-    output.extend(
-        {
-            "type": "function_call",
-            "id": f"fc_harness_{call['function']['name']}",
-            "call_id": call["id"],
-            "name": call["function"]["name"],
-            "arguments": call["function"]["arguments"],
-            "status": "completed",
-        }
-        for call in message.get("tool_calls", [])
-    )
+    if name:
+        output.append(
+            {
+                "type": "function_call",
+                "id": f"fc_harness_{name}",
+                "call_id": f"call_harness_{name}",
+                "name": name,
+                "arguments": json.dumps(arguments),
+                "status": "completed",
+            }
+        )
     return output
 
 
@@ -222,7 +179,7 @@ class InteractionModelHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Return a regular response or a finite SSE stream with tool deltas."""
-        if self.path not in {"/v1/responses", "/v1/chat/completions"}:
+        if self.path != "/v1/responses":
             self._send_json(404, {"error": {"message": "Not found"}})
             return
         try:
@@ -235,10 +192,7 @@ class InteractionModelHandler(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             self._send_json(400, {"error": {"message": "Invalid JSON request"}})
             return
-        if self.path == "/v1/responses":
-            self._send_responses(payload)
-        else:
-            self._send_chat_completion(payload)
+        self._send_responses(payload)
 
     def _send_responses(self, payload: dict[str, Any]) -> None:
         response = {
@@ -259,50 +213,6 @@ class InteractionModelHandler(BaseHTTPRequestHandler):
         for index, event in enumerate(responses_events(response)):
             frame = json.dumps({**event, "sequence_number": index})
             self.wfile.write(f"event: {event['type']}\ndata: {frame}\n\n".encode())
-        self.wfile.flush()
-
-    def _send_chat_completion(self, payload: dict[str, Any]) -> None:
-        message = response_message(payload)
-        base = {
-            "id": "chatcmpl-harness",
-            "created": 0,
-            "model": payload.get("model", "gpt-test"),
-            "object": "chat.completion",
-        }
-        reason = "tool_calls" if message.get("tool_calls") else "stop"
-        if not payload.get("stream"):
-            self._send_json(
-                200,
-                {
-                    **base,
-                    "choices": [
-                        {"index": 0, "message": message, "finish_reason": reason}
-                    ],
-                    "usage": USAGE,
-                },
-            )
-            return
-        if message.get("tool_calls"):
-            message["tool_calls"][0]["index"] = 0
-        base["object"] = "chat.completion.chunk"
-        chunks = [
-            {
-                **base,
-                "choices": [{"index": 0, "delta": message, "finish_reason": None}],
-            },
-            {
-                **base,
-                "choices": [{"index": 0, "delta": {}, "finish_reason": reason}],
-            },
-        ]
-        if payload.get("stream_options", {}).get("include_usage"):
-            chunks.append({**base, "choices": [], "usage": USAGE})
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.end_headers()
-        for chunk in chunks:
-            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
-        self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()
 
     def log_message(self, _format: str, *_args: object) -> None:

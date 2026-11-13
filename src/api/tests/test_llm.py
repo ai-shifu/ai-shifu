@@ -1755,93 +1755,23 @@ def test_openai_gpt_6_exact_request_patches() -> None:
     }
 
 
-@pytest.mark.parametrize(
-    ("provider_key", "model", "kwargs", "uses_responses"),
-    [
-        ("openai", "gpt-6-sol", {"max_tokens": 16}, True),
-        ("openai", "gpt-5.6-luna", {"top_p": 0.7}, True),
-        ("openai", "gpt-4o", {"temperature": 0.4}, True),
-        ("openai", "gpt-audio-1.5", {}, False),
-        ("openai", "gpt-4o-mini-search-preview", {}, False),
-        ("openai", "gpt-4o", {"stop": ["END"]}, False),
-        ("openai", "gpt-4o", {"seed": 42}, False),
-        ("openai", "gpt-4o", {"presence_penalty": 0.25}, False),
-        ("openai", "gpt-4o", {"frequency_penalty": 0.25}, False),
-        ("openai", "gpt-4o", {"max_tokens": 15}, False),
-        ("openai", "gpt-6.1-sol", {"max_tokens": 15}, False),
-        ("openai", "gpt-6-sol", {"seed": 42}, False),
-        ("ernie_v2", "gpt-6.1-sol", {}, False),
-        ("silicon", "gpt-6.1-sol", {}, False),
-    ],
-)
-def test_openai_completion_prefers_responses_when_request_is_compatible(
-    provider_key: str, model: str, kwargs: dict[str, object], uses_responses: bool
-) -> None:
-    transport_model, prepared = llm._prepare_litellm_completion(
-        model, provider_key, kwargs
-    )
-
-    if uses_responses:
-        assert transport_model == f"openai/responses/{model}"
-        assert prepared == {**kwargs, "store": False}
-    else:
-        assert transport_model == model
-        bridge = (
-            {"_skip_responses_api_bridge": True} if provider_key == "openai" else {}
-        )
-        assert prepared == {**kwargs, **bridge}
-    assert "store" not in kwargs
-
-
-@pytest.mark.parametrize(
-    ("model", "mode", "kwargs"),
-    [
-        ("gpt-5.4-pro", "responses", {"seed": 42}),
-        ("gpt-6.1-sol", "chat", {"max_tokens": 15, "tools": [{"type": "function"}]}),
-        ("gpt-6.1-terra", "chat", {"seed": 42, "tools": [{"type": "function"}]}),
-    ],
-)
-def test_openai_responses_rejects_options_when_chat_cannot_run_request(
-    monkeypatch: pytest.MonkeyPatch, model: str, mode: str, kwargs: dict[str, object]
-) -> None:
-    monkeypatch.setattr(llm.litellm, "get_model_info", lambda **_kwargs: {"mode": mode})
-
-    with pytest.raises(llm.AppError):
-        llm._prepare_litellm_completion(model, "openai", kwargs)
-
-
-def test_openai_completion_preserves_named_participants() -> None:
-    messages = [{"role": "user", "name": "Learner", "content": "hello"}]
-    assert llm._prepare_litellm_completion(
-        "gpt-4o", "openai", {}, messages=messages
-    ) == ("gpt-4o", {"_skip_responses_api_bridge": True})
-
-
-def test_openai_responses_preserves_chat_function_schema_defaults() -> None:
-    original_tools = [
-        {"type": "function", "function": {"name": "best_effort"}},
-        {"type": "function", "function": {"name": "strict", "strict": True}},
-        {"type": "function", "function": {"name": "loose", "strict": False}},
-    ]
+@pytest.mark.parametrize("provider", ["openai", "ernie_v2", "silicon", "gemini"])
+def test_openai_responses_route_uses_the_resolved_provider(provider: str) -> None:
     kwargs = {
-        "tools": original_tools,
+        "tools": [{"type": "function", "function": {"name": "lookup"}}],
         "store": True,
         "extra_body": {"store": True, "user": "keep"},
     }
 
-    transport_model, prepared = llm._prepare_litellm_completion(
-        "gpt-6.1-sol", "openai", kwargs
-    )
+    model, prepared = llm._prepare_litellm_completion("gpt-6-sol", provider, kwargs)
 
-    assert transport_model == "openai/responses/gpt-6.1-sol"
-    assert prepared["store"] is False
-    assert prepared["tools"] == [
-        {"type": "function", "function": {"name": "best_effort", "strict": False}},
-        *original_tools[1:],
-    ]
-    assert prepared["extra_body"] == {"user": "keep"}
-    assert kwargs["store"] is kwargs["extra_body"]["store"] is True
-    assert "strict" not in original_tools[0]["function"]
+    if provider == "openai":
+        assert model == "openai/responses/gpt-6-sol"
+        assert prepared == {**kwargs, "store": False, "extra_body": {"user": "keep"}}
+        assert kwargs["store"] is kwargs["extra_body"]["store"] is True
+    else:
+        assert model == "gpt-6-sol"
+        assert prepared is kwargs
 
 
 LITELLM_CONTRACT_VERSION = "1.109.1"
@@ -2635,7 +2565,7 @@ def test_litellm_native_adapter_contracts() -> None:
         assert body["max_output_tokens"] == 128
         assert "temperature" not in body
         assert body["tools"][0]["name"] == "finish"
-        assert body["tools"][0]["strict"] is False
+        assert body["tools"][0].get("strict") is None
         assert sol_contract["object"] == response_object
         assert sol_contract["model"] == "gpt-6.1-sol"
         assert sol_contract["finish_reason"] == "tool_calls"
@@ -4631,9 +4561,7 @@ def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) ->
                 tools=tools,
             )
         )
-    assert seen["tools"] == [
-        {"type": "function", "function": {**tools[0]["function"], "strict": False}}
-    ]
+    assert seen["tools"] == tools
     assert "emit_tool_calls" not in seen
 
 
