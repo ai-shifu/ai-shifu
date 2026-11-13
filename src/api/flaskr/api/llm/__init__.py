@@ -449,8 +449,8 @@ def _get_llm_max_output_tokens(requested_model: str, invoke_model: str) -> int |
     return None
 
 
-def _litellm_completion_model(model: str, params: dict[str, str]) -> str:
-    if params.get("custom_llm_provider") == "openai" and model == "gpt-6.1-sol":
+def _litellm_completion_model(model: str, provider_key: str | None) -> str:
+    if provider_key == "openai" and model == "gpt-6.1-sol":
         # Tool calls require Responses. LiteLLM translates the existing chat
         # messages and tool deltas while the app keeps the physical model ID.
         return f"openai/responses/{model}"
@@ -464,6 +464,8 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
+    *,
+    provider_key: str | None = None,
 ) -> object:
     _apply_llm_max_output_tokens(requested_model, model, kwargs)
     try:
@@ -473,7 +475,7 @@ def _stream_litellm_completion(
             len(messages),
         )
         return litellm.completion(
-            model=_litellm_completion_model(model, params),
+            model=_litellm_completion_model(model, provider_key),
             messages=messages,
             stream=True,
             **params,
@@ -570,6 +572,7 @@ def _iter_stream_with_precontent_retry(
     params: dict,
     kwargs: dict,
     *,
+    provider_key: str | None = None,
     tool_calls_are_output: bool = False,
     retry_cancelled: Callable[[], bool] | None = None,
 ) -> Generator[ModelResponseStream, None, None]:
@@ -604,6 +607,7 @@ def _iter_stream_with_precontent_retry(
                 messages,
                 params,
                 kwargs,
+                provider_key=provider_key,
             )
             for res in response:
                 has_choices = bool(len(res.choices))
@@ -1433,6 +1437,7 @@ def chat_llm(
                 messages,
                 params,
                 kwargs,
+                provider_key=provider_key,
                 tool_calls_are_output=emit_tool_calls,
                 retry_cancelled=retry_cancelled,
             )
@@ -1853,7 +1858,7 @@ def complete_openai_chat_completion(
     error_message = ""
     try:
         response = litellm.completion(
-            model=_litellm_completion_model(invoke_model, params),
+            model=_litellm_completion_model(invoke_model, provider_key),
             messages=messages,
             stream=False,
             **params,
@@ -1950,6 +1955,7 @@ def stream_openai_chat_completion(
             messages,
             params,
             stream_kwargs,
+            provider_key=provider_key,
             tool_calls_are_output=True,
         )
         for chunk in response:

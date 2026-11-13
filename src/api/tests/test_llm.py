@@ -1757,6 +1757,13 @@ def test_openai_gpt_6_exact_request_patches() -> None:
     }
 
 
+def test_gpt_6_1_sol_responses_route_applies_only_to_openai() -> None:
+    model = "gpt-6.1-sol"
+    assert llm._litellm_completion_model(model, "openai") == f"openai/responses/{model}"
+    assert llm._litellm_completion_model(model, "silicon") == model
+    assert llm._litellm_completion_model(model, "ernie_v2") == model
+
+
 LITELLM_CONTRACT_VERSION = "1.109.1"
 
 
@@ -1981,7 +1988,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 transport=httpx.MockTransport(respond), trust_env=False
             ) as http:
                 completion = litellm.completion(
-                    model=app_llm._litellm_completion_model(model, provider_params),
+                    model=app_llm._litellm_completion_model(model, "openai"),
                     api_base="https://api.openai.com/v1",
                     api_key="test-key",
                     client=HTTPHandler(client=http),
@@ -3079,6 +3086,7 @@ def _patch_scripted_streams(monkeypatch: object, scripts: object) -> object:
         _messages: object,
         _params: object,
         _kwargs: object,
+        **_options: object,
     ) -> object:
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
