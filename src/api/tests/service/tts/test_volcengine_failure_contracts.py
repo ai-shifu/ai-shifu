@@ -264,12 +264,10 @@ def test_empty_text_is_rejected_before_connecting(
         volc.VolcengineTTSProvider().synthesize(text)
 
 
-def test_missing_api_key_is_rejected_even_with_legacy_credentials(
+def test_missing_api_key_is_rejected_even_with_ark_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     legacy_credentials = {
-        "VOLCENGINE_TTS_APP_KEY": "app",
-        "VOLCENGINE_TTS_ACCESS_KEY": "token",
         "ARK_ACCESS_KEY_ID": "ark-app",
         "ARK_SECRET_ACCESS_KEY": "ark-token",
     }

@@ -162,11 +162,3 @@ The provider uses this key for WebSocket synthesis, including
 `volcengine/seed-tts-2.0`, and for cloned voice verification. Enable the
 models you use in that project and make sure its voice library contains any
 cloned voices you use.
-
-To enable the `volcengine_http` provider for HTTP v1/tts, set:
-
-- `VOLCENGINE_TTS_APP_KEY` (AppID)
-- `VOLCENGINE_TTS_ACCESS_KEY` (Token used by `Authorization: Bearer;{token}`)
-- `VOLCENGINE_TTS_CLUSTER_ID` (Cluster, default: `volcano_tts`)
-
-In Shifu settings, select the provider name `volcengine_http` and choose a voice/model.

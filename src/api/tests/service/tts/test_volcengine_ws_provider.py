@@ -14,14 +14,6 @@ from flaskr.api.tts import volcengine_provider
     [
         ({"VOLCENGINE_TTS_API_KEY": "test-api-key"}, "volcengine"),
         ({"ARK_ACCESS_KEY_ID": "app", "ARK_SECRET_ACCESS_KEY": "token"}, "MiniMax"),
-        (
-            {
-                "VOLCENGINE_TTS_APP_KEY": "app",
-                "VOLCENGINE_TTS_ACCESS_KEY": "token",
-                "VOLCENGINE_TTS_CLUSTER_ID": "volcano_tts",
-            },
-            "volcengine_http",
-        ),
     ],
 )
 def test_volcengine_provider_auto_detection(
@@ -38,8 +30,6 @@ def test_volcengine_ws_is_configured_with_only_api_key(
     monkeypatch: object,
 ) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_API_KEY", "test-api-key")
-    monkeypatch.delenv("VOLCENGINE_TTS_APP_KEY", raising=False)
-    monkeypatch.delenv("VOLCENGINE_TTS_ACCESS_KEY", raising=False)
     monkeypatch.delenv("ARK_ACCESS_KEY_ID", raising=False)
     monkeypatch.delenv("ARK_SECRET_ACCESS_KEY", raising=False)
     monkeypatch.setattr(volcengine_provider, "WEBSOCKET_AVAILABLE", True)
@@ -63,8 +53,6 @@ def test_volcengine_ws_uses_api_key_and_waits_for_session_started(
     use_subtitle: bool,
 ) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_API_KEY", " test-api-key ")
-    monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
-    monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.setattr(volcengine_provider, "WEBSOCKET_AVAILABLE", True)
 
     captured = {}

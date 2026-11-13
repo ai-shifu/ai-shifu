@@ -16,7 +16,6 @@ class TTSProvider(StrEnum):
 
     MINIMAX = "minimax"
     VOLCENGINE = "volcengine"
-    VOLCENGINE_HTTP = "volcengine_http"
     BAIDU = "baidu"
     ALIYUN = "aliyun"
     TENCENT = "tencent"

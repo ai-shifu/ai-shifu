@@ -216,5 +216,4 @@ def test_clone_provider_specs_dispatch_by_provider() -> None:
     assert volcengine_spec.is_valid_custom_voice_id("AiShifu_xxxxxxxxxx") is False
 
     assert supports_cloned_voices("volcengine") is True
-    assert supports_cloned_voices("volcengine_http") is False
     assert supports_cloned_voices("baidu") is False
