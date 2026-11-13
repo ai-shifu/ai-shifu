@@ -449,6 +449,22 @@ def _get_llm_max_output_tokens(requested_model: str, invoke_model: str) -> int |
     return None
 
 
+def _prepare_litellm_completion(
+    model: str, provider_key: str | None, kwargs: dict[str, object]
+) -> tuple[str, dict[str, object]]:
+    if provider_key != "openai":
+        return model, kwargs
+
+    prepared = {**kwargs, "store": False}
+    extra_body = prepared.get("extra_body")
+    if isinstance(extra_body, dict) and "store" in extra_body:
+        # LiteLLM can read Responses options from extra_body.
+        prepared["extra_body"] = {
+            key: value for key, value in extra_body.items() if key != "store"
+        }
+    return f"openai/responses/{model}", prepared
+
+
 def _stream_litellm_completion(
     app: Flask,
     requested_model: str,
@@ -456,8 +472,11 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
+    *,
+    provider_key: str | None = None,
 ) -> object:
     _apply_llm_max_output_tokens(requested_model, model, kwargs)
+    transport_model, kwargs = _prepare_litellm_completion(model, provider_key, kwargs)
     try:
         app.logger.info(
             "stream_litellm_completion: model=%s | message_count=%s",
@@ -465,7 +484,7 @@ def _stream_litellm_completion(
             len(messages),
         )
         return litellm.completion(
-            model=model,
+            model=transport_model,
             messages=messages,
             stream=True,
             **params,
@@ -562,6 +581,7 @@ def _iter_stream_with_precontent_retry(
     params: dict,
     kwargs: dict,
     *,
+    provider_key: str | None = None,
     tool_calls_are_output: bool = False,
     retry_cancelled: Callable[[], bool] | None = None,
 ) -> Generator[ModelResponseStream, None, None]:
@@ -596,6 +616,7 @@ def _iter_stream_with_precontent_retry(
                 messages,
                 params,
                 kwargs,
+                provider_key=provider_key,
             )
             for res in response:
                 has_choices = bool(len(res.choices))
@@ -830,6 +851,7 @@ _LITELLM_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] 
     ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
     ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
+    ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low"},
 }
 
 
@@ -1050,8 +1072,11 @@ def _prepare_litellm_request_kwargs(
         # Google ignores sampling on these models; LiteLLM rejects the options.
         for param in _GEMINI_SAMPLING_PARAMS:
             prepared.pop(param, None)
-    elif provider_key == "openai" and model_id.casefold() == "gpt-6-astra":
-        # Astra's minimum reasoning level is low, which rejects temperature.
+    elif provider_key == "openai" and model_id.casefold() in (
+        "gpt-6-astra",
+        "gpt-6.1-sol",
+    ):
+        # These models reject temperature at their minimum reasoning level.
         prepared.pop("temperature", None)
     elif "temperature" in prepared:
         prepared["temperature"] = float(prepared["temperature"])
@@ -1421,6 +1446,7 @@ def chat_llm(
                 messages,
                 params,
                 kwargs,
+                provider_key=provider_key,
                 tool_calls_are_output=emit_tool_calls,
                 retry_cancelled=retry_cancelled,
             )
@@ -1826,6 +1852,9 @@ def complete_openai_chat_completion(
         params,
         completion_kwargs,
     )
+    transport_model, completion_kwargs = _prepare_litellm_completion(
+        invoke_model, provider_key, completion_kwargs
+    )
     trace_id = resolve_langfuse_trace_id(span)
     generation = span.generation(
         model=requested_model,
@@ -1841,7 +1870,7 @@ def complete_openai_chat_completion(
     error_message = ""
     try:
         response = litellm.completion(
-            model=invoke_model,
+            model=transport_model,
             messages=messages,
             stream=False,
             **params,
@@ -1938,6 +1967,7 @@ def stream_openai_chat_completion(
             messages,
             params,
             stream_kwargs,
+            provider_key=provider_key,
             tool_calls_are_output=True,
         )
         for chunk in response:

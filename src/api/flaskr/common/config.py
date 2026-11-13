@@ -604,7 +604,10 @@ Default: "phone".""",
     ),
     "OPENAI_BASE_URL": EnvVar(
         name="OPENAI_BASE_URL",
-        description="OpenAI API base URL",
+        description=(
+            "OpenAI API base URL. A proxy must forward /responses for text generation, "
+            "and /models for discovery."
+        ),
         group="llm",
     ),
     "ERNIE_API_KEY": EnvVar(

@@ -85,7 +85,8 @@ async def test_live_adapter_keeps_gateway_tools_and_usage_without_service_writes
         )
 
     assert len(provider_calls) == 1
-    assert provider_calls[0]["model"] == "gpt-eval"
+    assert provider_calls[0]["model"] == "openai/responses/gpt-eval"
+    assert provider_calls[0]["store"] is False
     assert provider_calls[0]["temperature"] == 0.2
     assert provider_calls[0]["messages"][0] == {
         "role": "system",

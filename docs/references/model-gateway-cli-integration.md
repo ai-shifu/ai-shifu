@@ -221,6 +221,9 @@ The `ai-shifu-default` alias uses the physical binding of numbered model 1.
 The alias is listed only when that binding is configured, routable and fully
 rated; it never switches to another model because model 1 is unavailable.
 
+The gateway sends OpenAI generation requests to the upstream Responses API.
+Clients use the Chat Completions request and response shapes in this guide.
+
 ## Non-streaming Chat Completions
 
 Generate a unique idempotency value for the logical request and retain it only
@@ -244,10 +247,12 @@ Content-Type: application/json
 }
 ```
 
-The response follows the OpenAI Chat Completions JSON shape. Supported optional
-request fields are `temperature`, `top_p`, `stop`, `seed`, `presence_penalty`,
-`frequency_penalty`, `response_format`, `tools`, `tool_choice`, and
-`parallel_tool_calls`.
+The response follows the OpenAI Chat Completions JSON shape. Optional fields
+include `temperature`, `top_p`, `response_format`, `tools`, `tool_choice`,
+and `parallel_tool_calls`. Non-OpenAI providers can also accept `stop`,
+`seed`, `presence_penalty`, and `frequency_penalty`, depending on the model.
+For OpenAI generation, the Responses adapter may reject or ignore these four
+fields depending on the model.
 
 `max_tokens` must be a positive JSON integer (booleans, strings and fractions
 are rejected). Gateway and learning calls share default resolution and provider
@@ -262,10 +267,10 @@ task budgets to a known ceiling, preserving onboarding prompt compilation,
 localization and profile optimization on models with smaller output limits.
 Limits come from the optional `LLM_MODEL_MAX_OUTPUT_TOKENS`
 mapping of full routed model IDs, then valid LiteLLM metadata. Missing or invalid
-LiteLLM limits do not make an otherwise eligible model unavailable: a valid
-explicit value is forwarded unchanged, and an omitted value remains omitted when
-no valid model limit is known.
-The provider remains responsible for enforcing limits unknown to the gateway.
+LiteLLM limits do not make an otherwise eligible model unavailable. When no
+valid model limit is known, the gateway passes an explicit value to the adapter
+and leaves an omitted value unset. The adapter applies upstream limits. For
+OpenAI Responses, LiteLLM raises explicit values below 16 to 16.
 
 The request body is limited to 1 MiB, with at most 256 messages and 128 tools.
 `stream` must be a JSON boolean; strings such as `"false"`, numbers, and `null`

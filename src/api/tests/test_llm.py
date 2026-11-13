@@ -1710,6 +1710,7 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
         ("gpt-6-sol", "none", 0.3),
         ("gpt-6-luna", "none", 0.3),
         ("gpt-6-astra", "low", None),
+        ("gpt-6.1-sol", "low", None),
     ],
 )
 @pytest.mark.parametrize("course_temperature", ["0.3", None])
@@ -1743,12 +1744,34 @@ def test_gpt_6_keeps_minimum_reasoning_and_compatible_temperature(
     assert prepared["stop"] == ["done"]
 
 
-def test_only_gpt_6_astra_needs_an_exact_request_patch() -> None:
+def test_openai_gpt_6_exact_request_patches() -> None:
     assert {
         key: patch
         for key, patch in llm._LITELLM_COMPATIBILITY_PATCHES.items()
-        if key[0] == "openai" and key[1] and key[1].startswith("gpt-6-")
-    } == {("openai", "gpt-6-astra"): {"reasoning_effort": "low"}}
+        if key[0] == "openai" and key[1] and key[1].startswith(("gpt-6-", "gpt-6."))
+    } == {
+        ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
+        ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low"},
+    }
+
+
+@pytest.mark.parametrize("provider", ["openai", "ernie_v2", "silicon", "gemini"])
+def test_openai_responses_route_uses_the_resolved_provider(provider: str) -> None:
+    kwargs = {
+        "tools": [{"type": "function", "function": {"name": "lookup"}}],
+        "store": True,
+        "extra_body": {"store": True, "user": "keep"},
+    }
+
+    model, prepared = llm._prepare_litellm_completion("gpt-6-sol", provider, kwargs)
+
+    if provider == "openai":
+        assert model == "openai/responses/gpt-6-sol"
+        assert prepared == {**kwargs, "store": False, "extra_body": {"user": "keep"}}
+        assert kwargs["store"] is kwargs["extra_body"]["store"] is True
+    else:
+        assert model == "gpt-6-sol"
+        assert prepared is kwargs
 
 
 LITELLM_CONTRACT_VERSION = "1.109.1"
@@ -1775,6 +1798,7 @@ def test_litellm_native_adapter_contracts() -> None:
 
         import httpx
         import litellm
+        from flask import Flask
         from flaskr.api import llm as app_llm
         from litellm.completion_extras.litellm_responses_transformation.transformation import LiteLLMResponsesTransformationHandler
         from openai import OpenAI
@@ -1923,6 +1947,160 @@ def test_litellm_native_adapter_contracts() -> None:
                 {"custom_llm_provider": provider},
                 kwargs or {},
             )
+
+        def openai_6_1_sol_responses_contract(stream):
+            model = "gpt-6.1-sol"
+            requests = []
+            tool_item = {
+                "type": "function_call",
+                "id": "fc_contract",
+                "call_id": "call_contract",
+                "name": "finish",
+                "arguments": "{}",
+                "status": "completed",
+            }
+            payload = {
+                "id": "resp_contract",
+                "object": "response",
+                "created_at": 1,
+                "model": model,
+                "status": "completed",
+                "output": [tool_item],
+                "usage": {
+                    "input_tokens": 8,
+                    "input_tokens_details": {"cached_tokens": 2},
+                    "output_tokens": 3,
+                    "output_tokens_details": {"reasoning_tokens": 1},
+                    "total_tokens": 11,
+                },
+            }
+
+            def respond(request):
+                requests.append((str(request.url), json.loads(request.content)))
+                if not stream:
+                    return httpx.Response(200, request=request, json=payload)
+                events = [
+                    {
+                        "type": "response.created",
+                        "response": {
+                            **payload, "status": "in_progress", "output": [], "usage": None,
+                        },
+                    },
+                    {
+                        "type": "response.output_item.added",
+                        "output_index": 0,
+                        "item": {**tool_item, "arguments": "", "status": "in_progress"},
+                    },
+                    *[
+                        {
+                            "type": "response.function_call_arguments.delta",
+                            "output_index": 0,
+                            "item_id": tool_item["id"],
+                            "delta": fragment,
+                        }
+                        for fragment in ("{", "}")
+                    ],
+                    {
+                        "type": "response.output_item.done",
+                        "output_index": 0,
+                        "item": tool_item,
+                    },
+                    {"type": "response.completed", "response": payload},
+                ]
+                content = "".join(
+                    f"event: {event['type']}\\n"
+                    f"data: {json.dumps({**event, 'sequence_number': index})}\\n\\n"
+                    for index, event in enumerate(events)
+                )
+                return httpx.Response(
+                    200,
+                    request=request,
+                    headers={"content-type": "text/event-stream"},
+                    content=content,
+                )
+
+            kwargs = prepared("openai", "openai", model, {
+                "temperature": "0.3",
+                "store": True,
+                "extra_body": {"store": True},
+                "max_tokens": 128,
+                "tools": [{
+                    "type": "function",
+                    "function": {
+                        "name": "finish",
+                        "description": "Signal completion.",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }],
+            })
+            if stream:
+                kwargs["stream_options"] = {"include_usage": True}
+            with httpx.Client(
+                transport=httpx.MockTransport(respond), trust_env=False
+            ) as http:
+                provider_params = {
+                    "custom_llm_provider": "openai",
+                    "api_base": "https://api.openai.com/v1",
+                    "api_key": "test-key",
+                    "client": HTTPHandler(client=http),
+                }
+                if stream:
+                    chunks = list(app_llm._stream_litellm_completion(
+                        Flask("responses-contract"),
+                        model,
+                        model,
+                        messages,
+                        provider_params,
+                        kwargs,
+                        provider_key="openai",
+                    ))
+                else:
+                    transport_model, kwargs = app_llm._prepare_litellm_completion(
+                        model, "openai", kwargs
+                    )
+                    completion = litellm.completion(
+                        model=transport_model,
+                        messages=messages,
+                        **provider_params,
+                        **kwargs,
+                    )
+
+            (url, body), = requests
+            if stream:
+                choices = [choice for chunk in chunks for choice in chunk.choices]
+                deltas = [call for choice in choices for call in choice.delta.tool_calls or []]
+                assert [delta.function.arguments for delta in deltas if delta.function.arguments] == ["{", "}"]
+                (usage,) = [chunk.usage for chunk in chunks if getattr(chunk, "usage", None)]
+                (finish_reason,) = [
+                    choice.finish_reason for choice in choices if choice.finish_reason
+                ]
+                tool_call = [
+                    next(delta.id for delta in deltas if delta.id),
+                    "".join(delta.function.name or "" for delta in deltas),
+                    "".join(delta.function.arguments or "" for delta in deltas),
+                ]
+                result = chunks[-1]
+            else:
+                choice = completion.choices[0]
+                call = choice.message.tool_calls[0]
+                tool_call = [call.id, call.function.name, call.function.arguments]
+                finish_reason = choice.finish_reason
+                usage = completion.usage
+                result = completion
+            return {
+                "url": url,
+                "body": body,
+                "object": result.object,
+                "model": result.model,
+                "finish_reason": finish_reason,
+                "tool_call": tool_call,
+                "usage": [
+                    usage.prompt_tokens,
+                    usage.prompt_tokens_details.cached_tokens,
+                    usage.completion_tokens,
+                    usage.total_tokens,
+                ],
+            }
 
         def openai_responses_reasoning_contract():
             prepared_kwargs = prepared(
@@ -2143,6 +2321,10 @@ def test_litellm_native_adapter_contracts() -> None:
             "gpt_6_native_capabilities": {
                 model: native_reasoning_capabilities("openai", model)
                 for model in ("gpt-6-sol", "gpt-6-luna")
+            },
+            "openai_6_1_sol": {
+                "chat.completion": openai_6_1_sol_responses_contract(stream=False),
+                "chat.completion.chunk": openai_6_1_sol_responses_contract(stream=True),
             },
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
@@ -2374,6 +2556,21 @@ def test_litellm_native_adapter_contracts() -> None:
         assert refreshed["request"]["body"]["reasoning_effort"] == "none"
         assert refreshed["request"]["body"]["temperature"] == 0.4
         assert refreshed["request"]["content"] == "Hello world"
+    for response_object, sol_contract in contracts["openai_6_1_sol"].items():
+        assert sol_contract["url"] == "https://api.openai.com/v1/responses"
+        body = sol_contract["body"]
+        assert body["model"] == "gpt-6.1-sol"
+        assert body["reasoning"] == {"effort": "low"}
+        assert body["store"] is False
+        assert body["max_output_tokens"] == 128
+        assert "temperature" not in body
+        assert body["tools"][0]["name"] == "finish"
+        assert body["tools"][0].get("strict") is None
+        assert sol_contract["object"] == response_object
+        assert sol_contract["model"] == "gpt-6.1-sol"
+        assert sol_contract["finish_reason"] == "tool_calls"
+        assert sol_contract["tool_call"] == ["call_contract", "finish", "{}"]
+        assert sol_contract["usage"] == [8, 2, 3, 11]
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
@@ -2980,6 +3177,7 @@ def _patch_scripted_streams(monkeypatch: object, scripts: object) -> object:
         _messages: object,
         _params: object,
         _kwargs: object,
+        **_options: object,
     ) -> object:
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
@@ -3340,6 +3538,49 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
         from openai import OpenAI
         from flaskr.api import llm
         from flaskr.route import model_gateway_runtime as runtime
+        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+
+        def provider_reply(provider, model, stream):
+            if provider == "openai":
+                payload = {
+                    "id": "resp_reply", "object": "response", "created_at": 1,
+                    "model": model, "status": "completed",
+                    "output": [{
+                        "id": "msg_reply", "type": "message", "role": "assistant",
+                        "status": "completed",
+                        "content": [{"type": "output_text", "text": "ok", "annotations": []}],
+                    }],
+                    "usage": {
+                        "input_tokens": 3, "output_tokens": 2, "total_tokens": 5,
+                        "input_tokens_details": {"cached_tokens": 1},
+                        "output_tokens_details": {"reasoning_tokens": 0},
+                    },
+                }
+                events = [
+                    {"type": "response.created", "response": {
+                        **payload, "output": [], "usage": None, "status": "in_progress",
+                    }},
+                    {"type": "response.output_text.delta", "delta": "ok",
+                        "output_index": 0, "content_index": 0, "item_id": "msg_reply"},
+                    {"type": "response.completed", "response": payload},
+                ]
+                content = "".join(
+                    f"event: {event['type']}\\n"
+                    f"data: {json.dumps({**event, 'sequence_number': index})}\\n\\n"
+                    for index, event in enumerate(events)
+                )
+            else:
+                payload = {
+                    "id": "reply", "created": 1, "model": model,
+                    "object": "chat.completion.chunk" if stream else "chat.completion",
+                    "choices": [{"index": 0, "finish_reason": "stop",
+                        "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
+                    "usage": {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5},
+                }
+                content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
+            if stream:
+                return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content)
+            return httpx.Response(200, json=payload)
 
         app = Flask(__name__)
         runtime.admit_creator_usage = lambda *args, **kwargs: None
@@ -3347,6 +3588,7 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
         runtime._claim_gateway_request = lambda *args: None
         runtime._trace_for_request = lambda request: MagicMock()
         llm.MODEL_MAX_OUTPUT_TOKENS = {}
+        api_base = "https://llm.invalid/v1"
         messages = [{"role": "user", "content": "hello"}]
         for provider, model, upstream in [
             ("qwen", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
@@ -3364,29 +3606,25 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                 for requested in (None, 8192):
                     captured = []
                     recorded = []
-                    usage = {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
-                    payload = {
-                        "id": "reply", "created": 1, "model": upstream,
-                        "object": "chat.completion.chunk" if stream else "chat.completion",
-                        "choices": [{"index": 0, "finish_reason": "stop",
-                            "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
-                        "usage": usage,
-                    }
+
                     def respond(request):
-                        captured.append(json.loads(request.content))
-                        if stream:
-                            content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
-                            return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content, request=request)
-                        return httpx.Response(200, json=payload, request=request)
+                        captured.append((request.url.path, json.loads(request.content)))
+                        return provider_reply(provider, upstream, stream)
+
                     with httpx.Client(transport=httpx.MockTransport(respond), trust_env=False) as http:
-                        client = OpenAI(api_key="test", base_url="https://llm.invalid/v1", http_client=http)
+                        client = (
+                            HTTPHandler(client=http) if provider == "openai" else
+                            OpenAI(api_key="test", base_url=api_base, http_client=http)
+                        )
                         llm.MODEL_ALIAS_MAP = {model: (provider, upstream)}
                         llm.PROVIDER_STATES = {provider: llm.ProviderState(
-                            enabled=True, models=[model], params={"api_key": "test", "custom_llm_provider": adapter, "client": client},
+                            enabled=True, models=[model], params={
+                                "api_key": "test", "api_base": api_base,
+                                "custom_llm_provider": adapter, "client": client,
+                            },
                         )}
                         llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
-                        body = {"model": model, "messages": messages, "stream": stream}
-                        body["max_tokens"] = requested
+                        body = {"model": model, "messages": messages, "stream": stream, "max_tokens": requested}
                         request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
                         assert request.input_tokens > 0
                         if stream:
@@ -3394,17 +3632,25 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                             assert any(c.get("choices") and c["choices"][0]["delta"].get("content") == "ok" for c in chunks)
                         else:
                             assert runtime.complete_gateway_chat_request(app, request)["choices"][0]["message"]["content"] == "ok"
-                        assert len(captured) == 1
-                        body_tokens = captured[0].get("max_tokens", captured[0].get("max_completion_tokens"))
-                        assert body_tokens == requested
+
+                    (path, wire), = captured
+                    if provider == "openai":
+                        assert path == "/v1/responses"
+                        assert wire["store"] is False
+                        assert wire.get("max_output_tokens") == requested
+                        assert ("max_output_tokens" in wire) == (requested is not None)
+                    else:
+                        assert path == "/v1/chat/completions"
+                        assert wire.get("max_tokens", wire.get("max_completion_tokens")) == requested
                         if requested is None:
-                            assert "max_tokens" not in captured[0]
-                            assert "max_completion_tokens" not in captured[0]
-                        assert len(recorded) == 1
-                        context, record = recorded[0]
-                        assert context.billable == 1
-                        assert record["status"] == 0
-                        assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+                            assert "max_tokens" not in wire and "max_completion_tokens" not in wire
+                    assert wire["model"] == upstream
+                    assert wire.get("stream", False) is stream
+                    (context, record), = recorded
+                    assert context.billable == 1
+                    assert record["status"] == 0
+                    assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+                    assert record["input_cache"] == (1 if provider == "openai" else 0)
         print("native gateway fallback passed")
         """
     )
@@ -3600,7 +3846,10 @@ def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
             ]["content"]
             == "ok"
         )
-    assert captured["model"] == invoke_model
+    expected_model = (
+        f"openai/responses/{invoke_model}" if provider == "openai" else invoke_model
+    )
+    assert captured["model"] == expected_model
     assert captured["stream"] is stream
     if requested in (None, "omitted"):
         if limit is None:
@@ -4071,7 +4320,7 @@ def test_internal_profile_tasks_fit_output_budgets_to_known_limits(
         assert result["optimized_learner_profile"] == output
         budget = 1200
     assert captured["max_tokens"] == (budget if metadata == "unknown" else 1024)
-    assert captured["model"] == "gpt-test"
+    assert captured["model"] == "openai/responses/gpt-test"
     assert len(records) == 1
     assert records[0]["status"] == 0
 
@@ -4312,7 +4561,7 @@ def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) ->
                 tools=tools,
             )
         )
-    assert seen.get("tools") == tools
+    assert seen["tools"] == tools
     assert "emit_tool_calls" not in seen
 
 
@@ -4524,7 +4773,7 @@ def test_numbered_call_uses_one_model_for_provider_usage_and_trace(
         list(llm.invoke_llm(message="hello", **arguments))
     else:
         list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
-    assert captured["model"] == "gpt-test"
+    assert captured["model"] == "openai/responses/gpt-test"
     assert usage["model"] == "gpt-test"
     assert usage["extra"]["resolved_model"] == "gpt-test"
     assert usage["extra"]["model_index"] == "1"
@@ -4625,7 +4874,8 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
                 preview_mode=preview,
             )
         )
-        assert captured["model"] == usage["model"] == "gpt-test"
+        assert captured["model"] == "openai/responses/gpt-test"
+        assert usage["model"] == "gpt-test"
         assert captured["temperature"] == 0.4
         metadata = usage["extra"]
         assert metadata["resolved_model"] == "gpt-test"

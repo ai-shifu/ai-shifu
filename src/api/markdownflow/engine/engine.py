@@ -624,6 +624,8 @@ class Engine:
             tools=[
                 Tool(
                     interact,
+                    # Controls such as confirm must omit the optional question.
+                    strict=False,
                     max_retries=3,
                     prepare=prepare_feedback_tool,
                     description=(interact.__doc__ or "")

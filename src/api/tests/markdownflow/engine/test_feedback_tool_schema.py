@@ -341,6 +341,12 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
             tools = map_tools(
                 ModelRequestParameters(function_tools=info.function_tools)
             )
+            interact = next(
+                tool["function"]
+                for tool in tools
+                if tool["function"]["name"] == "interact"
+            )
+            assert interact["strict"] is False
             body = config.transform_request(
                 model=model,
                 messages=[{"role": "user", "content": "Synthetic schema check."}],
