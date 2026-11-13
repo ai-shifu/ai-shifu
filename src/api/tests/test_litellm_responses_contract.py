@@ -22,12 +22,16 @@ def _litellm_is_installed() -> bool:
     not _litellm_is_installed(),
     reason="install requirements.txt to run the native LiteLLM Responses contract",
 )
-def test_pro_completion_uses_real_responses_bridge_without_mcp_tools() -> None:
+def test_pro_completion_uses_real_responses_bridge_without_mcp() -> None:
     # Other LLM unit tests deliberately install SDK stubs. A fresh process must
     # import the real Responses dependencies before it can reach this transport.
     script = textwrap.dedent(
         r"""
         import json
+        import sys
+
+        # Simulate a base SDK install even if another dependency installs MCP.
+        sys.modules["mcp"] = None
 
         import httpx
         import litellm

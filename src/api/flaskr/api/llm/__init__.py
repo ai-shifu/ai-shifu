@@ -71,36 +71,6 @@ from .live_catalog import (
 
 logger = logging.getLogger(__name__)
 
-# Global asyncio.run patch to avoid RuntimeError when called from a running
-# event loop (seen in LiteLLM logging threads under gunicorn). For the
-# specific case where a loop is already running, we fall back to scheduling
-# the coroutine on the existing loop instead of raising.
-_original_asyncio_run = asyncio.run
-# Strong references so fire-and-forget tasks are not garbage-collected mid-run.
-_background_asyncio_tasks: set[asyncio.Task] = set()
-
-
-def _safe_asyncio_run(coro: object, *args: object, **kwargs: object) -> object | None:
-    try:
-        return _original_asyncio_run(coro, *args, **kwargs)
-    except RuntimeError as exc:
-        message = str(exc)
-        if "cannot be called from a running event loop" not in message:
-            # Preserve original behaviour for unrelated errors.
-            raise
-        loop = asyncio.get_running_loop()
-        try:
-            task = loop.create_task(coro)
-            _background_asyncio_tasks.add(task)
-            task.add_done_callback(_background_asyncio_tasks.discard)
-        except Exception:
-            # If even scheduling fails, swallow the error so logging/caching
-            # failures do not break the main application.
-            return None
-
-
-asyncio.run = _safe_asyncio_run
-
 
 @dataclass
 class ProviderConfig:
@@ -815,6 +785,7 @@ _REASONING_EFFORT_CAPABILITIES = (
     ("minimal", "supports_minimal_reasoning_effort"),
     ("low", "supports_low_reasoning_effort"),
 )
+_GEMINI_SAMPLING_PARAMS = ("temperature", "top_p", "top_k")
 _THINKING_CONTROL_KEYS = ("reasoning_effort", "thinking", "enable_thinking")
 _LIST_PATCH_KEYS = frozenset({"allowed_openai_params", "additional_drop_params"})
 _THINKING_CONFLICT_PATHS = (
@@ -840,32 +811,22 @@ _THINKING_CONFLICT_PATHS = (
     "extra_body.generation_config.thinking_config",
 )
 
-# These entries cover confirmed gaps in LiteLLM 1.106.2. The normal path is
-# capability-driven; upgrading LiteLLM should make individual rows removable
-# when their contract tests start passing without the row.
+# The normal path is capability-driven. Keep only overrides whose removal
+# changes the provider request or the application's minimum thinking behavior.
 _ZAI_DISABLED_THINKING_PATCH: dict[str, object] = {
-    # LiteLLM 1.106.2 sends top-level thinking to the OpenAI SDK for ZAI, where it
-    # is rejected. extra_body reaches the provider wire format.
+    # LiteLLM does not advertise thinking for these GLM 4.5 model IDs.
     "extra_body": {"thinking": {"type": "disabled"}},
 }
-_LITELLM_1106_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
+_LITELLM_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
     ("qwen", None): {"extra_body": {"enable_thinking": False}},
     ("silicon", None): {"extra_body": {"enable_thinking": False}},
     ("ark", None): {"allowed_openai_params": ["response_format"]},
-    ("glm", None): {"allowed_openai_params": ["response_format"]},
     ("glm", "glm-4.5"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-4.5v"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-4.5-air"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-4.5-x"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-4.5-airx"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-4.5-flash"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.6"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.7"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.7-flash"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5.1"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5-code"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5.2"): _ZAI_DISABLED_THINKING_PATCH,
     ("qwen", "glm-5.3"): {"reasoning_effort": "low"},
     ("qwen", "glm-5.3-flash"): {"reasoning_effort": "low"},
     ("qwen", "zhipu/glm-5.3"): {"reasoning_effort": "low"},
@@ -927,12 +888,11 @@ def _litellm_provider_name(provider_key: str, provider_params: dict[str, str]) -
     return provider_key
 
 
-def _litellm_minimum_thinking_params(
+def _litellm_supported_openai_params(
     model_id: str, custom_llm_provider: str
-) -> dict[str, object]:
-    """Use LiteLLM's declared adapter capabilities for the product minimum."""
+) -> list[str] | None:
     try:
-        supported_params = litellm.get_supported_openai_params(
+        return litellm.get_supported_openai_params(
             model=model_id,
             custom_llm_provider=custom_llm_provider,
         )
@@ -943,7 +903,14 @@ def _litellm_minimum_thinking_params(
             model_id,
             exc,
         )
-        supported_params = None
+        return None
+
+
+def _litellm_minimum_thinking_params(
+    model_id: str, custom_llm_provider: str
+) -> dict[str, object]:
+    """Use LiteLLM's declared adapter capabilities for the product minimum."""
+    supported_params = _litellm_supported_openai_params(model_id, custom_llm_provider)
 
     if supported_params and "reasoning_effort" in supported_params:
         try:
@@ -1071,10 +1038,8 @@ def _prepare_litellm_request_kwargs(
     custom_llm_provider = _litellm_provider_name(provider_key, provider_params)
     stages = [
         _litellm_minimum_thinking_params(model_id, custom_llm_provider),
-        _LITELLM_1106_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
-        _LITELLM_1106_COMPATIBILITY_PATCHES.get(
-            (provider_key, model_id.casefold()), {}
-        ),
+        _LITELLM_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
+        _LITELLM_COMPATIBILITY_PATCHES.get((provider_key, model_id.casefold()), {}),
     ]
     primary = None
     policy_params: dict[str, object] = {}
@@ -1086,7 +1051,17 @@ def _prepare_litellm_request_kwargs(
     policy_params = _keep_primary_thinking_control(policy_params, primary)
 
     prepared = dict(kwargs)
-    if provider_key == "openai" and model_id.casefold() == "gpt-6-astra":
+    gemini_supported_params = (
+        _litellm_supported_openai_params(model_id, custom_llm_provider)
+        if custom_llm_provider == "gemini"
+        and any(param in prepared for param in _GEMINI_SAMPLING_PARAMS)
+        else None
+    )
+    if gemini_supported_params and "temperature" not in gemini_supported_params:
+        # Google ignores sampling on these models; LiteLLM rejects the options.
+        for param in _GEMINI_SAMPLING_PARAMS:
+            prepared.pop(param, None)
+    elif provider_key == "openai" and model_id.casefold() == "gpt-6-astra":
         # Astra's minimum reasoning level is low, which rejects temperature.
         prepared.pop("temperature", None)
     elif "temperature" in prepared:

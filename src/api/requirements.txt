@@ -55,7 +55,7 @@ logfire-api==5.1.0
 Mako==1.4.3
 markdown-it-py==4.0.0
 MarkupSafe==2.1.5
-litellm[mcp]==1.106.2
+litellm==1.109.1
 openpyxl==3.1.5
 opentelemetry-api==1.45.1
 opentelemetry-exporter-otlp-proto-http==1.45.1
