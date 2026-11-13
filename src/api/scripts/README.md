@@ -34,6 +34,13 @@ live calls. Both modes run without starting the web app, API, MySQL, or Redis.
 The evaluator uses local session state and skips application usage writes and
 Langfuse tracing.
 
+For each live learner action, an engine turn that ends after visible teaching
+can continue automatically with the same session. The evaluator stops on a
+question (including narrated controls), completion, an error, or a turn with
+no visible teaching. The local run allows up to eight automatic continuations
+per learner action and reports reaching that limit as a behavior failure.
+Offline replay still checks the recorded engine turn for each fixture step.
+
 ```bash
 python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperature 0 \
   --suite smoke --repeat 3 --json /tmp/interaction-baseline.json
@@ -46,11 +53,14 @@ python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperat
 Each report includes the prompt and case fingerprints, model settings, per-run
 outcomes, failed checks, rendered controls, teaching text, usage, and elapsed
 time. Review the teaching text alongside the structured checks when evaluating
-new wording. The outcome distinguishes first-attempt success, successful retry,
-reproduced historical failure, behavior failure, and provider failure. Keep
-mode, model, temperature, case selection, and repeat count consistent for a
-comparison. The exit status is 0 when every case meets its expectations, 1 for
-behavior failures, and 2 for invocation, provider, or comparison errors.
+new wording. A pass after a model validation retry or automatic continuation is
+reported as a recovery. Reports count the two kinds of recovery separately and
+include each engine turn's outcome. They also distinguish reproduced historical
+failures, behavior failures, and provider failures. Generate a fresh baseline
+when the report version changes, and keep mode, model, temperature, case
+selection, and repeat count consistent. The exit status is 0 when every case
+meets its expectations, 1 for behavior failures, and 2 for invocation, provider,
+or comparison errors.
 
 For a new trace-derived case, reconstruct a teaching excerpt and answer with
 original wording. Keep the interaction syntax, displayed and submitted value

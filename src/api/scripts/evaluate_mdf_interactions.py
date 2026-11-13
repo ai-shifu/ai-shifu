@@ -41,7 +41,8 @@ STATUSES = (
     "behavior_failure",
     "call_failure",
 )
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+MAX_AUTOMATIC_CONTINUATIONS = 8
 
 
 class FixtureModel(BaseModel):
@@ -443,8 +444,11 @@ async def run_step(
     step: Step,
     expected: ExpectedStep,
     renderer: QuestionRenderer,
+    *,
+    live: bool = False,
 ) -> dict[str, object]:
     """Advance one learner action through the portable course engine."""
+    from flaskr.service.learn.agent.echoed_memory import strip_echoed_memory
     from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
     from markdownflow import (
         ContentDelta,
@@ -466,26 +470,52 @@ async def run_step(
         turn = MessageTurn(text=step.text or "")
     else:
         turn = ContinueTurn()
-    syntax = InteractionSyntaxFilter()
+    turn_outcomes = []
     prose = []
+    narrated_controls = []
     questions = []
     updates = []
     errors = []
     retryable_error = False
-    outcome = "error"
-    async for event in engine.run_turn(session, turn):
-        if isinstance(event, ContentDelta):
-            prose.append(syntax.feed(event.text))
-        elif isinstance(event, InteractionRequest):
-            questions.append(question_details(event, renderer))
-        elif isinstance(event, MemoryUpdated):
-            updates.append(event.model_dump(mode="json"))
-        elif isinstance(event, ErrorEvent):
-            retryable_error |= event.retryable
-            errors.append(event.error_type or event.code or "turn_error")
-        elif isinstance(event, TurnDone):
-            outcome = event.reason
-    prose.append(syntax.flush())
+    continuation_limit_reached = False
+    for attempt in range(MAX_AUTOMATIC_CONTINUATIONS + 1):
+        text = []
+        outcome = "error"
+        async for event in engine.run_turn(session, turn):
+            if isinstance(event, ContentDelta):
+                text.append(event.text)
+            elif isinstance(event, InteractionRequest):
+                questions.append(question_details(event, renderer))
+            elif isinstance(event, MemoryUpdated):
+                updates.append(event.model_dump(mode="json"))
+            elif isinstance(event, ErrorEvent):
+                retryable_error |= event.retryable
+                errors.append(event.error_type or event.code or "turn_error")
+            elif isinstance(event, TurnDone):
+                outcome = event.reason
+        syntax = InteractionSyntaxFilter()
+        raw_text = "".join(text)
+        if live:
+            raw_text = strip_echoed_memory(raw_text)
+        visible = syntax.feed(raw_text) + syntax.flush()
+        prose.append(visible)
+        narrated_controls.extend(syntax.spans)
+        turn_outcomes.append(outcome)
+        if (
+            not live
+            or outcome != "end"
+            or not visible.strip()
+            or syntax.spans
+            or questions
+            or session.pending
+            or errors
+        ):
+            break
+        if attempt == MAX_AUTOMATIC_CONTINUATIONS:
+            continuation_limit_reached = True
+            break
+        # The host continues teaching without submitting the learner's answer again.
+        turn = ContinueTurn()
     result: dict[str, object] = {
         "action": step.action,
         "reloaded": step.reload,
@@ -493,12 +523,15 @@ async def run_step(
         "question": questions[0] if questions else None,
         "questions": questions,
         "pending": len(session.pending),
-        "prose": "".join(prose),
-        "narrated_controls": syntax.spans,
+        "prose": "\n\n".join(text for text in prose if text),
+        "narrated_controls": narrated_controls,
         "memory": session.all_memory(),
         "memory_updates": updates,
         "retryable_error": retryable_error,
         "errors": errors,
+        "turn_outcomes": turn_outcomes,
+        "automatic_continuations": len(turn_outcomes) - 1,
+        "continuation_limit_reached": continuation_limit_reached,
         "expected": expected.model_dump(mode="json", exclude_unset=True),
     }
     return result
@@ -525,6 +558,7 @@ async def evaluate_case(
     )
     steps = []
     failures = []
+    automatic_continuations = 0
     for index, step in enumerate(case.steps, start=1):
         if step.reload:
             session = Session.loads(session.dumps())
@@ -539,10 +573,15 @@ async def evaluate_case(
             else step.expected
         )
         prior_retries = observed.retries
-        result = await run_step(engine, session, step, expected, renderer)
+        result = await run_step(
+            engine, session, step, expected, renderer, live=replay is None
+        )
+        automatic_continuations += result["automatic_continuations"]
         result["stage"] = index
         result["retries"] = observed.retries - prior_retries
         result["failures"] = step_failures(expected, result)
+        if result["continuation_limit_reached"]:
+            result["failures"].append("continuation_limit")
         steps.append(result)
         failures.extend(f"step_{index}.{name}" for name in result["failures"])
         if failures or observed.failures:
@@ -563,7 +602,11 @@ async def evaluate_case(
     elif reproduced_failure:
         status = "expected_failure_replayed"
     else:
-        status = "recovered_pass" if observed.retries else "first_attempt_pass"
+        status = (
+            "recovered_pass"
+            if observed.retries or automatic_continuations
+            else "first_attempt_pass"
+        )
     return {
         "case_id": case.id,
         "course": case.course,
@@ -575,6 +618,7 @@ async def evaluate_case(
         "failures": failures,
         "model_requests": observed.requests,
         "retries": observed.retries,
+        "automatic_continuations": automatic_continuations,
         "usage": observed.usage,
         "instruction_sha256": sorted(observed.instruction_hashes),
         "elapsed_seconds": round(time.monotonic() - started, 3),
@@ -615,6 +659,8 @@ def compare_reports(baseline: dict, candidate: dict) -> dict[str, object]:
                 "candidate_failures": after["failures"],
                 "baseline_retries": before["retries"],
                 "candidate_retries": after["retries"],
+                "baseline_automatic_continuations": before["automatic_continuations"],
+                "candidate_automatic_continuations": after["automatic_continuations"],
                 "instructions_changed": before["instruction_sha256"]
                 != after["instruction_sha256"],
                 "baseline_steps": before["steps"],
