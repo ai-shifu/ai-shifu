@@ -1704,8 +1704,9 @@ correction/navigation and third-question explanation checkpoints now pass on
 ff1e5d62f, without replacing any earlier failed journey. Original trace evidence
 is readable and billing attribution matches. Concrete-focus field guidance needs
 current-head validation/deployment and independent real-model acceptance. Full
-eleven-question natural compression, original-record statistics and billing
-acceptance remain open; milestone 4/5, keep unmerged.
+eleven-question original-record statistics, report and billing acceptance
+remains open (natural compression no longer applies after #3343); milestone
+4/5, keep unmerged.
 
 Broader external acceptance remains incomplete. The focused initial-hint
 correction passes a genuine saved pre-final report probe with real summary
