@@ -74,6 +74,7 @@
 | `docs/exec-plans/active/mdf2-teaching-usage-attempt.md` | Attribute teaching usage to the actual learning attempt | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-volc-follow-up-context.md` | Volc Knowledge Follow-up Context | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
 | `docs/exec-plans/active/mdf2-workflow-follow-up-context.md` | Coze Workflow Follow-up Context Binding | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
+| `docs/exec-plans/active/openai-responses-transport.md` | Route OpenAI text generation through the Responses API | `exec-plan-active` | `active` | `backend` | `2026-11-13` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/persistent-secret-key.md` | Generate and persist installation secret keys | `exec-plan-active` | `active` | `cross-surface` | `2026-10-26` | `true` |

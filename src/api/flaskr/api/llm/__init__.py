@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import re
 import secrets
 import time
 from dataclasses import dataclass, field, replace
@@ -41,6 +42,9 @@ from flaskr.api.langfuse import (
     resolve_langfuse_trace_id,
 )
 from flaskr.api.llm.model_selection import resolve_selection
+from flaskr.common.config import (
+    get_config as get_runtime_config,
+)
 from flaskr.common.config import (
     parse_llm_model_max_input_tokens,
     parse_llm_model_max_output_tokens,
@@ -449,12 +453,117 @@ def _get_llm_max_output_tokens(requested_model: str, invoke_model: str) -> int |
     return None
 
 
-def _litellm_completion_model(model: str, provider_key: str | None) -> str:
-    if provider_key == "openai" and model == "gpt-6.1-sol":
-        # Tool calls require Responses. LiteLLM translates the existing chat
-        # messages and tool deltas while the app keeps the physical model ID.
-        return f"openai/responses/{model}"
-    return model
+_OPENAI_CHAT_ONLY_FAMILIES = (
+    "gpt-5-search-api",
+    "gpt-4o-search-preview",
+    "gpt-4o-mini-search-preview",
+    "gpt-audio",
+    "gpt-4o-audio-preview",
+    "gpt-4o-mini-audio-preview",
+)
+_OPENAI_RESPONSES_TOOL_FAMILIES = ("gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra")
+# The installed Chat-to-Responses bridge does not preserve these options.
+_OPENAI_CHAT_OPTIONS = frozenset(
+    {"stop", "seed", "frequency_penalty", "presence_penalty"}
+)
+_OPENAI_RESPONSES_MIN_OUTPUT_TOKENS = 16
+_OPENAI_CHAT_TOOLS_REQUIRE_NONE = re.compile(
+    r"^gpt-(?:5\.(?:[4-9]|[1-9]\d+)|[6-9]|[1-9]\d+)(?:[.-]|$)"
+)
+
+
+def _in_openai_family(model: str, families: tuple[str, ...]) -> bool:
+    return any(model == family or model.startswith(f"{family}-") for family in families)
+
+
+def _prepare_litellm_completion(
+    model: str,
+    provider_key: str | None,
+    kwargs: dict[str, object],
+    *,
+    messages: list[dict[str, object]] | None = None,
+) -> tuple[str, dict[str, object]]:
+    if provider_key != "openai":
+        return model, kwargs
+
+    try:
+        info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    except Exception:
+        # Missing catalog metadata is not evidence that a GPT model lacks Responses.
+        info = {}
+    endpoints = info.get("supported_endpoints")
+    if isinstance(endpoints, (list, tuple)) and endpoints:
+        supports_responses = "/v1/responses" in endpoints
+        supports_chat = "/v1/chat/completions" in endpoints
+    else:
+        supports_responses = info.get("mode") in (None, "chat", "responses")
+        supports_chat = info.get("mode") in (None, "chat")
+    chat_only_base = str(
+        get_runtime_config("OPENAI_CHAT_COMPLETIONS_ONLY", default=False)
+    ).lower() in ("true", "1", "yes", "on")
+    if chat_only_base or _in_openai_family(model, _OPENAI_CHAT_ONLY_FAMILIES):
+        supports_responses = False
+
+    tools = kwargs.get("tools")
+    if isinstance(tools, (list, tuple)) and tools:
+        has_function = any(
+            isinstance(tool, dict) and tool.get("type") == "function" for tool in tools
+        )
+        if _in_openai_family(model, _OPENAI_RESPONSES_TOOL_FAMILIES) or (
+            has_function
+            and _OPENAI_CHAT_TOOLS_REQUIRE_NONE.match(model)
+            and kwargs.get("reasoning_effort") != "none"
+        ):
+            supports_chat = False
+
+    chat_options = sorted(
+        key for key in _OPENAI_CHAT_OPTIONS if kwargs.get(key) is not None
+    )
+    if messages and any(message.get("name") is not None for message in messages):
+        # Responses messages have no participant-name field.
+        chat_options.append("message.name")
+    max_tokens = kwargs.get("max_completion_tokens")
+    if max_tokens is None:
+        max_tokens = kwargs.get("max_tokens")
+    if (
+        isinstance(max_tokens, int)
+        and 0 < max_tokens < _OPENAI_RESPONSES_MIN_OUTPUT_TOKENS
+    ):
+        # LiteLLM would silently increase the requested output budget to 16.
+        chat_options.append("max_tokens below 16")
+
+    if not supports_responses or chat_options:
+        if supports_chat:
+            # Skip LiteLLM's implicit Responses routing for this request.
+            return model, {**kwargs, "_skip_responses_api_bridge": True}
+        if chat_only_base:
+            message = "This request needs Responses, but the OpenAI base URL is configured for Chat Completions only"
+        elif chat_options and supports_responses:
+            message = (
+                f"Unsupported Responses request options: {', '.join(chat_options)}"
+            )
+        else:
+            message = "Model does not support OpenAI text generation on this route"
+        raise_error_with_args("server.llm.requestFailed", model=model, message=message)
+
+    prepared = {**kwargs, "store": False}
+    extra_body = prepared.get("extra_body")
+    if isinstance(extra_body, dict) and "store" in extra_body:
+        # LiteLLM gives nested Responses options precedence over top-level ones.
+        prepared["extra_body"] = {
+            key: value for key, value in extra_body.items() if key != "store"
+        }
+    if isinstance(tools, (list, tuple)):
+        # Chat tools are non-strict by default. Keep optional arguments optional.
+        prepared["tools"] = [
+            {**tool, "function": {"strict": False, **tool["function"]}}
+            if isinstance(tool, dict)
+            and tool.get("type") == "function"
+            and isinstance(tool.get("function"), dict)
+            else tool
+            for tool in tools
+        ]
+    return f"openai/responses/{model}", prepared
 
 
 def _stream_litellm_completion(
@@ -468,6 +577,9 @@ def _stream_litellm_completion(
     provider_key: str | None = None,
 ) -> object:
     _apply_llm_max_output_tokens(requested_model, model, kwargs)
+    transport_model, kwargs = _prepare_litellm_completion(
+        model, provider_key, kwargs, messages=messages
+    )
     try:
         app.logger.info(
             "stream_litellm_completion: model=%s | message_count=%s",
@@ -475,7 +587,7 @@ def _stream_litellm_completion(
             len(messages),
         )
         return litellm.completion(
-            model=_litellm_completion_model(model, provider_key),
+            model=transport_model,
             messages=messages,
             stream=True,
             **params,
@@ -842,7 +954,7 @@ _LITELLM_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] 
     ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
     ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
-    ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low", "store": False},
+    ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low"},
 }
 
 
@@ -1843,6 +1955,9 @@ def complete_openai_chat_completion(
         params,
         completion_kwargs,
     )
+    transport_model, completion_kwargs = _prepare_litellm_completion(
+        invoke_model, provider_key, completion_kwargs, messages=messages
+    )
     trace_id = resolve_langfuse_trace_id(span)
     generation = span.generation(
         model=requested_model,
@@ -1858,7 +1973,7 @@ def complete_openai_chat_completion(
     error_message = ""
     try:
         response = litellm.completion(
-            model=_litellm_completion_model(invoke_model, provider_key),
+            model=transport_model,
             messages=messages,
             stream=False,
             **params,

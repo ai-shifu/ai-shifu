@@ -1742,8 +1742,6 @@ def test_gpt_6_keeps_minimum_reasoning_and_compatible_temperature(
     assert prepared.get("temperature") == expected_temperature
     assert "allowed_openai_params" not in prepared
     assert prepared["stop"] == ["done"]
-    if model_id == "gpt-6.1-sol":
-        assert prepared["store"] is False
 
 
 def test_openai_gpt_6_exact_request_patches() -> None:
@@ -1753,15 +1751,115 @@ def test_openai_gpt_6_exact_request_patches() -> None:
         if key[0] == "openai" and key[1] and key[1].startswith(("gpt-6-", "gpt-6."))
     } == {
         ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
-        ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low", "store": False},
+        ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low"},
     }
 
 
-def test_gpt_6_1_sol_responses_route_applies_only_to_openai() -> None:
-    model = "gpt-6.1-sol"
-    assert llm._litellm_completion_model(model, "openai") == f"openai/responses/{model}"
-    assert llm._litellm_completion_model(model, "silicon") == model
-    assert llm._litellm_completion_model(model, "ernie_v2") == model
+@pytest.mark.parametrize(
+    ("provider_key", "model", "kwargs", "uses_responses"),
+    [
+        ("openai", "gpt-6-sol", {"max_tokens": 16}, True),
+        ("openai", "gpt-5.6-luna", {"top_p": 0.7}, True),
+        ("openai", "gpt-4o", {"temperature": 0.4}, True),
+        ("openai", "gpt-audio-1.5", {}, False),
+        ("openai", "gpt-4o-mini-search-preview", {}, False),
+        ("openai", "gpt-4o", {"stop": ["END"]}, False),
+        ("openai", "gpt-4o", {"seed": 42}, False),
+        ("openai", "gpt-4o", {"presence_penalty": 0.25}, False),
+        ("openai", "gpt-4o", {"frequency_penalty": 0.25}, False),
+        ("openai", "gpt-4o", {"max_tokens": 15}, False),
+        ("openai", "gpt-6.1-sol", {"max_tokens": 15}, False),
+        ("openai", "gpt-6-sol", {"seed": 42}, False),
+        ("ernie_v2", "gpt-6.1-sol", {}, False),
+        ("silicon", "gpt-6.1-sol", {}, False),
+    ],
+)
+def test_openai_completion_prefers_responses_when_request_is_compatible(
+    provider_key: str, model: str, kwargs: dict[str, object], uses_responses: bool
+) -> None:
+    transport_model, prepared = llm._prepare_litellm_completion(
+        model, provider_key, kwargs
+    )
+
+    if uses_responses:
+        assert transport_model == f"openai/responses/{model}"
+        assert prepared == {**kwargs, "store": False}
+    else:
+        assert transport_model == model
+        bridge = (
+            {"_skip_responses_api_bridge": True} if provider_key == "openai" else {}
+        )
+        assert prepared == {**kwargs, **bridge}
+    assert "store" not in kwargs
+
+
+@pytest.mark.parametrize(
+    ("model", "mode", "kwargs"),
+    [
+        ("gpt-5.4-pro", "responses", {"seed": 42}),
+        ("gpt-6.1-sol", "chat", {"max_tokens": 15, "tools": [{"type": "function"}]}),
+        ("gpt-6.1-terra", "chat", {"seed": 42, "tools": [{"type": "function"}]}),
+    ],
+)
+def test_openai_responses_rejects_options_when_chat_cannot_run_request(
+    monkeypatch: pytest.MonkeyPatch, model: str, mode: str, kwargs: dict[str, object]
+) -> None:
+    monkeypatch.setattr(llm.litellm, "get_model_info", lambda **_kwargs: {"mode": mode})
+
+    with pytest.raises(llm.AppError):
+        llm._prepare_litellm_completion(model, "openai", kwargs)
+
+
+def test_openai_chat_only_proxy_keeps_compatible_requests_on_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(llm, "get_runtime_config", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        llm.litellm, "get_model_info", lambda **_kwargs: {"mode": "chat"}
+    )
+
+    assert llm._prepare_litellm_completion("gpt-6-sol", "openai", {}) == (
+        "gpt-6-sol",
+        {"_skip_responses_api_bridge": True},
+    )
+    with pytest.raises(llm.AppError):
+        llm._prepare_litellm_completion(
+            "gpt-6.1-sol", "openai", {"tools": [{"type": "function"}]}
+        )
+
+
+def test_openai_completion_preserves_named_participants() -> None:
+    messages = [{"role": "user", "name": "Learner", "content": "hello"}]
+    assert llm._prepare_litellm_completion(
+        "gpt-4o", "openai", {}, messages=messages
+    ) == ("gpt-4o", {"_skip_responses_api_bridge": True})
+
+
+def test_openai_responses_preserves_chat_function_schema_defaults() -> None:
+    original_tools = [
+        {"type": "function", "function": {"name": "best_effort"}},
+        {"type": "function", "function": {"name": "strict", "strict": True}},
+        {"type": "function", "function": {"name": "loose", "strict": False}},
+    ]
+    kwargs = {
+        "tools": original_tools,
+        "store": True,
+        "extra_body": {"store": True, "user": "keep"},
+    }
+
+    transport_model, prepared = llm._prepare_litellm_completion(
+        "gpt-6.1-sol", "openai", kwargs
+    )
+
+    assert transport_model == "openai/responses/gpt-6.1-sol"
+    assert prepared["store"] is False
+    assert prepared["tools"] == [
+        {"type": "function", "function": {"name": "best_effort", "strict": False}},
+        *original_tools[1:],
+    ]
+    assert prepared["extra_body"] == {"user": "keep"}
+    assert kwargs["store"] is kwargs["extra_body"]["store"] is True
+    assert "strict" not in original_tools[0]["function"]
 
 
 LITELLM_CONTRACT_VERSION = "1.109.1"
@@ -2012,6 +2110,7 @@ def test_litellm_native_adapter_contracts() -> None:
             kwargs = prepared("openai", "openai", model, {
                 "temperature": "0.3",
                 "store": True,
+                "extra_body": {"store": True},
                 "max_tokens": 128,
                 "tools": [{
                     "type": "function",
@@ -2044,8 +2143,11 @@ def test_litellm_native_adapter_contracts() -> None:
                         provider_key="openai",
                     ))
                 else:
+                    transport_model, kwargs = app_llm._prepare_litellm_completion(
+                        model, "openai", kwargs
+                    )
                     completion = litellm.completion(
-                        model=app_llm._litellm_completion_model(model, "openai"),
+                        model=transport_model,
                         messages=messages,
                         **provider_params,
                         **kwargs,
@@ -2551,6 +2653,7 @@ def test_litellm_native_adapter_contracts() -> None:
         assert body["max_output_tokens"] == 128
         assert "temperature" not in body
         assert body["tools"][0]["name"] == "finish"
+        assert body["tools"][0]["strict"] is False
         assert sol_contract["object"] == response_object
         assert sol_contract["model"] == "gpt-6.1-sol"
         assert sol_contract["finish_reason"] == "tool_calls"
@@ -3523,6 +3626,49 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
         from openai import OpenAI
         from flaskr.api import llm
         from flaskr.route import model_gateway_runtime as runtime
+        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+
+        def provider_reply(provider, model, stream):
+            if provider == "openai":
+                payload = {
+                    "id": "resp_reply", "object": "response", "created_at": 1,
+                    "model": model, "status": "completed",
+                    "output": [{
+                        "id": "msg_reply", "type": "message", "role": "assistant",
+                        "status": "completed",
+                        "content": [{"type": "output_text", "text": "ok", "annotations": []}],
+                    }],
+                    "usage": {
+                        "input_tokens": 3, "output_tokens": 2, "total_tokens": 5,
+                        "input_tokens_details": {"cached_tokens": 1},
+                        "output_tokens_details": {"reasoning_tokens": 0},
+                    },
+                }
+                events = [
+                    {"type": "response.created", "response": {
+                        **payload, "output": [], "usage": None, "status": "in_progress",
+                    }},
+                    {"type": "response.output_text.delta", "delta": "ok",
+                        "output_index": 0, "content_index": 0, "item_id": "msg_reply"},
+                    {"type": "response.completed", "response": payload},
+                ]
+                content = "".join(
+                    f"event: {event['type']}\\n"
+                    f"data: {json.dumps({**event, 'sequence_number': index})}\\n\\n"
+                    for index, event in enumerate(events)
+                )
+            else:
+                payload = {
+                    "id": "reply", "created": 1, "model": model,
+                    "object": "chat.completion.chunk" if stream else "chat.completion",
+                    "choices": [{"index": 0, "finish_reason": "stop",
+                        "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
+                    "usage": {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5},
+                }
+                content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
+            if stream:
+                return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content)
+            return httpx.Response(200, json=payload)
 
         app = Flask(__name__)
         runtime.admit_creator_usage = lambda *args, **kwargs: None
@@ -3530,6 +3676,7 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
         runtime._claim_gateway_request = lambda *args: None
         runtime._trace_for_request = lambda request: MagicMock()
         llm.MODEL_MAX_OUTPUT_TOKENS = {}
+        api_base = "https://llm.invalid/v1"
         messages = [{"role": "user", "content": "hello"}]
         for provider, model, upstream in [
             ("qwen", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
@@ -3547,29 +3694,25 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                 for requested in (None, 8192):
                     captured = []
                     recorded = []
-                    usage = {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
-                    payload = {
-                        "id": "reply", "created": 1, "model": upstream,
-                        "object": "chat.completion.chunk" if stream else "chat.completion",
-                        "choices": [{"index": 0, "finish_reason": "stop",
-                            "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
-                        "usage": usage,
-                    }
+
                     def respond(request):
-                        captured.append(json.loads(request.content))
-                        if stream:
-                            content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
-                            return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content, request=request)
-                        return httpx.Response(200, json=payload, request=request)
+                        captured.append((request.url.path, json.loads(request.content)))
+                        return provider_reply(provider, upstream, stream)
+
                     with httpx.Client(transport=httpx.MockTransport(respond), trust_env=False) as http:
-                        client = OpenAI(api_key="test", base_url="https://llm.invalid/v1", http_client=http)
+                        client = (
+                            HTTPHandler(client=http) if provider == "openai" else
+                            OpenAI(api_key="test", base_url=api_base, http_client=http)
+                        )
                         llm.MODEL_ALIAS_MAP = {model: (provider, upstream)}
                         llm.PROVIDER_STATES = {provider: llm.ProviderState(
-                            enabled=True, models=[model], params={"api_key": "test", "custom_llm_provider": adapter, "client": client},
+                            enabled=True, models=[model], params={
+                                "api_key": "test", "api_base": api_base,
+                                "custom_llm_provider": adapter, "client": client,
+                            },
                         )}
                         llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
-                        body = {"model": model, "messages": messages, "stream": stream}
-                        body["max_tokens"] = requested
+                        body = {"model": model, "messages": messages, "stream": stream, "max_tokens": requested}
                         request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
                         assert request.input_tokens > 0
                         if stream:
@@ -3577,17 +3720,25 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                             assert any(c.get("choices") and c["choices"][0]["delta"].get("content") == "ok" for c in chunks)
                         else:
                             assert runtime.complete_gateway_chat_request(app, request)["choices"][0]["message"]["content"] == "ok"
-                        assert len(captured) == 1
-                        body_tokens = captured[0].get("max_tokens", captured[0].get("max_completion_tokens"))
-                        assert body_tokens == requested
+
+                    (path, wire), = captured
+                    if provider == "openai":
+                        assert path == "/v1/responses"
+                        assert wire["store"] is False
+                        assert wire.get("max_output_tokens") == requested
+                        assert ("max_output_tokens" in wire) == (requested is not None)
+                    else:
+                        assert path == "/v1/chat/completions"
+                        assert wire.get("max_tokens", wire.get("max_completion_tokens")) == requested
                         if requested is None:
-                            assert "max_tokens" not in captured[0]
-                            assert "max_completion_tokens" not in captured[0]
-                        assert len(recorded) == 1
-                        context, record = recorded[0]
-                        assert context.billable == 1
-                        assert record["status"] == 0
-                        assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+                            assert "max_tokens" not in wire and "max_completion_tokens" not in wire
+                    assert wire["model"] == upstream
+                    assert wire.get("stream", False) is stream
+                    (context, record), = recorded
+                    assert context.billable == 1
+                    assert record["status"] == 0
+                    assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+                    assert record["input_cache"] == (1 if provider == "openai" else 0)
         print("native gateway fallback passed")
         """
     )
@@ -3783,7 +3934,10 @@ def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
             ]["content"]
             == "ok"
         )
-    assert captured["model"] == invoke_model
+    expected_model = (
+        f"openai/responses/{invoke_model}" if provider == "openai" else invoke_model
+    )
+    assert captured["model"] == expected_model
     assert captured["stream"] is stream
     if requested in (None, "omitted"):
         if limit is None:
@@ -4254,7 +4408,7 @@ def test_internal_profile_tasks_fit_output_budgets_to_known_limits(
         assert result["optimized_learner_profile"] == output
         budget = 1200
     assert captured["max_tokens"] == (budget if metadata == "unknown" else 1024)
-    assert captured["model"] == "gpt-test"
+    assert captured["model"] == "openai/responses/gpt-test"
     assert len(records) == 1
     assert records[0]["status"] == 0
 
@@ -4495,7 +4649,9 @@ def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) ->
                 tools=tools,
             )
         )
-    assert seen.get("tools") == tools
+    assert seen["tools"] == [
+        {"type": "function", "function": {**tools[0]["function"], "strict": False}}
+    ]
     assert "emit_tool_calls" not in seen
 
 
@@ -4707,7 +4863,7 @@ def test_numbered_call_uses_one_model_for_provider_usage_and_trace(
         list(llm.invoke_llm(message="hello", **arguments))
     else:
         list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
-    assert captured["model"] == "gpt-test"
+    assert captured["model"] == "openai/responses/gpt-test"
     assert usage["model"] == "gpt-test"
     assert usage["extra"]["resolved_model"] == "gpt-test"
     assert usage["extra"]["model_index"] == "1"
@@ -4808,7 +4964,8 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
                 preview_mode=preview,
             )
         )
-        assert captured["model"] == usage["model"] == "gpt-test"
+        assert captured["model"] == "openai/responses/gpt-test"
+        assert usage["model"] == "gpt-test"
         assert captured["temperature"] == 0.4
         metadata = usage["extra"]
         assert metadata["resolved_model"] == "gpt-test"

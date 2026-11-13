@@ -221,6 +221,15 @@ The `ai-shifu-default` alias uses the physical binding of numbered model 1.
 The alias is listed only when that binding is configured, routable and fully
 rated; it never switches to another model because model 1 is unavailable.
 
+The gateway uses the OpenAI Responses API upstream for compatible OpenAI
+generation. Clients continue to use the Chat Completions request and response
+shapes in this guide. The gateway keeps the OpenAI Chat route for supported
+requests that need options its Responses adapter cannot preserve (such as
+`stop`, `seed`, or named message participants) or an output limit below 16 tokens. Models that cannot serve
+such a request through Chat return an error. The provider route does not
+change model selection or credit rates. Operators using a proxy without
+`/responses` can set `OPENAI_CHAT_COMPLETIONS_ONLY=true` on the server.
+
 ## Non-streaming Chat Completions
 
 Generate a unique idempotency value for the logical request and retain it only
