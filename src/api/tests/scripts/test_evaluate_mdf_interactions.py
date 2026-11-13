@@ -332,3 +332,27 @@ def test_bundled_catalog_covers_trace_diversity_and_replay_anomalies() -> None:
         "multi_or_text",
         "confirm",
     }
+
+
+@pytest.mark.parametrize("allow_queue", [False, True])
+def test_offline_replay_checks_question_count_independently_of_pending(
+    tmp_path: Path, allow_queue: bool
+) -> None:
+    cases = tmp_path / "cases.json"
+    output = tmp_path / "result.json"
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    case = next(case for case in catalog if case["id"] == "queued-choice-reload")
+    start = case["steps"][0]["expected"]
+    del start["pending"]
+    if not allow_queue:
+        del start["question_count"]
+    _write_cases(cases, case)
+
+    process = _run("--cases", str(cases), "--json", str(output))
+
+    assert process.returncode == (0 if allow_queue else 1), (
+        process.stdout + process.stderr
+    )
+    (result,) = _report(output)["results"]
+    assert len(result["steps"][0]["questions"]) == 2
+    assert result["failures"] == ([] if allow_queue else ["step_1.question_count"])

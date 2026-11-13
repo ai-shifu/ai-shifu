@@ -77,6 +77,7 @@ class ExpectedStep(FixtureModel):
 
     outcome: Literal["interaction", "finished", "end", "error"]
     question: ExpectedQuestion | None = None
+    question_count: int | None = Field(default=None, ge=0)
     prose_contains: list[str] = Field(default_factory=list)
     prose_once: list[str] = Field(default_factory=list)
     prose_excludes: list[str] = Field(default_factory=list)
@@ -89,9 +90,14 @@ class ExpectedStep(FixtureModel):
 
     @model_validator(mode="after")
     def validate_question_outcome(self) -> ExpectedStep:
-        """Require an interaction outcome when asserting a native question."""
+        """Require question expectations to match the outcome."""
         if self.question is not None and self.outcome != "interaction":
             msg = "expected question requires an interaction outcome"
+            raise ValueError(msg)
+        if self.question_count is not None and (
+            (self.question_count > 0) != (self.outcome == "interaction")
+        ):
+            msg = "only an interaction outcome can expect one or more questions"
             raise ValueError(msg)
         return self
 
@@ -384,12 +390,19 @@ def step_failures(expected: ExpectedStep, result: dict[str, object]) -> list[str
         value = getattr(expected, field)
         if value is not None and value != result[field]:
             failures.append(field)
+    expected_count = expected.question_count
+    if expected_count is None:
+        expected_count = int(expected.outcome == "interaction")
+    actual_count = len(result["questions"])
+    if actual_count != expected_count:
+        if actual_count == 0:
+            failures.append("missing_question")
+        elif expected_count == 0:
+            failures.append("unexpected_question")
+        else:
+            failures.append("question_count")
     question = result["question"]
-    if expected.outcome == "interaction" and not isinstance(question, dict):
-        failures.append("missing_question")
-    elif expected.outcome != "interaction" and question is not None:
-        failures.append("unexpected_question")
-    elif isinstance(question, dict):
+    if expected.outcome == "interaction" and isinstance(question, dict):
         fields = (
             expected.question.model_dump(exclude_unset=True)
             if expected.question

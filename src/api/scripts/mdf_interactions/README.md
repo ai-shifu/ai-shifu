@@ -34,6 +34,10 @@ explicit display and stored values, and authored and unauthored confirmation.
 The narrated fallback and queued-interaction cases are replay only. The runner
 reports reproduced fallback and exhaustion separately from successful recovery.
 
+An interaction step expects one emitted question by default. Set
+`question_count` when the step intentionally emits more than one. The
+`pending` field checks how many questions the session still holds.
+
 Candidate observations were grouped by course and teaching interaction, and
 selected traces were checked for distinct session identities. Tool inputs and
 outcomes supplied the interaction shapes and rejection reasons. The catalog
