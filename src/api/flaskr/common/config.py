@@ -610,16 +610,6 @@ Default: "phone".""",
         ),
         group="llm",
     ),
-    "OPENAI_CHAT_COMPLETIONS_ONLY": EnvVar(
-        name="OPENAI_CHAT_COMPLETIONS_ONLY",
-        default=False,
-        type=bool,
-        description=(
-            "Use Chat Completions for an OpenAI-compatible base URL without /responses. "
-            "Requests that require Responses will fail rather than change behavior."
-        ),
-        group="llm",
-    ),
     "ERNIE_API_KEY": EnvVar(
         name="ERNIE_API_KEY",
         default="",

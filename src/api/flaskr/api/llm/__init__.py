@@ -43,9 +43,6 @@ from flaskr.api.langfuse import (
 )
 from flaskr.api.llm.model_selection import resolve_selection
 from flaskr.common.config import (
-    get_config as get_runtime_config,
-)
-from flaskr.common.config import (
     parse_llm_model_max_input_tokens,
     parse_llm_model_max_output_tokens,
 )
@@ -498,10 +495,7 @@ def _prepare_litellm_completion(
     else:
         supports_responses = info.get("mode") in (None, "chat", "responses")
         supports_chat = info.get("mode") in (None, "chat")
-    chat_only_base = str(
-        get_runtime_config("OPENAI_CHAT_COMPLETIONS_ONLY", default=False)
-    ).lower() in ("true", "1", "yes", "on")
-    if chat_only_base or _in_openai_family(model, _OPENAI_CHAT_ONLY_FAMILIES):
+    if _in_openai_family(model, _OPENAI_CHAT_ONLY_FAMILIES):
         supports_responses = False
 
     tools = kwargs.get("tools")
@@ -536,9 +530,7 @@ def _prepare_litellm_completion(
         if supports_chat:
             # Skip LiteLLM's implicit Responses routing for this request.
             return model, {**kwargs, "_skip_responses_api_bridge": True}
-        if chat_only_base:
-            message = "This request needs Responses, but the OpenAI base URL is configured for Chat Completions only"
-        elif chat_options and supports_responses:
+        if chat_options and supports_responses:
             message = (
                 f"Unsupported Responses request options: {', '.join(chat_options)}"
             )

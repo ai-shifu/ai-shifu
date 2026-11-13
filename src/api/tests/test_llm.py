@@ -1810,24 +1810,6 @@ def test_openai_responses_rejects_options_when_chat_cannot_run_request(
         llm._prepare_litellm_completion(model, "openai", kwargs)
 
 
-def test_openai_chat_only_proxy_keeps_compatible_requests_on_chat(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(llm, "get_runtime_config", lambda *_args, **_kwargs: True)
-    monkeypatch.setattr(
-        llm.litellm, "get_model_info", lambda **_kwargs: {"mode": "chat"}
-    )
-
-    assert llm._prepare_litellm_completion("gpt-6-sol", "openai", {}) == (
-        "gpt-6-sol",
-        {"_skip_responses_api_bridge": True},
-    )
-    with pytest.raises(llm.AppError):
-        llm._prepare_litellm_completion(
-            "gpt-6.1-sol", "openai", {"tools": [{"type": "function"}]}
-        )
-
-
 def test_openai_completion_preserves_named_participants() -> None:
     messages = [{"role": "user", "name": "Learner", "content": "hello"}]
     assert llm._prepare_litellm_completion(

@@ -52,8 +52,7 @@ for desktop and CLI clients.
   Use Chat Completions for models that only support that endpoint and for
   incompatible options when the model supports Chat with the requested
   features. Return an explicit error when neither endpoint can preserve the
-  request. Select the endpoint before sending the request. A Chat-only proxy can set
-  `OPENAI_CHAT_COMPLETIONS_ONLY=true` until it adds Responses support.
+  request. Select the endpoint before sending the request.
 - Request `store=false` and preserve existing tool strictness, history,
   physical model IDs and metering. Keep model discovery on `GET /v1/models`.
   Embeddings, moderation, dedicated image generation, TTS, transcription and
