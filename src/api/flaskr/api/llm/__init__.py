@@ -449,6 +449,14 @@ def _get_llm_max_output_tokens(requested_model: str, invoke_model: str) -> int |
     return None
 
 
+def _litellm_completion_model(model: str, params: dict[str, str]) -> str:
+    if params.get("custom_llm_provider") == "openai" and model == "gpt-6.1-sol":
+        # Tool calls require Responses. LiteLLM translates the existing chat
+        # messages and tool deltas while the app keeps the physical model ID.
+        return f"openai/responses/{model}"
+    return model
+
+
 def _stream_litellm_completion(
     app: Flask,
     requested_model: str,
@@ -465,7 +473,7 @@ def _stream_litellm_completion(
             len(messages),
         )
         return litellm.completion(
-            model=model,
+            model=_litellm_completion_model(model, params),
             messages=messages,
             stream=True,
             **params,
@@ -830,6 +838,7 @@ _LITELLM_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] 
     ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
     ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
+    ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low", "store": False},
 }
 
 
@@ -1050,8 +1059,11 @@ def _prepare_litellm_request_kwargs(
         # Google ignores sampling on these models; LiteLLM rejects the options.
         for param in _GEMINI_SAMPLING_PARAMS:
             prepared.pop(param, None)
-    elif provider_key == "openai" and model_id.casefold() == "gpt-6-astra":
-        # Astra's minimum reasoning level is low, which rejects temperature.
+    elif provider_key == "openai" and model_id.casefold() in (
+        "gpt-6-astra",
+        "gpt-6.1-sol",
+    ):
+        # These models reject temperature at their minimum reasoning level.
         prepared.pop("temperature", None)
     elif "temperature" in prepared:
         prepared["temperature"] = float(prepared["temperature"])
@@ -1841,7 +1853,7 @@ def complete_openai_chat_completion(
     error_message = ""
     try:
         response = litellm.completion(
-            model=invoke_model,
+            model=_litellm_completion_model(invoke_model, params),
             messages=messages,
             stream=False,
             **params,

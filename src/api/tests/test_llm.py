@@ -1710,6 +1710,7 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
         ("gpt-6-sol", "none", 0.3),
         ("gpt-6-luna", "none", 0.3),
         ("gpt-6-astra", "low", None),
+        ("gpt-6.1-sol", "low", None),
     ],
 )
 @pytest.mark.parametrize("course_temperature", ["0.3", None])
@@ -1741,14 +1742,19 @@ def test_gpt_6_keeps_minimum_reasoning_and_compatible_temperature(
     assert prepared.get("temperature") == expected_temperature
     assert "allowed_openai_params" not in prepared
     assert prepared["stop"] == ["done"]
+    if model_id == "gpt-6.1-sol":
+        assert prepared["store"] is False
 
 
-def test_only_gpt_6_astra_needs_an_exact_request_patch() -> None:
+def test_openai_gpt_6_exact_request_patches() -> None:
     assert {
         key: patch
         for key, patch in llm._LITELLM_COMPATIBILITY_PATCHES.items()
-        if key[0] == "openai" and key[1] and key[1].startswith("gpt-6-")
-    } == {("openai", "gpt-6-astra"): {"reasoning_effort": "low"}}
+        if key[0] == "openai" and key[1] and key[1].startswith(("gpt-6-", "gpt-6."))
+    } == {
+        ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
+        ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low", "store": False},
+    }
 
 
 LITELLM_CONTRACT_VERSION = "1.109.1"
@@ -1923,6 +1929,84 @@ def test_litellm_native_adapter_contracts() -> None:
                 {"custom_llm_provider": provider},
                 kwargs or {},
             )
+
+        def openai_6_1_sol_responses_contract():
+            model = "gpt-6.1-sol"
+            provider_params = {"custom_llm_provider": "openai"}
+            requests = []
+
+            def respond(request):
+                requests.append((str(request.url), json.loads(request.content)))
+                return httpx.Response(
+                    200,
+                    request=request,
+                    json={
+                        "id": "resp_contract",
+                        "object": "response",
+                        "created_at": 1,
+                        "model": model,
+                        "status": "completed",
+                        "output": [{
+                            "type": "function_call",
+                            "id": "fc_contract",
+                            "call_id": "call_contract",
+                            "name": "finish",
+                            "arguments": "{}",
+                            "status": "completed",
+                        }],
+                        "usage": {
+                            "input_tokens": 8,
+                            "input_tokens_details": {"cached_tokens": 2},
+                            "output_tokens": 3,
+                            "output_tokens_details": {"reasoning_tokens": 1},
+                            "total_tokens": 11,
+                        },
+                    },
+                )
+
+            kwargs = prepared("openai", "openai", model, {
+                "temperature": "0.3",
+                "store": True,
+                "max_tokens": 128,
+                "tools": [{
+                    "type": "function",
+                    "function": {
+                        "name": "finish",
+                        "description": "Signal completion.",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }],
+            })
+            with httpx.Client(
+                transport=httpx.MockTransport(respond), trust_env=False
+            ) as http:
+                completion = litellm.completion(
+                    model=app_llm._litellm_completion_model(model, provider_params),
+                    api_base="https://api.openai.com/v1",
+                    api_key="test-key",
+                    client=HTTPHandler(client=http),
+                    messages=messages,
+                    **provider_params,
+                    **kwargs,
+                )
+
+            (url, body), = requests
+            choice = completion.choices[0]
+            call = choice.message.tool_calls[0]
+            return {
+                "url": url,
+                "body": body,
+                "object": completion.object,
+                "model": completion.model,
+                "finish_reason": choice.finish_reason,
+                "tool_call": [call.id, call.function.name, call.function.arguments],
+                "usage": [
+                    completion.usage.prompt_tokens,
+                    completion.usage.prompt_tokens_details.cached_tokens,
+                    completion.usage.completion_tokens,
+                    completion.usage.total_tokens,
+                ],
+            }
 
         def openai_responses_reasoning_contract():
             prepared_kwargs = prepared(
@@ -2144,6 +2228,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 model: native_reasoning_capabilities("openai", model)
                 for model in ("gpt-6-sol", "gpt-6-luna")
             },
+            "openai_6_1_sol": openai_6_1_sol_responses_contract(),
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
             ),
@@ -2374,6 +2459,20 @@ def test_litellm_native_adapter_contracts() -> None:
         assert refreshed["request"]["body"]["reasoning_effort"] == "none"
         assert refreshed["request"]["body"]["temperature"] == 0.4
         assert refreshed["request"]["content"] == "Hello world"
+    sol_contract = contracts["openai_6_1_sol"]
+    assert sol_contract["url"] == "https://api.openai.com/v1/responses"
+    body = sol_contract["body"]
+    assert body["model"] == "gpt-6.1-sol"
+    assert body["reasoning"] == {"effort": "low"}
+    assert body["store"] is False
+    assert body["max_output_tokens"] == 128
+    assert "temperature" not in body
+    assert body["tools"][0]["name"] == "finish"
+    assert sol_contract["object"] == "chat.completion"
+    assert sol_contract["model"] == "gpt-6.1-sol"
+    assert sol_contract["finish_reason"] == "tool_calls"
+    assert sol_contract["tool_call"] == ["call_contract", "finish", "{}"]
+    assert sol_contract["usage"] == [8, 2, 3, 11]
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
