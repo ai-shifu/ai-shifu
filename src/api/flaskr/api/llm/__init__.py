@@ -773,10 +773,9 @@ GLM_PREFIX = "glm/"
 SILICON_PREFIX = "silicon/"
 GEMINI_PREFIX = ""
 DEEPSEEK_FALLBACK_MODELS = [
+    "deepseek-flash",
     "deepseek-v4-flash",
     "deepseek-v4-pro",
-    "deepseek-chat",
-    "deepseek-reasoner",
 ]
 
 
@@ -813,20 +812,10 @@ _THINKING_CONFLICT_PATHS = (
 
 # The normal path is capability-driven. Keep only overrides whose removal
 # changes the provider request or the application's minimum thinking behavior.
-_ZAI_DISABLED_THINKING_PATCH: dict[str, object] = {
-    # LiteLLM does not advertise thinking for these GLM 4.5 model IDs.
-    "extra_body": {"thinking": {"type": "disabled"}},
-}
 _LITELLM_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
     ("qwen", None): {"extra_body": {"enable_thinking": False}},
     ("silicon", None): {"extra_body": {"enable_thinking": False}},
     ("ark", None): {"allowed_openai_params": ["response_format"]},
-    ("glm", "glm-4.5"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5v"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-air"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-x"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-airx"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-flash"): _ZAI_DISABLED_THINKING_PATCH,
     ("qwen", "glm-5.3"): {"reasoning_effort": "low"},
     ("qwen", "glm-5.3-flash"): {"reasoning_effort": "low"},
     ("qwen", "zhipu/glm-5.3"): {"reasoning_effort": "low"},
@@ -1119,7 +1108,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         base_url_env="QWEN_API_URL",
         default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         prefix=QWEN_PREFIX,
-        extra_models=["deepseek-r1", "deepseek-v3"],
         wildcard_prefixes=(QWEN_PREFIX,),
         config_hint="QWEN_API_KEY,QWEN_API_URL",
         custom_llm_provider="dashscope",

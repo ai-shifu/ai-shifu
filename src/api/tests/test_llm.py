@@ -489,7 +489,7 @@ def test_deepseek_model_loader_lists_models(monkeypatch: object) -> None:
             {
                 "object": "list",
                 "data": [
-                    {"id": "deepseek-v4-flash", "object": "model"},
+                    {"id": "deepseek-flash", "object": "model"},
                     {"id": "deepseek-v4-pro", "object": "model"},
                 ],
             }
@@ -509,7 +509,7 @@ def test_deepseek_model_loader_lists_models(monkeypatch: object) -> None:
         "https://api.deepseek.com",
     )
 
-    assert models == ["deepseek-v4-flash", "deepseek-v4-pro"]
+    assert models == ["deepseek-flash", "deepseek-v4-pro"]
     assert captured["url"] == "https://api.deepseek.com/models"
     assert captured["headers"]["Authorization"] == "Bearer test-key"
     assert captured["timeout"] == 20
@@ -537,7 +537,7 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(
         "https://api.deepseek.com",
     )
 
-    assert models == llm.DEEPSEEK_FALLBACK_MODELS
+    assert models == ["deepseek-flash", "deepseek-v4-flash", "deepseek-v4-pro"]
 
 
 def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
@@ -1122,6 +1122,7 @@ def test_max_input_tokens_is_unknown_for_an_unbound_slot(monkeypatch: object) ->
 def test_max_input_tokens_reads_metadata_for_the_serving_provider(
     monkeypatch: object,
 ) -> None:
+    model = "deepseek-v4-pro"
     calls = []
 
     def model_info(**kwargs: object) -> dict:
@@ -1132,12 +1133,12 @@ def test_max_input_tokens_reads_metadata_for_the_serving_provider(
     monkeypatch.setattr(
         llm,
         "get_litellm_params_and_model",
-        lambda _model: ({"custom_llm_provider": "dashscope"}, "deepseek-chat", "qwen"),
+        lambda _model: ({"custom_llm_provider": "dashscope"}, model, "qwen"),
     )
     monkeypatch.setattr(llm.litellm, "get_model_info", model_info, raising=False)
 
-    assert llm.resolve_llm_max_input_tokens("qwen/deepseek-chat") == 98304
-    assert calls == [{"model": "deepseek-chat", "custom_llm_provider": "dashscope"}]
+    assert llm.resolve_llm_max_input_tokens(f"qwen/{model}") == 98304
+    assert calls == [{"model": model, "custom_llm_provider": "dashscope"}]
 
 
 def test_max_input_tokens_is_unknown_when_lookup_fails(monkeypatch: object) -> None:
@@ -1444,51 +1445,6 @@ def test_provider_patch_disables_thinking_and_preserves_extra_body(
     assert "extra_body" not in prepared["additional_drop_params"]
     assert prepared["additional_drop_params"][0] == "caller_only"
     assert "drop_params" not in prepared
-
-
-def test_zai_45_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
-    monkeypatch.setattr(
-        llm,
-        "_litellm_minimum_thinking_params",
-        lambda *_args, **_kwargs: {},
-    )
-
-    patched_model_ids = (
-        "GLM-4.5",
-        "glm-4.5v",
-        "glm-4.5-air",
-        "glm-4.5-x",
-        "glm-4.5-airx",
-        "glm-4.5-flash",
-    )
-    assert {
-        model_id
-        for provider, model_id in llm._LITELLM_COMPATIBILITY_PATCHES
-        if provider == "glm" and model_id is not None
-    } == {model_id.casefold() for model_id in patched_model_ids}
-
-    for model_id in patched_model_ids:
-        prepared = llm._prepare_litellm_request_kwargs(
-            "glm",
-            model_id,
-            {"custom_llm_provider": "zai"},
-            {
-                "thinking": {"type": "enabled"},
-                "allowed_openai_params": ["tools"],
-                "extra_body": {
-                    "thinking": {"type": "enabled"},
-                    "custom_field": "keep",
-                },
-            },
-        )
-
-        assert prepared["thinking"] is None, model_id
-        assert prepared["extra_body"] == {
-            "thinking": {"type": "disabled"},
-            "custom_field": "keep",
-        }, model_id
-        assert prepared["allowed_openai_params"] == ["tools"], model_id
-        assert "thinking" not in prepared["additional_drop_params"], model_id
 
 
 def test_zai_request_preparation_keeps_legacy_models_without_thinking(
@@ -2008,9 +1964,9 @@ def test_litellm_native_adapter_contracts() -> None:
             ),
             "dashscope": adapter_contract(
                 "dashscope",
-                "deepseek-v3",
+                "qwen3.8-max-0902",
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                prepared("qwen", "dashscope", "deepseek-v3"),
+                prepared("qwen", "dashscope", "qwen3.8-max-0902"),
             ),
             "dashscope_glm_53": adapter_contract(
                 "dashscope",
@@ -2062,20 +2018,6 @@ def test_litellm_native_adapter_contracts() -> None:
                     },
                 ),
             ),
-            "zai_45_thinking": adapter_contract(
-                "zai",
-                "glm-4.5",
-                "https://open.bigmodel.cn/api/paas/v4",
-                prepared(
-                    "glm",
-                    "zai",
-                    "glm-4.5",
-                    {
-                        "thinking": {"type": "enabled"},
-                        "extra_body": {"thinking": {"type": "enabled"}},
-                    },
-                ),
-            ),
             "zai_legacy": adapter_contract(
                 "zai",
                 "glm-4-flash",
@@ -2092,7 +2034,7 @@ def test_litellm_native_adapter_contracts() -> None:
                     model=model,
                     custom_llm_provider="zai",
                 )
-                for model in ("glm-4.5", "glm-4.6", "glm-5.2")
+                for model in ("glm-4.6", "glm-5.2")
             },
             "gemini_3": litellm.get_optional_params(
                 model="gemini-3.6-flash",
@@ -2288,7 +2230,6 @@ def test_litellm_native_adapter_contracts() -> None:
         ),
         "volcengine": ("https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
         "zai": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-        "zai_45_thinking": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "zai_legacy": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     }
     native_zai_models = (
@@ -2332,7 +2273,6 @@ def test_litellm_native_adapter_contracts() -> None:
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["zai"]["body"]["response_format"] == {"type": "json_object"}
-    assert contracts["zai_45_thinking"]["body"]["thinking"] == {"type": "disabled"}
     for model in native_zai_models:
         body = contracts[model]["body"]
         assert body["model"] == model
@@ -2340,7 +2280,6 @@ def test_litellm_native_adapter_contracts() -> None:
         assert body["response_format"] == {"type": "json_object"}
     assert "thinking" not in contracts["zai_legacy"]["body"]
     assert contracts["zai_legacy"]["body"]["response_format"] == {"type": "json_object"}
-    assert "thinking" not in contracts["zai_supported_params"]["glm-4.5"]
     assert "thinking" in contracts["zai_supported_params"]["glm-4.6"]
     assert "thinking" in contracts["zai_supported_params"]["glm-5.2"]
 
