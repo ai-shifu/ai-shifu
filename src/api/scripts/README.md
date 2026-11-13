@@ -1,6 +1,75 @@
-# AI-Shifu Configuration Scripts
+# AI-Shifu Backend Scripts
 
-This directory contains utility scripts for managing AI-Shifu configuration.
+This directory contains utilities for developing and operating the AI-Shifu backend.
+
+## evaluate_mdf_interactions.py
+
+Use this evaluator when editing the MarkdownFlow prompts in
+`src/api/markdownflow/engine/prompts/`. Run it from `src/api` with Python 3.11
+and the dependencies in `requirements.txt`. It runs the course engine, validates
+the controls with the MarkdownFlow renderer, and submits scripted learner answers.
+
+```bash
+python scripts/evaluate_mdf_interactions.py
+python scripts/evaluate_mdf_interactions.py --suite smoke
+python scripts/evaluate_mdf_interactions.py --list
+python scripts/evaluate_mdf_interactions.py --case <case-id> --json /tmp/interaction-replay.json
+```
+
+Offline mode replays sanitized model text and tool calls from the bundled catalog.
+It checks parsing, tool retries, answer storage, and continuation without network
+access or provider credentials. Use `--cases <path>` to load another catalog of the
+same shape. The [coverage inventory](mdf_interactions/README.md) lists the
+Langfuse-derived and synthetic examples. Langfuse access is only needed when
+curating examples.
+
+Live mode sends the checkout's current prompts to a configured model provider
+through the backend model adapter. Set credentials in the local `src/api/.env`
+or shell environment, for example `OPENAI_API_KEY` and, when applicable,
+`OPENAI_BASE_URL`. Use an explicit model ID available from that provider.
+The gateway can discover models from configured providers at startup. To
+restrict discovery to the provider you want to test, set `SKIP_LOAD_DOTENV=1`
+and supply that provider's configuration in the shell. The model provider bills
+live calls. Both modes run without starting the web app, API, MySQL, or Redis.
+The evaluator uses local session state and skips application usage writes and
+Langfuse tracing.
+
+For each live learner action, an engine turn that ends after visible teaching
+can continue automatically with the same session. The evaluator stops on a
+question (including narrated controls), completion, an error, or a turn with
+no visible teaching. The local run allows up to eight automatic continuations
+per learner action and reports reaching that limit as a behavior failure.
+Offline replay still checks the recorded engine turn for each fixture step.
+
+```bash
+python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperature 0 \
+  --suite smoke --repeat 3 --json /tmp/interaction-baseline.json
+# Edit the local prompt files, then run the same cases and model settings.
+python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperature 0 \
+  --suite smoke --repeat 3 --json /tmp/interaction-candidate.json \
+  --compare /tmp/interaction-baseline.json
+```
+
+Each report includes the prompt and case fingerprints, model settings, per-run
+outcomes, failed checks, rendered controls, teaching text, usage, and elapsed
+time. Review the teaching text alongside the structured checks when evaluating
+new wording. A pass after a model validation retry or automatic continuation is
+reported as a recovery. Reports count the two kinds of recovery separately and
+include each engine turn's outcome. They also distinguish reproduced historical
+failures, behavior failures, and provider failures. Generate a fresh baseline
+when the report version changes, and keep mode, model, temperature, case
+selection, and repeat count consistent. The exit status is 0 when every case
+meets its expectations, 1 for behavior failures, and 2 for invocation, provider,
+or comparison errors.
+
+For a new trace-derived case, reconstruct a teaching excerpt and answer with
+original wording. Keep the interaction syntax, displayed and submitted value
+relationship, bindings, and sequence of model attempts needed to reproduce it.
+Set expectations from the teaching script and the learner behavior it calls for.
+Use a separate replay expectation when the recorded output shows a historical
+failure. Review the JSON before committing it to ensure its text and metadata
+contain no raw course or learner data. Use synthetic cases for behaviors that
+are missing from the sampled traces.
 
 ## backfill_profile_onboarding_assistant_prompts.py
 

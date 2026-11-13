@@ -120,6 +120,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Upgrade LiteLLM to 1.109.1 and retire covered compatibility code](./completed/litellm-1-109-upgrade.md)
 - [LiteLLM-First Minimum-Thinking Parameters](./completed/llm-provider-parameter-policies.md)
 - [Lobster Course Entry Analytics](./completed/lobster-course-entry-analytics.md)
+- [Local Interaction Evaluation](./completed/local-interaction-evaluation.md)
 - [Separate deployment identifiers from interface selection and notification channels](./completed/login-identifier-terminology.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)

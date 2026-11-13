@@ -152,6 +152,7 @@
 | `docs/exec-plans/completed/litellm-1-109-upgrade.md` | Upgrade LiteLLM to 1.109.1 and retire covered compatibility code | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/llm-provider-parameter-policies.md` | LiteLLM-First Minimum-Thinking Parameters | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/local-interaction-evaluation.md` | Local Interaction Evaluation | `exec-plan-completed` | `completed` | `backend` | `2026-11-13` | `false` |
 | `docs/exec-plans/completed/login-identifier-terminology.md` | Separate deployment identifiers from interface selection and notification channels | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-agent-memory-migration.md` | Expose Learner Memory through a Typed Host Facade | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-scroll-controls.md` | MarkdownFlow Scroll Controls | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -405,7 +406,8 @@
 | `src/api/prompts/profile_research_assistant_answers.md` | Profile_Research_Assistant_Answers | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/profile_research_summary.md` | Profile_Research_Summary | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/summary.md` | Task | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/scripts/README.md` | AI-Shifu Configuration Scripts | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/scripts/README.md` | AI-Shifu Backend Scripts | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/scripts/mdf_interactions/README.md` | Interaction evaluation coverage | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/skills/README.md` | Backend Skills | `generated-doc` | `generated` | `backend` | `-` | `false` |
 | `src/api/skills/shifu-authoring-flow/SKILL.md` | Shifu Authoring Flow | `skill` | `current` | `backend` | `-` | `true` |
 | `src/api/skills/user-auth-flows/SKILL.md` | User Auth Flows | `skill` | `current` | `backend` | `-` | `true` |
