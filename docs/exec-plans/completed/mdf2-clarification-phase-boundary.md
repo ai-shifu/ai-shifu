@@ -31,8 +31,9 @@ Preserve the teacher's disclosure limits, including a prohibition on examples.
   4 instead of 3. Do not repair the evidence or fail solely for missing expansion.
   There are no summaries, completed questions or final statistics. No quantitative
   teacher-brevity pass, full teaching-quality pass or #3122 pass is claimed.
-- [ ] Complete the broader fresh eleven-question natural-compression/statistics/
+- [x] Complete the broader fresh eleven-question natural-compression/statistics/
   billing acceptance independently; the two-request factual failure is preserved.
+  2026-11-13: Closed for this plan; the broader acceptance stays open in [mdf2-broader-classroom-acceptance](../active/mdf2-broader-classroom-acceptance.md).
 
 - [x] 2026-10-13: Adopt Codex finding 4257773675: authored-help correction
   also retains condition matching, teacher multiplicity and disclosure limits.
@@ -94,6 +95,8 @@ visible program mismatch prevents full-classroom acceptance. This PR does not
 claim general model accuracy, teacher-style compliance or #3122 acceptance.
 The final documentation receipt has an unchanged API/test tree; verify its own
 checks in the PR conversation before recommending the current head for merge.
+
+Archived 2026-11-13: the broader acceptance is tracked in `docs/exec-plans/active/mdf2-broader-classroom-acceptance.md`.
 
 ## Context and Orientation
 

@@ -26,7 +26,11 @@ pending interactions so the existing learner renderer displays the input.
 - [x] 2026-10-09T07:27:00Z: Final learning suite passes 2,854 tests, one skip,
   four subtests, including the unrelated-follow-up regression that failed before
   removal of the fallback. Add focused test/helper docstrings for review coverage.
-- [ ] Revalidate the final review fix in sim and reply to AI opinions.
+- [x] 2026-10-09T07:37:27Z: Revalidate the final review fix in sim and reply to AI opinions.
+  The final commit 8b9087ab6 passed all eleven status checks; sim image
+  `sim-35b3c4e` passed 39 runtime hashes, 30 isolated regressions and both
+  original preview examples on each of two replicas (PR #3061 thread). #3061
+  merged on 2026-10-09.
 
 ## Surprises & Discoveries
 
@@ -54,8 +58,10 @@ a confirmation control; the question prompt alone cannot create a text input.
 
 The initial 2,853 learning regressions and repository gates pass, as do sim
 source-backed replay and browser input/submission checks. The review-identified
-unrelated-question boundary passes the final 2,854 learning tests; final sim
-revalidation is pending. Production evidence and course content remain private and read-only.
+unrelated-question boundary passes the final 2,854 learning tests, and the
+final sim revalidation of 8b9087ab6 on `sim-35b3c4e` passes. Production evidence and course content remain private and read-only.
+
+Archived 2026-11-13: #3061 is merged and its final sim revalidation is recorded above.
 
 ## Context and Orientation
 

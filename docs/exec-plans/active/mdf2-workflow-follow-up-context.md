@@ -21,8 +21,13 @@ The durable contract belongs in [Follow-up Classroom Context](../../references/f
 - [x] 2026-10-09 16:47 CST: Fourteen outbound/configuration/privacy/actual-storage cases fail on the old runtime. Candidate focused tests pass; full learning regression passes 2,916 tests and four subtests with one expected skip.
 - [x] 2026-10-09 16:55 CST: Initial local gates and all technical CI pass. Created #3064; initial same-tree sim 147f6257d build 464 / deployments 2208-2209, two API replicas each 42 hashes and 36 isolated cases pass. A new demo learner completes two HTTP turns with usage attributed to actual progress/block IDs.
 - [x] 2026-10-09 17:03 CST: AI review exposed frontend saves dropping API-configured advanced bindings. Three regression cases fail before the fix; all 136 settings tests pass after it, including fail-open private analytics.
-- [ ] 2026-10-09 17:03 CST: Push the settings-preservation fix after full gates and verify the final sim web/API image.
-- [ ] 2026-10-09 16:42 CST: Audit AI feedback, reply in original discussions and record final CI.
+- [x] 2026-10-09 17:03 CST: Push the settings-preservation fix after full gates and verify the final sim web/API image.
+  2026-10-09 17:10 CST: Fix 3e76f8049 passed full gates; sim build 465 and
+  API/web deployments 2210-2211 succeeded at `sim-dea594e` (same source tree),
+  with 36 isolated Workflow cases passing across two API replicas (PR #3064
+  thread). The later head c209529c3 only merged main.
+- [x] 2026-10-09 16:42 CST: Audit AI feedback, reply in original discussions and record final CI.
+  2026-11-13: #3064 merged on 2026-10-11 with review threads resolved.
 - [ ] 2026-10-09 16:42 CST: Separately accept a configured real workflow that consumes the declared context string.
 
 ## Surprises & Discoveries
@@ -58,8 +63,8 @@ backend-only roundtrip tests could not detect this frontend consumer bug.
 
 ## Outcomes & Retrospective
 
-Initial local/runtime/sim acceptance passes; final frontend-fix gates, sim and CI
-are being verified. Unconfigured workflows remain query-only by design.
+Initial local/runtime/sim acceptance passes, and the final frontend fix passes
+its gates and sim at `sim-dea594e`; #3064 merged on 2026-10-11. Unconfigured workflows remain query-only by design.
 This increment is usable through existing API
 course configuration; it does not introduce a settings-form control. Real workflow
 consumption/answer quality and the prior Volc hosted rewrite-window check remain

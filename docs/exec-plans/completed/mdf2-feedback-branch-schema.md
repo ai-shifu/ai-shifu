@@ -19,9 +19,10 @@ while preserving native validation and portable-host compatibility.
 - [x] 2026-10-13: All 1019 engine regressions, tooling, regenerated indexes,
   repository harness and all-file hooks pass after synchronization. The previous
   3890-case integration and actual-model evidence remain scoped to identical code.
-- [ ] Verify this synchronization head's CI, review and current sim receipts
+- [x] Verify this synchronization head's CI, review and current sim receipts
   before recommending manual merge of #3125. Full factual/classroom acceptance
   remains open independently.
+  2026-11-13: #3125 and #3128 merged on 2026-10-13 with CI and review complete.
 
 - [x] 2026-10-13: Current documentation head b369bcf1a passes all eleven
   checks; its entire API/test tree matches functional c61022c51 and Codex-reviewed
@@ -49,8 +50,9 @@ while preserving native validation and portable-host compatibility.
   text says add1 to2, but code loads2/adds2 and reaches4. The runtime excludes
   held #3122, so this is not a new execution/failure of that policy candidate.
   No source/output repair, paid replay, larger budget, summary or final statistics.
-- [ ] Finish broader factual and fresh eleven-question natural-compression/
+- [x] Finish broader factual and fresh eleven-question natural-compression/
   statistics/billing acceptance independently; preserve both balanced failures.
+  2026-11-13: Closed for this plan; the broader acceptance stays open in [mdf2-broader-classroom-acceptance](../active/mdf2-broader-classroom-acceptance.md).
 
 - [x] 2026-10-13: Adopt CodeRabbit wording finding 4257794917: qualify
   compatibility as valid sibling declarations and explicitly retain direction
@@ -97,10 +99,11 @@ while preserving native validation and portable-host compatibility.
       The existing canonical schema remains unchanged; full learning/script
       regressions pass 3879 cases, 50 subtests and three expected skips. Keep
       all original factual failures and first-response protocol evidence separate.
-- [ ] 2026-10-13: Verify refreshed current-head CI/review receipts. A confirmed
+- [x] 2026-10-13: Verify refreshed current-head CI/review receipts. A confirmed
       inherited hidden-response lifetime issue is fixed independently in #3128
       on main, not silently folded into this schema PR. No new paid check or
       fresh classroom is created by this synchronization.
+      2026-11-13: Superseded by the merges of #3125 and #3128 on 2026-10-13.
 
 - [x] 2026-10-13 05:07 UTC: Offline pinned-provider conversion reproduces removal
   of the interaction root anyOf on OpenAI; Ark preserves it without strict mode.
@@ -163,8 +166,9 @@ while preserving native validation and portable-host compatibility.
   and all gates. Both Ready API replicas match 68 files and pass 451 SDK cases;
   Web runs the same tag. One frozen original-model check remains a failure:
   three generations/5.84 settled credits, no summary or new learner.
-- [ ] Resolve model/schema-adherence and factual acceptance limitations before
+- [x] Resolve model/schema-adherence and factual acceptance limitations before
   claiming the broader original-model gate or fresh classroom passes.
+  2026-11-13: Closed for this plan; schema adherence and factual acceptance are tracked in [mdf2-broader-classroom-acceptance](../active/mdf2-broader-classroom-acceptance.md).
 
 ## Surprises & Discoveries
 
@@ -247,6 +251,8 @@ functional head. The scoped object contract has actual changed-runtime evidence,
 while factual teaching quality and full fresh acceptance stay open. Verify the
 final receipt head in the PR conversation before recommending manual merge.
 No production write or automatic merge is authorized by this work.
+
+Archived 2026-11-13: #3125 and #3128 are merged. Factual teaching quality and the fresh classroom acceptance are tracked in `docs/exec-plans/active/mdf2-broader-classroom-acceptance.md`.
 
 ## Context and Orientation
 

@@ -8,6 +8,9 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-11-13: Teaching-history compression was removed by #3343 (2026-11-05), so
+  the natural-compression part of this acceptance no longer applies. The open
+  acceptance is a fresh eleven-question lesson with statistics, report and billing.
 - [x] 2026-10-13: Independently scoped #3123/#3125 run on sim-f67afe0:
       both APIs match 69 files/pass 490 SDK/logging cases, integration passes
       3890 plus 50 subtests/two expected skips. New ordinary-HTTP learner stops
@@ -1678,6 +1681,12 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Outcomes & Retrospective
 
+- 2026-11-13: #3343 removed teaching-history compression and `read_teaching`;
+  the full history now stays in context up to the model's input limit. The
+  natural-summary and compression results below are historical. Remaining
+  acceptance is a fresh eleven-question lesson with statistics, report and
+  billing, plus the multi-lesson memory, Ask, provider and cost checks.
+
 - 2026-10-12: The functional correction passes current CI and deployed SDK checks,
   but the nineteenth journey stops on factual teaching quality before exercises.
   Two settled generations/3.52 credits, stable history and exact original-output
@@ -1695,8 +1704,9 @@ correction/navigation and third-question explanation checkpoints now pass on
 ff1e5d62f, without replacing any earlier failed journey. Original trace evidence
 is readable and billing attribution matches. Concrete-focus field guidance needs
 current-head validation/deployment and independent real-model acceptance. Full
-eleven-question natural compression, original-record statistics and billing
-acceptance remain open; milestone 4/5, keep unmerged.
+eleven-question original-record statistics, report and billing acceptance
+remains open (natural compression no longer applies after #3343); milestone
+4/5, keep unmerged.
 
 Broader external acceptance remains incomplete. The focused initial-hint
 correction passes a genuine saved pre-final report probe with real summary
@@ -1739,8 +1749,8 @@ boundary statement. Record each run and follow-up in Progress.
 
 ## Validation and Acceptance
 
-A compression run must show actual summary activity and correct retained lesson
-facts and attempt accounting. Provider and language results must identify the
+A fresh eleven-question lesson must keep the lesson facts in its full
+history and record correct statistics, report and attempt accounting. Provider and language results must identify the
 actual configuration tested. Multi-lesson memory and Ask must retain correct
 scope and history. Independent feedback and cost need their own observations;
 a scripted pass cannot close them.

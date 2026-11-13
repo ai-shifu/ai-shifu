@@ -42,7 +42,6 @@
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-11-09` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/accurate-lesson-content-updates.md` | Lesson content revision tracking with one nullable column | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/admin-mdf2-preview.md` | Use the 2.0 lesson runtime in teacher debug preview | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/bounded-lesson-memory-context.md` | Bound Lesson Memory Context | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/code-scanning-regex-complexity.md` | Bound malformed-text processing cost | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-action-copy.md` | Review the course action PR stack | `exec-plan-active` | `active` | `frontend` | `2026-10-27` | `true` |
@@ -70,12 +69,8 @@
 | `docs/exec-plans/active/markdownflow-total-input-budget.md` | MarkdownFlow total input budget | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-broader-classroom-acceptance.md` | MDF 2.0 Broader Classroom Acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/mdf2-clarification-phase-boundary.md` | Keep Knowledge Clarification Within Its Authored Phase | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-coze-follow-up-context.md` | Deliver classroom context to Coze follow-ups | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/mdf2-feedback-branch-schema.md` | MDF 2.0 Feedback Branch Schema | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-follow-up-memory-writeback.md` | Admit and persist memory from completed follow-up answers | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/mdf2-preview-text-placeholder.md` | Restore authored text inputs in lesson previews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/mdf2-shared-element-format.md` | Reuse the 1.0 formatter for every 2.0 lesson mode | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-teaching-usage-attempt.md` | Attribute teaching usage to the actual learning attempt | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-volc-follow-up-context.md` | Volc Knowledge Follow-up Context | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
 | `docs/exec-plans/active/mdf2-workflow-follow-up-context.md` | Coze Workflow Follow-up Context Binding | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
@@ -93,6 +88,7 @@
 | `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/tab-placeholder-completion.md` | Tab hint completion in MarkdownFlow interactions | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/admin-mdf2-preview.md` | Use the 2.0 lesson runtime in teacher debug preview | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/agent-first-harness-migration.md` | Agent-First Harness Migration | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -165,6 +161,7 @@
 | `docs/exec-plans/completed/mdf2-agent-lesson-carries-on.md` | MarkdownFlow 2.0: a lesson carries on until it waits or ends | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-authored-grading-criteria.md` | Keep grading within authored answer criteria | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-cache-usage-observation.md` | Provider cache usage in memory quality reports | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-clarification-phase-boundary.md` | Keep Knowledge Clarification Within Its Authored Phase | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-compacted-exercise-quality.md` | Validate exercise reports after teaching compaction | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-course-usage-attribution.md` | Attribute MarkdownFlow model usage to its course and lesson | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-draft-answer-rewind.md` | Edit earlier answers in draft classrooms | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -172,6 +169,7 @@
 | `docs/exec-plans/completed/mdf2-exercise-clarification-counts.md` | Keep knowledge questions out of exercise answer counts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-exercise-statistics-calculation.md` | Calculate exercise statistics from original submissions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-exercise-statistics-quality.md` | Evaluate exercise statistics against original attempts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-feedback-branch-schema.md` | MDF 2.0 Feedback Branch Schema | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-follow-up-block-attribution.md` | Attribute follow-up model usage to its answer block | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-follow-up-course-memory.md` | Read current course memory during MarkdownFlow follow-ups | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-follow-up-learner-quotations.md` | Ground historical quotations in original learner messages | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -189,8 +187,10 @@
 | `docs/exec-plans/completed/mdf2-natural-compressed-statistics.md` | Verify natural exercise statistics after teaching compression | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-natural-memory-follow-up.md` | Keep current memory distinct from old follow-up answers | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-natural-text-controls.md` | Keep natural-language text questions answerable | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-preview-text-placeholder.md` | Restore authored text inputs in lesson previews | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-quality-usage-attribution.md` | Attribute synthetic quality evaluation usage to its selected course | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-responsive-canvas.md` | Responsive canvases for newly generated MarkdownFlow 2.0 visuals | `exec-plan-completed` | `completed` | `learner` | `2026-10-20` | `false` |
+| `docs/exec-plans/completed/mdf2-shared-element-format.md` | Reuse the 1.0 formatter for every 2.0 lesson mode | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-teaching-semantic-summary.md` | Semantic summaries for older MarkdownFlow teaching | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-unavailable-learner-values.md` | Unavailable Learner Values | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/memory-definition-type-cleanup.md` | Remove unused memory definition type configuration | `exec-plan-completed` | `completed` | `shared` | `2026-10-30` | `false` |

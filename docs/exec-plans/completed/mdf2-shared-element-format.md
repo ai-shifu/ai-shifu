@@ -15,7 +15,8 @@ history replay.
 - [x] 2026-10-14 12:04 CST: Passed the toolchain doctor, repository harness, architecture checks, and all-file lefthook gate.
 - [x] 2026-10-14 12:26 CST: Fixed review findings for separated HTML attachments and question prompts after unfinished visuals; preserved ordinary prose history/audio grouping.
 - [x] 2026-10-14 12:26 CST: Verified the updated learning suite (3678 passed, 93 skipped), actual element/history regressions, and all-file lefthook gate.
-- [ ] 2026-10-14 12:04 CST: Review the ready pull request and verify a real lesson after deployment.
+- [x] 2026-10-14 12:04 CST: Review the ready pull request and verify a real lesson after deployment.
+  2026-11-13: #3134 merged on 2026-10-14. Sim acceptance after the 1.0 removal (2026-10-27) completed all 20 lessons of the MarkdownFlow 2.0 boundary course, including listen mode with images and audio backfill, on this element format.
 
 ## Surprises & Discoveries
 
@@ -55,6 +56,8 @@ in isolation and the final full suite passed without Live code changes.
 Repository gates passed. Existing
 saved fallback-text records are not rewritten. PR review and live deployment
 acceptance remain external follow-up; offline tests do not establish a rollout.
+
+Archived 2026-11-13: #3134 is merged, and the 2026-10-27 sim acceptance completed all 20 boundary-course lessons on this format, including listen mode.
 
 ## Context and Orientation
 
