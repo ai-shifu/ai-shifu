@@ -144,7 +144,7 @@ class ShifuDetailDto(BaseModel):
     tts_enabled: bool = Field(default=False, description="TTS enabled")
     tts_provider: str = Field(
         "",
-        description="TTS provider: minimax, volcengine, volcengine_http, baidu, aliyun",
+        description="TTS provider name",
     )
     tts_model: str = Field("", description="TTS model/resource ID")
     tts_voice_id: str = Field("", description="TTS voice ID")

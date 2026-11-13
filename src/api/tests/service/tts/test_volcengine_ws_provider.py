@@ -2,60 +2,57 @@
 
 import threading
 from types import SimpleNamespace
+from uuid import UUID
 
+import flaskr.api.tts as tts_api
+import pytest
 from flaskr.api.tts import volcengine_provider
 
 
-def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(
+@pytest.mark.parametrize(
+    ("settings", "provider_name"),
+    [
+        ({"VOLCENGINE_TTS_API_KEY": "test-api-key"}, "volcengine"),
+        ({"ARK_ACCESS_KEY_ID": "app", "ARK_SECRET_ACCESS_KEY": "token"}, "MiniMax"),
+    ],
+)
+def test_volcengine_provider_auto_detection(
+    monkeypatch: pytest.MonkeyPatch, settings: dict[str, str], provider_name: str
+) -> None:
+    monkeypatch.setattr(tts_api, "get_config", settings.get)
+    monkeypatch.setattr(volcengine_provider, "get_config", settings.get)
+    monkeypatch.setattr(tts_api, "_provider_instances", {})
+
+    assert tts_api.get_tts_provider().provider_name == provider_name
+
+
+def test_volcengine_ws_is_configured_with_only_api_key(
     monkeypatch: object,
 ) -> None:
-    monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
-    monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
-    monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
-    monkeypatch.setenv("ARK_SECRET_ACCESS_KEY", "legacy-access")
-
-    provider = volcengine_provider.VolcengineTTSProvider()
-    app_key, access_key, resource_id = provider._get_credentials("seed-tts-2.0")
-
-    assert app_key == "test-app"
-    assert access_key == "test-access"
-    assert resource_id == "seed-tts-2.0"
-
-
-def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(
-    monkeypatch: object,
-) -> None:
-    monkeypatch.delenv("VOLCENGINE_TTS_APP_KEY", raising=False)
-    monkeypatch.delenv("VOLCENGINE_TTS_ACCESS_KEY", raising=False)
-    monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
-    monkeypatch.setenv("ARK_SECRET_ACCESS_KEY", "legacy-access")
-
-    provider = volcengine_provider.VolcengineTTSProvider()
-    app_key, access_key, resource_id = provider._get_credentials("")
-
-    assert app_key == "legacy-app"
-    assert access_key == "legacy-access"
-    assert resource_id == "seed-tts-1.0"
-
-
-def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(
-    monkeypatch: object,
-) -> None:
-    monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
-    monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
+    monkeypatch.setenv("VOLCENGINE_TTS_API_KEY", "test-api-key")
     monkeypatch.delenv("ARK_ACCESS_KEY_ID", raising=False)
     monkeypatch.delenv("ARK_SECRET_ACCESS_KEY", raising=False)
     monkeypatch.setattr(volcengine_provider, "WEBSOCKET_AVAILABLE", True)
 
-    provider = volcengine_provider.VolcengineTTSProvider()
-    assert provider.is_configured() is True
+    assert tts_api.is_tts_configured("volcengine") is True
 
 
-def test_volcengine_ws_waits_for_session_started_before_task_request(
+@pytest.mark.parametrize(
+    ("voice_id", "model", "resource_id", "use_subtitle"),
+    [
+        ("zh_female_vv_uranus_bigtts", "seed-tts-2.0", "seed-tts-2.0", True),
+        ("zh_female_shuangkuaisisi_moon_bigtts", "seed-tts-1.0", "seed-tts-1.0", False),
+        ("S_xxxxxxxxxx", "seed-tts-2.0", "seed-icl-2.0", True),
+    ],
+)
+def test_volcengine_ws_uses_api_key_and_waits_for_session_started(
     monkeypatch: object,
+    voice_id: str,
+    model: str,
+    resource_id: str,
+    use_subtitle: bool,
 ) -> None:
-    monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
-    monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
+    monkeypatch.setenv("VOLCENGINE_TTS_API_KEY", " test-api-key ")
     monkeypatch.setattr(volcengine_provider, "WEBSOCKET_AVAILABLE", True)
 
     captured = {}
@@ -153,7 +150,9 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
             on_close: object,
             on_open: object,
         ) -> None:
-            _ = (url, header, on_error)
+            _ = on_error
+            captured["url"] = url
+            captured["headers"] = header
             self.on_message = on_message
             self.on_close = on_close
             self.on_open = on_open
@@ -203,16 +202,22 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
     provider = volcengine_provider.VolcengineTTSProvider()
     result = provider.synthesize(
         "hello",
-        voice_settings=volcengine_provider.VoiceSettings(
-            voice_id="zh_female_vv_uranus_bigtts"
-        ),
-        model="seed-tts-2.0",
+        voice_settings=volcengine_provider.VoiceSettings(voice_id=voice_id),
+        model=model,
     )
 
+    assert captured["url"] == volcengine_provider.VOLCENGINE_TTS_WS_URL
+    headers = captured["headers"]
+    assert UUID(headers["X-Api-Connect-Id"]).version == 4
+    assert headers == {
+        "X-Api-Key": "test-api-key",
+        "X-Api-Resource-Id": resource_id,
+        "X-Api-Connect-Id": headers["X-Api-Connect-Id"],
+    }
     assert result.audio_data == b"audio-bytes"
     assert result.duration_ms == 456
-    assert captured["start_session_kwargs"]["enable_timestamp"] is False
-    assert captured["start_session_kwargs"]["enable_subtitle"] is True
+    assert captured["start_session_kwargs"]["enable_timestamp"] is not use_subtitle
+    assert captured["start_session_kwargs"]["enable_subtitle"] is use_subtitle
     assert result.subtitle_cues == [
         {
             "text": "hello",

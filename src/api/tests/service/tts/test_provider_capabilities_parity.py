@@ -1,9 +1,4 @@
-"""Prove the capability declarations reproduce the former provider-name sets.
-
-Before providers declared ``ProviderCapabilities``, the orchestration layers
-kept literal provider-name sets. These golden values are those literals; the
-derived views must stay identical so the refactor changes no behavior.
-"""
+"""Check the registry and capability declarations against expected behavior."""
 
 from __future__ import annotations
 
@@ -24,7 +19,6 @@ if TYPE_CHECKING:
 GOLDEN_REGISTRY_ORDER = (
     "minimax",
     "volcengine",
-    "volcengine_http",
     "baidu",
     "aliyun",
     "tencent",
@@ -32,7 +26,7 @@ GOLDEN_REGISTRY_ORDER = (
     "elevenlabs",
     "gemini",
 )
-GOLDEN_AUTO_DETECT = ("minimax", "volcengine", "volcengine_http", "baidu", "aliyun")
+GOLDEN_AUTO_DETECT = ("minimax", "volcengine", "baidu", "aliyun")
 GOLDEN_REQUIRES_MODEL = {
     "minimax",
     "volcengine",
@@ -58,7 +52,7 @@ GOLDEN_NON_SPEAKABLE_SKIP = {
 }
 GOLDEN_CONFIG_REQUIRES_CONFIGURED = {"elevenlabs", "gemini"}
 GOLDEN_CONFIG_REQUIRES_ALLOWED_MODEL = {"elevenlabs", "gemini"}
-GOLDEN_SEGMENT_BYTES = {"baidu": (1024, "gbk"), "volcengine_http": (1024, "utf-8")}
+GOLDEN_SEGMENT_BYTES = {"baidu": (1024, "gbk")}
 
 
 def _names_where(predicate: object) -> set[str]:
@@ -69,7 +63,7 @@ def _names_where(predicate: object) -> set[str]:
     }
 
 
-def test_registry_order_and_names_are_unchanged() -> None:
+def test_registry_order_and_names_match_golden() -> None:
     assert tts_api.list_provider_names() == GOLDEN_REGISTRY_ORDER
     assert set(tts_api._PROVIDER_REGISTRY) == set(GOLDEN_REGISTRY_ORDER)
 
@@ -170,16 +164,10 @@ def test_segment_byte_limits_match_golden(monkeypatch: pytest.MonkeyPatch) -> No
     assert declared == GOLDEN_SEGMENT_BYTES
 
     monkeypatch.setattr(pipeline, "get_config", lambda _key, *_a: 300)
-    long_cjk = "中" * 600  # 1200 GBK bytes, 1800 UTF-8 bytes, no sentence ends
+    long_cjk = "中" * 600  # 1200 GBK bytes, no sentence ends
     assert all(
         len(seg.encode("gbk")) <= 1024
         for seg in pipeline.split_text_for_tts(long_cjk, provider_name="baidu")
-    )
-    assert all(
-        len(seg.encode("utf-8")) <= 1024
-        for seg in pipeline.split_text_for_tts(
-            long_cjk, provider_name="volcengine_http"
-        )
     )
     unconstrained = pipeline.split_text_for_tts(long_cjk, provider_name="aliyun")
     assert unconstrained == pipeline.split_text_for_tts(

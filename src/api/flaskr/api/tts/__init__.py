@@ -49,8 +49,10 @@ from flaskr.api.tts.gemini_provider import GeminiTTSProvider
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.api.tts.tencent_provider import TencentTTSProvider
 from flaskr.api.tts.tencent_texttovoice_provider import TencentTextToVoiceProvider
-from flaskr.api.tts.volcengine_http_provider import VolcengineHttpTTSProvider
-from flaskr.api.tts.volcengine_provider import VolcengineTTSProvider
+from flaskr.api.tts.volcengine_provider import (
+    VolcengineTTSProvider,
+    get_volcengine_tts_api_key_headers,
+)
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
@@ -66,7 +68,6 @@ TTS_DEFAULT_MODEL_TOKEN = "default"  # noqa: S105 - placeholder model id, not a 
 _PROVIDER_REGISTRY = {
     "minimax": MinimaxTTSProvider,
     "volcengine": VolcengineTTSProvider,
-    "volcengine_http": VolcengineHttpTTSProvider,
     "baidu": BaiduTTSProvider,
     "aliyun": AliyunTTSProvider,
     "tencent": TencentTTSProvider,
@@ -77,7 +78,6 @@ _PROVIDER_REGISTRY = {
 _PROVIDER_PRIORITY = (
     "minimax",
     "volcengine",
-    "volcengine_http",
     "baidu",
     "aliyun",
     "tencent",
@@ -150,17 +150,8 @@ def _auto_detect_provider_name() -> str:
     # Check Minimax first (existing behavior)
     if get_config("MINIMAX_API_KEY"):
         return "minimax"
-    if get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY"):
+    if get_volcengine_tts_api_key_headers():
         return "volcengine"
-    if (
-        get_config("VOLCENGINE_TTS_APP_KEY")
-        and get_config("VOLCENGINE_TTS_ACCESS_KEY")
-        and (
-            get_config("VOLCENGINE_TTS_CLUSTER_ID")
-            or get_config("VOLCENGINE_TTS_RESOURCE_ID")
-        )
-    ):
-        return "volcengine_http"
     if get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
         return "baidu"
     if get_config("ALIYUN_TTS_APPKEY") and is_aliyun_nls_token_configured():
@@ -189,9 +180,7 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     """Get a TTS provider instance.
 
     Args:
-        provider_name: Provider name ("minimax", "volcengine", "volcengine_http",
-                      "baidu", "aliyun", "tencent", "tencent_texttovoice",
-                      "elevenlabs", "gemini"). If empty, auto-detects.
+        provider_name: Registered provider name. If empty, auto-detects.
 
     Returns:
         TTS provider instance

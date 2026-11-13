@@ -167,7 +167,6 @@ describe('minimax voice clone helpers', () => {
 
     expect(providerSupportsClonedVoices('minimax')).toBe(true);
     expect(providerSupportsClonedVoices('volcengine')).toBe(true);
-    expect(providerSupportsClonedVoices('volcengine_http')).toBe(false);
     expect(providerSupportsClonedVoices('baidu')).toBe(false);
   });
 
