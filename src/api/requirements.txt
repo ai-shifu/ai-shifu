@@ -58,8 +58,8 @@ MarkupSafe==2.1.5
 litellm==1.109.1
 openpyxl==3.1.5
 opentelemetry-api==1.45.2
-opentelemetry-exporter-otlp-proto-http==1.45.1
-opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.2
+opentelemetry-sdk==1.45.2
 orjson==3.11.6
 oss2==2.18.6
 packaging==24.0
