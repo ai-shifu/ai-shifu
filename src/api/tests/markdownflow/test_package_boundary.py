@@ -29,10 +29,10 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Reference/binding and learner-facing question guidance are reviewed changes;
-    # retain every other copied prompt byte and keep the historical fixture intact.
+    # Reference/binding, learner-facing questions, and feedback delivery are
+    # reviewed changes. Retain the historical fixture.
     hashes["system"] = (
-        "c0d9152a9beb2894352d0976fbe948bf89dde5e77f9abafc3a1d9ea7fcfe4f0f"
+        "fdacfa3e2f3421905dc83eb81f385c4af95d4185403fdc55cafaa07e5f399311"
     )
     hashes["v1_syntax"] = (
         "9bbb89a1a1593f9a32aa2864097283f3c86a48f9e4d11ea1d1bc28f039e315ea"
@@ -44,10 +44,10 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
         "0cce2b9128a3e996a8d901278bc9bc7893ce5a831fb4eedd2ea21a455f674256"
     )
     hashes["answer_review"] = (
-        "24405941f019dfd09ec49114b0e70261eefeda2bf8cbaace7ead55e6a788458a"
+        "9e862c8a0b35fe4a8131c83965a0fd084d427195034ee8877bfe137b3d17d110"
     )
     hashes["feedback_contract"] = (
-        "0ed7209037a211f5e4276f1c4504620d53e476b8de1644c35e24793e716375b8"
+        "962566043d8e4ec24beb8f102f6b30f3755e1085fa6edfb723b3fbd72539fe64"
     )
     # Teaching history compaction was removed: its prompts are gone, and recall
     # guidance no longer points at the read_teaching tool.

@@ -384,7 +384,7 @@
 | `src/api/markdownflow/AGENTS.md` | MarkdownFlow Engine Library | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/markdownflow/engine/prompts/answer_review.md` | Review this returned interaction | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/exercise_statistics.md` | Required exercise-report protocol | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/markdownflow/engine/prompts/feedback_contract.md` | Declare the feedback branch before displaying this returned text answer | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/feedback_contract.md` | Declare the feedback branch for this returned text answer | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/html_display.md` | Screens (HTML visuals) | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/html_display_generic.md` | Screens (HTML visuals) for a plain renderer | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/listen_mode.md` | Listen mode (visual + narration) | `reference` | `reference` | `backend` | `-` | `false` |
