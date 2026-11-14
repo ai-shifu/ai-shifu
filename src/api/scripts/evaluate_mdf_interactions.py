@@ -10,7 +10,7 @@ import json
 import sys
 import time
 from collections import Counter, deque
-from contextlib import asynccontextmanager, nullcontext
+from contextlib import ExitStack, asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -41,7 +41,7 @@ STATUSES = (
     "behavior_failure",
     "call_failure",
 )
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 MAX_AUTOMATIC_CONTINUATIONS = 8
 
 
@@ -79,6 +79,7 @@ class ExpectedStep(FixtureModel):
     outcome: Literal["interaction", "finished", "end", "error"]
     question: ExpectedQuestion | None = None
     question_count: int | None = Field(default=None, ge=0)
+    prose_question: str | None = Field(default=None, min_length=1)
     prose_contains: list[str] = Field(default_factory=list)
     prose_once: list[str] = Field(default_factory=list)
     prose_excludes: list[str] = Field(default_factory=list)
@@ -94,6 +95,11 @@ class ExpectedStep(FixtureModel):
         """Require question expectations to match the outcome."""
         if self.question is not None and self.outcome != "interaction":
             msg = "expected question requires an interaction outcome"
+            raise ValueError(msg)
+        if self.prose_question is not None and (
+            self.outcome != "interaction" or not self.prose_question.strip()
+        ):
+            msg = "expected prose question requires nonblank intent and an interaction outcome"
             raise ValueError(msg)
         if self.question_count is not None and (
             (self.question_count > 0) != (self.outcome == "interaction")
@@ -537,12 +543,32 @@ async def run_step(
     return result
 
 
+async def check_prose_question(
+    intended_question: str, prose: str, judge: ObservedModel
+) -> tuple[dict[str, object], str | None]:
+    """Return a visible-question judgment and any failure to report for the step."""
+    from scripts.mdf_interaction_question_judge import judge_question
+
+    if not prose.strip():
+        return {"asked": False, "reason": "No learner-facing prose."}, "prose_question"
+    try:
+        judgment = await judge_question(
+            judge, intended_question=intended_question, prose=prose
+        )
+    except Exception as error:
+        return {"error": type(error).__name__}, "question_judge_call"
+    return judgment.model_dump(
+        mode="json"
+    ), None if judgment.asked else "prose_question"
+
+
 async def evaluate_case(
     case: Case,
     model: Model | None = None,
     temperature: float = 0.0,
     *,
     repeat: int = 1,
+    judge_model: Model | None = None,
 ) -> dict[str, object]:
     """Replay or regenerate a fixture and stop at its first failed advancement."""
     from markdownflow import ScriptBundle, Session
@@ -550,6 +576,7 @@ async def evaluate_case(
     started = time.monotonic()
     replay = Replay(case.replay) if model is None else None
     observed = ObservedModel(replay.model if replay is not None else model)
+    judge = ObservedModel(judge_model or model) if model is not None else None
     renderer = renderer_for(case.locale)
     engine = course_engine(observed, renderer, temperature, live=replay is None)
     session = await engine.new_session(
@@ -558,6 +585,7 @@ async def evaluate_case(
     )
     steps = []
     failures = []
+    judge_failed = False
     automatic_continuations = 0
     for index, step in enumerate(case.steps, start=1):
         if step.reload:
@@ -582,6 +610,17 @@ async def evaluate_case(
         result["failures"] = step_failures(expected, result)
         if result["continuation_limit_reached"]:
             result["failures"].append("continuation_limit")
+        if expected.prose_question is not None:
+            if judge is None:
+                result["question_judgment"] = {"status": "skipped_offline"}
+            elif not result["failures"] and not observed.failures:
+                judgment, failure = await check_prose_question(
+                    expected.prose_question, result["prose"], judge
+                )
+                result["question_judgment"] = judgment
+                if failure is not None:
+                    result["failures"].append(failure)
+                    judge_failed = failure == "question_judge_call"
         steps.append(result)
         failures.extend(f"step_{index}.{name}" for name in result["failures"])
         if failures or observed.failures:
@@ -594,7 +633,9 @@ async def evaluate_case(
         and step.replay_expected.outcome in {"error", "end"}
         for step in case.steps[: len(steps)]
     )
-    if observed.failures:
+    if judge_failed:
+        status = "call_failure"
+    elif observed.failures:
         status = "call_failure" if replay is None else "behavior_failure"
         failures.extend(observed.failures)
     elif failures:
@@ -620,6 +661,8 @@ async def evaluate_case(
         "retries": observed.retries,
         "automatic_continuations": automatic_continuations,
         "usage": observed.usage,
+        "question_judge_requests": judge.requests if judge is not None else 0,
+        "question_judge_usage": judge.usage if judge is not None else {},
         "instruction_sha256": sorted(observed.instruction_hashes),
         "elapsed_seconds": round(time.monotonic() - started, 3),
     }
@@ -639,7 +682,14 @@ def compare_reports(baseline: dict, candidate: dict) -> dict[str, object]:
     candidate_rows = rows(candidate)
     mismatches = [
         key
-        for key in ("schema_version", "mode", "model", "temperature", "cases_sha256")
+        for key in (
+            "schema_version",
+            "mode",
+            "model",
+            "temperature",
+            "question_judge",
+            "cases_sha256",
+        )
         if baseline.get(key) != candidate.get(key)
     ]
     if baseline_rows.keys() != candidate_rows.keys():
@@ -673,13 +723,20 @@ def compare_reports(baseline: dict, candidate: dict) -> dict[str, object]:
 
 
 async def run_cases(
-    cases: list[Case], model: Model | None, temperature: float, repeats: int
+    cases: list[Case],
+    model: Model | None,
+    temperature: float,
+    repeats: int,
+    *,
+    judge_model: Model | None = None,
 ) -> list[dict[str, object]]:
     """Run selected fixtures serially, giving each repeat a clean session."""
     results = []
     for case in cases:
         for repeat in range(1, repeats + 1):
-            result = await evaluate_case(case, model, temperature, repeat=repeat)
+            result = await evaluate_case(
+                case, model, temperature, repeat=repeat, judge_model=judge_model
+            )
             results.append(result)
             details = ", ".join(result["failures"])
             suffix = f" ({details})" if details else ""
@@ -721,6 +778,9 @@ def main(argv: list[str] | None = None) -> int:
         "--live", action="store_true", help="call a configured provider"
     )
     parser.add_argument("--model", help="physical provider model ID for a live run")
+    parser.add_argument(
+        "--judge-model", help="model ID for live question checks (defaults to --model)"
+    )
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--json", type=Path, help="write the report to this file")
     parser.add_argument("--compare", type=Path, help="compare a prior JSON report")
@@ -732,6 +792,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.live != bool(args.model):
         parser.error("--live and --model must be supplied together")
+    if args.judge_model is not None and not args.live:
+        parser.error("--judge-model requires --live")
+    if args.judge_model is not None and not args.judge_model.strip():
+        parser.error("--judge-model must be nonblank")
     if args.json and args.json.resolve() == args.cases.resolve():
         parser.error("--json must not overwrite the fixture catalog")
     if args.json and args.compare and args.json.resolve() == args.compare.resolve():
@@ -751,14 +815,31 @@ def main(argv: list[str] | None = None) -> int:
             path.name: sha256(path.read_bytes())
             for path in sorted(PROMPTS_DIR.glob("*.md"))
         }
-        model_context = nullcontext()
-        if args.live:
-            from scripts.mdf_interaction_live import build_live_model
+        judge_config = None
+        with ExitStack() as stack:
+            model = judge_model = None
+            if args.live:
+                from scripts.mdf_interaction_live import build_live_model
+                from scripts.mdf_interaction_question_judge import (
+                    QUESTION_JUDGE_INSTRUCTIONS,
+                )
 
-            model_context = build_live_model(args.model)
-        with model_context as model:
+                model = stack.enter_context(build_live_model(args.model))
+                judge_model = model
+                if args.judge_model and args.judge_model != args.model:
+                    judge_model = stack.enter_context(
+                        build_live_model(args.judge_model)
+                    )
+                judge_config = {
+                    "model": judge_model.model_name,
+                    "instructions_sha256": sha256(
+                        QUESTION_JUDGE_INSTRUCTIONS.encode("utf-8")
+                    ),
+                }
             results = asyncio.run(
-                run_cases(cases, model, args.temperature, args.repeat)
+                run_cases(
+                    cases, model, args.temperature, args.repeat, judge_model=judge_model
+                )
             )
             model_name = model.model_name if model is not None else None
         statuses = Counter(row["status"] for row in results)
@@ -767,6 +848,7 @@ def main(argv: list[str] | None = None) -> int:
             "mode": "live" if args.live else "offline",
             "model": model_name,
             "temperature": args.temperature,
+            "question_judge": judge_config,
             "prompt_sha256": prompt_hashes,
             "cases_sha256": sha256(
                 json.dumps(

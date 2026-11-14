@@ -8,7 +8,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：餐巾需要吸水且能反复水洗。\n- 原样提出下面的问题并等待作答：\n?[{{ 哪种布料适合做反复清洗的餐巾？ }} 棉布 | 防水油布 | 硬纸板]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "teaching_prompt": "- 用这条要点引入：餐巾需要吸水且能反复水洗。\n- 提出下面的问题并等待作答：\n?[{{ 哪种布料适合做反复清洗的餐巾？ }} 棉布 | 防水油布 | 硬纸板]\n- 收到答案后用一句话承接学员的回答，然后结束。",
     "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
     "steps": [
       {
@@ -35,9 +35,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "哪种布料适合做反复清洗的餐巾？"
-          ],
+          "prose_question": "哪种布料适合做反复清洗的餐巾？",
           "memory": {},
           "pending": 1
         }
@@ -105,7 +103,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "### 练习\n页边对齐后再打孔，能避免翻页时卡住。\n\n装订一叠散页时，哪一步最能保证页边对齐？\n?[{{ 装订一叠散页时，哪一步最能保证页边对齐？ }} 先对齐并夹住 | 先装封面 | 先给每页上色 | 先在每页写标题]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -135,9 +133,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "装订一叠散页时，哪一步最能保证页边对齐？"
-          ],
+          "prose_question": "装订一叠散页时，哪一步最能保证页边对齐？",
           "memory": {},
           "pending": 1
         }
@@ -249,9 +245,7 @@
             ],
             "placeholder": "也可以写一个环节"
           },
-          "prose_once": [
-            "你打算从哪个环节练习整理照片？"
-          ],
+          "prose_question": "你打算从哪个环节练习整理照片？",
           "memory": {},
           "pending": 1
         }
@@ -329,8 +323,8 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：复述时应说清适用条件和例外。\n- 原样提出下面的问题并等待作答：\n?[{{ 你想用哪个场景练习复述规则？ }} 借书 | 订座 | 排队 | 领工具 | 还雨伞 | ...也可以填写自己的场景]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "teaching_prompt": "- 用这条要点引入：复述时应说清适用条件和例外。\n- 提出下面的问题并等待作答：\n?[{{ 你想用哪个场景练习复述规则？ }} 借书 | 订座 | 排队 | 领工具 | 还雨伞 | ...也可以填写自己的场景]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -364,9 +358,7 @@
             ],
             "placeholder": "也可以填写自己的场景"
           },
-          "prose_once": [
-            "你想用哪个场景练习复述规则？"
-          ],
+          "prose_question": "你想用哪个场景练习复述规则？",
           "memory": {},
           "pending": 1
         }
@@ -474,9 +466,7 @@
             ],
             "placeholder": "输入另一个步骤"
           },
-          "prose_once": [
-            "你准备练习说明哪一种纸艺步骤？"
-          ],
+          "prose_question": "你准备练习说明哪一种纸艺步骤？",
           "memory": {},
           "pending": 1
         }
@@ -548,7 +538,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "先简要解释「能复测的记录要有清楚的观察对象。」\n\n接着问「观察花坛时，你会记录哪些能复测的项目？」，用下方控件收集回答。\n\n?[{{ 观察花坛时，你会记录哪些能复测的项目？ }} 每日照光时段 || 土壤湿度 || 叶片数量 || 今天心情 || ...也可以输入一个观察项目]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -578,9 +568,7 @@
             ],
             "placeholder": "也可以输入一个观察项目"
           },
-          "prose_once": [
-            "观察花坛时，你会记录哪些能复测的项目？"
-          ],
+          "prose_question": "观察花坛时，你会记录哪些能复测的项目？",
           "memory": {},
           "pending": 1
         }
@@ -652,7 +640,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：相似的工具需要使用者能一眼区分。\n- 原样提出下面的问题并等待作答：\n?[{{ 你会怎样给两把相似的量勺做标记？ }} ...用一句话说明你的办法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "teaching_prompt": "- 用这条要点引入：相似的工具需要使用者能一眼区分。\n- 提出下面的问题并等待作答：\n?[{{ 你会怎样给两把相似的量勺做标记？ }} ...用一句话说明你的办法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
     "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
     "steps": [
       {
@@ -666,9 +654,7 @@
             "options": [],
             "placeholder": "用一句话说明你的办法"
           },
-          "prose_once": [
-            "你会怎样给两把相似的量勺做标记？"
-          ],
+          "prose_question": "你会怎样给两把相似的量勺做标记？",
           "memory": {},
           "pending": 1
         }
@@ -730,7 +716,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "### 练习\n交接清单应能发现缺件，并帮助下一组找到零件。\n\n交接一套桌游时，哪些检查能减少零件遗失？\n?[{{ 交接一套桌游时，哪些检查能减少零件遗失？ }} 按清单数配件 || 只看盒盖是否干净 || 用分格盒收纳 || 确认临时借出的配件]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -760,9 +746,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "交接一套桌游时，哪些检查能减少零件遗失？"
-          ],
+          "prose_question": "交接一套桌游时，哪些检查能减少零件遗失？",
           "memory": {},
           "pending": 1
         }
@@ -856,9 +840,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "要看出两种纸飞机的差异，哪个比较更公平？"
-          ],
+          "prose_question": "要看出两种纸飞机的差异，哪个比较更公平？",
           "memory": {},
           "pending": 1
         }
@@ -922,8 +904,8 @@
       "preview",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：验证方案要说清工具、观察结果和判定方式。\n- 原样提出下面的问题并等待作答：\n?[{{ 你准备怎样检验书架隔板是否水平？ }} ...说一个可实际操作的方法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "teaching_prompt": "- 用这条要点引入：验证方案要说清工具、观察结果和判定方式。\n- 提出下面的问题并等待作答：\n?[{{ 你准备怎样检验书架隔板是否水平？ }} ...说一个可实际操作的方法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -936,9 +918,7 @@
             "options": [],
             "placeholder": "说一个可实际操作的方法"
           },
-          "prose_once": [
-            "你准备怎样检验书架隔板是否水平？"
-          ],
+          "prose_question": "你准备怎样检验书架隔板是否水平？",
           "memory": {},
           "pending": 1
         }
@@ -1012,9 +992,7 @@
             "options": [],
             "placeholder": "用一句话解释原因"
           },
-          "prose_once": [
-            "为什么把相同重量的物品放在天平两端会平衡？"
-          ],
+          "prose_question": "为什么把相同重量的物品放在天平两端会平衡？",
           "memory": {},
           "pending": 1
         }
@@ -1075,7 +1053,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "先简要解释「标识应先告诉读者该做的动作。」\n\n接着问「你想练习哪一类公共标识的写法？」，用下方控件收集回答。\n\n?[{{ 你想练习哪一类公共标识的写法？ }} 出口指引 | 施工绕行 | 临时暂停 | 失物招领 | 自助回收 | 保持安静 | ...也可写一个场景]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -1113,9 +1091,7 @@
             ],
             "placeholder": "也可写一个场景"
           },
-          "prose_once": [
-            "你想练习哪一类公共标识的写法？"
-          ],
+          "prose_question": "你想练习哪一类公共标识的写法？",
           "memory": {},
           "pending": 1
         }
@@ -1189,7 +1165,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：位置指引通常需要起点、方向和明显地标。\n- 原样提出下面的问题并等待作答：\n?[{{ 试写一条能让读者找到指定书架的指引。 }} ...输入一句指引]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "teaching_prompt": "- 用这条要点引入：位置指引通常需要起点、方向和明显地标。\n- 提出下面的问题并等待作答：\n?[{{ 试写一条能让读者找到指定书架的指引。 }} ...输入一句指引]\n- 收到答案后用一句话承接学员的回答，然后结束。",
     "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
     "steps": [
       {
@@ -1203,9 +1179,7 @@
             "options": [],
             "placeholder": "输入一句指引"
           },
-          "prose_once": [
-            "试写一条能让读者找到指定书架的指引。"
-          ],
+          "prose_question": "试写一条能让读者找到指定书架的指引。",
           "memory": {},
           "pending": 1
         }
@@ -1266,7 +1240,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "### 练习\n回声指声音经过反射后再次被听到。\n\n你会用什么证据说明教室里有回声？\n?[{{ 你会用什么证据说明教室里有回声？ }} ...写出你能观察到的现象]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -1279,9 +1253,7 @@
             "options": [],
             "placeholder": "写出你能观察到的现象"
           },
-          "prose_once": [
-            "你会用什么证据说明教室里有回声？"
-          ],
+          "prose_question": "你会用什么证据说明教室里有回声？",
           "memory": {},
           "pending": 1
         }
@@ -1372,9 +1344,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "一张有图例的地图应怎样用来辨别步道？"
-          ],
+          "prose_question": "一张有图例的地图应怎样用来辨别步道？",
           "memory": {},
           "pending": 1
         }
@@ -1443,8 +1413,8 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：杯子之间以及杯子和箱壁之间都需要隔离。\n- 原样提出下面的问题并等待作答：\n?[{{ 打包陶制杯子时，哪些做法能降低碰撞？ }} 杯口加纸垫 || 每只杯子单独包裹 || 留空让杯子移动 || 箱底加缓冲 || 固定隔层 || ...也可以填一项措施]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "teaching_prompt": "- 用这条要点引入：杯子之间以及杯子和箱壁之间都需要隔离。\n- 提出下面的问题并等待作答：\n?[{{ 打包陶制杯子时，哪些做法能降低碰撞？ }} 杯口加纸垫 || 每只杯子单独包裹 || 留空让杯子移动 || 箱底加缓冲 || 固定隔层 || ...也可以填一项措施]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -1478,9 +1448,7 @@
             ],
             "placeholder": "也可以填一项措施"
           },
-          "prose_once": [
-            "打包陶制杯子时，哪些做法能降低碰撞？"
-          ],
+          "prose_question": "打包陶制杯子时，哪些做法能降低碰撞？",
           "memory": {},
           "pending": 1
         }
@@ -1566,9 +1534,7 @@
             "options": [],
             "placeholder": "写一个检查步骤"
           },
-          "prose_once": [
-            "如果厨房秤归零后仍有偏差，你会怎样检查？"
-          ],
+          "prose_question": "如果厨房秤归零后仍有偏差，你会怎样检查？",
           "memory": {},
           "pending": 1
         }
@@ -1629,7 +1595,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "先简要解释「能复查的描述应写明条件和实际观察量。」\n\n接着问「哪条观察记录方便别人复查？」，用下方控件收集回答。\n\n?[{{ 哪条观察记录方便别人复查？ }} 室内放置十分钟后测得二十度 | 这个杯子有点凉 | 今天量得还行 | 看起来差不多]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -1659,9 +1625,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "哪条观察记录方便别人复查？"
-          ],
+          "prose_question": "哪条观察记录方便别人复查？",
           "memory": {},
           "pending": 1
         }
@@ -1730,7 +1694,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：先选一个分工，我们再具体讨论交接条件。\n- 原样提出下面的问题并等待作答：\n?[{{ 小组画图时，你愿意先练习哪个分工？ }} 整理材料 | 画草图 | 标尺寸 | 检查成稿 | ...输入另一个分工]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "teaching_prompt": "- 用这条要点引入：先选一个分工，我们再具体讨论交接条件。\n- 提出下面的问题并等待作答：\n?[{{ 小组画图时，你愿意先练习哪个分工？ }} 整理材料 | 画草图 | 标尺寸 | 检查成稿 | ...输入另一个分工]\n- 收到答案后用一句话承接学员的回答，然后结束。",
     "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
     "steps": [
       {
@@ -1761,9 +1725,7 @@
             ],
             "placeholder": "输入另一个分工"
           },
-          "prose_once": [
-            "小组画图时，你愿意先练习哪个分工？"
-          ],
+          "prose_question": "小组画图时，你愿意先练习哪个分工？",
           "memory": {},
           "pending": 1
         }
@@ -1834,7 +1796,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "### 练习\n有效比较需要让其它条件尽量一致。\n\n怎样给两组幼苗安排可比较的浇水量？\n?[{{ 怎样给两组幼苗安排可比较的浇水量？ }} ...说明分组和每天的操作]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -1847,9 +1809,7 @@
             "options": [],
             "placeholder": "说明分组和每天的操作"
           },
-          "prose_once": [
-            "怎样给两组幼苗安排可比较的浇水量？"
-          ],
+          "prose_question": "怎样给两组幼苗安排可比较的浇水量？",
           "memory": {},
           "pending": 1
         }
@@ -1936,9 +1896,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "班级借用画笔时，哪条记录最便于归还？"
-          ],
+          "prose_question": "班级借用画笔时，哪条记录最便于归还？",
           "memory": {},
           "pending": 1
         }
@@ -2004,8 +1962,8 @@
       "preview",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：检查时先约定拉力或负重以及保持时间。\n- 原样提出下面的问题并等待作答：\n?[{{ 你会怎样测试胶带粘在纸盒上是否牢固？ }} ...写一种检验方法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "teaching_prompt": "- 用这条要点引入：检查时先约定拉力或负重以及保持时间。\n- 提出下面的问题并等待作答：\n?[{{ 你会怎样测试胶带粘在纸盒上是否牢固？ }} ...写一种检验方法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -2018,9 +1976,7 @@
             "options": [],
             "placeholder": "写一种检验方法"
           },
-          "prose_once": [
-            "你会怎样测试胶带粘在纸盒上是否牢固？"
-          ],
+          "prose_question": "你会怎样测试胶带粘在纸盒上是否牢固？",
           "memory": {},
           "pending": 1
         }
@@ -2107,9 +2063,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "做手工时怎样减少第二次裁剪返工？"
-          ],
+          "prose_question": "做手工时怎样减少第二次裁剪返工？",
           "memory": {},
           "pending": 1
         }
@@ -2176,7 +2130,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "先简要解释「先用一个具体缺陷练习观察和定位。」\n\n接着问「你想先学习如何排查哪一类纸模缺陷？」，用下方控件收集回答。\n\n?[{{ 你想先学习如何排查哪一类纸模缺陷？ }} 角度不齐 | 纸面起皱 | 折线开裂 | 接口过松 | ...也可以填写另一类缺陷]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -2206,9 +2160,7 @@
             ],
             "placeholder": "也可以填写另一类缺陷"
           },
-          "prose_once": [
-            "你想先学习如何排查哪一类纸模缺陷？"
-          ],
+          "prose_question": "你想先学习如何排查哪一类纸模缺陷？",
           "memory": {},
           "pending": 1
         }
@@ -2276,7 +2228,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：口令和实际动作配对，比只记步骤名称更容易。\n- 原样提出下面的问题并等待作答：\n?[{{ 你想用哪个动作帮助记住测量顺序？ }} 先归零 | 先摆正 | 先读数 | ...]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "teaching_prompt": "- 用这条要点引入：口令和实际动作配对，比只记步骤名称更容易。\n- 提出下面的问题并等待作答：\n?[{{ 你想用哪个动作帮助记住测量顺序？ }} 先归零 | 先摆正 | 先读数 | ...]\n- 收到答案后用一句话承接学员的回答，然后结束。",
     "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
     "steps": [
       {
@@ -2303,9 +2255,7 @@
             ],
             "placeholder": "请输入你的回答"
           },
-          "prose_once": [
-            "你想用哪个动作帮助记住测量顺序？"
-          ],
+          "prose_question": "你想用哪个动作帮助记住测量顺序？",
           "memory": {},
           "pending": 1
         }
@@ -2370,7 +2320,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "### 练习\n明确的清单项同时提供物品、规格和数量。\n\n材料准备清单里哪一项最明确？\n?[{{ 材料准备清单里哪一项最明确？ }} 两张厚卡纸 | 好一点的纸 | 一份常用材料 | 看情况拿纸]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -2400,9 +2350,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "材料准备清单里哪一项最明确？"
-          ],
+          "prose_question": "材料准备清单里哪一项最明确？",
           "memory": {},
           "pending": 1
         }
@@ -2485,9 +2433,7 @@
             "options": [],
             "placeholder": "写一句有因果关系的话"
           },
-          "prose_once": [
-            "怎样解释木块在粗糙桌面上更难推动？"
-          ],
+          "prose_question": "怎样解释木块在粗糙桌面上更难推动？",
           "memory": {},
           "pending": 1
         }
@@ -2547,8 +2493,8 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：临时筛掉和永久删除是两个不同的动作。\n- 原样提出下面的问题并等待作答：\n?[{{ 哪种方式能最快找回上周筛掉的照片？ }} 查看临时淘汰相册 | 按相机颜色搜索 | 重新拍摄所有照片]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "teaching_prompt": "- 用这条要点引入：临时筛掉和永久删除是两个不同的动作。\n- 提出下面的问题并等待作答：\n?[{{ 哪种方式能最快找回上周筛掉的照片？ }} 查看临时淘汰相册 | 按相机颜色搜索 | 重新拍摄所有照片]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -2574,9 +2520,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "哪种方式能最快找回上周筛掉的照片？"
-          ],
+          "prose_question": "哪种方式能最快找回上周筛掉的照片？",
           "memory": {},
           "pending": 1
         }
@@ -2673,9 +2617,7 @@
             ],
             "placeholder": "输入你想改写的说明类型"
           },
-          "prose_once": [
-            "你会先改写哪一类容易误读的说明？"
-          ],
+          "prose_question": "你会先改写哪一类容易误读的说明？",
           "memory": {},
           "pending": 1
         }
@@ -2746,7 +2688,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "先简要解释「同样的推力下，质量较大时加速度较小。」\n\n接着问「为什么同一个杯子装满水后更不容易被吹动？」，用下方控件收集回答。\n\n?[{{ 为什么同一个杯子装满水后更不容易被吹动？ }} ...用一句话写出原因]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -2759,9 +2701,7 @@
             "options": [],
             "placeholder": "用一句话写出原因"
           },
-          "prose_once": [
-            "为什么同一个杯子装满水后更不容易被吹动？"
-          ],
+          "prose_question": "为什么同一个杯子装满水后更不容易被吹动？",
           "memory": {},
           "pending": 1
         }
@@ -2821,7 +2761,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：图上测得的比例可以辅助比较，却无法给出实地长度。\n- 原样提出下面的问题并等待作答：\n?[{{ 如果图上没有比例尺，怎样描述两条路线的长度？ }} 只能比较图上长度 | 直接读出公里数 | 按图标大小猜 | 把两条都记成一公里]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "teaching_prompt": "- 用这条要点引入：图上测得的比例可以辅助比较，却无法给出实地长度。\n- 提出下面的问题并等待作答：\n?[{{ 如果图上没有比例尺，怎样描述两条路线的长度？ }} 只能比较图上长度 | 直接读出公里数 | 按图标大小猜 | 把两条都记成一公里]\n- 收到答案后用一句话承接学员的回答，然后结束。",
     "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
     "steps": [
       {
@@ -2852,9 +2792,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "如果图上没有比例尺，怎样描述两条路线的长度？"
-          ],
+          "prose_question": "如果图上没有比例尺，怎样描述两条路线的长度？",
           "memory": {},
           "pending": 1
         }
@@ -2924,7 +2862,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "### 练习\n交接应写清已完成的工作和剩余动作。\n\n在任务结束时，哪个记录最方便下一组接手？\n?[{{ 在任务结束时，哪个记录最方便下一组接手？ }} 登记已切的纸片和待粘的边 | 只说差不多了 | 只附无说明的照片]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -2950,9 +2888,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "在任务结束时，哪个记录最方便下一组接手？"
-          ],
+          "prose_question": "在任务结束时，哪个记录最方便下一组接手？",
           "memory": {},
           "pending": 1
         }
@@ -3049,9 +2985,7 @@
             ],
             "placeholder": "也可输入一种纸材"
           },
-          "prose_once": [
-            "你想把哪一种材料写进纸模对照表？"
-          ],
+          "prose_question": "你想把哪一种材料写进纸模对照表？",
           "memory": {},
           "pending": 1
         }
@@ -3119,8 +3053,8 @@
       "preview",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：测量需要参照同一段橡皮筋未受力时的长度。\n- 原样提出下面的问题并等待作答：\n?[{{ 拉长橡皮筋时，怎样确定回复到原长？ }} ...说明测量和比较方式]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "teaching_prompt": "- 用这条要点引入：测量需要参照同一段橡皮筋未受力时的长度。\n- 提出下面的问题并等待作答：\n?[{{ 拉长橡皮筋时，怎样确定回复到原长？ }} ...说明测量和比较方式]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -3133,9 +3067,7 @@
             "options": [],
             "placeholder": "说明测量和比较方式"
           },
-          "prose_once": [
-            "拉长橡皮筋时，怎样确定回复到原长？"
-          ],
+          "prose_question": "拉长橡皮筋时，怎样确定回复到原长？",
           "memory": {},
           "pending": 1
         }
@@ -3223,9 +3155,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "哪张卡片标明了物品需放回原处？"
-          ],
+          "prose_question": "哪张卡片标明了物品需放回原处？",
           "memory": {},
           "pending": 1
         }
@@ -3296,7 +3226,7 @@
       "authored-binding"
     ],
     "teaching_prompt": "先简要解释「请他人照做可以发现自己省略的步骤。」\n\n接着问「你打算用哪个练习检查自己的说明是否清楚？」，用下方控件收集回答。\n\n?[{{ 你打算用哪个练习检查自己的说明是否清楚？ }} 让同伴照做 | 自己倒序检查 | 读出步骤 | 拍一次示范 | ...填一个你喜欢的检查法]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -3326,9 +3256,7 @@
             ],
             "placeholder": "填一个你喜欢的检查法"
           },
-          "prose_once": [
-            "你打算用哪个练习检查自己的说明是否清楚？"
-          ],
+          "prose_question": "你打算用哪个练习检查自己的说明是否清楚？",
           "memory": {},
           "pending": 1
         }
@@ -3515,9 +3443,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "刮风时哪种方式能稳住遮阳布？"
-          ],
+          "prose_question": "刮风时哪种方式能稳住遮阳布？",
           "memory": {},
           "pending": 1
         },
@@ -3637,8 +3563,8 @@
       "observed-anomaly",
       "missing-stem"
     ],
-    "teaching_prompt": "- 用这条要点引入：从手边的工具入手，说明会更具体。\n- 原样提出下面的问题并等待作答：\n?[{{ 你准备选哪件日常工具做步骤说明？ }} 订书机 | 卷尺 | 圆规 | 剪刀 | ...填入一种工具]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "teaching_prompt": "- 用这条要点引入：从手边的工具入手，说明会更具体。\n- 提出下面的问题并等待作答：\n?[{{ 你准备选哪件日常工具做步骤说明？ }} 订书机 | 卷尺 | 圆规 | 剪刀 | ...填入一种工具]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -3668,9 +3594,7 @@
             ],
             "placeholder": "填入一种工具"
           },
-          "prose_once": [
-            "你准备选哪件日常工具做步骤说明？"
-          ],
+          "prose_question": "你准备选哪件日常工具做步骤说明？",
           "memory": {},
           "pending": 1
         },
@@ -3813,9 +3737,7 @@
             "options": [],
             "placeholder": "写出一个比较办法"
           },
-          "prose_once": [
-            "怎样用温度计比较两杯水的温度？"
-          ],
+          "prose_question": "怎样用温度计比较两杯水的温度？",
           "memory": {},
           "pending": 1
         },
@@ -3905,7 +3827,7 @@
       "wrong-binding"
     ],
     "teaching_prompt": "先简要解释「用文字标出状态，颜色只作辅助。」\n\n接着问「哪种标记能辨认已经校准的量杯？」，用下方控件收集回答。\n\n?[{{ 哪种标记能辨认已经校准的量杯？ }} 已校准 | 待测量 | 需要清洗]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -3931,9 +3853,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "哪种标记能辨认已经校准的量杯？"
-          ],
+          "prose_question": "哪种标记能辨认已经校准的量杯？",
           "memory": {},
           "pending": 1
         },
@@ -4054,7 +3974,7 @@
       "observed-anomaly",
       "extra-pause"
     ],
-    "teaching_prompt": "- 用这条要点引入：测量值需要绑定到样品编号。\n- 原样提出下面的问题并等待作答：\n?[{{ 哪里应该登记每包种子的称量值？ }} 样品登记表 | 签到册 | 值班表]\n- 收到答案后用一句话承接学员的回答，然后结束。",
+    "teaching_prompt": "- 用这条要点引入：测量值需要绑定到样品编号。\n- 提出下面的问题并等待作答：\n?[{{ 哪里应该登记每包种子的称量值？ }} 样品登记表 | 签到册 | 值班表]\n- 收到答案后用一句话承接学员的回答，然后结束。",
     "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
     "steps": [
       {
@@ -4081,9 +4001,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "哪里应该登记每包种子的称量值？"
-          ],
+          "prose_question": "哪里应该登记每包种子的称量值？",
           "memory": {},
           "pending": 1
         }
@@ -4167,7 +4085,7 @@
       "wrong-binding"
     ],
     "teaching_prompt": "### 练习\n筛网孔径和筛出材料应同时记录。\n\n哪一步能留下这次筛分的复查依据？\n?[{{ 哪一步能留下这次筛分的复查依据？ }} 登记孔径和筛余重量 | 只写操作时间 | 只记筛网颜色]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题干和选项。",
+    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
     "steps": [
       {
         "action": "start",
@@ -4193,9 +4111,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "哪一步能留下这次筛分的复查依据？"
-          ],
+          "prose_question": "哪一步能留下这次筛分的复查依据？",
           "memory": {},
           "pending": 1
         },
@@ -4346,9 +4262,7 @@
             ],
             "placeholder": null
           },
-          "prose_once": [
-            "改用新刀片前要先核对哪项？"
-          ],
+          "prose_question": "改用新刀片前要先核对哪项？",
           "memory": {},
           "pending": 1
         },
@@ -4482,9 +4396,7 @@
             "options": [],
             "placeholder": "Describe the thumbprint"
           },
-          "prose_once": [
-            "Why does wet clay keep a thumbprint?"
-          ],
+          "prose_question": "Why does wet clay keep a thumbprint?",
           "memory": {}
         }
       },
@@ -4608,9 +4520,7 @@
             "options": [],
             "placeholder": "Explain the effect of the lid"
           },
-          "prose_once": [
-            "Why does a lid slow the cooling of soup?"
-          ],
+          "prose_question": "Why does a lid slow the cooling of soup?",
           "memory": {}
         }
       },
@@ -4736,9 +4646,7 @@
             "options": [],
             "placeholder": "Explain the fold"
           },
-          "prose_once": [
-            "Why is the middle of a folded sheet harder to bend?"
-          ],
+          "prose_question": "Why is the middle of a folded sheet harder to bend?",
           "memory": {}
         }
       },
@@ -4855,9 +4763,7 @@
             "options": [],
             "placeholder": "Explain why the beam floats"
           },
-          "prose_once": [
-            "Why does a wooden beam stay afloat?"
-          ],
+          "prose_question": "Why does a wooden beam stay afloat?",
           "memory": {}
         }
       },
@@ -5177,6 +5083,26 @@
               ]
             ]
           },
+          "prose_question": "Which small garden will you sketch?",
+          "memory": {}
+        },
+        "replay_expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "single",
+            "question": "Which small garden will you sketch?",
+            "variable": "Which small garden will you sketch?",
+            "options": [
+              [
+                "Herbs",
+                "herbs"
+              ],
+              [
+                "Flowers",
+                "flowers"
+              ]
+            ]
+          },
           "prose_once": [
             "Which small garden will you sketch?"
           ],
@@ -5262,9 +5188,7 @@
               ]
             ]
           },
-          "prose_once": [
-            "Which small garden will you sketch?"
-          ],
+          "prose_question": "Which small garden will you sketch?",
           "memory": {}
         },
         "replay_expected": {
@@ -5401,9 +5325,7 @@
             ],
             "variable": "Which example would you like to try?"
           },
-          "prose_once": [
-            "Which example would you like to try?"
-          ],
+          "prose_question": "Which example would you like to try?",
           "memory": {}
         }
       },
@@ -5642,9 +5564,7 @@
             ],
             "placeholder": "Other notation ... or ]"
           },
-          "prose_once": [
-            "Which notation should we label?"
-          ],
+          "prose_question": "Which notation should we label?",
           "memory": {}
         }
       },

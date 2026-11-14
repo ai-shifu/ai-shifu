@@ -34,6 +34,16 @@ live calls. Both modes run without starting the web app, API, MySQL, or Redis.
 The evaluator uses local session state and skips application usage writes and
 Langfuse tracing.
 
+Live steps with `prose_question` ask a model to verify that the visible teaching
+prose invites the learner to answer the intended question. Equivalent wording
+passes. An empty response, a related topic without a request to answer, or a
+different question fails. This check uses at most one additional provider
+request per eligible step. It defaults to the teaching model. Use `--judge-model`
+to hold the judge model fixed when comparing different teaching models. The
+report records each verdict and separates judging requests and tokens from
+teaching. A failed judge request or invalid verdict is a call failure. Offline mode
+skips semantic judging and runs the deterministic replay assertions.
+
 For each live learner action, an engine turn that ends after visible teaching
 can continue automatically with the same session. The evaluator stops on a
 question (including narrated controls), completion, an error, or a turn with
@@ -57,8 +67,9 @@ new wording. A pass after a model validation retry or automatic continuation is
 reported as a recovery. Reports count the two kinds of recovery separately and
 include each engine turn's outcome. They also distinguish reproduced historical
 failures, behavior failures, and provider failures. Generate a fresh baseline
-when the report version changes, and keep mode, model, temperature, case
-selection, and repeat count consistent. The exit status is 0 when every case
+when the report version changes, and keep mode, teaching model, judge model
+and instructions, temperature, case selection, and repeat count consistent.
+The exit status is 0 when every case
 meets its expectations, 1 for behavior failures, and 2 for invocation, provider,
 or comparison errors.
 
