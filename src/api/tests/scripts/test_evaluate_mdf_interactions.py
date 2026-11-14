@@ -218,6 +218,7 @@ def test_live_question_checks_visible_meaning_separately_from_binding(
     expected = fixture["steps"][0]["expected"]
     del expected["prose_once"]
     expected["prose_question"] = QUESTION
+    expected["replay_prose_once"] = [QUESTION]
     fixture["replay"][0]["text"] = prose
     case = Case.model_validate(fixture)
     judged = []
@@ -282,6 +283,33 @@ def test_offline_replay_reports_behavior_failures(
     (result,) = _report(output)["results"]
     assert result["status"] == "behavior_failure"
     assert failure in result["failures"]
+
+
+@pytest.mark.parametrize("question_count", [0, 2], ids=["omitted", "repeated"])
+def test_bundled_offline_replay_checks_question_in_prose(
+    tmp_path: Path, question_count: int
+) -> None:
+    cases = tmp_path / "cases.json"
+    output = tmp_path / "result.json"
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    case = next(case for case in catalog if case["id"] == "lf-course-01")
+    expected = case["steps"][0]["expected"]
+    question = expected["prose_question"]
+    replay = case["replay"][0]
+    replaced = "\n\n".join([question] * question_count)
+    replay["text"] = replay["text"].replace(question, replaced)
+    _write_cases(cases, case)
+
+    process = _run("--cases", str(cases), "--json", str(output))
+
+    assert process.returncode == 1, process.stdout + process.stderr
+    (result,) = _report(output)["results"]
+    assert result["status"] == "behavior_failure"
+    assert result["failures"] == ["step_1.prose_once[0]"]
+    assert result["question_judge_requests"] == 0
+    (step,) = result["steps"]
+    assert step["outcome"] == "interaction"
+    assert step["question"]["variable"] == expected["question"]["variable"]
 
 
 def test_historical_fallback_counts_as_reproduced_failure(tmp_path: Path) -> None:

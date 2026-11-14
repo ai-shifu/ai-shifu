@@ -43,9 +43,10 @@ learner-facing prose. The judge accepts any wording that clearly asks for the
 same choice, answer, or action. A paraphrase or an invitation to respond can
 pass. A tool argument, option label, input hint, or mention of the topic alone
 does not ask the learner. The tool's question binding remains a separate check.
-Offline runs check deterministic expectations only. The synthetic duplicate
-question case retains `prose_once` in `replay_expected` to verify the exact
-number of occurrences across a scripted retry.
+Use `replay_prose_once` for phrases that should occur exactly once in the fixed
+replay text. A replay expectation can also use `prose_once` inside
+`replay_expected`, for example to check question wording across a scripted
+retry. Live runs do not apply either replay-only assertion.
 
 Candidate observations were grouped by course and teaching interaction, and
 selected traces were checked for distinct session identities. Tool inputs and

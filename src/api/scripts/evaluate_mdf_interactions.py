@@ -82,6 +82,7 @@ class ExpectedStep(FixtureModel):
     prose_question: str | None = Field(default=None, min_length=1)
     prose_contains: list[str] = Field(default_factory=list)
     prose_once: list[str] = Field(default_factory=list)
+    replay_prose_once: list[str] = Field(default_factory=list)
     prose_excludes: list[str] = Field(default_factory=list)
     memory: dict[str, str] | None = None
     asked_before: bool | None = None
@@ -386,7 +387,9 @@ def question_details(
     }
 
 
-def step_failures(expected: ExpectedStep, result: dict[str, object]) -> list[str]:
+def step_failures(
+    expected: ExpectedStep, result: dict[str, object], *, replay: bool = False
+) -> list[str]:
     """Check the stage outcome, controls, visible prose, and memory independently."""
     failures = [
         field
@@ -428,10 +431,9 @@ def step_failures(expected: ExpectedStep, result: dict[str, object]) -> list[str
         for i, text in enumerate(expected.prose_contains)
         if text not in prose
     )
+    once = expected.prose_once + (expected.replay_prose_once if replay else [])
     failures.extend(
-        f"prose_once[{i}]"
-        for i, text in enumerate(expected.prose_once)
-        if prose.count(text) != 1
+        f"prose_once[{i}]" for i, text in enumerate(once) if prose.count(text) != 1
     )
     failures.extend(
         f"prose_excludes[{i}]"
@@ -607,7 +609,7 @@ async def evaluate_case(
         automatic_continuations += result["automatic_continuations"]
         result["stage"] = index
         result["retries"] = observed.retries - prior_retries
-        result["failures"] = step_failures(expected, result)
+        result["failures"] = step_failures(expected, result, replay=replay is not None)
         if result["continuation_limit_reached"]:
             result["failures"].append("continuation_limit")
         if expected.prose_question is not None:

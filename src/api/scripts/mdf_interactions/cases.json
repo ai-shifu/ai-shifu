@@ -36,6 +36,9 @@
             "placeholder": null
           },
           "prose_question": "哪种布料适合做反复清洗的餐巾？",
+          "replay_prose_once": [
+            "哪种布料适合做反复清洗的餐巾？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -134,6 +137,9 @@
             "placeholder": null
           },
           "prose_question": "装订一叠散页时，哪一步最能保证页边对齐？",
+          "replay_prose_once": [
+            "装订一叠散页时，哪一步最能保证页边对齐？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -246,6 +252,9 @@
             "placeholder": "也可以写一个环节"
           },
           "prose_question": "你打算从哪个环节练习整理照片？",
+          "replay_prose_once": [
+            "你打算从哪个环节练习整理照片？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -359,6 +368,9 @@
             "placeholder": "也可以填写自己的场景"
           },
           "prose_question": "你想用哪个场景练习复述规则？",
+          "replay_prose_once": [
+            "你想用哪个场景练习复述规则？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -467,6 +479,9 @@
             "placeholder": "输入另一个步骤"
           },
           "prose_question": "你准备练习说明哪一种纸艺步骤？",
+          "replay_prose_once": [
+            "你准备练习说明哪一种纸艺步骤？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -569,6 +584,9 @@
             "placeholder": "也可以输入一个观察项目"
           },
           "prose_question": "观察花坛时，你会记录哪些能复测的项目？",
+          "replay_prose_once": [
+            "观察花坛时，你会记录哪些能复测的项目？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -655,6 +673,9 @@
             "placeholder": "用一句话说明你的办法"
           },
           "prose_question": "你会怎样给两把相似的量勺做标记？",
+          "replay_prose_once": [
+            "你会怎样给两把相似的量勺做标记？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -747,6 +768,9 @@
             "placeholder": null
           },
           "prose_question": "交接一套桌游时，哪些检查能减少零件遗失？",
+          "replay_prose_once": [
+            "交接一套桌游时，哪些检查能减少零件遗失？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -841,6 +865,9 @@
             "placeholder": null
           },
           "prose_question": "要看出两种纸飞机的差异，哪个比较更公平？",
+          "replay_prose_once": [
+            "要看出两种纸飞机的差异，哪个比较更公平？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -919,6 +946,9 @@
             "placeholder": "说一个可实际操作的方法"
           },
           "prose_question": "你准备怎样检验书架隔板是否水平？",
+          "replay_prose_once": [
+            "你准备怎样检验书架隔板是否水平？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -993,6 +1023,9 @@
             "placeholder": "用一句话解释原因"
           },
           "prose_question": "为什么把相同重量的物品放在天平两端会平衡？",
+          "replay_prose_once": [
+            "为什么把相同重量的物品放在天平两端会平衡？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1092,6 +1125,9 @@
             "placeholder": "也可写一个场景"
           },
           "prose_question": "你想练习哪一类公共标识的写法？",
+          "replay_prose_once": [
+            "你想练习哪一类公共标识的写法？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1180,6 +1216,9 @@
             "placeholder": "输入一句指引"
           },
           "prose_question": "试写一条能让读者找到指定书架的指引。",
+          "replay_prose_once": [
+            "试写一条能让读者找到指定书架的指引。"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1254,6 +1293,9 @@
             "placeholder": "写出你能观察到的现象"
           },
           "prose_question": "你会用什么证据说明教室里有回声？",
+          "replay_prose_once": [
+            "你会用什么证据说明教室里有回声？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1345,6 +1387,9 @@
             "placeholder": null
           },
           "prose_question": "一张有图例的地图应怎样用来辨别步道？",
+          "replay_prose_once": [
+            "一张有图例的地图应怎样用来辨别步道？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1449,6 +1494,9 @@
             "placeholder": "也可以填一项措施"
           },
           "prose_question": "打包陶制杯子时，哪些做法能降低碰撞？",
+          "replay_prose_once": [
+            "打包陶制杯子时，哪些做法能降低碰撞？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1535,6 +1583,9 @@
             "placeholder": "写一个检查步骤"
           },
           "prose_question": "如果厨房秤归零后仍有偏差，你会怎样检查？",
+          "replay_prose_once": [
+            "如果厨房秤归零后仍有偏差，你会怎样检查？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1626,6 +1677,9 @@
             "placeholder": null
           },
           "prose_question": "哪条观察记录方便别人复查？",
+          "replay_prose_once": [
+            "哪条观察记录方便别人复查？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1726,6 +1780,9 @@
             "placeholder": "输入另一个分工"
           },
           "prose_question": "小组画图时，你愿意先练习哪个分工？",
+          "replay_prose_once": [
+            "小组画图时，你愿意先练习哪个分工？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1810,6 +1867,9 @@
             "placeholder": "说明分组和每天的操作"
           },
           "prose_question": "怎样给两组幼苗安排可比较的浇水量？",
+          "replay_prose_once": [
+            "怎样给两组幼苗安排可比较的浇水量？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1897,6 +1957,9 @@
             "placeholder": null
           },
           "prose_question": "班级借用画笔时，哪条记录最便于归还？",
+          "replay_prose_once": [
+            "班级借用画笔时，哪条记录最便于归还？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -1977,6 +2040,9 @@
             "placeholder": "写一种检验方法"
           },
           "prose_question": "你会怎样测试胶带粘在纸盒上是否牢固？",
+          "replay_prose_once": [
+            "你会怎样测试胶带粘在纸盒上是否牢固？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2064,6 +2130,9 @@
             "placeholder": null
           },
           "prose_question": "做手工时怎样减少第二次裁剪返工？",
+          "replay_prose_once": [
+            "做手工时怎样减少第二次裁剪返工？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2161,6 +2230,9 @@
             "placeholder": "也可以填写另一类缺陷"
           },
           "prose_question": "你想先学习如何排查哪一类纸模缺陷？",
+          "replay_prose_once": [
+            "你想先学习如何排查哪一类纸模缺陷？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2256,6 +2328,9 @@
             "placeholder": "请输入你的回答"
           },
           "prose_question": "你想用哪个动作帮助记住测量顺序？",
+          "replay_prose_once": [
+            "你想用哪个动作帮助记住测量顺序？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2351,6 +2426,9 @@
             "placeholder": null
           },
           "prose_question": "材料准备清单里哪一项最明确？",
+          "replay_prose_once": [
+            "材料准备清单里哪一项最明确？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2434,6 +2512,9 @@
             "placeholder": "写一句有因果关系的话"
           },
           "prose_question": "怎样解释木块在粗糙桌面上更难推动？",
+          "replay_prose_once": [
+            "怎样解释木块在粗糙桌面上更难推动？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2521,6 +2602,9 @@
             "placeholder": null
           },
           "prose_question": "哪种方式能最快找回上周筛掉的照片？",
+          "replay_prose_once": [
+            "哪种方式能最快找回上周筛掉的照片？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2618,6 +2702,9 @@
             "placeholder": "输入你想改写的说明类型"
           },
           "prose_question": "你会先改写哪一类容易误读的说明？",
+          "replay_prose_once": [
+            "你会先改写哪一类容易误读的说明？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2702,6 +2789,9 @@
             "placeholder": "用一句话写出原因"
           },
           "prose_question": "为什么同一个杯子装满水后更不容易被吹动？",
+          "replay_prose_once": [
+            "为什么同一个杯子装满水后更不容易被吹动？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2793,6 +2883,9 @@
             "placeholder": null
           },
           "prose_question": "如果图上没有比例尺，怎样描述两条路线的长度？",
+          "replay_prose_once": [
+            "如果图上没有比例尺，怎样描述两条路线的长度？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2889,6 +2982,9 @@
             "placeholder": null
           },
           "prose_question": "在任务结束时，哪个记录最方便下一组接手？",
+          "replay_prose_once": [
+            "在任务结束时，哪个记录最方便下一组接手？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -2986,6 +3082,9 @@
             "placeholder": "也可输入一种纸材"
           },
           "prose_question": "你想把哪一种材料写进纸模对照表？",
+          "replay_prose_once": [
+            "你想把哪一种材料写进纸模对照表？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -3068,6 +3167,9 @@
             "placeholder": "说明测量和比较方式"
           },
           "prose_question": "拉长橡皮筋时，怎样确定回复到原长？",
+          "replay_prose_once": [
+            "拉长橡皮筋时，怎样确定回复到原长？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -3156,6 +3258,9 @@
             "placeholder": null
           },
           "prose_question": "哪张卡片标明了物品需放回原处？",
+          "replay_prose_once": [
+            "哪张卡片标明了物品需放回原处？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -3257,6 +3362,9 @@
             "placeholder": "填一个你喜欢的检查法"
           },
           "prose_question": "你打算用哪个练习检查自己的说明是否清楚？",
+          "replay_prose_once": [
+            "你打算用哪个练习检查自己的说明是否清楚？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -4002,6 +4110,9 @@
             "placeholder": null
           },
           "prose_question": "哪里应该登记每包种子的称量值？",
+          "replay_prose_once": [
+            "哪里应该登记每包种子的称量值？"
+          ],
           "memory": {},
           "pending": 1
         }
@@ -4397,6 +4508,9 @@
             "placeholder": "Describe the thumbprint"
           },
           "prose_question": "Why does wet clay keep a thumbprint?",
+          "replay_prose_once": [
+            "Why does wet clay keep a thumbprint?"
+          ],
           "memory": {}
         }
       },
@@ -4521,6 +4635,9 @@
             "placeholder": "Explain the effect of the lid"
           },
           "prose_question": "Why does a lid slow the cooling of soup?",
+          "replay_prose_once": [
+            "Why does a lid slow the cooling of soup?"
+          ],
           "memory": {}
         }
       },
@@ -4647,6 +4764,9 @@
             "placeholder": "Explain the fold"
           },
           "prose_question": "Why is the middle of a folded sheet harder to bend?",
+          "replay_prose_once": [
+            "Why is the middle of a folded sheet harder to bend?"
+          ],
           "memory": {}
         }
       },
@@ -4764,6 +4884,9 @@
             "placeholder": "Explain why the beam floats"
           },
           "prose_question": "Why does a wooden beam stay afloat?",
+          "replay_prose_once": [
+            "Why does a wooden beam stay afloat?"
+          ],
           "memory": {}
         }
       },
@@ -5326,6 +5449,9 @@
             "variable": "Which example would you like to try?"
           },
           "prose_question": "Which example would you like to try?",
+          "replay_prose_once": [
+            "Which example would you like to try?"
+          ],
           "memory": {}
         }
       },
@@ -5565,6 +5691,9 @@
             "placeholder": "Other notation ... or ]"
           },
           "prose_question": "Which notation should we label?",
+          "replay_prose_once": [
+            "Which notation should we label?"
+          ],
           "memory": {}
         }
       },

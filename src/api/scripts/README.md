@@ -41,8 +41,9 @@ different question fails. This check uses at most one additional provider
 request per eligible step. It defaults to the teaching model. Use `--judge-model`
 to hold the judge model fixed when comparing different teaching models. The
 report records each verdict and separates judging requests and tokens from
-teaching. A failed judge request or invalid verdict is a call failure. Offline mode
-skips semantic judging and runs the deterministic replay assertions.
+teaching. A failed judge request or invalid verdict is a call failure. Offline
+mode skips semantic judging and applies deterministic assertions such as
+`replay_prose_once` to the fixed replay text.
 
 For each live learner action, an engine turn that ends after visible teaching
 can continue automatically with the same session. The evaluator stops on a
