@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import subprocess
@@ -11,9 +12,15 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
+from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, UserPromptPart
+from pydantic_ai.models.function import FunctionModel
+from scripts.evaluate_mdf_interactions import Case, Replay, evaluate_case
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from pydantic_ai.messages import ModelMessage
+    from pydantic_ai.models.function import AgentInfo
 
 API_DIR = Path(__file__).resolve().parents[2]
 SCRIPT = API_DIR / "scripts" / "evaluate_mdf_interactions.py"
@@ -186,6 +193,69 @@ def test_offline_replay_reloads_pending_question_and_stores_submitted_value(
 
 
 @pytest.mark.parametrize(
+    ("prose", "verdict", "status", "failures"),
+    [
+        (
+            "Pick the outdoor space you want to start with.",
+            True,
+            "first_attempt_pass",
+            [],
+        ),
+        (
+            "Both spaces have interesting features.",
+            False,
+            "behavior_failure",
+            ["step_1.prose_question"],
+        ),
+        ("", False, "behavior_failure", ["step_1.prose_question"]),
+        ("Pick a space.", None, "call_failure", ["step_1.question_judge_call"]),
+    ],
+)
+def test_live_question_checks_visible_meaning_separately_from_binding(
+    prose: str, verdict: bool | None, status: str, failures: list[str]
+) -> None:
+    fixture = _case()
+    expected = fixture["steps"][0]["expected"]
+    del expected["prose_once"]
+    expected["prose_question"] = QUESTION
+    expected["replay_prose_once"] = [QUESTION]
+    fixture["replay"][0]["text"] = prose
+    case = Case.model_validate(fixture)
+    judged = []
+
+    def assessment(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        prompt = next(
+            part for part in messages[-1].parts if isinstance(part, UserPromptPart)
+        )
+        judged.append(json.loads(prompt.content))
+        if verdict is None:
+            return ModelResponse(parts=[TextPart("Invalid unstructured result")])
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    info.output_tools[0].name,
+                    {"asked": verdict, "reason": "Test judgment"},
+                )
+            ]
+        )
+
+    result = asyncio.run(
+        evaluate_case(
+            case, Replay(case.replay).model, judge_model=FunctionModel(assessment)
+        )
+    )
+
+    assert result["steps"][0]["question"]["variable"] == QUESTION
+    assert result["status"] == status
+    assert result["failures"] == failures
+    assert judged == (
+        [{"intended_question": QUESTION, "prose": prose}] if prose else []
+    )
+    assert result["question_judge_requests"] == len(judged)
+    assert result["model_requests"] == (2 if verdict is True else 1)
+
+
+@pytest.mark.parametrize(
     ("problem", "failure"),
     [
         ("memory", "step_3.memory"),
@@ -213,6 +283,33 @@ def test_offline_replay_reports_behavior_failures(
     (result,) = _report(output)["results"]
     assert result["status"] == "behavior_failure"
     assert failure in result["failures"]
+
+
+@pytest.mark.parametrize("question_count", [0, 2], ids=["omitted", "repeated"])
+def test_bundled_offline_replay_checks_question_in_prose(
+    tmp_path: Path, question_count: int
+) -> None:
+    cases = tmp_path / "cases.json"
+    output = tmp_path / "result.json"
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    case = next(case for case in catalog if case["id"] == "lf-course-01")
+    expected = case["steps"][0]["expected"]
+    question = expected["prose_question"]
+    replay = case["replay"][0]
+    replaced = "\n\n".join([question] * question_count)
+    replay["text"] = replay["text"].replace(question, replaced)
+    _write_cases(cases, case)
+
+    process = _run("--cases", str(cases), "--json", str(output))
+
+    assert process.returncode == 1, process.stdout + process.stderr
+    (result,) = _report(output)["results"]
+    assert result["status"] == "behavior_failure"
+    assert result["failures"] == ["step_1.prose_once[0]"]
+    assert result["question_judge_requests"] == 0
+    (step,) = result["steps"]
+    assert step["outcome"] == "interaction"
+    assert step["question"]["variable"] == expected["question"]["variable"]
 
 
 def test_historical_fallback_counts_as_reproduced_failure(tmp_path: Path) -> None:

@@ -38,6 +38,16 @@ An interaction step expects one emitted question by default. Set
 `question_count` when the step intentionally emits more than one. The
 `pending` field checks how many questions the session still holds.
 
+Set `prose_question` to the intended question for a live check of the
+learner-facing prose. The judge accepts any wording that clearly asks for the
+same choice, answer, or action. A paraphrase or an invitation to respond can
+pass. A tool argument, option label, input hint, or mention of the topic alone
+does not ask the learner. The tool's question binding remains a separate check.
+Use `replay_prose_once` for phrases that should occur exactly once in the fixed
+replay text. A replay expectation can also use `prose_once` inside
+`replay_expected`, for example to check question wording across a scripted
+retry. Live runs do not apply either replay-only assertion.
+
 Candidate observations were grouped by course and teaching interaction, and
 selected traces were checked for distinct session identities. Tool inputs and
 outcomes supplied the interaction shapes and rejection reasons. The catalog
