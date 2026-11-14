@@ -38,11 +38,11 @@ Live steps with `prose_question` ask a model to verify that the visible teaching
 prose invites the learner to answer the intended question. Equivalent wording
 passes. An empty response, a related topic without a request to answer, or a
 different question fails. This check uses at most one additional provider
-request per eligible step. It defaults to the teaching model. Use `--judge-model`
-to hold the judge model fixed when comparing different teaching models. The
-report records each verdict and separates judging requests and tokens from
-teaching. A failed judge request or invalid verdict is a call failure. Offline
-mode skips semantic judging and applies deterministic assertions such as
+request per eligible step. It defaults to the teaching model. To review results
+from different teaching models side by side, generate separate reports with the
+same `--judge-model`. The report records each verdict and separates judge
+requests and tokens from teaching. A failed judge request or invalid verdict is
+a call failure. Offline mode skips semantic judging and applies assertions such as
 `replay_prose_once` to the fixed replay text.
 
 For each live learner action, an engine turn that ends after visible teaching
@@ -68,11 +68,10 @@ new wording. A pass after a model validation retry or automatic continuation is
 reported as a recovery. Reports count the two kinds of recovery separately and
 include each engine turn's outcome. They also distinguish reproduced historical
 failures, behavior failures, and provider failures. Generate a fresh baseline
-when the report version changes, and keep mode, teaching model, judge model
-and instructions, temperature, case selection, and repeat count consistent.
-The exit status is 0 when every case
-meets its expectations, 1 for behavior failures, and 2 for invocation, provider,
-or comparison errors.
+when the report version changes. `--compare` requires matching mode, teaching
+model, judge model and instructions, temperature, case selection, and repeat
+count. The exit status is 0 when every case meets its expectations, 1 for
+behavior failures, and 2 for invocation, provider, or comparison errors.
 
 For a new trace-derived case, reconstruct a teaching excerpt and answer with
 original wording. Keep the interaction syntax, displayed and submitted value
