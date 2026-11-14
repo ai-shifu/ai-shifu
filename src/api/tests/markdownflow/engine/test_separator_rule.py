@@ -36,6 +36,7 @@ def test_a_pause_the_script_asks_for_still_stops_the_turn() -> None:
     prompt, which requires a `confirm` where the script says to wait for the learner.
     """
     rule = _separator_rule()
+    assert "Follow **Turn structure**" in rule
     assert "a pause it explicitly asks for" in rule
 
 
