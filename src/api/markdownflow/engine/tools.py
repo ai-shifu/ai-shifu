@@ -907,7 +907,11 @@ async def interact(
     `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
     without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
-    For an ordinary answer interaction, ask the learner-facing question in visible prose first.
+    For an ordinary answer interaction, first ask in visible Markdown prose what the learner
+    should answer, choose, or do. You may rephrase the authored question while preserving its
+    meaning and scope; a direct request is valid without a question mark. This tool supplies
+    controls, not the request in the lesson body or narration. Putting the question in this
+    call or writing only a topic explanation or "Now try this question" does not ask it there.
     With a nonempty leading `{{...}}` or `%{{...}}` binding, set `question` to only its exact
     inner text, trimming outer whitespace. Without a binding, use the full question from prose
     for an answer control and omit `question` for other controls. Decide whether the control
@@ -971,7 +975,8 @@ async def interact(
     clarification, stages without an authored count, multiple questions within one
     aspect, or an input without an
     exact authored anchor, omit `direction`
-    and follow the ordinary authored behavior.
+    and follow the ordinary authored behavior, including the visible request before answer
+    controls. Tool-only delivery of guiding questions applies to structured direction above.
     When the host requires an explicit feedback branch for supported returned
     text, ordinary feedback attaches `review` here or to its first existing read,
     memory or finish call. A direction uses `direction` alone. Follow the host's
@@ -1331,7 +1336,8 @@ async def prepare_feedback_tool(
                 "With a nonempty leading {{...}} or %{{...}} binding, copy only its exact "
                 "inner text, trimming outer whitespace. For an unbound answer control, use "
                 "the full learner-facing question from prose. For other unbound controls, "
-                "omit this field. A nonempty value is the storage key for the accepted answer."
+                "omit this field. A nonempty value is the storage key for the accepted answer. "
+                "This field does not replace the learner-facing request in Markdown content."
             ),
         }
         if ctx.deps.translated_controls:
