@@ -28,8 +28,7 @@ class DirectionFocus(BaseModel):
     criterion_quote: str = Field(
         min_length=1,
         description=(
-            "Exact clause for one authored requirement; do not copy a compound sentence, "
-            "heading or checklist."
+            "Exact clause for one authored requirement, not a compound sentence, heading or checklist."
         ),
     )
     submission_quote: str | None = Field(
@@ -39,15 +38,14 @@ class DirectionFocus(BaseModel):
     observed_issue: str = Field(
         min_length=1,
         description=(
-            "Internal issue for this clause alone; never list other gaps or copy an "
-            "unmatched sample diagnosis. Cite actual input."
+            "Internal issue for this clause, grounded in actual input; no other gaps or unmatched sample diagnosis."
         ),
     )
     guiding_question: str = Field(
         min_length=1,
         description=(
-            "One unanswered check of the selected clause only; no subquestions, other "
-            "requirements, worked reasoning or broad completion request."
+            "One unanswered check of this clause; no subquestions, other requirements, "
+            "worked reasoning or broad completion request."
         ),
     )
 
@@ -58,8 +56,9 @@ class FeedbackReview(BaseModel):
     answer_id: str
     phase: Literal["accepted", "clarification", "authored_help"] = Field(
         description=(
-            "authored_help cannot use local samples to waive global checking counts. "
-            "Knowledge help is not a failed attempt. First counted failures use direction."
+            "accepted: requirements met; clarification: a side question without an answer attempt; "
+            "authored_help: help permitted at this correction stage. Local samples cannot "
+            "waive global counts; first failures with an authored checking count use direction."
         )
     )
     submission_quote: str = Field(
@@ -112,16 +111,14 @@ class DirectionFeedback(BaseModel):
     aspect_limit: int = Field(
         ge=1,
         description=(
-            "Applicable count across lesson-wide and local rules; local examples cannot "
-            "waive it. Must be positive; never omit or use null. Without an authored "
-            "count, use ordinary review-authored feedback; never invent one."
+            "Positive authored count from applicable global/local rules; local examples "
+            "cannot waive it. Never omit, null or invent it; without a count use ordinary review."
         ),
     )
     accepted_quotes: list[str] = Field(
         description=(
-            "Unique exact correct excerpts from this answer; [] if none. Do not also "
-            "use them as contradiction evidence. Shown with a check for authored "
-            "acknowledgement; never invent learner wording."
+            "Unique exact correct answer excerpts, or []; never invent wording or also use "
+            "these as contradiction evidence. Shown with a check for authored acknowledgement."
         )
     )
     focuses: list[DirectionFocus] = Field(min_length=1)

@@ -3,6 +3,7 @@
 from collections.abc import AsyncIterator
 
 import pytest
+from markdownflow import load_prompt
 from markdownflow.engine import ScriptBundle, render_first_prompt
 
 
@@ -87,8 +88,7 @@ async def test_unexpanded_source_reaches_initial_and_resumed_sdk_requests(
         assert "<script>\n" + bundle.script + "\n</script>" in payload
         assert "<constraints>\n" + bundle.constraints + "\n</constraints>" in payload
         assert '<extra name="reference">\n{{goal}}\n</extra>' in payload
-        assert "Never display this metadata" in info.instructions
-        assert "generated visuals" in info.instructions
+        assert load_prompt("syntax").strip() in (info.instructions or "")
         assert "unavailable_learner_value" not in payload
         assert ('"goal": "A recorded goal."' in payload) is known
         yield output + "\n<div><style>.card {color: blue}</style>" + output + "</div>"

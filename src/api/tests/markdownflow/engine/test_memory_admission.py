@@ -596,7 +596,7 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
         ) is enabled
         if enabled:
             assert (
-                "EXACTLY"
+                "exactly"
                 in remember_tool.parameters_json_schema["properties"]["request"][
                     "description"
                 ]

@@ -29,35 +29,53 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Reference/binding and learner-facing question guidance are reviewed changes;
-    # retain every other copied prompt byte and keep the historical fixture intact.
-    hashes["system"] = (
-        "3e825967b15a9a382f7421d78e6c2d9f017af81be79c6621746c952f0454a97a"
+    # The concise-instructions revision intentionally updates all runtime prose.
+    # Keep historical migration evidence intact and pin the reviewed current text.
+    hashes.update(
+        {
+            "answer_review": (
+                "ab3e480b1e99a067e0d5a1e4213059f548802a8ccbcbb1f33c773fa4788cafbf"
+            ),
+            "exercise_statistics": (
+                "4ef0db27013dd10942865c1d8bf3ea047e0029845738713cfb357248dc09a197"
+            ),
+            "feedback_contract": (
+                "b54bfbf78f43b316fce27cdbf62638d8a0237f2098ac35ecbe86c813fd6d31d4"
+            ),
+            "html_display": (
+                "0608057a58b538355f35a1a48975beda82a861247671d8950911ce9128a74b80"
+            ),
+            "html_display_generic": (
+                "41d40abe6b03a8eb99fd2aea10b2c0b3de922fa8c9c45c592e80fb48bc0dd8b2"
+            ),
+            "listen_mode": (
+                "ee65eee13c65bb12ea824dc5e98df8b876eacbb0ab77863944a509931ca159dd"
+            ),
+            "memory_admission": (
+                "fe46f2c8ad596c5d35633ca57058936a5c5efb87f39b0da3db618ff04202e361"
+            ),
+            "memory_policy": (
+                "34996bdf327f4d60752352e3101d00f65874fb5db747336f9ad88bea70e4e7a2"
+            ),
+            "memory_recall": (
+                "68d3337e091486cdf88ea849172c5aa80eb4e49857b2b6ccfe6fc039598f0ebe"
+            ),
+            "memory_unrestricted": (
+                "89c151f5401944e13e726f453f3a661a59e9dc29749c1d613cb15c71d3d99544"
+            ),
+            "recall_history_compaction": (
+                "a8d00fdf79156aa143dd0c35331bd0d9f0f022f99a7e46dd7ddc819f0c68e5b7"
+            ),
+            "v1_syntax": (
+                "1930fc65af1ffbda72341990fc53c0b9c4f66c0f156dba828c751cc4f8f7e29f"
+            ),
+            "system": (
+                "76f71eb4f97ec55a08f44b17a0b4f68f5bbefb6e27822dd464f72d9412691aae"
+            ),
+        }
     )
-    hashes["v1_syntax"] = (
-        "d0f81a19a03e57eed38358aaca9d76e06283ad3f984e7ed88f374e1f4b81445b"
-    )
-    hashes["memory_policy"] = (
-        "5d43ab143d4e0e625dbd1e8e6815fdb9bfbe93299b8959c3a497472b123a8d78"
-    )
-    hashes["memory_unrestricted"] = (
-        "0cce2b9128a3e996a8d901278bc9bc7893ce5a831fb4eedd2ea21a455f674256"
-    )
-    hashes["answer_review"] = (
-        "24405941f019dfd09ec49114b0e70261eefeda2bf8cbaace7ead55e6a788458a"
-    )
-    hashes["feedback_contract"] = (
-        "0ed7209037a211f5e4276f1c4504620d53e476b8de1644c35e24793e716375b8"
-    )
-    # Teaching history compaction was removed: its prompts are gone, and recall
-    # guidance no longer points at the read_teaching tool.
+    # Removed teaching-history compaction is not part of the current package.
     del hashes["teaching_history_compaction"], hashes["teaching_summary"]
-    hashes["memory_recall"] = (
-        "a54d37a19b6018c25778cbbec1d47c6d28d965c6288654b365fff83dfea92e44"
-    )
-    hashes["recall_history_compaction"] = (
-        "cd7e579720e5c03511ba93eb51ef6e37d29eac132abdf9f6a303080b7dbf6834"
-    )
     for name, expected in hashes.items():
         # Keep the historical fixture intact while loading the renamed resource.
         current_name = "syntax" if name == "v1_syntax" else name

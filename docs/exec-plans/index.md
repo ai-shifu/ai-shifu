@@ -125,6 +125,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
 - [MarkdownFlow Advancement Traces](./completed/markdownflow-advancement-traces.md)
+- [Concise MarkdownFlow instructions](./completed/markdownflow-concise-instructions.md)
 - [Shared MarkdownFlow foundation library](./completed/markdownflow-foundation-library.md)
 - [MarkdownFlow Langfuse Tracing](./completed/markdownflow-langfuse-tracing.md)
 - [MarkdownFlow Literal Prompt Sending](./completed/markdownflow-literal-prompts.md)

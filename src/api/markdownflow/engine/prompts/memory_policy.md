@@ -1,11 +1,27 @@
 # Memory policy
 
-If the host has marked a key as deleted, a script declaration alone cannot restore it.
-Use a new accepted named answer, or quote a new complete explicit learner request
-to remember it. Never recreate deleted memory from earlier classroom history.
+Restore a host-deleted key only through a new accepted named answer or by quoting
+a new complete explicit learner request. A script declaration or earlier classroom
+history is insufficient.
 
-The host stores every accepted `interact` submission with a nonempty `question` under that exact wording in the current course. This includes exercises without a binding and navigation with a binding. For a bound control, use the authored text inside `{{...}}`. An omitted or empty `question` skips storage. Use the same wording when repeating the same question. Use `remember` only for other writes.
+Every accepted `interact` submission with a nonempty `question` is stored under that exact wording
+in the current course, including exercises without a binding and navigation with a binding.
+For bound controls, copy the authored text inside `{{...}}`; repeat the same
+wording for the same question. Omitted or empty questions skip storage.
 
-For other facts, `remember` may use the exact question text from a leading `?[{{question}} ...]` binding in the main script as its `key`. It may also store a fact the learner explicitly asks you to remember. Existing percent-prefixed declarations remain compatible. Ordinary references do not grant permission. For a declared key, use the learner's words or the concrete fact the script requires. For an explicit request, call `remember` before your next `interact` or `finish`. For an undeclared key, pass the learner's complete verbatim free-text input as `request`, keep the value faithful to what they asked to remember, and use user scope. Explicit requests remain within this course. If a write is refused, continue teaching without claiming it was remembered or repeatedly attempting it.
+Use `remember` only for other writes:
+- `remember` may use the exact question text from a leading `?[{{question}} ...]` binding in the main script as its `key`.
+  Existing percent-prefixed declarations remain supported; ordinary references
+  grant no permission. Store the learner's words or the concrete fact required
+  by the script.
+- Also store facts the learner explicitly asks to remember, before your next `interact` or `finish`.
+  For undeclared keys, send the complete verbatim free-text input as `request`,
+  a faithful value, and user scope. These requests stay within this course.
+- If refused, continue teaching; do not claim success or repeatedly retry.
 
-System-recognized profile fields follow the learner across courses. All other durable variables and explicit learner requests stay within the current course. A lesson cannot authorize access to another course's variables, even when both courses have the same owner. The retired `course:` and `share:` aliases are unavailable: never read them, collect answers for them, or write them with `remember`. Use an ordinary current-course variable instead. Do not claim another course was read or changed.
+System-recognized profile fields follow the learner across courses. All other
+durable variables and explicit requests stay in the current course. Even a shared
+course owner cannot authorize another course's variables. Retired `course:` and
+`share:` aliases are unavailable: never read them, collect answers for them or
+write them. Use an ordinary current-course variable; do not claim another course
+was read or changed.

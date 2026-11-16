@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator
 
 import pytest
+from markdownflow import load_prompt
 from markdownflow.engine import (
     ContentDelta,
     ContinueTurn,
@@ -64,15 +65,14 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
             }
         elif calls == (3 if correcting else 2):
             policy = info.instructions or ""
-            assert "one-option navigation" in policy
-            assert "A correct answer or a side question is not that selection" in policy
-            assert "without asking to continue again" in policy
-            assert "three separate learner-facing turns" in policy
+            assert load_prompt("system").strip() in policy
+            assert load_prompt("syntax").strip() in policy
             interaction_tool = next(
                 t for t in info.function_tools if t.name == "interact"
             )
+            assert "navigation remains `single`" in interaction_tool.description
             assert (
-                "Do not replace an unanswered navigation"
+                "wait for its answer before the next step"
                 in interaction_tool.description
             )
             yield "Correct; here is the required explanation."
