@@ -256,6 +256,36 @@ def test_live_question_checks_visible_meaning_separately_from_binding(
 
 
 @pytest.mark.parametrize(
+    ("button", "executed_steps"),
+    [("继续", 2), ("跳过", 1)],
+    ids=["planned-button-present", "planned-button-absent"],
+)
+def test_live_evaluator_clicks_available_continue_after_control_type_mismatch(
+    button: str, executed_steps: int
+) -> None:
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    fixture = next(case for case in catalog if case["id"] == "lf-empty-pause-01")
+    fixture["replay"] = fixture["replay"][1:]
+    fixture["replay"][0]["calls"][0]["args"] = {
+        "type": "single",
+        "options": [{"display": button}],
+    }
+    case = Case.model_validate(fixture)
+
+    result = asyncio.run(evaluate_case(case, Replay(case.replay).model))
+
+    assert result["status"] == "behavior_failure"
+    assert "step_1.question.type" in result["failures"]
+    assert result["steps"][0]["question"]["options"] == [[button, button]]
+    assert len(result["steps"]) == executed_steps
+    if executed_steps == 2:
+        assert result["failures"] == ["step_1.question.type"]
+        assert result["steps"][1]["action"] == "answer"
+        assert result["steps"][1]["outcome"] == "finished"
+        assert "核对小袋" in result["steps"][1]["prose"]
+
+
+@pytest.mark.parametrize(
     ("problem", "failure"),
     [
         ("memory", "step_3.memory"),

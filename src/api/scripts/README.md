@@ -52,6 +52,11 @@ no visible teaching. The local run allows up to eight automatic continuations
 per learner action and reports reaching that limit as a behavior failure.
 Offline replay still checks the recorded engine turn for each fixture step.
 
+In live mode, an assertion failure stays in the report and the evaluator still
+submits the next fixture answer when the displayed control accepts it. For
+example, a Continue button reported as single choice can still be clicked. If
+the planned submission is unavailable, the evaluator stops that case.
+
 ```bash
 python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperature 0 \
   --suite smoke --repeat 3 --json /tmp/interaction-baseline.json
