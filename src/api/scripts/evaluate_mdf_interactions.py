@@ -41,7 +41,7 @@ STATUSES = (
     "behavior_failure",
     "call_failure",
 )
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 MAX_AUTOMATIC_CONTINUATIONS = 8
 
 
@@ -564,6 +564,33 @@ async def check_prose_question(
     ), None if judgment.asked else "prose_question"
 
 
+def can_submit_live_answer(
+    step: Step, result: dict[str, object], session: Session
+) -> bool:
+    """Check whether the next scripted answer can use the controls actually shown."""
+    from markdownflow import InteractionAnswer, answer_is_usable, normalize_answer
+
+    question = result["question"]
+    if (
+        step.action != "answer"
+        or result["outcome"] != "interaction"
+        or not session.pending
+        or not isinstance(question, dict)
+    ):
+        return False
+    spec = session.pending[0].spec
+    visible_values = {value for _, value in question["options"]}
+    if any(value not in visible_values for value in step.values) or (
+        step.text is not None
+        and spec.type not in {"text", "single_or_text", "multi_or_text"}
+    ):
+        return False
+    answer = normalize_answer(
+        spec, InteractionAnswer(values=step.values, text=step.text)
+    )
+    return len(answer.values) == len(step.values) and answer_is_usable(spec, answer)
+
+
 async def evaluate_case(
     case: Case,
     model: Model | None = None,
@@ -572,7 +599,7 @@ async def evaluate_case(
     repeat: int = 1,
     judge_model: Model | None = None,
 ) -> dict[str, object]:
-    """Replay or regenerate a fixture and stop at its first failed advancement."""
+    """Evaluate a fixture and follow submitted answers that remain available live."""
     from markdownflow import ScriptBundle, Session
 
     started = time.monotonic()
@@ -622,10 +649,16 @@ async def evaluate_case(
                 result["question_judgment"] = judgment
                 if failure is not None:
                     result["failures"].append(failure)
-                    judge_failed = failure == "question_judge_call"
+                    judge_failed |= failure == "question_judge_call"
         steps.append(result)
         failures.extend(f"step_{index}.{name}" for name in result["failures"])
-        if failures or observed.failures:
+        if observed.failures:
+            break
+        if result["failures"] and (
+            replay is not None
+            or index == len(case.steps)
+            or not can_submit_live_answer(case.steps[index], result, session)
+        ):
             break
     if replay is not None and not failures and replay.responses:
         failures.append("unused_replay_responses")
@@ -635,11 +668,10 @@ async def evaluate_case(
         and step.replay_expected.outcome in {"error", "end"}
         for step in case.steps[: len(steps)]
     )
-    if judge_failed:
-        status = "call_failure"
-    elif observed.failures:
-        status = "call_failure" if replay is None else "behavior_failure"
+    if observed.failures:
         failures.extend(observed.failures)
+    if judge_failed or (replay is None and observed.failures):
+        status = "call_failure"
     elif failures:
         status = "behavior_failure"
     elif reproduced_failure:
