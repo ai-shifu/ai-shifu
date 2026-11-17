@@ -214,10 +214,15 @@ Registry commands get up to three attempts with 2- and 4-second retry delays.
 Each archive copy has a two-minute timeout per attempt, and login and manifest
 commands have a 30-second timeout per attempt. Any subprocess still running
 five seconds after timeout is killed. Each publication job has a 20-minute
-limit, including setup and artifact downloads. Re-run failed jobs
-to retry the failed destination using the successful native artifacts from the
-same run. A retried candidate destination uses the new attempt suffix. The
-archives expire after seven days.
+limit, including setup and artifact downloads.
+
+Use **Re-run failed jobs** to retry a destination with that run's native
+artifacts. Before retrying a job that writes `latest`, check the service's
+current tag in the affected registry. A retry publishes the original run's
+digests. If a newer run already published `latest` there,
+[backfill from current main](#triggers-and-backfills) to avoid rolling the tag
+back. A retried candidate destination uses the new attempt suffix. The archives
+expire after seven days.
 
 After public visibility is configured, verify from a Docker client with no GHCR
 credentials:
