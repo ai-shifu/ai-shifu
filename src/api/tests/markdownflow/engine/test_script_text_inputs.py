@@ -537,6 +537,32 @@ async def test_raw_pending_hint_is_repaired_without_changing_history() -> None:
     assert session.messages == history
 
 
+async def test_repaired_pending_text_input_is_used_for_answer_evidence() -> None:
+    question = "How would you like to begin?"
+    engine = _engine(
+        {
+            "type": "single",
+            "question": question,
+            "options": [{"display": _HINT}],
+        }
+    )
+    session = await engine.new_session("Ask a question.")
+    _ = [event async for event in engine.run_turn(session)]
+    assert session.interaction_specs["question"].type == "single"
+
+    session.script = ScriptBundle(script=f"?[{{{{{question}}}}} ...{_HINT}]")
+    session = Session.loads(session.dumps())
+    answer = "I want to build a new course."
+    _ = [
+        event
+        async for event in engine.run_turn(
+            session, InteractionResponseTurn(text=answer)
+        )
+    ]
+    assert session.interaction_specs["question"].type == "text"
+    assert session.memory == {question: answer}
+
+
 async def test_real_question_after_indented_example_still_repairs() -> None:
     """Skipping code must not suppress the following ordinary lesson control."""
     engine = _engine(_arguments())
@@ -550,16 +576,22 @@ async def test_real_question_after_indented_example_still_repairs() -> None:
 @pytest.mark.parametrize("multi", [False, True])
 @pytest.mark.parametrize("explicit_values", [False, True])
 @pytest.mark.parametrize("placeholder", [None, "Decrire mon projet"])
+@pytest.mark.parametrize("choice_count", [1, 3])
 async def test_translated_hint_preserves_typed_answers_and_stable_choices(
-    multi: bool, explicit_values: bool, placeholder: str | None
+    multi: bool, explicit_values: bool, placeholder: str | None, choice_count: int
 ) -> None:
     """Translated displays cannot hide the authored free-text input or change answers."""
-    displays = ["Nouveau projet", "Assistant existant", "Documents du cours"]
+    displays = ["Nouveau projet", "Assistant existant", "Documents du cours"][
+        :choice_count
+    ]
     hint = "Decrire mon projet"
-    values = ["new", "existing", "materials"] if explicit_values else _CHOICES
+    values = (["new", "existing", "materials"] if explicit_values else _CHOICES)[
+        :choice_count
+    ]
     separator = " || " if multi else " | "
     choices = [
-        f"{display}//{value}" for display, value in zip(_CHOICES, values, strict=True)
+        f"{display}//{value}"
+        for display, value in zip(_CHOICES[:choice_count], values, strict=True)
     ]
     script = "?[%{{project_path}} " + separator.join([*choices, "..." + _HINT]) + "]"
     engine = _engine(

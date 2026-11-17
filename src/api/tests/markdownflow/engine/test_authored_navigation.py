@@ -161,20 +161,33 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     )
     assert session.pending[0].spec.type == "text"
     assert session.pending[0].spec.placeholder == "Answer two"
-    assert session.memory == ({**memory, nav_binding: value} if nav_binding else memory)
-    assert [
-        (event.key, event.value) for event in events if isinstance(event, MemoryUpdated)
-    ] == ([(nav_binding, value)] if nav_binding else [])
+    assert session.memory == memory
+    assert not any(isinstance(event, MemoryUpdated) for event in events)
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("saved_pending", [False, True], ids=["new", "saved"])
-async def test_continue_button_sent_as_single_does_not_save_an_answer(
-    saved_pending: bool,
+@pytest.mark.parametrize("reload", [False, True], ids=["new", "saved"])
+@pytest.mark.parametrize(
+    ("kind", "control", "question", "label", "value"),
+    [
+        ("single", "?[Next step//continue]", "Next step", "Next step", "continue"),
+        ("single", "?[{{Stage}} Begin//practice]", "Stage", "Begin", "practice"),
+        (
+            "multi",
+            "Choose the available exercise.",
+            "Which exercise?",
+            "First",
+            "first",
+        ),
+    ],
+    ids=["continue-button", "bound-button", "one-multiselect-option"],
+)
+async def test_a_single_fixed_option_advances_without_saving(
+    kind: str, control: str, question: str, label: str, value: str, reload: bool
 ) -> None:
     opening = "Different soils hold water differently."
     following = "Clay takes longer to drain."
-    memory = {"previous_topic": "soil drainage", "Next step": "keep this value"}
+    memory = {"previous_topic": "soil drainage", question: "keep this value"}
     calls = 0
 
     async def model(
@@ -192,49 +205,37 @@ async def test_continue_button_sent_as_single_does_not_save_an_answer(
                 tool_call_id="next-step",
                 json_args=json.dumps(
                     {
-                        "type": "single",
-                        "question": "Next step",
-                        "options": [{"display": "Next step", "value": "continue"}],
+                        "type": kind,
+                        "question": question,
+                        "options": [{"display": label, "value": value}],
                     }
                 ),
             )
         }
 
-    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
-        f"{opening}\n\nLet the learner pause and reflect before continuing.\n\n"
-        f"?[Next step//continue]\n\n{following}",
+        f"{opening}\n\n{control}\n\n{following}",
         memory=memory,
     )
     first = await _events(engine.run_turn(session))
     (request,) = [event for event in first if isinstance(event, InteractionRequest)]
-    assert request.spec.type == "single"
-    assert request.spec.options[0].stored == "continue"
-    if saved_pending:
-        old_spec = request.spec.model_copy(
-            update={
-                "question": "Next step",
-                "variable": "Next step",
-                "question_owns_memory": True,
-            }
-        )
-        session.pending[0].spec = old_spec
-        session.interaction_specs[request.id] = old_spec
+    assert request.spec.type == kind
+    assert request.spec.question == question
+    assert request.spec.variable == question
+    assert request.spec.options[0].stored == value
+    if reload:
         session = Session.loads(session.dumps())
 
     second = await _events(
-        engine.run_turn(
-            session, InteractionResponseTurn(id=request.id, values=["continue"])
-        )
+        engine.run_turn(session, InteractionResponseTurn(id=request.id, values=[value]))
     )
     assert not any(isinstance(event, (ErrorEvent, MemoryUpdated)) for event in second)
     assert [event.text for event in second if isinstance(event, ContentDelta)] == [
         following
     ]
     assert session.all_memory() == memory
-    assert request.spec.question == ""
-    assert request.spec.variable is None
-    assert request.id not in session.interaction_specs
+    assert not session.answer_hashes
 
 
 @pytest.mark.anyio
@@ -269,10 +270,12 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
     preceding: str | None, question: str, label: str, value: str, reload: bool
 ) -> None:
     option = label if label == value else f"{label}//{value}"
+    other = "Break" if value == "continue" else "Red"
+    choices = f"{option} | {other}"
     script = (
-        f"?[{{{{{question}}}}} {option}]"
+        f"?[{{{{{question}}}}} {choices}]"
         if preceding is None
-        else f"{preceding.format(question=question)}\n?[{option}]"
+        else f"{preceding.format(question=question)}\n?[{choices}]"
     )
     attempts = 0
 
@@ -293,7 +296,10 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
                     {
                         "type": "single",
                         "question": question,
-                        "options": [{"display": label, "value": value}],
+                        "options": [
+                            {"display": label, "value": value},
+                            {"display": other},
+                        ],
                     }
                 ),
             )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.api.markdownflow import ScriptBundle, Session
+from flaskr.api.markdownflow import InteractionSpec, ScriptBundle, Session
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from flaskr.service.profile_research.engine_runtime import (
     profile_answer_evidence,
@@ -123,3 +123,42 @@ def test_invalid_saved_bindings_cannot_become_profile_evidence(
     variable: object,
 ) -> None:
     assert profile_answer_evidence(_history_with_variable(variable)) == []
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("free_text", [False, True])
+def test_profile_evidence_requires_a_choice_or_free_text(
+    legacy: bool, free_text: bool
+) -> None:
+    session = _session("Ask the learner to proceed.")
+    question = "Ready to start?"
+    args = {
+        "type": "single_or_text" if free_text else "single",
+        "options": [{"display": "Begin", "value": "start"}],
+    }
+    if legacy:
+        args.update(prompt=question, variable=question)
+    else:
+        args["question"] = question
+    spec = InteractionSpec.model_validate(
+        {**args, "variable": question, "question_owns_memory": True}
+    )
+    native = Session(
+        id=session.session_id,
+        user_id=session.user_bid,
+        script=ScriptBundle(script=session.document),
+        messages=[
+            ModelResponse(
+                parts=[ToolCallPart("interact", args, tool_call_id="answer")]
+            ),
+            ModelRequest(
+                parts=[ToolReturnPart("interact", "Learner chose: start", "answer")]
+            ),
+        ],
+        interaction_specs={} if legacy else {"answer": spec},
+    )
+    session.engine_session = native.to_dict()
+
+    assert [evidence["answer"] for evidence in profile_answer_evidence(session)] == (
+        ["Learner chose: start"] if free_text else []
+    )

@@ -554,45 +554,6 @@ def normalize_script_text_input(
     return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
 
-def normalize_script_continue_button(
-    spec: InteractionSpec, questions: tuple[_Question, ...]
-) -> InteractionSpec:
-    """Clear a scripted continue button's label when it was used as an answer key."""
-    # A real single-choice answer can also submit `continue` under its own question.
-    if (
-        spec.type != "single"
-        or not spec.question_owns_memory
-        or spec.generated_control
-        or len(spec.options) != 1
-        or spec.options[0].stored != "continue"
-        or spec.question != spec.options[0].display
-    ):
-        return spec
-
-    matches = [
-        question
-        for question in questions
-        if _authored_controls_match(question, spec.type, spec.options, spec.placeholder)
-    ]
-    # Keep the answer binding if the same submitted value could identify a real choice.
-    if not matches or any(
-        question.variable is not None
-        or len(question.choices) != 1
-        or _find_unescaped(question.choices[0], "//") < 0
-        for question in matches
-    ):
-        return spec
-
-    return spec.model_copy(
-        update={
-            "question": "",
-            "display_question": None,
-            "variable": None,
-            "question_owns_memory": False,
-        }
-    )
-
-
 def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
     r"""Return a script's option as the script means it, without the escapes of its notation.
 
@@ -951,8 +912,9 @@ async def interact(
     inner text, trimming outer whitespace. Without a binding, use the full question from prose
     for an answer control and omit `question` for other controls. Decide whether the control
     collects an answer from its purpose in the script. When localizing a bound question, use
-    `display_question` for the translation you presented. An accepted submission to a control
-    with a nonempty `question` is stored under that value.
+    `display_question` for the translation you presented. If the controls allow different
+    answers, an accepted submission with a nonempty `question` is stored under that value.
+    Confirmation and a single fixed option without free text skip storage even with a binding.
     Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
     it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.
@@ -1213,7 +1175,6 @@ async def interact(
             ctx.deps.script_questions,
             restore_missing_input=restore_missing_input,
         )
-    spec = normalize_script_continue_button(spec, ctx.deps.script_questions)
     direction_text = direction.render() if direction is not None else ""
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)

@@ -383,13 +383,13 @@ async def test_two_interactions_in_one_turn_are_answered_one_at_a_time() -> None
     spec_a = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
-        "options": [{"display": "b1"}],
+        "options": [{"display": "b1"}, {"display": "b2"}],
         "variable": "b",
     }
 
@@ -458,13 +458,13 @@ async def test_pending_answers_survive_a_store_round_trip() -> None:
     spec_a = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
-        "options": [{"display": "b1"}],
+        "options": [{"display": "b1"}, {"display": "b2"}],
         "variable": "b",
     }
 
@@ -518,19 +518,19 @@ async def test_interactions_can_be_answered_out_of_order_and_without_an_id() -> 
     spec_a = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
-        "options": [{"display": "b1"}],
+        "options": [{"display": "b1"}, {"display": "b2"}],
         "variable": "b",
     }
     spec_c = {
         "type": "single",
         "prompt": "C?",
-        "options": [{"display": "c1"}],
+        "options": [{"display": "c1"}, {"display": "c2"}],
         "variable": "c",
     }
 
@@ -663,7 +663,7 @@ async def test_a_failed_resume_can_be_retried_instead_of_stranding_the_learner()
     spec = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     fail_next = True

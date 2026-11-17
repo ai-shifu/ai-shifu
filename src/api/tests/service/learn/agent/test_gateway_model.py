@@ -455,7 +455,10 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     spec = {
         "type": "single",
         "question": question,
-        "options": [{"display": "Good", "value": "good"}],
+        "options": [
+            {"display": "Good", "value": "good"},
+            {"display": "Tired", "value": "tired"},
+        ],
     }
     seen: list[list[dict]] = []
     turns = {"n": 0}
@@ -495,7 +498,9 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     span = FakeSpan()
     model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=span)
     engine = Engine(model)
-    session = await engine.new_session(f"?[{{{{{question}}}}} Good//good]")
+    session = await engine.new_session(
+        f"?[{{{{{question}}}}} Good//good | Tired//tired]"
+    )
 
     first = [e async for e in engine.run_turn(session)]
     requests = [e for e in first if isinstance(e, InteractionRequest)]

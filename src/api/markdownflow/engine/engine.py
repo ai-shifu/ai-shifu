@@ -119,7 +119,6 @@ from .tools import (
     feedback_response_problem,
     finish,
     interact,
-    normalize_script_continue_button,
     normalize_script_text_input,
     prepare_feedback_tool,
     prepare_finish_tool,
@@ -852,10 +851,9 @@ class Engine:
             question for question in script_questions if question.placeholder
         )
         for pending in session.pending:
-            spec = normalize_script_text_input(pending.spec, script_questions)
-            pending.spec = normalize_script_continue_button(spec, script_questions)
-            if pending.spec is not spec:
-                session.interaction_specs.pop(pending.tool_call_id, None)
+            pending.spec = normalize_script_text_input(pending.spec, script_questions)
+            if pending.spec.question_owns_memory:
+                session.interaction_specs[pending.tool_call_id] = pending.spec
         deps = Deps(
             authored_text=session.script.all_text(),
             legacy_interact_args=self.legacy_interact_args,
@@ -978,25 +976,25 @@ class Engine:
                     deps.memory_current_inputs += tuple(
                         _free_text_inputs(pending.spec, answer)
                     )
+            key = pending.spec.variable
             if (
-                pending.spec.variable
-                and (
-                    not pending.spec.variable.startswith(deps.memory_readonly_prefixes)
-                )
+                pending.spec.can_store_answer
+                and key
+                and not key.startswith(deps.memory_readonly_prefixes)
                 and (
                     deps.memory_keys is None
-                    or pending.spec.variable in deps.memory_keys
+                    or key in deps.memory_keys
                     or (
                         pending.spec.question_owns_memory
-                        and pending.spec.variable == pending.spec.question
+                        and key == pending.spec.question
                     )
                 )
             ):
                 value = stored_value(pending.spec, answer)
                 if value is not None:
-                    session.record_answer(pending.spec.variable, value)
+                    session.record_answer(key, value)
                     yield MemoryUpdated(
-                        key=pending.spec.variable,
+                        key=key,
                         value=value,
                         source="interaction",
                     )
