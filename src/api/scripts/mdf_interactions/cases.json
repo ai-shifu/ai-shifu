@@ -8,8 +8,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：餐巾需要吸水且能反复水洗。\n- 提出下面的问题并等待作答：\n?[{{ 哪种布料适合做反复清洗的餐巾？ }} 棉布 | 防水油布 | 硬纸板]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
+    "teaching_prompt": "<!-- 根据使用要求选择餐巾材料 -->\n\n- 指出餐巾用来吸水，还需要反复水洗。让学员从下列材料里选出一种来做餐巾。\n\n?[{{ 哪种布料适合做反复清洗的餐巾？ }} 棉布 | 防水油布 | 硬纸板]\n\n- 等学员选完，再按所选材料反馈。\n  - 选棉布时，说明它能吸水，洗净后可以再次使用。\n  - 选防水油布时，指出它挡水但难以吸水。选硬纸板时，指出它沾水后会变软，不能反复水洗。",
     "steps": [
       {
         "action": "start",
@@ -91,22 +90,21 @@
             }
           }
         ],
-        "text": "收到。我们用你选中的做法完成这一步。"
+        "text": "棉布能吸水，洗干净后还能继续用，两项要求都满足。"
       }
-    ],
-    "smoke": true
+    ]
   },
   {
-    "id": "lf-course-02",
+    "id": "lf-course-35",
     "source": "langfuse",
     "course": "course-02",
     "tags": [
       "single",
       "learn",
-      "authored-binding"
+      "authored-binding",
+      "display-stored-value"
     ],
-    "teaching_prompt": "### 练习\n页边对齐后再打孔，能避免翻页时卡住。\n\n装订一叠散页时，哪一步最能保证页边对齐？\n?[{{ 装订一叠散页时，哪一步最能保证页边对齐？ }} 先对齐并夹住 | 先装封面 | 先给每页上色 | 先在每页写标题]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
+    "teaching_prompt": "<!-- 从易读标签找到正确的归还操作 -->\n\n- 展示三张物品状态卡。说明卡片上的文字供同事阅读，后台用固定编号记录状态，再请学员认出要求原位归还的卡片。\n\n?[{{ 哪张卡片标明了物品需放回原处？ }} 原位归还//place_1 | 待确认//place_2 | 留在台面//place_3]\n\n- 等学员选完，告诉学员这张卡的实际含义。\n  - 选「原位归还」时，提醒学员把物品放回取用前的位置。\n  - 选其他卡片时，解释「待确认」还未决定去向，「留在台面」也没有要求放回原位。",
     "steps": [
       {
         "action": "start",
@@ -114,31 +112,27 @@
           "outcome": "interaction",
           "question": {
             "type": "single",
-            "question": "装订一叠散页时，哪一步最能保证页边对齐？",
-            "variable": "装订一叠散页时，哪一步最能保证页边对齐？",
+            "question": "哪张卡片标明了物品需放回原处？",
+            "variable": "哪张卡片标明了物品需放回原处？",
             "options": [
               [
-                "先对齐并夹住",
-                "先对齐并夹住"
+                "原位归还",
+                "place_1"
               ],
               [
-                "先装封面",
-                "先装封面"
+                "待确认",
+                "place_2"
               ],
               [
-                "先给每页上色",
-                "先给每页上色"
-              ],
-              [
-                "先在每页写标题",
-                "先在每页写标题"
+                "留在台面",
+                "place_3"
               ]
             ],
             "placeholder": null
           },
-          "prose_question": "装订一叠散页时，哪一步最能保证页边对齐？",
+          "prose_question": "哪张卡片标明了物品需放回原处？",
           "replay_prose_once": [
-            "装订一叠散页时，哪一步最能保证页边对齐？"
+            "哪张卡片标明了物品需放回原处？"
           ],
           "memory": {},
           "pending": 1
@@ -148,13 +142,13 @@
         "action": "answer",
         "reload": false,
         "values": [
-          "先对齐并夹住"
+          "place_1"
         ],
         "expected": {
           "outcome": "finished",
           "pending": 0,
           "memory": {
-            "装订一叠散页时，哪一步最能保证页边对齐？": "先对齐并夹住"
+            "哪张卡片标明了物品需放回原处？": "place_1"
           }
         }
       }
@@ -166,25 +160,25 @@
             "name": "interact",
             "args": {
               "type": "single",
-              "question": "装订一叠散页时，哪一步最能保证页边对齐？",
+              "question": "哪张卡片标明了物品需放回原处？",
               "options": [
                 {
-                  "display": "先对齐并夹住"
+                  "display": "原位归还",
+                  "value": "place_1"
                 },
                 {
-                  "display": "先装封面"
+                  "display": "待确认",
+                  "value": "place_2"
                 },
                 {
-                  "display": "先给每页上色"
-                },
-                {
-                  "display": "先在每页写标题"
+                  "display": "留在台面",
+                  "value": "place_3"
                 }
               ]
             }
           }
         ],
-        "text": "页边对齐后再打孔，能避免翻页时卡住。\n\n装订一叠散页时，哪一步最能保证页边对齐？"
+        "text": "文字供人阅读，机器使用稳定编号记录状态。\n\n哪张卡片标明了物品需放回原处？"
       },
       {
         "calls": [
@@ -195,9 +189,302 @@
             }
           }
         ],
-        "text": "收到。我们用你选中的做法完成这一步。"
+        "text": "你选了「原位归还」。用完后把物品放回取用前的位置，接手的人就能找到它。"
       }
-    ]
+    ],
+    "smoke": true
+  },
+  {
+    "id": "lf-course-08",
+    "source": "langfuse",
+    "course": "course-08",
+    "tags": [
+      "multi",
+      "learn",
+      "authored-binding"
+    ],
+    "teaching_prompt": "<!-- 检查桌游交接时如何清点和收纳 -->\n\n- 说明少一个小配件也可能影响下一组使用。请学员选出交接时能减少零件遗失的做法，允许多选。\n\n?[{{ 交接一套桌游时，哪些检查能减少零件遗失？ }} 按清单数配件 || 只看盒盖是否干净 || 用分格盒收纳 || 确认临时借出的配件]\n\n- 等学员提交后，对照两项有效做法回应。\n  - 按清单数配件能发现现有缺件，分格收纳能降低取放时的遗失风险。\n  - 只选到其中一项时，指出它能处理哪种风险，再补上另一项。选到无关项时，指出它无法用于清点或收纳配件。",
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "multi",
+            "question": "交接一套桌游时，哪些检查能减少零件遗失？",
+            "variable": "交接一套桌游时，哪些检查能减少零件遗失？",
+            "options": [
+              [
+                "按清单数配件",
+                "按清单数配件"
+              ],
+              [
+                "只看盒盖是否干净",
+                "只看盒盖是否干净"
+              ],
+              [
+                "用分格盒收纳",
+                "用分格盒收纳"
+              ],
+              [
+                "确认临时借出的配件",
+                "确认临时借出的配件"
+              ]
+            ],
+            "placeholder": null
+          },
+          "prose_question": "交接一套桌游时，哪些检查能减少零件遗失？",
+          "replay_prose_once": [
+            "交接一套桌游时，哪些检查能减少零件遗失？"
+          ],
+          "memory": {},
+          "pending": 1
+        }
+      },
+      {
+        "action": "answer",
+        "reload": false,
+        "values": [
+          "按清单数配件",
+          "用分格盒收纳"
+        ],
+        "expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "交接一套桌游时，哪些检查能减少零件遗失？": "按清单数配件, 用分格盒收纳"
+          }
+        }
+      }
+    ],
+    "replay": [
+      {
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "multi",
+              "question": "交接一套桌游时，哪些检查能减少零件遗失？",
+              "options": [
+                {
+                  "display": "按清单数配件"
+                },
+                {
+                  "display": "只看盒盖是否干净"
+                },
+                {
+                  "display": "用分格盒收纳"
+                },
+                {
+                  "display": "确认临时借出的配件"
+                }
+              ]
+            }
+          }
+        ],
+        "text": "交接清单应能发现缺件，并帮助下一组找到零件。\n\n交接一套桌游时，哪些检查能减少零件遗失？"
+      },
+      {
+        "calls": [
+          {
+            "name": "finish",
+            "args": {
+              "summary": "完成练习"
+            }
+          }
+        ],
+        "text": "按清单数配件可以发现已经缺了什么，分格收纳可以减少取放时再弄丢零件。"
+      }
+    ],
+    "smoke": true
+  },
+  {
+    "id": "lf-course-07",
+    "source": "langfuse",
+    "course": "course-07",
+    "tags": [
+      "text",
+      "learn",
+      "authored-binding"
+    ],
+    "teaching_prompt": "<!-- 让使用者一眼分清两把相似的量勺 -->\n\n- 两把量勺外形接近，使用时容易拿错。请学员提出一种无需反复比对的标记办法。\n\n?[{{ 你会怎样给两把相似的量勺做标记？ }} ...用一句话说明你的办法]\n\n- 收到方案后，检查学员有没有说清标记放在哪里，以及如何区分两把量勺。\n  - 两点都具备时，指出方案中实际能帮助区分的细节。\n  - 少一点时，指出缺了哪个细节，并给一个简短补充。反馈后收束这次练习。",
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "question": "你会怎样给两把相似的量勺做标记？",
+            "variable": "你会怎样给两把相似的量勺做标记？",
+            "options": [],
+            "placeholder": "用一句话说明你的办法"
+          },
+          "prose_question": "你会怎样给两把相似的量勺做标记？",
+          "replay_prose_once": [
+            "你会怎样给两把相似的量勺做标记？"
+          ],
+          "memory": {},
+          "pending": 1
+        }
+      },
+      {
+        "action": "answer",
+        "reload": true,
+        "text": "在手柄尾部贴不同颜色的圆点。",
+        "expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "你会怎样给两把相似的量勺做标记？": "在手柄尾部贴不同颜色的圆点。"
+          }
+        }
+      }
+    ],
+    "replay": [
+      {
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "你会怎样给两把相似的量勺做标记？",
+              "placeholder": "用一句话说明你的办法"
+            }
+          }
+        ],
+        "text": "相似的工具需要使用者能一眼区分。\n\n你会怎样给两把相似的量勺做标记？"
+      },
+      {
+        "calls": [
+          {
+            "name": "finish",
+            "args": {
+              "summary": "完成练习",
+              "feedback": {
+                "answer_id": "replay-1-0",
+                "phase": "accepted",
+                "submission_quote": "在手柄尾部贴不同颜色的圆点。",
+                "reason": "The response completes the written task."
+              }
+            }
+          }
+        ],
+        "text": "把不同颜色的圆点贴在手柄尾部，拿起前就能看见两把量勺的区别。"
+      }
+    ],
+    "smoke": true
+  },
+  {
+    "id": "lf-course-04",
+    "source": "langfuse",
+    "course": "course-04",
+    "tags": [
+      "single_or_text",
+      "learn",
+      "authored-binding"
+    ],
+    "teaching_prompt": "<!-- 选一个场景练习复述规则 -->\n\n- 说明复述规则时要让别人听懂什么时候适用、有哪些例外。让学员从熟悉的场景中选一个，也可以自己填写。\n\n?[{{ 你想用哪个场景练习复述规则？ }} 借书 | 订座 | 排队 | 领工具 | 还雨伞 | ...也可以填写自己的场景]\n\n- 根据实际提交的场景，给一个用来检查适用条件或例外的提醒。学员自填时沿用其场景。\n  - 借书场景提醒先核对可借期限，再看哪些书例外。\n  - 场景太笼统时，举一个同场景下可能遇到的例外来示范。",
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "single_or_text",
+            "question": "你想用哪个场景练习复述规则？",
+            "variable": "你想用哪个场景练习复述规则？",
+            "options": [
+              [
+                "借书",
+                "借书"
+              ],
+              [
+                "订座",
+                "订座"
+              ],
+              [
+                "排队",
+                "排队"
+              ],
+              [
+                "领工具",
+                "领工具"
+              ],
+              [
+                "还雨伞",
+                "还雨伞"
+              ]
+            ],
+            "placeholder": "也可以填写自己的场景"
+          },
+          "prose_question": "你想用哪个场景练习复述规则？",
+          "replay_prose_once": [
+            "你想用哪个场景练习复述规则？"
+          ],
+          "memory": {},
+          "pending": 1
+        }
+      },
+      {
+        "action": "answer",
+        "reload": true,
+        "values": [
+          "借书"
+        ],
+        "expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "你想用哪个场景练习复述规则？": "借书"
+          }
+        }
+      }
+    ],
+    "replay": [
+      {
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "single_or_text",
+              "question": "你想用哪个场景练习复述规则？",
+              "options": [
+                {
+                  "display": "借书"
+                },
+                {
+                  "display": "订座"
+                },
+                {
+                  "display": "排队"
+                },
+                {
+                  "display": "领工具"
+                },
+                {
+                  "display": "还雨伞"
+                }
+              ],
+              "placeholder": "也可以填写自己的场景"
+            }
+          }
+        ],
+        "text": "复述时应说清适用条件和例外。\n\n你想用哪个场景练习复述规则？"
+      },
+      {
+        "calls": [
+          {
+            "name": "finish",
+            "args": {
+              "summary": "完成练习"
+            }
+          }
+        ],
+        "text": "用借书来练时，先说能借多久，再留意哪些书只能在馆内看。"
+      }
+    ],
+    "smoke": true
   },
   {
     "id": "lf-course-03",
@@ -208,8 +495,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "先简要解释「选一个具体环节，后面才能安排练习。」\n\n接着问「你打算从哪个环节练习整理照片？」，用下方控件收集回答。\n\n?[{{ 你打算从哪个环节练习整理照片？ }} 挑选照片 | 按年份归档 | 按地点归档 | 补文件名 | 删除重复 | 备份照片 | 分享相册 | ...也可以写一个环节]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
+    "teaching_prompt": "<!-- 把整理照片拆成一个可练习的环节 -->\n\n- 说明选择一个小环节比一次处理整套照片更容易验证效果。请学员选一个环节，也可以填自己的环节。\n\n?[{{ 你打算从哪个环节练习整理照片？ }} 挑选照片 | 按年份归档 | 按地点归档 | 补文件名 | 删除重复 | 备份照片 | 分享相册 | ...也可以写一个环节]\n\n- 用学员实际选择或填写的环节给一个可马上做的小练习。\n  - 答案指向整理照片的具体动作时，给出一个可观察的判断或操作。\n  - 答案很宽泛时，只示范如何在该环节里缩小范围。",
     "steps": [
       {
         "action": "start",
@@ -318,230 +604,10 @@
             }
           }
         ],
-        "text": "收到。接下来可按这个选择练习。"
+        "text": "先把几张疑似模糊的照片放大到同样比例，看主体边缘是否清楚，再决定留下哪张。"
       }
     ],
     "smoke": true
-  },
-  {
-    "id": "lf-course-04",
-    "source": "langfuse",
-    "course": "course-04",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：复述时应说清适用条件和例外。\n- 提出下面的问题并等待作答：\n?[{{ 你想用哪个场景练习复述规则？ }} 借书 | 订座 | 排队 | 领工具 | 还雨伞 | ...也可以填写自己的场景]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你想用哪个场景练习复述规则？",
-            "variable": "你想用哪个场景练习复述规则？",
-            "options": [
-              [
-                "借书",
-                "借书"
-              ],
-              [
-                "订座",
-                "订座"
-              ],
-              [
-                "排队",
-                "排队"
-              ],
-              [
-                "领工具",
-                "领工具"
-              ],
-              [
-                "还雨伞",
-                "还雨伞"
-              ]
-            ],
-            "placeholder": "也可以填写自己的场景"
-          },
-          "prose_question": "你想用哪个场景练习复述规则？",
-          "replay_prose_once": [
-            "你想用哪个场景练习复述规则？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "values": [
-          "借书"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你想用哪个场景练习复述规则？": "借书"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你想用哪个场景练习复述规则？",
-              "options": [
-                {
-                  "display": "借书"
-                },
-                {
-                  "display": "订座"
-                },
-                {
-                  "display": "排队"
-                },
-                {
-                  "display": "领工具"
-                },
-                {
-                  "display": "还雨伞"
-                }
-              ],
-              "placeholder": "也可以填写自己的场景"
-            }
-          }
-        ],
-        "text": "复述时应说清适用条件和例外。\n\n你想用哪个场景练习复述规则？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-05",
-    "source": "langfuse",
-    "course": "course-05",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n选一种步骤，我们用动作和结果把说明写清楚。\n\n你准备练习说明哪一种纸艺步骤？\n?[{{ 你准备练习说明哪一种纸艺步骤？ }} 折角 | 压痕 | 对齐 | 粘合 | 修边 | ...输入另一个步骤]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你准备练习说明哪一种纸艺步骤？",
-            "variable": "你准备练习说明哪一种纸艺步骤？",
-            "options": [
-              [
-                "折角",
-                "折角"
-              ],
-              [
-                "压痕",
-                "压痕"
-              ],
-              [
-                "对齐",
-                "对齐"
-              ],
-              [
-                "粘合",
-                "粘合"
-              ],
-              [
-                "修边",
-                "修边"
-              ]
-            ],
-            "placeholder": "输入另一个步骤"
-          },
-          "prose_question": "你准备练习说明哪一种纸艺步骤？",
-          "replay_prose_once": [
-            "你准备练习说明哪一种纸艺步骤？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "用尺画折线",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你准备练习说明哪一种纸艺步骤？": "用尺画折线"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你准备练习说明哪一种纸艺步骤？",
-              "options": [
-                {
-                  "display": "折角"
-                },
-                {
-                  "display": "压痕"
-                },
-                {
-                  "display": "对齐"
-                },
-                {
-                  "display": "粘合"
-                },
-                {
-                  "display": "修边"
-                }
-              ],
-              "placeholder": "输入另一个步骤"
-            }
-          }
-        ],
-        "text": "选一种步骤，我们用动作和结果把说明写清楚。\n\n你准备练习说明哪一种纸艺步骤？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
   },
   {
     "id": "lf-course-06",
@@ -552,8 +618,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "先简要解释「能复测的记录要有清楚的观察对象。」\n\n接着问「观察花坛时，你会记录哪些能复测的项目？」，用下方控件收集回答。\n\n?[{{ 观察花坛时，你会记录哪些能复测的项目？ }} 每日照光时段 || 土壤湿度 || 叶片数量 || 今天心情 || ...也可以输入一个观察项目]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
+    "teaching_prompt": "<!-- 挑出可以重复观察的记录项 -->\n\n- 解释能复测的记录要让另一个人知道具体要观察什么。请学员选出适合记录的项目，允许多选，也可以自行输入一项。\n\n?[{{ 观察花坛时，你会记录哪些能复测的项目？ }} 每日照光时段 || 土壤湿度 || 叶片数量 || 今天心情 || ...也可以输入一个观察项目]\n\n- 用学员给出的项目示范如何复测。\n  - 对能计数、计时或测量的项目，给出一个一致的记录口径。\n  - 对主观感受等无法按相同口径复测的项目，说明需要改成哪类可观察的数据。",
     "steps": [
       {
         "action": "start",
@@ -644,810 +709,10 @@
             }
           }
         ],
-        "text": "收到。下次可以按记录逐项核对。"
+        "text": "把每日直射光照的开始和结束时间记下来，再在同一时点数叶片。明天也可以按这两个口径复测。"
       }
     ],
     "smoke": true
-  },
-  {
-    "id": "lf-course-07",
-    "source": "langfuse",
-    "course": "course-07",
-    "tags": [
-      "text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：相似的工具需要使用者能一眼区分。\n- 提出下面的问题并等待作答：\n?[{{ 你会怎样给两把相似的量勺做标记？ }} ...用一句话说明你的办法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "你会怎样给两把相似的量勺做标记？",
-            "variable": "你会怎样给两把相似的量勺做标记？",
-            "options": [],
-            "placeholder": "用一句话说明你的办法"
-          },
-          "prose_question": "你会怎样给两把相似的量勺做标记？",
-          "replay_prose_once": [
-            "你会怎样给两把相似的量勺做标记？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "text": "在手柄尾部贴不同颜色的圆点。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你会怎样给两把相似的量勺做标记？": "在手柄尾部贴不同颜色的圆点。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "你会怎样给两把相似的量勺做标记？",
-              "placeholder": "用一句话说明你的办法"
-            }
-          }
-        ],
-        "text": "相似的工具需要使用者能一眼区分。\n\n你会怎样给两把相似的量勺做标记？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "在手柄尾部贴不同颜色的圆点。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ],
-    "smoke": true
-  },
-  {
-    "id": "lf-course-08",
-    "source": "langfuse",
-    "course": "course-08",
-    "tags": [
-      "multi",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n交接清单应能发现缺件，并帮助下一组找到零件。\n\n交接一套桌游时，哪些检查能减少零件遗失？\n?[{{ 交接一套桌游时，哪些检查能减少零件遗失？ }} 按清单数配件 || 只看盒盖是否干净 || 用分格盒收纳 || 确认临时借出的配件]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "multi",
-            "question": "交接一套桌游时，哪些检查能减少零件遗失？",
-            "variable": "交接一套桌游时，哪些检查能减少零件遗失？",
-            "options": [
-              [
-                "按清单数配件",
-                "按清单数配件"
-              ],
-              [
-                "只看盒盖是否干净",
-                "只看盒盖是否干净"
-              ],
-              [
-                "用分格盒收纳",
-                "用分格盒收纳"
-              ],
-              [
-                "确认临时借出的配件",
-                "确认临时借出的配件"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "交接一套桌游时，哪些检查能减少零件遗失？",
-          "replay_prose_once": [
-            "交接一套桌游时，哪些检查能减少零件遗失？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "按清单数配件",
-          "用分格盒收纳"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "交接一套桌游时，哪些检查能减少零件遗失？": "按清单数配件, 用分格盒收纳"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "multi",
-              "question": "交接一套桌游时，哪些检查能减少零件遗失？",
-              "options": [
-                {
-                  "display": "按清单数配件"
-                },
-                {
-                  "display": "只看盒盖是否干净"
-                },
-                {
-                  "display": "用分格盒收纳"
-                },
-                {
-                  "display": "确认临时借出的配件"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "交接清单应能发现缺件，并帮助下一组找到零件。\n\n交接一套桌游时，哪些检查能减少零件遗失？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们已经记录你选中的项目。"
-      }
-    ],
-    "smoke": true
-  },
-  {
-    "id": "lf-course-09",
-    "source": "langfuse",
-    "course": "course-09",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「改变一个条件时，其他条件要尽量一致。」\n\n接着问「要看出两种纸飞机的差异，哪个比较更公平？」，用下方控件收集回答。\n\n?[{{ 要看出两种纸飞机的差异，哪个比较更公平？ }} 同一位置、同样力度投掷 | 分别在楼上和楼下投掷]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "要看出两种纸飞机的差异，哪个比较更公平？",
-            "variable": "要看出两种纸飞机的差异，哪个比较更公平？",
-            "options": [
-              [
-                "同一位置、同样力度投掷",
-                "同一位置、同样力度投掷"
-              ],
-              [
-                "分别在楼上和楼下投掷",
-                "分别在楼上和楼下投掷"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "要看出两种纸飞机的差异，哪个比较更公平？",
-          "replay_prose_once": [
-            "要看出两种纸飞机的差异，哪个比较更公平？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "同一位置、同样力度投掷"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "要看出两种纸飞机的差异，哪个比较更公平？": "同一位置、同样力度投掷"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "要看出两种纸飞机的差异，哪个比较更公平？",
-              "options": [
-                {
-                  "display": "同一位置、同样力度投掷"
-                },
-                {
-                  "display": "分别在楼上和楼下投掷"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "改变一个条件时，其他条件要尽量一致。\n\n要看出两种纸飞机的差异，哪个比较更公平？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ],
-    "smoke": true
-  },
-  {
-    "id": "lf-course-10",
-    "source": "langfuse",
-    "course": "course-10",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：验证方案要说清工具、观察结果和判定方式。\n- 提出下面的问题并等待作答：\n?[{{ 你准备怎样检验书架隔板是否水平？ }} ...说一个可实际操作的方法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "你准备怎样检验书架隔板是否水平？",
-            "variable": "你准备怎样检验书架隔板是否水平？",
-            "options": [],
-            "placeholder": "说一个可实际操作的方法"
-          },
-          "prose_question": "你准备怎样检验书架隔板是否水平？",
-          "replay_prose_once": [
-            "你准备怎样检验书架隔板是否水平？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "text": "把水平尺放在隔板中央，看气泡是否在中线。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你准备怎样检验书架隔板是否水平？": "把水平尺放在隔板中央，看气泡是否在中线。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "你准备怎样检验书架隔板是否水平？",
-              "placeholder": "说一个可实际操作的方法"
-            }
-          }
-        ],
-        "text": "验证方案要说清工具、观察结果和判定方式。\n\n你准备怎样检验书架隔板是否水平？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "把水平尺放在隔板中央，看气泡是否在中线。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-11",
-    "source": "langfuse",
-    "course": "course-11",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n当天平左右力臂一样长时，可以直接比较两边的重量。\n\n为什么把相同重量的物品放在天平两端会平衡？\n?[{{ 为什么把相同重量的物品放在天平两端会平衡？ }} ...用一句话解释原因]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "为什么把相同重量的物品放在天平两端会平衡？",
-            "variable": "为什么把相同重量的物品放在天平两端会平衡？",
-            "options": [],
-            "placeholder": "用一句话解释原因"
-          },
-          "prose_question": "为什么把相同重量的物品放在天平两端会平衡？",
-          "replay_prose_once": [
-            "为什么把相同重量的物品放在天平两端会平衡？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "两边重量相等，力臂一样长，所以转动效果相同。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "为什么把相同重量的物品放在天平两端会平衡？": "两边重量相等，力臂一样长，所以转动效果相同。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "为什么把相同重量的物品放在天平两端会平衡？",
-              "placeholder": "用一句话解释原因"
-            }
-          }
-        ],
-        "text": "当天平左右力臂一样长时，可以直接比较两边的重量。\n\n为什么把相同重量的物品放在天平两端会平衡？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "两边重量相等，力臂一样长，所以转动效果相同。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-12",
-    "source": "langfuse",
-    "course": "course-12",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「标识应先告诉读者该做的动作。」\n\n接着问「你想练习哪一类公共标识的写法？」，用下方控件收集回答。\n\n?[{{ 你想练习哪一类公共标识的写法？ }} 出口指引 | 施工绕行 | 临时暂停 | 失物招领 | 自助回收 | 保持安静 | ...也可写一个场景]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你想练习哪一类公共标识的写法？",
-            "variable": "你想练习哪一类公共标识的写法？",
-            "options": [
-              [
-                "出口指引",
-                "出口指引"
-              ],
-              [
-                "施工绕行",
-                "施工绕行"
-              ],
-              [
-                "临时暂停",
-                "临时暂停"
-              ],
-              [
-                "失物招领",
-                "失物招领"
-              ],
-              [
-                "自助回收",
-                "自助回收"
-              ],
-              [
-                "保持安静",
-                "保持安静"
-              ]
-            ],
-            "placeholder": "也可写一个场景"
-          },
-          "prose_question": "你想练习哪一类公共标识的写法？",
-          "replay_prose_once": [
-            "你想练习哪一类公共标识的写法？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "雨天地面湿滑",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你想练习哪一类公共标识的写法？": "雨天地面湿滑"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你想练习哪一类公共标识的写法？",
-              "options": [
-                {
-                  "display": "出口指引"
-                },
-                {
-                  "display": "施工绕行"
-                },
-                {
-                  "display": "临时暂停"
-                },
-                {
-                  "display": "失物招领"
-                },
-                {
-                  "display": "自助回收"
-                },
-                {
-                  "display": "保持安静"
-                }
-              ],
-              "placeholder": "也可写一个场景"
-            }
-          }
-        ],
-        "text": "标识应先告诉读者该做的动作。\n\n你想练习哪一类公共标识的写法？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-13",
-    "source": "langfuse",
-    "course": "course-13",
-    "tags": [
-      "text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：位置指引通常需要起点、方向和明显地标。\n- 提出下面的问题并等待作答：\n?[{{ 试写一条能让读者找到指定书架的指引。 }} ...输入一句指引]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "试写一条能让读者找到指定书架的指引。",
-            "variable": "试写一条能让读者找到指定书架的指引。",
-            "options": [],
-            "placeholder": "输入一句指引"
-          },
-          "prose_question": "试写一条能让读者找到指定书架的指引。",
-          "replay_prose_once": [
-            "试写一条能让读者找到指定书架的指引。"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "text": "从门口右转，走到蓝色立柱旁的第二个书架。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "试写一条能让读者找到指定书架的指引。": "从门口右转，走到蓝色立柱旁的第二个书架。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "试写一条能让读者找到指定书架的指引。",
-              "placeholder": "输入一句指引"
-            }
-          }
-        ],
-        "text": "位置指引通常需要起点、方向和明显地标。\n\n试写一条能让读者找到指定书架的指引。"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "从门口右转，走到蓝色立柱旁的第二个书架。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-14",
-    "source": "langfuse",
-    "course": "course-14",
-    "tags": [
-      "text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n回声指声音经过反射后再次被听到。\n\n你会用什么证据说明教室里有回声？\n?[{{ 你会用什么证据说明教室里有回声？ }} ...写出你能观察到的现象]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "你会用什么证据说明教室里有回声？",
-            "variable": "你会用什么证据说明教室里有回声？",
-            "options": [],
-            "placeholder": "写出你能观察到的现象"
-          },
-          "prose_question": "你会用什么证据说明教室里有回声？",
-          "replay_prose_once": [
-            "你会用什么证据说明教室里有回声？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "拍一次手后，听到明显滞后的一声。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你会用什么证据说明教室里有回声？": "拍一次手后，听到明显滞后的一声。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "你会用什么证据说明教室里有回声？",
-              "placeholder": "写出你能观察到的现象"
-            }
-          }
-        ],
-        "text": "回声指声音经过反射后再次被听到。\n\n你会用什么证据说明教室里有回声？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "拍一次手后，听到明显滞后的一声。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-15",
-    "source": "langfuse",
-    "course": "course-15",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「先把线条的样式与图例对应起来。」\n\n接着问「一张有图例的地图应怎样用来辨别步道？」，用下方控件收集回答。\n\n?[{{ 一张有图例的地图应怎样用来辨别步道？ }} 按图例匹配线型 | 只数路口 | 只看标题 | 把颜色深的都当步道]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "一张有图例的地图应怎样用来辨别步道？",
-            "variable": "一张有图例的地图应怎样用来辨别步道？",
-            "options": [
-              [
-                "按图例匹配线型",
-                "按图例匹配线型"
-              ],
-              [
-                "只数路口",
-                "只数路口"
-              ],
-              [
-                "只看标题",
-                "只看标题"
-              ],
-              [
-                "把颜色深的都当步道",
-                "把颜色深的都当步道"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "一张有图例的地图应怎样用来辨别步道？",
-          "replay_prose_once": [
-            "一张有图例的地图应怎样用来辨别步道？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "按图例匹配线型"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "一张有图例的地图应怎样用来辨别步道？": "按图例匹配线型"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "一张有图例的地图应怎样用来辨别步道？",
-              "options": [
-                {
-                  "display": "按图例匹配线型"
-                },
-                {
-                  "display": "只数路口"
-                },
-                {
-                  "display": "只看标题"
-                },
-                {
-                  "display": "把颜色深的都当步道"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "先把线条的样式与图例对应起来。\n\n一张有图例的地图应怎样用来辨别步道？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
   },
   {
     "id": "lf-course-16",
@@ -1458,8 +723,7 @@
       "learn",
       "authored-binding"
     ],
-    "teaching_prompt": "- 用这条要点引入：杯子之间以及杯子和箱壁之间都需要隔离。\n- 提出下面的问题并等待作答：\n?[{{ 打包陶制杯子时，哪些做法能降低碰撞？ }} 杯口加纸垫 || 每只杯子单独包裹 || 留空让杯子移动 || 箱底加缓冲 || 固定隔层 || ...也可以填一项措施]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
+    "teaching_prompt": "<!-- 为杯子选择实际可做的防碰撞措施 -->\n\n- 说明陶制杯子打包时，既可能互相碰撞，也可能撞到箱壁。请学员选措施，允许多选或输入自己的办法。\n\n?[{{ 打包陶制杯子时，哪些做法能降低碰撞？ }} 杯口加纸垫 || 每只杯子单独包裹 || 留空让杯子移动 || 箱底加缓冲 || 固定隔层 || ...也可以填一项措施]\n\n- 根据学员提交的措施，指出它保护了哪里。\n  - 对隔离或固定的做法，说明减少的是哪种碰撞。\n  - 对会让杯子在箱中移动的做法，指出碰撞风险，并给一个固定办法。",
     "steps": [
       {
         "action": "start",
@@ -1554,1889 +818,22 @@
             }
           }
         ],
-        "text": "收到。下次可以按记录逐项核对。"
+        "text": "用硬纸隔板卡住杯柄能限制杯子转动，让杯柄少撞到旁边的杯子。"
       }
     ],
     "smoke": true
-  },
-  {
-    "id": "lf-course-17",
-    "source": "langfuse",
-    "course": "course-17",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n先排除测量条件造成的偏差，再判断秤是否失准。\n\n如果厨房秤归零后仍有偏差，你会怎样检查？\n?[{{ 如果厨房秤归零后仍有偏差，你会怎样检查？ }} ...写一个检查步骤]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "如果厨房秤归零后仍有偏差，你会怎样检查？",
-            "variable": "如果厨房秤归零后仍有偏差，你会怎样检查？",
-            "options": [],
-            "placeholder": "写一个检查步骤"
-          },
-          "prose_question": "如果厨房秤归零后仍有偏差，你会怎样检查？",
-          "replay_prose_once": [
-            "如果厨房秤归零后仍有偏差，你会怎样检查？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "用已知重量的校准砝码测一次。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "如果厨房秤归零后仍有偏差，你会怎样检查？": "用已知重量的校准砝码测一次。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "如果厨房秤归零后仍有偏差，你会怎样检查？",
-              "placeholder": "写一个检查步骤"
-            }
-          }
-        ],
-        "text": "先排除测量条件造成的偏差，再判断秤是否失准。\n\n如果厨房秤归零后仍有偏差，你会怎样检查？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "用已知重量的校准砝码测一次。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-18",
-    "source": "langfuse",
-    "course": "course-02",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「能复查的描述应写明条件和实际观察量。」\n\n接着问「哪条观察记录方便别人复查？」，用下方控件收集回答。\n\n?[{{ 哪条观察记录方便别人复查？ }} 室内放置十分钟后测得二十度 | 这个杯子有点凉 | 今天量得还行 | 看起来差不多]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "哪条观察记录方便别人复查？",
-            "variable": "哪条观察记录方便别人复查？",
-            "options": [
-              [
-                "室内放置十分钟后测得二十度",
-                "室内放置十分钟后测得二十度"
-              ],
-              [
-                "这个杯子有点凉",
-                "这个杯子有点凉"
-              ],
-              [
-                "今天量得还行",
-                "今天量得还行"
-              ],
-              [
-                "看起来差不多",
-                "看起来差不多"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "哪条观察记录方便别人复查？",
-          "replay_prose_once": [
-            "哪条观察记录方便别人复查？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "室内放置十分钟后测得二十度"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "哪条观察记录方便别人复查？": "室内放置十分钟后测得二十度"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "哪条观察记录方便别人复查？",
-              "options": [
-                {
-                  "display": "室内放置十分钟后测得二十度"
-                },
-                {
-                  "display": "这个杯子有点凉"
-                },
-                {
-                  "display": "今天量得还行"
-                },
-                {
-                  "display": "看起来差不多"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "能复查的描述应写明条件和实际观察量。\n\n哪条观察记录方便别人复查？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-19",
-    "source": "langfuse",
-    "course": "course-05",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：先选一个分工，我们再具体讨论交接条件。\n- 提出下面的问题并等待作答：\n?[{{ 小组画图时，你愿意先练习哪个分工？ }} 整理材料 | 画草图 | 标尺寸 | 检查成稿 | ...输入另一个分工]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "小组画图时，你愿意先练习哪个分工？",
-            "variable": "小组画图时，你愿意先练习哪个分工？",
-            "options": [
-              [
-                "整理材料",
-                "整理材料"
-              ],
-              [
-                "画草图",
-                "画草图"
-              ],
-              [
-                "标尺寸",
-                "标尺寸"
-              ],
-              [
-                "检查成稿",
-                "检查成稿"
-              ]
-            ],
-            "placeholder": "输入另一个分工"
-          },
-          "prose_question": "小组画图时，你愿意先练习哪个分工？",
-          "replay_prose_once": [
-            "小组画图时，你愿意先练习哪个分工？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "values": [
-          "整理材料"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "小组画图时，你愿意先练习哪个分工？": "整理材料"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "小组画图时，你愿意先练习哪个分工？",
-              "options": [
-                {
-                  "display": "整理材料"
-                },
-                {
-                  "display": "画草图"
-                },
-                {
-                  "display": "标尺寸"
-                },
-                {
-                  "display": "检查成稿"
-                }
-              ],
-              "placeholder": "输入另一个分工"
-            }
-          }
-        ],
-        "text": "先选一个分工，我们再具体讨论交接条件。\n\n小组画图时，你愿意先练习哪个分工？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-20",
-    "source": "langfuse",
-    "course": "course-07",
-    "tags": [
-      "text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n有效比较需要让其它条件尽量一致。\n\n怎样给两组幼苗安排可比较的浇水量？\n?[{{ 怎样给两组幼苗安排可比较的浇水量？ }} ...说明分组和每天的操作]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "怎样给两组幼苗安排可比较的浇水量？",
-            "variable": "怎样给两组幼苗安排可比较的浇水量？",
-            "options": [],
-            "placeholder": "说明分组和每天的操作"
-          },
-          "prose_question": "怎样给两组幼苗安排可比较的浇水量？",
-          "replay_prose_once": [
-            "怎样给两组幼苗安排可比较的浇水量？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "两组使用同样的花盆，每天一组浇一杯，另一组浇半杯。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "怎样给两组幼苗安排可比较的浇水量？": "两组使用同样的花盆，每天一组浇一杯，另一组浇半杯。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "怎样给两组幼苗安排可比较的浇水量？",
-              "placeholder": "说明分组和每天的操作"
-            }
-          }
-        ],
-        "text": "有效比较需要让其它条件尽量一致。\n\n怎样给两组幼苗安排可比较的浇水量？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "两组使用同样的花盆，每天一组浇一杯，另一组浇半杯。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-21",
-    "source": "langfuse",
-    "course": "course-08",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「借用登记要能对应具体物品和约定时间。」\n\n接着问「班级借用画笔时，哪条记录最便于归还？」，用下方控件收集回答。\n\n?[{{ 班级借用画笔时，哪条记录最便于归还？ }} 画笔编号与归还日期 | 只写颜色 | 只记借用人数]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "班级借用画笔时，哪条记录最便于归还？",
-            "variable": "班级借用画笔时，哪条记录最便于归还？",
-            "options": [
-              [
-                "画笔编号与归还日期",
-                "画笔编号与归还日期"
-              ],
-              [
-                "只写颜色",
-                "只写颜色"
-              ],
-              [
-                "只记借用人数",
-                "只记借用人数"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "班级借用画笔时，哪条记录最便于归还？",
-          "replay_prose_once": [
-            "班级借用画笔时，哪条记录最便于归还？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "画笔编号与归还日期"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "班级借用画笔时，哪条记录最便于归还？": "画笔编号与归还日期"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "班级借用画笔时，哪条记录最便于归还？",
-              "options": [
-                {
-                  "display": "画笔编号与归还日期"
-                },
-                {
-                  "display": "只写颜色"
-                },
-                {
-                  "display": "只记借用人数"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "借用登记要能对应具体物品和约定时间。\n\n班级借用画笔时，哪条记录最便于归还？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-22",
-    "source": "langfuse",
-    "course": "course-17",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：检查时先约定拉力或负重以及保持时间。\n- 提出下面的问题并等待作答：\n?[{{ 你会怎样测试胶带粘在纸盒上是否牢固？ }} ...写一种检验方法]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "你会怎样测试胶带粘在纸盒上是否牢固？",
-            "variable": "你会怎样测试胶带粘在纸盒上是否牢固？",
-            "options": [],
-            "placeholder": "写一种检验方法"
-          },
-          "prose_question": "你会怎样测试胶带粘在纸盒上是否牢固？",
-          "replay_prose_once": [
-            "你会怎样测试胶带粘在纸盒上是否牢固？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "text": "挂上同样重量的小袋，观察一分钟内胶带是否脱落。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你会怎样测试胶带粘在纸盒上是否牢固？": "挂上同样重量的小袋，观察一分钟内胶带是否脱落。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "你会怎样测试胶带粘在纸盒上是否牢固？",
-              "placeholder": "写一种检验方法"
-            }
-          }
-        ],
-        "text": "检查时先约定拉力或负重以及保持时间。\n\n你会怎样测试胶带粘在纸盒上是否牢固？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "挂上同样重量的小袋，观察一分钟内胶带是否脱落。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-23",
-    "source": "langfuse",
-    "course": "course-02",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n先做低成本检查，再开始不可逆的裁剪。\n\n做手工时怎样减少第二次裁剪返工？\n?[{{ 做手工时怎样减少第二次裁剪返工？ }} 先量尺寸并在废料上试剪 | 先剪成成品再测量 | 直接照着外观估计]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "做手工时怎样减少第二次裁剪返工？",
-            "variable": "做手工时怎样减少第二次裁剪返工？",
-            "options": [
-              [
-                "先量尺寸并在废料上试剪",
-                "先量尺寸并在废料上试剪"
-              ],
-              [
-                "先剪成成品再测量",
-                "先剪成成品再测量"
-              ],
-              [
-                "直接照着外观估计",
-                "直接照着外观估计"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "做手工时怎样减少第二次裁剪返工？",
-          "replay_prose_once": [
-            "做手工时怎样减少第二次裁剪返工？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "先量尺寸并在废料上试剪"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "做手工时怎样减少第二次裁剪返工？": "先量尺寸并在废料上试剪"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "做手工时怎样减少第二次裁剪返工？",
-              "options": [
-                {
-                  "display": "先量尺寸并在废料上试剪"
-                },
-                {
-                  "display": "先剪成成品再测量"
-                },
-                {
-                  "display": "直接照着外观估计"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "先做低成本检查，再开始不可逆的裁剪。\n\n做手工时怎样减少第二次裁剪返工？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-24",
-    "source": "langfuse",
-    "course": "course-05",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「先用一个具体缺陷练习观察和定位。」\n\n接着问「你想先学习如何排查哪一类纸模缺陷？」，用下方控件收集回答。\n\n?[{{ 你想先学习如何排查哪一类纸模缺陷？ }} 角度不齐 | 纸面起皱 | 折线开裂 | 接口过松 | ...也可以填写另一类缺陷]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你想先学习如何排查哪一类纸模缺陷？",
-            "variable": "你想先学习如何排查哪一类纸模缺陷？",
-            "options": [
-              [
-                "角度不齐",
-                "角度不齐"
-              ],
-              [
-                "纸面起皱",
-                "纸面起皱"
-              ],
-              [
-                "折线开裂",
-                "折线开裂"
-              ],
-              [
-                "接口过松",
-                "接口过松"
-              ]
-            ],
-            "placeholder": "也可以填写另一类缺陷"
-          },
-          "prose_question": "你想先学习如何排查哪一类纸模缺陷？",
-          "replay_prose_once": [
-            "你想先学习如何排查哪一类纸模缺陷？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "支撑片偏斜",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你想先学习如何排查哪一类纸模缺陷？": "支撑片偏斜"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你想先学习如何排查哪一类纸模缺陷？",
-              "options": [
-                {
-                  "display": "角度不齐"
-                },
-                {
-                  "display": "纸面起皱"
-                },
-                {
-                  "display": "折线开裂"
-                },
-                {
-                  "display": "接口过松"
-                }
-              ],
-              "placeholder": "也可以填写另一类缺陷"
-            }
-          }
-        ],
-        "text": "先用一个具体缺陷练习观察和定位。\n\n你想先学习如何排查哪一类纸模缺陷？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-25",
-    "source": "langfuse",
-    "course": "course-07",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：口令和实际动作配对，比只记步骤名称更容易。\n- 提出下面的问题并等待作答：\n?[{{ 你想用哪个动作帮助记住测量顺序？ }} 先归零 | 先摆正 | 先读数 | ...]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你想用哪个动作帮助记住测量顺序？",
-            "variable": "你想用哪个动作帮助记住测量顺序？",
-            "options": [
-              [
-                "先归零",
-                "先归零"
-              ],
-              [
-                "先摆正",
-                "先摆正"
-              ],
-              [
-                "先读数",
-                "先读数"
-              ]
-            ],
-            "placeholder": "请输入你的回答"
-          },
-          "prose_question": "你想用哪个动作帮助记住测量顺序？",
-          "replay_prose_once": [
-            "你想用哪个动作帮助记住测量顺序？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "text": "先把单位写下来",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你想用哪个动作帮助记住测量顺序？": "先把单位写下来"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你想用哪个动作帮助记住测量顺序？",
-              "options": [
-                {
-                  "display": "先归零"
-                },
-                {
-                  "display": "先摆正"
-                },
-                {
-                  "display": "先读数"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "口令和实际动作配对，比只记步骤名称更容易。\n\n你想用哪个动作帮助记住测量顺序？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-26",
-    "source": "langfuse",
-    "course": "course-08",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n明确的清单项同时提供物品、规格和数量。\n\n材料准备清单里哪一项最明确？\n?[{{ 材料准备清单里哪一项最明确？ }} 两张厚卡纸 | 好一点的纸 | 一份常用材料 | 看情况拿纸]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "材料准备清单里哪一项最明确？",
-            "variable": "材料准备清单里哪一项最明确？",
-            "options": [
-              [
-                "两张厚卡纸",
-                "两张厚卡纸"
-              ],
-              [
-                "好一点的纸",
-                "好一点的纸"
-              ],
-              [
-                "一份常用材料",
-                "一份常用材料"
-              ],
-              [
-                "看情况拿纸",
-                "看情况拿纸"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "材料准备清单里哪一项最明确？",
-          "replay_prose_once": [
-            "材料准备清单里哪一项最明确？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "两张厚卡纸"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "材料准备清单里哪一项最明确？": "两张厚卡纸"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "材料准备清单里哪一项最明确？",
-              "options": [
-                {
-                  "display": "两张厚卡纸"
-                },
-                {
-                  "display": "好一点的纸"
-                },
-                {
-                  "display": "一份常用材料"
-                },
-                {
-                  "display": "看情况拿纸"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "明确的清单项同时提供物品、规格和数量。\n\n材料准备清单里哪一项最明确？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-27",
-    "source": "langfuse",
-    "course": "course-11",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「对比时要关注接触面变化带来的摩擦。」\n\n接着问「怎样解释木块在粗糙桌面上更难推动？」，用下方控件收集回答。\n\n?[{{ 怎样解释木块在粗糙桌面上更难推动？ }} ...写一句有因果关系的话]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "怎样解释木块在粗糙桌面上更难推动？",
-            "variable": "怎样解释木块在粗糙桌面上更难推动？",
-            "options": [],
-            "placeholder": "写一句有因果关系的话"
-          },
-          "prose_question": "怎样解释木块在粗糙桌面上更难推动？",
-          "replay_prose_once": [
-            "怎样解释木块在粗糙桌面上更难推动？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "粗糙表面的摩擦更大，要施加更大的推力才能滑动。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "怎样解释木块在粗糙桌面上更难推动？": "粗糙表面的摩擦更大，要施加更大的推力才能滑动。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "怎样解释木块在粗糙桌面上更难推动？",
-              "placeholder": "写一句有因果关系的话"
-            }
-          }
-        ],
-        "text": "对比时要关注接触面变化带来的摩擦。\n\n怎样解释木块在粗糙桌面上更难推动？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "粗糙表面的摩擦更大，要施加更大的推力才能滑动。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-28",
-    "source": "langfuse",
-    "course": "course-03",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：临时筛掉和永久删除是两个不同的动作。\n- 提出下面的问题并等待作答：\n?[{{ 哪种方式能最快找回上周筛掉的照片？ }} 查看临时淘汰相册 | 按相机颜色搜索 | 重新拍摄所有照片]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "哪种方式能最快找回上周筛掉的照片？",
-            "variable": "哪种方式能最快找回上周筛掉的照片？",
-            "options": [
-              [
-                "查看临时淘汰相册",
-                "查看临时淘汰相册"
-              ],
-              [
-                "按相机颜色搜索",
-                "按相机颜色搜索"
-              ],
-              [
-                "重新拍摄所有照片",
-                "重新拍摄所有照片"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "哪种方式能最快找回上周筛掉的照片？",
-          "replay_prose_once": [
-            "哪种方式能最快找回上周筛掉的照片？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "values": [
-          "查看临时淘汰相册"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "哪种方式能最快找回上周筛掉的照片？": "查看临时淘汰相册"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "哪种方式能最快找回上周筛掉的照片？",
-              "options": [
-                {
-                  "display": "查看临时淘汰相册"
-                },
-                {
-                  "display": "按相机颜色搜索"
-                },
-                {
-                  "display": "重新拍摄所有照片"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "临时筛掉和永久删除是两个不同的动作。\n\n哪种方式能最快找回上周筛掉的照片？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-29",
-    "source": "langfuse",
-    "course": "course-05",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n说明里如果同一句包含两个动作，容易跳步。\n\n你会先改写哪一类容易误读的说明？\n?[{{ 你会先改写哪一类容易误读的说明？ }} 安装步骤 | 收纳顺序 | 清洁方法 | 检查标准 | ...输入你想改写的说明类型]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你会先改写哪一类容易误读的说明？",
-            "variable": "你会先改写哪一类容易误读的说明？",
-            "options": [
-              [
-                "安装步骤",
-                "安装步骤"
-              ],
-              [
-                "收纳顺序",
-                "收纳顺序"
-              ],
-              [
-                "清洁方法",
-                "清洁方法"
-              ],
-              [
-                "检查标准",
-                "检查标准"
-              ]
-            ],
-            "placeholder": "输入你想改写的说明类型"
-          },
-          "prose_question": "你会先改写哪一类容易误读的说明？",
-          "replay_prose_once": [
-            "你会先改写哪一类容易误读的说明？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "安装步骤"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你会先改写哪一类容易误读的说明？": "安装步骤"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你会先改写哪一类容易误读的说明？",
-              "options": [
-                {
-                  "display": "安装步骤"
-                },
-                {
-                  "display": "收纳顺序"
-                },
-                {
-                  "display": "清洁方法"
-                },
-                {
-                  "display": "检查标准"
-                }
-              ],
-              "placeholder": "输入你想改写的说明类型"
-            }
-          }
-        ],
-        "text": "说明里如果同一句包含两个动作，容易跳步。\n\n你会先改写哪一类容易误读的说明？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-30",
-    "source": "langfuse",
-    "course": "course-11",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「同样的推力下，质量较大时加速度较小。」\n\n接着问「为什么同一个杯子装满水后更不容易被吹动？」，用下方控件收集回答。\n\n?[{{ 为什么同一个杯子装满水后更不容易被吹动？ }} ...用一句话写出原因]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "为什么同一个杯子装满水后更不容易被吹动？",
-            "variable": "为什么同一个杯子装满水后更不容易被吹动？",
-            "options": [],
-            "placeholder": "用一句话写出原因"
-          },
-          "prose_question": "为什么同一个杯子装满水后更不容易被吹动？",
-          "replay_prose_once": [
-            "为什么同一个杯子装满水后更不容易被吹动？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "杯子装水后质量更大，同样的风推它时加速度更小。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "为什么同一个杯子装满水后更不容易被吹动？": "杯子装水后质量更大，同样的风推它时加速度更小。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "为什么同一个杯子装满水后更不容易被吹动？",
-              "placeholder": "用一句话写出原因"
-            }
-          }
-        ],
-        "text": "同样的推力下，质量较大时加速度较小。\n\n为什么同一个杯子装满水后更不容易被吹动？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "杯子装水后质量更大，同样的风推它时加速度更小。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-31",
-    "source": "langfuse",
-    "course": "course-15",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：图上测得的比例可以辅助比较，却无法给出实地长度。\n- 提出下面的问题并等待作答：\n?[{{ 如果图上没有比例尺，怎样描述两条路线的长度？ }} 只能比较图上长度 | 直接读出公里数 | 按图标大小猜 | 把两条都记成一公里]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "如果图上没有比例尺，怎样描述两条路线的长度？",
-            "variable": "如果图上没有比例尺，怎样描述两条路线的长度？",
-            "options": [
-              [
-                "只能比较图上长度",
-                "只能比较图上长度"
-              ],
-              [
-                "直接读出公里数",
-                "直接读出公里数"
-              ],
-              [
-                "按图标大小猜",
-                "按图标大小猜"
-              ],
-              [
-                "把两条都记成一公里",
-                "把两条都记成一公里"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "如果图上没有比例尺，怎样描述两条路线的长度？",
-          "replay_prose_once": [
-            "如果图上没有比例尺，怎样描述两条路线的长度？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "values": [
-          "只能比较图上长度"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "如果图上没有比例尺，怎样描述两条路线的长度？": "只能比较图上长度"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "如果图上没有比例尺，怎样描述两条路线的长度？",
-              "options": [
-                {
-                  "display": "只能比较图上长度"
-                },
-                {
-                  "display": "直接读出公里数"
-                },
-                {
-                  "display": "按图标大小猜"
-                },
-                {
-                  "display": "把两条都记成一公里"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "图上测得的比例可以辅助比较，却无法给出实地长度。\n\n如果图上没有比例尺，怎样描述两条路线的长度？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-32",
-    "source": "langfuse",
-    "course": "course-02",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "### 练习\n交接应写清已完成的工作和剩余动作。\n\n在任务结束时，哪个记录最方便下一组接手？\n?[{{ 在任务结束时，哪个记录最方便下一组接手？ }} 登记已切的纸片和待粘的边 | 只说差不多了 | 只附无说明的照片]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "在任务结束时，哪个记录最方便下一组接手？",
-            "variable": "在任务结束时，哪个记录最方便下一组接手？",
-            "options": [
-              [
-                "登记已切的纸片和待粘的边",
-                "登记已切的纸片和待粘的边"
-              ],
-              [
-                "只说差不多了",
-                "只说差不多了"
-              ],
-              [
-                "只附无说明的照片",
-                "只附无说明的照片"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "在任务结束时，哪个记录最方便下一组接手？",
-          "replay_prose_once": [
-            "在任务结束时，哪个记录最方便下一组接手？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "登记已切的纸片和待粘的边"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "在任务结束时，哪个记录最方便下一组接手？": "登记已切的纸片和待粘的边"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "在任务结束时，哪个记录最方便下一组接手？",
-              "options": [
-                {
-                  "display": "登记已切的纸片和待粘的边"
-                },
-                {
-                  "display": "只说差不多了"
-                },
-                {
-                  "display": "只附无说明的照片"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "交接应写清已完成的工作和剩余动作。\n\n在任务结束时，哪个记录最方便下一组接手？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-33",
-    "source": "langfuse",
-    "course": "course-05",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「对照表只改变一个主要因素，方便看出差异。」\n\n接着问「你想把哪一种材料写进纸模对照表？」，用下方控件收集回答。\n\n?[{{ 你想把哪一种材料写进纸模对照表？ }} 卡纸 | 瓦楞纸 | 素描纸 | 包装纸 | ...也可输入一种纸材]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你想把哪一种材料写进纸模对照表？",
-            "variable": "你想把哪一种材料写进纸模对照表？",
-            "options": [
-              [
-                "卡纸",
-                "卡纸"
-              ],
-              [
-                "瓦楞纸",
-                "瓦楞纸"
-              ],
-              [
-                "素描纸",
-                "素描纸"
-              ],
-              [
-                "包装纸",
-                "包装纸"
-              ]
-            ],
-            "placeholder": "也可输入一种纸材"
-          },
-          "prose_question": "你想把哪一种材料写进纸模对照表？",
-          "replay_prose_once": [
-            "你想把哪一种材料写进纸模对照表？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "宣纸",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你想把哪一种材料写进纸模对照表？": "宣纸"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你想把哪一种材料写进纸模对照表？",
-              "options": [
-                {
-                  "display": "卡纸"
-                },
-                {
-                  "display": "瓦楞纸"
-                },
-                {
-                  "display": "素描纸"
-                },
-                {
-                  "display": "包装纸"
-                }
-              ],
-              "placeholder": "也可输入一种纸材"
-            }
-          }
-        ],
-        "text": "对照表只改变一个主要因素，方便看出差异。\n\n你想把哪一种材料写进纸模对照表？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-34",
-    "source": "langfuse",
-    "course": "course-11",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding"
-    ],
-    "teaching_prompt": "- 用这条要点引入：测量需要参照同一段橡皮筋未受力时的长度。\n- 提出下面的问题并等待作答：\n?[{{ 拉长橡皮筋时，怎样确定回复到原长？ }} ...说明测量和比较方式]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "拉长橡皮筋时，怎样确定回复到原长？",
-            "variable": "拉长橡皮筋时，怎样确定回复到原长？",
-            "options": [],
-            "placeholder": "说明测量和比较方式"
-          },
-          "prose_question": "拉长橡皮筋时，怎样确定回复到原长？",
-          "replay_prose_once": [
-            "拉长橡皮筋时，怎样确定回复到原长？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": true,
-        "text": "释放后再用同一把尺量一次，与拉伸前的刻度比较。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "拉长橡皮筋时，怎样确定回复到原长？": "释放后再用同一把尺量一次，与拉伸前的刻度比较。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "拉长橡皮筋时，怎样确定回复到原长？",
-              "placeholder": "说明测量和比较方式"
-            }
-          }
-        ],
-        "text": "测量需要参照同一段橡皮筋未受力时的长度。\n\n拉长橡皮筋时，怎样确定回复到原长？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "accepted",
-                "submission_quote": "释放后再用同一把尺量一次，与拉伸前的刻度比较。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
-  },
-  {
-    "id": "lf-course-35",
-    "source": "langfuse",
-    "course": "course-02",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding",
-      "display-stored-value"
-    ],
-    "teaching_prompt": "### 练习\n文字供人阅读，机器使用稳定编号记录状态。\n\n哪张卡片标明了物品需放回原处？\n?[{{ 哪张卡片标明了物品需放回原处？ }} 原位归还//place_1 | 待确认//place_2 | 留在台面//place_3]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "哪张卡片标明了物品需放回原处？",
-            "variable": "哪张卡片标明了物品需放回原处？",
-            "options": [
-              [
-                "原位归还",
-                "place_1"
-              ],
-              [
-                "待确认",
-                "place_2"
-              ],
-              [
-                "留在台面",
-                "place_3"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "哪张卡片标明了物品需放回原处？",
-          "replay_prose_once": [
-            "哪张卡片标明了物品需放回原处？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "place_1"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "哪张卡片标明了物品需放回原处？": "place_1"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "哪张卡片标明了物品需放回原处？",
-              "options": [
-                {
-                  "display": "原位归还",
-                  "value": "place_1"
-                },
-                {
-                  "display": "待确认",
-                  "value": "place_2"
-                },
-                {
-                  "display": "留在台面",
-                  "value": "place_3"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "文字供人阅读，机器使用稳定编号记录状态。\n\n哪张卡片标明了物品需放回原处？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ],
-    "smoke": true
-  },
-  {
-    "id": "lf-course-36",
-    "source": "langfuse",
-    "course": "course-05",
-    "tags": [
-      "single_or_text",
-      "learn",
-      "authored-binding"
-    ],
-    "teaching_prompt": "先简要解释「请他人照做可以发现自己省略的步骤。」\n\n接着问「你打算用哪个练习检查自己的说明是否清楚？」，用下方控件收集回答。\n\n?[{{ 你打算用哪个练习检查自己的说明是否清楚？ }} 让同伴照做 | 自己倒序检查 | 读出步骤 | 拍一次示范 | ...填一个你喜欢的检查法]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single_or_text",
-            "question": "你打算用哪个练习检查自己的说明是否清楚？",
-            "variable": "你打算用哪个练习检查自己的说明是否清楚？",
-            "options": [
-              [
-                "让同伴照做",
-                "让同伴照做"
-              ],
-              [
-                "自己倒序检查",
-                "自己倒序检查"
-              ],
-              [
-                "读出步骤",
-                "读出步骤"
-              ],
-              [
-                "拍一次示范",
-                "拍一次示范"
-              ]
-            ],
-            "placeholder": "填一个你喜欢的检查法"
-          },
-          "prose_question": "你打算用哪个练习检查自己的说明是否清楚？",
-          "replay_prose_once": [
-            "你打算用哪个练习检查自己的说明是否清楚？"
-          ],
-          "memory": {},
-          "pending": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "让同伴照做"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "你打算用哪个练习检查自己的说明是否清楚？": "让同伴照做"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single_or_text",
-              "question": "你打算用哪个练习检查自己的说明是否清楚？",
-              "options": [
-                {
-                  "display": "让同伴照做"
-                },
-                {
-                  "display": "自己倒序检查"
-                },
-                {
-                  "display": "读出步骤"
-                },
-                {
-                  "display": "拍一次示范"
-                }
-              ],
-              "placeholder": "填一个你喜欢的检查法"
-            }
-          }
-        ],
-        "text": "请他人照做可以发现自己省略的步骤。\n\n你打算用哪个练习检查自己的说明是否清楚？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。接下来可按这个选择练习。"
-      }
-    ]
   },
   {
     "id": "lf-empty-pause-01",
     "source": "langfuse",
     "course": "course-02",
     "tags": [
-      "confirm",
+      "single",
       "learn",
       "observed-anomaly",
       "empty-pause"
     ],
-    "teaching_prompt": "先说明这个收纳步骤：合上盒盖前，把拆下的垫片放进标记好的小袋。\n\n?[继续]\n\n学员点击后提醒检查小袋，再结束。",
-    "course_prompt": "在按钮前先讲出对应步骤。",
+    "teaching_prompt": "<!-- 收纳步骤讲完后留出实际操作时间 -->\n\n- 用一句话说明收纳步骤。合上盒盖前，把拆下的垫片放进标记好的小袋。\n\n?[继续]\n\n- 等学员点击「继续」，再提醒核对小袋里是否放齐垫片。",
     "steps": [
       {
         "action": "start",
@@ -3454,7 +851,8 @@
           "prose_contains": [
             "合上盒盖前，把拆下的垫片放进标记好的小袋。"
           ],
-          "memory": {}
+          "memory": {},
+          "pending": 1
         }
       },
       {
@@ -3497,7 +895,746 @@
         ],
         "text": "最后再核对小袋里是否放齐垫片。"
       }
+    ],
+    "smoke": true
+  },
+  {
+    "id": "natural-language-single-answer",
+    "source": "synthetic",
+    "tags": [
+      "single",
+      "natural-language-prompt",
+      "one-option-answer",
+      "uses-prior-memory"
+    ],
+    "teaching_prompt": "<!-- 从学员选过的情境中确定一个可比较的记录项 -->\n\n- 用学员之前选定的练习场景引入，再用只有一个选项的单选题询问要记录的数据，不提供自由输入。\n  - 学员选过窗台种植时，用同一盆植物连续两天浇水来举例。问「你会记录哪项数据来比较两天的浇水？」，唯一选项是「每次浇水量」。\n  - 没有相关场景时，用两次往量杯里加水作示例。问「你会记录哪项数据来比较两次加水？」，唯一选项是「每次加水量」。\n- 等学员实际选择后，再说明每次都以毫升记录，这样才方便比较。",
+    "memory": {
+      "练习场景": "窗台种植"
+    },
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "single",
+            "question": "你会记录哪项数据来比较两天的浇水？",
+            "variable": "你会记录哪项数据来比较两天的浇水？",
+            "options": [
+              [
+                "每次浇水量",
+                "每次浇水量"
+              ]
+            ],
+            "placeholder": null
+          },
+          "pending": 1,
+          "memory": {
+            "练习场景": "窗台种植"
+          },
+          "prose_question": "你会记录哪项数据来比较两天的浇水？",
+          "replay_prose_once": [
+            "你会记录哪项数据来比较两天的浇水？"
+          ],
+          "prose_contains": [
+            "窗台"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "values": [
+          "每次浇水量"
+        ],
+        "expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "练习场景": "窗台种植"
+          },
+          "prose_contains": [
+            "毫升"
+          ]
+        }
+      }
+    ],
+    "replay": [
+      {
+        "text": "比较窗台上同一盆植物两天的浇水情况。你会记录哪项数据来比较两天的浇水？",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "single",
+              "question": "你会记录哪项数据来比较两天的浇水？",
+              "options": [
+                {
+                  "display": "每次浇水量",
+                  "value": "每次浇水量"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "text": "每次都用毫升记下浇水量，两天的数据就可以直接比较。",
+        "calls": [
+          {
+            "name": "finish",
+            "args": {}
+          }
+        ]
+      }
+    ],
+    "smoke": true
+  },
+  {
+    "id": "choose-scenario-then-navigate",
+    "source": "synthetic",
+    "tags": [
+      "sequential-interactions",
+      "answer-dependent-branch",
+      "authored-navigation",
+      "reload"
+    ],
+    "teaching_prompt": "<!-- 先让学员选择有条件实际观察的地点 -->\n\n- 说明观察地点决定要记什么。请学员选一个地点。\n\n?[{{ 你准备在哪里观察光照？ }} 朝东的窗台//window | 开放式阳台//balcony]\n\n<!-- 让学员有时间到选中的观察地点 -->\n\n- 学员作答后，复述所选地点的名称，提示学员到那里准备记录。给出下面的按钮，等点击后再提出记录题。\n\n?[开始记录//start_recording]\n\n<!-- 只问与学员所选地点对应的记录题 -->\n\n- 如果学员选的是朝东的窗台，让学员选出计算直射时长所需的数据，允许多选，也可同时补充观测备注。\n\n?[{{ 要算窗台每天的直射时长，你会记录哪些数据？ }} 直射开始时间 || 直射结束时间 || 花盆颜色 || ...补充观测备注]\n\n- 提交后指出直射时长是结束时间减去开始时间。若少选一项，说明还缺哪个时间。若多选花盆颜色，说明它不参与计算。对于补充的观测备注，说明它如何帮助复查当天的光照记录。反馈后收束这一分支。\n\n- 如果学员选的是开放式阳台，让学员选出能定位遮挡范围的记录项，允许多选。\n\n?[{{ 要找出阳台上受遮挡的位置，你会记录哪些信息？ }} 观察时刻 || 被遮挡的位置 || 花盆颜色]\n\n- 提交后解释同时标记观察时刻和位置，才便于下次在同一位置复查。指出学员所选项目里有用或多余的部分，反馈后收束这一分支。",
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "single",
+            "question": "你准备在哪里观察光照？",
+            "variable": "你准备在哪里观察光照？",
+            "options": [
+              [
+                "朝东的窗台",
+                "window"
+              ],
+              [
+                "开放式阳台",
+                "balcony"
+              ]
+            ],
+            "placeholder": null
+          },
+          "pending": 1,
+          "memory": {},
+          "prose_question": "你准备在哪里观察光照？",
+          "replay_prose_once": [
+            "你准备在哪里观察光照？"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "values": [
+          "window"
+        ],
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "single",
+            "question": "",
+            "variable": null,
+            "options": [
+              [
+                "开始记录",
+                "start_recording"
+              ]
+            ],
+            "placeholder": null
+          },
+          "pending": 1,
+          "memory": {
+            "你准备在哪里观察光照？": "window"
+          },
+          "prose_contains": [
+            "朝东的窗台"
+          ],
+          "prose_excludes": [
+            "要算窗台每天的直射时长，你会记录哪些数据？",
+            "要找出阳台上受遮挡的位置，你会记录哪些信息？"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "values": [
+          "start_recording"
+        ],
+        "reload": true,
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "multi_or_text",
+            "question": "要算窗台每天的直射时长，你会记录哪些数据？",
+            "variable": "要算窗台每天的直射时长，你会记录哪些数据？",
+            "options": [
+              [
+                "直射开始时间",
+                "直射开始时间"
+              ],
+              [
+                "直射结束时间",
+                "直射结束时间"
+              ],
+              [
+                "花盆颜色",
+                "花盆颜色"
+              ]
+            ],
+            "placeholder": "补充观测备注"
+          },
+          "pending": 1,
+          "memory": {
+            "你准备在哪里观察光照？": "window"
+          },
+          "prose_question": "要算窗台每天的直射时长，你会记录哪些数据？",
+          "replay_prose_once": [
+            "要算窗台每天的直射时长，你会记录哪些数据？"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "values": [
+          "直射开始时间",
+          "直射结束时间"
+        ],
+        "expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "你准备在哪里观察光照？": "window",
+            "要算窗台每天的直射时长，你会记录哪些数据？": "直射开始时间, 直射结束时间; 中午移开了窗帘"
+          }
+        },
+        "text": "中午移开了窗帘"
+      }
+    ],
+    "replay": [
+      {
+        "text": "观察地点决定要记什么。你准备在哪里观察光照？",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "single",
+              "question": "你准备在哪里观察光照？",
+              "options": [
+                {
+                  "display": "朝东的窗台",
+                  "value": "window"
+                },
+                {
+                  "display": "开放式阳台",
+                  "value": "balcony"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "text": "你选了朝东的窗台。到窗边准备好，再点击开始记录。",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "single",
+              "options": [
+                {
+                  "display": "开始记录",
+                  "value": "start_recording"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "text": "要算窗台每天的直射时长，你会记录哪些数据？",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "multi_or_text",
+              "question": "要算窗台每天的直射时长，你会记录哪些数据？",
+              "options": [
+                {
+                  "display": "直射开始时间",
+                  "value": "直射开始时间"
+                },
+                {
+                  "display": "直射结束时间",
+                  "value": "直射结束时间"
+                },
+                {
+                  "display": "花盆颜色",
+                  "value": "花盆颜色"
+                }
+              ],
+              "placeholder": "补充观测备注"
+            }
+          }
+        ]
+      },
+      {
+        "text": "用直射结束时间减去开始时间，就能得到这一天的直射时长。把中午移开了窗帘也记下来，复查时就知道当时的观察条件。",
+        "calls": [
+          {
+            "name": "finish",
+            "args": {}
+          }
+        ]
+      }
+    ],
+    "smoke": true,
+    "course_prompt": "# 角色\n\n- 你熟悉日常观察记录，是一位基础科学实践教师。\n\n# 任务\n\n- 当前课程是《用记录做观察》。帮助学员选取可观察的数据，按一致的口径记录，方便比较和复查。\n- 用第二人称面对一位学员授课，避免使用「大家」等面向集体的称呼。\n- 不自我介绍。\n- 不向学员问好。\n- 结尾不主动把学员引向下一步。\n\n# 教学方法\n\n- 以当前用户消息为准，执行课节的教学方法、讲解路径、顺序、节奏、例子、练习、互动、反馈和收束要求，包括有条件的提示与练习。\n- 根据学员实际提供的信息和回答执行课节允许的调整。保持必做步骤的顺序与内容，沿课节规定的路径推进。\n- 按课节要求使用相关的课程记忆。引用先前回答时，依据学员实际提交的内容。\n- 学员曾提供相关的观察经验时，可用其熟悉的术语进入课节。练习地点、记录标准与判断依据按课节要求执行。\n- 不引用、概述或提及学员画像。没有可用的相关信息时，采用课程里的中性示例，不推断学员经历。\n\n# 表达风格\n\n- 像当面讲解一样自然，有交流感。\n- 用克制、清楚、温和的语言。\n\n# 格式\n\n- 用 Markdown 输出。\n- 不输出任何级别的标题。\n- 重点步骤、理解上的转折、核心结论和易错点可用加粗标示。\n- 只加粗真正重要的内容，不加粗整个段落。\n- 中文和英文之间、中文和数字之间留一个空格。\n\n# 幻灯片\n\n- 只在当前用户消息明确要求时创建幻灯片、PPT、视觉页面或课堂投影页。\n- 按当前用户消息规定的图文关系制作。只有消息明确要求时，才添加授课讲述稿、完整的文字讲解或演讲备注。\n- 使用适合投影讲解的页面结构。\n- 幻灯片上的题目选项只作展示。\n- 页内文字简洁，元素完整可见，互不重叠，层次清楚。\n- 当前用户消息要求一并提供文字时，用幻灯片展示结构，并用一段完整文字讲解，让没有看过幻灯片的学员也能理解。"
+  },
+  {
+    "id": "clarify-before-answering",
+    "source": "synthetic",
+    "tags": [
+      "text",
+      "learner-clarification",
+      "reask-before-completion"
+    ],
+    "teaching_prompt": "<!-- 写出下一组能核对的回收标签 -->\n\n- 给出情境。一批纸板在 2026 年 9 月 15 日回收，下一组需要按材料和日期识别批次。请学员写这批纸板的标签。\n\n?[{{ 请写出这批纸板标签上的材料名称和回收日期。 }} ...填写材料和日期]\n\n- 识别这次提交实际在做什么。\n  - 如果学员只问日期怎么写，告诉学员统一格式为 YYYY-MM-DD。不要评价答案或替学员填出这批的日期。接着用同一个输入让学员回答原题。\n  - 如果学员写明纸板和对应日期，指出两项信息能让下一组按批次复查，然后收束练习。\n  - 如果提交的标签缺了材料或日期，指出缺项，请学员补齐后再判断。",
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "question": "请写出这批纸板标签上的材料名称和回收日期。",
+            "variable": "请写出这批纸板标签上的材料名称和回收日期。",
+            "options": [],
+            "placeholder": "填写材料和日期"
+          },
+          "pending": 1,
+          "memory": {},
+          "prose_question": "请写出这批纸板标签上的材料名称和回收日期。",
+          "replay_prose_once": [
+            "请写出这批纸板标签上的材料名称和回收日期。"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "text": "回收日期要用什么格式？",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "question": "请写出这批纸板标签上的材料名称和回收日期。",
+            "variable": "请写出这批纸板标签上的材料名称和回收日期。",
+            "options": [],
+            "placeholder": "填写材料和日期"
+          },
+          "pending": 1,
+          "prose_question": "请写出这批纸板标签上的材料名称和回收日期。",
+          "replay_prose_once": [
+            "请写出这批纸板标签上的材料名称和回收日期。"
+          ],
+          "prose_contains": [
+            "YYYY-MM-DD"
+          ],
+          "prose_excludes": [
+            "2026-09-15"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "text": "纸板，2026-09-15",
+        "expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "请写出这批纸板标签上的材料名称和回收日期。": "纸板，2026-09-15"
+          }
+        }
+      }
+    ],
+    "replay": [
+      {
+        "text": "一批纸板在 2026 年 9 月 15 日回收。请写出这批纸板标签上的材料名称和回收日期。",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "请写出这批纸板标签上的材料名称和回收日期。",
+              "placeholder": "填写材料和日期"
+            }
+          }
+        ]
+      },
+      {
+        "text": "回收日期统一用 YYYY-MM-DD。请写出这批纸板标签上的材料名称和回收日期。",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "请写出这批纸板标签上的材料名称和回收日期。",
+              "placeholder": "填写材料和日期",
+              "feedback": {
+                "answer_id": "replay-1-0",
+                "phase": "clarification",
+                "submission_quote": "回收日期要用什么格式？",
+                "reason": "The learner asks about format before submitting a label."
+              }
+            }
+          }
+        ]
+      },
+      {
+        "text": "这个标签有材料名称，也有可按日期排序的回收日期，接手的人可以据此查到这一批。",
+        "calls": [
+          {
+            "name": "finish",
+            "args": {
+              "feedback": {
+                "answer_id": "replay-2-0",
+                "phase": "accepted",
+                "submission_quote": "纸板，2026-09-15",
+                "reason": "The response meets the authored criteria."
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "smoke": true
+  },
+  {
+    "id": "lf-feedback-missing-branch",
+    "source": "langfuse",
+    "course": "course-11",
+    "tags": [
+      "observed-anomaly",
+      "text",
+      "feedback",
+      "missing_feedback",
+      "preview"
+    ],
+    "locale": "en-US",
+    "teaching_prompt": "<!-- Explain the effect of folding a sheet using its shape. -->\n\n- Ask the learner to compare an unfolded sheet with the same sheet after placing a fold along the middle.\n\n?[{{ Why is the middle of a folded sheet harder to bend? }} ...Explain the fold]\n\n- Accept an explanation that identifies a changed cross-section without a change in material.\n- After an incomplete answer, ask the learner to compare the folded and unfolded shapes.\n  - If the learner says the material changed, say the material stays the same. Ask the same question again and leave the explanation to the learner.\n- After a satisfactory revision, explain that the fold changes the cross-section, increasing resistance to bending. Then close the exercise.",
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "question": "Why is the middle of a folded sheet harder to bend?",
+            "variable": "Why is the middle of a folded sheet harder to bend?",
+            "options": [],
+            "placeholder": "Explain the fold"
+          },
+          "prose_question": "Why is the middle of a folded sheet harder to bend?",
+          "replay_prose_once": [
+            "Why is the middle of a folded sheet harder to bend?"
+          ],
+          "memory": {}
+        }
+      },
+      {
+        "action": "answer",
+        "text": "The fold changes the material.",
+        "reload": true,
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "placeholder": "Explain the fold",
+            "question": "Why is the middle of a folded sheet harder to bend?",
+            "variable": "Why is the middle of a folded sheet harder to bend?"
+          },
+          "memory": {
+            "Why is the middle of a folded sheet harder to bend?": "The fold changes the material."
+          },
+          "pending": 1,
+          "prose_question": "Why is the middle of a folded sheet harder to bend?"
+        },
+        "replay_expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "placeholder": "Explain the fold",
+            "question": "Why is the middle of a folded sheet harder to bend?",
+            "variable": "Why is the middle of a folded sheet harder to bend?"
+          },
+          "memory": {
+            "Why is the middle of a folded sheet harder to bend?": "The fold changes the material."
+          },
+          "pending": 1,
+          "retries": 1,
+          "prose_excludes": [
+            "The fold makes an entirely different material."
+          ],
+          "prose_once": [
+            "Why is the middle of a folded sheet harder to bend?"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "text": "Folding changes the cross-section even though the material stays the same.",
+        "expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "Why is the middle of a folded sheet harder to bend?": "Folding changes the cross-section even though the material stays the same."
+          }
+        }
+      }
+    ],
+    "replay": [
+      {
+        "text": "Why is the middle of a folded sheet harder to bend?",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "Why is the middle of a folded sheet harder to bend?",
+              "placeholder": "Explain the fold"
+            }
+          }
+        ]
+      },
+      {
+        "text": "The fold makes an entirely different material.",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "How do the two cross-sections differ?",
+              "placeholder": "Explain the fold"
+            }
+          }
+        ]
+      },
+      {
+        "text": "The sheet is still the same material. Why is the middle of a folded sheet harder to bend?",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "Why is the middle of a folded sheet harder to bend?",
+              "placeholder": "Explain the fold",
+              "feedback": {
+                "answer_id": "replay-1-0",
+                "phase": "authored_help",
+                "submission_quote": "The fold changes the material.",
+                "rule_quote": "After an incomplete answer, ask the learner to compare the folded and unfolded shapes.",
+                "reason": "The current exercise instructions permit this feedback."
+              }
+            }
+          }
+        ]
+      },
+      {
+        "text": "The same material resists bending better because the fold changes its cross-section.",
+        "calls": [
+          {
+            "name": "finish",
+            "args": {
+              "summary": "Compared the folded and unfolded sheet",
+              "feedback": {
+                "answer_id": "replay-3-0",
+                "phase": "accepted",
+                "submission_quote": "Folding changes the cross-section even though the material stays the same.",
+                "reason": "The response meets the authored criteria."
+              }
+            }
+          }
+        ]
+      }
     ]
+  },
+  {
+    "id": "lf-feedback-checking-placeholder",
+    "source": "langfuse",
+    "course": "course-11",
+    "tags": [
+      "observed-anomaly",
+      "text",
+      "feedback",
+      "invalid_direction_placeholder",
+      "preview"
+    ],
+    "locale": "en-US",
+    "teaching_prompt": "<!-- Use density to explain why a beam floats. -->\n\n- Ask the learner to explain why a wooden beam stays afloat in water.\n\n?[{{ Why does a wooden beam stay afloat? }} ...Explain why the beam floats]\n\n- Accept an explanation that connects floating to the beam having a lower average density than water.\n- First give one checking direction, one aspect per round.\n  - If the learner says water contact alone is enough, quote the actual claim and ask one guiding question without giving its answer. Compare the average density of the beam with the density of water.\n  - Collect a revised answer in the same input.\n- Once the learner explains the required comparison, explain how it accounts for floating and close the exercise.",
+    "steps": [
+      {
+        "action": "start",
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "question": "Why does a wooden beam stay afloat?",
+            "variable": "Why does a wooden beam stay afloat?",
+            "options": [],
+            "placeholder": "Explain why the beam floats"
+          },
+          "prose_question": "Why does a wooden beam stay afloat?",
+          "replay_prose_once": [
+            "Why does a wooden beam stay afloat?"
+          ],
+          "memory": {}
+        }
+      },
+      {
+        "action": "answer",
+        "text": "Any object touching water floats.",
+        "reload": true,
+        "expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "placeholder": "Explain why the beam floats"
+          },
+          "memory": {
+            "Why does a wooden beam stay afloat?": "Any object touching water floats."
+          },
+          "pending": 1,
+          "prose_contains": [
+            "Any object touching water floats."
+          ],
+          "prose_question": "Compare the beam's average density with the density of water."
+        },
+        "replay_expected": {
+          "outcome": "interaction",
+          "question": {
+            "type": "text",
+            "placeholder": "Explain why the beam floats"
+          },
+          "memory": {
+            "Why does a wooden beam stay afloat?": "Any object touching water floats."
+          },
+          "pending": 1,
+          "prose_contains": [
+            "Any object touching water floats."
+          ],
+          "retries": 1,
+          "prose_once": [
+            "How does the density of the beam compare with that of water?"
+          ]
+        }
+      },
+      {
+        "action": "answer",
+        "text": "The wooden beam has a lower average density than water, so it stays afloat.",
+        "expected": {
+          "outcome": "finished",
+          "pending": 0
+        },
+        "replay_expected": {
+          "outcome": "finished",
+          "pending": 0,
+          "memory": {
+            "Why does a wooden beam stay afloat?": "Any object touching water floats.",
+            "How does the density of the beam compare with that of water?": "The wooden beam has a lower average density than water, so it stays afloat."
+          }
+        }
+      }
+    ],
+    "replay": [
+      {
+        "text": "Why does a wooden beam stay afloat?",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "Why does a wooden beam stay afloat?",
+              "placeholder": "Explain why the beam floats"
+            }
+          }
+        ]
+      },
+      {
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "How does the density of the beam compare with that of water?",
+              "placeholder": "Guess the density",
+              "feedback": {
+                "answer_id": "replay-1-0",
+                "rule_quote": "First give one checking direction, one aspect per round.",
+                "aspect_limit": 1,
+                "accepted_quotes": [],
+                "focuses": [
+                  {
+                    "criterion_quote": "Compare the average density of the beam with the density of water.",
+                    "submission_quote": "Any object touching water floats.",
+                    "observed_issue": "The answer treats water contact as a sufficient explanation.",
+                    "guiding_question": "How does the density of the beam compare with that of water?"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "text": "",
+        "calls": [
+          {
+            "name": "interact",
+            "args": {
+              "type": "text",
+              "question": "How does the density of the beam compare with that of water?",
+              "placeholder": "Explain why the beam floats",
+              "feedback": {
+                "answer_id": "replay-1-0",
+                "rule_quote": "First give one checking direction, one aspect per round.",
+                "aspect_limit": 1,
+                "accepted_quotes": [],
+                "focuses": [
+                  {
+                    "criterion_quote": "Compare the average density of the beam with the density of water.",
+                    "submission_quote": "Any object touching water floats.",
+                    "observed_issue": "The answer treats water contact as a sufficient explanation.",
+                    "guiding_question": "How does the density of the beam compare with that of water?"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "text": "The beam floats because its average density is lower than the water's.",
+        "calls": [
+          {
+            "name": "finish",
+            "args": {
+              "summary": "Explained why the beam floats",
+              "feedback": {
+                "answer_id": "replay-3-0",
+                "phase": "accepted",
+                "submission_quote": "The wooden beam has a lower average density than water, so it stays afloat.",
+                "reason": "The response meets the authored criteria."
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "smoke": true
   },
   {
     "id": "lf-retired-prompt-02",
@@ -3510,8 +1647,7 @@
       "observed-anomaly",
       "retired-prompt"
     ],
-    "teaching_prompt": "先简要解释「使用能够分散拉力的固定点。」\n\n接着问「刮风时哪种方式能稳住遮阳布？」，用下方控件收集回答。\n\n?[{{ 刮风时哪种方式能稳住遮阳布？ }} 用夹子固定四角 | 只压住一角 | 直接挂在绳上]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
+    "teaching_prompt": "<!-- 判断怎样固定遮阳布才能分散拉力 -->\n\n- 说明风吹到遮阳布时，多个固定点能分担拉力。请学员选一种固定方式。\n\n?[{{ 刮风时哪种方式能稳住遮阳布？ }} 用夹子固定四角 | 只压住一角 | 直接挂在绳上]\n\n- 等学员选完，再说明四角固定怎样分担拉力，或指出所选方案还会留下哪些松动的角。",
     "steps": [
       {
         "action": "start",
@@ -3641,10 +1777,10 @@
             }
           }
         ],
-        "text": "收到。我们用你选中的做法完成这一步。"
+        "text": "固定四角可以分摊每个夹子承担的拉力，边角也更不容易掀起。"
       }
     ],
-    "smoke": true
+    "replay_only": true
   },
   {
     "id": "lf-missing-stem-03",
@@ -3657,8 +1793,7 @@
       "observed-anomaly",
       "missing-stem"
     ],
-    "teaching_prompt": "- 用这条要点引入：从手边的工具入手，说明会更具体。\n- 提出下面的问题并等待作答：\n?[{{ 你准备选哪件日常工具做步骤说明？ }} 订书机 | 卷尺 | 圆规 | 剪刀 | ...填入一种工具]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
+    "teaching_prompt": "<!-- 选一件熟悉的工具来写步骤 -->\n\n- 说明选熟悉的工具，更容易讲清手要放在哪、先做哪个动作。让学员选一种工具或填一种自己的工具。\n\n?[{{ 你准备选哪件日常工具做步骤说明？ }} 订书机 | 卷尺 | 圆规 | 剪刀 | ...填入一种工具]\n\n- 收到实际选择后，给这件工具的步骤说明起一个头。\n  - 对活页夹，先说明怎样打开夹环，再让读者把纸孔对到夹环上。\n  - 对其他工具，提示一个实际可观察的准备动作。遇到不熟悉的工具，只提示先写清放置和握持位置。",
     "steps": [
       {
         "action": "start",
@@ -3801,113 +1936,10 @@
             }
           }
         ],
-        "text": "收到。接下来可按这个选择练习。"
+        "text": "写活页夹的步骤，可以先说怎样打开夹环，再说怎样把纸孔对到夹环上。"
       }
     ],
-    "smoke": true
-  },
-  {
-    "id": "lf-missing-stem-04",
-    "source": "langfuse",
-    "course": "course-11",
-    "tags": [
-      "text",
-      "preview",
-      "authored-binding",
-      "observed-anomaly",
-      "missing-stem"
-    ],
-    "teaching_prompt": "### 练习\n使用同一支温度计可以减少仪器差异。\n\n怎样用温度计比较两杯水的温度？\n?[{{ 怎样用温度计比较两杯水的温度？ }} ...写出一个比较办法]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "怎样用温度计比较两杯水的温度？",
-            "variable": "怎样用温度计比较两杯水的温度？",
-            "options": [],
-            "placeholder": "写出一个比较办法"
-          },
-          "prose_question": "怎样用温度计比较两杯水的温度？",
-          "memory": {},
-          "pending": 1
-        },
-        "replay_expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "怎样用温度计比较两杯水的温度？",
-            "variable": "怎样用温度计比较两杯水的温度？",
-            "options": [],
-            "placeholder": "写出一个比较办法"
-          },
-          "prose_once": [
-            "怎样用温度计比较两杯水的温度？"
-          ],
-          "memory": {},
-          "pending": 1,
-          "retries": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "text": "分别把温度计浸到两杯水中，读数稳定后比较。",
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "怎样用温度计比较两杯水的温度？": "分别把温度计浸到两杯水中，读数稳定后比较。"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "placeholder": "写出一个比较办法"
-            }
-          }
-        ],
-        "text": "使用同一支温度计可以减少仪器差异。\n\n怎样用温度计比较两杯水的温度？"
-      },
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "怎样用温度计比较两杯水的温度？",
-              "placeholder": "写出一个比较办法"
-            }
-          }
-        ]
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习",
-              "feedback": {
-                "answer_id": "replay-2-0",
-                "phase": "accepted",
-                "submission_quote": "分别把温度计浸到两杯水中，读数稳定后比较。",
-                "reason": "The response completes the written task."
-              }
-            }
-          }
-        ],
-        "text": "收到。你的做法已经记录，可以拿来做一次实际检验。"
-      }
-    ]
+    "replay_only": true
   },
   {
     "id": "lf-wrong-binding-05",
@@ -3920,8 +1952,7 @@
       "observed-anomaly",
       "wrong-binding"
     ],
-    "teaching_prompt": "先简要解释「用文字标出状态，颜色只作辅助。」\n\n接着问「哪种标记能辨认已经校准的量杯？」，用下方控件收集回答。\n\n?[{{ 哪种标记能辨认已经校准的量杯？ }} 已校准 | 待测量 | 需要清洗]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
+    "teaching_prompt": "<!-- 辨认量杯上的校准状态 -->\n\n- 说明状态文字比单用颜色更容易核对。请学员认出已经完成校准的量杯。\n\n?[{{ 哪种标记能辨认已经校准的量杯？ }} 已校准 | 待测量 | 需要清洗]\n\n- 等学员选择后，说明「已校准」表示检查已经完成。「待测量」和「需要清洗」分别表示还需测量或清洁。",
     "steps": [
       {
         "action": "start",
@@ -4052,10 +2083,10 @@
             }
           }
         ],
-        "text": "收到。我们用你选中的做法完成这一步。"
+        "text": "「已校准」明确表示校准检查已经完成，下一位使用者可以据此识别这只量杯。"
       }
     ],
-    "smoke": true
+    "replay_only": true
   },
   {
     "id": "lf-extra-pause-06",
@@ -4068,8 +2099,7 @@
       "observed-anomaly",
       "extra-pause"
     ],
-    "teaching_prompt": "- 用这条要点引入：测量值需要绑定到样品编号。\n- 提出下面的问题并等待作答：\n?[{{ 哪里应该登记每包种子的称量值？ }} 样品登记表 | 签到册 | 值班表]\n- 收到答案后用一句话承接学员的回答，然后结束。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
+    "teaching_prompt": "<!-- 让每个测量值能追溯到对应样品 -->\n\n- 说明种子每包的测量值要和样品编号登记在一起。讲完直接请学员回答该把称量值写在哪里。\n\n?[{{ 哪里应该登记每包种子的称量值？ }} 样品登记表 | 签到册 | 值班表]\n\n- 等学员选完，再指出样品登记表能把编号和重量对应起来。若选签到册或值班表，说明它们记录的是人员或安排。",
     "steps": [
       {
         "action": "start",
@@ -4167,308 +2197,10 @@
             }
           }
         ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-wrong-binding-07",
-    "source": "langfuse",
-    "course": "course-02",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding",
-      "observed-anomaly",
-      "wrong-binding"
-    ],
-    "teaching_prompt": "### 练习\n筛网孔径和筛出材料应同时记录。\n\n哪一步能留下这次筛分的复查依据？\n?[{{ 哪一步能留下这次筛分的复查依据？ }} 登记孔径和筛余重量 | 只写操作时间 | 只记筛网颜色]\n\n拿到回答后确认收到，然后结束本节。",
-    "course_prompt": "用简短、具体的中文引导。按脚本保留题意和选项。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "哪一步能留下这次筛分的复查依据？",
-            "variable": "哪一步能留下这次筛分的复查依据？",
-            "options": [
-              [
-                "登记孔径和筛余重量",
-                "登记孔径和筛余重量"
-              ],
-              [
-                "只写操作时间",
-                "只写操作时间"
-              ],
-              [
-                "只记筛网颜色",
-                "只记筛网颜色"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "哪一步能留下这次筛分的复查依据？",
-          "memory": {},
-          "pending": 1
-        },
-        "replay_expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "哪一步能留下这次筛分的复查依据？",
-            "variable": "哪一步能留下这次筛分的复查依据？",
-            "options": [
-              [
-                "登记孔径和筛余重量",
-                "登记孔径和筛余重量"
-              ],
-              [
-                "只写操作时间",
-                "只写操作时间"
-              ],
-              [
-                "只记筛网颜色",
-                "只记筛网颜色"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_once": [
-            "哪一步能留下这次筛分的复查依据？"
-          ],
-          "memory": {},
-          "pending": 1,
-          "retries": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "登记孔径和筛余重量"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "哪一步能留下这次筛分的复查依据？": "登记孔径和筛余重量"
-          }
-        }
+        "text": "把称量值和该包种子的样品编号一起写入样品登记表，之后就能按编号复查。"
       }
     ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "哪一步能留下这次筛分的复查依据？",
-              "options": [
-                {
-                  "display": "登记孔径和筛余重量"
-                },
-                {
-                  "display": "只写操作时间"
-                },
-                {
-                  "display": "只记筛网颜色"
-                }
-              ],
-              "display_question": "哪一步能留下这次筛分的复查依据？"
-            }
-          }
-        ],
-        "text": "筛网孔径和筛出材料应同时记录。\n\n哪一步能留下这次筛分的复查依据？"
-      },
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "哪一步能留下这次筛分的复查依据？",
-              "options": [
-                {
-                  "display": "登记孔径和筛余重量"
-                },
-                {
-                  "display": "只写操作时间"
-                },
-                {
-                  "display": "只记筛网颜色"
-                }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ]
-  },
-  {
-    "id": "lf-empty-pause-08",
-    "source": "langfuse",
-    "course": "course-02",
-    "tags": [
-      "single",
-      "learn",
-      "authored-binding",
-      "observed-anomaly",
-      "empty-pause"
-    ],
-    "teaching_prompt": "先简要解释「先根据材料选择合适的刀片规格。」\n\n接着问「改用新刀片前要先核对哪项？」，用下方控件收集回答。\n\n?[{{ 改用新刀片前要先核对哪项？ }} 刀片适用材质 | 包装的颜色 | 桌面的尺寸 | 铅笔的数量]\n\n答后给一句简短回应并完成本节。",
-    "course_prompt": "每次只问一题。收到答案后结合学员所选内容给一句简短回应。",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "改用新刀片前要先核对哪项？",
-            "variable": "改用新刀片前要先核对哪项？",
-            "options": [
-              [
-                "刀片适用材质",
-                "刀片适用材质"
-              ],
-              [
-                "包装的颜色",
-                "包装的颜色"
-              ],
-              [
-                "桌面的尺寸",
-                "桌面的尺寸"
-              ],
-              [
-                "铅笔的数量",
-                "铅笔的数量"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_question": "改用新刀片前要先核对哪项？",
-          "memory": {},
-          "pending": 1
-        },
-        "replay_expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "改用新刀片前要先核对哪项？",
-            "variable": "改用新刀片前要先核对哪项？",
-            "options": [
-              [
-                "刀片适用材质",
-                "刀片适用材质"
-              ],
-              [
-                "包装的颜色",
-                "包装的颜色"
-              ],
-              [
-                "桌面的尺寸",
-                "桌面的尺寸"
-              ],
-              [
-                "铅笔的数量",
-                "铅笔的数量"
-              ]
-            ],
-            "placeholder": null
-          },
-          "prose_once": [
-            "改用新刀片前要先核对哪项？"
-          ],
-          "memory": {},
-          "pending": 1,
-          "retries": 1
-        }
-      },
-      {
-        "action": "answer",
-        "reload": false,
-        "values": [
-          "刀片适用材质"
-        ],
-        "expected": {
-          "outcome": "finished",
-          "pending": 0,
-          "memory": {
-            "改用新刀片前要先核对哪项？": "刀片适用材质"
-          }
-        }
-      }
-    ],
-    "replay": [
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "options": [
-                {
-                  "display": "继续",
-                  "value": "继续"
-                }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "改用新刀片前要先核对哪项？",
-              "options": [
-                {
-                  "display": "刀片适用材质"
-                },
-                {
-                  "display": "包装的颜色"
-                },
-                {
-                  "display": "桌面的尺寸"
-                },
-                {
-                  "display": "铅笔的数量"
-                }
-              ]
-            }
-          }
-        ],
-        "text": "先根据材料选择合适的刀片规格。\n\n改用新刀片前要先核对哪项？"
-      },
-      {
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "完成练习"
-            }
-          }
-        ],
-        "text": "收到。我们用你选中的做法完成这一步。"
-      }
-    ],
-    "smoke": true
+    "replay_only": true
   },
   {
     "id": "lf-feedback-wrong-answer-id",
@@ -4482,7 +2214,7 @@
       "preview"
     ],
     "locale": "en-US",
-    "teaching_prompt": "# Workshop\nAfter an incomplete answer, give a short clue and ask for a correction.\n\n## First exercise\nWhy does wet clay keep a thumbprint?\n?[{{ Why does wet clay keep a thumbprint? }} ...Describe the thumbprint]\n\n### Acceptance\nConnect the shape change to the applied force.\n\nUse the clue before asking for a corrected answer.",
+    "teaching_prompt": "<!-- Connect a change in clay's shape to a force. -->\n\n- Ask the learner to explain why soft clay keeps a thumbprint after being pressed.\n\n?[{{ Why does wet clay keep a thumbprint? }} ...Describe the thumbprint]\n\n- Accept an answer that links the changed shape to the force of the thumb.\n- After an incomplete answer, give a short clue and ask for a correction.\n  - If the learner talks about the clay sticking to the table, use their actual answer and direct attention to the clay where the thumb pressed.\n  - Wait for the learner to revise before explaining how the thumb changes the clay's shape.",
     "steps": [
       {
         "action": "start",
@@ -4595,7 +2327,8 @@
           }
         ]
       }
-    ]
+    ],
+    "replay_only": true
   },
   {
     "id": "lf-feedback-control-only-retry",
@@ -4609,7 +2342,7 @@
       "preview"
     ],
     "locale": "en-US",
-    "teaching_prompt": "# Workshop\nAfter an incomplete answer, give one short clue and ask the learner to revise.\n\n## First exercise\nWhy does a lid slow the cooling of soup?\n?[{{ Why does a lid slow the cooling of soup? }} ...Explain the effect of the lid]\n\n### Acceptance\nIdentify the escape of warm moist air.\n\nKeep the soup example and allow a revised answer.",
+    "teaching_prompt": "<!-- Connect the lid to the escape of warm air. -->\n\n- Ask the learner why covering hot soup slows its cooling.\n\n?[{{ Why does a lid slow the cooling of soup? }} ...Explain the effect of the lid]\n\n- Accept an answer that identifies the escape of warm moist air.\n- After an incomplete answer, give one short clue and ask the learner to revise.\n  - If the learner mentions colour, direct attention to what can escape above the soup. Ask the learner to answer the same question again.\n  - Wait for the revision before explaining how the lid limits the escape of warm moist air.",
     "steps": [
       {
         "action": "start",
@@ -4724,339 +2457,8 @@
           }
         ]
       }
-    ]
-  },
-  {
-    "id": "lf-feedback-missing-branch",
-    "source": "langfuse",
-    "course": "course-11",
-    "tags": [
-      "observed-anomaly",
-      "text",
-      "feedback",
-      "missing_feedback",
-      "preview"
     ],
-    "locale": "en-US",
-    "teaching_prompt": "# Workshop\nAfter an incomplete answer, ask the learner to compare the folded and unfolded shapes.\n\n## First exercise\nWhy is the middle of a folded sheet harder to bend?\n?[{{ Why is the middle of a folded sheet harder to bend? }} ...Explain the fold]\n\n### Acceptance\nExplain how the cross-section changes when the sheet is folded.\n\nUse the same sheet as the comparison.",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "Why is the middle of a folded sheet harder to bend?",
-            "variable": "Why is the middle of a folded sheet harder to bend?",
-            "options": [],
-            "placeholder": "Explain the fold"
-          },
-          "prose_question": "Why is the middle of a folded sheet harder to bend?",
-          "replay_prose_once": [
-            "Why is the middle of a folded sheet harder to bend?"
-          ],
-          "memory": {}
-        }
-      },
-      {
-        "action": "answer",
-        "text": "The fold changes the material.",
-        "reload": true,
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "placeholder": "Explain the fold",
-            "question": "Why is the middle of a folded sheet harder to bend?",
-            "variable": "Why is the middle of a folded sheet harder to bend?"
-          },
-          "memory": {
-            "Why is the middle of a folded sheet harder to bend?": "The fold changes the material."
-          },
-          "pending": 1
-        },
-        "replay_expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "placeholder": "Explain the fold",
-            "question": "Why is the middle of a folded sheet harder to bend?",
-            "variable": "Why is the middle of a folded sheet harder to bend?"
-          },
-          "memory": {
-            "Why is the middle of a folded sheet harder to bend?": "The fold changes the material."
-          },
-          "pending": 1,
-          "retries": 1,
-          "prose_excludes": [
-            "The fold makes an entirely different material."
-          ],
-          "prose_once": [
-            "Why is the middle of a folded sheet harder to bend?"
-          ]
-        }
-      }
-    ],
-    "replay": [
-      {
-        "text": "Why is the middle of a folded sheet harder to bend?",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "Why is the middle of a folded sheet harder to bend?",
-              "placeholder": "Explain the fold"
-            }
-          }
-        ]
-      },
-      {
-        "text": "The fold makes an entirely different material.",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "How do the two cross-sections differ?",
-              "placeholder": "Explain the fold"
-            }
-          }
-        ]
-      },
-      {
-        "text": "The sheet is still the same material. Why is the middle of a folded sheet harder to bend?",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "Why is the middle of a folded sheet harder to bend?",
-              "placeholder": "Explain the fold",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "phase": "authored_help",
-                "submission_quote": "The fold changes the material.",
-                "rule_quote": "After an incomplete answer, ask the learner to compare the folded and unfolded shapes.",
-                "reason": "The current exercise instructions permit this feedback."
-              }
-            }
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "lf-feedback-checking-placeholder",
-    "source": "langfuse",
-    "course": "course-11",
-    "tags": [
-      "observed-anomaly",
-      "text",
-      "feedback",
-      "invalid_direction_placeholder",
-      "preview"
-    ],
-    "locale": "en-US",
-    "teaching_prompt": "# Workshop\nFirst give one checking direction, one aspect per round.\n\n## First exercise\nWhy does a wooden beam stay afloat?\n?[{{ Why does a wooden beam stay afloat? }} ...Explain why the beam floats]\n\n### Acceptance\nCompare the average density of the beam with the density of water.\n\nGive the first check and wait for a revised explanation.",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "question": "Why does a wooden beam stay afloat?",
-            "variable": "Why does a wooden beam stay afloat?",
-            "options": [],
-            "placeholder": "Explain why the beam floats"
-          },
-          "prose_question": "Why does a wooden beam stay afloat?",
-          "replay_prose_once": [
-            "Why does a wooden beam stay afloat?"
-          ],
-          "memory": {}
-        }
-      },
-      {
-        "action": "answer",
-        "text": "Any object touching water floats.",
-        "reload": true,
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "placeholder": "Explain why the beam floats"
-          },
-          "memory": {
-            "Why does a wooden beam stay afloat?": "Any object touching water floats."
-          },
-          "pending": 1,
-          "prose_contains": [
-            "Any object touching water floats."
-          ]
-        },
-        "replay_expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "text",
-            "placeholder": "Explain why the beam floats"
-          },
-          "memory": {
-            "Why does a wooden beam stay afloat?": "Any object touching water floats."
-          },
-          "pending": 1,
-          "prose_contains": [
-            "Any object touching water floats."
-          ],
-          "retries": 1
-        }
-      }
-    ],
-    "replay": [
-      {
-        "text": "Why does a wooden beam stay afloat?",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "Why does a wooden beam stay afloat?",
-              "placeholder": "Explain why the beam floats"
-            }
-          }
-        ]
-      },
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "How does the density of the beam compare with that of water?",
-              "placeholder": "Guess the density",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "rule_quote": "First give one checking direction, one aspect per round.",
-                "aspect_limit": 1,
-                "accepted_quotes": [],
-                "focuses": [
-                  {
-                    "criterion_quote": "Compare the average density of the beam with the density of water.",
-                    "submission_quote": "Any object touching water floats.",
-                    "observed_issue": "The answer treats water contact as a sufficient explanation.",
-                    "guiding_question": "How does the density of the beam compare with that of water?"
-                  }
-                ]
-              }
-            }
-          }
-        ]
-      },
-      {
-        "text": "",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "text",
-              "question": "How does the density of the beam compare with that of water?",
-              "placeholder": "Explain why the beam floats",
-              "feedback": {
-                "answer_id": "replay-1-0",
-                "rule_quote": "First give one checking direction, one aspect per round.",
-                "aspect_limit": 1,
-                "accepted_quotes": [],
-                "focuses": [
-                  {
-                    "criterion_quote": "Compare the average density of the beam with the density of water.",
-                    "submission_quote": "Any object touching water floats.",
-                    "observed_issue": "The answer treats water contact as a sufficient explanation.",
-                    "guiding_question": "How does the density of the beam compare with that of water?"
-                  }
-                ]
-              }
-            }
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "synthetic-continue-keeps-memory",
-    "source": "synthetic",
-    "locale": "en-US",
-    "tags": [
-      "continue-button",
-      "no-memory-write"
-    ],
-    "teaching_prompt": "Explain that different soils hold water differently.\n\nLet the learner pause and reflect before continuing.\n\n?[Next step//continue]\n\nExplain why clay takes longer to drain.",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "options": [
-              [
-                "Next step",
-                "continue"
-              ]
-            ],
-            "variable": null
-          },
-          "memory": {
-            "previous_topic": "soil drainage"
-          }
-        }
-      },
-      {
-        "action": "answer",
-        "expected": {
-          "outcome": "finished",
-          "memory": {
-            "previous_topic": "soil drainage"
-          }
-        },
-        "values": [
-          "continue"
-        ]
-      }
-    ],
-    "replay": [
-      {
-        "text": "Different soils hold water differently.",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "options": [
-                {
-                  "display": "Next step",
-                  "value": "continue"
-                }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        "text": "Clay has smaller spaces between particles, so water drains more slowly.",
-        "calls": [
-          {
-            "name": "finish",
-            "args": {
-              "summary": "Compared drainage"
-            }
-          }
-        ]
-      }
-    ],
-    "memory": {
-      "previous_topic": "soil drainage"
-    }
+    "replay_only": true
   },
   {
     "id": "synthetic-literal-control",
@@ -5067,7 +2469,7 @@
       "code-fence",
       "no-control"
     ],
-    "teaching_prompt": "Show this exact code example to explain how choice syntax is written.\n\n```md\n?[One | Two]\n```\n\nEnd the lesson after the code example.",
+    "teaching_prompt": "<!-- Show how two choice labels are written in source code. -->\n\n- Explain that the following code sample contains two choices. Present it as a fenced Markdown code example for the learner to read.\n\n```md\n?[One | Two]\n```\n\n- End after the example. The learner is only reading the notation.",
     "steps": [
       {
         "action": "start",
@@ -5103,7 +2505,7 @@
       "missing-tool",
       "narrated-fallback"
     ],
-    "teaching_prompt": "Invite the learner to pick a planter type, then explain the first step.\n\nWhich planter would you choose?\n?[Herbs | Flowers]",
+    "teaching_prompt": "<!-- Choose a planter so the first planning task fits it. -->\n\n- Ask the learner which kind of planter they want to plan.\n\n?[{{ Which planter would you choose? }} Herbs | Flowers]\n\n- After they choose, explain the first step for their choice. For herbs, start with a sunny spot. For flowers, check how much sun the intended location gets before choosing a flower.",
     "steps": [
       {
         "action": "start",
@@ -5111,6 +2513,8 @@
           "outcome": "interaction",
           "question": {
             "type": "single",
+            "question": "Which planter would you choose?",
+            "variable": "Which planter would you choose?",
             "options": [
               [
                 "Herbs",
@@ -5120,8 +2524,15 @@
                 "Flowers",
                 "Flowers"
               ]
-            ]
-          }
+            ],
+            "placeholder": null
+          },
+          "pending": 1,
+          "memory": {},
+          "prose_question": "Which planter would you choose?",
+          "replay_prose_once": [
+            "Which planter would you choose?"
+          ]
         },
         "replay_expected": {
           "outcome": "end",
@@ -5164,112 +2575,6 @@
     "replay_only": true
   },
   {
-    "id": "synthetic-retry-without-repeated-question",
-    "source": "synthetic",
-    "locale": "en-US",
-    "tags": [
-      "single",
-      "legacy-argument",
-      "duplicate-prose",
-      "retry-recovery"
-    ],
-    "teaching_prompt": "Ask the learner to choose a garden.\n\nWhich small garden will you sketch?\n?[{{ Which small garden will you sketch? }} Herbs//herbs | Flowers//flowers]",
-    "steps": [
-      {
-        "action": "start",
-        "expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "Which small garden will you sketch?",
-            "variable": "Which small garden will you sketch?",
-            "options": [
-              [
-                "Herbs",
-                "herbs"
-              ],
-              [
-                "Flowers",
-                "flowers"
-              ]
-            ]
-          },
-          "prose_question": "Which small garden will you sketch?",
-          "memory": {}
-        },
-        "replay_expected": {
-          "outcome": "interaction",
-          "question": {
-            "type": "single",
-            "question": "Which small garden will you sketch?",
-            "variable": "Which small garden will you sketch?",
-            "options": [
-              [
-                "Herbs",
-                "herbs"
-              ],
-              [
-                "Flowers",
-                "flowers"
-              ]
-            ]
-          },
-          "prose_once": [
-            "Which small garden will you sketch?"
-          ],
-          "memory": {}
-        }
-      }
-    ],
-    "replay": [
-      {
-        "text": "Which small garden will you sketch?",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "prompt": "Which small garden will you sketch?",
-              "variable": "garden",
-              "options": [
-                {
-                  "display": "Herbs",
-                  "value": "herbs"
-                },
-                {
-                  "display": "Flowers",
-                  "value": "flowers"
-                }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        "text": "",
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "single",
-              "question": "Which small garden will you sketch?",
-              "options": [
-                {
-                  "display": "Herbs",
-                  "value": "herbs"
-                },
-                {
-                  "display": "Flowers",
-                  "value": "flowers"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    ]
-  },
-  {
     "id": "synthetic-retry-exhaustion",
     "source": "synthetic",
     "locale": "en-US",
@@ -5278,7 +2583,7 @@
       "legacy-argument",
       "retry-exhaustion"
     ],
-    "teaching_prompt": "Ask the learner to choose a garden.\n\nWhich small garden will you sketch?\n?[{{ Which small garden will you sketch? }} Herbs//herbs | Flowers//flowers]",
+    "teaching_prompt": "<!-- Choose one type of small garden for a sketch. -->\n\n- Give the learner a choice between sketching a place for herbs and sketching a place for flowers.\n\n?[{{ Which small garden will you sketch? }} Herbs//herbs | Flowers//flowers]\n\n- Wait for the choice and give one opening step. Plan which herbs to place within reach, or mark where the taller flowers would go.",
     "steps": [
       {
         "action": "start",
@@ -5306,7 +2611,8 @@
           "outcome": "error",
           "retryable_error": true,
           "pending": 0,
-          "memory": {}
+          "memory": {},
+          "retries": 3
         }
       }
     ],
@@ -5403,7 +2709,8 @@
           }
         ]
       }
-    ]
+    ],
+    "replay_only": true
   },
   {
     "id": "synthetic-blank-answer-reload",
@@ -5415,7 +2722,7 @@
       "stored-value"
     ],
     "locale": "en-US",
-    "teaching_prompt": "Compare two ways to plan an outdoor space.\n\nWhich example would you like to try?\n?[{{ Which example would you like to try? }} Small garden//garden | City park//park]\nExplain how to start with the learner's chosen example.",
+    "teaching_prompt": "<!-- Choose the scale of a first planning sketch. -->\n\n- Contrast the space available in a small garden with the space in a city park. Let the learner choose the example to sketch.\n\n?[{{ Which example would you like to try? }} Small garden//garden | City park//park]\n\n- Wait for their choice. For the small garden, sketch the beds first so there is room for a path. For the city park, sketch the main paths first to show how visitors will get around.",
     "steps": [
       {
         "action": "start",
@@ -5506,7 +2813,8 @@
           }
         ]
       }
-    ]
+    ],
+    "replay_only": true
   },
   {
     "id": "queued-choice-reload",
@@ -5518,7 +2826,7 @@
     ],
     "locale": "en-US",
     "replay_only": true,
-    "teaching_prompt": "Plan a classroom model. Ask two setup questions.\n\nWhich material should we model?\n?[{{ Which material should we model? }} Cardboard//card | Wood//wood]\n\nWhich tool should we compare?\n?[{{ Which tool should we compare? }} Ruler//ruler | Tape measure//tape]\n\nExplain both choices together after the two answers.",
+    "teaching_prompt": "<!-- Pick the material before deciding how to measure it. -->\n\n- Ask which material the learner wants for a classroom model.\n\n?[{{ Which material should we model? }} Cardboard//card | Wood//wood]\n\n<!-- Connect the measuring tool to the model. -->\n\n- Ask which tool the learner will use to mark the dimensions.\n\n?[{{ Which tool should we compare? }} Ruler//ruler | Tape measure//tape]\n\n- Once both choices are available, say how to measure the selected material with the selected tool.",
     "steps": [
       {
         "action": "start",
@@ -5656,7 +2964,7 @@
       "binding"
     ],
     "locale": "en-US",
-    "teaching_prompt": "Compare symbols used in labels. Which notation should we label?\n\n?[{{ Which notation should we label? }} A \\| B//pipe\\|label | C \\/\\/ D \\]//slash\\/\\/label\\] | ...Other notation \\.\\.\\. or \\]]\n\nAcknowledge the learner’s chosen notation and finish.",
+    "teaching_prompt": "<!-- Recognize notation that belongs in a printed label. -->\n\n- Show the two printed examples below. Explain that the symbols inside each label are part of the text. Invite the learner to choose an example or describe another label.\n\n?[{{ Which notation should we label? }} A \\| B//pipe\\|label | C \\/\\/ D \\]//slash\\/\\/label\\] | ...Other notation \\.\\.\\. or \\]]\n\n- Respond with the full label chosen or entered, keeping its punctuation, so the learner can check which text would be printed.",
     "steps": [
       {
         "action": "start",
@@ -5743,7 +3051,7 @@
       "separator"
     ],
     "locale": "en-US",
-    "teaching_prompt": "A compass can indicate north.\n\n---\n\nThe marked end points toward magnetic north. Present both parts continuously and then finish.",
+    "teaching_prompt": "<!-- Follow the marked end of a compass needle. -->\n\n- Explain that a compass can indicate north.\n\n---\n\n- Continue directly by pointing out that the marked end of the needle points toward magnetic north.\n- Close after both points. Deliver the explanation continuously without asking for input.",
     "steps": [
       {
         "action": "start",

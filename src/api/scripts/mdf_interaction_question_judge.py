@@ -26,7 +26,11 @@ to a question without asking it, quotes it as an example, supplies the answer
 without requesting one, or asks for materially different information. Evaluate
 only the supplied prose. Do not assume that controls or a tool supplied the ask.
 
-Give a brief reason for the decision.
+Set asked to null if the prose plausibly invites the intended answer but the
+scope or the target of the request is ambiguous. Do not force a yes or no when
+there are competing reasonable readings. Explain what a reviewer should resolve.
+
+Give a brief reason grounded in the supplied wording.
 """
 
 
@@ -35,7 +39,7 @@ class QuestionJudgment(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
 
-    asked: bool
+    asked: bool | None
     reason: str = Field(min_length=1, max_length=512)
 
 

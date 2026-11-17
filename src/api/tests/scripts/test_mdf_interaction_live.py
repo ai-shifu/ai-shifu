@@ -155,7 +155,10 @@ async def test_question_judge_sends_its_own_prompt_and_output_tool_through_gatew
     }
     (tool,) = request["tools"]
     assert tool["function"]["name"] == "final_result"
-    assert tool["function"]["parameters"]["properties"]["asked"] == {"type": "boolean"}
+    assert tool["function"]["parameters"]["properties"]["asked"]["anyOf"] == [
+        {"type": "boolean"},
+        {"type": "null"},
+    ]
     record_usage.assert_not_called()
 
 

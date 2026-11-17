@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -14,7 +15,9 @@ from urllib.parse import urlsplit
 import pytest
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import FunctionModel
-from scripts.evaluate_mdf_interactions import Case, Replay, evaluate_case
+from scripts.evaluate_mdf_interactions import Case, Replay, evaluate_case, main
+
+from scripts import mdf_interaction_live
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -193,32 +196,53 @@ def test_offline_replay_reloads_pending_question_and_stores_submitted_value(
 
 
 @pytest.mark.parametrize(
-    ("prose", "verdict", "status", "failures"),
+    ("prose", "verdict", "criterion", "status", "failures"),
     [
         (
             "Pick the outdoor space you want to start with.",
             True,
+            "passed",
             "first_attempt_pass",
             [],
         ),
         (
             "Both spaces have interesting features.",
             False,
+            "failed",
             "behavior_failure",
             ["step_1.prose_question"],
         ),
-        ("", False, "behavior_failure", ["step_1.prose_question"]),
-        ("Pick a space.", None, "call_failure", ["step_1.question_judge_call"]),
+        ("", False, "failed", "behavior_failure", ["step_1.prose_question"]),
+        (
+            "Pick a space.",
+            None,
+            "not_evaluated",
+            "call_failure",
+            ["step_1.question_judge_call"],
+        ),
+        (
+            "Pick the outdoor space you want to start with.",
+            True,
+            "passed",
+            "behavior_failure",
+            ["step_1.question.options"],
+        ),
     ],
 )
 def test_live_question_checks_visible_meaning_separately_from_binding(
-    prose: str, verdict: bool | None, status: str, failures: list[str]
+    prose: str,
+    verdict: bool | None,
+    criterion: str,
+    status: str,
+    failures: list[str],
 ) -> None:
     fixture = _case()
     expected = fixture["steps"][0]["expected"]
     del expected["prose_once"]
     expected["prose_question"] = QUESTION
     expected["replay_prose_once"] = [QUESTION]
+    if "step_1.question.options" in failures:
+        expected["question"]["options"] = [["Another park", "other"]]
     fixture["replay"][0]["text"] = prose
     case = Case.model_validate(fixture)
     judged = []
@@ -246,13 +270,119 @@ def test_live_question_checks_visible_meaning_separately_from_binding(
     )
 
     assert result["steps"][0]["question"]["variable"] == QUESTION
+    assert result["steps"][0]["criteria"]["question.variable"] == "passed"
+    assert result["steps"][0]["criteria"]["prose_question"] == criterion
     assert result["status"] == status
     assert result["failures"] == failures
     assert judged == (
         [{"intended_question": QUESTION, "prose": prose}] if prose else []
     )
     assert result["question_judge_requests"] == len(judged)
-    assert result["model_requests"] == (2 if verdict is True else 1)
+    assert result["model_requests"] == (2 if status == "first_attempt_pass" else 1)
+
+
+@pytest.mark.parametrize(
+    ("verdicts", "control_failure"),
+    [((None,), False), ((True, False), False), ((True, False), True)],
+    ids=["inconclusive", "judges-disagree", "disagreement-plus-control-failure"],
+)
+def test_live_cli_surfaces_unresolved_judgments_with_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    verdicts: tuple[bool | None, ...],
+    control_failure: bool,
+) -> None:
+    fixture = _case()
+    expected = fixture["steps"][0]["expected"]
+    del expected["prose_once"]
+    expected["prose_question"] = QUESTION
+    if control_failure:
+        expected["question"]["options"] = [["Another park", "other"]]
+    prose = "A small garden or a city park could work. Think about the size."
+    fixture["replay"][0]["text"] = prose
+    case = Case.model_validate(fixture)
+    cases = tmp_path / "cases.json"
+    output = tmp_path / "live.json"
+    _write_cases(cases, fixture)
+
+    def judge_model(name: str, verdict: bool | None) -> FunctionModel:
+        def assessment(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+            return ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        info.output_tools[0].name,
+                        {"asked": verdict, "reason": f"Reading from {name}"},
+                    )
+                ]
+            )
+
+        return FunctionModel(assessment, model_name=name)
+
+    judge_names = ["question-judge", "second-judge"][: len(verdicts)]
+    models = {
+        name: judge_model(name, verdict)
+        for name, verdict in zip(judge_names, verdicts, strict=True)
+    }
+
+    @contextmanager
+    def build_model(model_id: str) -> Iterator[FunctionModel]:
+        yield Replay(case.replay).model if model_id == "teacher" else models[model_id]
+
+    monkeypatch.setattr(mdf_interaction_live, "build_live_model", build_model)
+    args = [
+        "--cases",
+        str(cases),
+        "--json",
+        str(output),
+        "--live",
+        "--model",
+        "teacher",
+        "--judge-model",
+        "question-judge",
+    ]
+    if len(verdicts) == 2:
+        args.extend(["--second-judge-model", "second-judge"])
+    assert main(args) == (1 if control_failure else 3)
+
+    report = _report(output)
+    (result,) = report["results"]
+    if control_failure:
+        assert result["status"] == "behavior_failure"
+        assert result["failures"] == ["step_1.question.options"]
+    else:
+        assert result["status"] == "needs_review"
+        assert result["failures"] == []
+        assert result["steps"][-1]["outcome"] == "finished"
+    assert result["question_judge_requests"] == len(verdicts)
+    assert report["criteria_summary"]["prose_question"] == {
+        "passed": 0,
+        "failed": 0,
+        "needs_review": 1,
+        "not_evaluated": 0,
+    }
+    (review,) = report["review_items"]
+    assert (
+        review["case_id"],
+        review["repeat"],
+        review["stage"],
+        review["criterion"],
+    ) == (
+        "garden-choice",
+        1,
+        1,
+        "prose_question",
+    )
+    assert review["learner_prose"] == prose
+    assert review["intended_question"] == QUESTION
+    assert [decision["model"] for decision in review["decisions"]] == judge_names
+    assert [decision["asked"] for decision in review["decisions"]] == list(verdicts)
+    reason_marker = "disagree" if len(verdicts) == 2 else "ambiguous"
+    assert reason_marker in review["reason"]
+    stdout = capsys.readouterr().out
+    assert "Criterion assessment" in stdout
+    assert "Items needing human review: 1" in stdout
+    assert prose in stdout
 
 
 @pytest.mark.parametrize(
@@ -310,9 +440,20 @@ def test_offline_replay_reports_behavior_failures(
     process = _run("--cases", str(cases), "--json", str(output))
 
     assert process.returncode == 1, process.stdout + process.stderr
-    (result,) = _report(output)["results"]
+    report = _report(output)
+    (result,) = report["results"]
     assert result["status"] == "behavior_failure"
     assert failure in result["failures"]
+    stage, criterion = failure.split(".", 1)
+    assert (
+        result["steps"][int(stage.removeprefix("step_")) - 1]["criteria"][criterion]
+        == "failed"
+    )
+    assert report["criteria_summary"][criterion]["failed"] >= 1
+    if problem == "premature_finish":
+        assert result["steps"][0]["criteria"]["question.type"] == "not_evaluated"
+        assert report["criteria_summary"]["memory"]["not_evaluated"] == 2
+        assert [step["stage"] for step in result["unreached_steps"]] == [2, 3]
 
 
 @pytest.mark.parametrize("question_count", [0, 2], ids=["omitted", "repeated"])
@@ -394,13 +535,31 @@ def test_comparison_accepts_prompt_changes_and_rejects_different_case_selection(
     assert result["comparison"]["mismatches"]
 
 
-def test_bundled_smoke_suite_has_twelve_distinct_cases(tmp_path: Path) -> None:
-    output = tmp_path / "smoke.json"
-    process = _run("--suite", "smoke", "--json", str(output))
+@pytest.mark.parametrize("suite", ["smoke", "all"])
+def test_bundled_suite_replays_every_selected_case(tmp_path: Path, suite: str) -> None:
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    expected_ids = [
+        case["id"] for case in catalog if suite == "all" or case.get("smoke")
+    ]
+    output = tmp_path / "replay.json"
+    process = _run("--suite", suite, "--json", str(output))
     assert process.returncode == 0, process.stdout + process.stderr
-    result = _report(output)
-    assert len(result["results"]) == 12
-    assert len({case["case_id"] for case in result["results"]}) == 12
+    report = _report(output)
+    assert report["review_items"] == []
+    assert report["criteria_summary"]["prose_question"]["not_evaluated"] > 0
+    results = report["results"]
+    assert [result["case_id"] for result in results] == expected_ids
+    reproduced = {
+        result["case_id"]
+        for result in results
+        if result["status"] == "expected_failure_replayed"
+    }
+    expected_failures = (
+        {"synthetic-narrated-fallback", "synthetic-retry-exhaustion"}
+        if suite == "all"
+        else set()
+    )
+    assert reproduced == expected_failures
 
 
 def _fixture_strings(value: object) -> Iterator[str]:
@@ -433,31 +592,51 @@ def test_bundled_catalog_limits_provenance_and_private_data() -> None:
                 assert hostname in EXAMPLE_HOSTS, case["id"]
 
 
-def test_bundled_catalog_covers_trace_diversity_and_replay_anomalies() -> None:
+def test_bundled_catalog_retains_distinct_trace_anomalies() -> None:
     cases = json.loads(CATALOG.read_text(encoding="utf-8"))
-    derived = [case for case in cases if case["source"] == "langfuse"]
-    observed_anomalies = [
-        case for case in derived if "observed-anomaly" in case["tags"]
-    ]
-    course_count = len({case["course"] for case in derived})
-    assert len(derived) >= 48, f"Only {len(derived)} trace-derived cases"
-    assert course_count >= 8, f"Only {course_count} trace-derived courses"
-    assert len(observed_anomalies) >= 12, (
-        f"Only {len(observed_anomalies)} trace-derived anomalies"
-    )
-    control_types = {
-        expected["question"]["type"]
+    anomaly_tags = {
+        tag
         for case in cases
-        for step in case["steps"]
-        if (expected := step["expected"]).get("question")
+        if case["source"] == "langfuse" and "observed-anomaly" in case["tags"]
+        for tag in case["tags"]
     }
-    assert control_types == {
-        "single",
-        "multi",
-        "text",
-        "single_or_text",
-        "multi_or_text",
+    assert {
+        "empty-pause",
+        "retired-prompt",
+        "missing-stem",
+        "wrong-binding",
+        "extra-pause",
+        "wrong_answer_id",
+        "control_only_retry",
+        "missing_feedback",
+        "invalid_direction_placeholder",
+    } <= anomaly_tags
+
+
+def test_bundled_smoke_suite_covers_each_control_and_submission_mode() -> None:
+    cases = json.loads(CATALOG.read_text(encoding="utf-8"))
+    smoke = [case for case in cases if case.get("smoke")]
+    assert all(not case.get("replay_only") for case in smoke)
+    submissions = {
+        (
+            previous["expected"]["question"]["type"],
+            bool(step.get("values")),
+            bool(step.get("text")),
+        )
+        for case in smoke
+        for previous, step in zip(case["steps"], case["steps"][1:], strict=False)
+        if step["action"] == "answer" and previous["expected"].get("question")
     }
+    assert {
+        ("single", True, False),
+        ("multi", True, False),
+        ("text", False, True),
+        ("single_or_text", True, False),
+        ("single_or_text", False, True),
+        ("multi_or_text", True, False),
+        ("multi_or_text", False, True),
+        ("multi_or_text", True, True),
+    } <= submissions
 
 
 @pytest.mark.parametrize("allow_queue", [False, True])

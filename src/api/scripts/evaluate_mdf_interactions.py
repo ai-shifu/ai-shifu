@@ -9,7 +9,7 @@ import hashlib
 import json
 import sys
 import time
-from collections import Counter, deque
+from collections import Counter, defaultdict, deque
 from contextlib import ExitStack, asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -40,8 +40,10 @@ STATUSES = (
     "expected_failure_replayed",
     "behavior_failure",
     "call_failure",
+    "needs_review",
 )
-SCHEMA_VERSION = 4
+CRITERION_STATUSES = ("passed", "failed", "needs_review", "not_evaluated")
+SCHEMA_VERSION = 5
 MAX_AUTOMATIC_CONTINUATIONS = 8
 
 
@@ -384,62 +386,67 @@ def question_details(
     }
 
 
-def step_failures(
-    expected: ExpectedStep, result: dict[str, object], *, replay: bool = False
-) -> list[str]:
-    """Check the stage outcome, controls, visible prose, and memory independently."""
-    failures = [
-        field
-        for field in ("outcome", "retryable_error")
-        if getattr(expected, field) != result[field]
-    ]
+def step_criteria(
+    expected: ExpectedStep, result: dict[str, object] | None, *, replay: bool
+) -> dict[str, str]:
+    """Record every configured check, including checks that could not run."""
+    actual = result or {}
+    criteria: dict[str, str] = {}
+
+    def record(name: str, matched: bool | None) -> None:
+        if result is None or matched is None:
+            criteria[name] = "not_evaluated"
+        else:
+            criteria[name] = "passed" if matched else "failed"
+
+    for field in ("outcome", "retryable_error"):
+        record(field, getattr(expected, field) == actual.get(field))
     for field in ("pending", "memory", "retries"):
         value = getattr(expected, field)
-        if value is not None and value != result[field]:
-            failures.append(field)
+        if value is not None:
+            record(field, value == actual.get(field))
     expected_count = expected.question_count
     if expected_count is None:
         expected_count = int(expected.outcome == "interaction")
-    actual_count = len(result["questions"])
-    if actual_count != expected_count:
-        if actual_count == 0:
-            failures.append("missing_question")
-        elif expected_count == 0:
-            failures.append("unexpected_question")
-        else:
-            failures.append("question_count")
-    question = result["question"]
-    if expected.outcome == "interaction" and isinstance(question, dict):
-        fields = (
-            expected.question.model_dump(exclude_unset=True)
-            if expected.question
-            else {}
-        )
-        for key, value in fields.items():
-            if question[key] != value:
-                failures.append(f"question.{key}")
-        if expected.asked_before is not None and (
-            expected.asked_before != question["asked_before"]
-        ):
-            failures.append("question.asked_before")
-    prose = str(result["prose"])
-    failures.extend(
-        f"prose_contains[{i}]"
-        for i, text in enumerate(expected.prose_contains)
-        if text not in prose
+    record("question_count", expected_count == len(actual.get("questions", [])))
+    question_fields = (
+        expected.question.model_dump(exclude_unset=True) if expected.question else {}
     )
+    if expected.outcome == "interaction" and expected.asked_before is not None:
+        question_fields["asked_before"] = expected.asked_before
+    question = actual.get("question")
+    for field, value in question_fields.items():
+        matched = question[field] == value if isinstance(question, dict) else None
+        record(f"question.{field}", matched)
+
+    prose = str(actual.get("prose", ""))
     once = expected.prose_once + (expected.replay_prose_once if replay else [])
-    failures.extend(
-        f"prose_once[{i}]" for i, text in enumerate(once) if prose.count(text) != 1
-    )
-    failures.extend(
-        f"prose_excludes[{i}]"
-        for i, text in enumerate(expected.prose_excludes)
-        if text in prose
-    )
+    for index, text in enumerate(expected.prose_contains):
+        record(f"prose_contains[{index}]", text in prose)
+    for index, text in enumerate(once):
+        record(f"prose_once[{index}]", prose.count(text) == 1)
+    for index, text in enumerate(expected.prose_excludes):
+        record(f"prose_excludes[{index}]", text not in prose)
     narrated = [expected.narrated_control] if expected.narrated_control else []
-    if result["narrated_controls"] != narrated:
-        failures.append("narrated_controls")
+    record("narrated_controls", actual.get("narrated_controls") == narrated)
+    if not replay:
+        record("continuation_limit", actual.get("continuation_limit_reached") is False)
+    if expected.prose_question is not None:
+        criteria["prose_question"] = "not_evaluated"
+    return criteria
+
+
+def failed_criteria(
+    criteria: dict[str, str], result: dict[str, object], expected: ExpectedStep
+) -> list[str]:
+    """Preserve existing failure identifiers for callers and case summaries."""
+    failures = [name for name, status in criteria.items() if status == "failed"]
+    if "question_count" in failures:
+        position = failures.index("question_count")
+        if not result["questions"]:
+            failures[position] = "missing_question"
+        elif expected.outcome != "interaction":
+            failures[position] = "unexpected_question"
     return failures
 
 
@@ -543,22 +550,57 @@ async def run_step(
 
 
 async def check_prose_question(
-    intended_question: str, prose: str, judge: ObservedModel
-) -> tuple[dict[str, object], str | None]:
-    """Return a visible-question judgment and any failure to report for the step."""
+    intended_question: str, prose: str, judges: list[ObservedModel]
+) -> dict[str, object]:
+    """Collect semantic decisions and expose disagreements for human judgment."""
     from scripts.mdf_interaction_question_judge import judge_question
 
     if not prose.strip():
-        return {"asked": False, "reason": "No learner-facing prose."}, "prose_question"
-    try:
-        judgment = await judge_question(
-            judge, intended_question=intended_question, prose=prose
-        )
-    except Exception as error:
-        return {"error": type(error).__name__}, "question_judge_call"
-    return judgment.model_dump(
-        mode="json"
-    ), None if judgment.asked else "prose_question"
+        return {
+            "status": "failed",
+            "asked": False,
+            "reason": "No learner-facing prose.",
+        }
+    decisions = []
+    for judge in judges:
+        try:
+            judgment = await judge_question(
+                judge, intended_question=intended_question, prose=prose
+            )
+            decision = judgment.model_dump(mode="json")
+        except Exception as error:
+            decision = {"error": type(error).__name__}
+        decisions.append({"model": judge.model_name, **decision})
+
+    report: dict[str, object] = {"decisions": decisions}
+    verdicts = {decision["asked"] for decision in decisions if "asked" in decision}
+    if True in verdicts and False in verdicts:
+        return {
+            **report,
+            "status": "needs_review",
+            "asked": None,
+            "reason": "The judges disagree about whether the prose asks the intended question.",
+        }
+    if None in verdicts:
+        return {
+            **report,
+            "status": "needs_review",
+            "asked": None,
+            "reason": "A judge found the question or its scope ambiguous.",
+        }
+    if any("error" in decision for decision in decisions):
+        return {
+            **report,
+            "status": "not_evaluated",
+            "reason": "A judge request failed or returned an invalid decision.",
+        }
+    asked = verdicts == {True}
+    return {
+        **report,
+        "status": "passed" if asked else "failed",
+        "asked": asked,
+        "reason": decisions[0]["reason"],
+    }
 
 
 def can_submit_live_answer(
@@ -595,16 +637,20 @@ async def evaluate_case(
     *,
     repeat: int = 1,
     judge_model: Model | None = None,
+    second_judge_model: Model | None = None,
 ) -> dict[str, object]:
     """Evaluate a fixture and follow submitted answers that remain available live."""
     from markdownflow import ScriptBundle, Session
 
     started = time.monotonic()
     replay = Replay(case.replay) if model is None else None
+    offline = replay is not None
     observed = ObservedModel(replay.model if replay is not None else model)
-    judge = ObservedModel(judge_model or model) if model is not None else None
+    judges = [ObservedModel(judge_model or model)] if model is not None else []
+    if judges and second_judge_model is not None:
+        judges.append(ObservedModel(second_judge_model))
     renderer = renderer_for(case.locale)
-    engine = course_engine(observed, renderer, temperature, live=replay is None)
+    engine = course_engine(observed, renderer, temperature, live=not offline)
     session = await engine.new_session(
         ScriptBundle(script=case.teaching_prompt, constraints=case.course_prompt),
         memory=case.memory,
@@ -613,53 +659,68 @@ async def evaluate_case(
     failures = []
     judge_failed = False
     automatic_continuations = 0
-    for index, step in enumerate(case.steps, start=1):
+    expectations = [
+        (step.replay_expected or step.expected) if offline else step.expected
+        for step in case.steps
+    ]
+    for index, (step, expected) in enumerate(
+        zip(case.steps, expectations, strict=True), start=1
+    ):
         if step.reload:
             session = Session.loads(session.dumps())
-        if replay is None and index > 1:
+        if not offline and index > 1:
             # The teaching host constructs the admission checker per advancement.
             from flaskr.service.learn.agent.memory_admission import make_request_check
 
             engine.memory_request_check = make_request_check(observed)
-        expected = (
-            (step.replay_expected or step.expected)
-            if replay is not None
-            else step.expected
-        )
         prior_retries = observed.retries
         result = await run_step(
-            engine, session, step, expected, renderer, live=replay is None
+            engine, session, step, expected, renderer, live=not offline
         )
         automatic_continuations += result["automatic_continuations"]
         result["stage"] = index
         result["retries"] = observed.retries - prior_retries
-        result["failures"] = step_failures(expected, result, replay=replay is not None)
-        if result["continuation_limit_reached"]:
-            result["failures"].append("continuation_limit")
+        criteria = step_criteria(
+            expected, None if observed.failures else result, replay=offline
+        )
+        result["criteria"] = criteria
+        judge_call_failed = False
         if expected.prose_question is not None:
-            if judge is None:
+            if offline:
                 result["question_judgment"] = {"status": "skipped_offline"}
-            elif not result["failures"] and not observed.failures:
-                judgment, failure = await check_prose_question(
-                    expected.prose_question, result["prose"], judge
+            elif not observed.failures:
+                judgment = await check_prose_question(
+                    expected.prose_question, result["prose"], judges
                 )
                 result["question_judgment"] = judgment
-                if failure is not None:
-                    result["failures"].append(failure)
-                    judge_failed |= failure == "question_judge_call"
+                criteria["prose_question"] = judgment["status"]
+                judge_call_failed = any(
+                    "error" in decision for decision in judgment.get("decisions", [])
+                )
+        result["failures"] = failed_criteria(criteria, result, expected)
+        if judge_call_failed:
+            result["failures"].append("question_judge_call")
+            judge_failed = True
         steps.append(result)
         failures.extend(f"step_{index}.{name}" for name in result["failures"])
         if observed.failures:
             break
         if result["failures"] and (
-            replay is not None
+            offline
             or index == len(case.steps)
             or not can_submit_live_answer(case.steps[index], result, session)
         ):
             break
-    if replay is not None and not failures and replay.responses:
-        failures.append("unused_replay_responses")
-    reproduced_failure = replay is not None and any(
+    case_criteria = {}
+    if replay is not None:
+        if failures or observed.failures:
+            case_criteria["replay_consumption"] = "not_evaluated"
+        elif replay.responses:
+            case_criteria["replay_consumption"] = "failed"
+            failures.append("unused_replay_responses")
+        else:
+            case_criteria["replay_consumption"] = "passed"
+    reproduced_failure = offline and any(
         step.replay_expected is not None
         and step.replay_expected.outcome != step.expected.outcome
         and step.replay_expected.outcome in {"error", "end"}
@@ -667,18 +728,24 @@ async def evaluate_case(
     )
     if observed.failures:
         failures.extend(observed.failures)
-    if judge_failed or (replay is None and observed.failures):
+    review_needed = any("needs_review" in step["criteria"].values() for step in steps)
+    if judge_failed or (not offline and observed.failures):
         status = "call_failure"
     elif failures:
         status = "behavior_failure"
     elif reproduced_failure:
         status = "expected_failure_replayed"
+    elif review_needed:
+        status = "needs_review"
     else:
         status = (
             "recovered_pass"
             if observed.retries or automatic_continuations
             else "first_attempt_pass"
         )
+    judge_usage: Counter[str] = Counter()
+    for judge in judges:
+        judge_usage.update(judge.usage)
     return {
         "case_id": case.id,
         "course": case.course,
@@ -686,14 +753,19 @@ async def evaluate_case(
         "tags": case.tags,
         "repeat": repeat,
         "status": status,
+        "criteria": case_criteria,
         "steps": steps,
+        "unreached_steps": [
+            {"stage": index, "criteria": step_criteria(expected, None, replay=offline)}
+            for index, expected in enumerate(expectations[len(steps) :], len(steps) + 1)
+        ],
         "failures": failures,
         "model_requests": observed.requests,
         "retries": observed.retries,
         "automatic_continuations": automatic_continuations,
         "usage": observed.usage,
-        "question_judge_requests": judge.requests if judge is not None else 0,
-        "question_judge_usage": judge.usage if judge is not None else {},
+        "question_judge_requests": sum(judge.requests for judge in judges),
+        "question_judge_usage": judge_usage,
         "instruction_sha256": sorted(observed.instruction_hashes),
         "elapsed_seconds": round(time.monotonic() - started, 3),
     }
@@ -760,13 +832,19 @@ async def run_cases(
     repeats: int,
     *,
     judge_model: Model | None = None,
+    second_judge_model: Model | None = None,
 ) -> list[dict[str, object]]:
     """Run selected fixtures serially, giving each repeat a clean session."""
     results = []
     for case in cases:
         for repeat in range(1, repeats + 1):
             result = await evaluate_case(
-                case, model, temperature, repeat=repeat, judge_model=judge_model
+                case,
+                model,
+                temperature,
+                repeat=repeat,
+                judge_model=judge_model,
+                second_judge_model=second_judge_model,
             )
             results.append(result)
             details = ", ".join(result["failures"])
@@ -796,6 +874,63 @@ def select_cases(
     return cases, skipped
 
 
+def summarize_criteria(
+    results: list[dict[str, object]],
+) -> tuple[dict[str, dict[str, int]], list[dict[str, object]]]:
+    """Count assertion outcomes and collect the evidence for human review."""
+    counts: dict[str, Counter[str]] = defaultdict(Counter)
+    review_items = []
+    for result in results:
+        for name, status in result["criteria"].items():
+            counts[name][status] += 1
+        for step in [*result["steps"], *result["unreached_steps"]]:
+            for name, status in step["criteria"].items():
+                counts[name.partition("[")[0]][status] += 1
+            if step["criteria"].get("prose_question") == "needs_review":
+                judgment = step["question_judgment"]
+                review_items.append(
+                    {
+                        "case_id": result["case_id"],
+                        "repeat": result["repeat"],
+                        "stage": step["stage"],
+                        "criterion": "prose_question",
+                        "intended_question": step["expected"]["prose_question"],
+                        "learner_prose": step["prose"],
+                        "reason": judgment["reason"],
+                        "decisions": judgment["decisions"],
+                    }
+                )
+    summary = {
+        name: {status: count[status] for status in CRITERION_STATUSES}
+        for name, count in sorted(counts.items())
+    }
+    return summary, review_items
+
+
+def print_assessment(
+    criteria: dict[str, dict[str, int]], review_items: list[dict[str, object]]
+) -> None:
+    """Print criterion totals and each decision that needs a reviewer."""
+    print("\nCriterion assessment (counts by assertion)")
+    print(f"{'criterion':<24}" + "".join(f"{name:>15}" for name in CRITERION_STATUSES))
+    for criterion, counts in criteria.items():
+        values = "".join(f"{counts[status]:>15}" for status in CRITERION_STATUSES)
+        print(f"{criterion:<24}{values}")
+    print(f"\nItems needing human review: {len(review_items)}")
+    for item in review_items:
+        expected = json.dumps(item["intended_question"], ensure_ascii=False)
+        prose = json.dumps(item["learner_prose"], ensure_ascii=False)
+        print(
+            f"{item['case_id']} [{item['repeat']}] step {item['stage']} "
+            f"({item['criterion']})"
+        )
+        print(f"  {item['reason']}")
+        print(f"  Intended question  {expected}")
+        print(f"  Learner-facing prose  {prose}")
+        for decision in item["decisions"]:
+            print(f"  Judge  {json.dumps(decision, ensure_ascii=False)}")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the local interaction evaluator and optionally compare a prior JSON report."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -812,6 +947,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--judge-model", help="model ID for live question checks (defaults to --model)"
     )
+    parser.add_argument(
+        "--second-judge-model",
+        help="optional second model for detecting disagreements on live question checks",
+    )
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--json", type=Path, help="write the report to this file")
     parser.add_argument("--compare", type=Path, help="compare a prior JSON report")
@@ -823,10 +962,15 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.live != bool(args.model):
         parser.error("--live and --model must be supplied together")
-    if args.judge_model is not None and not args.live:
-        parser.error("--judge-model requires --live")
-    if args.judge_model is not None and not args.judge_model.strip():
-        parser.error("--judge-model must be nonblank")
+    for flag, model_id in (
+        ("--judge-model", args.judge_model),
+        ("--second-judge-model", args.second_judge_model),
+    ):
+        if model_id is not None:
+            if not args.live:
+                parser.error(f"{flag} requires --live")
+            if not model_id.strip():
+                parser.error(f"{flag} must be nonblank")
     if args.json and args.json.resolve() == args.cases.resolve():
         parser.error("--json must not overwrite the fixture catalog")
     if args.json and args.compare and args.json.resolve() == args.compare.resolve():
@@ -848,7 +992,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         judge_config = None
         with ExitStack() as stack:
-            model = judge_model = None
+            model = judge_model = second_judge_model = None
             if args.live:
                 from scripts.mdf_interaction_live import build_live_model
                 from scripts.mdf_interaction_question_judge import (
@@ -856,24 +1000,36 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
                 model = stack.enter_context(build_live_model(args.model))
-                judge_model = model
-                if args.judge_model and args.judge_model != args.model:
-                    judge_model = stack.enter_context(
-                        build_live_model(args.judge_model)
-                    )
+                live_models = {args.model: model}
+                for model_id in (args.judge_model, args.second_judge_model):
+                    if model_id is not None and model_id not in live_models:
+                        live_models[model_id] = stack.enter_context(
+                            build_live_model(model_id)
+                        )
+                judge_model = live_models[args.judge_model or args.model]
+                second_judge_model = live_models.get(args.second_judge_model)
                 judge_config = {
                     "model": judge_model.model_name,
+                    "second_model": (
+                        second_judge_model.model_name if second_judge_model else None
+                    ),
                     "instructions_sha256": sha256(
                         QUESTION_JUDGE_INSTRUCTIONS.encode("utf-8")
                     ),
                 }
             results = asyncio.run(
                 run_cases(
-                    cases, model, args.temperature, args.repeat, judge_model=judge_model
+                    cases,
+                    model,
+                    args.temperature,
+                    args.repeat,
+                    judge_model=judge_model,
+                    second_judge_model=second_judge_model,
                 )
             )
             model_name = model.model_name if model is not None else None
         statuses = Counter(row["status"] for row in results)
+        criteria_summary, review_items = summarize_criteria(results)
         report = {
             "schema_version": SCHEMA_VERSION,
             "mode": "live" if args.live else "offline",
@@ -888,6 +1044,8 @@ def main(argv: list[str] | None = None) -> int:
             ),
             "results": results,
             "summary": {status: statuses[status] for status in STATUSES},
+            "criteria_summary": criteria_summary,
+            "review_items": review_items,
             "skipped_replay_only": skipped,
         }
         if baseline is not None:
@@ -914,11 +1072,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print("  ".join(f"{status}={count}" for status, count in report["summary"].items()))
+    print_assessment(criteria_summary, review_items)
     if statuses["call_failure"] or (
         baseline is not None and not report["comparison"]["compatible"]
     ):
         return 2
-    return int(statuses["behavior_failure"] > 0)
+    if statuses["behavior_failure"]:
+        return 1
+    return 3 if review_items else 0
 
 
 if __name__ == "__main__":

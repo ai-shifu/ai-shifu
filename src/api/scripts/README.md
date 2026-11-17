@@ -20,8 +20,9 @@ Offline mode replays sanitized model text and tool calls from the bundled catalo
 It checks parsing, tool retries, answer storage, and continuation without network
 access or provider credentials. Use `--cases <path>` to load another catalog of the
 same shape. The [coverage inventory](mdf_interactions/README.md) lists the
-Langfuse-derived and synthetic examples. Langfuse access is only needed when
-curating examples.
+short teaching paths and the replay regressions. Start with `--suite smoke`
+for the core controls and multi-turn teaching paths. Langfuse access is only
+needed when curating examples.
 
 Live mode sends the checkout's current prompts to a configured model provider
 through the backend model adapter. Set credentials in the local `src/api/.env`
@@ -37,13 +38,16 @@ Langfuse tracing.
 Live steps with `prose_question` ask a model to verify that the visible teaching
 prose invites the learner to answer the intended question. Equivalent wording
 passes. An empty response, a related topic without a request to answer, or a
-different question fails. This check uses at most one additional provider
-request per eligible step. It defaults to the teaching model. To review results
-from different teaching models side by side, generate separate reports with the
-same `--judge-model`. The report records each verdict and separates judge
-requests and tokens from teaching. A failed judge request or invalid verdict is
-a call failure. Offline mode skips semantic judging and applies assertions such as
-`replay_prose_once` to the fixed replay text.
+different question fails. The check runs independently of control assertions.
+The judge can abstain when the intent or scope is ambiguous. It defaults to the
+teaching model. Use the same `--judge-model` when comparing teaching models.
+Set `--second-judge-model <model-id>` to get a second judgment on the same prose.
+Each configured judge makes at most one additional provider request per
+eligible step. An abstention or disagreement puts the original question, exact
+learner-facing prose, and each judge's decision and reason in the human review
+list. Judge requests and tokens have their own totals. A failed judge request
+or invalid decision is a call failure. Offline mode applies replay assertions
+such as `replay_prose_once` and marks semantic checks as unevaluated.
 
 For each live learner action, an engine turn that ends after visible teaching
 can continue automatically with the same session. The evaluator stops on a
@@ -68,15 +72,26 @@ python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperat
 
 Each report includes the prompt and case fingerprints, model settings, per-run
 outcomes, failed checks, rendered controls, teaching text, usage, and elapsed
-time. Review the teaching text alongside the structured checks when evaluating
-new wording. A pass after a model validation retry or automatic continuation is
-reported as a recovery. Reports count the two kinds of recovery separately and
-include each engine turn's outcome. They also distinguish reproduced historical
+time. The terminal and JSON report include totals by criterion for
+`passed`, `failed`, `needs_review`, and `not_evaluated`. The count is per
+assertion, including individual phrase checks within a step. Unreachable
+steps and unavailable control fields count as unevaluated. Use
+`results[].steps[].criteria` to inspect a step and `review_items` for
+the cases that need a human decision. Each review item identifies the
+case, repeat, and step.
+
+A pass after a model validation retry or automatic continuation is reported
+as a recovery. Reports count the two kinds of recovery separately and include
+each engine turn's outcome. They also distinguish reproduced historical
 failures, behavior failures, and provider failures. Generate a fresh baseline
-when the report version changes. `--compare` requires matching mode, teaching
-model, judge model and instructions, temperature, case selection, and repeat
-count. The exit status is 0 when every case meets its expectations, 1 for
-behavior failures, and 2 for invocation, provider, or comparison errors.
+when the report version or selected fixtures change. `--compare` requires
+matching mode, teaching model, judge models and instructions, temperature,
+case selection, and repeat count.
+
+The exit status is 0 when all cases meet their expectations, 1 for behavior
+failures, 2 for invocation, provider, or comparison errors, and 3 for pending
+human review in a run without behavior or call failures. Review items remain
+in the report when the run also has another failure.
 
 For a new trace-derived case, reconstruct a teaching excerpt and answer with
 original wording. Keep the interaction syntax, displayed and submitted value
