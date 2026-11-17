@@ -18,8 +18,12 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   local registry API fixture.
 - [x] 2026-11-17 01:55 UTC: Passed 289 packaging and release tests,
   actionlint, and the repository-wide lefthook checks.
-- [ ] 2026-11-17 01:51 UTC: Verify native image archive loading in PR CI and
-  the registry transport with an isolated candidate publication.
+- [x] 2026-11-17 04:04 UTC: Verified native archive loading in PR CI, sibling
+  tag publication during an [injected Aliyun timeout](https://github.com/ai-shifu/ai-shifu/actions/runs/44008687201),
+  and a [real Aliyun Web candidate](https://github.com/ai-shifu/ai-shifu/actions/runs/44014186869/job/133808040984)
+  using both native archives over HTTP/1.1.
+- [x] 2026-11-17 04:14 UTC: Scoped the transport setting to Aliyun archive
+  copies and passed regression coverage for all three registry jobs.
 
 ## Surprises & Discoveries
 
@@ -27,6 +31,8 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   common solve result and manifest preflight would still couple tag publication.
 - Registry deadlines need to stop Docker's Buildx plugin along with the parent
   CLI process. GNU timeout gives both processes the same deadline.
+- The two missing Web AMD64 layers shared a slow HTTP/2 connection to Aliyun.
+  On the same runner, the same archive copied over HTTP/1.1 in about 25 seconds.
 
 ## Decision Log
 
@@ -34,12 +40,14 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   artifacts so every registry can start without waiting for another registry.
 - Apply timeouts and bounded retries to registry commands. Keep each failed
   registry's job visibly failed, with sibling jobs allowed to finish.
+- Set `GODEBUG=http2client=0` for Aliyun's ORAS copy subprocesses. The matrix
+  registry identifies Aliyun jobs with custom endpoints as well.
 
 ## Outcomes & Retrospective
 
-Local tests exercise the stalled-registry path and keep tag changes scoped to a
-single repository. Native runner and hosted registry verification are tracked
-in Progress.
+Hosted candidate runs verified that tags move independently when Aliyun times
+out and that HTTP/1.1 completes the Aliyun Web copy within its existing
+deadline.
 
 ## Context and Orientation
 

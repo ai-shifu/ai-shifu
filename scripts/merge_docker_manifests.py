@@ -89,7 +89,10 @@ def publication_target(metadata: dict) -> tuple[str, list[str]]:
 
 
 def registry_command(
-    *command: str, timeout: int = REGISTRY_TIMEOUT, input_text: str | None = None
+    *command: str,
+    timeout: int = REGISTRY_TIMEOUT,
+    input_text: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> str:
     """Retry a registry command with a deadline for each attempt."""
     # GNU timeout also stops child processes, including Docker CLI plugins.
@@ -103,6 +106,7 @@ def registry_command(
                 capture_output=True,
                 text=True,
                 input=input_text,
+                env=env,
             ).stdout
         except subprocess.CalledProcessError as error:
             if attempt == ATTEMPTS:
@@ -134,7 +138,14 @@ def verify_manifest(raw: str, digests: dict[str, str]) -> None:
         raise ValueError(message)
 
 
-def publish(directory: Path, metadata: dict, username: str, password: str) -> None:
+def publish(
+    directory: Path,
+    metadata: dict,
+    username: str,
+    password: str,
+    *,
+    registry_name: str = "",
+) -> None:
     """Copy both tested images, then preflight and verify this repository's tags."""
     images = load_images(directory)
     image, tags = publication_target(metadata)
@@ -151,6 +162,14 @@ def publish(directory: Path, metadata: dict, username: str, password: str) -> No
         registry,
         input_text=password + "\n",
     )
+    copy_env = None
+    if registry_name == "aliyun":
+        # Concurrent large layer uploads to Aliyun are much slower over HTTP/2.
+        copy_env = os.environ.copy()
+        go_debug = copy_env.get("GODEBUG")
+        copy_env["GODEBUG"] = (
+            f"{go_debug},http2client=0" if go_debug else "http2client=0"
+        )
     for platform, artifact in images.items():
         target = f"{image}@{artifact.digest}"
         registry_command(
@@ -160,6 +179,7 @@ def publish(directory: Path, metadata: dict, username: str, password: str) -> No
             f"{artifact.archive}@{artifact.digest}",
             target,
             timeout=COPY_TIMEOUT,
+            env=copy_env,
         )
         print(f"Copied tested {platform} image to {target}", flush=True)
 
@@ -184,6 +204,7 @@ def main() -> None:
             json.loads(os.environ["IMAGE_METADATA"]),
             os.environ.pop("REGISTRY_USERNAME"),
             os.environ.pop("REGISTRY_PASSWORD"),
+            registry_name=os.environ.get("IMAGE_REGISTRY", ""),
         )
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
         if isinstance(error, subprocess.CalledProcessError) and error.stderr:

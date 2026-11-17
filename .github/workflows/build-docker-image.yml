@@ -207,6 +207,7 @@ jobs:
         if: steps.meta.outputs.push-images == 'true'
         env:
           IMAGE_METADATA: ${{ steps.meta.outputs.json }}
+          IMAGE_REGISTRY: ${{ matrix.registry }}
           REGISTRY_USERNAME: ${{ matrix.registry == 'ghcr' && github.actor || matrix.registry == 'dockerhub' && secrets.DOCKERHUB_USER || matrix.registry == 'aliyun' && secrets.ALIYUN_USER || '' }}
           REGISTRY_PASSWORD: ${{ matrix.registry == 'ghcr' && github.token || matrix.registry == 'dockerhub' && secrets.DOCKERHUB_TOKEN || matrix.registry == 'aliyun' && secrets.ALIYUN_TOKEN || '' }}
         run: python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/images"

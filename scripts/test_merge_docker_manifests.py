@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from merge_docker_manifests import load_images, publish, verify_manifest
+from merge_docker_manifests import load_images, main, publish, verify_manifest
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -59,7 +60,9 @@ def manifest(digests: dict[str, str]) -> str:
     )
 
 
-def successful_command(command: tuple[str, ...]) -> subprocess.CompletedProcess:
+def successful_command(
+    command: tuple[str, ...], **_kwargs: object
+) -> subprocess.CompletedProcess:
     """Return matching native descriptors for manifest commands."""
     return subprocess.CompletedProcess(command, 0, stdout=manifest(DIGESTS))
 
@@ -98,6 +101,51 @@ def test_invalid_newer_record_never_falls_back(images: Path) -> None:
         load_images(images)
 
 
+@pytest.mark.parametrize(
+    ("registry", "repository", "copy_go_debug"),
+    [
+        ("aliyun", ALIYUN, "gctrace=1,http2client=1,http2client=0"),
+        ("ghcr", GHCR, None),
+        ("dockerhub", DOCKERHUB, None),
+    ],
+)
+def test_http1_is_scoped_to_aliyun_copies(
+    images: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    registry: str,
+    repository: str,
+    copy_go_debug: str | None,
+) -> None:
+    """Pass the matrix registry through the publisher entry point to ORAS only."""
+    monkeypatch.setattr("sys.argv", ["merge_docker_manifests.py", str(images)])
+    monkeypatch.setenv(
+        "IMAGE_METADATA", json.dumps({"tags": [f"{repository}:candidate"]})
+    )
+    monkeypatch.setenv("IMAGE_REGISTRY", registry)
+    monkeypatch.setenv("REGISTRY_USERNAME", "example")
+    monkeypatch.setenv("REGISTRY_PASSWORD", uuid4().hex)
+    monkeypatch.setenv("GODEBUG", "gctrace=1,http2client=1")
+    with patch(
+        "merge_docker_manifests.subprocess.run",
+        side_effect=successful_command,
+    ) as run:
+        main()
+
+    calls = run.call_args_list
+    assert [
+        call.args[0][-1] for call in calls if call.args[0][3:5] == ("oras", "cp")
+    ] == [
+        f"{repository}@{AMD64}",
+        f"{repository}@{ARM64}",
+    ]
+    for call in calls:
+        if copy_go_debug and call.args[0][3:5] == ("oras", "cp"):
+            assert call.kwargs["env"]["GODEBUG"] == copy_go_debug
+        else:
+            assert call.kwargs["env"] is None
+    assert os.environ["GODEBUG"] == "gctrace=1,http2client=1"
+
+
 def test_stalled_aliyun_publication_leaves_other_targets_independent(
     images: Path,
 ) -> None:
@@ -116,7 +164,13 @@ def test_stalled_aliyun_publication_leaves_other_targets_independent(
         patch("merge_docker_manifests.time.sleep") as sleep,
     ):
         with pytest.raises(subprocess.CalledProcessError) as stalled_job:
-            publish(images, {"tags": [f"{ALIYUN}:latest"]}, "example", password)
+            publish(
+                images,
+                {"tags": [f"{ALIYUN}:latest"]},
+                "example",
+                password,
+                registry_name="aliyun",
+            )
         assert stalled_job.value.returncode == 124
         stalled = [
             call.args[0] for call in run.call_args_list if call.args[0][3] == "oras"
