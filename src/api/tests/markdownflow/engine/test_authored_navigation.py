@@ -238,6 +238,7 @@ async def test_continue_button_sent_as_single_does_not_save_an_answer(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True], ids=["new", "saved"])
 @pytest.mark.parametrize(
     ("preceding", "question", "label", "value"),
     [
@@ -247,11 +248,25 @@ async def test_continue_button_sent_as_single_does_not_save_an_answer(
         ("[{question}](https://example.com)", "What color is the sky?", "Blue", "Blue"),
         ("{question}", "Choose the sky color.", "Blue", "Blue"),
         (None, "Which keyword skips to the next iteration?", "Continue", "continue"),
+        (
+            "{question}",
+            "Which keyword skips to the next iteration?",
+            "Continue",
+            "continue",
+        ),
     ],
-    ids=["bound", "plain", "bold", "link", "instruction", "bound-continue-value"],
+    ids=[
+        "bound",
+        "plain",
+        "bold",
+        "link",
+        "instruction",
+        "bound-continue-value",
+        "unbound-continue-value",
+    ],
 )
 async def test_an_authored_single_choice_can_still_record_an_answer(
-    preceding: str | None, question: str, label: str, value: str
+    preceding: str | None, question: str, label: str, value: str, reload: bool
 ) -> None:
     option = label if label == value else f"{label}//{value}"
     script = (
@@ -289,6 +304,8 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
     first = await _events(engine.run_turn(session))
     (request,) = [event for event in first if isinstance(event, InteractionRequest)]
     assert request.spec.question == question
+    if reload:
+        session = Session.loads(session.dumps())
     second = await _events(
         engine.run_turn(session, InteractionResponseTurn(values=[value]))
     )

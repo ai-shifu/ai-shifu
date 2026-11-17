@@ -557,13 +557,15 @@ def normalize_script_text_input(
 def normalize_script_continue_button(
     spec: InteractionSpec, questions: tuple[_Question, ...]
 ) -> InteractionSpec:
-    """Keep an authored `?[Label//continue]` outside answer memory."""
+    """Clear a scripted continue button's label when it was used as an answer key."""
+    # A real single-choice answer can also submit `continue` under its own question.
     if (
         spec.type != "single"
-        or not spec.variable
+        or not spec.question_owns_memory
         or spec.generated_control
         or len(spec.options) != 1
         or spec.options[0].stored != "continue"
+        or spec.question != spec.options[0].display
     ):
         return spec
 
