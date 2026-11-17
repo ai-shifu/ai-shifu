@@ -40,6 +40,7 @@ def resolve(
             "REQUESTED_PUSH": "true",
             "REQUIRE_REGISTRY": "false",
             "PUBLISH_GHCR": "false",
+            "REGISTRY": action["inputs"]["registry"]["default"],
             **environment,
         },
         capture_output=True,
@@ -85,7 +86,7 @@ def test_all_three_destinations_share_image_metadata(
     assert result.returncode == 0, result.stderr
     assert values["images"].split(",") == [
         f"ghcr.io/ai-shifu/{image}",
-        f"{credentials['DOCKERHUB_USER']}/{image}",
+        f"docker.io/{credentials['DOCKERHUB_USER']}/{image}",
         f"registry.example.invalid/ai-shifu/{image}",
     ]
     assert values["push-images"] == "true"
@@ -116,21 +117,86 @@ def test_credential_free_validation_still_works(tmp_path: Path) -> None:
     assert values == {"images": "ai-shifu-local/ai-shifu-api", "push-images": "false"}
 
 
+@pytest.mark.parametrize(
+    ("registry", "image"),
+    [
+        ("ghcr", "ghcr.io/ai-shifu/ai-shifu-api"),
+        ("dockerhub", "docker.io/fixture-owner/ai-shifu-api"),
+        ("aliyun", "registry.example.invalid/ai-shifu/ai-shifu-api"),
+    ],
+)
+def test_registry_job_receives_only_its_repository(
+    tmp_path: Path, registry: str, image: str
+) -> None:
+    """Even when every credential is present, a job can target only its own registry."""
+    result, values = resolve(
+        tmp_path,
+        REGISTRY=registry,
+        PUBLISH_GHCR="true",
+        DOCKERHUB_USER="fixture-owner",
+        DOCKERHUB_TOKEN=uuid4().hex,
+        ALIYUN_DOCKER_REGISTRY="registry.example.invalid",
+        ALIYUN_DOCKER_USERNAME="fixture-owner",
+        ALIYUN_DOCKER_PASSWORD=uuid4().hex,
+    )
+    assert result.returncode == 0, result.stderr
+    assert values == {"images": image, "push-images": "true"}
+
+
+def test_unconfigured_mirror_does_not_fall_back_to_ghcr(tmp_path: Path) -> None:
+    """A fork without mirror credentials still runs only its configured publication."""
+    result, values = resolve(tmp_path, REGISTRY="aliyun", PUBLISH_GHCR="true")
+    assert result.returncode == 0, result.stderr
+    assert values == {"images": "ai-shifu-local/ai-shifu-api", "push-images": "false"}
+
+
+def test_registry_jobs_can_complete_after_another_registry_fails() -> None:
+    """Primary uploads and the Aliyun retry do not wait for sibling registries."""
+    jobs = workflow("build-docker-image.yml")["jobs"]
+    publish = jobs["publish"]
+    assert publish["if"] == "inputs.push-images"
+    assert publish["needs"] == "build"
+    assert publish["strategy"]["fail-fast"] is False
+    assert set(publish["strategy"]["matrix"]["registry"]) == {
+        "ghcr",
+        "dockerhub",
+    }
+    assert 0 < publish["timeout-minutes"] < jobs["build"]["timeout-minutes"]
+    metadata = next(step for step in publish["steps"] if step.get("id") == "meta")
+    assert metadata["with"]["registry"] == "${{ env.IMAGE_REGISTRY }}"
+
+    aliyun = jobs["publish-aliyun"]
+    retry = jobs["retry-aliyun"]
+    assert aliyun["needs"] == "build"
+    assert aliyun["if"] == "inputs.push-images"
+    assert (
+        aliyun["outputs"]["retry-upload"]
+        == "${{ steps.publish-images.outputs.retry-upload }}"
+    )
+    assert retry["needs"] == "publish-aliyun"
+    assert retry["if"] == "needs.publish-aliyun.outputs.retry-upload == 'true'"
+    assert aliyun["steps"] == retry["steps"] == publish["steps"]
+    assert aliyun["env"] == {"IMAGE_REGISTRY": "aliyun", "IMAGE_COPY_ATTEMPTS": "1"}
+    assert retry["env"] == {"IMAGE_REGISTRY": "aliyun", "IMAGE_COPY_ATTEMPTS": "2"}
+
+
 def test_only_publishing_callers_grant_package_write() -> None:
     """Permissions must reach both reusable jobs without broadening PR checks."""
-    builtin_expression = "${{ github.token }}"
     reusable = workflow("build-docker-image.yml")
     assert "permissions" not in reusable
     for job in reusable["jobs"].values():
         assert "permissions" not in job
-        login = next(
-            step
-            for step in job["steps"]
-            if step.get("with", {}).get("registry") == "ghcr.io"
-        )
-        assert "push-images == 'true'" in login["if"]
-        assert "inputs.publish-ghcr" in login["if"]
-        assert login["with"]["password"] == builtin_expression
+    assert "github.token" not in str(reusable["jobs"]["build"])
+    upload = next(
+        step
+        for step in reusable["jobs"]["publish"]["steps"]
+        if "REGISTRY_PASSWORD" in step.get("env", {})
+    )
+    assert "push-images == 'true'" in upload["if"]
+    assert (
+        "env.IMAGE_REGISTRY == 'ghcr' && github.token"
+        in upload["env"]["REGISTRY_PASSWORD"]
+    )
     for filename, name in [
         ("build-latest.yml", "build-latest"),
         ("build-on-release.yml", "build-docker"),
