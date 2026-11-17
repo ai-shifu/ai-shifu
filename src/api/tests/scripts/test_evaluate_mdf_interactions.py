@@ -386,32 +386,63 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
 
 
 @pytest.mark.parametrize(
-    ("button", "executed_steps"),
-    [("继续", 2), ("跳过", 1)],
-    ids=["planned-button-present", "planned-button-absent"],
+    ("expected_type", "button", "binding", "failures", "executed_steps"),
+    [
+        ("single", "继续", "", [], 2),
+        (
+            "single",
+            "继续",
+            "继续",
+            ["step_1.question.question", "step_1.question.variable"],
+            2,
+        ),
+        ("multi", "继续", "", ["step_1.question.type"], 2),
+        (
+            "multi",
+            "跳过",
+            "",
+            ["step_1.question.type", "step_1.question.options"],
+            1,
+        ),
+    ],
+    ids=[
+        "unbound-single",
+        "unexpected-answer-binding",
+        "planned-button-present",
+        "planned-button-absent",
+    ],
 )
-def test_live_evaluator_clicks_available_continue_after_control_type_mismatch(
-    button: str, executed_steps: int
+def test_live_evaluator_checks_authored_navigation_and_clicks_the_available_button(
+    expected_type: str,
+    button: str,
+    binding: str,
+    failures: list[str],
+    executed_steps: int,
 ) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     fixture = next(case for case in catalog if case["id"] == "lf-empty-pause-01")
-    fixture["steps"][0]["expected"]["question"]["type"] = "multi"
+    fixture["steps"][0]["expected"]["question"]["type"] = expected_type
     fixture["replay"][0]["calls"][0]["args"] = {
         "type": "single",
         "options": [{"display": button, "value": button}],
     }
+    if binding:
+        fixture["replay"][0]["calls"][0]["args"]["question"] = binding
     case = Case.model_validate(fixture)
 
     result = asyncio.run(evaluate_case(case, Replay(case.replay).model))
 
-    assert result["status"] == "behavior_failure"
-    assert "step_1.question.type" in result["failures"]
+    assert result["status"] == (
+        "behavior_failure" if failures else "first_attempt_pass"
+    )
+    assert result["failures"] == failures
     assert result["steps"][0]["question"]["options"] == [[button, button]]
     assert len(result["steps"]) == executed_steps
     if executed_steps == 2:
-        assert result["failures"] == ["step_1.question.type"]
         assert result["steps"][1]["action"] == "answer"
         assert result["steps"][1]["outcome"] == "finished"
+        assert result["steps"][1]["memory"] == {}
+        assert result["steps"][1]["memory_updates"] == []
         assert "核对小袋" in result["steps"][1]["prose"]
 
 
@@ -613,7 +644,7 @@ def test_bundled_catalog_retains_distinct_trace_anomalies() -> None:
     } <= anomaly_tags
 
 
-def test_bundled_smoke_suite_covers_each_control_and_submission_mode() -> None:
+def test_bundled_smoke_suite_covers_choice_text_and_combined_submissions() -> None:
     cases = json.loads(CATALOG.read_text(encoding="utf-8"))
     smoke = [case for case in cases if case.get("smoke")]
     assert all(not case.get("replay_only") for case in smoke)

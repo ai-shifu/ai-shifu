@@ -58,8 +58,9 @@ Offline replay still checks the recorded engine turn for each fixture step.
 
 In live mode, an assertion failure stays in the report and the evaluator still
 submits the next fixture answer when the displayed control accepts it. For
-example, a Continue button reported as single choice can still be clicked. If
-the planned submission is unavailable, the evaluator stops that case.
+example, it clicks an authored navigation button if the expected value is
+available despite a control mismatch. If the planned submission is unavailable,
+the evaluator stops that case.
 
 ```bash
 python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperature 0 \

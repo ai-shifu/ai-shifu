@@ -2,8 +2,10 @@
 
 The bundled catalog has 27 cases, including 17 derived from distinct Langfuse
 sessions and 10 synthetic cases. The 12-case smoke suite covers choice, text,
-and combined submissions, including one-option navigation. The full catalog
-includes 10 replay-only cases.
+and combined submissions, including one-option navigation. The navigation
+fixtures check the authored option and wait for its click with an empty
+question and no answer binding. Fixed choices preserve learner memory.
+The full catalog includes 10 replay-only cases.
 
 ## Teaching paths
 
