@@ -87,6 +87,36 @@ def test_order_and_pending_questions_still_bind() -> None:
     assert "never run past a question you have asked" in rule
 
 
+def _turn_structure() -> str:
+    section = _SYSTEM.split("\n# Turn structure\n", 1)[1].split("\n# ", 1)[0]
+    return " ".join(section.split())
+
+
+def test_content_steps_continue_until_the_next_turn_boundary() -> None:
+    rule = _turn_structure()
+    assert "Keep teaching in the same turn while content remains" in rule
+    assert "A content step or section break alone does not end the turn" in rule
+    assert "the host carries the lesson on by itself" not in _SYSTEM
+
+
+def test_learner_input_or_explicit_pause_requires_an_interaction_and_wait() -> None:
+    rule = _turn_structure()
+    assert "call the matching `interact` in the same turn and wait" in rule
+    assert "authored answers and navigation, explicit pauses" in rule
+    assert "a follow-up question needed to teach the current step" in rule
+    assert "Resolve the current input before advancing" in rule
+
+
+def test_the_current_path_finishes_in_the_turn_with_its_final_content() -> None:
+    rule = _turn_structure()
+    assert "When the current path is complete, call `finish` in the same turn" in rule
+    assert "immediately after the last teaching or feedback" in rule
+    assert (
+        "all required content, answers, pauses, and follow-up steps on that path"
+        in rule
+    )
+
+
 def test_the_script_may_still_loop_and_retry() -> None:
     """Loops were never forbidden, so step 3 does not have to add them -- only not lose them."""
     rule = _rule(5)
