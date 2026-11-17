@@ -1486,9 +1486,12 @@ async def test_unmatched_conditional_hint_keeps_actual_contradiction_in_current_
             marker = '{"status":"authored_section"'
             reference = json.loads(instructions[instructions.index(marker) :])
             assert sample in reference["text"]
-            assert "When no conditional example matches" in reference["notice"]
+            assert (
+                "select genuinely unmatched requirements at the authored stage, "
+                "not a forced sample" in reference["notice"]
+            )
             assert "actual submission" in reference["notice"]
-            assert "compound criterion" in reference["notice"]
+            assert "compound criteria" in reference["notice"]
             assert actual in ModelMessagesTypeAdapter.dump_json(messages).decode()
             tool = next(t for t in info.function_tools if t.name == "interact")
             assert "exact clause" in json.dumps(tool.parameters_json_schema).lower()

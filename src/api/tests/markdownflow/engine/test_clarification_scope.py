@@ -51,19 +51,16 @@ async def test_clarification_keeps_authored_limits_without_correction_withholdin
         assert reference["text"] == preamble + section
         assert reference["ancestor_preambles"] == []
         notice = reference["notice"]
-        correction = "For checking-direction and authored-help correction feedback,"
+        correction = "For corrections,"
         assert correction in notice
         assert notice.index(correction) < notice.index(
-            "Leave permitted questions unanswered"
+            "Leave guiding questions unanswered"
         )
         assert (
             "For clarification, answer the actual side question within authored "
-            "brevity and disclosure rules" in notice
+            "brevity/disclosure rules" in notice
         )
-        assert (
-            "Do not apply correction-only withholding to permitted clarification"
-            in notice
-        )
+        assert "correction-only withholding does not apply" in notice
         assert question in ModelMessagesTypeAdapter.dump_json(messages).decode()
         yield (
             "A counter initialized to 2 can decrease once per iteration: 2, 1, 0."
@@ -154,11 +151,14 @@ async def test_authored_help_retains_correction_scope_and_teacher_multiplicity(
         reference = json.loads(instructions[instructions.index(marker) :])
         assert reference["text"] == script
         notice = reference["notice"]
-        assert "For checking-direction and authored-help correction feedback," in notice
+        assert "For corrections," in notice
         assert "Preserve authored multiplicity" in notice
-        assert "A conditional example applies only when its condition matches" in notice
-        assert "do not enumerate other gaps or supply later reasoning" in notice
-        assert "within authored brevity and disclosure rules" in notice
+        assert (
+            "use conditional examples only when they match the actual submission"
+            in notice
+        )
+        assert "wait without other gaps or later reasoning" in notice
+        assert "within authored brevity/disclosure rules" in notice
         yield "What determines repetition? When does the loop stop?"
         yield _call({**args, "review": review}, "continued")
 
@@ -218,12 +218,11 @@ async def test_clarification_retry_keeps_authored_limits_and_native_boundary(
                 p for m in messages for p in m.parts if isinstance(p, RetryPromptPart)
             ][-1]
             assert "Regenerate the complete authored feedback" in str(retry.content)
-            assert "within authored brevity and disclosure rules" in (
+            assert "within authored brevity/disclosure rules" in (
                 info.instructions or ""
             )
-            assert (
-                "Do not apply correction-only withholding to permitted clarification"
-                in (info.instructions or "")
+            assert "correction-only withholding does not apply" in (
+                info.instructions or ""
             )
             assert question in ModelMessagesTypeAdapter.dump_json(messages).decode()
             assert (

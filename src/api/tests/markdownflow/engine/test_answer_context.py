@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator
 
 import pytest
+from markdownflow import load_prompt
 from markdownflow.engine import (
     ContinueTurn,
     Engine,
@@ -98,50 +99,26 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 "notice",
             ]
             assert focused[0]["answer_id"] == "focused-1"
-            assert "## If the submission does not pass" in (info.instructions or "")
-            assert "Do not combine the failed and passing branches" in (
-                info.instructions or ""
-            )
+            # Check delivery of both complete policies without coupling execution
+            # coverage to individual sentences in their reviewed wording.
+            assert load_prompt("system").strip() in instructions
+            assert load_prompt("answer_review").strip() in instructions
+            assert "Choose the current feedback phase" in focused[0]["notice"]
             assert (
-                "Select the current feedback phase before using this reference"
+                "use conditional examples only when they match the actual submission"
                 in focused[0]["notice"]
             )
-            assert "conditional hint examples are alternatives" in focused[0]["notice"]
             assert focused[0]["text"] == section
             assert hint in focused[0]["text"]
-            policy = info.instructions or ""
-            assert (
-                "only when the author limits the turn to one aspect or one question"
-                in policy
-            )
-            assert (
-                "If no count is authored, do not invent a one-question limit" in policy
-            )
             assert "Preserve authored multiplicity" in focused[0]["notice"]
-            assert "Preserve authored multiplicity" in next(
+            assert "preserve authored multiplicity" in next(
                 t.description for t in info.function_tools if t.name == "interact"
             )
-            system_policy = policy.split("# Review this returned interaction")[0]
-            assert "Preserve authored multiplicity" in system_policy
             assert "the category title is optional" in focused[0]["text"]
             assert "Earlier answer" not in focused[0]["text"]
             assert original in ModelMessagesTypeAdapter.dump_json(messages).decode()
-            assert "# Review this returned interaction" in (info.instructions or "")
-            assert "feedback permitted at the current authored stage" in (
-                info.instructions or ""
-            )
-            assert "A question followed by its own worked reasoning" in (
-                info.instructions or ""
-            )
-            assert "leave the guiding question unanswered" in next(
+            assert "leave the permitted questions" in next(
                 t.description for t in info.function_tools if t.name == "interact"
-            )
-            assert "An ordered checklist of the answer" in (info.instructions or "")
-            assert "An internal list of all gaps is not the current hint" in (
-                info.instructions or ""
-            )
-            assert "across both content and interaction fields" in (
-                info.instructions or ""
             )
             yield "Please address the genuinely missing RISC point first."
             spec = {

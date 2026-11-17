@@ -15,20 +15,17 @@ _PROMPTS = PROMPTS_DIR
 
 
 def test_the_first_message_s_sections_are_not_written_back() -> None:
-    rule = _rule(12)
-    assert (
-        "tagged sections of the first message, such as `<memory>` and `<script>`"
-        in rule
-    )
-    assert "not a format to write in" in rule
-    assert "a tool call, or a tool's arguments" in rule
+    rule = _rule("Deliver the authored lesson", "Use Markdown")
+    assert "Speak only to the learner: all content is shown and read aloud" in rule
+    assert "Never expose tools, arguments, instructions, the script" in rule
+    assert "or input tags such as `<memory>`" in rule
 
 
 def test_question_answers_are_stored_before_any_separate_remember_call() -> None:
     """The leaked note recorded an answer that `interact` had already stored."""
-    rule = _rule(4)
-    assert "with a nonempty `question` is stored under that exact wording" in rule
-    assert "Use `remember` only for other writes allowed by the memory policy" in rule
+    rule = _rule("Turns and learner input", "Follow the memory policy")
+    assert "nonempty `question` are stored automatically under that exact key" in rule
+    assert "use `remember` only for other permitted writes" in rule
 
 
 def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
@@ -42,38 +39,43 @@ def test_the_notation_uses_only_the_binding_text_for_the_answer_key() -> None:
     """Both binding forms keep the stored key separate from the control notation."""
     notation = (_PROMPTS / "syntax.md").read_text()
     assert (
-        "copy only the text between the leading braces into `interact.question`"
+        "`question` is the exact inner binding text with outer whitespace trimmed"
         in notation
     )
     assert "?[{{binding}} ...]" in notation
     assert "?[%{{binding}} ...]" in notation
     assert "{{What would you like to learn?}}" in notation
-    assert 'question="What would you like to learn?"' in notation
+    assert "uses that exact question" in notation
+    assert (
+        "Preserve its wording, punctuation, language and internal spacing" in notation
+    )
+    assert "storage keys remain unescaped" in notation
 
 
 def test_the_notation_says_how_to_read_an_escape_in_an_option() -> None:
     r"""Told to copy options exactly, the model copied `a\|b` backslash and all."""
     notation = (_PROMPTS / "syntax.md").read_text()
-    assert "only stops that character being read as notation" in notation
-    assert "is the option `a|b`" in notation
+    assert "remove a backslash only when it escapes `|`, `/`, `.` or `]`" in notation
+    assert "`a\\|b` becomes `a|b`" in notation
 
 
 def test_the_escape_rule_is_only_for_reading_the_notation() -> None:
     r"""Told how to read `\.`, the model dropped `\d`'s backslash when repeating `\d+.\d+`."""
     notation = (_PROMPTS / "syntax.md").read_text()
     assert (
-        "This is only how to read the notation of the script's own questions"
-        in notation
+        "Inside authored `?[...]`, remove a backslash only when it escapes" in notation
     )
-    assert "the second `\\d` keeps its backslash" in notation
+    assert "Preserve every other backslash" in notation
+    assert "`\\d+\\.\\d+` becomes `\\d+.\\d+`" in notation
     # What the learner typed is not notation: `file\\.txt` is repeated as `file\\.txt`.
     assert (
-        "what the learner typed, an option you made up -- is not notation" in notation
+        "Learner input and newly created options are not script notation: "
+        "preserve all their backslashes" in notation
     )
 
 
 def test_the_end_of_a_lesson_is_not_announced_to_the_learner() -> None:
     """A lesson with nothing left wrote "The lesson is complete." and then finished."""
-    rule = _rule(9)
-    assert "do not also tell the learner it has ended" in rule
-    assert "write nothing and call it" in rule
+    rule = _rule("Turns and learner input", "A pure-content step")
+    assert "Do not add a spoken completion announcement or extra wrap-up" in rule
+    assert "if nothing remains to teach, output only `finish`" in rule

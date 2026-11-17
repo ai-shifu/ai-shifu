@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator, Callable
 
 import pytest
+from markdownflow import load_prompt
 from markdownflow.engine import (
     ContentDelta,
     ContinueTurn,
@@ -199,14 +200,14 @@ async def test_instructions_include_syntax_note_only_for_marked_scripts() -> Non
         engine.run_turn(await engine.new_session("a\n---\nb ?[%{{v}} A | B]"))
     )
     await collect(engine.run_turn(await engine.new_session("plain", listen_mode=True)))
-    assert "Script notation" not in seen[0]
+    assert load_prompt("syntax").strip() not in seen[0]
     assert "Listen mode" not in seen[0]
     assert (
         "Screens (HTML visuals)" in seen[0]
     )  # inherited from 1.0, present for the sandbox profile
-    assert "Script notation" in seen[1]
+    assert load_prompt("syntax").strip() in seen[1]
     assert "Listen mode" in seen[2]
-    assert seen[0].count("You are the runtime") == 1
+    assert seen[0].count(load_prompt("system").strip()) == 1
 
 
 async def test_runner_persists_between_turns() -> None:

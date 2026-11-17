@@ -902,76 +902,63 @@ async def interact(
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
-    `single`: exactly one choice. `multi`: several choices. `text`: free text only.
-    `single_or_text` / `multi_or_text`: choices plus a text box for the learner's own answer.
-    `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
-    without a question -- never on your own judgement, not between steps, not after a visual --
-    and only after you have presented content in this turn (a confirm on its own is rejected).
-    For an ordinary answer interaction, ask the learner-facing question in visible prose first.
-    With a nonempty leading `{{...}}` or `%{{...}}` binding, set `question` to only its exact
-    inner text, trimming outer whitespace. Without a binding, use the full question from prose
-    for an answer control and omit `question` for other controls. Decide whether the control
-    collects an answer from its purpose in the script. When localizing a bound question, use
-    `display_question` for the translation you presented. An accepted submission to a control
-    with a nonempty `question` is stored under that value.
-    Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
-    it false for any control from the script, even when you formulate the question yourself.
-    Give `options` for every type except `text`.
-    The learner's answer is returned as the tool result; then continue the script.
-    Before personal feedback and the next interaction, cite the original submission
-    supporting each claimed misconception. A quoted denial of prior storage does not
-    establish confusion about disk files; present an unsupported authored distinction
-    generally, never as "your earlier mistake". Describe omissions without inventing
-    beliefs, habits or causes. Apply this after corrections as well as wrong answers.
-    Judge coverage by the authored acceptance rule and the full submitted meaning:
-    do not ask again for a point already supplied through equivalent wording or
-    concrete examples. A missing category label alone is not a missing concept.
-    For corrections, apply the current hint stage and aspect limit from the author
-    across content and every interaction field. A one-aspect hint must not expose
-    other gaps in the question, options or placeholder. Ask for the authored correction,
-    not every internally identified gap; do not supply a complete answer when the
-    author calls for a graduated hint. Do not impose these limits when not authored.
-    When complete-answer disclosure is forbidden, a worked answer or an ordered
-    answer checklist followed by "try again" still violates that limit. Keep
-    direction-only hints about what to examine rather than what answer to copy.
-    At an authored checking-direction stage, leave the guiding question unanswered:
-    briefly identify the issue and follow the authored aspect and question limits.
-    Ask one bounded question only when the author limits the turn to one aspect or
-    one question. Preserve authored multiplicity when several are permitted or
-    required; do not invent a one-question limit when no count is authored. Then
-    wait without worked reasoning or several explanatory paragraphs. Later steps or examples
-    require the author's next help stage; reporting prior knowledge help as a
-    hint does not itself authorize skipping a correction stage. Follow explicit
-    author rules that permit immediate explanation or a different progression.
-    An authored navigation with one choice is still `single`, not an optional `confirm`.
-    Do not replace an unanswered navigation with the following question's input. If the
-    author puts navigation after answer feedback/explanation, call this tool for that
-    navigation alone and wait; only its returned selection permits the following step.
-    Do not include the following question in the same response as that explanation.
-    When no intervening navigation is authored, follow the author's next step normally.
+    Types: `single` = one choice; `multi` = several; `text` = free text;
+    `single_or_text` / `multi_or_text` = choices plus free text. Supply `options`
+    except for `text`. Use `confirm` only for an authored pause without a question,
+    after presenting content this turn; never add one yourself. An authored one-choice
+    navigation remains `single`: wait for its answer before the next step. If it follows
+    feedback, show that navigation alone, not the following question. Without an
+    intervening navigation, proceed as authored. Resume from the returned learner answer.
 
-    For an authored checking-direction correction of a uniquely anchored text input
-    with an authored aspect/question count,
-    send `direction` in this same tool call instead of writing free content. Copy
-    `answer_id` from the returned interaction, `rule_quote` from the author's stage
-    rule, and each criterion from the current authored section. Select only the
-    genuinely unmatched focus or focuses allowed now. Copy the authored aspect
-    positive limit; null is invalid. Never invent or relax it. Each focus
-    has an internal observed issue and one unanswered guiding question, without worked
-    reasoning, compound checks or a list of the other gaps. Quote actual submitted
-    evidence for a contradiction; use null for an omission, never an authored sample
-    mistake. `accepted_quotes` contains unique exact correct answer excerpts for
-    authored acknowledgement, or []. Only accepted/contradicted answer quotes and
-    unanswered questions are displayed; diagnoses/criteria stay internal. The host
-    checks provenance, not correctness or semantic focus.
-    Use type `text` and the original authored placeholder. In `question`, copy the guiding
-    questions exactly in their order with a single space between them. Do not add another tool
-    call or any free content to that model response. This collects the correction directly, without
-    a planning request. For passing answers, later authored help, navigation,
-    clarification, stages without an authored count, multiple questions within one
-    aspect, or an input without an
-    exact authored anchor, omit `direction`
-    and follow the ordinary authored behavior.
+    Before ordinary answer controls, ask in visible Markdown prose what to answer,
+    choose or do. Preserve the authored meaning and scope; paraphrases and direct
+    requests without question marks are valid. Tool fields, topic explanations and
+    "Now try this question" do not supply this request in the lesson body or narration.
+    For a leading nonempty `{{...}}` or `%{{...}}` binding, `question` is its exact
+    inner text with outer whitespace trimmed. Otherwise use the full prose question
+    for answer controls; omit it for other controls. Determine answer intent from the
+    script. Accepted answers are stored under nonempty `question`. For a localized
+    binding, put the translated prose question in `display_question`, keeping the
+    original binding in `question`. Set `generated_control=true` only for a new follow-up
+    answer control, never an authored control whose wording you formulate.
+
+    Feedback must follow authored acceptance rules and actual submitted meaning,
+    including equivalent wording and concrete examples. Do not re-ask covered concepts
+    merely because their labels are absent. Cite the original submission for each
+    claimed misconception, including after corrections. Describe omissions without
+    inventing beliefs, habits or causes. A denial of prior storage does not prove
+    confusion about disk files; teach unsupported distinctions generally.
+
+    Apply the authored correction stage and limits across prose and ALL tool fields.
+    Checking-direction hints ask what to examine, leave the permitted questions
+    unanswered and wait. Use one bounded question only for an authored one-aspect or
+    one-question limit; otherwise preserve authored multiplicity without inventing a
+    count. Do not expose gaps beyond the authored limit, worked reasoning or later-stage explanations.
+    When complete answers are forbidden, a worked answer or answer checklist followed
+    by "try again" is also forbidden. Prior knowledge help alone does not advance the
+    correction stage. Follow explicit rules permitting immediate explanation or a
+    different progression.
+
+    For a checking-direction correction of a uniquely anchored authored text input
+    with an authored positive aspect/question count,
+    send `direction` in this same tool call instead of writing free content.
+    Copy `answer_id` from the returned interaction, `rule_quote` from its authored stage
+    rule, and each criterion's exact clause from the authored section. Select only
+    currently permitted unmatched focuses; copy the positive limit, never invent,
+    relax or null it. Each focus has an internal issue and one unanswered guiding
+    question, without compound checks, other gaps or worked reasoning. Contradictions
+    need exact submitted evidence; omissions use null, not a sample mistake.
+    `accepted_quotes` holds unique exact correct answer excerpts for authored
+    acknowledgement, or []. Only answer quotes and guiding questions are displayed;
+    issues and criteria stay internal. The host checks provenance, not correctness
+    or semantic focus.
+    Use `text`, the original placeholder, and `question` equal to the guiding questions
+    in order joined by a single space. Send no other tool call or free content in that
+    response. This directly collects the correction without a planning request.
+    For passing answers, later help, navigation, clarification, no authored count,
+    multiple questions within one aspect, or no exact anchor, omit `direction` and
+    follow ordinary authored behavior, including visible prose before answer controls.
+    Only structured direction above delivers its guiding questions through the tool.
     When the host requires an explicit feedback branch for supported returned
     text, ordinary feedback attaches `review` here or to its first existing read,
     memory or finish call. A direction uses `direction` alone. Follow the host's
@@ -1328,19 +1315,18 @@ async def prepare_feedback_tool(
         properties["question"] = {
             "type": "string",
             "description": (
-                "With a nonempty leading {{...}} or %{{...}} binding, copy only its exact "
-                "inner text, trimming outer whitespace. For an unbound answer control, use "
-                "the full learner-facing question from prose. For other unbound controls, "
-                "omit this field. A nonempty value is the storage key for the accepted answer."
+                "For a leading nonempty {{...}} or %{{...}} binding, copy its exact inner "
+                "text, trimming outer whitespace. Otherwise use the full prose question "
+                "for answer controls; omit for other controls. Nonempty values store "
+                "accepted answers under that key. This does not replace the visible prose request."
             ),
         }
         if ctx.deps.translated_controls:
             properties["display_question"] = {
                 **properties["display_question"],
                 "description": (
-                    "For a leading authored binding only, the translated learner-facing "
-                    "question exactly as asked in prose, as plain text. Keep the binding's "
-                    "original inner text in question."
+                    "For a leading authored binding only: its translated question exactly "
+                    "as asked in prose, as plain text. Keep the original binding in question."
                 ),
             }
         else:
@@ -1348,8 +1334,8 @@ async def prepare_feedback_tool(
         properties["generated_control"] = {
             **properties["generated_control"],
             "description": (
-                "True only for a newly created answer control. Leave false for any "
-                "authored control, including an unbound one whose question you formulate."
+                "True only for a new follow-up answer control; false for every authored "
+                "control, including unbound questions you formulate."
             ),
         }
     if (
@@ -1404,9 +1390,9 @@ async def prepare_memory_tool(
     request_schema = dict(properties["request"])
     request_schema.pop("default", None)
     request_schema["description"] = (
-        "Required field. For an undeclared key, copy the learner's complete current free-text "
-        "input EXACTLY, including the request to remember and punctuation. Do not omit it or "
-        "supply a paraphrase. For a non-deleted main-script-declared key only, null is allowed."
+        "Required. For an undeclared key, copy the complete current learner free-text input exactly, "
+        "including the memory request and punctuation; no omissions or paraphrases. "
+        "Null is allowed only for a non-deleted main-script-declared key."
     )
     return replace(
         definition,
@@ -1428,21 +1414,16 @@ async def remember(
 ) -> str:
     """Store something about the learner.
 
-    `key` preserves the declared name's exact internal text; only surrounding whitespace is
-    trimmed. Spaces and punctuation are allowed, but internal control characters and `}}` are
-    not. `value` is the learner's own words or the concrete fact.
-    `scope="session"` (default) is for this script run (answers, collected variables);
-    `scope="user"` is for things that should follow the learner into future sessions
-    (preferences, stable facts, requests like "keep answers short"). Overwrites an existing key.
-
-    A nonblank key can contain at most 255 characters and a value at most 2000. A scope with
-    100 or more entries accepts updates to existing keys only. Each scope has a budget of 32768
-    characters of pretty-printed JSON. A larger existing scope accepts only non-growing updates.
-    A refused note changes nothing; continue teaching instead of repeatedly trying to store it.
-    Existing history and answers recorded by `interact` are preserved without
-    these model-note limits.
-    Record required notes before `finish`; a finished lesson accepts no further model notes.
-
+    Preserve `key`'s exact internal text, trimming outer whitespace. Spaces/punctuation
+    are allowed; control characters and `}}` are not. Keys must be nonblank and at most
+    255 characters; `value` uses the learner's words or a concrete fact, at most 2000.
+    `scope="session"` (default) lasts this script run; `scope="user"` persists preferences,
+    stable facts and learner requests across sessions. Existing keys are overwritten.
+    Each scope permits 100 entries and 32768 pretty-printed JSON characters. At or above
+    the entry limit, update existing keys only; an oversized scope accepts non-growing
+    updates only. Refusal changes nothing: continue teaching without repeated retries.
+    These model-note limits do not remove history or `interact` answers.
+    Save required notes before `finish`; finished lessons accept no further notes.
     """
     if review is not None:
         validate_direction_call(ctx, review=review)
@@ -1491,9 +1472,9 @@ async def finish(
 ) -> str:
     """Mark the script as delivered to its end.
 
-    Call this once, only after the last step of the script has been completed and nothing in
-    it remains to do. `summary` is one short line about what the learner did. Do not call it
-    when the script merely pauses, asks a question, or waits for the learner.
+    Call once after completing the final step with nothing left to do, never while
+    paused, asking a question or awaiting the learner. `summary` is one short line
+    about what the learner did.
     """
     if feedback is not None:
         if review is not None:

@@ -2,7 +2,7 @@
 title: Learner Listen Playback and Timeline
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-14
 canonical: true
 ---
 
@@ -26,8 +26,11 @@ canonical: true
 
 ## Reading interaction questions and shared transport
 
-For an ordinary answer interaction, the model asks the question in visible
-Markdown prose and then calls `interact` with the same wording in `question`.
+For an ordinary answer interaction, the model asks the question or gives a
+direct request in visible Markdown prose, then calls `interact`. The prose may
+rephrase the authored question while preserving its meaning and scope. Tool
+arguments do not insert the request into the lesson body or narration.
+For an unbound answer control, `question` uses the learner-facing wording.
 When the control has a leading `{{...}}` binding, that question is the exact
 text inside the braces after trimming leading and trailing whitespace, even
 when it is a short label. The runtime uses `question` for memory and carries it

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from markdownflow.engine.engine import PROMPTS_DIR
 
+from tests.markdownflow.engine.test_script_authority import _rule
+
 _PROMPT = PROMPTS_DIR / "syntax.md"
 
 
@@ -20,12 +22,13 @@ def test_a_separator_is_a_section_boundary_and_never_a_pause() -> None:
     every `---` in a script became a Continue button the author never wrote.
     """
     rule = _separator_rule()
-    assert "not a pause" in rule
+    assert "separates sections, not turns" in rule
     # Each prohibition is asserted on its own: dropping any one of them brings the buttons back,
     # and a test that checked only the others would stay green.
-    assert "do not stop there" in rule
-    assert "do not call `interact` there" in rule
-    assert "do not ask the learner to continue" in rule
+    assert "Continue directly into the next section" in rule
+    assert "do not pause or call `interact` at the divider" in rule
+    pause_rule = _rule("Turns and learner input", "Use `confirm` only")
+    assert "Do not add pauses between steps" in pause_rule
     assert "soft pause" not in rule
 
 
@@ -36,7 +39,10 @@ def test_a_pause_the_script_asks_for_still_stops_the_turn() -> None:
     prompt, which requires a `confirm` where the script says to wait for the learner.
     """
     rule = _separator_rule()
-    assert "a pause it explicitly asks for" in rule
+    assert (
+        "Authored questions, explicit pauses and the end determine stopping points"
+        in rule
+    )
 
 
 def test_a_pause_is_only_ever_the_script_s_own() -> None:
@@ -46,11 +52,15 @@ def test_a_pause_is_only_ever_the_script_s_own() -> None:
     learner had to press. Both the rule and the tool's description now say a pause is the
     script's to ask for, never the model's.
     """
-    system = (_PROMPT.parent / "system.md").read_text()
-    assert "only for a pause the script itself asks for" in system
-    assert "Never pause on your own judgement" in system
-    tools = (_PROMPT.parents[1] / "tools.py").read_text()
-    assert "ONLY when the script itself asks for a pause" in tools
+    rule = _rule("Turns and learner input", "Use `confirm` only")
+    assert "only for an explicit authored pause, after its content" in rule
+    assert (
+        "Do not add pauses between steps, after visuals or to check comprehension"
+        in rule
+    )
+    tools = " ".join((_PROMPT.parents[1] / "tools.py").read_text().split())
+    assert "Use `confirm` only for an authored pause without a question" in tools
+    assert "after presenting content this turn; never add one yourself" in tools
 
 
 def test_the_model_is_told_not_to_narrate_its_own_work() -> None:
@@ -60,10 +70,14 @@ def test_the_model_is_told_not_to_narrate_its_own_work() -> None:
     with a warm welcome and the course cover" -- which was rendered, spoken and subtitled as the
     first thing a learner saw, in a language the lesson was not in.
     """
-    system = (_PROMPT.parent / "system.md").read_text()
-    assert "never announce what you are about to do" in system
-    assert "never describe your own progress through the script" in system
-    assert "Begin with the lesson's first words" in system
+    rule = _rule("Deliver the authored lesson", "Use Markdown")
+    assert "all content is shown and read aloud" in rule
+    assert "Begin with the lesson" in rule
+    assert (
+        "without unsolicited greetings, introductions, filler or announcements of your progress"
+        in rule
+    )
+    assert "the learner's language" in rule
 
 
 def test_the_model_is_told_to_pass_a_question_through_unchanged() -> None:
@@ -74,6 +88,7 @@ def test_the_model_is_told_to_pass_a_question_through_unchanged() -> None:
     placeholder of the model's own.
     """
     syntax = _PROMPT.read_text()
-    assert "Pass its options to `interact` exactly as written" in syntax
-    assert "keep single choice single and multiple choice multiple" in syntax
-    assert "use the author's own `...prompt` as the placeholder" in syntax
+    assert "Preserve every authored option, its order, display/value wording" in syntax
+    assert "interaction type and placeholder" in syntax
+    assert '`A | B` means `type="single"`; `A || B` means `type="multi"`' in syntax
+    assert "Do not drop, add or reword choices or invent a hint" in syntax

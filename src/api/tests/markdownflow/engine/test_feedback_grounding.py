@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator
 
 import pytest
+from markdownflow import load_prompt
 from markdownflow.engine import (
     ContentDelta,
     ContinueTurn,
@@ -46,26 +47,15 @@ async def test_feedback_policy_keeps_author_examples_separate_from_submissions(
         calls += 1
         if calls > 1:
             policy = info.instructions or ""
-            assert "Author-provided mistakes and sample diagnoses" in policy
-            assert "actual submissions" in policy
-            assert "a missing point is not proof" in policy
-            assert "Could the learner copy this hint as a passing answer?" in policy
-            assert "A prior side-question explanation" in policy
-            assert "# Correction pacing" in policy
-            assert "do not reveal the complete answer" in policy
-            assert "the current hint stage and aspect limit" in next(
+            # Verify the complete reviewed policy reaches SDK requests; individual
+            # phrases may change when instructions are clarified or shortened.
+            assert load_prompt("system").strip() in policy
+            assert "authored correction stage and limits" in next(
                 t.description for t in info.function_tools if t.name == "interact"
             )
-            assert "general example" in policy
-            assert (
-                "Quote the actual submitted mistake before naming a personal misconception"
-                in policy
-            )
-            assert "cite the original submission" in next(
+            assert "Cite the original submission" in next(
                 t.description for t in info.function_tools if t.name == "interact"
             )
-            assert "If the original evidence is unavailable" in policy
-            assert "Do not infer a personal habit" in policy
             evidence = ModelMessagesTypeAdapter.dump_json(messages).decode()
             assert wrong in evidence
             assert (correct in evidence) == (calls == 3)
@@ -152,15 +142,7 @@ async def test_final_review_receives_original_omissions_over_prior_generated_dia
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         """Check final-review guidance without pretending to judge the model's prose."""
         policy = info.instructions or ""
-        assert "Do not infer a personal habit" in policy
-        assert "In final reports and study advice" in policy
-        assert "Judge omissions by submitted meaning" in policy
-        assert (
-            "Quote the actual submitted mistake before naming a personal misconception"
-            in policy
-        )
-        assert "not proof of independent reasoning or effort" in policy
-        assert "not your earlier feedback" in policy
+        assert load_prompt("system").strip() in policy
         assert original in ModelMessagesTypeAdapter.dump_json(messages).decode()
         yield "Your first answer omitted data path width, peripherals and system software."
         yield {
@@ -200,23 +182,8 @@ async def test_resumed_answer_receives_current_criterion_review(
             yield "Describe the required techniques and effects."
             spec = {"type": "text", "prompt": "Techniques", "placeholder": "Answer"}
         elif calls == 2:
-            assert policy.endswith(
-                "Do not expose this review procedure to the learner."
-            )
-            assert "## If the submission does not pass" in policy
-            assert "Do not combine the failed and passing branches" in policy
-            assert "Match every required point" in policy
-            assert "already covered, contradicted, or not supplied" in policy
-            assert "A missing label cannot undo a successful meaning match" in policy
-            assert "Select hints only from genuinely unmatched requirements" in policy
-            assert "A question followed by its own worked reasoning" in policy
-            assert "An ordered checklist of the answer" in policy
-            assert "An internal list of all gaps is not the current hint" in policy
-            assert "across both content and interaction fields" in policy
-            assert (
-                "A clarification or navigation response is not an answer attempt"
-                in policy
-            )
+            assert policy.endswith(load_prompt("answer_review").strip())
+            assert load_prompt("system").strip() in policy
             assert original in ModelMessagesTypeAdapter.dump_json(messages).decode()
             yield "RISC and hardware threading were not supplied. Please address RISC first."
             spec = {"type": "text", "prompt": "Techniques", "placeholder": "Correction"}
@@ -281,8 +248,7 @@ async def test_unshown_interaction_review_does_not_claim_a_learner_answer(
         calls += 1
         if calls == 2:
             policy = info.instructions or ""
-            assert "When the host says the question was never shown" in policy
-            assert "do not grade or attribute a response to the learner" in policy
+            assert load_prompt("answer_review").strip() in policy
             assert "with the learner's actual response" not in policy
             assert (
                 "nothing was answered"
@@ -367,9 +333,8 @@ async def test_feedback_omissions_use_meaning_instead_of_missing_category_labels
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         """Inspect instructions and retained evidence, without judging real-model prose."""
         policy = info.instructions or ""
-        assert "Judge omissions by submitted meaning" in policy
-        assert "missing category title does not establish missing knowledge" in policy
-        assert "do not ask again for a point already supplied" in next(
+        assert load_prompt("system").strip() in policy
+        assert "Do not re-ask covered concepts" in next(
             t.description for t in info.function_tools if t.name == "interact"
         )
         evidence = ModelMessagesTypeAdapter.dump_json(messages).decode()
