@@ -24,11 +24,13 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   using both native archives over HTTP/1.1.
 - [x] 2026-11-17 04:14 UTC: Scoped the transport setting to Aliyun archive
   copies and passed regression coverage for all three registry jobs.
-- [x] 2026-11-17 05:02 UTC: Compared the failed and successful runner
+- [x] 2026-11-17 05:12 UTC: Compared the failed and successful runner
   allocations and measured [the same layer PUT](https://github.com/ai-shifu/ai-shifu/actions/runs/44020960789)
-  on three fresh runners.
-- [ ] 2026-11-17 05:05 UTC: Verify automatic fresh-runner recovery from a
-  failed Aliyun copy while sibling registry jobs publish their candidates.
+  on four fresh runners.
+- [x] 2026-11-17 05:15 UTC: Injected a timeout in the first Aliyun Web copy
+  and verified that the retry runner used the same tested archives.
+  All three registries published and returned matching platform digests.
+  [Candidate verification](https://github.com/ai-shifu/ai-shifu/actions/runs/44022538284)
 
 ## Surprises & Discoveries
 
@@ -40,7 +42,9 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   On the same runner, the same archive copied over HTTP/1.1 in about 25 seconds.
 - Identical Web archives timed out on one `us-west-2` runner and copied
   successfully on a `centralus` runner. Three direct HTTP/1.1 PUTs sent the
-  full 174,048,520-byte `.next` layer in 13.6 to 16.8 seconds.
+  full 174,048,520-byte `.next` layer in 13.6 to 16.8 seconds. A later
+  `us-west-2` probe reached the deadline after HTTP 202 and read about 2.8 MiB
+  of the request body in 88.3 seconds. All four used the same registry address.
 
 ## Decision Log
 
@@ -58,7 +62,8 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
 
 Hosted candidate runs verified that tags move independently when Aliyun times
 out and that HTTP/1.1 completes the Aliyun Web copy within its existing
-deadline.
+deadline on a healthy connection. An injected copy failure scheduled a
+distinct runner, which published the same tested Web digests.
 
 ## Context and Orientation
 
