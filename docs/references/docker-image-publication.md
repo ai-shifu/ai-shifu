@@ -2,7 +2,7 @@
 title: Docker image publication
 status: canonical
 owner_surface: repository
-last_reviewed: 2026-10-22
+last_reviewed: 2026-11-17
 ---
 
 # Docker image publication
@@ -38,9 +38,8 @@ use the same marker preparation from the repository root. See the
 
 Publishing callers enable GHCR at
 `ghcr.io/<lowercase repository owner>/<image name>` and grant
-`contents: read` plus `packages: write`. Both native build and manifest jobs
-inherit those permissions and log in with the automatic repository
-`GITHUB_TOKEN`; no new PAT secret is required.
+`contents: read` plus `packages: write`. The GHCR publication job logs in with
+the automatic repository `GITHUB_TOKEN`.
 
 Docker Hub remains enabled when `DOCKERHUB_USER` and `DOCKERHUB_TOKEN` are
 configured. Aliyun remains enabled when `ALIYUN_USER` and `ALIYUN_TOKEN` are
@@ -87,8 +86,8 @@ To backfill the current main, open **Actions → Build Latest Docker Images →
 Run workflow**, select **main**, and run it. This rebuilds both services for both
 architectures and publishes the current main's SHA and latest tags. It does not
 rebuild historical releases. For a failed existing release workflow, rerun that
-original run so it retains its release event/tag; expired digest artifacts require
-a full rerun. Do not create another release merely to backfill latest.
+original run so it retains its release event and tag. Expired image artifacts
+require a full rerun. Do not create another release merely to backfill latest.
 
 ## PR-first release gates
 
@@ -198,13 +197,27 @@ successful registry publication.
 
 ## Acceptance and consumer pulls
 
-Publishing builds use native AMD64 and ARM64 runners. Each final production image
-is loaded, started and smoke-tested before digest publication. The same layers
-are exported to every destination; their immutable config digest must match the
-tested image.
-Manifest publication preflights both architecture digests in every configured
-repository before moving that service's final tags, and inspects every final tag.
-There is no cross-service or cross-registry atomic transaction.
+Publishing builds use native AMD64 and ARM64 runners. Each build exports one
+Docker archive, loads it for production smoke tests, and verifies that the
+archive manifest references the tested config digest. The workflow transfers the
+tested archives and their digest records through Actions artifacts.
+
+GHCR, Docker Hub, and Aliyun publish in independent jobs for each service.
+Each configured job copies the same two image manifests and their layers by
+digest using ORAS. It preflights those digests in its own repository, updates
+the requested multi-platform tags, and inspects each tag. A registry failure
+fails its job and remains visible in the workflow result. Sibling registry jobs
+can complete and advance their tags, so published versions may differ until
+the failed destination recovers.
+
+Registry commands get up to three attempts with 2- and 4-second retry delays.
+Each archive copy has a two-minute timeout per attempt, and login and manifest
+commands have a 30-second timeout per attempt. Any subprocess still running
+five seconds after timeout is killed. Each publication job has a 20-minute
+limit, including setup and artifact downloads. Re-run failed jobs
+to retry the failed destination using the successful native artifacts from the
+same run. A retried candidate destination uses the new attempt suffix. The
+archives expire after seven days.
 
 After public visibility is configured, verify from a Docker client with no GHCR
 credentials:

@@ -58,6 +58,7 @@
 | `docs/exec-plans/active/gemini-live-configurable-capacity.md` | Configurable Gemini Live admission capacity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live follow-up acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/independent-docker-image-publication.md` | Independent Docker image publication | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/interaction-variable-pr-series.md` | Integrate standard interaction bindings | `exec-plan-active` | `active` | `learner` | `2026-10-29` | `true` |
 | `docs/exec-plans/active/json-api-response-safety.md` | Serve shared API envelopes as inert JSON | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/learner-image-input.md` | Learner image input | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -339,7 +340,7 @@
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
 | `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-11-08` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
-| `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
+| `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-11-17` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |

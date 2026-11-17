@@ -23,6 +23,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
+- [Independent Docker image publication](./active/independent-docker-image-publication.md)
 - [Integrate standard interaction bindings](./active/interaction-variable-pr-series.md)
 - [Serve shared API envelopes as inert JSON](./active/json-api-response-safety.md)
 - [Learner image input](./active/learner-image-input.md)

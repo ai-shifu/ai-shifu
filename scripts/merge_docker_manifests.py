@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish image tags only after validating both native platform digests."""
+"""Publish and verify the tested native images for one registry repository."""
 
 from __future__ import annotations
 
@@ -8,50 +8,68 @@ import os
 import re
 import subprocess
 import sys
+import time
+from dataclasses import dataclass
 from pathlib import Path
 
 PLATFORMS = frozenset({"linux/amd64", "linux/arm64"})
 DIGEST_PATTERN = re.compile(r"sha256:[a-f0-9]{64}")
 ARTIFACT_PATTERN = re.compile(r"-(amd64|arm64)-([1-9][0-9]*)$")
+REGISTRY_TIMEOUT = 30
+COPY_TIMEOUT = 120
+ATTEMPTS = 3
 
 
-def load_digests(directory: Path) -> dict[str, str]:
-    """Select the newest successful attempt for each required platform."""
-    selected: dict[str, tuple[int, str]] = {}
-    for path in sorted(directory.glob("*/*.json")):
-        artifact = ARTIFACT_PATTERN.search(path.parent.name)
+@dataclass(frozen=True)
+class TestedImage:
+    """Archive and manifest digest recorded by a successful native smoke test."""
+
+    archive: Path
+    digest: str
+
+
+def load_images(directory: Path) -> dict[str, TestedImage]:
+    """Select the newest tested image artifact for each required platform."""
+    selected: dict[str, tuple[int, TestedImage]] = {}
+    for folder in sorted(directory.glob("docker-image-*")):
+        artifact = ARTIFACT_PATTERN.search(folder.name)
         if not artifact:
-            message = f"Unexpected digest artifact: {path.parent.name}"
+            message = f"Unexpected image artifact: {folder.name}"
             raise ValueError(message)
         arch, attempt_text = artifact.groups()
-        record = json.loads(path.read_text())
         platform = f"linux/{arch}"
+        path = folder / f"{arch}.json"
+        archive = folder / "image.tar"
+        if not path.is_file() or not archive.is_file():
+            message = f"Incomplete tested image artifact: {folder.name}"
+            raise ValueError(message)
+        record = json.loads(path.read_text())
         digest = record.get("digest", "")
         if (
             record.get("platform") != platform
-            or path.name != f"{arch}.json"
             or not isinstance(digest, str)
             or not DIGEST_PATTERN.fullmatch(digest)
         ):
-            message = f"Invalid digest record: {path.name}"
+            message = f"Invalid tested image artifact: {folder.name}"
             raise ValueError(message)
         attempt = int(attempt_text)
         previous = selected.get(platform)
         if previous and previous[0] == attempt:
-            message = f"Duplicate digest for {platform} attempt {attempt}"
+            message = f"Duplicate image for {platform} attempt {attempt}"
             raise ValueError(message)
         if previous is None or attempt > previous[0]:
-            selected[platform] = (attempt, digest)
+            selected[platform] = (attempt, TestedImage(archive, digest))
     if selected.keys() != PLATFORMS:
-        message = "Both linux/amd64 and linux/arm64 digests are required"
+        message = "Both linux/amd64 and linux/arm64 tested image archives are required"
         raise ValueError(message)
     return {platform: entry[1] for platform, entry in sorted(selected.items())}
 
 
-def tags_by_image(metadata: dict) -> dict[str, list[str]]:
-    """Group fully qualified tags without mixing registry repositories."""
-    grouped: dict[str, list[str]] = {}
-    for tag in metadata.get("tags", []):
+def publication_target(metadata: dict) -> tuple[str, list[str]]:
+    """Require all tags to address the one repository owned by this job."""
+    tags = metadata.get("tags", [])
+    repositories = set()
+    for tag in tags:
         if not isinstance(tag, str) or "@" in tag or any(c.isspace() for c in tag):
             message = "Invalid image tag"
             raise ValueError(message)
@@ -63,22 +81,41 @@ def tags_by_image(metadata: dict) -> dict[str, list[str]]:
         ):
             message = "Fully qualified image tags are required"
             raise ValueError(message)
-        grouped.setdefault(image, []).append(tag)
-    if not grouped:
-        message = "At least one publication tag is required"
+        repositories.add(image)
+    if len(repositories) != 1:
+        message = "Publication requires tags for exactly one registry repository"
         raise ValueError(message)
-    return grouped
+    return repositories.pop(), tags
+
+
+def registry_command(
+    *command: str, timeout: int = REGISTRY_TIMEOUT, input_text: str | None = None
+) -> str:
+    """Retry a registry command with a deadline for each attempt."""
+    # GNU timeout also stops child processes, including Docker CLI plugins.
+    bounded = ("timeout", "--kill-after=5s", f"{timeout}s", *command)
+    attempt = 1
+    while True:
+        try:
+            return subprocess.run(
+                bounded,
+                check=True,
+                capture_output=True,
+                text=True,
+                input=input_text,
+            ).stdout
+        except subprocess.CalledProcessError as error:
+            if attempt == ATTEMPTS:
+                raise
+            delay = attempt * 2
+            print(f"{error}. Retrying in {delay}s.", file=sys.stderr, flush=True)
+            time.sleep(delay)
+            attempt += 1
 
 
 def docker(*arguments: str) -> str:
     """Run Buildx without shell evaluation and propagate registry failures."""
-    result = subprocess.run(
-        ["docker", "buildx", "imagetools", *arguments],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout
+    return registry_command("docker", "buildx", "imagetools", *arguments)
 
 
 def verify_manifest(raw: str, digests: dict[str, str]) -> None:
@@ -97,35 +134,59 @@ def verify_manifest(raw: str, digests: dict[str, str]) -> None:
         raise ValueError(message)
 
 
-def publish(directory: Path, metadata: dict) -> None:
-    """Preflight all registries, then publish and inspect their manifest tags."""
-    digests = load_digests(directory)
-    grouped = tags_by_image(metadata)
-    commands: list[tuple[list[str], list[str]]] = []
-    for image, tags in grouped.items():
-        sources = [f"{image}@{digest}" for digest in digests.values()]
-        options = [option for tag in tags for option in ("--tag", tag)]
-        # No tags change until every destination can resolve both platform images.
-        raw = docker("create", "--dry-run", *options, *sources)
-        verify_manifest(raw, digests)
-        commands.append((tags, options + sources))
-    for tags, arguments in commands:
-        docker("create", *arguments)
-        for tag in tags:
-            verify_manifest(docker("inspect", "--raw", tag), digests)
-            print(f"Verified {tag}: linux/amd64, linux/arm64")
+def publish(directory: Path, metadata: dict, username: str, password: str) -> None:
+    """Copy both tested images, then preflight and verify this repository's tags."""
+    images = load_images(directory)
+    image, tags = publication_target(metadata)
+    if not username or not password:
+        message = "Registry credentials are required for publication"
+        raise ValueError(message)
+    registry = image.split("/", 1)[0]
+    registry_command(
+        "docker",
+        "login",
+        "--username",
+        username,
+        "--password-stdin",
+        registry,
+        input_text=password + "\n",
+    )
+    for platform, artifact in images.items():
+        target = f"{image}@{artifact.digest}"
+        registry_command(
+            "oras",
+            "cp",
+            "--from-oci-layout",
+            f"{artifact.archive}@{artifact.digest}",
+            target,
+            timeout=COPY_TIMEOUT,
+        )
+        print(f"Copied tested {platform} image to {target}", flush=True)
+
+    digests = {platform: artifact.digest for platform, artifact in images.items()}
+    sources = [f"{image}@{digest}" for digest in digests.values()]
+    options = [option for tag in tags for option in ("--tag", tag)]
+    verify_manifest(docker("create", "--dry-run", *options, *sources), digests)
+    docker("create", *options, *sources)
+    for tag in tags:
+        verify_manifest(docker("inspect", "--raw", tag), digests)
+        print(f"Verified {tag}: linux/amd64, linux/arm64", flush=True)
 
 
 def main() -> None:
-    """Read workflow metadata and merge downloaded digest artifacts."""
+    """Read workflow metadata and publish the downloaded image archives."""
     if len(sys.argv) != 2:
-        message = "Usage: merge_docker_manifests.py DIGEST_DIRECTORY"
+        message = "Usage: merge_docker_manifests.py IMAGE_ARTIFACT_DIRECTORY"
         raise SystemExit(message)
     try:
-        publish(Path(sys.argv[1]), json.loads(os.environ["IMAGE_METADATA"]))
+        publish(
+            Path(sys.argv[1]),
+            json.loads(os.environ["IMAGE_METADATA"]),
+            os.environ.pop("REGISTRY_USERNAME"),
+            os.environ.pop("REGISTRY_PASSWORD"),
+        )
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
-        # Preserve the build/registry error; never retry an entire build or publication.
-        if isinstance(error, subprocess.CalledProcessError):
+        if isinstance(error, subprocess.CalledProcessError) and error.stderr:
             print(error.stderr, file=sys.stderr)
         raise SystemExit(str(error)) from error
 

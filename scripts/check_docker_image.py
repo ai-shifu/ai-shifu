@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Smoke-test final production images and verify the published content matches."""
+"""Smoke-test production images and verify the archive used for publication."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
 import sys
+import tarfile
 import time
 from pathlib import Path
 from urllib.error import URLError
@@ -266,58 +268,36 @@ def smoke(
     return {"service": service, "platform": platform, "config_digest": inspected["Id"]}
 
 
-def published_config(image: str, digest: str, platform: str) -> str:
-    """Resolve the target manifest's immutable image config, including index exporters."""
-    raw = json.loads(
-        docker("buildx", "imagetools", "inspect", "--raw", f"{image}@{digest}")
-    )
-    if "manifests" in raw:
-        matches = [
-            item
-            for item in raw["manifests"]
-            if f"{item.get('platform', {}).get('os')}/{item.get('platform', {}).get('architecture')}"
-            == platform
-        ]
-        if len(matches) != 1 or not DIGEST.fullmatch(matches[0].get("digest", "")):
-            message = "Published index lacks exactly one tested platform image"
-            raise ValueError(message)
-        raw = json.loads(
-            docker(
-                "buildx",
-                "imagetools",
-                "inspect",
-                "--raw",
-                f"{image}@{matches[0]['digest']}",
-            )
-        )
-    return raw.get("config", {}).get("digest", "")
-
-
-def verify_published(record: dict[str, str], images: str, digest: str) -> None:
-    """Require every registry's published filesystem/config to match the smoke-tested image."""
-    expected = record.get("config_digest", "")
-    platform = record.get("platform", "")
-    repositories = images.split(",")
-    if (
-        not DIGEST.fullmatch(expected)
-        or not DIGEST.fullmatch(digest)
-        or platform not in {"linux/amd64", "linux/arm64"}
-        or any(
-            not image or "@" in image or any(c.isspace() for c in image)
-            for image in repositories
-        )
-    ):
-        message = "Invalid smoke record or publication inputs"
+def read_archive_member(archive: tarfile.TarFile, name: str) -> bytes:
+    """Read a metadata member without extracting image layers to disk."""
+    member = archive.extractfile(name)
+    if member is None:
+        message = f"Invalid image archive member: {name}"
         raise ValueError(message)
-    for image in repositories:
-        if published_config(image, digest, platform) != expected:
-            message = f"Published {platform} image differs from the smoke-tested image"
+    with member:
+        return member.read()
+
+
+def archive_digest(path: Path, config_digest: str) -> str:
+    """Identify the one archive manifest whose config Docker actually tested."""
+    with tarfile.open(path, mode="r:") as archive:
+        manifests = json.loads(read_archive_member(archive, "index.json"))["manifests"]
+        if len(manifests) != 1 or not DIGEST.fullmatch(manifests[0]["digest"]):
+            message = "Image archive must contain one native platform manifest"
             raise ValueError(message)
-        print(f"Verified smoke-tested content: {image} {platform}")
+        digest = manifests[0]["digest"]
+        raw = read_archive_member(archive, f"blobs/{digest.replace(':', '/', 1)}")
+    if f"sha256:{hashlib.sha256(raw).hexdigest()}" != digest:
+        message = "Image archive manifest digest does not match its content"
+        raise ValueError(message)
+    if json.loads(raw).get("config", {}).get("digest") != config_digest:
+        message = "Image archive config differs from the smoke-tested image"
+        raise ValueError(message)
+    return digest
 
 
 def main() -> None:
-    """Expose smoke and immutable publication verification to the packaging workflow."""
+    """Write the smoke result and the digest of the tested archive when supplied."""
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     check = commands.add_parser("smoke")
@@ -325,20 +305,20 @@ def main() -> None:
     check.add_argument("image")
     check.add_argument("platform", choices=("linux/amd64", "linux/arm64"))
     check.add_argument("--record", type=Path, required=True)
-    verify = commands.add_parser("verify-published")
-    verify.add_argument("record", type=Path)
-    verify.add_argument("digest")
-    verify.add_argument("--images", required=True)
+    check.add_argument("--archive", type=Path)
     args = parser.parse_args()
     try:
-        if args.command == "smoke":
-            record = smoke(args.service, args.image, args.platform)
-            args.record.write_text(json.dumps(record) + "\n")
-        else:
-            verify_published(
-                json.loads(args.record.read_text()), args.images, args.digest
-            )
-    except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
+        record = smoke(args.service, args.image, args.platform)
+        if args.archive is not None:
+            record["digest"] = archive_digest(args.archive, record["config_digest"])
+        args.record.write_text(json.dumps(record) + "\n")
+    except (
+        ValueError,
+        KeyError,
+        OSError,
+        tarfile.TarError,
+        subprocess.SubprocessError,
+    ) as error:
         if isinstance(error, subprocess.CalledProcessError):
             print(error.stderr, file=sys.stderr)
         raise SystemExit(str(error)) from error
