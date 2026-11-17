@@ -11,7 +11,13 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from merge_docker_manifests import load_images, main, publish, verify_manifest
+from merge_docker_manifests import (
+    COPY_RETRY_EXIT_CODE,
+    load_images,
+    main,
+    publish,
+    verify_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -141,9 +147,55 @@ def test_http1_is_scoped_to_aliyun_copies(
     for call in calls:
         if copy_go_debug and call.args[0][3:5] == ("oras", "cp"):
             assert call.kwargs["env"]["GODEBUG"] == copy_go_debug
+            assert call.kwargs["stdout"] is None
         else:
             assert call.kwargs["env"] is None
+            assert call.kwargs["stdout"] == subprocess.PIPE
     assert os.environ["GODEBUG"] == "gctrace=1,http2client=1"
+
+
+@pytest.mark.parametrize(
+    ("attempts", "failed_command", "calls_expected", "schedule_retry"),
+    [
+        ("1", ("oras", "cp"), 1, True),
+        ("2", ("oras", "cp"), 2, False),
+        ("1", ("docker", "login"), 3, False),
+    ],
+)
+def test_aliyun_copy_attempts_are_distributed_across_runners(
+    images: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attempts: str,
+    failed_command: tuple[str, str],
+    calls_expected: int,
+    schedule_retry: bool,
+) -> None:
+    """Only the first runner can hand off an archive copy failure."""
+    monkeypatch.setattr("sys.argv", ["merge_docker_manifests.py", str(images)])
+    monkeypatch.setenv("IMAGE_METADATA", json.dumps({"tags": [f"{ALIYUN}:candidate"]}))
+    monkeypatch.setenv("IMAGE_REGISTRY", "aliyun")
+    monkeypatch.setenv("REGISTRY_USERNAME", "example")
+    monkeypatch.setenv("REGISTRY_PASSWORD", uuid4().hex)
+    monkeypatch.setenv("IMAGE_COPY_ATTEMPTS", attempts)
+
+    def run_command(
+        command: tuple[str, ...], **_kwargs: object
+    ) -> subprocess.CompletedProcess:
+        if command[3:5] == failed_command:
+            raise subprocess.CalledProcessError(124, command)
+        return successful_command(command)
+
+    with (
+        patch("merge_docker_manifests.subprocess.run", side_effect=run_command) as run,
+        patch("merge_docker_manifests.time.sleep"),
+        pytest.raises(SystemExit) as failed,
+    ):
+        main()
+    assert (failed.value.code == COPY_RETRY_EXIT_CODE) is schedule_retry
+    assert sum(call.args[0][3:5] == failed_command for call in run.call_args_list) == (
+        calls_expected
+    )
+    assert not any("imagetools" in call.args[0] for call in run.call_args_list)
 
 
 def test_stalled_aliyun_publication_leaves_other_targets_independent(

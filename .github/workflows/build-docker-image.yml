@@ -165,8 +165,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        registry: [ghcr, dockerhub, aliyun]
-    steps:
+        registry: [ghcr, dockerhub]
+    env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
+    steps: &registry-publication
       - name: Check out repository
         uses: actions/checkout@v6
         with:
@@ -187,7 +189,7 @@ jobs:
           labels: ${{ inputs.labels }}
           push-images: ${{ inputs.push-images }}
           publish-ghcr: ${{ inputs.publish-ghcr }}
-          registry: ${{ matrix.registry }}
+          registry: ${{ env.IMAGE_REGISTRY }}
 
       - name: Set up ORAS
         if: steps.meta.outputs.push-images == 'true'
@@ -204,16 +206,27 @@ jobs:
           path: ${{ runner.temp }}/images
 
       - name: Push tested images and verify multi-platform tags
+        id: publish-images
         if: steps.meta.outputs.push-images == 'true'
         env:
           IMAGE_METADATA: ${{ steps.meta.outputs.json }}
-          IMAGE_REGISTRY: ${{ matrix.registry }}
-          REGISTRY_USERNAME: ${{ matrix.registry == 'ghcr' && github.actor || matrix.registry == 'dockerhub' && secrets.DOCKERHUB_USER || matrix.registry == 'aliyun' && secrets.ALIYUN_USER || '' }}
-          REGISTRY_PASSWORD: ${{ matrix.registry == 'ghcr' && github.token || matrix.registry == 'dockerhub' && secrets.DOCKERHUB_TOKEN || matrix.registry == 'aliyun' && secrets.ALIYUN_TOKEN || '' }}
-        run: python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/images"
+          REGISTRY_USERNAME: ${{ env.IMAGE_REGISTRY == 'ghcr' && github.actor || env.IMAGE_REGISTRY == 'dockerhub' && secrets.DOCKERHUB_USER || env.IMAGE_REGISTRY == 'aliyun' && secrets.ALIYUN_USER || '' }}
+          REGISTRY_PASSWORD: ${{ env.IMAGE_REGISTRY == 'ghcr' && github.token || env.IMAGE_REGISTRY == 'dockerhub' && secrets.DOCKERHUB_TOKEN || env.IMAGE_REGISTRY == 'aliyun' && secrets.ALIYUN_TOKEN || '' }}
+        run: |
+          if python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/images"; then
+            exit 0
+          else
+            status=$?
+          fi
+          if [[ "$IMAGE_REGISTRY" == 'aliyun' && "${IMAGE_COPY_ATTEMPTS:-}" == '1' && "$status" == '75' ]]; then
+            echo 'retry-upload=true' >> "$GITHUB_OUTPUT"
+            echo '::warning::Aliyun archive copy failed. Retrying on a fresh runner.'
+            exit 0
+          fi
+          exit "$status"
 
       - name: Update Docker Hub repository description
-        if: inputs.update-description && matrix.registry == 'dockerhub' && steps.meta.outputs.push-images == 'true'
+        if: inputs.update-description && env.IMAGE_REGISTRY == 'dockerhub' && steps.meta.outputs.push-images == 'true'
         timeout-minutes: 2
         continue-on-error: true
         uses: peter-evans/dockerhub-description@v4
@@ -228,10 +241,33 @@ jobs:
         if: always()
         env:
           IMAGE_SERVICE: ${{ inputs.service }}
-          IMAGE_REGISTRY: ${{ matrix.registry }}
           PUSH_IMAGES: ${{ steps.meta.outputs.push-images }}
-          PUBLISH_OUTCOME: ${{ job.status }}
+          PUBLISH_OUTCOME: ${{ steps.publish-images.outputs.retry-upload == 'true' && 'retry scheduled' || job.status }}
         run: |
           echo "### $IMAGE_SERVICE on $IMAGE_REGISTRY: $PUBLISH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- Publication enabled: $PUSH_IMAGES" >> "$GITHUB_STEP_SUMMARY"
           echo '- Required platforms: linux/amd64, linux/arm64' >> "$GITHUB_STEP_SUMMARY"
+
+  publish-aliyun:
+    name: Publish ${{ inputs.service }} to aliyun
+    needs: build
+    if: inputs.push-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IMAGE_REGISTRY: aliyun
+      IMAGE_COPY_ATTEMPTS: '1'
+    outputs:
+      retry-upload: ${{ steps.publish-images.outputs.retry-upload }}
+    steps: *registry-publication
+
+  retry-aliyun:
+    name: Retry ${{ inputs.service }} to aliyun on a fresh runner
+    needs: publish-aliyun
+    if: needs.publish-aliyun.outputs.retry-upload == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IMAGE_REGISTRY: aliyun
+      IMAGE_COPY_ATTEMPTS: '2'
+    steps: *registry-publication

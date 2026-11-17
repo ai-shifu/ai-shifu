@@ -18,6 +18,7 @@ ARTIFACT_PATTERN = re.compile(r"-(amd64|arm64)-([1-9][0-9]*)$")
 REGISTRY_TIMEOUT = 30
 COPY_TIMEOUT = 120
 ATTEMPTS = 3
+COPY_RETRY_EXIT_CODE = 75
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,8 @@ def registry_command(
     timeout: int = REGISTRY_TIMEOUT,
     input_text: str | None = None,
     env: dict[str, str] | None = None,
+    attempts: int = ATTEMPTS,
+    stream_stdout: bool = False,
 ) -> str:
     """Retry a registry command with a deadline for each attempt."""
     # GNU timeout also stops child processes, including Docker CLI plugins.
@@ -100,21 +103,24 @@ def registry_command(
     attempt = 1
     while True:
         try:
-            return subprocess.run(
+            result = subprocess.run(
                 bounded,
                 check=True,
-                capture_output=True,
+                stdout=None if stream_stdout else subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 input=input_text,
                 env=env,
-            ).stdout
+            )
         except subprocess.CalledProcessError as error:
-            if attempt == ATTEMPTS:
+            if attempt == attempts:
                 raise
             delay = attempt * 2
             print(f"{error}. Retrying in {delay}s.", file=sys.stderr, flush=True)
             time.sleep(delay)
             attempt += 1
+        else:
+            return result.stdout or ""
 
 
 def docker(*arguments: str) -> str:
@@ -145,6 +151,7 @@ def publish(
     password: str,
     *,
     registry_name: str = "",
+    copy_attempts: int = ATTEMPTS,
 ) -> None:
     """Copy both tested images, then preflight and verify this repository's tags."""
     images = load_images(directory)
@@ -172,6 +179,8 @@ def publish(
         )
     for platform, artifact in images.items():
         target = f"{image}@{artifact.digest}"
+        if copy_env is not None:
+            print(f"Copying tested {platform} image to {target}", flush=True)
         registry_command(
             "oras",
             "cp",
@@ -180,6 +189,8 @@ def publish(
             target,
             timeout=COPY_TIMEOUT,
             env=copy_env,
+            attempts=copy_attempts,
+            stream_stdout=copy_env is not None,
         )
         print(f"Copied tested {platform} image to {target}", flush=True)
 
@@ -198,17 +209,30 @@ def main() -> None:
     if len(sys.argv) != 2:
         message = "Usage: merge_docker_manifests.py IMAGE_ARTIFACT_DIRECTORY"
         raise SystemExit(message)
+    registry_name = os.environ.get("IMAGE_REGISTRY", "")
+    attempts_setting = (
+        os.environ.get("IMAGE_COPY_ATTEMPTS") if registry_name == "aliyun" else None
+    )
+    if attempts_setting not in (None, "1", "2", "3"):
+        message = "Image copy attempts must be between one and three"
+        raise SystemExit(message)
+    copy_attempts = ATTEMPTS if attempts_setting is None else int(attempts_setting)
     try:
         publish(
             Path(sys.argv[1]),
             json.loads(os.environ["IMAGE_METADATA"]),
             os.environ.pop("REGISTRY_USERNAME"),
             os.environ.pop("REGISTRY_PASSWORD"),
-            registry_name=os.environ.get("IMAGE_REGISTRY", ""),
+            registry_name=registry_name,
+            copy_attempts=copy_attempts,
         )
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
-        if isinstance(error, subprocess.CalledProcessError) and error.stderr:
-            print(error.stderr, file=sys.stderr)
+        if isinstance(error, subprocess.CalledProcessError):
+            if error.stderr:
+                print(error.stderr, file=sys.stderr)
+            if copy_attempts == 1 and error.cmd[3:5] == ("oras", "cp"):
+                print(error, file=sys.stderr)
+                raise SystemExit(COPY_RETRY_EXIT_CODE) from error
         raise SystemExit(str(error)) from error
 
 

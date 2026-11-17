@@ -151,7 +151,7 @@ def test_unconfigured_mirror_does_not_fall_back_to_ghcr(tmp_path: Path) -> None:
 
 
 def test_registry_jobs_can_complete_after_another_registry_fails() -> None:
-    """The publishing matrix must have no dependency on another registry's result."""
+    """Primary uploads and the Aliyun retry do not wait for sibling registries."""
     jobs = workflow("build-docker-image.yml")["jobs"]
     publish = jobs["publish"]
     assert publish["if"] == "inputs.push-images"
@@ -160,11 +160,24 @@ def test_registry_jobs_can_complete_after_another_registry_fails() -> None:
     assert set(publish["strategy"]["matrix"]["registry"]) == {
         "ghcr",
         "dockerhub",
-        "aliyun",
     }
     assert 0 < publish["timeout-minutes"] < jobs["build"]["timeout-minutes"]
     metadata = next(step for step in publish["steps"] if step.get("id") == "meta")
-    assert metadata["with"]["registry"] == "${{ matrix.registry }}"
+    assert metadata["with"]["registry"] == "${{ env.IMAGE_REGISTRY }}"
+
+    aliyun = jobs["publish-aliyun"]
+    retry = jobs["retry-aliyun"]
+    assert aliyun["needs"] == "build"
+    assert aliyun["if"] == "inputs.push-images"
+    assert (
+        aliyun["outputs"]["retry-upload"]
+        == "${{ steps.publish-images.outputs.retry-upload }}"
+    )
+    assert retry["needs"] == "publish-aliyun"
+    assert retry["if"] == "needs.publish-aliyun.outputs.retry-upload == 'true'"
+    assert aliyun["steps"] == retry["steps"] == publish["steps"]
+    assert aliyun["env"] == {"IMAGE_REGISTRY": "aliyun", "IMAGE_COPY_ATTEMPTS": "1"}
+    assert retry["env"] == {"IMAGE_REGISTRY": "aliyun", "IMAGE_COPY_ATTEMPTS": "2"}
 
 
 def test_only_publishing_callers_grant_package_write() -> None:
@@ -181,7 +194,7 @@ def test_only_publishing_callers_grant_package_write() -> None:
     )
     assert "push-images == 'true'" in upload["if"]
     assert (
-        "matrix.registry == 'ghcr' && github.token"
+        "env.IMAGE_REGISTRY == 'ghcr' && github.token"
         in upload["env"]["REGISTRY_PASSWORD"]
     )
     for filename, name in [

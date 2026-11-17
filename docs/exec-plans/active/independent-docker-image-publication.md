@@ -24,6 +24,11 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   using both native archives over HTTP/1.1.
 - [x] 2026-11-17 04:14 UTC: Scoped the transport setting to Aliyun archive
   copies and passed regression coverage for all three registry jobs.
+- [x] 2026-11-17 05:02 UTC: Compared the failed and successful runner
+  allocations and measured [the same layer PUT](https://github.com/ai-shifu/ai-shifu/actions/runs/44020960789)
+  on three fresh runners.
+- [ ] 2026-11-17 05:05 UTC: Verify automatic fresh-runner recovery from a
+  failed Aliyun copy while sibling registry jobs publish their candidates.
 
 ## Surprises & Discoveries
 
@@ -33,6 +38,9 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   CLI process. GNU timeout gives both processes the same deadline.
 - The two missing Web AMD64 layers shared a slow HTTP/2 connection to Aliyun.
   On the same runner, the same archive copied over HTTP/1.1 in about 25 seconds.
+- Identical Web archives timed out on one `us-west-2` runner and copied
+  successfully on a `centralus` runner. Three direct HTTP/1.1 PUTs sent the
+  full 174,048,520-byte `.next` layer in 13.6 to 16.8 seconds.
 
 ## Decision Log
 
@@ -40,8 +48,11 @@ tags from moving. [GitHub Actions run](https://github.com/ai-shifu/ai-shifu/acti
   artifacts so every registry can start without waiting for another registry.
 - Apply timeouts and bounded retries to registry commands. Keep each failed
   registry's job visibly failed, with sibling jobs allowed to finish.
-- Set `GODEBUG=http2client=0` for Aliyun's ORAS copy subprocesses. The matrix
-  registry identifies Aliyun jobs with custom endpoints as well.
+- Set `GODEBUG=http2client=0` for Aliyun's ORAS copy subprocesses. The
+  publishing job declares its registry and supports custom Aliyun endpoints.
+- Move Aliyun copy retries to one fresh runner using the same tested
+  archives. Allocate one copy attempt on the first runner and two on the
+  retry runner.
 
 ## Outcomes & Retrospective
 

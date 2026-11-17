@@ -205,13 +205,17 @@ tested archives and their digest records through Actions artifacts.
 GHCR, Docker Hub, and Aliyun publish in independent jobs for each service.
 Each configured job copies the same two image manifests and their layers by
 digest using ORAS. It preflights those digests in its own repository, updates
-the requested multi-platform tags, and inspects each tag. A registry failure
-fails its job and remains visible in the workflow result. Sibling registry jobs
+the requested multi-platform tags, and inspects each tag. An unrecovered
+registry failure remains visible in the workflow result. Sibling registry jobs
 can complete and advance their tags, so published versions may differ until
 the failed destination recovers.
 
 Registry commands get up to three attempts with 2- and 4-second retry delays.
-Each archive copy has a two-minute timeout per attempt, and login and manifest
+Aliyun gives each archive copy one attempt on its first runner. A failed copy
+schedules one job on a fresh runner with two attempts per archive and the
+same tested inputs. The archive copies use HTTP/1.1 and log layer progress.
+The retry job publishes and verifies the tags after both copies succeed.
+Each archive copy has a two-minute timeout per attempt. Login and manifest
 commands have a 30-second timeout per attempt. Any subprocess still running
 five seconds after timeout is killed. Each publication job has a 20-minute
 limit, including setup and artifact downloads.
