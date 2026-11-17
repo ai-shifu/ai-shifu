@@ -119,6 +119,7 @@ from .tools import (
     feedback_response_problem,
     finish,
     interact,
+    normalize_script_continue_button,
     normalize_script_text_input,
     prepare_feedback_tool,
     prepare_finish_tool,
@@ -851,7 +852,10 @@ class Engine:
             question for question in script_questions if question.placeholder
         )
         for pending in session.pending:
-            pending.spec = normalize_script_text_input(pending.spec, script_questions)
+            spec = normalize_script_text_input(pending.spec, script_questions)
+            pending.spec = normalize_script_continue_button(spec, script_questions)
+            if pending.spec is not spec:
+                session.interaction_specs.pop(pending.tool_call_id, None)
         deps = Deps(
             authored_text=session.script.all_text(),
             legacy_interact_args=self.legacy_interact_args,

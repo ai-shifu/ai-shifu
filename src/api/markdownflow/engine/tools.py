@@ -554,6 +554,43 @@ def normalize_script_text_input(
     return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
 
+def normalize_script_continue_button(
+    spec: InteractionSpec, questions: tuple[_Question, ...]
+) -> InteractionSpec:
+    """Keep an authored `?[Label//continue]` outside answer memory."""
+    if (
+        spec.type != "single"
+        or not spec.variable
+        or spec.generated_control
+        or len(spec.options) != 1
+        or spec.options[0].stored != "continue"
+    ):
+        return spec
+
+    matches = [
+        question
+        for question in questions
+        if _authored_controls_match(question, spec.type, spec.options, spec.placeholder)
+    ]
+    # Keep the answer binding if the same submitted value could identify a real choice.
+    if not matches or any(
+        question.variable is not None
+        or len(question.choices) != 1
+        or _find_unescaped(question.choices[0], "//") < 0
+        for question in matches
+    ):
+        return spec
+
+    return spec.model_copy(
+        update={
+            "question": "",
+            "display_question": None,
+            "variable": None,
+            "question_owns_memory": False,
+        }
+    )
+
+
 def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
     r"""Return a script's option as the script means it, without the escapes of its notation.
 
@@ -1174,6 +1211,7 @@ async def interact(
             ctx.deps.script_questions,
             restore_missing_input=restore_missing_input,
         )
+    spec = normalize_script_continue_button(spec, ctx.deps.script_questions)
     direction_text = direction.render() if direction is not None else ""
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)

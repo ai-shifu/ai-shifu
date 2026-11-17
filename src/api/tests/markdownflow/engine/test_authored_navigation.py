@@ -168,24 +168,96 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("saved_pending", [False, True], ids=["new", "saved"])
+async def test_continue_button_sent_as_single_does_not_save_an_answer(
+    saved_pending: bool,
+) -> None:
+    opening = "Different soils hold water differently."
+    following = "Clay takes longer to drain."
+    memory = {"previous_topic": "soil drainage", "Next step": "keep this value"}
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            yield following
+            return
+        yield opening
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="next-step",
+                json_args=json.dumps(
+                    {
+                        "type": "single",
+                        "question": "Next step",
+                        "options": [{"display": "Next step", "value": "continue"}],
+                    }
+                ),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session(
+        f"{opening}\n\nLet the learner pause and reflect before continuing.\n\n"
+        f"?[Next step//continue]\n\n{following}",
+        memory=memory,
+    )
+    first = await _events(engine.run_turn(session))
+    (request,) = [event for event in first if isinstance(event, InteractionRequest)]
+    assert request.spec.type == "single"
+    assert request.spec.options[0].stored == "continue"
+    if saved_pending:
+        old_spec = request.spec.model_copy(
+            update={
+                "question": "Next step",
+                "variable": "Next step",
+                "question_owns_memory": True,
+            }
+        )
+        session.pending[0].spec = old_spec
+        session.interaction_specs[request.id] = old_spec
+        session = Session.loads(session.dumps())
+
+    second = await _events(
+        engine.run_turn(
+            session, InteractionResponseTurn(id=request.id, values=["continue"])
+        )
+    )
+    assert not any(isinstance(event, (ErrorEvent, MemoryUpdated)) for event in second)
+    assert [event.text for event in second if isinstance(event, ContentDelta)] == [
+        following
+    ]
+    assert session.all_memory() == memory
+    assert request.spec.question == ""
+    assert request.spec.variable is None
+    assert request.id not in session.interaction_specs
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("preceding", "question"),
+    ("preceding", "question", "label", "value"),
     [
-        (None, "What color is the sky?"),
-        ("{question}", "What color is the sky?"),
-        ("**{question}**", "What color is the sky?"),
-        ("[{question}](https://example.com)", "What color is the sky?"),
-        ("{question}", "Choose the sky color."),
+        (None, "What color is the sky?", "Blue", "Blue"),
+        ("{question}", "What color is the sky?", "Blue", "Blue"),
+        ("**{question}**", "What color is the sky?", "Blue", "Blue"),
+        ("[{question}](https://example.com)", "What color is the sky?", "Blue", "Blue"),
+        ("{question}", "Choose the sky color.", "Blue", "Blue"),
+        (None, "Which keyword skips to the next iteration?", "Continue", "continue"),
     ],
-    ids=["bound", "plain", "bold", "link", "instruction"],
+    ids=["bound", "plain", "bold", "link", "instruction", "bound-continue-value"],
 )
 async def test_an_authored_single_choice_can_still_record_an_answer(
-    preceding: str | None, question: str
+    preceding: str | None, question: str, label: str, value: str
 ) -> None:
+    option = label if label == value else f"{label}//{value}"
     script = (
-        f"?[{{{{{question}}}}} Blue]"
+        f"?[{{{{{question}}}}} {option}]"
         if preceding is None
-        else f"{preceding.format(question=question)}\n?[Blue]"
+        else f"{preceding.format(question=question)}\n?[{option}]"
     )
     attempts = 0
 
@@ -206,7 +278,7 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
                     {
                         "type": "single",
                         "question": question,
-                        "options": [{"display": "Blue"}],
+                        "options": [{"display": label, "value": value}],
                     }
                 ),
             )
@@ -218,11 +290,12 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
     (request,) = [event for event in first if isinstance(event, InteractionRequest)]
     assert request.spec.question == question
     second = await _events(
-        engine.run_turn(session, InteractionResponseTurn(values=["Blue"]))
+        engine.run_turn(session, InteractionResponseTurn(values=[value]))
     )
     assert [
         (event.key, event.value) for event in second if isinstance(event, MemoryUpdated)
-    ] == [(question, "Blue")]
+    ] == [(question, value)]
+    assert session.all_memory() == {question: value}
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:
