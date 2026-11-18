@@ -448,19 +448,45 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
 
 
 @pytest.mark.parametrize(
-    ("case_id", "response_index", "stage", "prose", "verdict"),
+    ("case_id", "response_index", "stage", "criterion", "prose", "verdict"),
     [
         (
             "lf-empty-pause-01",
             0,
             1,
+            "prose_meaning",
             "合上盒盖前，先把拆下的垫片放进标记好的小袋里。",
             True,
+        ),
+        (
+            "lf-empty-pause-01",
+            0,
+            1,
+            "prose_meaning",
+            "合上盒盖前把拆下的垫片装进标记好的小袋。请核对袋子里垫片放齐没有。",
+            False,
+        ),
+        (
+            "lf-empty-pause-01",
+            1,
+            2,
+            "prose_meaning",
+            "你已经完成这一步。",
+            False,
+        ),
+        (
+            "choose-scenario-then-navigate",
+            1,
+            2,
+            "prose_meaning",
+            "你选了朝东的窗台，请到那里准备记录。你会记下哪两个时间来算窗台的直射光照时长？",
+            False,
         ),
         (
             "choose-scenario-then-navigate",
             0,
             1,
+            "prose_question",
             "观察地点决定了你要记什么：不同位置，光照的变化方式不一样，需要记录的数据也不同。"
             "先选一个你能实际走到、能连续观察一会儿的地方。",
             True,
@@ -469,6 +495,7 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
             "clarify-before-answering",
             1,
             2,
+            "prose_question",
             "日期统一写成 YYYY-MM-DD 的格式。请用同一个输入回答原题。",
             True,
         ),
@@ -476,6 +503,7 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
             "lf-feedback-missing-branch",
             2,
             2,
+            "prose_question",
             "The material stays the same — it's the same sheet, same paper, same thickness. "
             "What changes is the shape.\n\nLook again at the unfolded sheet and the folded one: "
             "how does the shape of the sheet across the fold differ from the flat sheet?",
@@ -484,14 +512,18 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
     ],
 )
 def test_live_evaluation_reports_the_reviewed_prose_with_its_evidence(
-    case_id: str, response_index: int, stage: int, prose: str, verdict: bool
+    case_id: str,
+    response_index: int,
+    stage: int,
+    criterion: str,
+    prose: str,
+    verdict: bool,
 ) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     fixture = next(case for case in catalog if case["id"] == case_id)
     fixture["replay"][response_index]["text"] = prose
     case = Case.model_validate(fixture)
     requests = []
-    criterion = "prose_meaning" if case_id == "lf-empty-pause-01" else "prose_question"
     intent_key = (
         "required_meaning" if criterion == "prose_meaning" else "intended_question"
     )
@@ -612,7 +644,8 @@ def test_live_evaluator_checks_authored_navigation_and_clicks_the_available_butt
 ) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     fixture = next(case for case in catalog if case["id"] == "lf-empty-pause-01")
-    del fixture["steps"][0]["expected"]["prose_meaning"]
+    for step in fixture["steps"]:
+        step["expected"].pop("prose_meaning", None)
     fixture["steps"][0]["expected"]["question"]["type"] = expected_type
     fixture["replay"][0]["calls"][0]["args"] = {
         "type": "single",
@@ -629,6 +662,7 @@ def test_live_evaluator_checks_authored_navigation_and_clicks_the_available_butt
     )
     assert result["failures"] == failures
     assert result["steps"][0]["question"]["options"] == [[button, button]]
+    assert "核对小袋" not in result["steps"][0]["prose"]
     assert len(result["steps"]) == executed_steps
     if executed_steps == 2:
         assert result["steps"][1]["action"] == "answer"
