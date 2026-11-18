@@ -1096,23 +1096,22 @@ def test_bundled_catalog_limits_provenance_and_private_data() -> None:
 
 def test_bundled_catalog_retains_distinct_trace_anomalies() -> None:
     cases = json.loads(CATALOG.read_text(encoding="utf-8"))
-    anomaly_tags = {
-        tag
-        for case in cases
-        if case["source"] == "langfuse" and "observed-anomaly" in case["tags"]
-        for tag in case["tags"]
+    cases_by_id = {case["id"]: case for case in cases}
+    required_replays = {
+        "lf-empty-pause-01": "empty-pause",
+        "lf-retired-prompt-02": "retired-prompt",
+        "lf-missing-stem-03": "missing-stem",
+        "lf-wrong-binding-05": "wrong-binding",
+        "lf-extra-pause-06": "extra-pause",
+        "lf-feedback-wrong-answer-id": "wrong_answer_id",
+        "lf-feedback-control-only-retry": "control_only_retry",
+        "lf-feedback-missing-branch": "missing_feedback",
+        "lf-feedback-checking-placeholder": "invalid_direction_placeholder",
     }
-    assert {
-        "empty-pause",
-        "retired-prompt",
-        "missing-stem",
-        "wrong-binding",
-        "extra-pause",
-        "wrong_answer_id",
-        "control_only_retry",
-        "missing_feedback",
-        "invalid_direction_placeholder",
-    } <= anomaly_tags
+    for case_id, anomaly in required_replays.items():
+        case = cases_by_id[case_id]
+        assert case["source"] == "langfuse", case_id
+        assert {"observed-anomaly", anomaly} <= set(case["tags"]), case_id
 
 
 def test_bundled_smoke_suite_covers_choice_text_and_combined_submissions() -> None:
