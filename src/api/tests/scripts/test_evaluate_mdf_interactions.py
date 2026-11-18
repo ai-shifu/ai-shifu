@@ -500,6 +500,14 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
             True,
         ),
         (
+            "clarify-before-answering",
+            1,
+            2,
+            "prose_meaning",
+            "统一用 YYYY-MM-DD。就是把二〇二六年九月十五日写成规定格式。请继续回答原题。",
+            False,
+        ),
+        (
             "lf-feedback-missing-branch",
             2,
             2,
