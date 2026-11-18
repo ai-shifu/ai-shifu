@@ -1724,7 +1724,8 @@
           "prose_contains": [
             "Any object touching water floats."
           ],
-          "prose_question": "Compare the beam's average density with the density of water."
+          "prose_question": "Compare the beam's average density with the density of water.",
+          "prose_meaning": "Leave the relative average densities for the learner to work out. The prose must not state or give away which of the wooden beam and the water has the lower average density. A statement that the beam weighs less than water at equal volume gives the same answer. An invitation to compare equal volumes is allowed if the result remains unstated."
         },
         "replay_expected": {
           "outcome": "interaction",
