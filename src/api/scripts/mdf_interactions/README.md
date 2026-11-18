@@ -78,8 +78,10 @@ When curating a case, identify the behavior that would fail independently of
 the existing cases. A different topic, paraphrased prompt, or one extra option
 on the same path can use an existing representative. Keep a separate case when
 the control contract, submission, sequence, feedback, or failure mechanism
-changes. The catalog supports regression comparisons between runs that select
-the same cases and cannot be used to estimate production rates.
+changes. Use the evaluator's comparison mode for prompt regressions when the
+case selection and fixture contents, evaluator settings, and repeat count
+match. Check those requirements before starting a live candidate run. Counts
+describe the selected fixtures.
 
 See the [evaluator usage guide](../README.md#evaluate_mdf_interactionspy) for
 commands and instructions for adding a case.

@@ -97,7 +97,7 @@ each engine turn's outcome. They also distinguish reproduced historical
 failures, behavior failures, and provider failures. Generate a fresh baseline
 when the report version or selected fixtures change. `--compare` requires
 matching mode, teaching model, judge models and instructions, temperature,
-case selection, and repeat count.
+case IDs and fixture contents, and repeat count.
 
 The exit status is 0 when all cases meet their expectations, 1 for behavior
 failures, 2 for invocation, provider, or comparison errors, and 3 for pending
