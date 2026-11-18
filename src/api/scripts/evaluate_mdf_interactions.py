@@ -437,21 +437,38 @@ def question_details(
 
 
 def step_criteria(
-    expected: ExpectedStep, result: dict[str, object] | None, *, replay: bool
+    expected: ExpectedStep,
+    result: dict[str, object] | None,
+    *,
+    replay: bool,
+    call_failed: bool = False,
 ) -> dict[str, str]:
     """Record every configured check, including checks that could not run."""
     actual = result or {}
     criteria: dict[str, str] = {}
 
-    def record(name: str, matched: bool | None) -> None:
-        if result is None or matched is None:
+    def record(
+        name: str, matched: bool | None, *, requires_model_response: bool = True
+    ) -> None:
+        if (
+            result is None
+            or matched is None
+            or (call_failed and requires_model_response)
+        ):
             criteria[name] = "not_evaluated"
         else:
             criteria[name] = "passed" if matched else "failed"
 
     for field in ("outcome", "retryable_error"):
         record(field, getattr(expected, field) == actual.get(field))
-    for field in ("pending", "memory", "retries"):
+    if expected.memory is not None:
+        # The engine may store the answer before requesting the next response.
+        record(
+            "memory",
+            expected.memory == actual.get("memory"),
+            requires_model_response=False,
+        )
+    for field in ("pending", "retries"):
         value = getattr(expected, field)
         if value is not None:
             record(field, value == actual.get(field))
@@ -786,7 +803,7 @@ async def evaluate_case(
         if observed.model_calls is not None:
             result["model_calls"] = observed.model_calls[prior_requests:]
         criteria = step_criteria(
-            expected, None if observed.failures else result, replay=offline
+            expected, result, replay=offline, call_failed=bool(observed.failures)
         )
         result["criteria"] = criteria
         judge_call_failures = []

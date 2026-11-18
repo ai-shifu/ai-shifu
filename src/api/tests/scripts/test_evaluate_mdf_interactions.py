@@ -684,6 +684,24 @@ def test_bundled_offline_replay_checks_question_in_prose(
     assert step["question"]["variable"] == expected["question"]["variable"]
 
 
+@pytest.mark.parametrize("live", [False, True])
+def test_model_failure_preserves_the_observed_memory_check(live: bool) -> None:
+    fixture = _case()
+    fixture["steps"][-1]["expected"]["memory"] = {QUESTION: "park"}
+    fixture["replay"].pop()
+    case = Case.model_validate(fixture)
+    model = Replay(case.replay).model if live else None
+
+    result = asyncio.run(evaluate_case(case, model))
+
+    assert result["status"] == ("call_failure" if live else "behavior_failure")
+    assert result["failures"] == ["step_3.memory", "ReplayExhaustedError"]
+    final = result["steps"][-1]
+    assert final["memory"] == {QUESTION: "garden"}
+    assert final["criteria"]["memory"] == "failed"
+    assert final["criteria"]["prose_contains[0]"] == "not_evaluated"
+
+
 def test_historical_fallback_counts_as_reproduced_failure(tmp_path: Path) -> None:
     cases = tmp_path / "cases.json"
     output = tmp_path / "result.json"
