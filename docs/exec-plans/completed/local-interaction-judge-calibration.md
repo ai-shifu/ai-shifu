@@ -76,9 +76,40 @@ reversed instructions, literal replay checks, and the semantic review queue.
 
 ## Idempotence and Recovery
 
-Saved reports and human annotations are the starting evidence. Repeat judgment
-on the same prose to verify the new rubric. Disagreements still surface for
-review with the precise input and both explanations.
+The recorded evidence for the four reviewed decisions is included in
+the `test_live_evaluation_reports_the_reviewed_prose_with_its_evidence`
+parameter table.
+
+| Recorded model | Fixture | Step | Criterion | Human decision |
+| --- | --- | --- | --- | --- |
+| Gemini 4 Hydrogen | `lf-empty-pause-01` | 1 | `prose_meaning` | Pass |
+| DeepSeek Flash | `choose-scenario-then-navigate` | 1 | `prose_question` | Pass |
+| DeepSeek Flash | `clarify-before-answering` | 2 | `prose_question` | Pass |
+| DeepSeek Flash | `lf-feedback-missing-branch` | 2 | `prose_question` | Fail |
+
+Run the sanitized regressions from the repository root.
+
+```bash
+cd src/api
+python -m pytest tests/scripts/test_evaluate_mdf_interactions.py \
+  -k 'reviewed_prose or previous_question or unresolved_judgments' -q
+```
+
+For fresh teaching samples of the same paths, use the retained fixtures and both
+judges. Saved results with the original prose can be reopened with the review
+page generator described in the evaluator guide.
+
+```bash
+python scripts/evaluate_mdf_interactions.py --live --model ark/deepseek-v4-1-flash-261017 \
+  --judge-model ark/deepseek-v4-1-flash-261017 --second-judge-model gemini-3.8-flash \
+  --case lf-empty-pause-01 --case choose-scenario-then-navigate \
+  --case clarify-before-answering --case lf-feedback-missing-branch \
+  --json /tmp/mdf-calibration-candidate.json
+```
+
+The original totals were computed on the saved teaching responses from the three
+models. A fresh model run can produce different prose. Disagreements surface
+with the evidence and both explanations.
 
 ## Interfaces and Dependencies
 
