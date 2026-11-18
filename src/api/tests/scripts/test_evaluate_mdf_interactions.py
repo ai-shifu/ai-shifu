@@ -883,6 +883,28 @@ def test_report_writers_reject_hard_link_aliases(tmp_path: Path, target: str) ->
     assert original.read_bytes() == b'{"saved":true}'
 
 
+@pytest.mark.parametrize("field", ["run_id", "unreached_steps", "questions"])
+def test_review_rejects_data_the_browser_cannot_render(
+    tmp_path: Path, field: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cases = tmp_path / "cases.json"
+    report_path = tmp_path / "results.json"
+    page = tmp_path / "review.html"
+    _write_cases(cases, _case())
+    assert main(["--cases", str(cases), "--json", str(report_path)]) == 0
+    report = _report(report_path)
+    row = report["results"][0]
+    target = {"run_id": report, "unreached_steps": row, "questions": row["steps"][0]}
+    target[field][field] = 42
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    page.write_text("Saved page", encoding="utf-8")
+
+    assert review_main(["--output", str(page), str(report_path)]) == 2
+
+    assert field in capsys.readouterr().err
+    assert page.read_text(encoding="utf-8") == "Saved page"
+
+
 def test_review_reopens_legacy_reports_with_matching_fixtures(tmp_path: Path) -> None:
     cases = tmp_path / "cases.json"
     first = tmp_path / "first.json"

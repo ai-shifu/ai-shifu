@@ -11,9 +11,11 @@ import sys
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, NotRequired
 
 from markdown_it import MarkdownIt
+from pydantic import PositiveInt, TypeAdapter
+from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -36,6 +38,44 @@ REPORT_FIELDS = (
     "cases_sha256",
     "results",
 )
+
+
+class _ReviewControl(TypedDict):
+    options: list[list[str]]
+
+
+class _ReviewStage(TypedDict):
+    stage: PositiveInt
+    criteria: dict[str, str]
+
+
+class _ReachedStage(_ReviewStage):
+    action: Literal["start", "answer", "continue", "message"]
+    outcome: str
+    prose: str
+    questions: list[_ReviewControl]
+    narrated_controls: list[str]
+    errors: list[str]
+    memory_updates: list[dict]
+    turns: NotRequired[list[dict]]
+    model_calls: NotRequired[list[dict]]
+
+
+class _ReviewResult(TypedDict):
+    case_id: str
+    repeat: PositiveInt
+    status: str
+    criteria: dict[str, str]
+    steps: list[_ReachedStage]
+    unreached_steps: list[_ReviewStage]
+
+
+class _AuthoredCase(TypedDict):
+    steps: list[dict]
+
+
+RESULT_SHAPE = TypeAdapter(list[_ReviewResult])
+CONTEXT_SHAPE = TypeAdapter(dict[str, _AuthoredCase])
 
 
 def fixture_context(cases: list[Case]) -> dict[str, dict]:
@@ -145,11 +185,19 @@ def _run_data(report: dict, markdown: MarkdownIt) -> dict:
         msg = "expected a nonempty interaction evaluation report with schema version 5"
         raise ValueError(msg)
     fields = {key: report[key] for key in REPORT_FIELDS}
+    RESULT_SHAPE.validate_python(fields["results"], strict=True)
+    if "review_context" in report:
+        CONTEXT_SHAPE.validate_python(report["review_context"], strict=True)
     # Legacy runs have no generated ID. Ignore derived context, comparison and summary.
-    identity = (
-        report.get("run_id")
-        or hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
-    )
+    if "run_id" in report:
+        identity = report["run_id"]
+        if not isinstance(identity, str) or not identity.strip():
+            msg = "run_id must be a nonblank string"
+            raise ValueError(msg)
+    else:
+        identity = hashlib.sha256(
+            json.dumps(fields, sort_keys=True).encode()
+        ).hexdigest()
     identifiers = set()
     results = []
     for result in fields["results"]:
