@@ -477,7 +477,7 @@ function modelPanel(group, run, authored) {
   return box;
 }
 
-function render() {
+function render({ preferMatchingStage = false } = {}) {
   const visibleGroups = selectedCases();
   if (!visibleGroups.includes(active)) active = visibleGroups[0];
   renderCases(visibleGroups);
@@ -488,7 +488,9 @@ function render() {
   const caseContext = contextFor(active);
   const matchedStages = new Set(active.checks.filter(matchesFilters).map((check) => check.identity.stage));
   const stages = [...new Set(active.checks.map((check) => check.identity.stage))].sort((a, b) => a - b);
-  if (!stages.includes(stage)) stage = matchedStages.values().next().value ?? stages[0];
+  if (!stages.includes(stage) || (preferMatchingStage && !matchedStages.has(stage))) {
+    stage = matchedStages.values().next().value ?? stages[0];
+  }
   const nextAddress = new URLSearchParams({ case: active.caseId, repeat: active.repeat, stage });
   history.replaceState(null, "", `#${nextAddress}`);
 
@@ -577,7 +579,7 @@ async function importAnnotations(event) {
     say(text("imported", totals), Boolean(totals.conflicts || totals.unmatched));
     updateStorageStatus();
     if (byId("statistics").open) reportStatistics();
-    render();
+    render({ preferMatchingStage: true });
   } catch {
     say(text("invalidImport"), true);
   }
