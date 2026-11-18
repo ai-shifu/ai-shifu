@@ -7,7 +7,7 @@ fixtures check the authored option, require an explicit click, and verify that
 fixed choices preserve learner memory. Both observation paths accept any
 navigation question, including an empty title. They check the button's
 submitted value, the scenario-specific question after the click, and unchanged
-memory across the click.
+memory across the click. Preparation prose can omit a reminder to click.
 The full catalog includes 10 replay-only cases.
 
 ## Teaching paths

@@ -505,6 +505,15 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
             True,
         ),
         (
+            "choose-balcony-then-navigate",
+            1,
+            2,
+            "prose_meaning",
+            "你选的是**开放式阳台**。现在到阳台上去，站一会儿，"
+            "看看哪些位置被挡住了光、哪些位置晒得到，准备好记录。",
+            True,
+        ),
+        (
             "clarify-before-answering",
             1,
             2,
