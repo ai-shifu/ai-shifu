@@ -1122,7 +1122,7 @@ def test_bundled_smoke_suite_covers_choice_text_and_combined_submissions() -> No
         (
             previous["expected"]["question"]["type"],
             bool(step.get("values")),
-            bool(step.get("text")),
+            bool((step.get("text") or "").strip()),
         )
         for case in smoke
         for previous, step in zip(case["steps"], case["steps"][1:], strict=False)
