@@ -14,11 +14,13 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
+from pydantic import ValidationError
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from scripts.evaluate_mdf_interactions import (
     Case,
+    ExpectedStep,
     ObservedModel,
     Replay,
     evaluate_case,
@@ -187,6 +189,17 @@ def _review_payload(page: str) -> dict:
     )
     assert payload is not None
     return json.loads(payload[1])
+
+
+def test_prose_meaning_requires_content_and_preserves_valid_wording() -> None:
+    with pytest.raises(
+        ValidationError, match="requires nonblank instructional content"
+    ):
+        ExpectedStep(outcome="finished", prose_meaning="  \t")
+
+    step = ExpectedStep(outcome="finished", prose_meaning="  Check the bag.  ")
+
+    assert step.prose_meaning == "  Check the bag.  "
 
 
 def test_offline_replay_reloads_pending_question_and_stores_submitted_value(

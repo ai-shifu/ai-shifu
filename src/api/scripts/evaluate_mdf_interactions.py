@@ -110,6 +110,9 @@ class ExpectedStep(FixtureModel):
         ):
             msg = "expected prose question requires nonblank intent and an interaction outcome"
             raise ValueError(msg)
+        if self.prose_meaning is not None and not self.prose_meaning.strip():
+            msg = "expected prose meaning requires nonblank instructional content"
+            raise ValueError(msg)
         if self.question_count is not None and (
             (self.question_count > 0) != (self.outcome == "interaction")
         ):
