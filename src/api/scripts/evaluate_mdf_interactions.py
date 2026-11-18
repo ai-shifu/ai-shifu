@@ -344,10 +344,10 @@ class ObservedModel(WrapperModel):
             ) as response:
                 try:
                     yield response
-                    if call is not None:
-                        self._record_response(call, response.get())
                 finally:
                     self._record_usage(response.usage)
+                    if call is not None:
+                        self._record_response(call, response.get())
         except Exception as error:
             self.failures.append(type(error).__name__)
             if call is not None:

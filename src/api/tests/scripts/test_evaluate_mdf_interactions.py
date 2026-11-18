@@ -14,9 +14,11 @@ from urllib.parse import urlsplit
 
 import pytest
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, UserPromptPart
-from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.models import ModelRequestParameters
+from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from scripts.evaluate_mdf_interactions import (
     Case,
+    ObservedModel,
     Replay,
     evaluate_case,
     main,
@@ -27,7 +29,7 @@ from scripts.mdf_interaction_review import main as review_main
 from scripts import mdf_interaction_live
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import AsyncIterator, Iterator
 
     from pydantic_ai.messages import ModelMessage
     from pydantic_ai.models.function import AgentInfo
@@ -700,6 +702,39 @@ def test_model_failure_preserves_the_observed_memory_check(live: bool) -> None:
     assert final["memory"] == {QUESTION: "garden"}
     assert final["criteria"]["memory"] == "failed"
     assert final["criteria"]["prose_contains[0]"] == "not_evaluated"
+
+
+def test_model_call_records_partial_response_when_stream_fails() -> None:
+    error = OSError("provider connection interrupted")
+
+    async def stream(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        yield "Partial lesson."
+        yield {0: DeltaToolCall(name="finish", json_args="{", tool_call_id="finish-1")}
+        raise error
+
+    model = ObservedModel(FunctionModel(stream_function=stream), record_calls=True)
+
+    async def receive() -> None:
+        async with model.request_stream([], None, ModelRequestParameters()) as response:
+            async for _ in response:
+                pass
+
+    with pytest.raises(OSError, match="provider connection interrupted") as caught:
+        asyncio.run(receive())
+
+    assert caught.value is error
+    assert model.model_calls == [
+        {
+            "number": 1,
+            "parts": [
+                {"text": "Partial lesson."},
+                {"tool": "finish", "arguments": "{"},
+            ],
+            "error": "OSError",
+        }
+    ]
 
 
 def test_historical_fallback_counts_as_reproduced_failure(tmp_path: Path) -> None:
