@@ -1570,7 +1570,8 @@
             "Why is the middle of a folded sheet harder to bend?": "The fold changes the material."
           },
           "pending": 1,
-          "prose_question": "Why is the middle of a folded sheet harder to bend?"
+          "prose_question": "Why is the middle of a folded sheet harder to bend?",
+          "prose_meaning": "Correct the learner's claim by explaining that folding leaves the sheet's material unchanged."
         },
         "replay_expected": {
           "outcome": "interaction",
@@ -1590,6 +1591,9 @@
           ],
           "prose_once": [
             "Why is the middle of a folded sheet harder to bend?"
+          ],
+          "prose_contains": [
+            "still the same material"
           ]
         }
       },

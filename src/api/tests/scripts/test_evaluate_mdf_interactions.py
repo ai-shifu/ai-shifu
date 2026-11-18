@@ -511,6 +511,14 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
             "lf-feedback-missing-branch",
             2,
             2,
+            "prose_meaning",
+            "Try again. Why is the middle of a folded sheet harder to bend?",
+            False,
+        ),
+        (
+            "lf-feedback-missing-branch",
+            2,
+            2,
             "prose_question",
             "The material stays the same — it's the same sheet, same paper, same thickness. "
             "What changes is the shape.\n\nLook again at the unfolded sheet and the folded one: "
@@ -899,18 +907,26 @@ def test_comparison_accepts_prompt_changes_and_rejects_different_case_selection(
 @pytest.mark.parametrize("suite", ["smoke", "all"])
 def test_bundled_suite_replays_every_selected_case(tmp_path: Path, suite: str) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
-    expected_ids = [
-        case["id"] for case in catalog if suite == "all" or case.get("smoke")
-    ]
+    selected = [case for case in catalog if suite == "all" or case.get("smoke")]
+    expected_meaning_checks = sum(
+        "prose_meaning" in step.get("replay_expected", step["expected"])
+        for case in selected
+        for step in case["steps"]
+    )
     output = tmp_path / "replay.json"
     process = _run("--suite", suite, "--json", str(output))
     assert process.returncode == 0, process.stdout + process.stderr
     report = _report(output)
     assert report["review_items"] == []
     assert report["criteria_summary"]["prose_question"]["not_evaluated"] > 0
-    assert report["criteria_summary"]["prose_meaning"]["not_evaluated"] == 1
+    assert (
+        report["criteria_summary"]["prose_meaning"]["not_evaluated"]
+        == expected_meaning_checks
+    )
     results = report["results"]
-    assert [result["case_id"] for result in results] == expected_ids
+    assert [result["case_id"] for result in results] == [
+        case["id"] for case in selected
+    ]
     reproduced = {
         result["case_id"]
         for result in results
