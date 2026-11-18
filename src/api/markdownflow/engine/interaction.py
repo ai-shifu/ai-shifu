@@ -9,9 +9,7 @@ from pydantic import AliasChoices, BaseModel, Field, model_validator
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-InteractionType = Literal[
-    "single", "multi", "text", "single_or_text", "multi_or_text", "confirm"
-]
+InteractionType = Literal["single", "multi", "text", "single_or_text", "multi_or_text"]
 
 
 class Option(BaseModel):
@@ -48,12 +46,6 @@ class Option(BaseModel):
         return self.value if self.value is not None else self.display
 
 
-# What a confirm's button says when the model names nothing for it. The host replaces this with
-# a label in the learner's own language; it is a constant so that replacement can recognise the
-# default rather than guess at any English word it finds on a button.
-DEFAULT_CONFIRM_LABEL = "Continue"
-
-
 class InteractionSpec(BaseModel):
     """What the model is asking the learner for, and how to show it."""
 
@@ -81,14 +73,6 @@ class InteractionSpec(BaseModel):
     placeholder: str | None = Field(
         default=None, description="Placeholder for the text box."
     )
-    # Set by the engine, never by the model: the model does not see this field. It records that
-    # the confirm's button label is the engine's own default rather than anything the model
-    # wrote, so a host can replace exactly that and nothing else -- including a model that
-    # happened to write the same word itself.
-    # Carried in every dump on purpose: the engine hands the spec to the host as JSON and reads
-    # pending ones back from the session the same way, and a flag that did not survive that
-    # round trip would tell the host nothing.
-    labelled_by_engine: bool = False
 
     @property
     def prompt(self) -> str:
@@ -105,7 +89,7 @@ class InteractionSpec(BaseModel):
         """Whether the controls let learners submit different answers."""
         if self.type in ("single", "multi"):
             return len(self.options) > 1
-        return self.type != "confirm"
+        return True
 
     @model_validator(mode="after")
     def _check(self) -> InteractionSpec:
@@ -118,20 +102,6 @@ class InteractionSpec(BaseModel):
         if self.type == "text" and self.options:
             msg = "type 'text' takes no options"
             raise ValueError(msg)
-        if self.type == "confirm":
-            if not self.options:
-                self.options = [Option(display=DEFAULT_CONFIRM_LABEL, value="continue")]
-                self.labelled_by_engine = True
-            # Every confirm answer means the same thing, so a second button would offer the
-            # learner a choice that cannot reach the model. Keep the first one only.
-            self.options = self.options[:1]
-            # A confirm carries no answer, only "go on", so its button text must never be stored.
-            # Models do attach a variable to it -- often the one the previous question filled --
-            # and pressing continue then overwrites a real answer with the button's label.
-            self.variable = None
-            self.question_owns_memory = False
-            self.structured_correction = False
-            self.source_question = None
         return self
 
 
@@ -164,9 +134,9 @@ def normalize_answer(
     by_display = {o.display: o.stored for o in spec.options}
     stored = {o.stored for o in spec.options}
     values = [by_display.get(v, v) for v in answer.values]
-    if spec.type in ("single", "multi", "confirm"):
+    if spec.type in ("single", "multi"):
         values = [v for v in values if v in stored]
-    if spec.type in ("single", "single_or_text", "confirm"):
+    if spec.type in ("single", "single_or_text"):
         values = values[:1]
     return InteractionAnswer(values=values, text=answer.text)
 
@@ -174,14 +144,10 @@ def normalize_answer(
 def answer_is_usable(spec: InteractionSpec, answer: InteractionAnswer) -> bool:
     """Whether a normalized answer actually answers this interaction.
 
-    A `confirm` carries no answer, only "go on", so it is always usable. The choice types need an
-    option that survived normalization -- unknown values are dropped there, and resuming on what
-    is left would tell the model the learner continued without answering. The text-bearing types
-    accept non-whitespace free text instead, without trimming accepted content.
+    Choice-only types need a valid option to resume, including when the only choice continues the
+    lesson. The text-bearing types also accept non-whitespace free text without trimming it.
     An explicitly named option may still intentionally store an empty value.
     """
-    if spec.type == "confirm":
-        return True
     if spec.type in ("single", "multi"):
         return bool(answer.values)
     if answer.text and answer.text.strip():
@@ -203,13 +169,8 @@ def stored_value(spec: InteractionSpec, answer: InteractionAnswer) -> str | None
     return answer.text or None
 
 
-def format_answer_for_model(spec: InteractionSpec, answer: InteractionAnswer) -> str:
+def format_answer_for_model(answer: InteractionAnswer) -> str:
     """Phrase the answer as the tool result the model sees when the run resumes."""
-    if spec.type == "confirm":
-        return (
-            "Learner pressed continue. Go on with the next part of the script now: present its "
-            "content before pausing again."
-        )
     if answer.values and answer.text:
         return f"Learner chose: {', '.join(answer.values)}; and wrote: {answer.text}"
     if answer.values:

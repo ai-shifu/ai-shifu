@@ -85,7 +85,15 @@ def summary_model(
                 }
                 return
             grouped = {}
+            excluded = []
             for record in json.loads(source):
+                if record["question"]["type"] == "single":
+                    assert record["question"]["options"] == [
+                        {"display": "Continue", "value": "continue"}
+                    ]
+                    assert record["answer"] == "Learner chose: continue"
+                    excluded.append(record["reference"])
+                    continue
                 number = int(record["question"]["prompt"].split()[-1])
                 correct = record["answer"] == f"Learner wrote: {number + 1}"
                 row = grouped.setdefault(
@@ -125,7 +133,9 @@ def summary_model(
             yield {
                 0: DeltaToolCall(
                     name="calculate_exercise_statistics",
-                    json_args=json.dumps({"questions": list(grouped.values())}),
+                    json_args=json.dumps(
+                        {"questions": list(grouped.values()), "excluded": excluded}
+                    ),
                     tool_call_id="calc",
                 )
             }

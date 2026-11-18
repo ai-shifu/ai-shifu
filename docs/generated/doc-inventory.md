@@ -163,6 +163,7 @@
 | `docs/exec-plans/completed/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompt Sending | `exec-plan-completed` | `completed` | `learner` | `2026-10-27` | `false` |
 | `docs/exec-plans/completed/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdownflow-single-action-memory.md` | Skip learner memory for fixed interaction actions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/markdownflow-single-button-navigation.md` | Use single-button navigation in MarkdownFlow | `exec-plan-completed` | `completed` | `learner` | `2026-11-18` | `false` |
 | `docs/exec-plans/completed/mdf2-agent-lesson-carries-on.md` | MarkdownFlow 2.0: a lesson carries on until it waits or ends | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-authored-grading-criteria.md` | Keep grading within authored answer criteria | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-cache-usage-observation.md` | Provider cache usage in memory quality reports | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

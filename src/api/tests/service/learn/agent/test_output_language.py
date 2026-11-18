@@ -284,18 +284,14 @@ def test_disabled_course_keeps_host_defaults_in_interface_language() -> None:
     set_language("fr-FR")
     try:
         configure_output_language(engine, {"sys_user_language": "en-US"}, enabled=False)
-        prompt, confirm = render_question(InteractionSpec(type="confirm", prompt=""))
-        label = translate_for_language("server.learn.continueButton", "fr-FR")
-        assert prompt == ""
-        assert confirm == f"?[{label}//continue]"
         hint = translate_for_language("server.learn.freeTextPlaceholder", "fr-FR")
         assert hint in render_interaction(
             InteractionSpec(type="text", prompt="Authored question")
         )
         assert hint in render_narrated_interaction("?[...]")
         authored = InteractionSpec(
-            type="confirm",
-            prompt="",
+            type="single",
+            question="",
             options=[Option(display="Authored label", value="continue")],
         )
         assert render_question(authored) == ("", "?[Authored label//continue]")

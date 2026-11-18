@@ -455,20 +455,22 @@ def test_an_unrecorded_next_turn_does_not_borrow_a_later_turns_question(
             _plan("control-0", answering=True)
 
 
-def test_a_confirmation_in_the_queue_keeps_the_block_boundary(app: object) -> None:
-    """A confirmation shows no control, so positions cannot name the question."""
+def test_a_control_mismatch_in_the_queue_keeps_the_block_boundary(app: object) -> None:
+    """A queue with a missing projected control cannot identify the question by position."""
     with app.app_context():
         _clean()
         _record()
         _block("questions", checkpoint=_BEFORE_B1, values=[])
-        confirm = InteractionSpec(type="confirm", prompt="Ready?")
+        navigation = InteractionSpec(
+            type="single", question="", options=[Option(display="Continue", value="go")]
+        )
         q1 = {"tool_call_id": "q1", "spec": _QUESTION.model_dump(mode="json")}
-        c = {"tool_call_id": "c", "spec": confirm.model_dump(mode="json")}
+        c = {"tool_call_id": "c", "spec": navigation.model_dump(mode="json")}
         q2 = {"tool_call_id": "q2", "spec": _QUESTION.model_dump(mode="json")}
         _block(
             "answer-0", checkpoint={**_WAITING, "pending": [q1, c, q2]}, values=["Left"]
         )
-        _block("answer-1", checkpoint={**_WAITING, "pending": [c, q2]}, values=["yes"])
+        _block("answer-1", checkpoint={**_WAITING, "pending": [c, q2]}, values=["go"])
         _block("answer-2", checkpoint={**_WAITING, "pending": [q2]}, values=["Left"])
         for bid in ("control-q1", "control-q2"):
             _element(bid, "questions")
@@ -477,8 +479,8 @@ def test_a_confirmation_in_the_queue_keeps_the_block_boundary(app: object) -> No
             row.content_text = render_interaction(_QUESTION)
         db.session.commit()
         plan = _plan("control-q2", answering=True)
-    # By position the second control would pair with the confirmation and restore
-    # answer-1. It cannot be told, so the old block boundary applies.
+    # The second control does not match the second queued question, so rewind
+    # applies the block boundary instead of restoring answer-1.
     assert plan is not None
     assert plan.retired_block_bids == ["answer-0", "answer-1", "answer-2"]
 

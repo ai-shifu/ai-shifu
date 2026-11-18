@@ -3443,7 +3443,7 @@
         "expected": {
           "outcome": "interaction",
           "question": {
-            "type": "confirm",
+            "type": "single",
             "options": [
               [
                 "继续",
@@ -3474,25 +3474,11 @@
           {
             "name": "interact",
             "args": {
-              "type": "confirm",
+              "type": "single",
               "options": [
                 {
-                  "display": "继续"
-                }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        "calls": [
-          {
-            "name": "interact",
-            "args": {
-              "type": "confirm",
-              "options": [
-                {
-                  "display": "继续"
+                  "display": "继续",
+                  "value": "继续"
                 }
               ]
             }
@@ -4138,10 +4124,11 @@
           {
             "name": "interact",
             "args": {
-              "type": "confirm",
+              "type": "single",
               "options": [
                 {
-                  "display": "继续"
+                  "display": "继续",
+                  "value": "继续"
                 }
               ]
             }
@@ -4432,10 +4419,11 @@
           {
             "name": "interact",
             "args": {
-              "type": "confirm",
+              "type": "single",
               "options": [
                 {
-                  "display": "继续"
+                  "display": "继续",
+                  "value": "继续"
                 }
               ]
             }
@@ -4995,11 +4983,11 @@
     ]
   },
   {
-    "id": "synthetic-confirm-keeps-memory",
+    "id": "synthetic-continue-keeps-memory",
     "source": "synthetic",
     "locale": "en-US",
     "tags": [
-      "confirm",
+      "continue-button",
       "no-memory-write"
     ],
     "teaching_prompt": "Explain that different soils hold water differently.\n\nLet the learner pause and reflect before continuing.\n\n?[Next step//continue]\n\nExplain why clay takes longer to drain.",
@@ -5009,7 +4997,7 @@
         "expected": {
           "outcome": "interaction",
           "question": {
-            "type": "confirm",
+            "type": "single",
             "options": [
               [
                 "Next step",
@@ -5043,7 +5031,7 @@
           {
             "name": "interact",
             "args": {
-              "type": "confirm",
+              "type": "single",
               "options": [
                 {
                   "display": "Next step",
@@ -5747,10 +5735,10 @@
     ]
   },
   {
-    "id": "confirm-without-authored-pause",
+    "id": "continue-without-authored-pause",
     "source": "synthetic",
     "tags": [
-      "confirm",
+      "continue-button",
       "no_authored_pause",
       "separator"
     ],
@@ -5776,7 +5764,13 @@
           {
             "name": "interact",
             "args": {
-              "type": "confirm"
+              "type": "single",
+              "options": [
+                {
+                  "display": "Continue",
+                  "value": "continue"
+                }
+              ]
             }
           }
         ]

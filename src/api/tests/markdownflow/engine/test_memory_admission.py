@@ -259,13 +259,12 @@ async def _ask(
         ("single_or_text", ["pick", REQUEST], None, False),
         ("multi_or_text", ["pick", REQUEST], None, True),
         ("single", ["pick"], REQUEST, False),
-        ("confirm", [], REQUEST, False),
     ],
 )
 async def test_only_accepted_free_text_is_request_evidence(
     kind: str, values: list[str], text: str | None, allowed: bool
 ) -> None:
-    """Pure choices, confirm payloads and discarded extra values cannot manufacture consent."""
+    """Choice payloads and discarded extra values cannot manufacture consent."""
     check = AsyncMock(return_value=True)
     spec = {"type": kind, "prompt": "Tell me", "variable": "guessed"}
     if kind != "text":

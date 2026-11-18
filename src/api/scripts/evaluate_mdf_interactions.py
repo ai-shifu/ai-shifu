@@ -54,9 +54,7 @@ class FixtureModel(BaseModel):
 class ExpectedQuestion(FixtureModel):
     """Expected authored control fields; unspecified fields are unconstrained."""
 
-    type: Literal[
-        "single", "multi", "text", "single_or_text", "multi_or_text", "confirm"
-    ]
+    type: Literal["single", "multi", "text", "single_or_text", "multi_or_text"]
     question: str | None = None
     options: list[list[str]] | None = None
     variable: str | None = None
@@ -330,7 +328,6 @@ def renderer_for(locale: str) -> QuestionRenderer:
     )["__flat__"]
     return QuestionRenderer(
         QuestionLabels(
-            continue_label=strings["continueButton"],
             free_text_placeholder=strings["freeTextPlaceholder"],
         )
     )

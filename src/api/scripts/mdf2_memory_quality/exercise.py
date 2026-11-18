@@ -111,14 +111,19 @@ def exercise_session(case: dict[str, Any]) -> Session:
                         TextPart(f"Correct. Question {number} has passed."),
                         ToolCallPart(
                             "interact",
-                            {"type": "confirm", "prompt": "Continue"},
+                            {
+                                "type": "single",
+                                "options": [
+                                    {"display": "Continue", "value": "continue"}
+                                ],
+                            },
                             call_id,
                         ),
                     ]
                 ),
                 ModelRequest(
                     parts=[
-                        ToolReturnPart("interact", "Learner pressed continue.", call_id)
+                        ToolReturnPart("interact", "Learner chose: continue", call_id)
                     ]
                 ),
             ]
@@ -253,7 +258,6 @@ def score_calculation(
                 diagnostic = "invalid_calculation_shape"
                 try:
                     records = json.loads(source)
-                    references = [record["reference"] for record in records]
                     supplied = [
                         submission["reference"]
                         for row in call.args["questions"]
@@ -271,9 +275,17 @@ def score_calculation(
                     original_questions = {
                         record["reference"]: record["question"]["prompt"]
                         for record in records
+                        if record["question"]["type"] == "text"
                     }
+                    navigation = [
+                        record["reference"]
+                        for record in records
+                        if record["question"]["type"] == "single"
+                        and record["answer"] == "Learner chose: continue"
+                    ]
+                    excluded = call.args.get("excluded") or []
                     grouping_matches = all(
-                        original_questions[submission["reference"]]
+                        original_questions.get(submission["reference"])
                         == f"Question {_question_number(row['question'])}"
                         for row in call.args["questions"]
                         for submission in row["submissions"]
@@ -286,8 +298,10 @@ def score_calculation(
                 calculated = (
                     bool(records)
                     and grouping_matches
-                    and set(references) == set(supplied)
-                    and len(references) == len(supplied)
+                    and set(original_questions) == set(supplied)
+                    and len(original_questions) == len(supplied)
+                    and set(navigation) == set(excluded)
+                    and len(navigation) == len(excluded) == len(expected["questions"])
                     and all(
                         score_report(
                             json.dumps({"questions": rows, "totals": totals}), expected

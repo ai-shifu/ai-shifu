@@ -30,13 +30,11 @@ def structured_user_input(raw_spec: object, values: list[str]) -> str | None:
     """Encode a submitted answer as the renderer's structured control defaults.
 
     Existing structured defaults preserve commas/newlines inside each submitted value.
-    Returns None for a confirmation, an invalid spec or an unusable answer.
+    Returns None for an invalid spec or an unusable answer.
     """
     try:
         spec = InteractionSpec.model_validate(raw_spec)
     except ValidationError:
-        return None
-    if spec.type == "confirm":
         return None
     answer = normalize_answer(spec, answer_with_images(spec, values))
     if not answer_is_usable(spec, answer):
@@ -263,9 +261,7 @@ def project_interaction_inputs(
                     continue
                 try:
                     spec = InteractionSpec.model_validate(question.get("spec"))
-                    if spec.type == "confirm" or not _matches_control(
-                        spec, row.content_text
-                    ):
+                    if not _matches_control(spec, row.content_text):
                         continue
                 except (ValidationError, ValueError):
                     continue

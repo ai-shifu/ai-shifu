@@ -25,8 +25,8 @@ lesson prose or context. Reusing the exact question updates the current
 answer. The model determines whether an unbound control collects an answer
 from its purpose in the lesson and omits `question` when it does not.
 A submission with a nonempty `question` is eligible for memory when the
-controls offer multiple choices or accept free text. A confirmation or a
-single fixed option without free text skips memory, including when the control
+controls offer multiple choices or accept free text. A single fixed option
+without free text skips memory, including when the control
 has an authored binding. The selection still reaches the lesson and remains in
 the interaction history. Profile drafts use the same rule for learner evidence.
 The rule applies when accepting submissions to restored controls as well.

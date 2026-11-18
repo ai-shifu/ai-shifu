@@ -268,7 +268,7 @@ def test_complete_source_and_history_survive_sequential_questions_and_finish() -
     assert len(calls[-1]) > len(calls[0])
 
 
-def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname() -> (
+def test_multiple_pending_keep_native_answers_and_exclude_navigation_and_nickname() -> (
     None
 ):
     session = _session(
@@ -291,7 +291,13 @@ def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname()
             yield {
                 0: _question("goal", "goal", prompt="Goal?"),
                 1: _question("name", SYS_USER_NICKNAME, prompt="Name?"),
-                2: _question("confirm", None, kind="confirm", prompt="Continue"),
+                2: _question(
+                    "next",
+                    None,
+                    kind="single",
+                    prompt="",
+                    options=[{"display": "Next section", "value": "Continue"}],
+                ),
                 3: _question("pace", "pace", prompt="Pace?"),
             }
 
@@ -310,10 +316,11 @@ def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname()
         {"prompt": "Goal?", "variable": "goal", "answer": "Learner wrote: Learn Python"}
     ]
     session = _ProfileResearchSession.from_cache_payload(session.to_cache_payload())
-    run_profile_turn(session, {SYS_USER_NICKNAME: ["Pat"]}, model)
-    confirm = run_profile_turn(session, {"arbitrary": ["continue"]}, model)
-    assert confirm.input_accepted
-    assert confirm.chunks[-1].interaction_id == "pace"
+    after_name = run_profile_turn(session, {SYS_USER_NICKNAME: ["Pat"]}, model)
+    assert after_name.chunks[-1].interaction == "?[Next section//Continue]"
+    after_continue = run_profile_turn(session, {"arbitrary": ["Continue"]}, model)
+    assert after_continue.input_accepted
+    assert after_continue.chunks[-1].interaction_id == "pace"
     assert calls == 1
     assert len(profile_answer_evidence(session)) == 1
     final = run_profile_turn(session, {"pace": ["Slow"]}, model)
@@ -674,7 +681,7 @@ def test_fatal_model_retries_leave_the_full_native_session_unmodified() -> None:
     assert session.to_cache_payload() == original
 
 
-def test_natural_questionnaire_confirm_waits_for_an_actual_learner_response() -> None:
+def test_natural_questionnaire_waits_for_the_learner_to_continue() -> None:
     session = _session(
         "Welcome the learner and pause until they confirm readiness, then finish."
     )
@@ -686,21 +693,31 @@ def test_natural_questionnaire_confirm_waits_for_an_actual_learner_response() ->
         if _returns(messages, "finish"):
             yield "Thanks."
         elif _returns(messages):
-            assert _returns(messages)[0].content.startswith("Learner pressed continue.")
+            assert _returns(messages)[0].content == "Learner chose: continue"
             yield "Ready."
             yield _finish()
         else:
             yield "Welcome. Confirm when you are ready."
-            yield {0: _question("ready", None, kind="confirm", prompt="Continue")}
+            yield {
+                0: _question(
+                    "ready",
+                    None,
+                    kind="single",
+                    prompt="",
+                    options=[{"display": "Continue", "value": "continue"}],
+                )
+            }
 
     model = FunctionModel(stream_function=script)
     first = run_profile_turn(session, {}, model)
     assert first.reason == "interaction"
     assert not first.finished
     assert first.chunks[-1].interaction_id == "ready"
+    assert first.chunks[-1].interaction == "?[Continue//continue]"
     assert calls == 1
     rerendered = run_profile_turn(session, {}, model)
     assert rerendered.chunks[-1].interaction_id == "ready"
+    assert rerendered.chunks[-1].interaction == first.chunks[-1].interaction
     assert calls == 1
     last = run_profile_turn(session, {"arbitrary": ["continue"]}, model)
     assert last.input_accepted

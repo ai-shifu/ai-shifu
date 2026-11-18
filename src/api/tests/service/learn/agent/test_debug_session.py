@@ -26,7 +26,7 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from markdownflow.engine.interaction import InteractionSpec
+from markdownflow.engine.interaction import InteractionSpec, Option
 from markdownflow.engine.script import ScriptBundle
 from markdownflow.engine.session import PendingInteraction, Session
 from pydantic_ai.messages import ModelRequest, UserPromptPart
@@ -668,7 +668,14 @@ def test_an_answer_after_a_draft_edit_continues_under_the_edited_script(
         )
     ]
     session.pending = [
-        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?")),
+        PendingInteraction(
+            "pause",
+            InteractionSpec(
+                type="single",
+                question="",
+                options=[Option(display="Continue", value="continue")],
+            ),
+        ),
         PendingInteraction("next", InteractionSpec(type="text", prompt="Next answer?")),
     ]
     session.record_answer("kept", "earlier answer")
@@ -734,7 +741,14 @@ def test_saving_an_edited_debug_session_drops_content_regeneration_retry(
         script=ScriptBundle(script="Old draft"), memory={"answer": "kept"}
     )
     session.pending = [
-        PendingInteraction("pause", InteractionSpec(type="confirm", prompt="Ready?")),
+        PendingInteraction(
+            "pause",
+            InteractionSpec(
+                type="single",
+                question="",
+                options=[Option(display="Continue", value="continue")],
+            ),
+        ),
         PendingInteraction("next", InteractionSpec(type="text", prompt="Next answer?")),
     ]
     session.answers = {"completed": "Learner wrote: saved answer"}

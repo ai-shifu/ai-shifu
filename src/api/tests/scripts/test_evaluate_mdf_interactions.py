@@ -265,10 +265,10 @@ def test_live_evaluator_clicks_available_continue_after_control_type_mismatch(
 ) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     fixture = next(case for case in catalog if case["id"] == "lf-empty-pause-01")
-    fixture["replay"] = fixture["replay"][1:]
+    fixture["steps"][0]["expected"]["question"]["type"] = "multi"
     fixture["replay"][0]["calls"][0]["args"] = {
         "type": "single",
-        "options": [{"display": button}],
+        "options": [{"display": button, "value": button}],
     }
     case = Case.model_validate(fixture)
 
@@ -457,7 +457,6 @@ def test_bundled_catalog_covers_trace_diversity_and_replay_anomalies() -> None:
         "text",
         "single_or_text",
         "multi_or_text",
-        "confirm",
     }
 
 

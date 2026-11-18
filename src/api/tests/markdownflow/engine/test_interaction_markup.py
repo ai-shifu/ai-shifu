@@ -792,7 +792,7 @@ async def test_finish_returns_once_the_unasked_question_is_asked() -> None:
 async def test_an_owed_pause_is_asked_for_real_in_a_lesson_without_pauses() -> None:
     """A pause in a no-pause lesson is normally skipped, but not one that settles owed markup.
 
-    Skipped, it would leave the textual question owed, with `finish` withheld and text refused.
+    The repair can send the button alone because its teaching was already delivered.
     """
     offered: list[list[str]] = []
 
@@ -810,12 +810,11 @@ async def test_an_owed_pause_is_asked_for_real_in_a_lesson_without_pauses() -> N
                 )
             }
             return
-        yield "That is the whole of this part.\n"
         yield {
             0: DeltaToolCall(
                 name="interact",
                 json_args=json.dumps(
-                    {"type": "confirm", "prompt": "", "options": [{"display": "Next"}]}
+                    {"type": "single", "options": [{"display": "Next"}]}
                 ),
                 tool_call_id="pause",
             )
@@ -828,7 +827,7 @@ async def test_an_owed_pause_is_asked_for_real_in_a_lesson_without_pauses() -> N
         ModelResponse(
             parts=[
                 TextPart(
-                    content='Some teaching.\n<interact type="confirm" prompt="Next" />'
+                    content='Some teaching.\n<interact type="single" options="Next" />'
                 )
             ]
         ),
@@ -839,7 +838,7 @@ async def test_an_owed_pause_is_asked_for_real_in_a_lesson_without_pauses() -> N
     events = [e async for e in engine.run_turn(restored)]
     assert not [e for e in events if isinstance(e, ErrorEvent)]
     request = next(e for e in events if isinstance(e, InteractionRequest))
-    assert request.spec.type == "confirm"
+    assert request.spec.type == "single"
     assert events[-1].reason == "interaction"
     assert all("finish" not in names for names in offered)
     assert not restored.finished

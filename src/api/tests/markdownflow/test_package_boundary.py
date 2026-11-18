@@ -29,10 +29,12 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Reference/binding and learner-facing question guidance are reviewed changes;
-    # retain every other copied prompt byte and keep the historical fixture intact.
+    # Record reviewed runtime guidance changes and keep the historical fixture intact.
     hashes["system"] = (
-        "c0d9152a9beb2894352d0976fbe948bf89dde5e77f9abafc3a1d9ea7fcfe4f0f"
+        "c4866f30fc0db308831e244fd505d1e039d1c2a42ff9f56b00f5c3efbd39c42e"
+    )
+    hashes["exercise_statistics"] = (
+        "a3a239ad85b130d3832a2f26caa9e129e370edc738a615c883cbe5a0e2f5ebce"
     )
     hashes["v1_syntax"] = (
         "9bbb89a1a1593f9a32aa2864097283f3c86a48f9e4d11ea1d1bc28f039e315ea"
@@ -101,9 +103,7 @@ from markdownflow import (
 )
 from pydantic_ai.models.function import FunctionModel
 
-renderer = QuestionRenderer(QuestionLabels(
-    continue_label="Proceed", free_text_placeholder="Your response",
-))
+renderer = QuestionRenderer(QuestionLabels(free_text_placeholder="Your response"))
 assert "Your response" in renderer.render_interaction(
     InteractionSpec(type="text", prompt="Describe your goal."),
 )
@@ -160,6 +160,8 @@ async def test_legacy_package_session_resumes_its_remaining_pending_answer() -> 
             message["usage"]["audio_seconds"] = 0.0
     # The removed teaching summary cache is dropped on load.
     assert state.pop("teaching_summaries") == {"legacy-summary": "Prior teaching."}
+    for pending in state["pending"]:
+        assert pending["spec"].pop("labelled_by_engine") is False
     assert session.to_dict() == {**state, "memory_generations": {}}
     assert session.answers == {"legacy-role": "Learner wrote: Data analyst"}
     assert [item.tool_call_id for item in session.pending] == ["legacy-goal"]

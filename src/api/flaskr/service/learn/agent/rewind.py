@@ -580,8 +580,7 @@ def _question_for_control(
     tool_call_id = question.get("tool_call_id") if isinstance(question, dict) else None
     if not isinstance(tool_call_id, str) or not tool_call_id:
         return None, None
-    # Pairing by position holds only while each control renders its question. A
-    # confirmation shows no control and shifts the queue; any mismatch means "cannot tell".
+    # Pairing by position requires a matching control for the question.
     from flaskr.api.markdownflow import InteractionSpec
     from pydantic import ValidationError
 
@@ -589,7 +588,7 @@ def _question_for_control(
 
     try:
         spec = InteractionSpec.model_validate(question.get("spec"))
-        if spec.type == "confirm" or not _matches_control(spec, control_text or ""):
+        if not _matches_control(spec, control_text or ""):
             return None, None
     except (ValidationError, ValueError):
         return None, None

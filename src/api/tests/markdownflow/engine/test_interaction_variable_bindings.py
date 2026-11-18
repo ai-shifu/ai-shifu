@@ -210,7 +210,6 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
                 spec.model_dump(
                     by_alias=True,
                     exclude={
-                        "labelled_by_engine",
                         "question_owns_memory",
                         "structured_correction",
                     },
@@ -246,7 +245,7 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
     ] == [{"status": "unavailable"}]
     (question,) = [event for event in first if isinstance(event, InteractionRequest)]
     assert question.spec == spec
-    renderer = QuestionRenderer(QuestionLabels("Continue", "Your answer"))
+    renderer = QuestionRenderer(QuestionLabels(free_text_placeholder="Your answer"))
     wire = renderer.render_interaction(question.spec)
     assert "%{{ goal }}" in wire
     assert InteractionParser().parse(wire)["variable"] == "goal"

@@ -1624,7 +1624,9 @@ def test_slide_continuations_keep_each_html_root_in_one_lesson_element(
         yield {
             0: DeltaToolCall(
                 name="interact",
-                json_args='{"type":"confirm","prompt":""}',
+                json_args=(
+                    '{"type":"single","options":[{"display":"继续","value":"continue"}]}'
+                ),
                 tool_call_id=(
                     "pause-before-card" if pause is None else "pause-before-question"
                 ),
