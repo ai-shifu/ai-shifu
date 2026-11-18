@@ -124,6 +124,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Local Interaction Criteria and Review](./completed/local-interaction-criteria.md)
 - [Local Interaction Evaluation](./completed/local-interaction-evaluation.md)
 - [Calibrate Local Interaction Judgments](./completed/local-interaction-judge-calibration.md)
+- [Close Local Interaction Review Gaps](./completed/local-interaction-review-followup.md)
 - [Reusable Local Interaction Review](./completed/local-interaction-review.md)
 - [Separate deployment identifiers from interface selection and notification channels](./completed/login-identifier-terminology.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
