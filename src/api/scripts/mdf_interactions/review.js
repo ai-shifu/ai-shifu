@@ -57,7 +57,12 @@ try {
   for (const key of checks.keys()) {
     const saved = localStorage.getItem(storagePrefix + key);
     if (!saved) continue;
-    const entry = JSON.parse(saved);
+    let entry;
+    try {
+      entry = JSON.parse(saved);
+    } catch {
+      continue;
+    }
     if (isAnnotation(entry) && annotationKey(entry) === key) annotations.set(key, entry);
   }
 } catch {
