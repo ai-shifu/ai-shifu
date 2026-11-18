@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+    <title></title>
+    <style>/* REVIEW_CSS */</style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1 data-label="title"></h1>
+        <p class="muted" id="report-counts"></p>
+      </div>
+      <div class="file-actions">
+        <div class="tools">
+          <button id="import" data-label="import"></button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden>
+          <button id="export" class="primary" data-label="export"></button>
+        </div>
+        <p class="muted" id="storage-status" role="status"></p>
+        <p id="notice" role="status" hidden></p>
+      </div>
+    </header>
+    <main class="layout">
+      <aside>
+        <div class="sidebar">
+          <h2 id="case-list-heading" data-label="caseList"></h2>
+          <label class="sr-only" for="search" data-label="search"></label>
+          <input type="search" id="search">
+          <div class="field">
+            <label for="view-filter" data-label="filter"></label>
+            <select id="view-filter"></select>
+          </div>
+          <div class="field">
+            <label for="criterion-filter" data-label="criterionFilter"></label>
+            <select id="criterion-filter"></select>
+          </div>
+          <small id="case-counts"></small>
+          <nav id="cases" aria-labelledby="case-list-heading"></nav>
+        </div>
+      </aside>
+      <div class="content">
+        <details class="statistics" id="statistics">
+          <summary data-label="statistics"></summary>
+          <div id="counts"></div>
+        </details>
+        <div id="case-view"></div>
+      </div>
+    </main>
+    <script type="application/json" id="payload">REVIEW_PAYLOAD</script>
+    <script>/* REVIEW_JS */</script>
+  </body>
+</html>
