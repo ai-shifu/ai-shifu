@@ -1039,8 +1039,14 @@
           "outcome": "interaction",
           "question": {
             "type": "single",
-            "question": "",
-            "variable": null,
+            "question": [
+              "",
+              "开始记录"
+            ],
+            "variable": [
+              null,
+              "开始记录"
+            ],
             "options": [
               [
                 "开始记录",

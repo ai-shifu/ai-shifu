@@ -461,6 +461,42 @@ def test_live_evaluator_checks_authored_navigation_and_clicks_the_available_butt
 
 
 @pytest.mark.parametrize(
+    ("title", "matches"), [("开始记录", True), ("选一个观察项目", False)]
+)
+def test_start_recording_accepts_the_button_label_as_the_question(
+    title: str, matches: bool
+) -> None:
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    fixture = next(
+        entry for entry in catalog if entry["id"] == "choose-scenario-then-navigate"
+    )
+    fixture["replay"][1]["calls"][0]["args"]["question"] = title
+    case = Case.model_validate(fixture)
+
+    result = asyncio.run(evaluate_case(case))
+
+    navigation = result["steps"][1]
+    assert navigation["question"]["variable"] == title
+    assert navigation["criteria"]["question.question"] == (
+        "passed" if matches else "failed"
+    )
+    assert navigation["criteria"]["question.variable"] == (
+        "passed" if matches else "failed"
+    )
+    if matches:
+        assert result["status"] == "first_attempt_pass"
+        after_click = result["steps"][2]
+        assert after_click["criteria"]["question.question"] == "passed"
+        assert after_click["memory"] == navigation["memory"]
+        assert after_click["memory_updates"] == []
+    else:
+        assert result["failures"] == [
+            "step_2.question.question",
+            "step_2.question.variable",
+        ]
+
+
+@pytest.mark.parametrize(
     ("problem", "failure"),
     [
         ("memory", "step_3.memory"),

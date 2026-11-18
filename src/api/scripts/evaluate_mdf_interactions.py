@@ -55,12 +55,12 @@ class FixtureModel(BaseModel):
 
 
 class ExpectedQuestion(FixtureModel):
-    """Expected authored control fields; unspecified fields are unconstrained."""
+    """Expected control fields, with optional alternatives for question and binding."""
 
     type: Literal["single", "multi", "text", "single_or_text", "multi_or_text"]
-    question: str | None = None
+    question: str | list[str] | None = None
     options: list[list[str]] | None = None
-    variable: str | None = None
+    variable: str | list[str | None] | None = None
     placeholder: str | None = None
 
     @model_validator(mode="after")
@@ -459,7 +459,12 @@ def step_criteria(
         question_fields["asked_before"] = expected.asked_before
     question = actual.get("question")
     for field, value in question_fields.items():
-        matched = question[field] == value if isinstance(question, dict) else None
+        matched = None
+        if isinstance(question, dict):
+            if field in {"question", "variable"} and isinstance(value, list):
+                matched = question[field] in value
+            else:
+                matched = question[field] == value
         record(f"question.{field}", matched)
 
     prose = str(actual.get("prose", ""))
