@@ -16,6 +16,7 @@ import pytest
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import FunctionModel
 from scripts.evaluate_mdf_interactions import Case, Replay, evaluate_case, main
+from scripts.mdf_interaction_review import main as review_main
 
 from scripts import mdf_interaction_live
 
@@ -171,6 +172,14 @@ def _report(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _review_payload(page: str) -> dict:
+    payload = re.search(
+        r'<script type="application/json" id="payload">(.*?)</script>', page
+    )
+    assert payload is not None
+    return json.loads(payload[1])
+
+
 def test_offline_replay_reloads_pending_question_and_stores_submitted_value(
     tmp_path: Path,
 ) -> None:
@@ -182,6 +191,10 @@ def test_offline_replay_reloads_pending_question_and_stores_submitted_value(
 
     assert process.returncode == 0, process.stdout + process.stderr
     result = _report(output)
+    page = output.with_suffix(".review.html").read_text(encoding="utf-8")
+    payload = _review_payload(page)
+    assert payload["runs"][0]["id"] == result["run_id"]
+    assert payload["context"]["garden-choice"]["steps"][2]["values"] == ["garden"]
     assert result["mode"] == "offline"
     assert [case["repeat"] for case in result["results"]] == [1, 2]
     for case in result["results"]:
@@ -192,6 +205,7 @@ def test_offline_replay_reloads_pending_question_and_stores_submitted_value(
         assert blank_answer["outcome"] == "interaction"
         assert blank_answer["memory"] == {}
         assert accepted_answer["memory"] == {QUESTION: "garden"}
+        assert accepted_answer["memory_before"] == {}
         assert "Sketch the beds first." in accepted_answer["prose"]
 
 
@@ -534,6 +548,9 @@ def test_historical_fallback_counts_as_reproduced_failure(tmp_path: Path) -> Non
     (result,) = _report(output)["results"]
     assert result["status"] == "expected_failure_replayed"
     assert result["steps"][0]["narrated_controls"] == [control]
+    (turn,) = result["steps"][0]["turns"]
+    assert control in turn["engine_prose"]
+    assert control not in turn["prose"]
 
 
 def test_comparison_accepts_prompt_changes_and_rejects_different_case_selection(
@@ -555,6 +572,7 @@ def test_comparison_accepts_prompt_changes_and_rejects_different_case_selection(
     process = _run(*args, "--case", "garden-choice", *comparison)
     assert process.returncode == 0, process.stdout + process.stderr
     result = _report(candidate)
+    assert result["run_id"] != prior["run_id"]
     assert result["prompt_sha256"] != prior["prompt_sha256"]
     assert result["comparison"]["compatible"]
     assert result["comparison"]["prompt_changed"]
@@ -591,6 +609,57 @@ def test_bundled_suite_replays_every_selected_case(tmp_path: Path, suite: str) -
         else set()
     )
     assert reproduced == expected_failures
+    if suite == "all":
+        exhausted = next(
+            row for row in results if row["case_id"] == "synthetic-retry-exhaustion"
+        )
+        step = exhausted["steps"][0]
+        assert len(step["model_calls"]) == 4
+        first, retry, *_ = step["model_calls"]
+        tool = next(part for part in first["parts"] if part.get("tool") == "interact")
+        assert json.loads(tool["arguments"])["variable"] == "garden"
+        assert retry["retry_feedback"][0]["tool"] == "interact"
+        assert "variable" in retry["retry_feedback"][0]["message"]
+
+
+def test_review_reopens_legacy_reports_with_matching_fixtures(tmp_path: Path) -> None:
+    cases = tmp_path / "cases.json"
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    comparison = tmp_path / "review.html"
+    case = _case()
+    _write_cases(cases, case)
+    process = _run("--cases", str(cases), "--json", str(first))
+    assert process.returncode == 0, process.stdout + process.stderr
+    legacy = _report(first)
+    del legacy["review_context"], legacy["run_id"]
+    prose = "<div>Slide text<script>window.untrusted = true</script></div>\n\n![image](https://example.org/image)"
+    legacy["results"][0]["steps"][0]["prose"] = prose
+    first.write_text(json.dumps(legacy), encoding="utf-8")
+    second.write_text(
+        json.dumps({**legacy, "model": "another model"}), encoding="utf-8"
+    )
+    args = ["--output", str(comparison), "--cases", str(cases), str(first), str(second)]
+
+    assert review_main(args) == 0
+    page = comparison.read_text(encoding="utf-8")
+    payload = _review_payload(page)
+    left, right = payload["runs"]
+    assert left["id"] != right["id"]
+    assert page.count("</script>") == 2
+    step = left["results"][0]["steps"][0]
+    assert step["prose"] == prose
+    assert "<li>Slide text</li>" in step["rendered_prose"]
+    assert "<script" not in step["rendered_prose"]
+    assert "<img" not in step["rendered_prose"]
+    assert (
+        payload["context"]["garden-choice"]["teaching_prompt"]
+        == case["teaching_prompt"]
+    )
+
+    _write_cases(cases, {**case, "teaching_prompt": "Changed lesson"})
+    assert review_main(args) == 2
+    assert comparison.read_text(encoding="utf-8") == page
 
 
 def _fixture_strings(value: object) -> Iterator[str]:

@@ -94,6 +94,40 @@ failures, 2 for invocation, provider, or comparison errors, and 3 for pending
 human review in a run without behavior or call failures. Review items remain
 in the report when the run also has another failure.
 
+### Review and annotate results
+
+With `--json`, the evaluator also writes a sibling `.review.html` file,
+including when assertions fail or a verdict needs review. Open it in a browser.
+Use the case and step navigation, filter by criterion or review status, and
+expand the criterion to compare expected and observed evidence. The page shows
+the submitted values and text, authored prompts, visible teaching and controls,
+memory changes, per-turn prose, model tool arguments, and retry feedback.
+The source blocks preserve exact strings and expose full step data. For visual
+blocks, the prose preview extracts the text and leaves the source available.
+
+Choose a human verdict and enter a note on any criterion. Uncertain verdicts
+appear in the human review filter. The criterion table counts automatic and
+human verdicts in separate columns. The browser saves edits by run, case,
+repeat, step, and criterion. Export the annotations to JSON for a portable
+copy. Import restores matching entries, and keeps and counts local edits when
+both files have different annotations for the same criterion.
+
+Use one page to compare runs with the same fixture selection, or regenerate a
+page from a saved report without invoking a model.
+
+```bash
+python scripts/mdf_interaction_review.py /tmp/interaction-baseline.json \
+  /tmp/interaction-candidate.json --output /tmp/interaction-comparison.html
+```
+
+New reports carry the fixture snapshot. For an earlier version 5 report, the
+review tool attaches the current catalog only when its selected case fingerprint
+matches. Pass `--cases /path/to/original-cases.json` to use an older catalog.
+The page uses the evidence available in each report. Model-call arguments and
+retry feedback are available for runs saved with the updated evaluator.
+
+### Curating fixtures
+
 For a new trace-derived case, reconstruct a teaching excerpt and answer with
 original wording. Keep the interaction syntax, displayed and submitted value
 relationship, bindings, and sequence of model attempts needed to reproduce it.

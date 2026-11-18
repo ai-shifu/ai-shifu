@@ -13,9 +13,10 @@ from collections import Counter, defaultdict, deque
 from contextlib import ExitStack, asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from pydantic_ai.messages import ModelRequest, RetryPromptPart
+from pydantic_ai.messages import ModelRequest, RetryPromptPart, TextPart, ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from pydantic_ai.models.wrapper import WrapperModel
 
@@ -239,9 +240,9 @@ class Replay:
 
 
 class ObservedModel(WrapperModel):
-    """Observe teaching calls without retaining provider exception messages or prompts."""
+    """Observe model calls without retaining provider errors, prompts, or reasoning."""
 
-    def __init__(self, model: Model) -> None:
+    def __init__(self, model: Model, *, record_calls: bool = False) -> None:
         """Wrap a model with run-local diagnostics."""
         super().__init__(model)
         self.failures: list[str] = []
@@ -249,13 +250,17 @@ class ObservedModel(WrapperModel):
         self.retries = 0
         self.instruction_hashes: set[str] = set()
         self.usage: dict[str, int] = {}
+        self.model_calls: list[dict[str, object]] | None = [] if record_calls else None
 
-    def _begin(self, messages: list[ModelMessage]) -> None:
+    def _begin(self, messages: list[ModelMessage]) -> dict[str, object] | None:
         self.requests += 1
         last_request = messages[-1] if messages else None
-        if isinstance(last_request, ModelRequest) and any(
-            isinstance(part, RetryPromptPart) for part in last_request.parts
-        ):
+        retries = (
+            [part for part in last_request.parts if isinstance(part, RetryPromptPart)]
+            if isinstance(last_request, ModelRequest)
+            else []
+        )
+        if retries:
             self.retries += 1
         instructions = next(
             (
@@ -267,6 +272,27 @@ class ObservedModel(WrapperModel):
         )
         if instructions:
             self.instruction_hashes.add(sha256(instructions.encode("utf-8")))
+        if self.model_calls is None:
+            return None
+        call: dict[str, object] = {"number": self.requests}
+        if retries:
+            call["retry_feedback"] = [
+                {"tool": part.tool_name, "message": part.model_response()}
+                for part in retries
+            ]
+        self.model_calls.append(call)
+        return call
+
+    def _record_response(
+        self, call: dict[str, object], response: ModelResponse
+    ) -> None:
+        parts = []
+        for part in response.parts:
+            if isinstance(part, TextPart):
+                parts.append({"text": part.content})
+            elif isinstance(part, ToolCallPart):
+                parts.append({"tool": part.tool_name, "arguments": part.args})
+        call["parts"] = parts
 
     def _record_usage(self, usage: RequestUsage) -> None:
         from markdownflow.engine.usage import accumulate_usage
@@ -280,15 +306,19 @@ class ObservedModel(WrapperModel):
         model_request_parameters: ModelRequestParameters,
     ) -> ModelResponse:
         """Count a non-streamed request, including an auxiliary admission call."""
-        self._begin(messages)
+        call = self._begin(messages)
         try:
             result = await super().request(
                 messages, model_settings, model_request_parameters
             )
         except Exception as error:
             self.failures.append(type(error).__name__)
+            if call is not None:
+                call["error"] = self.failures[-1]
             raise
         self._record_usage(result.usage)
+        if call is not None:
+            self._record_response(call, result)
         return result
 
     @asynccontextmanager
@@ -300,23 +330,36 @@ class ObservedModel(WrapperModel):
         run_context: RunContext[object] | None = None,
     ) -> AsyncIterator[StreamedResponse]:
         """Count requests and distinguish provider errors from interaction failures."""
-        self._begin(messages)
+        call = self._begin(messages)
         try:
             async with super().request_stream(
                 messages, model_settings, model_request_parameters, run_context
             ) as response:
                 try:
                     yield response
+                    if call is not None:
+                        self._record_response(call, response.get())
                 finally:
                     self._record_usage(response.usage)
         except Exception as error:
             self.failures.append(type(error).__name__)
+            if call is not None:
+                call["error"] = self.failures[-1]
             raise
 
 
 def sha256(value: bytes) -> str:
     """Hash fixture data or the exact prompt instructions submitted to a model."""
     return hashlib.sha256(value).hexdigest()
+
+
+def catalog_sha256(cases: list[Case]) -> str:
+    """Fingerprint the selected fixtures using the report's canonical order."""
+    return sha256(
+        json.dumps(
+            [case.model_dump(mode="json") for case in cases], sort_keys=True
+        ).encode()
+    )
 
 
 def renderer_for(locale: str) -> QuestionRenderer:
@@ -483,6 +526,7 @@ async def run_step(
     else:
         turn = ContinueTurn()
     turn_outcomes = []
+    turns = []
     prose = []
     narrated_controls = []
     questions = []
@@ -490,6 +534,7 @@ async def run_step(
     errors = []
     retryable_error = False
     continuation_limit_reached = False
+    memory_before = session.all_memory()
     for attempt in range(MAX_AUTOMATIC_CONTINUATIONS + 1):
         text = []
         outcome = "error"
@@ -506,10 +551,17 @@ async def run_step(
             elif isinstance(event, TurnDone):
                 outcome = event.reason
         syntax = InteractionSyntaxFilter()
-        raw_text = "".join(text)
-        if live:
-            raw_text = strip_echoed_memory(raw_text)
+        engine_prose = "".join(text)
+        raw_text = strip_echoed_memory(engine_prose) if live else engine_prose
         visible = syntax.feed(raw_text) + syntax.flush()
+        turns.append(
+            {
+                "outcome": outcome,
+                "prose": visible,
+                "engine_prose": engine_prose,
+                "narrated_controls": syntax.spans,
+            }
+        )
         prose.append(visible)
         narrated_controls.extend(syntax.spans)
         turn_outcomes.append(outcome)
@@ -537,11 +589,13 @@ async def run_step(
         "pending": len(session.pending),
         "prose": "\n\n".join(text for text in prose if text),
         "narrated_controls": narrated_controls,
+        "memory_before": memory_before,
         "memory": session.all_memory(),
         "memory_updates": updates,
         "retryable_error": retryable_error,
         "errors": errors,
         "turn_outcomes": turn_outcomes,
+        "turns": turns,
         "automatic_continuations": len(turn_outcomes) - 1,
         "continuation_limit_reached": continuation_limit_reached,
         "expected": expected.model_dump(mode="json", exclude_unset=True),
@@ -638,6 +692,7 @@ async def evaluate_case(
     repeat: int = 1,
     judge_model: Model | None = None,
     second_judge_model: Model | None = None,
+    record_calls: bool = False,
 ) -> dict[str, object]:
     """Evaluate a fixture and follow submitted answers that remain available live."""
     from markdownflow import ScriptBundle, Session
@@ -645,7 +700,9 @@ async def evaluate_case(
     started = time.monotonic()
     replay = Replay(case.replay) if model is None else None
     offline = replay is not None
-    observed = ObservedModel(replay.model if replay is not None else model)
+    observed = ObservedModel(
+        replay.model if replay is not None else model, record_calls=record_calls
+    )
     judges = [ObservedModel(judge_model or model)] if model is not None else []
     if judges and second_judge_model is not None:
         judges.append(ObservedModel(second_judge_model))
@@ -674,12 +731,15 @@ async def evaluate_case(
 
             engine.memory_request_check = make_request_check(observed)
         prior_retries = observed.retries
+        prior_requests = observed.requests
         result = await run_step(
             engine, session, step, expected, renderer, live=not offline
         )
         automatic_continuations += result["automatic_continuations"]
         result["stage"] = index
         result["retries"] = observed.retries - prior_retries
+        if observed.model_calls is not None:
+            result["model_calls"] = observed.model_calls[prior_requests:]
         criteria = step_criteria(
             expected, None if observed.failures else result, replay=offline
         )
@@ -833,6 +893,7 @@ async def run_cases(
     *,
     judge_model: Model | None = None,
     second_judge_model: Model | None = None,
+    record_calls: bool = False,
 ) -> list[dict[str, object]]:
     """Run selected fixtures serially, giving each repeat a clean session."""
     results = []
@@ -845,6 +906,7 @@ async def run_cases(
                 repeat=repeat,
                 judge_model=judge_model,
                 second_judge_model=second_judge_model,
+                record_calls=record_calls,
             )
             results.append(result)
             details = ", ".join(result["failures"])
@@ -952,7 +1014,9 @@ def main(argv: list[str] | None = None) -> int:
         help="optional second model for detecting disagreements on live question checks",
     )
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--json", type=Path, help="write the report to this file")
+    parser.add_argument(
+        "--json", type=Path, help="write JSON and a companion review page"
+    )
     parser.add_argument("--compare", type=Path, help="compare a prior JSON report")
     parser.add_argument("--list", action="store_true", help="list matching cases")
     args = parser.parse_args(argv)
@@ -971,10 +1035,14 @@ def main(argv: list[str] | None = None) -> int:
                 parser.error(f"{flag} requires --live")
             if not model_id.strip():
                 parser.error(f"{flag} must be nonblank")
-    if args.json and args.json.resolve() == args.cases.resolve():
-        parser.error("--json must not overwrite the fixture catalog")
-    if args.json and args.compare and args.json.resolve() == args.compare.resolve():
-        parser.error("--json and --compare must use different files")
+    review_path = args.json.with_suffix(".review.html") if args.json else None
+    if args.json:
+        inputs = {path.resolve() for path in (args.cases, args.compare) if path}
+        outputs = {args.json.resolve(), review_path.resolve()}
+        if len(outputs) != 2 or inputs & outputs:
+            parser.error(
+                "reports and the review page must use different files from the inputs"
+            )
 
     try:
         cases, skipped = select_cases(
@@ -1025,6 +1093,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.repeat,
                     judge_model=judge_model,
                     second_judge_model=second_judge_model,
+                    record_calls=bool(args.json),
                 )
             )
             model_name = model.model_name if model is not None else None
@@ -1037,11 +1106,7 @@ def main(argv: list[str] | None = None) -> int:
             "temperature": args.temperature,
             "question_judge": judge_config,
             "prompt_sha256": prompt_hashes,
-            "cases_sha256": sha256(
-                json.dumps(
-                    [case.model_dump(mode="json") for case in cases], sort_keys=True
-                ).encode()
-            ),
+            "cases_sha256": catalog_sha256(cases),
             "results": results,
             "summary": {status: statuses[status] for status in STATUSES},
             "criteria_summary": criteria_summary,
@@ -1063,10 +1128,16 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
         if args.json:
+            from scripts.mdf_interaction_review import fixture_context, write_review
+
+            report["run_id"] = uuid4().hex
+            report["review_context"] = fixture_context(cases)
             args.json.write_text(
                 json.dumps(report, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
+            write_review(review_path, [report])
+            print(f"Review page: {review_path}")
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"Evaluation could not run: {error}", file=sys.stderr)
         return 2

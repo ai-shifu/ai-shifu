@@ -155,6 +155,7 @@
 | `docs/exec-plans/completed/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/local-interaction-criteria.md` | Local Interaction Criteria and Review | `exec-plan-completed` | `completed` | `backend` | `2026-11-17` | `false` |
 | `docs/exec-plans/completed/local-interaction-evaluation.md` | Local Interaction Evaluation | `exec-plan-completed` | `completed` | `backend` | `2026-11-13` | `false` |
+| `docs/exec-plans/completed/local-interaction-review.md` | Reusable Local Interaction Review | `exec-plan-completed` | `completed` | `backend` | `2026-11-18` | `false` |
 | `docs/exec-plans/completed/login-identifier-terminology.md` | Separate deployment identifiers from interface selection and notification channels | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-agent-memory-migration.md` | Expose Learner Memory through a Typed Host Facade | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-scroll-controls.md` | MarkdownFlow Scroll Controls | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
