@@ -1052,6 +1052,12 @@ def print_assessment(
     criteria: dict[str, dict[str, int]], review_items: list[dict[str, object]]
 ) -> None:
     """Print criterion totals and each decision that needs a reviewer."""
+
+    def print_evidence(line: str) -> None:
+        if encoding := sys.stdout.encoding:
+            line = line.encode(encoding, errors="backslashreplace").decode(encoding)
+        print(line)
+
     print("\nCriterion assessment (counts by assertion)")
     print(f"{'criterion':<24}" + "".join(f"{name:>15}" for name in CRITERION_STATUSES))
     for criterion, counts in criteria.items():
@@ -1066,15 +1072,15 @@ def print_assessment(
             f"{item['case_id']} [{item['repeat']}] step {item['stage']} "
             f"({item['criterion']})"
         )
-        print(f"  {item['reason']}")
-        print(f"  {intent_key.replace('_', ' ').capitalize()}  {expected}")
+        print_evidence(f"  {item['reason']}")
+        print_evidence(f"  {intent_key.replace('_', ' ').capitalize()}  {expected}")
         if "previous_question" in item:
-            print(
+            print_evidence(
                 f"  Previous question  {json.dumps(item['previous_question'], ensure_ascii=False)}"
             )
-        print(f"  Learner-facing prose  {prose}")
+        print_evidence(f"  Learner-facing prose  {prose}")
         for decision in item["decisions"]:
-            print(f"  Judge  {json.dumps(decision, ensure_ascii=False)}")
+            print_evidence(f"  Judge  {json.dumps(decision, ensure_ascii=False)}")
 
 
 def main(argv: list[str] | None = None) -> int:

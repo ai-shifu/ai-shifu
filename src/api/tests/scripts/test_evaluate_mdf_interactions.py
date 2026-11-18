@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import re
 import subprocess
 import sys
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -306,9 +307,19 @@ def test_live_question_checks_visible_meaning_separately_from_binding(
 
 
 @pytest.mark.parametrize(
-    ("verdicts", "control_failure"),
-    [((None,), False), ((True, False), False), ((True, False), True)],
-    ids=["inconclusive", "judges-disagree", "disagreement-plus-control-failure"],
+    ("verdicts", "control_failure", "encoding"),
+    [
+        ((None,), False, None),
+        ((None,), False, "cp1252"),
+        ((True, False), False, None),
+        ((True, False), True, None),
+    ],
+    ids=[
+        "inconclusive",
+        "strict-stdout",
+        "judges-disagree",
+        "disagreement-plus-control-failure",
+    ],
 )
 @pytest.mark.parametrize(
     ("criterion", "intent_key", "verdict_key"),
@@ -323,6 +334,7 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
     capsys: pytest.CaptureFixture[str],
     verdicts: tuple[bool | None, ...],
     control_failure: bool,
+    encoding: str | None,
     criterion: str,
     intent_key: str,
     verdict_key: str,
@@ -334,7 +346,11 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
     expected[criterion] = intent
     if control_failure:
         expected["question"]["options"] = [["Another park", "other"]]
-    prose = "A small garden or a city park could work. Think about the size."
+    prose = (
+        "请先考虑观察地点。"
+        if encoding
+        else "A small garden or a city park could work. Think about the size."
+    )
     fixture["replay"][0]["text"] = prose
     case = Case.model_validate(fixture)
     cases = tmp_path / "cases.json"
@@ -378,7 +394,20 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
     ]
     if len(verdicts) == 2:
         args.extend(["--second-judge-model", "second-judge"])
-    assert main(args) == (1 if control_failure else 3)
+    if encoding:
+        buffer = io.BytesIO()
+        with io.TextIOWrapper(buffer, encoding=encoding, errors="strict") as terminal:
+            with redirect_stdout(terminal):
+                assert main(args) == 3
+            terminal.flush()
+            stdout = buffer.getvalue().decode(encoding)
+        assert (
+            prose.encode(encoding, errors="backslashreplace").decode(encoding) in stdout
+        )
+    else:
+        assert main(args) == (1 if control_failure else 3)
+        stdout = capsys.readouterr().out
+        assert prose in stdout
 
     report = _report(output)
     (result,) = report["results"]
@@ -414,10 +443,8 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
     assert [decision[verdict_key] for decision in review["decisions"]] == list(verdicts)
     reason_marker = "disagree" if len(verdicts) == 2 else "ambiguous"
     assert reason_marker in review["reason"]
-    stdout = capsys.readouterr().out
     assert "Criterion assessment" in stdout
     assert "Items needing human review: 1" in stdout
-    assert prose in stdout
 
 
 @pytest.mark.parametrize(
