@@ -945,6 +945,33 @@ def test_review_reopens_legacy_reports_with_matching_fixtures(tmp_path: Path) ->
     assert comparison.read_text(encoding="utf-8") == page
 
 
+def test_legacy_review_recovers_when_the_default_catalog_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scripts import evaluate_mdf_interactions as evaluator
+
+    cases = tmp_path / "cases.json"
+    output = tmp_path / "result.json"
+    _write_cases(cases, _case())
+    assert main(["--cases", str(cases), "--json", str(output)]) == 0
+    report = _report(output)
+    del report["review_context"], report["run_id"]
+    output.write_text(json.dumps(report), encoding="utf-8")
+    missing = tmp_path / "missing.json"
+    monkeypatch.setattr(evaluator, "CASES_PATH", missing)
+    page = tmp_path / "legacy-review.html"
+    args = ["--output", str(page), str(output)]
+
+    assert review_main(args) == 0
+    saved = page.read_text(encoding="utf-8")
+    data = _review_payload(saved)
+    assert data["context"] == {}
+    assert data["runs"][0]["results"][0]["steps"][0]["prose"] == QUESTION
+
+    assert review_main([*args, "--cases", str(missing)]) == 2
+    assert page.read_text(encoding="utf-8") == saved
+
+
 def _fixture_strings(value: object) -> Iterator[str]:
     if isinstance(value, str):
         yield value

@@ -272,7 +272,12 @@ def main(argv: list[str] | None = None) -> int:
             )
         reports = [json.loads(path.read_bytes()) for path in args.reports]
         if not any(report.get("review_context") for report in reports):
-            catalog = load_cases(args.cases or CASES_PATH)
+            try:
+                catalog = load_cases(args.cases or CASES_PATH)
+            except (OSError, ValueError):
+                if args.cases is not None:
+                    raise
+                catalog = []
             reports[0]["review_context"] = legacy_context(
                 reports[0], catalog, require_match=bool(args.cases)
             )
