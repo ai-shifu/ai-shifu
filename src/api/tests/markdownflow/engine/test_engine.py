@@ -297,13 +297,20 @@ def test_render_profiles_swap_the_html_rules() -> None:
     assert "Screens" not in none
 
 
-async def test_unauthored_continue_without_content_is_retried() -> None:
+@pytest.mark.parametrize("legacy_args", [False, True], ids=["question", "prompt"])
+async def test_unauthored_continue_without_content_is_retried(
+    legacy_args: bool,
+) -> None:
     """An unsolicited continue button cannot replace the next section of teaching.
 
     A turn with no content has nothing to pause on, so the model must produce content first.
     Mirrors the deepseek-flash loop seen on the token script.
     """
     from pydantic_ai.messages import RetryPromptPart
+
+    args = {"type": "single", "options": [{"display": "Ready", "value": "go"}]}
+    if legacy_args:
+        args["prompt"] = ""
 
     def _has_retry(messages: list[ModelMessage]) -> bool:
         last = messages[-1]
@@ -317,9 +324,7 @@ async def test_unauthored_continue_without_content_is_retried() -> None:
             0: DeltaToolCall(
                 name="interact",
                 tool_call_id=f"c{len(messages)}",
-                json_args=json.dumps(
-                    {"type": "single", "options": [{"display": "Ready", "value": "go"}]}
-                ),
+                json_args=json.dumps(args),
             )
         }
         if ret is None and not _has_retry(messages):
@@ -334,7 +339,9 @@ async def test_unauthored_continue_without_content_is_retried() -> None:
             msg = f"unexpected model input: {messages[-1]}"
             raise AssertionError(msg)
 
-    engine = Engine(FunctionModel(stream_function=model))
+    engine = Engine(
+        FunctionModel(stream_function=model), legacy_interact_args=legacy_args
+    )
     s = await engine.new_session("one\n---\ntwo")
     first = await collect(engine.run_turn(s))
     req = next(e for e in first if isinstance(e, InteractionRequest))
@@ -1622,7 +1629,17 @@ async def test_a_newline_before_finish_does_not_withhold_the_closing_line() -> N
     assert "That is the end of the lesson." in said
 
 
-async def test_an_authored_continue_resumes_only_on_its_option_after_reload() -> None:
+@pytest.mark.parametrize("legacy_args", [False, True], ids=["question", "prompt"])
+async def test_an_authored_continue_resumes_only_on_its_option_after_reload(
+    legacy_args: bool,
+) -> None:
+    args = {
+        "type": "single",
+        "options": [{"display": "Begin practice", "value": "begin"}],
+    }
+    if legacy_args:
+        args["prompt"] = ""
+
     calls = 0
 
     async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
@@ -1636,12 +1653,16 @@ async def test_an_authored_continue_resumes_only_on_its_option_after_reload() ->
         yield {
             0: DeltaToolCall(
                 name="interact",
-                json_args='{"type":"single","options":[{"display":"Begin practice","value":"begin"}]}',
+                json_args=json.dumps(args),
                 tool_call_id="c1",
             )
         }
 
-    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        pauses_from_notation=True,
+        legacy_interact_args=legacy_args,
+    )
     session = await engine.new_session("?[Begin practice//begin]\n\nFirst step.")
     events = await collect(engine.run_turn(session))
     (button,) = [e for e in events if isinstance(e, InteractionRequest)]

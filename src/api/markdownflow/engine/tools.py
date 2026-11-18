@@ -1158,13 +1158,23 @@ async def interact(
         and not spec.variable
         and not ctx.deps.interaction_markup_pending
     ):
-        if None not in authored_questions and text_in_turn(ctx) == 0:
-            msg = (
-                "You asked the learner to continue without presenting anything in this turn. "
-                "Deliver the next part of the script as content first, then pause where the "
-                "script asks the learner to wait."
-            )
-            raise ModelRetry(msg)
+        if text_in_turn(ctx) == 0:
+            authored_pause = None in authored_questions
+            if legacy_call:
+                authored_pause = any(
+                    control.variable is None
+                    and _authored_controls_match(
+                        control, spec.type, spec.options, spec.placeholder
+                    )
+                    for control in ctx.deps.script_questions
+                )
+            if not authored_pause:
+                msg = (
+                    "You asked the learner to continue without presenting anything in this turn. "
+                    "Deliver the next part of the script as content first, then pause where the "
+                    "script asks the learner to wait."
+                )
+                raise ModelRetry(msg)
         if ctx.deps.no_pauses:
             # Carry on in the same turn when the lesson has no authored pause. Leave a repaired
             # interaction deferred so only the learner can answer a control first written as text.
