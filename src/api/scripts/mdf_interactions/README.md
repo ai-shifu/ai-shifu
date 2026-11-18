@@ -4,10 +4,10 @@ The bundled catalog has 27 cases, including 17 derived from distinct Langfuse
 sessions and 10 synthetic cases. The 12-case smoke suite covers choice, text,
 and combined submissions, including one-option navigation. The navigation
 fixtures check the authored option, require an explicit click, and verify that
-fixed choices preserve learner memory. In `choose-scenario-then-navigate`, the
-question can be empty and the binding can be absent. Both fields can also
-repeat the sole button label. After the click, the evaluator checks the
-scenario-specific question and unchanged memory.
+fixed choices preserve learner memory. The navigation question in
+`choose-scenario-then-navigate` can be empty or contain any text. The case
+checks the button's submitted value, the scenario-specific question after the
+click, and unchanged memory across the click.
 The full catalog includes 10 replay-only cases.
 
 ## Teaching paths
@@ -48,8 +48,6 @@ responses or host behavior that can run without a fresh model response.
 An interaction step expects one emitted question by default. Set
 `question_count` when the step intentionally emits more than one. The
 `pending` field checks how many questions the session still holds.
-The expected question text and binding may list accepted values. Option pairs
-still require an exact match.
 
 Set `prose_question` to the intended question for a live check of the
 learner-facing prose. The judge accepts any wording that clearly asks for the

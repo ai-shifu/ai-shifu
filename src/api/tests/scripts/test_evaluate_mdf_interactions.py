@@ -460,12 +460,8 @@ def test_live_evaluator_checks_authored_navigation_and_clicks_the_available_butt
         assert "核对小袋" in result["steps"][1]["prose"]
 
 
-@pytest.mark.parametrize(
-    ("title", "matches"), [("开始记录", True), ("选一个观察项目", False)]
-)
-def test_start_recording_accepts_the_button_label_as_the_question(
-    title: str, matches: bool
-) -> None:
+@pytest.mark.parametrize("title", ["", "开始记录", "选一个观察项目"])
+def test_start_recording_accepts_any_question(title: str) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     fixture = next(
         entry for entry in catalog if entry["id"] == "choose-scenario-then-navigate"
@@ -476,24 +472,14 @@ def test_start_recording_accepts_the_button_label_as_the_question(
     result = asyncio.run(evaluate_case(case))
 
     navigation = result["steps"][1]
-    assert navigation["question"]["variable"] == title
-    assert navigation["criteria"]["question.question"] == (
-        "passed" if matches else "failed"
-    )
-    assert navigation["criteria"]["question.variable"] == (
-        "passed" if matches else "failed"
-    )
-    if matches:
-        assert result["status"] == "first_attempt_pass"
-        after_click = result["steps"][2]
-        assert after_click["criteria"]["question.question"] == "passed"
-        assert after_click["memory"] == navigation["memory"]
-        assert after_click["memory_updates"] == []
-    else:
-        assert result["failures"] == [
-            "step_2.question.question",
-            "step_2.question.variable",
-        ]
+    assert navigation["question"]["question"] == title
+    assert navigation["question"]["variable"] == (title or None)
+    assert navigation["criteria"]["question.options"] == "passed"
+    assert result["status"] == "first_attempt_pass"
+    after_click = result["steps"][2]
+    assert after_click["criteria"]["question.question"] == "passed"
+    assert after_click["memory"] == navigation["memory"]
+    assert after_click["memory_updates"] == []
 
 
 @pytest.mark.parametrize(
