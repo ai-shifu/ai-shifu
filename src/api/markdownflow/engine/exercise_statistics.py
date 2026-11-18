@@ -25,6 +25,8 @@ from .tools import LESSON_OVER, Deps, validate_direction_call
 
 RESULT_BYTES = 8192
 MAX_SUBMISSIONS = 200
+# Allow up to one additional navigation click per supported submission in history.
+MAX_EVIDENCE_RECORDS = 2 * MAX_SUBMISSIONS
 
 
 def exercise_report_notice(ctx: RunContext[Deps]) -> str:
@@ -196,6 +198,8 @@ def _records(ctx: RunContext[Deps]) -> list[dict[str, Any]] | None:
             "multi_or_text",
         }:
             return None
+        if len(records) == MAX_EVIDENCE_RECORDS:
+            return None
         teaching_after, next_interaction = _following_teaching(messages, answered_at)
         source = _encode([asked_at, call_id, args, answer.content])
         records.append(
@@ -209,8 +213,6 @@ def _records(ctx: RunContext[Deps]) -> list[dict[str, Any]] | None:
                 "following_interaction": next_interaction,
             }
         )
-    if len(records) > MAX_SUBMISSIONS:
-        return None
     ctx.deps.exercise_evidence = records
     return records
 
@@ -397,7 +399,8 @@ def _hint_counts(
 async def calculate_exercise_statistics(
     ctx: RunContext[Deps],
     questions: Annotated[list[ExerciseQuestion], Field(min_length=1, max_length=100)],
-    excluded: Annotated[list[str], Field(max_length=MAX_SUBMISSIONS)] | None = None,
+    excluded: Annotated[list[str], Field(max_length=MAX_EVIDENCE_RECORDS)]
+    | None = None,
     review: FeedbackReview | None = None,
 ) -> str:
     """Compute counts from all original answer references, each used exactly once.
