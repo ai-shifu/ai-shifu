@@ -9,6 +9,7 @@ Learner memory should reflect answers that can vary. A confirmation or a single 
 - [x] 2026-11-18 07:03 CST: Traced learner memory and Profile evidence to the resolved native interaction.
 - [x] 2026-11-18 07:10 CST: Replaced the continuation-specific rule and added coverage for fixed actions and restored text inputs.
 - [x] 2026-11-18 07:16 CST: Verified the MarkdownFlow, Course and Profile suites, the interaction catalog, and architecture boundaries.
+- [x] 2026-11-18 09:50 CST: Reproduced the legacy Profile finding and reused authored input repair before evaluating eligibility. All 216 Profile tests and 3,400 MarkdownFlow tests passed.
 
 ## Surprises & Discoveries
 
@@ -27,6 +28,8 @@ same rule when reading previously accepted answers. Restored controls use their
 repaired shape for both paths. The MarkdownFlow suite passed 3,400 tests and the
 Course and Profile suites passed 2,254 tests. All 57 offline replay cases met
 their expectations, including the two intentionally reproduced failures.
+Legacy Profile histories that only contain raw tool arguments recover authored
+text inputs before deciding whether the accepted answer can inform a draft.
 
 ## Context and Orientation
 

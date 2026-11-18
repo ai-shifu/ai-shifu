@@ -55,6 +55,7 @@ from .engine.session import (
     SessionStore,
     SQLiteSessionStore,
 )
+from .engine.tools import restore_script_text_input
 from .interaction_rendering import (
     QuestionLabels,
     QuestionRenderer,
@@ -138,6 +139,7 @@ __all__ = [
     "rebase_initial_script",
     "render_first_prompt",
     "replace_variables_in_text",
+    "restore_script_text_input",
     "substitute_variables",
     "to_sse",
     "unescape_interaction_text",

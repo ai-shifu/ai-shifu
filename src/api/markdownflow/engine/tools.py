@@ -554,6 +554,11 @@ def normalize_script_text_input(
     return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
 
+def restore_script_text_input(spec: InteractionSpec, script: str) -> InteractionSpec:
+    """Recover the displayed text input when history only has raw tool arguments."""
+    return normalize_script_text_input(spec, authored_interaction_questions(script))
+
+
 def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
     r"""Return a script's option as the script means it, without the escapes of its notation.
 

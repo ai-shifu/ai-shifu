@@ -162,3 +162,44 @@ def test_profile_evidence_requires_a_choice_or_free_text(
     assert [evidence["answer"] for evidence in profile_answer_evidence(session)] == (
         ["Learner chose: start"] if free_text else []
     )
+
+
+def test_legacy_repaired_text_input_remains_profile_evidence() -> None:
+    session = _session("?[%{{goal}} ...Your answer]")
+    native = Session(
+        id=session.session_id,
+        user_id=session.user_bid,
+        script=ScriptBundle(script=session.document),
+        messages=[
+            ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        tool_name="interact",
+                        tool_call_id="goal",
+                        args={
+                            "type": "single",
+                            "prompt": "What would you like to learn?",
+                            "variable": " goal ",
+                            "options": [{"display": "Your answer"}],
+                        },
+                    )
+                ]
+            ),
+            ModelRequest(
+                parts=[ToolReturnPart("interact", "Learner wrote: Algebra", "goal")]
+            ),
+        ],
+    )
+    session.engine_session = native.to_dict()
+
+    assert profile_answer_evidence(session) == [
+        {
+            "prompt": "What would you like to learn?",
+            "variable": "goal",
+            "answer": "Learner wrote: Algebra",
+            "question_context": {
+                "is_learner_fact": False,
+                "options": [{"display": "Your answer", "value": "Your answer"}],
+            },
+        }
+    ]

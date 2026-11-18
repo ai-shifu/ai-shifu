@@ -21,6 +21,7 @@ from flaskr.api.markdownflow import (
     TurnDone,
     iter_turn,
     render_question,
+    restore_script_text_input,
     unrenderable_reason,
 )
 from flaskr.service.profile.api import SYS_USER_NICKNAME
@@ -366,33 +367,35 @@ def profile_answer_evidence(
                     args = part.args_as_dict()
                 except (AssertionError, TypeError, ValueError):
                     continue
-                if isinstance(args.get("question"), str):
+                legacy = not isinstance(args.get("question"), str)
+                if not legacy:
                     # The resolved spec records the exact question that owns the answer.
                     spec = working.interaction_specs.get(part.tool_call_id)
                     if spec is None or not spec.question_owns_memory:
                         continue
-                    prompt, variable = spec.question, spec.variable
-                    context = _question_context(spec.model_dump(mode="json"))
                 else:
                     # Older sessions have only raw arguments. Normalize the
-                    # saved key the same way as the historical interaction tool.
+                    # binding and restore the displayed input before checking it.
                     try:
                         spec = InteractionSpec.model_validate(args)
                     except (TypeError, ValueError):
                         continue
-                    prompt, variable = spec.question, spec.variable
+                    variable = spec.variable
                     if variable is not None:
                         normalized_variable = normalize_variable_name(variable)
                         if normalized_variable is None and variable.strip():
                             continue
-                        variable = normalized_variable
-                    context = _question_context(args)
-                if not spec.can_store_answer or variable == SYS_USER_NICKNAME:
+                        spec = spec.model_copy(update={"variable": normalized_variable})
+                    if not spec.can_store_answer:
+                        spec = restore_script_text_input(spec, working.script.script)
+                if not spec.can_store_answer or spec.variable == SYS_USER_NICKNAME:
                     continue
                 calls[part.tool_call_id] = {
-                    "prompt": prompt,
-                    "variable": variable,
-                    **context,
+                    "prompt": spec.question,
+                    "variable": spec.variable,
+                    **_question_context(
+                        args if legacy else spec.model_dump(mode="json")
+                    ),
                 }
             elif (
                 isinstance(message, ModelRequest)

@@ -36,6 +36,7 @@ from markdownflow import (
     iter_turn,
     normalize_answer,
     rebase_initial_script,
+    restore_script_text_input,
     substitute_variables,
 )
 
@@ -76,6 +77,7 @@ __all__ = [
     "render_interaction",
     "render_narrated_interaction",
     "render_question",
+    "restore_script_text_input",
     "substitute_variables",
     "unrenderable_reason",
 ]
