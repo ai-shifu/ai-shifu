@@ -512,11 +512,9 @@ class Engine:
         A question it cannot render is refused to the model, which asks it again, rather than
         left pending with nothing on the learner's screen to answer it.
 
-        `pauses_from_notation` is how a host says its scripts pause where their notation puts
-        a button (`?[继续]`), as a MarkdownFlow 1.0 lesson does. When a script has no such
-        button, the engine continues past unsolicited navigation without asking the learner.
-        Where the script has buttons, the model places the pauses, since nothing says which part
-        of the script it has reached. Off, the model decides everywhere.
+        Enable `pauses_from_notation` to bypass model-generated navigation in scripts
+        without authored single-button pauses. The model decides where to pause when
+        the script contains such a button or the setting is off.
 
         `memory_admission` enables the AI-Shifu declared-or-requested policy. Undeclared notes
         require real accepted input and `memory_request_check`; that host callback decides

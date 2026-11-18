@@ -31,10 +31,10 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     assert len(hashes) == 15
     # Record reviewed runtime guidance changes and keep the historical fixture intact.
     hashes["system"] = (
-        "fc29fe2666e635df30c42f21b931c1b9d75c6e26e250a8e713fac4343ac6fa90"
+        "c4866f30fc0db308831e244fd505d1e039d1c2a42ff9f56b00f5c3efbd39c42e"
     )
     hashes["exercise_statistics"] = (
-        "74c6eafc8a35ec09b6d7f1cd15356c010a41870712cfc9374771e07cb316a169"
+        "a3a239ad85b130d3832a2f26caa9e129e370edc738a615c883cbe5a0e2f5ebce"
     )
     hashes["v1_syntax"] = (
         "9bbb89a1a1593f9a32aa2864097283f3c86a48f9e4d11ea1d1bc28f039e315ea"

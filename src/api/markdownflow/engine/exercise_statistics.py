@@ -25,7 +25,7 @@ from .tools import LESSON_OVER, Deps, validate_direction_call
 
 RESULT_BYTES = 8192
 MAX_SUBMISSIONS = 200
-# Allow up to one additional navigation click per supported submission in history.
+# Report coverage includes non-exercise interactions as well as exercise submissions.
 MAX_EVIDENCE_RECORDS = 2 * MAX_SUBMISSIONS
 
 
@@ -63,14 +63,13 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "Original submissions have been read completely. Next call "
             "calculate_exercise_statistics with every original reference grouped "
             "by its actual question and graded from its original feedback. "
-            "Put non-exercise navigation references in excluded, not in question "
-            "submissions; single-choice continue clicks can remain in the evidence. "
+            "Put references for interactions unrelated to exercises in excluded. "
             "Audit qualifying hint rounds both before and after the first actual answer; "
             "hints is their sum, while hints_before_first is only the earlier subset. "
             "Supply hint_before and each submission's hint_after from original "
             "teaching; omit scalar count assertions and let the calculator sum rounds, "
             "except for a question with empty submissions: assert its hints total "
-            "from the original teaching, including rounds after a continue click. "
+            "from all relevant rounds of original teaching. "
             "For hint_before inspect the first record's teaching, not following_teaching, "
             "plus its visible question fields, including qualifying placeholder help. "
             "Keep course logistics and question-only teaching false under rules that exclude "
@@ -223,8 +222,8 @@ async def read_exercise_history(
     """Read exact chronological submitted-answer evidence as paginated JSON text.
 
     Join text pages in offset order, then parse the JSON array. Pending questions
-    and host refusals are excluded. Check the purpose of single-button clicks
-    and put navigation references in the calculator's excluded list.
+    and host refusals are excluded. Use the original context to identify interactions
+    unrelated to exercises and put their references in the calculator's excluded list.
     Follow next_offset to null.
     Following teaching is exact same-turn context, not extracted grading: it can
     also introduce the following_interaction. Records with the same answer_group
@@ -358,9 +357,8 @@ def _hint_counts(
 ) -> tuple[int | None, int | None] | None:
     """Derive counts from supplied round judgments; None means conflicting evidence.
 
-    A question with no submissions has no rounds to derive from: hints after a
-    continue click have no submission to carry them. Its total is the asserted
-    `hints`, which must cover a qualifying `hint_before`, and stays unknown when
+    For a question with no submissions, use the asserted `hints` from the original
+    teaching. The total must cover a qualifying `hint_before` and stays unknown when
     omitted. With no first answer, its timing is known only when that total is zero.
     """
     if not row.submissions:
@@ -406,12 +404,10 @@ async def calculate_exercise_statistics(
     """Compute counts from all original answer references, each used exactly once.
 
     Read read_exercise_history first. Group submissions by actual question and
-    grade each from original teacher feedback in time order. Excluded references
-    must be non-exercise answers, including ordinary single-choice navigation
-    clicks that remain in the evidence. Every reference must appear exactly once
+    grade each from original teacher feedback in time order. Use excluded for
+    interactions unrelated to exercises. Every reference must appear exactly once
     across submissions and excluded. Invalid coverage returns bounded missing,
-    unknown and duplicate references; repair those lists without rereading unchanged
-    history or treating a navigation click as a graded attempt.
+    unknown and duplicate references. Use those lists to repair coverage.
     Never guess grades or hints; unverified remains
     an unresolved answer attempt. Use not_answer for knowledge questions or
     clarification requests containing no attempted answer; they remain evidence
@@ -440,9 +436,9 @@ async def calculate_exercise_statistics(
     Keep unknown hint timing null, never assume zero from not_answer alone.
     Zero non-answer counts are omitted from rows and totals; absence means zero.
     Include unanswered questions with empty submissions, and assert their hints
-    from the original teaching, including rounds after a continue click;
-    without that assertion their count stays unknown. This tool
-    verifies coverage and arithmetic, not semantic grading or question identity.
+    from all relevant rounds of original teaching. The count stays unknown when
+    omitted. This tool verifies coverage and arithmetic, not semantic grading or
+    question identity.
     Its counts are not evidence of personal misconceptions or causes. Ground
     every personal statement in the final table, advice and closing prose in an
     actual submission quote or directly observed omission, never an authored

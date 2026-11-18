@@ -32,24 +32,16 @@ def test_a_separator_is_a_section_boundary_and_never_a_pause() -> None:
 def test_a_pause_the_script_asks_for_still_stops_the_turn() -> None:
     """Only the model's own pauses are forbidden; the author's are the point.
 
-    A rule that let nothing but questions and the end stop a turn would contradict the system
-    prompt, which uses a single button where the script says to wait for the learner.
+    An explicit pause is a learner interaction even when the script asks no question.
     """
     rule = _separator_rule()
     assert "a pause it explicitly asks for" in rule
 
 
-def test_a_pause_is_only_ever_the_script_s_own() -> None:
-    """A Continue button the author did not write is a pause the model invented.
-
-    The model was pausing between steps and after visuals on its own, each one a button the
-    learner had to press. Both the rule and the tool's description now say a pause is the
-    script's to ask for, never the model's.
-    """
-    system = (_PROMPT.parent / "system.md").read_text()
-    assert 'Use `type="single"` with exactly one option for a continue button' in system
-    assert "Show a continue button only where the script asks for one" in system
+def test_the_interact_tool_describes_authored_pauses() -> None:
+    """The tool description gives the interaction shape for a scripted pause."""
     tools = (_PROMPT.parents[1] / "tools.py").read_text()
+    assert "use `single` with exactly one option" in tools
     assert "Pause only where the script asks you to wait" in tools
 
 
