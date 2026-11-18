@@ -1,13 +1,13 @@
 # Interaction evaluation coverage
 
-The bundled catalog has 27 cases, including 17 derived from distinct Langfuse
-sessions and 10 synthetic cases. The 12-case smoke suite covers choice, text,
+The bundled catalog has 28 cases, including 17 derived from distinct Langfuse
+sessions and 11 synthetic cases. The 12-case smoke suite covers choice, text,
 and combined submissions, including one-option navigation. The navigation
 fixtures check the authored option, require an explicit click, and verify that
-fixed choices preserve learner memory. The navigation question in
-`choose-scenario-then-navigate` can be empty or contain any text. The case
-checks the button's submitted value, the scenario-specific question after the
-click, and unchanged memory across the click.
+fixed choices preserve learner memory. Both observation paths accept any
+navigation question, including an empty title. They check the button's
+submitted value, the scenario-specific question after the click, and unchanged
+memory across the click.
 The full catalog includes 10 replay-only cases.
 
 ## Teaching paths
@@ -23,6 +23,7 @@ The full catalog includes 10 replay-only cases.
 | Pause for an explicit click after visible teaching | `lf-empty-pause-01` |
 | Use an earlier preference and collect a fixed one-option answer without writing it to memory | `natural-language-single-answer` |
 | Choose a scenario, click the navigation button after reload, then submit choices and a note on the relevant follow-up | `choose-scenario-then-navigate` |
+| Use the same lesson to choose the balcony and reach its distinct follow-up after reloading the navigation button | `choose-balcony-then-navigate` |
 | Ask about the required format, return to the same question, then answer it | `clarify-before-answering` |
 | Receive a targeted hint, revise the answer, then complete the exercise | `lf-feedback-missing-branch` |
 | See evidence-based guidance with the original input hint, then submit a correction | `lf-feedback-checking-placeholder` |

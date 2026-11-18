@@ -639,11 +639,12 @@ def test_live_evaluator_checks_authored_navigation_and_clicks_the_available_butt
 
 
 @pytest.mark.parametrize("title", ["", "开始记录", "选一个观察项目"])
-def test_start_recording_accepts_any_question(title: str) -> None:
+@pytest.mark.parametrize(
+    "case_id", ["choose-scenario-then-navigate", "choose-balcony-then-navigate"]
+)
+def test_start_recording_accepts_any_question(title: str, case_id: str) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
-    fixture = next(
-        entry for entry in catalog if entry["id"] == "choose-scenario-then-navigate"
-    )
+    fixture = next(entry for entry in catalog if entry["id"] == case_id)
     fixture["replay"][1]["calls"][0]["args"]["question"] = title
     case = Case.model_validate(fixture)
 
@@ -658,6 +659,24 @@ def test_start_recording_accepts_any_question(title: str) -> None:
     assert after_click["criteria"]["question.question"] == "passed"
     assert after_click["memory"] == navigation["memory"]
     assert after_click["memory_updates"] == []
+
+
+def test_balcony_replay_rejects_the_windowsill_branch_after_reload() -> None:
+    catalog = {
+        row["id"]: row for row in json.loads(CATALOG.read_text(encoding="utf-8"))
+    }
+    balcony = catalog["choose-balcony-then-navigate"]
+    windowsill = catalog["choose-scenario-then-navigate"]
+    assert balcony["teaching_prompt"] == windowsill["teaching_prompt"]
+    balcony["replay"][2] = windowsill["replay"][2]
+
+    result = asyncio.run(evaluate_case(Case.model_validate(balcony)))
+
+    assert result["status"] == "behavior_failure"
+    after_click = result["steps"][2]
+    assert after_click["reloaded"] is True
+    assert after_click["criteria"]["memory"] == "passed"
+    assert after_click["criteria"]["question.question"] == "failed"
 
 
 @pytest.mark.parametrize(
