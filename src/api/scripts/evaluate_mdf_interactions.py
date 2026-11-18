@@ -1083,6 +1083,16 @@ def print_assessment(
             print_evidence(f"  Judge  {json.dumps(decision, ensure_ascii=False)}")
 
 
+def same_file(left: Path, right: Path) -> bool:
+    """Match path aliases and existing hard links, including unwritten outputs."""
+    if left.resolve() == right.resolve():
+        return True
+    try:
+        return left.samefile(right)
+    except FileNotFoundError:
+        return False
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the local interaction evaluator and optionally compare a prior JSON report."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -1126,15 +1136,16 @@ def main(argv: list[str] | None = None) -> int:
             if not model_id.strip():
                 parser.error(f"{flag} must be nonblank")
     review_path = args.json.with_suffix(".review.html") if args.json else None
-    if args.json:
-        inputs = {path.resolve() for path in (args.cases, args.compare) if path}
-        outputs = {args.json.resolve(), review_path.resolve()}
-        if len(outputs) != 2 or inputs & outputs:
-            parser.error(
-                "reports and the review page must use different files from the inputs"
-            )
-
     try:
+        if review_path is not None:
+            outputs = (args.json, review_path)
+            inputs = [path for path in (args.cases, args.compare) if path is not None]
+            if same_file(*outputs) or any(
+                same_file(output, path) for output in outputs for path in inputs
+            ):
+                parser.error(
+                    "reports and the review page must use different files from the inputs"
+                )
         cases, skipped = select_cases(
             load_cases(args.cases), args.case, args.suite, live=args.live
         )

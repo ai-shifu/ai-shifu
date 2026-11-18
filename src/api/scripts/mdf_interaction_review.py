@@ -204,7 +204,7 @@ def write_review(path: Path, reports: list[dict], *, focus: str | None = None) -
 
 def main(argv: list[str] | None = None) -> int:
     """Reopen or combine saved JSON reports without running a model."""
-    from scripts.evaluate_mdf_interactions import CASES_PATH, load_cases
+    from scripts.evaluate_mdf_interactions import CASES_PATH, load_cases, same_file
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reports", type=Path, nargs="+")
@@ -214,13 +214,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--focus", help="open this case when the page loads")
     args = parser.parse_args(argv)
-    if args.output.resolve() in {
-        path.resolve() for path in [*args.reports, args.cases or CASES_PATH]
-    }:
-        parser.error(
-            "the output must be different from the reports and fixture catalog"
-        )
     try:
+        if any(
+            same_file(args.output, path)
+            for path in [*args.reports, args.cases or CASES_PATH]
+        ):
+            parser.error(
+                "the output must be different from the reports and fixture catalog"
+            )
         reports = [json.loads(path.read_bytes()) for path in args.reports]
         if not any(report.get("review_context") for report in reports):
             catalog = load_cases(args.cases or CASES_PATH)

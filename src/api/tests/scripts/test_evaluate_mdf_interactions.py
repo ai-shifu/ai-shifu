@@ -859,6 +859,30 @@ def test_bundled_suite_replays_every_selected_case(tmp_path: Path, suite: str) -
         assert "variable" in retry["retry_feedback"][0]["message"]
 
 
+@pytest.mark.parametrize("target", ["baseline", "output", "review_input"])
+def test_report_writers_reject_hard_link_aliases(tmp_path: Path, target: str) -> None:
+    cases = tmp_path / "cases.json"
+    output = tmp_path / "results.json"
+    page = output.with_suffix(".review.html")
+    original = output if target == "output" else tmp_path / "original.json"
+    _write_cases(cases, _case())
+    original.write_bytes(b'{"saved":true}')
+    page.hardlink_to(original)
+    if target == "review_input":
+        cli = review_main
+        args = ["--output", str(page), str(original)]
+    else:
+        cli = main
+        args = ["--cases", str(cases), "--json", str(output)]
+        if target == "baseline":
+            args.extend(["--compare", str(original)])
+
+    with pytest.raises(SystemExit, match="2"):
+        cli(args)
+
+    assert original.read_bytes() == b'{"saved":true}'
+
+
 def test_review_reopens_legacy_reports_with_matching_fixtures(tmp_path: Path) -> None:
     cases = tmp_path / "cases.json"
     first = tmp_path / "first.json"
