@@ -3784,7 +3784,6 @@ export type I18nKey =
   | 'server.learn.askProviderRateLimited'
   | 'server.learn.askProviderTimeout'
   | 'server.learn.askProviderUnavailable'
-  | 'server.learn.continueButton'
   | 'server.learn.debugServiceUnavailable'
   | 'server.learn.debugSessionExpired'
   | 'server.learn.defaultLearnerName'

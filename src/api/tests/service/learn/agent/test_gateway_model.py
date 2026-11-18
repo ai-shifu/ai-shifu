@@ -309,7 +309,11 @@ def test_an_assistant_turn_carries_its_tool_calls_and_drops_thinking() -> None:
                 TextPart(content="Here you go."),
                 ToolCallPart(
                     tool_name="interact",
-                    args={"type": "confirm", "prompt": "Ready?"},
+                    args={
+                        "type": "single",
+                        "display_question": "Ready?",
+                        "options": [{"display": "Continue", "value": "continue"}],
+                    },
                     tool_call_id="c9",
                 ),
             ]
@@ -322,7 +326,7 @@ def test_an_assistant_turn_carries_its_tool_calls_and_drops_thinking() -> None:
     call = out[0]["tool_calls"][0]
     assert call["id"] == "c9"
     assert call["function"]["name"] == "interact"
-    assert json.loads(call["function"]["arguments"])["prompt"] == "Ready?"
+    assert json.loads(call["function"]["arguments"])["display_question"] == "Ready?"
 
 
 def test_tools_are_described_for_the_chat_api() -> None:
@@ -361,7 +365,10 @@ async def test_text_chunks_become_one_text_part() -> None:
 
 async def test_tool_arguments_split_across_chunks_are_stitched_back_together() -> None:
     """A provider sends one call's arguments in fragments; the index is what joins them."""
-    spec = {"type": "confirm", "prompt": "Ready?"}
+    spec = {
+        "type": "single",
+        "options": [{"display": "Continue", "value": "continue"}],
+    }
     raw = json.dumps(spec)
     response = await _drain(
         [

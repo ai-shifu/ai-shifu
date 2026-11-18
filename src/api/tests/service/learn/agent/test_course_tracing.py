@@ -23,7 +23,7 @@ from markdownflow.engine.events import (
     ToolResult,
     TurnDone,
 )
-from markdownflow.engine.interaction import InteractionSpec
+from markdownflow.engine.interaction import InteractionSpec, Option
 from pydantic_ai.models import ModelRequestParameters
 
 from tests import test_langfuse_v4_semantics as sdk_tests
@@ -218,7 +218,11 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
                 else:
                     yield InteractionRequest(
                         id="question",
-                        spec=InteractionSpec(type="confirm", prompt="Ready?"),
+                        spec=InteractionSpec(
+                            type="single",
+                            question="",
+                            options=[Option(display="Ready?", value="continue")],
+                        ),
                     )
                     yield TurnDone(reason="interaction")
 

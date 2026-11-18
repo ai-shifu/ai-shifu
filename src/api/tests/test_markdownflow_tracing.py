@@ -16,6 +16,7 @@ from markdownflow import (
     InteractionRequest,
     InteractionSpec,
     MemoryUpdated,
+    Option,
     ToolCall,
     ToolResult,
     TurnDone,
@@ -331,16 +332,16 @@ def test_unresolved_tool_waits_for_the_authoritative_host_outcome(
         ToolCall(id="note-1", name="remember", args={"key": "pace", "value": "slow"})
     )
     trace.event(MemoryUpdated(key="pace", value="slow", source="tool"))
+    option = Option(display="Continue", value="continue")
+    spec = InteractionSpec(type="single", question="", options=[option])
     trace.event(
         ToolCall(
-            id="question-1", name="interact", args={"type": "confirm", "question": ""}
+            id="question-1",
+            name="interact",
+            args={"type": "single", "options": [option.model_dump()]},
         )
     )
-    trace.event(
-        InteractionRequest(
-            id="question-1", spec=InteractionSpec(type="confirm", question="")
-        )
-    )
+    trace.event(InteractionRequest(id="question-1", spec=spec))
     trace.event(ToolCall(id="finish-1", name="finish", args={"summary": "Done"}))
     trace.event(TurnDone(reason="finished"))
 

@@ -84,10 +84,9 @@ __all__ = [
 
 
 def _question_renderer() -> QuestionRenderer:
-    """Bind default control labels to the current application's locale."""
+    """Bind the default input hint to the current application's locale."""
     return QuestionRenderer(
         QuestionLabels(
-            continue_label=_("server.learn.continueButton"),
             free_text_placeholder=_("server.learn.freeTextPlaceholder"),
         )
     )

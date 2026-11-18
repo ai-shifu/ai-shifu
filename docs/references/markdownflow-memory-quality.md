@@ -475,7 +475,7 @@ feedback, but the final report fails; the lesson remains unfinished.
 
 The final turn reads all ten original-evidence pages. Its 27 records include
 seventeen relevant exercise inputs and ten ordinary single-choice navigation
-clicks. Unlike typed confirms, those single choices remain in the evidence.
+clicks.
 Both calculator attempts cover the seventeen exercise inputs but omit every
 navigation reference from `excluded`. Exact coverage correctly returns
 `invalid_coverage`, then the unchanged twelve-request budget is exhausted.

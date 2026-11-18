@@ -290,7 +290,7 @@ cost nothing. **They must be green for any change under `markdownflow/`.** They 
 what the surrounding service tests cannot: pausing and resuming on an
 interaction, several interactions raised in one turn, answers surviving a store
 round trip, variables reaching memory, listen-mode segmentation, script syntax
-detection, and the confirm guardrails.
+detection, and authored navigation boundaries.
 
 ## Tests
 

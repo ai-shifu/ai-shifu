@@ -19,11 +19,7 @@ from markdownflow.engine.events import (
     TurnDone,
     Visual,
 )
-from markdownflow.engine.interaction import (
-    DEFAULT_CONFIRM_LABEL,
-    InteractionSpec,
-    Option,
-)
+from markdownflow.engine.interaction import InteractionSpec, Option
 
 OUTLINE = "outline-bid"
 BLOCK = "block-bid"
@@ -164,19 +160,6 @@ def test_multiple_choice_with_text_keeps_the_double_bar() -> None:
         )
     )
     assert rendered == "?[%{{ answer }} A || B || ...Other]"
-
-
-def test_a_confirm_renders_one_button_and_stores_nothing() -> None:
-    """The spec drops a confirm's variable, because pressing continue is not an answer."""
-    rendered = legacy_protocol.render_interaction(
-        _spec(
-            type="confirm",
-            prompt="Ready?",
-            options=[Option(display="Continue")],
-            variable="would_overwrite_a_real_answer",
-        )
-    )
-    assert rendered == "?[Continue]"
 
 
 # --- event translation -------------------------------------------------------------------
@@ -437,14 +420,18 @@ def _parse(rendered: str) -> dict:
             id="choice-or-text",
         ),
         pytest.param(
-            {"type": "confirm", "prompt": "p", "options": [Option(display="Continue")]},
+            {
+                "type": "single",
+                "question": "",
+                "options": [Option(display="Continue", value="go")],
+            },
             {
                 "variable": None,
-                "buttons": [("Continue", "Continue")],
+                "buttons": [("Continue", "go")],
                 "is_multi_select": False,
                 "question": None,
             },
-            id="confirm-stores-nothing",
+            id="single-navigation-button",
         ),
     ],
 )
@@ -632,20 +619,20 @@ def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -
         )
 
 
-def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
-    """The model writes "继续" as the prompt of a confirm; that is what the button should say.
-
-    Sent as content it trailed the lesson's last sentence, followed by a button reading "Continue"
-    in a language the lesson was not in.
-    """
-    translated = _translate(
+def test_navigation_button_preserves_its_localized_label() -> None:
+    (control,) = _translate(
         InteractionRequest(
-            id="i1", spec=InteractionSpec(type="confirm", prompt="继续", options=[])
+            id="i1",
+            spec=InteractionSpec(
+                type="single",
+                question="",
+                options=[Option(display="继续", value="continue")],
+            ),
         )
     )
-    assert [e.type for e in translated] == [GeneratedType.INTERACTION]
-    assert translated[0].content == "?[继续//continue]"
-    assert translated[0].interaction_question is None
+    assert control.type == GeneratedType.INTERACTION
+    assert control.content == "?[继续//continue]"
+    assert control.interaction_question is None
 
 
 def test_a_localized_question_uses_its_translation_as_the_control_title() -> None:
@@ -661,118 +648,6 @@ def test_a_localized_question_uses_its_translation_as_the_control_title() -> Non
     assert control.content == "?[%{{ What would you like to learn? }} ...Votre réponse]"
 
 
-def test_a_long_confirm_prompt_becomes_a_control_title() -> None:
-    """A long instruction is the control title; the button is labelled by the host."""
-    translated = _translate(
-        InteractionRequest(
-            id="i1",
-            spec=InteractionSpec(
-                type="confirm", prompt="看完上面的图，想清楚了再点继续。", options=[]
-            ),
-        )
-    )
-    assert [e.type for e in translated] == [GeneratedType.INTERACTION]
-    assert translated[0].interaction_question == "看完上面的图，想清楚了再点继续。"
-    # The host names the button, rather than the engine's default reaching the learner. Asserted
-    # through the same lookup, because in English the two words are the same one; that the label
-    # really is translated is asserted in a Chinese lesson below.
-    assert translated[0].content == f"?[{_('server.learn.continueButton')}//continue]"
-
-
-def test_a_label_the_model_wrote_is_left_alone() -> None:
-    """Only the engine's own default is replaced.
-
-    A short confirm prompt becomes the button's text, and it is already in the lesson's language.
-    Replacing it too would overwrite the author's wording with a generic one.
-    """
-    translated = _translate(
-        InteractionRequest(
-            id="i1",
-            spec=InteractionSpec(type="confirm", prompt="我准备好了", options=[]),
-        )
-    )
-    assert translated[-1].content == "?[我准备好了//continue]"
-
-
-def test_an_unlabelled_confirm_is_named_by_the_host() -> None:
-    """The engine leaves an English word on the button; the learner must not see it."""
-    translated = _translate(
-        InteractionRequest(
-            id="i1",
-            spec=InteractionSpec(type="confirm", prompt="", options=[]),
-        )
-    )
-    assert translated[-1].content == f"?[{_('server.learn.continueButton')}//continue]"
-
-
-def test_a_model_that_writes_continue_itself_keeps_its_own_word() -> None:
-    """The host's replacement must not reach a label the model chose, even the same word.
-
-    A short confirm prompt becomes the button's text, so by the time that rewrite has run the
-    model's `Continue` looks exactly like the engine's default. Localising after it would take
-    the model's own word off the button, which is the line this fix must not cross.
-    """
-    translated = _translate(
-        InteractionRequest(
-            id="i1",
-            spec=InteractionSpec(
-                type="confirm", prompt=DEFAULT_CONFIRM_LABEL, options=[]
-            ),
-        )
-    )
-    assert translated[-1].content == f"?[{DEFAULT_CONFIRM_LABEL}//continue]"
-
-
-def test_a_button_the_model_labelled_continue_itself_is_left_alone() -> None:
-    """Only the engine's own default is replaced, not a label the model chose.
-
-    The model may write the very word the engine would have defaulted to. Telling the two apart
-    by the word made that model's label indistinguishable from no label at all, and its stored
-    value was rewritten along with it.
-    """
-    translated = _translate(
-        InteractionRequest(
-            id="i1",
-            spec=InteractionSpec(
-                type="confirm",
-                prompt="Read the diagram, then carry on when you are ready.",
-                options=[Option(display=DEFAULT_CONFIRM_LABEL, value="go")],
-            ),
-        )
-    )
-    assert translated[-1].content == f"?[{DEFAULT_CONFIRM_LABEL}//go]"
-
-
-@pytest.mark.parametrize("language", ["zh-CN", "en-US", "fr-FR", "ar-SA", "th-TH"])
-@pytest.mark.usefixtures("app")
-def test_the_continue_label_exists_in_every_language(language: str) -> None:
-    """A missing or misspelt key would put `server.learn.continueButton` on the button.
-
-    Asserting through `_()` on both sides cannot see that: with no translations loaded it
-    returns the key, and the two sides agree. This loads them and asks for the word.
-    """
-    from flaskr.i18n import translate_for_language
-
-    key = "server.learn.continueButton"
-    assert translate_for_language(key, language) != key
-
-
-@pytest.mark.usefixtures("app")
-def test_a_chinese_learner_is_asked_to_continue_in_chinese() -> None:
-    from flaskr.i18n import clear_language, set_language
-
-    set_language("zh-CN")
-    try:
-        translated = _translate(
-            InteractionRequest(
-                id="i1", spec=InteractionSpec(type="confirm", prompt="", options=[])
-            )
-        )
-    finally:
-        clear_language()
-    assert translated[-1].content == "?[继续//continue]"
-
-
 # --- whether a question can be shown at all ---------------------------------------------------
 
 
@@ -786,12 +661,6 @@ def test_a_question_the_controls_can_carry_is_renderable() -> None:
         ],
         variable="读过的文档站",
     )
-    assert legacy_protocol.unrenderable_reason(spec) is None
-
-
-def test_a_short_confirm_is_checked_as_the_button_it_becomes() -> None:
-    """The check sees the question as `translate` sends it, not as the model wrote it."""
-    spec = InteractionSpec(type="confirm", prompt="继续")
     assert legacy_protocol.unrenderable_reason(spec) is None
 
 

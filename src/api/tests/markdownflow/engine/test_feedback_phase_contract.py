@@ -1042,42 +1042,37 @@ async def test_initial_acceptance_cannot_omit_feedback_content(
 async def test_accepted_control_only_feedback_needs_an_actual_authored_rule(
     foreign_quote: bool,
 ) -> None:
-    terminal = "interact"
     calls = 0
     rule = "After accepting an answer, show only the next control without explanation."
 
-    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
         nonlocal calls
         calls += 1
-        if any(
-            isinstance(p, ToolReturnPart) and p.tool_name == "finish"
-            for m in messages
-            for p in m.parts
-        ):
-            yield ""
-            return
         if calls == 1:
             yield _call(
-                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+                {
+                    "type": "text",
+                    "question": "Explain stored-program execution.",
+                    "placeholder": "Answer",
+                },
+                "original",
             )
             return
-        args = (
-            {"summary": "Accepted"}
-            if terminal == "finish"
-            else {"type": "single", "prompt": "", "options": [{"display": "Next"}]}
+        yield _call(
+            {
+                "type": "single",
+                "options": [{"display": "Next"}],
+                "feedback": _review(
+                    rule_quote="Foreign control-only rule"
+                    if foreign_quote and calls == 2
+                    else rule
+                ),
+            },
+            "control",
         )
-        args["review"] = _review(
-            rule_quote="Foreign control-only rule"
-            if foreign_quote and calls == 2
-            else rule
-        )
-        yield {
-            0: DeltaToolCall(
-                name=terminal, json_args=json.dumps(args), tool_call_id="control"
-            )
-        }
 
     engine = _engine(stream)
+    engine.legacy_interact_args = False
     engine.limits.request_limit = 3
     session = await engine.new_session(rule + "\n" + SCRIPT)
     await _collect(engine.run_turn(session))
@@ -1086,7 +1081,10 @@ async def test_accepted_control_only_feedback_needs_an_actual_authored_rule(
     )
     assert _text(events) == ""
     assert calls == (3 if foreign_quote else 2)
-    assert session.finished == (terminal == "finish")
+    assert not session.finished
+    (pending,) = session.pending
+    assert pending.tool_call_id == "control"
+    assert [option.stored for option in pending.spec.options] == ["Next"]
 
 
 @pytest.mark.anyio

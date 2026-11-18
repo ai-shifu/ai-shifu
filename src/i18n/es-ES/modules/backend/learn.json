@@ -10,7 +10,6 @@
     "askProviderRateLimited": "Se ha alcanzado el límite de solicitudes o la cuota de la base de conocimientos. Inténtalo más tarde.",
     "askProviderTimeout": "La base de conocimientos externa ha tardado demasiado en responder. Inténtalo más tarde.",
     "askProviderUnavailable": "La base de conocimientos externa no está disponible temporalmente.",
-    "continueButton": "Continuar",
     "debugServiceUnavailable": "El servicio de depuración no está disponible temporalmente. Inténtalo de nuevo más tarde.",
     "debugSessionExpired": "Esta sesión de depuración ha caducado o el guion ha cambiado. Inicia la depuración de nuevo.",
     "defaultLearnerName": "Estudiante",

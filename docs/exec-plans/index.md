@@ -131,6 +131,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MarkdownFlow Literal Prompt Sending](./completed/markdownflow-literal-prompts.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./completed/markdownflow-model-arena.md)
 - [Skip learner memory for fixed interaction actions](./completed/markdownflow-single-action-memory.md)
+- [Use single-button navigation in MarkdownFlow](./completed/markdownflow-single-button-navigation.md)
 - [MarkdownFlow 2.0: a lesson carries on until it waits or ends](./completed/mdf2-agent-lesson-carries-on.md)
 - [Keep grading within authored answer criteria](./completed/mdf2-authored-grading-criteria.md)
 - [Provider cache usage in memory quality reports](./completed/mdf2-cache-usage-observation.md)

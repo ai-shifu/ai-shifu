@@ -65,7 +65,6 @@ When the authored questionnaire is complete, call finish. The host creates the f
 profile privately afterward; do not publish a profile draft or a summary of private answers.
 """.strip()
 _ACCEPTED_ANSWER_PREFIXES = ("Learner wrote: ", "Learner chose: ")
-_CONFIRM_ANSWER_PREFIX = "Learner pressed continue."
 _QUESTION_PROSE_ESCAPES = str.maketrans(
     {char: "\\" + char for char in r"\`*_{}[]<>()#+-.!|&~$="}
 )
@@ -195,12 +194,8 @@ def _response_turn(
     return InteractionResponseTurn(id=pending.tool_call_id, values=values)
 
 
-def _accepted_result(content: object, *, include_confirm: bool = False) -> bool:
-    return isinstance(content, str) and content.startswith(
-        (*_ACCEPTED_ANSWER_PREFIXES, _CONFIRM_ANSWER_PREFIX)
-        if include_confirm
-        else _ACCEPTED_ANSWER_PREFIXES
-    )
+def _accepted_result(content: object) -> bool:
+    return isinstance(content, str) and content.startswith(_ACCEPTED_ANSWER_PREFIXES)
 
 
 def _input_was_accepted(
@@ -208,7 +203,7 @@ def _input_was_accepted(
 ) -> bool:
     if answered_id is None:
         return False
-    if _accepted_result(working.answers.get(answered_id), include_confirm=True):
+    if _accepted_result(working.answers.get(answered_id)):
         return True
     return any(
         isinstance(message, ModelRequest)
@@ -217,7 +212,7 @@ def _input_was_accepted(
             and part.tool_name == "interact"
             and part.tool_call_id == answered_id
             and part.outcome == "success"
-            and _accepted_result(part.content, include_confirm=True)
+            and _accepted_result(part.content)
             for part in message.parts
         )
         for message in working.messages[previous_message_count:]
@@ -247,7 +242,7 @@ def run_profile_turn(
         pending = working.pending[0]
         question = pending.spec.presented_question
         chunks = []
-        if question.strip() and pending.spec.type != "confirm":
+        if question.strip():
             chunks = (
                 _content_chunks([question])
                 if pending.spec.structured_correction

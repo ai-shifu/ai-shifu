@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-import pytest
 from flaskr.api.markdownflow import InteractionSpec
 from flaskr.service.learn.agent.interaction_history import structured_user_input
 from flaskr.service.learn.agent.run_agent import _turn_input
@@ -56,14 +55,20 @@ def test_single_choice_sets_the_button_text() -> None:
     assert json.loads(encoded)["buttonText"] == "plums"
 
 
-@pytest.mark.parametrize(
-    "spec",
-    [
-        {"type": "confirm", "prompt": "Continue?"},
-        {"type": "unknown", "prompt": "?"},
-    ],
-)
-def test_confirmations_and_invalid_specs_have_no_structured_default(
-    spec: dict[str, object],
-) -> None:
-    assert structured_user_input(spec, ["yes"]) is None
+def test_navigation_sets_the_button_text() -> None:
+    spec = {
+        "type": "single",
+        "question": "",
+        "options": [{"display": "Next step", "value": "continue"}],
+    }
+    encoded = structured_user_input(spec, ["continue"])
+    assert encoded is not None
+    assert json.loads(encoded) == {
+        "selectedValues": ["continue"],
+        "inputText": "",
+        "buttonText": "continue",
+    }
+
+
+def test_invalid_spec_has_no_structured_default() -> None:
+    assert structured_user_input({"type": "unknown"}, ["yes"]) is None

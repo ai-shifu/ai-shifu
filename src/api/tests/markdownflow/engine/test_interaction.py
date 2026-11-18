@@ -26,9 +26,9 @@ def test_choice_types_need_options() -> None:
         InteractionSpec(type="text", prompt="q", options=[Option(display="x")])
 
 
-def test_confirm_gets_default_option() -> None:
-    s = InteractionSpec(type="confirm", prompt="go on")
-    assert s.options[0].stored == "continue"
+def test_removed_confirm_type_is_invalid() -> None:
+    with pytest.raises(ValidationError, match="literal_error"):
+        InteractionSpec.model_validate({"type": "confirm", "question": ""})
 
 
 def test_normalize_maps_display_to_value_and_drops_strangers() -> None:
@@ -56,9 +56,9 @@ def test_stored_value_and_model_text() -> None:
     s = spec("single_or_text", variable="v")
     a = InteractionAnswer(values=["A"], text="because")
     assert stored_value(s, a) == "A; because"
-    assert format_answer_for_model(s, a) == "Learner chose: A; and wrote: because"
+    assert format_answer_for_model(a) == "Learner chose: A; and wrote: because"
     assert (
-        format_answer_for_model(s, InteractionAnswer())
+        format_answer_for_model(InteractionAnswer())
         == "Learner continued without answering."
     )
     assert stored_value(spec("text", ()), InteractionAnswer(text="free")) == "free"
@@ -70,24 +70,7 @@ def test_coerce() -> None:
     assert InteractionAnswer.coerce({"values": ["a"], "text": "t"}).text == "t"
 
 
-def test_a_confirm_never_carries_a_memory_variable() -> None:
-    """A confirm means "go on", so its button text is never stored as an answer.
-
-    Models do attach a variable to one -- often the variable the previous question filled -- and
-    storing the button's label then destroys a real answer.
-    """
-    spec = InteractionSpec.model_validate(
-        {
-            "type": "confirm",
-            "prompt": "我复述的和你的实际情况一致吗？",
-            "options": [{"display": "对，就是这样"}],
-            "variable": "卡点场景",
-        }
-    )
-    assert spec.variable is None
-
-
-def test_other_interaction_types_keep_their_variable() -> None:
+def test_interaction_types_keep_their_variable() -> None:
     for kind, extra in (
         ("text", {}),
         ("single", {"options": [{"display": "A"}]}),
@@ -98,18 +81,6 @@ def test_other_interaction_types_keep_their_variable() -> None:
             {"type": kind, "prompt": "q", "variable": "mood", **extra}
         )
         assert spec.variable == "mood", kind
-
-
-def test_a_confirm_keeps_only_one_button() -> None:
-    """Every confirm answer means the same thing, so a second button is a choice that goes nowhere."""
-    spec = InteractionSpec.model_validate(
-        {
-            "type": "confirm",
-            "prompt": "Ready?",
-            "options": [{"display": "Yes"}, {"display": "No, go back"}],
-        }
-    )
-    assert [o.display for o in spec.options] == ["Yes"]
 
 
 def test_an_unmatched_choice_does_not_count_as_an_answer() -> None:
@@ -124,12 +95,6 @@ def test_free_text_answers_the_text_bearing_types_but_not_a_plain_choice() -> No
     typed = InteractionAnswer(values=[], text="my own words")
     assert answer_is_usable(spec("single_or_text"), typed) is True
     assert answer_is_usable(spec("single"), typed) is False
-
-
-def test_a_confirm_is_always_usable() -> None:
-    """A confirm carries no answer, only "go on", so an empty response still means continue."""
-    confirm = InteractionSpec.model_validate({"type": "confirm", "prompt": "Ready?"})
-    assert answer_is_usable(confirm, InteractionAnswer(values=[])) is True
 
 
 def test_whitespace_around_an_option_is_dropped() -> None:

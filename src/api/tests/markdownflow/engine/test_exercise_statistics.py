@@ -21,7 +21,7 @@ from markdownflow.engine.exercise_statistics import (
     read_exercise_history,
 )
 from markdownflow.engine.script import ScriptBundle
-from markdownflow.engine.tools import LESSON_OVER, Deps
+from markdownflow.engine.tools import LESSON_OVER, NO_PAUSE, Deps
 from pydantic import ValidationError
 from pydantic_ai.messages import (
     ModelMessage,
@@ -50,7 +50,19 @@ def _ctx(messages: list[ModelMessage]) -> SimpleNamespace:
 
 
 def _fixture() -> SimpleNamespace:
-    return _ctx(exercise_session({"corrected_questions": [1, 6, 10]}).messages)
+    messages = exercise_session({"corrected_questions": [1, 6, 10]}).messages
+    # Only exercise answers are submitted in this fixture. Navigation coverage
+    # tests append an actual learner click to the same lesson history.
+    for message in messages:
+        if isinstance(message, ModelRequest):
+            for part in message.parts:
+                if (
+                    isinstance(part, ToolReturnPart)
+                    and part.tool_name == "interact"
+                    and part.tool_call_id.startswith("continue-")
+                ):
+                    part.content = NO_PAUSE
+    return _ctx(messages)
 
 
 def _questions(ctx: SimpleNamespace) -> list[ExerciseQuestion]:
@@ -144,17 +156,16 @@ def _with_navigation() -> SimpleNamespace:
                 parts=[
                     ToolCallPart(
                         "interact",
-                        {"type": "single", "options": ["Next question"]},
+                        {
+                            "type": "single",
+                            "options": [{"display": "Next question", "value": "next"}],
+                        },
                         "navigation",
                     )
                 ]
             ),
             ModelRequest(
-                parts=[
-                    ToolReturnPart(
-                        "interact", "Learner chose: Next question", "navigation"
-                    )
-                ]
+                parts=[ToolReturnPart("interact", "Learner chose: next", "navigation")]
             ),
         ]
     )

@@ -86,7 +86,7 @@ class Deps:
     literal_interaction_markup: frozenset[str] = frozenset()
     interaction_markup_pending: bool = False
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
-    # script has none: a `confirm` is then answered without asking the learner. See
+    # script has none: navigation is then answered without asking the learner. See
     # `script_pauses` and `Engine(pauses_from_notation=)`.
     no_pauses: bool = False
     # None preserves a portable host's existing unrestricted memory contract.
@@ -584,8 +584,7 @@ def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
 def text_in_turn(ctx: RunContext[Deps]) -> int:
     """Non-whitespace characters of content the model produced so far in this turn.
 
-    Whitespace does not count: a turn whose only output is a newline has presented nothing to the
-    learner, and must not be able to pause on a `confirm`.
+    Whitespace does not count as content delivered to the learner.
     """
     return sum(
         sum(1 for ch in part.content if not ch.isspace())
@@ -909,9 +908,9 @@ async def interact(
 
     `single`: exactly one choice. `multi`: several choices. `text`: free text only.
     `single_or_text` / `multi_or_text`: choices plus a text box for the learner's own answer.
-    `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
-    without a question -- never on your own judgement, not between steps, not after a visual --
-    and only after you have presented content in this turn (a confirm on its own is rejected).
+    For a pause the script asks for without a question, use `single` with exactly one option
+    and omit `question`. Give the option a label. Pause only where the script asks you to wait,
+    and present any preceding teaching before the button.
     For an ordinary answer interaction, ask the learner-facing question in visible prose first.
     With a nonempty leading `{{...}}` or `%{{...}}` binding, set `question` to only its exact
     inner text, trimming outer whitespace. Without a binding, use the full question from prose
@@ -948,7 +947,6 @@ async def interact(
     require the author's next help stage; reporting prior knowledge help as a
     hint does not itself authorize skipping a correction stage. Follow explicit
     author rules that permit immediate explanation or a different progression.
-    An authored navigation with one choice is still `single`, not an optional `confirm`.
     Do not replace an unanswered navigation with the following question's input. If the
     author puts navigation after answer feedback/explanation, call this tool for that
     navigation alone and wait; only its returned selection permits the following step.
@@ -1022,25 +1020,17 @@ async def interact(
             variable = None
     else:
         question = (question or "").strip()
-        if type == "confirm" and question:
-            message = "Omit question for confirm. Put a custom button label in options."
-            raise ModelRetry(message)
         normalized_options = [
             _as_the_script_writes_it(option, ctx.deps.script_options)
             for option in options or []
         ]
         if generated_control:
-            if (
-                type == "confirm"
-                or direction is not None
-                or any(
-                    question == control.variable
-                    for control in ctx.deps.script_questions
-                )
+            if direction is not None or any(
+                question == control.variable for control in ctx.deps.script_questions
             ):
                 message = "Use generated_control only for a new answer control without an authored binding."
                 raise ModelRetry(message)
-        elif type != "confirm":
+        else:
             authored_questions, restore_missing_input = _authored_binding(
                 ctx.deps,
                 type,
@@ -1109,7 +1099,7 @@ async def interact(
             previous := ctx.deps.direction_inputs.get(direction.answer_id)
         ):
             source_question = previous.source_question or previous.variable
-    if type != "confirm" and asks_the_answered_question_again(
+    if asks_the_answered_question_again(
         ctx,
         type,
         question,
@@ -1129,24 +1119,6 @@ async def interact(
             "then ask."
         )
         raise ModelRetry(msg)
-    if type == "confirm" and text_in_turn(ctx) == 0:
-        msg = (
-            "You asked the learner to continue without presenting anything in this turn. "
-            "Deliver the next part of the script as content first; pause with `confirm` only "
-            "after that content, and never answer a continue with another confirm."
-        )
-        raise ModelRetry(msg)
-    if (
-        type == "confirm"
-        and ctx.deps.no_pauses
-        and not ctx.deps.interaction_markup_pending
-    ):
-        # A pause in a lesson whose script has none. The learner is not asked: the lesson simply
-        # goes on, as a 1.0 lesson does. Answered rather than refused, so the model carries on in
-        # the same turn instead of spending its retries on a call it cannot make.
-        # Not while a question written as text is owed: that pause would leave it owed, with
-        # `finish` withheld and text refused, so the pause is asked for real and settles it.
-        return NO_PAUSE
     if ctx.deps.script_options and (legacy_call or not generated_control):
         options = [
             _as_the_script_writes_it(o, ctx.deps.script_options) for o in options or []
@@ -1179,6 +1151,24 @@ async def interact(
             ctx.deps.script_questions,
             restore_missing_input=restore_missing_input,
         )
+    if (
+        spec.type == "single"
+        and len(spec.options) == 1
+        and not spec.question.strip()
+        and not spec.variable
+        and not ctx.deps.interaction_markup_pending
+    ):
+        if None not in authored_questions and text_in_turn(ctx) == 0:
+            msg = (
+                "You asked the learner to continue without presenting anything in this turn. "
+                "Deliver the next part of the script as content first, then pause where the "
+                "script asks the learner to wait."
+            )
+            raise ModelRetry(msg)
+        if ctx.deps.no_pauses:
+            # Carry on in the same turn when the lesson has no authored pause. Leave a repaired
+            # interaction deferred so only the learner can answer a control first written as text.
+            return NO_PAUSE
     direction_text = direction.render() if direction is not None else ""
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)

@@ -68,7 +68,7 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "Supply hint_before and each submission's hint_after from original "
             "teaching; omit scalar count assertions and let the calculator sum rounds, "
             "except for a question with empty submissions: assert its hints total "
-            "from the original teaching, including rounds after a confirmation pause. "
+            "from the original teaching, including rounds after a continue click. "
             "For hint_before inspect the first record's teaching, not following_teaching, "
             "plus its visible question fields, including qualifying placeholder help. "
             "Keep course logistics and question-only teaching false under rules that exclude "
@@ -184,8 +184,6 @@ def _records(ctx: RunContext[Deps]) -> list[dict[str, Any]] | None:
             args = call.args_as_dict()
         except (AssertionError, ValueError, TypeError):
             return None
-        if args.get("type") == "confirm":
-            continue
         if not isinstance(answer.content, str) or not answer.content.startswith(
             ("Learner wrote: ", "Learner chose: ")
         ):
@@ -222,10 +220,10 @@ async def read_exercise_history(
 ) -> str:
     """Read exact chronological submitted-answer evidence as paginated JSON text.
 
-    Join text pages in offset order, then parse the JSON array. Typed confirm
-    clicks, pending questions and host refusals are excluded. Ordinary single-choice
-    navigation clicks can remain: put their references in the calculator's excluded
-    list after checking their original meaning. Follow next_offset to null.
+    Join text pages in offset order, then parse the JSON array. Pending questions
+    and host refusals are excluded. Check the purpose of single-button clicks
+    and put navigation references in the calculator's excluded list.
+    Follow next_offset to null.
     Following teaching is exact same-turn context, not extracted grading: it can
     also introduce the following_interaction. Records with the same answer_group
     were answered together, so that teaching can address several submissions.
@@ -359,7 +357,7 @@ def _hint_counts(
     """Derive counts from supplied round judgments; None means conflicting evidence.
 
     A question with no submissions has no rounds to derive from: hints after a
-    confirmation pause have no submission to carry them. Its total is the asserted
+    continue click have no submission to carry them. Its total is the asserted
     `hints`, which must cover a qualifying `hint_before`, and stays unknown when
     omitted. With no first answer, its timing is known only when that total is zero.
     """
@@ -439,7 +437,7 @@ async def calculate_exercise_statistics(
     Keep unknown hint timing null, never assume zero from not_answer alone.
     Zero non-answer counts are omitted from rows and totals; absence means zero.
     Include unanswered questions with empty submissions, and assert their hints
-    from the original teaching, including rounds after a confirmation pause;
+    from the original teaching, including rounds after a continue click;
     without that assertion their count stays unknown. This tool
     verifies coverage and arithmetic, not semantic grading or question identity.
     Its counts are not evidence of personal misconceptions or causes. Ground

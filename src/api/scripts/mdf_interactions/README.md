@@ -30,7 +30,7 @@ The smoke suite selects 12 of the trace-derived cases.
 The nine synthetic cases cover markup printed as a control, literal markup
 inside a code fence, retry exhaustion, repeated question prose across attempts,
 blank submissions, checkpoint reloads, queued interactions, delimiter escaping,
-explicit display and stored values, and authored and unauthored confirmation.
+explicit display and stored values, and authored and unauthored continue buttons.
 The narrated fallback and queued-interaction cases are replay only. The runner
 reports reproduced fallback and exhaustion separately from successful recovery.
 

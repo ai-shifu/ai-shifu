@@ -18,7 +18,7 @@ from pydantic_ai.messages import (
     ToolReturnPart,
 )
 
-from .interaction import DEFAULT_CONFIRM_LABEL, InteractionSpec
+from .interaction import InteractionSpec
 from .script import ScriptBundle
 
 
@@ -37,29 +37,6 @@ class PendingInteraction:
 
     tool_call_id: str
     spec: InteractionSpec
-
-
-def _restored_spec(stored: dict[str, Any]) -> InteractionSpec:
-    """Rebuild a pending question from a stored session.
-
-    Sessions written before the engine recorded who named a confirm's button carry no such
-    field, and a learner mid-lesson at the moment that change ships would get the English
-    default back on a button the host had been translating. A stored confirm carrying exactly
-    the engine's own default is taken to be the engine's, which is what it was.
-
-    Only for what is missing from the stored form. A session written since records the answer
-    and is believed. Removable once no session predating the field can still be open.
-    """
-    spec = InteractionSpec.model_validate(stored)
-    if (
-        "labelled_by_engine" not in stored
-        and spec.type == "confirm"
-        and spec.options
-        and spec.options[0].display == DEFAULT_CONFIRM_LABEL
-        and spec.options[0].value == "continue"
-    ):
-        spec.labelled_by_engine = True
-    return spec
 
 
 @dataclass
@@ -292,11 +269,13 @@ class Session:
                 else None
             ),
             pending=[
-                PendingInteraction(p["tool_call_id"], _restored_spec(p["spec"]))
+                PendingInteraction(
+                    p["tool_call_id"], InteractionSpec.model_validate(p["spec"])
+                )
                 for p in d.get("pending") or []
             ],
             interaction_specs={
-                call_id: _restored_spec(spec)
+                call_id: InteractionSpec.model_validate(spec)
                 for call_id, spec in (d.get("interaction_specs") or {}).items()
             },
             answers=dict(d.get("answers") or {}),

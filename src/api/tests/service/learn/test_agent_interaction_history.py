@@ -179,7 +179,7 @@ def test_reload_recovers_submitted_values(
         "malformed",
         "unusable",
         "no_pending",
-        "confirm",
+        "invalid_spec",
     ],
 )
 def test_unrelated_or_unproven_inputs_stay_empty(classroom: str, boundary: str) -> None:
@@ -214,9 +214,9 @@ def test_unrelated_or_unproven_inputs_stay_empty(classroom: str, boundary: str) 
         answer.block_content_conf = _record(pending, ["  "])
     elif boundary == "no_pending":
         answer.block_content_conf = _record([], ["Remark, not an answer"])
-    elif boundary == "confirm":
-        pending[0]["spec"] = {"type": "confirm", "prompt": "Continue"}
-        answer.block_content_conf = _record(pending, ["continue"])
+    elif boundary == "invalid_spec":
+        pending[0]["spec"] = {"type": "unknown"}
+        answer.block_content_conf = _record(pending, ["Private answer"])
     db.session.commit()
     assert not _history_input(question)
     # Clean even the deliberately foreign user row.

@@ -4356,7 +4356,11 @@ def _tool_call_stream(as_dict: bool = False) -> list:
         ),
         FakeResponse(
             "c1",
-            tool_calls=[_tool_call_chunk(0, None, None, '"confirm"}', as_dict)],
+            tool_calls=[
+                _tool_call_chunk(
+                    0, None, None, '"text","question":"What comes next?"}', as_dict
+                )
+            ],
         ),
         FakeResponse("c1", finish_reason="tool_calls"),
         FakeResponse(
@@ -4411,7 +4415,10 @@ def test_chat_llm_emits_tool_call_deltas_when_asked(
     assert "".join(c.result for c in chunks) == "thinking "
     deltas = [d for c in chunks for d in c.tool_call_deltas]
     assert [d["name"] for d in deltas] == ["interact", None]
-    assert "".join(d["arguments"] or "" for d in deltas) == '{"type":"confirm"}'
+    assert (
+        "".join(d["arguments"] or "" for d in deltas)
+        == '{"type":"text","question":"What comes next?"}'
+    )
     assert [d["index"] for d in deltas] == [0, 0]
     assert deltas[0]["id"] == "call_1"
     assert any(c.finish_reason == "tool_calls" and c.is_end for c in chunks)
@@ -4427,13 +4434,17 @@ def test_chat_llm_emits_tool_call_deltas_when_asked(
                 {
                     "id": "call_1",
                     "type": "function",
-                    "function": {"name": "interact", "arguments": '{"type":"confirm"}'},
+                    "function": {
+                        "name": "interact",
+                        "arguments": '{"type":"text","question":"What comes next?"}',
+                    },
                 }
             ],
         }
     ]
     assert (
-        captured_usage["extra"]["output_text"] == 'thinking interact{"type":"confirm"}'
+        captured_usage["extra"]["output_text"]
+        == 'thinking interact{"type":"text","question":"What comes next?"}'
     )
 
 
@@ -4453,7 +4464,9 @@ def test_chat_llm_reports_parallel_tools_without_mixing_their_fragments(
         FakeResponse(
             "c1",
             tool_calls=[
-                _tool_call_chunk(0, "question-1", "act", '"confirm"}'),
+                _tool_call_chunk(
+                    0, "question-1", "act", '"text","question":"What comes next?"}'
+                ),
                 _tool_call_chunk(1, "memory-1", "ember", '"goal"}'),
             ],
             finish_reason="tool_calls",
@@ -4477,7 +4490,10 @@ def test_chat_llm_reports_parallel_tools_without_mixing_their_fragments(
                 {
                     "id": "question-1",
                     "type": "function",
-                    "function": {"name": "interact", "arguments": '{"type":"confirm"}'},
+                    "function": {
+                        "name": "interact",
+                        "arguments": '{"type":"text","question":"What comes next?"}',
+                    },
                 },
                 {
                     "id": "memory-1",
@@ -4707,7 +4723,12 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
             yield FakeResponse(
                 "c1",
                 tool_calls=[
-                    _tool_call_chunk(0, "call_1", "interact", '{"type": "confirm"}')
+                    _tool_call_chunk(
+                        0,
+                        "call_1",
+                        "interact",
+                        '{"type": "text","question":"What comes next?"}',
+                    )
                 ],
             )
             msg = "Repeated chunk detected"
@@ -4735,7 +4756,7 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
     assert span.end_args["output"][0]["content"] == ""
     assert span.end_args["output"][0]["tool_calls"][0]["function"] == {
         "name": "interact",
-        "arguments": '{"type": "confirm"}',
+        "arguments": '{"type": "text","question":"What comes next?"}',
     }
 
 
