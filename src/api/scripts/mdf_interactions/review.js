@@ -271,6 +271,9 @@ function judgeEvidence(judgment, verdictKey) {
   if (judgment.previous_question) {
     box.append(fields([[text("previousQuestion"), judgment.previous_question]]));
   }
+  if (judgment.previous_prose) {
+    box.append(details(text("previousProse"), [raw(judgment.previous_prose)]));
+  }
   if (judgment.reason) box.append(node("p", judgment.reason));
   const yes = verdictKey === "asked" ? "judgeYes" : "judgeMeaningYes";
   const no = verdictKey === "asked" ? "judgeNo" : "judgeMeaningNo";

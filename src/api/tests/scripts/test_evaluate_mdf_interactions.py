@@ -491,6 +491,10 @@ def test_live_evaluation_reports_the_reviewed_prose_with_its_evidence(
     fixture["replay"][response_index]["text"] = prose
     case = Case.model_validate(fixture)
     requests = []
+    criterion = "prose_meaning" if case_id == "lf-empty-pause-01" else "prose_question"
+    intent_key = (
+        "required_meaning" if criterion == "prose_meaning" else "intended_question"
+    )
 
     def assessment(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         prompt = next(
@@ -504,7 +508,11 @@ def test_live_evaluation_reports_the_reviewed_prose_with_its_evidence(
                 ToolCallPart(
                     info.output_tools[0].name,
                     {
-                        key: verdict if evidence["prose"] == prose else True,
+                        key: (
+                            verdict
+                            if intent_key in evidence and evidence["prose"] == prose
+                            else True
+                        ),
                         "reason": "Recorded human decision",
                     },
                 )
@@ -518,10 +526,6 @@ def test_live_evaluation_reports_the_reviewed_prose_with_its_evidence(
     )
 
     expected = fixture["steps"][stage - 1]["expected"]
-    criterion = "prose_meaning" if case_id == "lf-empty-pause-01" else "prose_question"
-    intent_key = (
-        "required_meaning" if criterion == "prose_meaning" else "intended_question"
-    )
     evidence = {intent_key: expected[criterion], "prose": prose}
     if criterion == "prose_question":
         evidence["previous_question"] = (
@@ -529,7 +533,18 @@ def test_live_evaluation_reports_the_reviewed_prose_with_its_evidence(
             if stage > 1
             else None
         )
-    assert [request for request in requests if request["prose"] == prose] == [evidence]
+        if stage > 1:
+            previous_prose = fixture["replay"][0]["text"]
+            evidence["previous_prose"] = previous_prose
+            assert (
+                result["steps"][stage - 1]["question_judgment"]["previous_prose"]
+                == previous_prose
+            )
+    assert [
+        request
+        for request in requests
+        if intent_key in request and request["prose"] == prose
+    ] == [evidence]
     assert result["steps"][stage - 1]["criteria"][criterion] == (
         "passed" if verdict else "failed"
     )

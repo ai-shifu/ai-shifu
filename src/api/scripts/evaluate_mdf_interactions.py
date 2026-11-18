@@ -651,6 +651,7 @@ async def check_prose(
     judges: list[ObservedModel],
     *,
     previous_question: str | None = None,
+    previous_prose: str | None = None,
 ) -> dict[str, object]:
     """Collect semantic decisions and expose disagreements for human judgment."""
     from scripts.mdf_interaction_question_judge import judge_meaning, judge_question
@@ -660,6 +661,8 @@ async def check_prose(
     report: dict[str, object] = {}
     if is_question and previous_question is not None:
         report["previous_question"] = previous_question
+        if previous_prose:
+            report["previous_prose"] = previous_prose
     if not prose.strip():
         return {
             **report,
@@ -676,6 +679,7 @@ async def check_prose(
                     intended_question=intent,
                     prose=prose,
                     previous_question=previous_question,
+                    previous_prose=previous_prose,
                 )
             else:
                 judgment = await judge_meaning(
@@ -825,6 +829,7 @@ async def evaluate_case(
                     result["prose"],
                     judges,
                     previous_question=previous_question,
+                    previous_prose=steps[-1]["prose"] if previous_question else None,
                 )
                 result[judgment_key] = judgment
                 criteria[criterion] = judgment["status"]
@@ -1038,8 +1043,9 @@ def summarize_criteria(
                         "reason": judgment["reason"],
                         "decisions": judgment["decisions"],
                     }
-                    if "previous_question" in judgment:
-                        item["previous_question"] = judgment["previous_question"]
+                    for key in ("previous_question", "previous_prose"):
+                        if key in judgment:
+                            item[key] = judgment[key]
                     review_items.append(item)
     summary = {
         name: {status: count[status] for status in CRITERION_STATUSES}
@@ -1074,10 +1080,12 @@ def print_assessment(
         )
         print_evidence(f"  {item['reason']}")
         print_evidence(f"  {intent_key.replace('_', ' ').capitalize()}  {expected}")
-        if "previous_question" in item:
-            print_evidence(
-                f"  Previous question  {json.dumps(item['previous_question'], ensure_ascii=False)}"
-            )
+        for key in ("previous_question", "previous_prose"):
+            if key in item:
+                label = key.replace("_", " ").capitalize()
+                print_evidence(
+                    f"  {label}  {json.dumps(item[key], ensure_ascii=False)}"
+                )
         print_evidence(f"  Learner-facing prose  {prose}")
         for decision in item["decisions"]:
             print_evidence(f"  Judge  {json.dumps(decision, ensure_ascii=False)}")

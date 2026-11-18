@@ -118,6 +118,7 @@
   },
   "pending": "待人工确认",
   "placeholder": "输入提示",
+  "previousProse": "上一轮学员可见正文",
   "previousQuestion": "上一轮展示的原题",
   "prose": "学员可见正文",
   "rawControls": "控件语法原文",

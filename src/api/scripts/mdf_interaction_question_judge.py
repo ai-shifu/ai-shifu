@@ -25,10 +25,11 @@ the intended question, regardless of wording or punctuation.
 
 If previous_question is a string, the learner saw that question and the same
 control has been shown again. Resolve an explicit request to answer it or try it
-again using that question. If previous_question is null, the learner's prior
-question is unknown. In that case, "Use that format to answer the original
-question" is false: the prose does not identify what answer to give. Use only
-previous_question to resolve the reference. The intended_question is the grading
+again using that question. Use previous_prose to clarify its scope when clearly
+associated with the same control. If multiple previous requests
+could be the target, mark the reference ambiguous. If previous_question is
+null, "Use that format to answer the original question" is false: the prose
+does not identify what answer to give. Use intended_question only as the grading
 target. A reference on its own provides no request to answer.
 
 Set asked to false if there is no request for an answer or the current request
@@ -105,6 +106,7 @@ async def judge_question(
     intended_question: str,
     prose: str,
     previous_question: str | None = None,
+    previous_prose: str | None = None,
 ) -> QuestionJudgment:
     """Assess whether the prose asks the intended question in one request."""
     evidence = {
@@ -112,6 +114,8 @@ async def judge_question(
         "prose": prose,
         "previous_question": previous_question,
     }
+    if previous_question is not None and previous_prose:
+        evidence["previous_prose"] = previous_prose
     return await _judge(model, QuestionJudgment, QUESTION_JUDGE_INSTRUCTIONS, evidence)
 
 
