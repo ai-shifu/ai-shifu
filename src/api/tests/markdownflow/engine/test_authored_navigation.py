@@ -161,31 +161,121 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     )
     assert session.pending[0].spec.type == "text"
     assert session.pending[0].spec.placeholder == "Answer two"
-    assert session.memory == ({**memory, nav_binding: value} if nav_binding else memory)
-    assert [
-        (event.key, event.value) for event in events if isinstance(event, MemoryUpdated)
-    ] == ([(nav_binding, value)] if nav_binding else [])
+    assert session.memory == memory
+    assert not any(isinstance(event, MemoryUpdated) for event in events)
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True], ids=["new", "saved"])
 @pytest.mark.parametrize(
-    ("preceding", "question"),
+    ("kind", "control", "question", "label", "value"),
     [
-        (None, "What color is the sky?"),
-        ("{question}", "What color is the sky?"),
-        ("**{question}**", "What color is the sky?"),
-        ("[{question}](https://example.com)", "What color is the sky?"),
-        ("{question}", "Choose the sky color."),
+        ("single", "?[Next step//continue]", "Next step", "Next step", "continue"),
+        ("single", "?[{{Stage}} Begin//practice]", "Stage", "Begin", "practice"),
+        (
+            "multi",
+            "Choose the available exercise.",
+            "Which exercise?",
+            "First",
+            "first",
+        ),
     ],
-    ids=["bound", "plain", "bold", "link", "instruction"],
+    ids=["continue-button", "bound-button", "one-multiselect-option"],
+)
+async def test_a_single_fixed_option_advances_without_saving(
+    kind: str, control: str, question: str, label: str, value: str, reload: bool
+) -> None:
+    opening = "Different soils hold water differently."
+    following = "Clay takes longer to drain."
+    memory = {"previous_topic": "soil drainage", question: "keep this value"}
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            yield following
+            return
+        yield opening
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="next-step",
+                json_args=json.dumps(
+                    {
+                        "type": kind,
+                        "question": question,
+                        "options": [{"display": label, "value": value}],
+                    }
+                ),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(
+        f"{opening}\n\n{control}\n\n{following}",
+        memory=memory,
+    )
+    first = await _events(engine.run_turn(session))
+    (request,) = [event for event in first if isinstance(event, InteractionRequest)]
+    assert request.spec.type == kind
+    assert request.spec.question == question
+    assert request.spec.variable == question
+    assert request.spec.options[0].stored == value
+    if reload:
+        session = Session.loads(session.dumps())
+
+    second = await _events(
+        engine.run_turn(session, InteractionResponseTurn(id=request.id, values=[value]))
+    )
+    assert not any(isinstance(event, (ErrorEvent, MemoryUpdated)) for event in second)
+    assert [event.text for event in second if isinstance(event, ContentDelta)] == [
+        following
+    ]
+    assert session.all_memory() == memory
+    assert not session.answer_hashes
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True], ids=["new", "saved"])
+@pytest.mark.parametrize(
+    ("preceding", "question", "label", "value"),
+    [
+        (None, "What color is the sky?", "Blue", "Blue"),
+        ("{question}", "What color is the sky?", "Blue", "Blue"),
+        ("**{question}**", "What color is the sky?", "Blue", "Blue"),
+        ("[{question}](https://example.com)", "What color is the sky?", "Blue", "Blue"),
+        ("{question}", "Choose the sky color.", "Blue", "Blue"),
+        (None, "Which keyword skips to the next iteration?", "Continue", "continue"),
+        (
+            "{question}",
+            "Which keyword skips to the next iteration?",
+            "Continue",
+            "continue",
+        ),
+    ],
+    ids=[
+        "bound",
+        "plain",
+        "bold",
+        "link",
+        "instruction",
+        "bound-continue-value",
+        "unbound-continue-value",
+    ],
 )
 async def test_an_authored_single_choice_can_still_record_an_answer(
-    preceding: str | None, question: str
+    preceding: str | None, question: str, label: str, value: str, reload: bool
 ) -> None:
+    option = label if label == value else f"{label}//{value}"
+    other = "Break" if value == "continue" else "Red"
+    choices = f"{option} | {other}"
     script = (
-        f"?[{{{{{question}}}}} Blue]"
+        f"?[{{{{{question}}}}} {choices}]"
         if preceding is None
-        else f"{preceding.format(question=question)}\n?[Blue]"
+        else f"{preceding.format(question=question)}\n?[{choices}]"
     )
     attempts = 0
 
@@ -206,7 +296,10 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
                     {
                         "type": "single",
                         "question": question,
-                        "options": [{"display": "Blue"}],
+                        "options": [
+                            {"display": label, "value": value},
+                            {"display": other},
+                        ],
                     }
                 ),
             )
@@ -217,12 +310,15 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
     first = await _events(engine.run_turn(session))
     (request,) = [event for event in first if isinstance(event, InteractionRequest)]
     assert request.spec.question == question
+    if reload:
+        session = Session.loads(session.dumps())
     second = await _events(
-        engine.run_turn(session, InteractionResponseTurn(values=["Blue"]))
+        engine.run_turn(session, InteractionResponseTurn(values=[value]))
     )
     assert [
         (event.key, event.value) for event in second if isinstance(event, MemoryUpdated)
-    ] == [(question, "Blue")]
+    ] == [(question, value)]
+    assert session.all_memory() == {question: value}
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:

@@ -100,6 +100,13 @@ class InteractionSpec(BaseModel):
         """Return the wording the learner saw, with a fallback for saved questions."""
         return self.display_question or self.question
 
+    @property
+    def can_store_answer(self) -> bool:
+        """Whether the controls let learners submit different answers."""
+        if self.type in ("single", "multi"):
+            return len(self.options) > 1
+        return self.type != "confirm"
+
     @model_validator(mode="after")
     def _check(self) -> InteractionSpec:
         if (

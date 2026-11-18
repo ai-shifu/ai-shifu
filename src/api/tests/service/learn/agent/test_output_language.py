@@ -144,7 +144,8 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
                         "type": "single",
                         "prompt": "Choose one.",
                         "options": [
-                            {"display": "Translated display", "value": "stable-value"}
+                            {"display": "Translated display", "value": "stable-value"},
+                            {"display": "Translated alternative", "value": "other"},
                         ],
                         "variable": "goal",
                     }
@@ -177,7 +178,10 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
                     run_agent.run_agent_lesson(
                         app,
                         engine=Engine(FunctionModel(stream_function=model)),
-                        script="Teach and ask ?[%{{goal}} Original display//stable-value].",
+                        script=(
+                            "Teach and ask ?[%{{goal}} Original display//stable-value "
+                            "| Original alternative//other]."
+                        ),
                         user_bid=user,
                         shifu_bid=course,
                         outline_bid=lesson,
