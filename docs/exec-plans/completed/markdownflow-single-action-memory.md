@@ -18,6 +18,7 @@ An authored input can regain its free-text field during repair. Decide whether a
 ## Decision Log
 
 - Apply the rule to the resolved controls. A fixed choice skips memory even when the interaction has an authored binding or a model-provided question.
+- Keep the existing model instructions and tool arguments. The backend decides whether to save the submitted interaction answer.
 - Preserve the control shape, bindings used for submitting answers, and tool results used for lesson progression and history.
 
 ## Outcomes & Retrospective
@@ -37,7 +38,7 @@ text inputs before deciding whether the accepted answer can inform a draft.
 
 ## Plan of Work
 
-Replace the continuation-specific normalizer with one eligibility rule shared by the engine and Profile. Update admission instructions and adapt regressions to the new rule.
+Replace the continuation-specific normalizer with one eligibility rule shared by the engine and Profile. Verify that a control can carry a memory binding and that a fixed selection still skips storage.
 
 ## Concrete Steps
 

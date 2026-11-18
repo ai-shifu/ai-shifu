@@ -917,9 +917,8 @@ async def interact(
     inner text, trimming outer whitespace. Without a binding, use the full question from prose
     for an answer control and omit `question` for other controls. Decide whether the control
     collects an answer from its purpose in the script. When localizing a bound question, use
-    `display_question` for the translation you presented. If the controls allow different
-    answers, an accepted submission with a nonempty `question` is stored under that value.
-    Confirmation and a single fixed option without free text skip storage even with a binding.
+    `display_question` for the translation you presented. An accepted submission to a control
+    with a nonempty `question` is stored under that value.
     Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
     it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.

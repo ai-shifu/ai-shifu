@@ -29,19 +29,19 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Reference, question and memory eligibility guidance have approved updates.
-    # Keep the historical fixture intact and check the remaining copied bytes.
+    # Reference/binding and learner-facing question guidance are reviewed changes;
+    # retain every other copied prompt byte and keep the historical fixture intact.
     hashes["system"] = (
-        "1deeccd3ebe16eb39e925859d96377f572f5c3a7f811094b0bae5460f223ea45"
+        "c0d9152a9beb2894352d0976fbe948bf89dde5e77f9abafc3a1d9ea7fcfe4f0f"
     )
     hashes["v1_syntax"] = (
         "9bbb89a1a1593f9a32aa2864097283f3c86a48f9e4d11ea1d1bc28f039e315ea"
     )
     hashes["memory_policy"] = (
-        "05a06e6777b2d2684d4bee605823eff4404dafa66abee37041d6b32efed83c5e"
+        "5d43ab143d4e0e625dbd1e8e6815fdb9bfbe93299b8959c3a497472b123a8d78"
     )
     hashes["memory_unrestricted"] = (
-        "07442ab93528ce522da908dd7249e3802fb75896e11a41393332aa75335c6242"
+        "0cce2b9128a3e996a8d901278bc9bc7893ce5a831fb4eedd2ea21a455f674256"
     )
     hashes["answer_review"] = (
         "24405941f019dfd09ec49114b0e70261eefeda2bf8cbaace7ead55e6a788458a"

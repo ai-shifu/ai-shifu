@@ -618,8 +618,10 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
         instructions
     )
     assert (declared_key_rule in instructions) is enabled
-    assert "a single fixed option without free text skip storage" in instructions
     if enabled:
+        assert (
+            "exercises without a binding and navigation with a binding" in instructions
+        )
         assert "complete verbatim free-text input" in instructions
         assert "before your next `interact` or `finish`" in instructions
         assert "when the learner states a preference" not in instructions
@@ -630,7 +632,6 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
     assert len(seen) == 2
     for description in seen:
         assert (declared_key_rule in description) is enabled
-        assert "a single fixed option without free text skip storage" in description
         assert ("when the learner states a preference" in description) is not enabled
 
 
