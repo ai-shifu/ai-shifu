@@ -15,7 +15,13 @@ from urllib.parse import urlsplit
 import pytest
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import FunctionModel
-from scripts.evaluate_mdf_interactions import Case, Replay, evaluate_case, main
+from scripts.evaluate_mdf_interactions import (
+    Case,
+    Replay,
+    evaluate_case,
+    main,
+    repeated_visible_question,
+)
 from scripts.mdf_interaction_review import main as review_main
 
 from scripts import mdf_interaction_live
@@ -289,7 +295,9 @@ def test_live_question_checks_visible_meaning_separately_from_binding(
     assert result["status"] == status
     assert result["failures"] == failures
     assert judged == (
-        [{"intended_question": QUESTION, "prose": prose}] if prose else []
+        [{"intended_question": QUESTION, "prose": prose, "previous_question": None}]
+        if prose
+        else []
     )
     assert result["question_judge_requests"] == len(judged)
     assert result["model_requests"] == (2 if status == "first_attempt_pass" else 1)
@@ -300,17 +308,28 @@ def test_live_question_checks_visible_meaning_separately_from_binding(
     [((None,), False), ((True, False), False), ((True, False), True)],
     ids=["inconclusive", "judges-disagree", "disagreement-plus-control-failure"],
 )
+@pytest.mark.parametrize(
+    ("criterion", "intent_key", "verdict_key"),
+    [
+        ("prose_question", "intended_question", "asked"),
+        ("prose_meaning", "required_meaning", "covered"),
+    ],
+)
 def test_live_cli_surfaces_unresolved_judgments_with_evidence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     verdicts: tuple[bool | None, ...],
     control_failure: bool,
+    criterion: str,
+    intent_key: str,
+    verdict_key: str,
 ) -> None:
     fixture = _case()
     expected = fixture["steps"][0]["expected"]
     del expected["prose_once"]
-    expected["prose_question"] = QUESTION
+    intent = QUESTION if criterion == "prose_question" else "Choose an outdoor space."
+    expected[criterion] = intent
     if control_failure:
         expected["question"]["options"] = [["Another park", "other"]]
     prose = "A small garden or a city park could work. Think about the size."
@@ -326,7 +345,7 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
                 parts=[
                     ToolCallPart(
                         info.output_tools[0].name,
-                        {"asked": verdict, "reason": f"Reading from {name}"},
+                        {verdict_key: verdict, "reason": f"Reading from {name}"},
                     )
                 ]
             )
@@ -369,7 +388,7 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
         assert result["failures"] == []
         assert result["steps"][-1]["outcome"] == "finished"
     assert result["question_judge_requests"] == len(verdicts)
-    assert report["criteria_summary"]["prose_question"] == {
+    assert report["criteria_summary"][criterion] == {
         "passed": 0,
         "failed": 0,
         "needs_review": 1,
@@ -385,18 +404,132 @@ def test_live_cli_surfaces_unresolved_judgments_with_evidence(
         "garden-choice",
         1,
         1,
-        "prose_question",
+        criterion,
     )
     assert review["learner_prose"] == prose
-    assert review["intended_question"] == QUESTION
+    assert review[intent_key] == intent
     assert [decision["model"] for decision in review["decisions"]] == judge_names
-    assert [decision["asked"] for decision in review["decisions"]] == list(verdicts)
+    assert [decision[verdict_key] for decision in review["decisions"]] == list(verdicts)
     reason_marker = "disagree" if len(verdicts) == 2 else "ambiguous"
     assert reason_marker in review["reason"]
     stdout = capsys.readouterr().out
     assert "Criterion assessment" in stdout
     assert "Items needing human review: 1" in stdout
     assert prose in stdout
+
+
+@pytest.mark.parametrize(
+    ("case_id", "response_index", "stage", "prose", "verdict"),
+    [
+        (
+            "lf-empty-pause-01",
+            0,
+            1,
+            "合上盒盖前，先把拆下的垫片放进标记好的小袋里。",
+            True,
+        ),
+        (
+            "choose-scenario-then-navigate",
+            0,
+            1,
+            "观察地点决定了你要记什么：不同位置，光照的变化方式不一样，需要记录的数据也不同。"
+            "先选一个你能实际走到、能连续观察一会儿的地方。",
+            True,
+        ),
+        (
+            "clarify-before-answering",
+            1,
+            2,
+            "日期统一写成 YYYY-MM-DD 的格式。请用同一个输入回答原题。",
+            True,
+        ),
+        (
+            "lf-feedback-missing-branch",
+            2,
+            2,
+            "The material stays the same — it's the same sheet, same paper, same thickness. "
+            "What changes is the shape.\n\nLook again at the unfolded sheet and the folded one: "
+            "how does the shape of the sheet across the fold differ from the flat sheet?",
+            False,
+        ),
+    ],
+)
+def test_live_evaluation_reports_the_reviewed_prose_with_its_evidence(
+    case_id: str, response_index: int, stage: int, prose: str, verdict: bool
+) -> None:
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    fixture = next(case for case in catalog if case["id"] == case_id)
+    fixture["replay"][response_index]["text"] = prose
+    case = Case.model_validate(fixture)
+    requests = []
+
+    def assessment(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        prompt = next(
+            part for part in messages[-1].parts if isinstance(part, UserPromptPart)
+        )
+        evidence = json.loads(prompt.content)
+        requests.append(evidence)
+        key = "covered" if "required_meaning" in evidence else "asked"
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    info.output_tools[0].name,
+                    {
+                        key: verdict if evidence["prose"] == prose else True,
+                        "reason": "Recorded human decision",
+                    },
+                )
+            ]
+        )
+
+    result = asyncio.run(
+        evaluate_case(
+            case, Replay(case.replay).model, judge_model=FunctionModel(assessment)
+        )
+    )
+
+    expected = fixture["steps"][stage - 1]["expected"]
+    criterion = "prose_meaning" if case_id == "lf-empty-pause-01" else "prose_question"
+    intent_key = (
+        "required_meaning" if criterion == "prose_meaning" else "intended_question"
+    )
+    evidence = {intent_key: expected[criterion], "prose": prose}
+    if criterion == "prose_question":
+        evidence["previous_question"] = (
+            fixture["steps"][stage - 2]["expected"]["question"]["question"]
+            if stage > 1
+            else None
+        )
+    assert [request for request in requests if request["prose"] == prose] == [evidence]
+    assert result["steps"][stage - 1]["criteria"][criterion] == (
+        "passed" if verdict else "failed"
+    )
+    assert result["failures"] == ([] if verdict else [f"step_{stage}.{criterion}"])
+    assert result["steps"][-1]["outcome"] == "finished"
+
+
+def test_previous_question_requires_the_same_single_visible_control() -> None:
+    previous = {"questions": [{"title": QUESTION, "controls": "?[...Your answer]"}]}
+    assert repeated_visible_question(previous, previous) == QUESTION
+    assert repeated_visible_question(None, previous) is None
+    assert (
+        repeated_visible_question(
+            previous,
+            {"questions": [{"title": QUESTION, "controls": "?[...Different input]"}]},
+        )
+        is None
+    )
+    assert (
+        repeated_visible_question(
+            previous,
+            {"questions": [{"title": "Which tool?", "controls": "?[...Your answer]"}]},
+        )
+        is None
+    )
+    assert (
+        repeated_visible_question(previous, {"questions": previous["questions"] * 2})
+        is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -435,6 +568,7 @@ def test_live_evaluator_checks_authored_navigation_and_clicks_the_available_butt
 ) -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     fixture = next(case for case in catalog if case["id"] == "lf-empty-pause-01")
+    del fixture["steps"][0]["expected"]["prose_meaning"]
     fixture["steps"][0]["expected"]["question"]["type"] = expected_type
     fixture["replay"][0]["calls"][0]["args"] = {
         "type": "single",
@@ -618,6 +752,7 @@ def test_bundled_suite_replays_every_selected_case(tmp_path: Path, suite: str) -
     report = _report(output)
     assert report["review_items"] == []
     assert report["criteria_summary"]["prose_question"]["not_evaluated"] > 0
+    assert report["criteria_summary"]["prose_meaning"]["not_evaluated"] == 1
     results = report["results"]
     assert [result["case_id"] for result in results] == expected_ids
     reproduced = {

@@ -123,6 +123,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Lobster Course Entry Analytics](./completed/lobster-course-entry-analytics.md)
 - [Local Interaction Criteria and Review](./completed/local-interaction-criteria.md)
 - [Local Interaction Evaluation](./completed/local-interaction-evaluation.md)
+- [Calibrate Local Interaction Judgments](./completed/local-interaction-judge-calibration.md)
 - [Reusable Local Interaction Review](./completed/local-interaction-review.md)
 - [Separate deployment identifiers from interface selection and notification channels](./completed/login-identifier-terminology.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)

@@ -44,6 +44,10 @@ STATUSES = (
     "needs_review",
 )
 CRITERION_STATUSES = ("passed", "failed", "needs_review", "not_evaluated")
+PROSE_JUDGMENTS = {
+    "prose_question": ("question_judgment", "intended_question"),
+    "prose_meaning": ("meaning_judgment", "required_meaning"),
+}
 SCHEMA_VERSION = 5
 MAX_AUTOMATIC_CONTINUATIONS = 8
 
@@ -81,6 +85,9 @@ class ExpectedStep(FixtureModel):
     question: ExpectedQuestion | None = None
     question_count: int | None = Field(default=None, ge=0)
     prose_question: str | None = Field(default=None, min_length=1)
+    prose_meaning: str | None = Field(
+        default=None, min_length=1, exclude_if=lambda value: value is None
+    )
     prose_contains: list[str] = Field(default_factory=list)
     prose_once: list[str] = Field(default_factory=list)
     replay_prose_once: list[str] = Field(default_factory=list)
@@ -474,8 +481,9 @@ def step_criteria(
     record("narrated_controls", actual.get("narrated_controls") == narrated)
     if not replay:
         record("continuation_limit", actual.get("continuation_limit_reached") is False)
-    if expected.prose_question is not None:
-        criteria["prose_question"] = "not_evaluated"
+    for criterion in PROSE_JUDGMENTS:
+        if getattr(expected, criterion) is not None:
+            criteria[criterion] = "not_evaluated"
     return criteria
 
 
@@ -603,44 +611,81 @@ async def run_step(
     return result
 
 
-async def check_prose_question(
-    intended_question: str, prose: str, judges: list[ObservedModel]
+def repeated_visible_question(
+    previous: dict[str, object] | None, current: dict[str, object]
+) -> str | None:
+    """Identify the previous visible question when its sole control is shown again."""
+    before = (previous or {}).get("questions", [])
+    after = current.get("questions", [])
+    if len(before) != 1 or len(after) != 1:
+        return None
+    if (
+        before[0]["title"] == after[0]["title"]
+        and before[0]["controls"] == after[0]["controls"]
+    ):
+        return before[0]["title"] or None
+    return None
+
+
+async def check_prose(
+    criterion: str,
+    intent: str,
+    prose: str,
+    judges: list[ObservedModel],
+    *,
+    previous_question: str | None = None,
 ) -> dict[str, object]:
     """Collect semantic decisions and expose disagreements for human judgment."""
-    from scripts.mdf_interaction_question_judge import judge_question
+    from scripts.mdf_interaction_question_judge import judge_meaning, judge_question
 
+    is_question = criterion == "prose_question"
+    verdict_key = "asked" if is_question else "covered"
+    report: dict[str, object] = {}
+    if is_question and previous_question is not None:
+        report["previous_question"] = previous_question
     if not prose.strip():
         return {
+            **report,
             "status": "failed",
-            "asked": False,
+            verdict_key: False,
             "reason": "No learner-facing prose.",
         }
     decisions = []
     for judge in judges:
         try:
-            judgment = await judge_question(
-                judge, intended_question=intended_question, prose=prose
-            )
+            if is_question:
+                judgment = await judge_question(
+                    judge,
+                    intended_question=intent,
+                    prose=prose,
+                    previous_question=previous_question,
+                )
+            else:
+                judgment = await judge_meaning(
+                    judge, required_meaning=intent, prose=prose
+                )
             decision = judgment.model_dump(mode="json")
         except Exception as error:
             decision = {"error": type(error).__name__}
         decisions.append({"model": judge.model_name, **decision})
 
-    report: dict[str, object] = {"decisions": decisions}
-    verdicts = {decision["asked"] for decision in decisions if "asked" in decision}
+    report["decisions"] = decisions
+    verdicts = {
+        decision[verdict_key] for decision in decisions if verdict_key in decision
+    }
     if True in verdicts and False in verdicts:
         return {
             **report,
             "status": "needs_review",
-            "asked": None,
-            "reason": "The judges disagree about whether the prose asks the intended question.",
+            verdict_key: None,
+            "reason": "The judges disagree about whether the prose meets the criterion.",
         }
     if None in verdicts:
         return {
             **report,
             "status": "needs_review",
-            "asked": None,
-            "reason": "A judge found the question or its scope ambiguous.",
+            verdict_key: None,
+            "reason": "A judge found the match to the intended prose ambiguous.",
         }
     if any("error" in decision for decision in decisions):
         return {
@@ -648,11 +693,11 @@ async def check_prose_question(
             "status": "not_evaluated",
             "reason": "A judge request failed or returned an invalid decision.",
         }
-    asked = verdicts == {True}
+    passed = verdicts == {True}
     return {
         **report,
-        "status": "passed" if asked else "failed",
-        "asked": asked,
+        "status": "passed" if passed else "failed",
+        verdict_key: passed,
         "reason": decisions[0]["reason"],
     }
 
@@ -744,23 +789,38 @@ async def evaluate_case(
             expected, None if observed.failures else result, replay=offline
         )
         result["criteria"] = criteria
-        judge_call_failed = False
-        if expected.prose_question is not None:
+        judge_call_failures = []
+        for criterion, (judgment_key, _) in PROSE_JUDGMENTS.items():
+            intent = getattr(expected, criterion)
+            if intent is None:
+                continue
             if offline:
-                result["question_judgment"] = {"status": "skipped_offline"}
+                result[judgment_key] = {"status": "skipped_offline"}
             elif not observed.failures:
-                judgment = await check_prose_question(
-                    expected.prose_question, result["prose"], judges
+                previous_question = (
+                    repeated_visible_question(steps[-1], result)
+                    if steps and criterion == "prose_question"
+                    else None
                 )
-                result["question_judgment"] = judgment
-                criteria["prose_question"] = judgment["status"]
-                judge_call_failed = any(
+                judgment = await check_prose(
+                    criterion,
+                    intent,
+                    result["prose"],
+                    judges,
+                    previous_question=previous_question,
+                )
+                result[judgment_key] = judgment
+                criteria[criterion] = judgment["status"]
+                if any(
                     "error" in decision for decision in judgment.get("decisions", [])
-                )
-        result["failures"] = failed_criteria(criteria, result, expected)
-        if judge_call_failed:
-            result["failures"].append("question_judge_call")
-            judge_failed = True
+                ):
+                    judge_call_failures.append(
+                        f"{judgment_key.removesuffix('_judgment')}_judge_call"
+                    )
+        result["failures"] = (
+            failed_criteria(criteria, result, expected) + judge_call_failures
+        )
+        judge_failed |= bool(judge_call_failures)
         steps.append(result)
         failures.extend(f"step_{index}.{name}" for name in result["failures"])
         if observed.failures:
@@ -948,20 +1008,22 @@ def summarize_criteria(
         for step in [*result["steps"], *result["unreached_steps"]]:
             for name, status in step["criteria"].items():
                 counts[name.partition("[")[0]][status] += 1
-            if step["criteria"].get("prose_question") == "needs_review":
-                judgment = step["question_judgment"]
-                review_items.append(
-                    {
+                if status == "needs_review":
+                    judgment_key, intent_key = PROSE_JUDGMENTS[name]
+                    judgment = step[judgment_key]
+                    item = {
                         "case_id": result["case_id"],
                         "repeat": result["repeat"],
                         "stage": step["stage"],
-                        "criterion": "prose_question",
-                        "intended_question": step["expected"]["prose_question"],
+                        "criterion": name,
+                        intent_key: step["expected"][name],
                         "learner_prose": step["prose"],
                         "reason": judgment["reason"],
                         "decisions": judgment["decisions"],
                     }
-                )
+                    if "previous_question" in judgment:
+                        item["previous_question"] = judgment["previous_question"]
+                    review_items.append(item)
     summary = {
         name: {status: count[status] for status in CRITERION_STATUSES}
         for name, count in sorted(counts.items())
@@ -980,14 +1042,19 @@ def print_assessment(
         print(f"{criterion:<24}{values}")
     print(f"\nItems needing human review: {len(review_items)}")
     for item in review_items:
-        expected = json.dumps(item["intended_question"], ensure_ascii=False)
+        _, intent_key = PROSE_JUDGMENTS[item["criterion"]]
+        expected = json.dumps(item[intent_key], ensure_ascii=False)
         prose = json.dumps(item["learner_prose"], ensure_ascii=False)
         print(
             f"{item['case_id']} [{item['repeat']}] step {item['stage']} "
             f"({item['criterion']})"
         )
         print(f"  {item['reason']}")
-        print(f"  Intended question  {expected}")
+        print(f"  {intent_key.replace('_', ' ').capitalize()}  {expected}")
+        if "previous_question" in item:
+            print(
+                f"  Previous question  {json.dumps(item['previous_question'], ensure_ascii=False)}"
+            )
         print(f"  Learner-facing prose  {prose}")
         for decision in item["decisions"]:
             print(f"  Judge  {json.dumps(decision, ensure_ascii=False)}")
@@ -1007,11 +1074,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--model", help="physical provider model ID for a live run")
     parser.add_argument(
-        "--judge-model", help="model ID for live question checks (defaults to --model)"
+        "--judge-model", help="model ID for live prose checks (defaults to --model)"
     )
     parser.add_argument(
         "--second-judge-model",
-        help="optional second model for detecting disagreements on live question checks",
+        help="optional second model for detecting disagreements on live prose checks",
     )
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument(
@@ -1064,6 +1131,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.live:
                 from scripts.mdf_interaction_live import build_live_model
                 from scripts.mdf_interaction_question_judge import (
+                    MEANING_JUDGE_INSTRUCTIONS,
                     QUESTION_JUDGE_INSTRUCTIONS,
                 )
 
@@ -1082,7 +1150,11 @@ def main(argv: list[str] | None = None) -> int:
                         second_judge_model.model_name if second_judge_model else None
                     ),
                     "instructions_sha256": sha256(
-                        QUESTION_JUDGE_INSTRUCTIONS.encode("utf-8")
+                        (
+                            QUESTION_JUDGE_INSTRUCTIONS
+                            + "\n"
+                            + MEANING_JUDGE_INSTRUCTIONS
+                        ).encode("utf-8")
                     ),
                 }
             results = asyncio.run(

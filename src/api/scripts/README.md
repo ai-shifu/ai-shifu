@@ -36,18 +36,28 @@ The evaluator uses local session state and skips application usage writes and
 Langfuse tracing.
 
 Live steps with `prose_question` ask a model to verify that the visible teaching
-prose invites the learner to answer the intended question. Equivalent wording
-passes. An empty response, a related topic without a request to answer, or a
-different question fails. The check runs independently of control assertions.
+prose invites the learner to answer the intended question. Equivalent wording,
+including a direct instruction to choose or write an answer, passes. When the
+same titled control appears on consecutive steps, the judge also receives the
+previous question so it can resolve an explicit call to answer it. The prose
+still needs to ask for the intended answer. A different question, a topic
+mention alone, or an empty response fails.
+
+Use `prose_meaning` when the prose should communicate an instruction or fact.
+The judge checks the key actions, conditions, and order and accepts paraphrases.
+Keep exact tokens such as date formats in `prose_contains`. Both semantic
+checks run independently of the control assertions.
+
 The judge can abstain when the intent or scope is ambiguous. It defaults to the
 teaching model. Use the same `--judge-model` when comparing teaching models.
 Set `--second-judge-model <model-id>` to get a second judgment on the same prose.
 Each configured judge makes at most one additional provider request per
-eligible step. An abstention or disagreement puts the original question, exact
-learner-facing prose, and each judge's decision and reason in the human review
-list. Judge requests and tokens have their own totals. A failed judge request
-or invalid decision is a call failure. Offline mode applies replay assertions
-such as `replay_prose_once` and marks semantic checks as unevaluated.
+prose criterion. An abstention or disagreement puts the criterion, exact
+learner-facing prose, any previous question used, and each judge's decision and
+reason in the human review list. Judge requests and tokens have their own
+totals. A failed judge request or invalid decision is a call failure. Offline
+mode applies replay assertions such as `replay_prose_once` and marks semantic
+checks as unevaluated.
 
 For each live learner action, an engine turn that ends after visible teaching
 can continue automatically with the same session. The evaluator stops on a

@@ -850,7 +850,8 @@
             "question": "",
             "variable": null
           },
-          "prose_contains": [
+          "prose_meaning": "合上盒盖前，把拆下的垫片放进标记好的小袋。",
+          "replay_prose_once": [
             "合上盒盖前，把拆下的垫片放进标记好的小袋。"
           ],
           "memory": {},

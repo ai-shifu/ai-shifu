@@ -51,9 +51,14 @@ An interaction step expects one emitted question by default. Set
 
 Set `prose_question` to the intended question for a live check of the
 learner-facing prose. The judge accepts any wording that clearly asks for the
-same choice, answer, or action. A paraphrase or an invitation to respond can
-pass. A tool argument, option label, input hint, or mention of the topic alone
-does not ask the learner. The tool's question binding remains a separate check.
+same choice, answer, or action. When the same titled control is shown again,
+the judge can use the previously displayed question to resolve an explicit
+request to answer it. A related question with a different answer target fails.
+A tool argument, option label, input hint, or mention of the topic alone does
+not ask the learner. The tool's question binding remains a separate check.
+Use `prose_meaning` when the prose should convey an instructional point with
+the authored actions, conditions, and order. Use `prose_contains` for exact
+tokens such as `YYYY-MM-DD`.
 Use `replay_prose_once` for phrases that should occur exactly once in the fixed
 replay text. A replay expectation can also use `prose_once` inside
 `replay_expected`, for example to check question wording across a scripted

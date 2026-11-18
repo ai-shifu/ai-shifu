@@ -10,6 +10,10 @@ const annotations = new Map();
 const storagePrefix = "mdf-interaction-review-v1/";
 const automaticStatuses = keys(labels.automatic);
 const manualStatuses = keys(labels.manual);
+const proseJudgments = {
+  prose_question: ["question_judgment", "asked"],
+  prose_meaning: ["meaning_judgment", "covered"],
+};
 const family = (criterion) => criterion.split("[")[0];
 const criterionName = (criterion) => labels.criteria[family(criterion)] ?? criterion;
 const annotationKey = (entry) => JSON.stringify([
@@ -256,12 +260,17 @@ function showControl(control, position) {
   return box;
 }
 
-function judgeEvidence(judgment) {
+function judgeEvidence(judgment, verdictKey) {
   const box = node("section");
   box.append(node("h4", text("judges")));
+  if (judgment.previous_question) {
+    box.append(fields([[text("previousQuestion"), judgment.previous_question]]));
+  }
   if (judgment.reason) box.append(node("p", judgment.reason));
+  const yes = verdictKey === "asked" ? "judgeYes" : "judgeMeaningYes";
+  const no = verdictKey === "asked" ? "judgeNo" : "judgeMeaningNo";
   for (const vote of judgment.decisions ?? []) {
-    const verdict = vote.asked === true ? "judgeYes" : vote.asked === false ? "judgeNo" : "judgeUnsure";
+    const verdict = vote[verdictKey] === true ? yes : vote[verdictKey] === false ? no : "judgeUnsure";
     const item = node("div", undefined, "judge");
     item.append(node("code", vote.model), badge(vote.error ?? text(verdict)));
     if (vote.reason) item.append(node("p", vote.reason));
@@ -281,7 +290,10 @@ function criterionEvidence(criterion, step, expected, offline) {
   if (name === "question_count") {
     return [expected ? expected.question_count ?? Number(expected.outcome === "interaction") : undefined, step.questions?.length];
   }
-  if (name === "prose_question") return [expected?.prose_question, step.question_judgment?.asked];
+  if (proseJudgments[name]) {
+    const [judgmentKey, verdictKey] = proseJudgments[name];
+    return [expected?.[name], step[judgmentKey]?.[verdictKey]];
+  }
   if (name === "narrated_controls") {
     return [expected?.narrated_control ? [expected.narrated_control] : [], step.narrated_controls];
   }
@@ -359,7 +371,8 @@ function criterionList(group, run, step, expected) {
     if (stage) {
       const [wanted, actual] = criterionEvidence(name, step, expected, run.mode === "offline");
       item.append(fields([[text("expected"), wanted], [text("actual"), actual]]));
-      if (name === "prose_question" && step.question_judgment) item.append(judgeEvidence(step.question_judgment));
+      const [judgmentKey, verdictKey] = proseJudgments[name] ?? [];
+      if (step[judgmentKey]) item.append(judgeEvidence(step[judgmentKey], verdictKey));
     }
     section.append(item);
     item.append(humanForm(check, index, humanTag));

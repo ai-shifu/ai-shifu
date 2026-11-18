@@ -152,6 +152,7 @@ async def test_question_judge_sends_its_own_prompt_and_output_tool_through_gatew
     assert json.loads(user["content"]) == {
         "intended_question": question,
         "prose": prose,
+        "previous_question": None,
     }
     (tool,) = request["tools"]
     assert tool["function"]["name"] == "final_result"
