@@ -616,13 +616,18 @@ def dependency_notes(previous: str, source: str) -> str:
     )
 
 
-def generate_notes(source: str, version: str, repository: str) -> str:
-    """Render notes and installation/docs links for the exact candidate, not main."""
+def validate_inputs(source: str, version: str, repository: str) -> None:
+    """Validate the frozen source and release identity for both output modes."""
     source_commit(source)
     version_tuple(version)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         message = "Repository must be owner/name"
         raise ValueError(message)
+
+
+def generate_notes(source: str, version: str, repository: str) -> str:
+    """Render notes and installation/docs links for the exact candidate, not main."""
+    validate_inputs(source, version, repository)
     previous = previous_tag(source, version)
     content = product_notes(source, previous, repository)
     dependencies = dependency_notes(previous, source)
@@ -690,21 +695,20 @@ def main() -> None:
     parser.add_argument(
         "--pr-body",
         action="store_true",
-        help="Include the PR-only manual-merge handoff",
+        help="Write the concise PR-only manual-merge handoff",
     )
     args = parser.parse_args()
-    content = generate_notes(args.source, args.version, args.repository)
     if args.pr_body:
+        validate_inputs(args.source, args.version, args.repository)
         content = (
             f"This PR prepares release v{args.version}; it creates no formal tag or Release.\n\n"
-            "A human must review CI and manually merge this PR into main.\n"
-            "AI/scripts must never merge. Never enable auto-merge for a release PR.\n"
+            "A human must review CI and manually merge into main. "
+            "AI/scripts must never merge. Never enable auto-merge.\n"
             "Merging main retains the existing latest-image and production CICD/Drone triggers.\n\n"
-            "After merge, automation validates the exact merged commit and creates a draft only.\n"
-            "A human must review and manually Publish that draft in GitHub to start release-image publication.\n\n"
-            "## Changelog preview\n\nThis preview is recomputed at the exact merged main commit.\n\n"
-            + content
+            "After merge, a human must review and manually Publish the generated draft in GitHub.\n"
         )
+    else:
+        content = generate_notes(args.source, args.version, args.repository)
     args.output.write_text(content, encoding="utf-8")
 
 

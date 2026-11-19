@@ -711,7 +711,8 @@ from ordinary application changes may first be detected by the main build.
    (no prerelease, build suffix or leading zeroes). It updates the two npm
    manifests and lock roots, the vendored engine version, and first-party pinned
    Compose images. Third-party images and rolling `latest` are unchanged. The
-   generated PR includes a notes preview; no formal tag or Release is created.
+   generated PR includes a concise manual handoff; no formal tag or Release is
+   created. Detailed notes are generated for the draft after the PR is merged.
 2. A human reviews the version-only diff and CI, then **manually merges** the
    `release/version-bump-<tag>` PR into main. AI/scripts must never merge or
    enable auto-merge. Main/latest publication and existing production CICD/Drone

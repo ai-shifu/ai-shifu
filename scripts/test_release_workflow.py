@@ -1305,7 +1305,7 @@ class ReleaseFixture(unittest.TestCase):
         lines.append(lines[occurrence - 1])
         assert not harness._stale_path_is_in_allowed_context(owner, lines, [len(lines)])
 
-    def test_preparation_keeps_notes_preview_in_a_file_with_manual_merge_handoff(
+    def test_preparation_keeps_concise_pr_body_in_a_file_with_manual_merge_handoff(
         self,
     ) -> None:
         workflow = yaml.safe_load(
@@ -1318,10 +1318,12 @@ class ReleaseFixture(unittest.TestCase):
             if "create-pull-request" in step.get("uses", "")
         )
         assert pr["with"].get("body-path") == "${{ runner.temp }}/release-pr.md", (
-            "Notes preview must travel as a file"
+            "The PR handoff must travel as a file"
         )
         step = next(step for step in job["steps"] if "--pr-body" in step.get("run", ""))
         assert "${{" not in step["run"]
+        assert "GH_TOKEN" not in step.get("env", {})
+        assert all("commitizen" not in step.get("run", "") for step in job["steps"])
         body = self.root / "release-pr.md"
         event_source = self.base
         script = step["run"].replace(
@@ -1349,8 +1351,10 @@ class ReleaseFixture(unittest.TestCase):
         assert "manually merge" in content
         assert "Never enable auto-merge" in content
         assert "manually Publish" in content
-        assert "Changelog preview" in content
-        assert "Installation from Source" in content
+        assert "production CICD/Drone triggers" in content
+        assert "Changelog preview" not in content
+        assert "Installation from Source" not in content
+        assert "fixture" not in content
         assert self.git("tag") == "v3.0.0"
 
     def test_draft_cli_runs_real_transport_with_only_http_writes_mocked(self) -> None:

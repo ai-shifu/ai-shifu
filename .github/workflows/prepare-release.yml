@@ -45,12 +45,8 @@ jobs:
           python scripts/release_workflow.py prepare --tag="$RELEASE_TAG" --source "$GITHUB_SHA"
           printf 'tag=%s\nversion=%s\n' "$RELEASE_TAG" "${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Install release note tooling
-        run: python -m pip install commitizen==4.16.2
-
-      - name: Generate PR notes preview and manual merge handoff
+      - name: Generate concise PR handoff
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           python scripts/release_notes.py --source "$GITHUB_SHA" --version "$RELEASE_VERSION" \
