@@ -999,7 +999,15 @@ async def interact(
             direction = feedback
         else:
             review = feedback
-    validate_direction_call(ctx, review=review)
+    # When checking a held action, report invalid controls before the missing prose.
+    # No action can defer or return a successful result before the feedback check.
+    check_feedback_after_control = (
+        ctx.deps.stream_answer_feedback
+        and ctx.deps.feedback_draft is not None
+        and ctx.deps.feedback_draft.missing == "prose"
+    )
+    if not check_feedback_after_control:
+        validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
     if (
         prompt is not None or variable is not None
@@ -1186,6 +1194,8 @@ async def interact(
         if ctx.deps.no_pauses:
             # Carry on in the same turn when the lesson has no authored pause. Leave a repaired
             # interaction deferred so only the learner can answer a control first written as text.
+            if check_feedback_after_control:
+                validate_direction_call(ctx, review=review)
             return NO_PAUSE
     direction_text = direction.render() if direction is not None else ""
     if direction is not None:
@@ -1255,6 +1265,8 @@ async def interact(
             "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
         )
         raise ModelRetry(msg)
+    if check_feedback_after_control:
+        validate_direction_call(ctx, review=review)
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
         ctx.deps.direction_rendered[ctx.tool_call_id] = direction_text

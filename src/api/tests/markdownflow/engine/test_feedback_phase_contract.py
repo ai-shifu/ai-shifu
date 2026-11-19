@@ -1536,12 +1536,23 @@ async def test_unmatched_conditional_hint_keeps_actual_contradiction_in_current_
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "first", ["complete", "prose", "stale_id", "action", "invalid_action"]
+    "first",
+    [
+        "complete",
+        "prose",
+        "stale_id",
+        "action",
+        "invalid_action",
+        "invalid_schema",
+        "invalid_control",
+    ],
 )
 @pytest.mark.parametrize("terminal", ["interact", "finish"])
 async def test_streamed_answer_feedback_completes_once(
     first: str, terminal: str
 ) -> None:
+    if first == "invalid_control" and terminal == "finish":
+        pytest.skip("Finish has no control to render")
     calls = 0
     displayed = ""
     teaching = "The author's explanation for the learner."
@@ -1552,6 +1563,13 @@ async def test_streamed_answer_feedback_completes_once(
             args.update(
                 {"type": "text", "prompt": "Next question", "placeholder": "Answer"}
             )
+        if calls == 2 and first == "invalid_schema":
+            if terminal == "interact":
+                del args["type"]
+            else:
+                args["summary"] = []
+        if calls == 2 and first == "invalid_control":
+            args["prompt"] = "Rejected control"
         return {
             0: DeltaToolCall(
                 name=terminal,
@@ -1568,10 +1586,10 @@ async def test_streamed_answer_feedback_completes_once(
                 {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
             )
         elif calls == 2:
-            if first not in ("action", "invalid_action"):
+            if first in ("complete", "prose", "stale_id"):
                 yield teaching
                 assert displayed == teaching
-            if first in ("complete", "action"):
+            if first in ("complete", "action", "invalid_schema", "invalid_control"):
                 yield action()
             elif first in ("stale_id", "invalid_action"):
                 yield action("older-answer")
@@ -1587,7 +1605,7 @@ async def test_streamed_answer_feedback_completes_once(
                 assert "Write only" in str(retry.content)
                 yield teaching
                 assert displayed == teaching
-            elif first == "invalid_action":
+            elif first in ("invalid_action", "invalid_schema", "invalid_control"):
                 assert "In one response" in str(retry.content)
                 yield teaching
                 assert displayed == teaching
@@ -1599,6 +1617,9 @@ async def test_streamed_answer_feedback_completes_once(
 
     engine = _engine(stream)
     engine.stream_answer_feedback = True
+    engine.interaction_check = lambda spec: (
+        "Invalid control" if spec.prompt == "Rejected control" else None
+    )
     session = await engine.new_session(SCRIPT)
     await _collect(engine.run_turn(session))
     async for event in engine.run_turn(session, InteractionResponseTurn(text=WRONG)):

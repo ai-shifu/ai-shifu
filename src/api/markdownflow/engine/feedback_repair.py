@@ -26,6 +26,7 @@ class FeedbackDraft:
     missing: Literal["action", "prose", "both"]
     prose_delivered: bool = False
     action: ToolCallPart | None = None
+    required_prose_error: str | None = None
 
 
 class CompleteFeedback(AbstractCapability[Deps]):
@@ -40,15 +41,29 @@ class CompleteFeedback(AbstractCapability[Deps]):
         if draft is None:
             return request_context
         last = request_context.messages[-1]
-        if not isinstance(last, ModelRequest) or not any(
-            isinstance(part, RetryPromptPart) for part in last.parts
-        ):
+        retries = (
+            [part for part in last.parts if isinstance(part, RetryPromptPart)]
+            if isinstance(last, ModelRequest)
+            else []
+        )
+        if not retries:
             deps.feedback_draft = None
             return request_context
         if deps.feedback_repair_attempted:
             message = "Answer feedback remains incomplete after one repair"
             raise UnexpectedModelBehavior(message)
         deps.feedback_repair_attempted = True
+        if draft.missing == "prose" and (
+            not draft.required_prose_error
+            or any(
+                not isinstance(part.content, str)
+                or not part.content.startswith(draft.required_prose_error)
+                for part in retries
+            )
+        ):
+            # The tool reported an actual argument or control problem, not just missing prose.
+            draft.missing = "both"
+            draft.action = None
         answer_id = next(iter(deps.direction_sections))
         if draft.missing == "action":
             status = (
@@ -161,7 +176,9 @@ class CompleteFeedback(AbstractCapability[Deps]):
                 and not deps.interaction_markup_pending
                 and feedback_response_problem(deps, with_body)[0] is None
             ):
-                deps.feedback_draft = FeedbackDraft("prose", action=calls[0])
+                deps.feedback_draft = FeedbackDraft(
+                    "prose", action=calls[0], required_prose_error=problem
+                )
             else:
                 deps.feedback_draft = FeedbackDraft("both")
         return response
