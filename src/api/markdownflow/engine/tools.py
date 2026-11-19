@@ -78,6 +78,9 @@ class Deps:
     feedback_response_displayed: bool = False
     # None outside repair; an empty tuple allows either next terminal tool.
     feedback_repair_tools: tuple[str, ...] | None = None
+    feedback_repair_memory_targets: dict[int, tuple[str, str]] = field(
+        default_factory=dict
+    )
     feedback_repair_attempted: bool = False
     interrupted_feedback_response: ModelResponse | None = None
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
@@ -1449,6 +1452,20 @@ async def prepare_memory_tool(
     )
 
 
+def remember_target(
+    deps: Deps, key: str, scope: Literal["session", "user"]
+) -> tuple[Literal["session", "user"], str] | None:
+    """Resolve the normalized key and actual scope of a memory write."""
+    normalized = normalize_variable_name(key)
+    if normalized is None or len(normalized) > _MEMORY_KEY_LIMIT:
+        return None
+    if deps.memory_keys is not None and (
+        normalized not in deps.memory_keys or normalized in deps.memory_deleted_keys
+    ):
+        scope = "user"
+    return scope, normalized
+
+
 async def remember(
     ctx: RunContext[Deps],
     key: str,
@@ -1479,16 +1496,12 @@ async def remember(
         validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
-    normalized_key = normalize_variable_name(key)
-    if normalized_key is None or len(normalized_key) > _MEMORY_KEY_LIMIT:
+    destination = remember_target(ctx.deps, key, scope)
+    if destination is None:
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
-    key = normalized_key
+    scope, key = destination
     if len(value) > _MEMORY_VALUE_LIMIT:
         return "Not remembered: the value exceeds 2000 characters. Continue teaching."
-    if ctx.deps.memory_keys is not None and (
-        key not in ctx.deps.memory_keys or key in ctx.deps.memory_deleted_keys
-    ):
-        scope = "user"
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
     if problem := _memory_capacity_error(target, key, value):
         return problem

@@ -46,7 +46,9 @@ enable the mode for one text answer bound to authored material.
 Use native validation to identify missing or rejected calls and request those
 calls once. Accept valid actions with no prose and discard text in a repair.
 If the first attempt has successful sibling calls, keep their results and
-accept only the rejected calls on repair.
+accept only the rejected calls on repair. Bind a rejected memory write to its
+original call ID and require the replacement to keep the same normalized key
+and storage scope. Reject a replacement if it would rerun a successful write.
 
 ## Concrete Steps
 

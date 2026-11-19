@@ -1764,6 +1764,82 @@ async def test_streamed_batch_repairs_only_rejected_calls(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    "repair", ["failed_target", "successful_key", "different_scope", "shared_target"]
+)
+async def test_streamed_feedback_binds_rejected_memory_write_to_its_original_target(
+    repair: str,
+) -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+    original_key = "first note" if repair == "shared_target" else "  second note  "
+
+    def remember(call_id: str, key: str, value: object, **args: str) -> DeltaToolCall:
+        return DeltaToolCall(
+            name="remember",
+            json_args=json.dumps(
+                {"key": key, "value": value, "review": _review(), **args}
+            ),
+            tool_call_id=call_id,
+        )
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield teaching
+            yield {
+                0: remember("saved-note", "first note", "already saved"),
+                1: remember("failed-note", original_key, ["invalid value"]),
+            }
+        elif calls == 3:
+            assert repair != "shared_target"
+            retry = next(
+                p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+            )
+            assert retry.tool_call_id == "failed-note"
+            assert any(
+                isinstance(p, ToolReturnPart) and p.tool_call_id == "saved-note"
+                for p in messages[-1].parts
+            )
+            key = "first note" if repair == "successful_key" else "second note"
+            scope = "user" if repair == "different_scope" else "session"
+            yield teaching
+            yield {0: remember("replacement-note", key, "corrected value", scope=scope)}
+        elif calls == 4:
+            yield {
+                0: DeltaToolCall(name="finish", json_args="{}", tool_call_id="finish")
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+
+    repaired = repair == "failed_target"
+    assert calls == (4 if repaired else 2 if repair == "shared_target" else 3)
+    assert _text(events) == teaching
+    assert session.finished is repaired
+    assert any(isinstance(e, ErrorEvent) for e in events) is not repaired
+    expected_memory = {"first note": "already saved"}
+    if repaired:
+        expected_memory["second note"] = "corrected value"
+    assert session.memory == expected_memory
+    assert session.user_memory == {}
+    assert [e.key for e in events if e.type == "memory.updated"] == list(
+        expected_memory
+    )
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("invalid_tool", [False, True])
 async def test_streamed_direction_preserves_displayed_prose_in_history(
     invalid_tool: bool,

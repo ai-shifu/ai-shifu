@@ -9,21 +9,66 @@ from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelRequest,
+    ModelResponse,
     RetryPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
 )
 
-from .tools import Deps
+from .tools import Deps, remember_target
 
 if TYPE_CHECKING:
     from pydantic_ai import RunContext
-    from pydantic_ai.messages import ModelResponse
     from pydantic_ai.models import ModelRequestContext
 
 
 _TERMINAL_TOOLS = frozenset({"interact", "finish"})
+
+
+def _remember_call_target(deps: Deps, call: ToolCallPart) -> tuple[str, str] | None:
+    args = call.args_as_dict()
+    key, scope = args.get("key"), args.get("scope", "session")
+    if not isinstance(key, str) or scope not in ("session", "user"):
+        return None
+    return remember_target(deps, key, scope)
+
+
+def _memory_repair_targets(
+    deps: Deps,
+    response: ModelResponse,
+    retries: list[RetryPromptPart],
+    returned: list[ToolReturnPart],
+) -> dict[int, tuple[str, str]]:
+    """Bind repair slots to failed memory calls by the original call ID."""
+    writes = [
+        part
+        for part in response.parts
+        if isinstance(part, ToolCallPart) and part.tool_name == "remember"
+    ]
+    targets = {part.tool_call_id: _remember_call_target(deps, part) for part in writes}
+    completed = {
+        targets.get(part.tool_call_id)
+        for part in returned
+        if part.tool_name == "remember"
+    }
+    repair_targets = {}
+    for index, retry in enumerate(retries):
+        if retry.tool_name != "remember":
+            continue
+        target = targets.get(retry.tool_call_id)
+        if (
+            len(targets) != len(writes)
+            or target is None
+            or None in completed
+            or target in completed
+        ):
+            message = (
+                "Cannot safely identify a distinct target for the rejected memory write"
+            )
+            raise UnexpectedModelBehavior(message)
+        repair_targets[index] = target
+    return repair_targets
 
 
 class CompleteFeedback(AbstractCapability[Deps]):
@@ -54,9 +99,8 @@ class CompleteFeedback(AbstractCapability[Deps]):
             tool.name
             for tool in request_context.model_request_parameters.function_tools
         }
-        completed = {
-            part.tool_name for part in last.parts if isinstance(part, ToolReturnPart)
-        }
+        returned = [part for part in last.parts if isinstance(part, ToolReturnPart)]
+        completed = {part.tool_name for part in returned}
         answer_id = next(iter(deps.direction_sections))
         if (
             len(retries) == 1
@@ -80,7 +124,7 @@ class CompleteFeedback(AbstractCapability[Deps]):
             if (
                 len(rejected) != len(retries)
                 or not set(rejected) <= offered_tools
-                or completed.intersection(rejected)
+                or completed.intersection(rejected) - {"remember"}
             ):
                 message = "Cannot safely identify the rejected feedback tool batch"
                 raise UnexpectedModelBehavior(message)
@@ -89,6 +133,22 @@ class CompleteFeedback(AbstractCapability[Deps]):
                 f"Retry only the rejected calls, in this order: {', '.join(rejected)}. "
                 f"Use current answer_id {answer_id}. Do not repeat successful tools."
             )
+            if "remember" in rejected:
+                response = next(
+                    (
+                        m
+                        for m in reversed(request_context.messages[:-1])
+                        if isinstance(m, ModelResponse)
+                    ),
+                    None,
+                )
+                if response is None:
+                    message = "Cannot find the response with the rejected memory write"
+                    raise UnexpectedModelBehavior(message)
+                deps.feedback_repair_memory_targets = _memory_repair_targets(
+                    deps, response, retries, returned
+                )
+                notice += " Keep each rejected remember call's original key and scope."
         deps.feedback_repair_attempted = True
         parts = [
             replace(
@@ -131,16 +191,20 @@ class CompleteFeedback(AbstractCapability[Deps]):
         expected = deps.feedback_repair_tools
         if expected is None:
             return response
-        calls = tuple(
-            part.tool_name for part in response.parts if isinstance(part, ToolCallPart)
-        )
+        calls = [part for part in response.parts if isinstance(part, ToolCallPart)]
         matches = (
-            calls == expected
+            tuple(call.tool_name for call in calls) == expected
             if expected
-            else len(calls) == 1 and calls[0] in _TERMINAL_TOOLS
+            else len(calls) == 1 and calls[0].tool_name in _TERMINAL_TOOLS
         )
         if not matches:
             message = "Answer feedback repair did not provide the requested tools"
+            raise UnexpectedModelBehavior(message)
+        if any(
+            _remember_call_target(deps, calls[index]) != target
+            for index, target in deps.feedback_repair_memory_targets.items()
+        ):
+            message = "Answer feedback repair changed a rejected memory write's target"
             raise UnexpectedModelBehavior(message)
         return replace(
             response,
