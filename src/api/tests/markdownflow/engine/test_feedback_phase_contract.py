@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Callable
 
 import pytest
 from markdownflow.engine import (
+    ContentDelta,
     ContinueTurn,
     Engine,
     ErrorEvent,
@@ -1531,3 +1532,124 @@ async def test_unmatched_conditional_hint_keeps_actual_contradiction_in_current_
     )
     assert session.pending[0].tool_call_id == "correction"
     assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "first", ["complete", "prose", "stale_id", "action", "invalid_action"]
+)
+@pytest.mark.parametrize("terminal", ["interact", "finish"])
+async def test_streamed_answer_feedback_completes_once(
+    first: str, terminal: str
+) -> None:
+    calls = 0
+    displayed = ""
+    teaching = "The author's explanation for the learner."
+
+    def action(answer_id: str = "original") -> dict[int, DeltaToolCall]:
+        args = {"review": _review(answer_id=answer_id)}
+        if terminal == "interact":
+            args.update(
+                {"type": "text", "prompt": "Next question", "placeholder": "Answer"}
+            )
+        return {
+            0: DeltaToolCall(
+                name=terminal,
+                json_args=json.dumps(args),
+                tool_call_id=f"action-{calls}",
+            )
+        }
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            if first not in ("action", "invalid_action"):
+                yield teaching
+                assert displayed == teaching
+            if first in ("complete", "action"):
+                yield action()
+            elif first in ("stale_id", "invalid_action"):
+                yield action("older-answer")
+        else:
+            assert calls == 3
+            assert first != "complete"
+            retry = next(
+                p
+                for p in reversed(messages[-1].parts)
+                if isinstance(p, RetryPromptPart)
+            )
+            if first == "action":
+                assert "Write only" in str(retry.content)
+                yield teaching
+                assert displayed == teaching
+            elif first == "invalid_action":
+                assert "In one response" in str(retry.content)
+                yield teaching
+                assert displayed == teaching
+                yield action()
+            else:
+                assert "already saw" in str(retry.content)
+                yield teaching  # Ignore a redundant body even when the model repeats it.
+                yield action()
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    async for event in engine.run_turn(session, InteractionResponseTurn(text=WRONG)):
+        assert not isinstance(event, ErrorEvent), event
+        if isinstance(event, ContentDelta):
+            displayed += event.text
+    assert calls == (2 if first == "complete" else 3)
+    assert displayed == teaching
+    assert (
+        ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
+        == 1
+    )
+    assert session.finished == (terminal == "finish")
+    if terminal == "interact":
+        restored = Session.loads(session.dumps())
+        assert len(restored.pending) == 1
+        assert restored.pending[0].spec.prompt == "Next question"
+
+
+@pytest.mark.anyio
+async def test_streamed_feedback_incomplete_repair_keeps_visible_prose_without_action() -> (
+    None
+):
+    calls = 0
+    teaching = "The feedback already shown to the learner."
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        else:
+            yield teaching
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 6
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert calls == 3
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) and e.retryable for e in events)
+    assert not session.finished
+    assert not session.pending
+    assert session.interrupted
+    assert (
+        ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
+        == 1
+    )

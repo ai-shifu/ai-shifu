@@ -201,6 +201,7 @@
 | `docs/exec-plans/completed/mdf2-quality-usage-attribution.md` | Attribute synthetic quality evaluation usage to its selected course | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-responsive-canvas.md` | Responsive canvases for newly generated MarkdownFlow 2.0 visuals | `exec-plan-completed` | `completed` | `learner` | `2026-10-20` | `false` |
 | `docs/exec-plans/completed/mdf2-shared-element-format.md` | Reuse the 1.0 formatter for every 2.0 lesson mode | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-streamed-answer-feedback.md` | Stream answer feedback and repair incomplete actions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-teaching-semantic-summary.md` | Semantic summaries for older MarkdownFlow teaching | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-unavailable-learner-values.md` | Unavailable Learner Values | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/memory-definition-type-cleanup.md` | Remove unused memory definition type configuration | `exec-plan-completed` | `completed` | `shared` | `2026-10-30` | `false` |

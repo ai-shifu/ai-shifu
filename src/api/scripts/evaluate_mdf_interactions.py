@@ -391,7 +391,7 @@ def renderer_for(locale: str) -> QuestionRenderer:
 def course_engine(
     model: ObservedModel, renderer: QuestionRenderer, temperature: float, *, live: bool
 ) -> Engine:
-    """Match the teaching options in lesson_entry without attaching business stores."""
+    """Match live course teaching without changing archived offline replay semantics."""
     from flaskr.service.learn.agent.memory_admission import make_request_check
     from flaskr.service.memory.course_references import (
         COURSE_REFERENCE_PREFIX,
@@ -407,6 +407,7 @@ def course_engine(
         memory_recall=True,
         exercise_statistics=True,
         feedback_contract=True,
+        stream_answer_feedback=live,
         memory_reserved_keys=ACTIVE_SYSTEM_PROFILE_KEYS,
         allowed_authored_question_keys=ACTIVE_SYSTEM_PROFILE_KEYS,
         memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX),

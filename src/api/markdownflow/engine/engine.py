@@ -81,6 +81,7 @@ from .exercise_statistics import (
     exercise_report_notice,
     read_exercise_history,
 )
+from .feedback_repair import CompleteFeedback
 from .finish_run import FinishAfterTools
 from .history_context import compact_recall_history, current_recall_notice
 from .interaction import (
@@ -502,6 +503,7 @@ class Engine:
         recall_history_compaction: bool = False,
         exercise_statistics: bool = False,
         feedback_contract: bool = False,
+        stream_answer_feedback: bool = False,
         buffer_model_responses: bool = False,
         legacy_interact_args: bool = False,
     ) -> None:
@@ -551,6 +553,9 @@ class Engine:
         still chooses the grade/stage. Unspecified counts retain ordinary feedback.
         Off preserves portable hosts' previous optional contract.
 
+        `stream_answer_feedback` streams ordinary prose for a uniquely anchored answer,
+        then allows a single request to repair its action or missing prose.
+
         `buffer_model_responses` withholds each model response's text until its
         tools succeed or defer and discards the text if that response is retried.
         Successful tool steps keep their content. Off preserves immediate streaming.
@@ -559,6 +564,7 @@ class Engine:
         The provider schema always advertises the question-only contract.
         """
         self.feedback_contract = feedback_contract
+        self.stream_answer_feedback = stream_answer_feedback
         self.buffer_model_responses = buffer_model_responses
         self.legacy_interact_args = legacy_interact_args
         self.feedback_instructions = (
@@ -615,6 +621,7 @@ class Engine:
             capabilities=[
                 FinishAfterTools(),
                 ProcessHistory(self._feedback_retry_history),
+                CompleteFeedback(),
                 ProcessHistory(self._language_request_history),
             ],
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
@@ -784,6 +791,12 @@ class Engine:
             instructions += "\n\n" + self.prompts.answer_review
         if ctx.deps.feedback_contract and ctx.deps.direction_sections:
             instructions += "\n\n" + self.feedback_instructions
+            if ctx.deps.stream_answer_feedback:
+                instructions += (
+                    "\n\nOrdinary teaching prose is shown as it arrives. In checking-direction "
+                    "correction, use only structured interact.feedback and no free prose. "
+                    "A repair instruction names the missing part; supply only that part."
+                )
         if ctx.deps.authored_answer_reference is not None:
             instructions += answer_reference_instructions(
                 ctx.deps.authored_answer_reference
@@ -1106,6 +1119,12 @@ class Engine:
                     section = authored_answer_section(session.script.script, spec)
                     if section is not None:
                         deps.direction_sections[part.tool_call_id] = section
+        deps.stream_answer_feedback = (
+            self.stream_answer_feedback
+            and deps.feedback_contract
+            and len(deps.direction_sections) == 1
+            and not self.buffer_model_responses
+        )
         if session.started:
             kwargs["message_history"] = (
                 project_memory_history(
@@ -1217,11 +1236,11 @@ class Engine:
         was_interrupted = session.interrupted
         markup = InteractionMarkupFilter(deps.literal_interaction_markup)
         markup_noticed = False
-        # A resumed answer may select structured direction feedback. Ordinary
-        # prose waits for its tool response to succeed, including deferred controls.
-        # Successful report pages release independently, without a planning request.
-        # A rejected tool response contributes neither visible prose nor a new branch.
-        buffer_direction = bool(deps.direction_sections) or self.buffer_model_responses
+        # Portable hosts may buffer an answer-feedback response. The course host
+        # streams ordinary prose and validates structured hints and actions separately.
+        buffer_direction = self.buffer_model_responses or (
+            bool(deps.direction_sections) and not deps.stream_answer_feedback
+        )
         direction_chunks: list[str] = []
         feedback_response: ModelResponse | None = None
         feedback_completed: set[str] = set()
@@ -1256,7 +1275,11 @@ class Engine:
             if response != shown_response and shown:
                 text = _response_separator(shown, text) + text
             shown_response = response
-            delivered += _visible_length(text)
+            visible_length = _visible_length(text)
+            delivered += visible_length
+            if deps.stream_answer_feedback and visible_length:
+                deps.feedback_response_displayed = True
+                deps.feedback_text_delivered = True
             said.append("".join(text.split()))
             shown.append(text)
             out: list[Event] = [ContentDelta(text=text)]
@@ -1319,7 +1342,14 @@ class Engine:
                 markup_noticed = True
             return _display(displayed) if displayed else []
 
-        def _text(text: str) -> list[Event]:
+        def _text(text: str, *, from_model: bool = False) -> list[Event]:
+            if (
+                from_model
+                and deps.feedback_repair_attempted
+                and deps.feedback_draft is not None
+                and deps.feedback_draft.missing == "action"
+            ):
+                return []
             if buffer_direction:
                 direction_chunks.append(text)
                 return []
@@ -1358,7 +1388,8 @@ class Engine:
                         else:
                             for e in _release_direction_chunks():
                                 yield e
-                        buffer_direction = True
+                        buffer_direction = not deps.stream_answer_feedback
+                        deps.feedback_response_displayed = False
                     # FinishAfterTools stops the run after an accepted completion batch. Keep
                     # text already streamed in that response, including a closing line placed
                     # after the tool call, without requesting another closing response.
@@ -1410,19 +1441,19 @@ class Engine:
                         for e in _settle_markup():
                             yield e
                         if ev.part.content and not silent:
-                            for e in _text(ev.part.content):
+                            for e in _text(ev.part.content, from_model=True):
                                 yield e
                     elif (
                         isinstance(ev, PartDeltaEvent)
                         and isinstance(ev.delta, TextPartDelta)
                         and not silent
                     ):
-                        for e in _text(ev.delta.content_delta):
+                        for e in _text(ev.delta.content_delta, from_model=True):
                             yield e
                     elif isinstance(ev, FunctionToolCallEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
-                        if buffer_direction:
+                        if buffer_direction or deps.stream_answer_feedback:
                             response = next(
                                 (
                                     m

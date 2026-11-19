@@ -41,6 +41,8 @@ if TYPE_CHECKING:
 
     from pydantic_ai.tools import ToolDefinition
 
+    from .feedback_repair import FeedbackDraft
+
 
 @dataclass
 class Deps:
@@ -73,6 +75,10 @@ class Deps:
     )
     feedback_text_pending: bool = False
     feedback_text_delivered: bool = False
+    stream_answer_feedback: bool = False
+    feedback_response_displayed: bool = False
+    feedback_draft: FeedbackDraft | None = None
+    feedback_repair_attempted: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
@@ -110,6 +116,8 @@ class Deps:
 
     def hide_feedback_response(self, response: ModelResponse) -> None:
         """Track withheld prose until a successful replacement actually supplies it."""
+        if self.stream_answer_feedback and self.feedback_response_displayed:
+            return  # The teaching already reached the learner; retain it in history.
         # SDK history projection can release the original response. Keep its ID
         # unique until this turn's Deps is discarded, including final projection.
         self._hidden_feedback_objects[id(response)] = response
