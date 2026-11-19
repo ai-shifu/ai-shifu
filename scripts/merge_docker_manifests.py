@@ -16,7 +16,7 @@ PLATFORMS = frozenset({"linux/amd64", "linux/arm64"})
 DIGEST_PATTERN = re.compile(r"sha256:[a-f0-9]{64}")
 ARTIFACT_PATTERN = re.compile(r"-(amd64|arm64)-([1-9][0-9]*)$")
 REGISTRY_TIMEOUT = 30
-COPY_TIMEOUT = 120
+COPY_TIMEOUT = 300
 ATTEMPTS = 3
 COPY_RETRY_EXIT_CODE = 75
 

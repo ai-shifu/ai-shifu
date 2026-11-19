@@ -229,7 +229,7 @@ def test_stalled_aliyun_publication_leaves_other_targets_independent(
         ]
         assert len(stalled) == 3
         assert all(
-            command[:3] == ("timeout", "--kill-after=5s", "120s") for command in stalled
+            command[:3] == ("timeout", "--kill-after=5s", "300s") for command in stalled
         )
         assert all(command[-1] == f"{ALIYUN}@{AMD64}" for command in stalled)
         assert [call.args for call in sleep.call_args_list] == [(2,), (4,)]
