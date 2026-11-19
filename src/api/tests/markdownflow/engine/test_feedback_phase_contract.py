@@ -16,11 +16,17 @@ from markdownflow.engine import (
 from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
+    ModelResponse,
     RetryPromptPart,
     ToolReturnPart,
     UserPromptPart,
 )
-from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+from pydantic_ai.models.function import (
+    AgentInfo,
+    DeltaToolCall,
+    FunctionModel,
+    FunctionStreamedResponse,
+)
 
 from .test_direction_feedback import (
     DISPLAY,
@@ -1858,3 +1864,67 @@ async def test_streamed_feedback_repairs_one_rejected_memory_call() -> None:
         ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
         == 1
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("empty_tail", [False, True])
+async def test_truncated_answer_response_saves_visible_prose_without_running_tools(
+    monkeypatch: pytest.MonkeyPatch,
+    empty_tail: bool,
+) -> None:
+    calls = 0
+    teaching = "The feedback reached the learner before the response was cut off."
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield teaching
+            if empty_tail:
+                yield {
+                    0: DeltaToolCall(
+                        name="recall", json_args="{}", tool_call_id="lookup"
+                    )
+                }
+            else:
+                yield {
+                    0: DeltaToolCall(
+                        name="finish",
+                        json_args=json.dumps({"review": _review()}),
+                        tool_call_id="truncated-action",
+                    )
+                }
+        elif calls == 3 and empty_tail:
+            yield {}
+
+    original_get = FunctionStreamedResponse.get
+
+    def get_response(streamed: FunctionStreamedResponse) -> ModelResponse:
+        response = original_get(streamed)
+        if calls == (3 if empty_tail else 2):
+            response.finish_reason = "length"
+        return response
+
+    monkeypatch.setattr(FunctionStreamedResponse, "get", get_response)
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert calls == (3 if empty_tail else 2)
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) and e.retryable for e in events)
+
+    restored = Session.loads(session.dumps())
+    saved = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
+    assert saved.count(teaching) == 1
+    assert "truncated-action" not in saved
+    assert WRONG in saved
+    assert restored.interrupted
+    assert not restored.finished

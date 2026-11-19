@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -1779,11 +1779,25 @@ class Engine:
                 # interrupted run, including accepted answers and completed tool results,
                 # so a retry can continue rather than replay that teaching. Appending only
                 # new messages also preserves original evidence behind history projections.
+                new_messages = events.new_messages()
+                if (
+                    deps.interrupted_feedback_response is not None
+                    and deps.feedback_response_displayed
+                ):
+                    # The SDK rejected this response before recording it. Save only
+                    # what reached the learner; unfinished tool calls never ran.
+                    visible = "".join(shown[response_shown_start:])
+                    new_messages.append(
+                        replace(
+                            deps.interrupted_feedback_response,
+                            parts=[TextPart(visible)],
+                        )
+                    )
                 session.messages = [
                     *session.messages,
                     *direction_history(
                         without_answer_reference(
-                            events.new_messages(), deps.authored_answer_reference
+                            new_messages, deps.authored_answer_reference
                         ),
                         deps.direction_rendered,
                         deps.hidden_feedback_responses,

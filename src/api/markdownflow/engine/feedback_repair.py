@@ -123,6 +123,9 @@ class CompleteFeedback(AbstractCapability[Deps]):
         if not deps.stream_answer_feedback:
             return response
         if response.finish_reason not in (None, "stop", "tool_call"):
+            # This hook runs before the SDK records the response in history.
+            if any(isinstance(part, TextPart) for part in response.parts):
+                deps.interrupted_feedback_response = response
             message = "Answer feedback response was interrupted"
             raise UnexpectedModelBehavior(message)
         expected = deps.feedback_repair_tools

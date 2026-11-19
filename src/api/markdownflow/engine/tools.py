@@ -79,6 +79,7 @@ class Deps:
     # None outside repair; an empty tuple allows either next terminal tool.
     feedback_repair_tools: tuple[str, ...] | None = None
     feedback_repair_attempted: bool = False
+    interrupted_feedback_response: ModelResponse | None = None
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
