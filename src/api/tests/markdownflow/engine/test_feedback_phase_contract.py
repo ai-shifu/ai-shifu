@@ -1595,25 +1595,18 @@ async def test_streamed_answer_feedback_completes_once(
                 yield action("older-answer")
         else:
             assert calls == 3
-            assert first != "complete"
+            assert first not in ("complete", "action")
             retry = next(
                 p
                 for p in reversed(messages[-1].parts)
                 if isinstance(p, RetryPromptPart)
             )
-            if first == "action":
-                assert "Write only" in str(retry.content)
-                yield teaching
-                assert displayed == teaching
-            elif first in ("invalid_action", "invalid_schema", "invalid_control"):
-                assert "In one response" in str(retry.content)
-                yield teaching
-                assert displayed == teaching
-                yield action()
-            else:
-                assert "already saw" in str(retry.content)
-                yield teaching  # Ignore a redundant body even when the model repeats it.
-                yield action()
+            assert "Send only the actual interact or finish tool call" in str(
+                retry.content
+            )
+            assert "Do not write any prose" in str(retry.content)
+            yield teaching  # Repair prose is discarded even if the first response had none.
+            yield action()
 
     engine = _engine(stream)
     engine.stream_answer_feedback = True
@@ -1626,12 +1619,12 @@ async def test_streamed_answer_feedback_completes_once(
         assert not isinstance(event, ErrorEvent), event
         if isinstance(event, ContentDelta):
             displayed += event.text
-    assert calls == (2 if first == "complete" else 3)
-    assert displayed == teaching
-    assert (
-        ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
-        == 1
-    )
+    assert calls == (2 if first in ("complete", "action") else 3)
+    first_had_prose = first in ("complete", "prose", "stale_id")
+    assert displayed == (teaching if first_had_prose else "")
+    assert ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(
+        teaching
+    ) == int(first_had_prose)
     assert session.finished == (terminal == "finish")
     if terminal == "interact":
         restored = Session.loads(session.dumps())
@@ -1678,8 +1671,10 @@ async def test_streamed_feedback_incomplete_repair_keeps_visible_prose_without_a
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("replay_completed", [False, True])
+@pytest.mark.parametrize("first_has_prose", [False, True])
 async def test_streamed_batch_repairs_only_rejected_calls(
     replay_completed: bool,
+    first_has_prose: bool,
 ) -> None:
     calls = 0
     teaching = "The learner should see this explanation once."
@@ -1702,7 +1697,8 @@ async def test_streamed_batch_repairs_only_rejected_calls(
             ),
         }
         if calls == 2:
-            yield teaching
+            if first_has_prose:
+                yield teaching
             yield {
                 **saved,
                 1: DeltaToolCall(
@@ -1752,7 +1748,7 @@ async def test_streamed_batch_repairs_only_rejected_calls(
         e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
     ]
     assert calls == 3
-    assert _text(events) == teaching
+    assert _text(events) == (teaching if first_has_prose else "")
     assert sum(e.type == "memory.updated" for e in events) == 1
     assert session.memory == {"note": "saved"}
     assert any(isinstance(e, ErrorEvent) for e in events) is replay_completed
@@ -1762,9 +1758,10 @@ async def test_streamed_batch_repairs_only_rejected_calls(
 
 
 @pytest.mark.anyio
-async def test_streamed_rejected_direction_preserves_displayed_prose_in_history() -> (
-    None
-):
+@pytest.mark.parametrize("invalid_tool", [False, True])
+async def test_streamed_direction_preserves_displayed_prose_in_history(
+    invalid_tool: bool,
+) -> None:
     calls = 0
     teaching = "The learner has already seen this explanation."
     control = {"type": "text", "prompt": "", "placeholder": "Answer"}
@@ -1776,8 +1773,12 @@ async def test_streamed_rejected_direction_preserves_displayed_prose_in_history(
             yield _call(control, "original")
         elif calls == 2:
             yield teaching
-            yield _call({**control, "direction": _direction()}, "mixed")
+            direction = _direction()
+            if invalid_tool:
+                direction["answer_id"] = "wrong-id"
+            yield _call({**control, "direction": direction}, "first-direction")
         elif calls == 3:
+            assert invalid_tool
             yield _call({**control, "direction": _direction()}, "correction")
 
     engine = _engine(stream)
@@ -1788,10 +1789,72 @@ async def test_streamed_rejected_direction_preserves_displayed_prose_in_history(
     events = await _collect(
         engine.run_turn(session, InteractionResponseTurn(text=WRONG))
     )
-    assert calls == 3
-    assert _text(events) == teaching + "\n" + DISPLAY
+    assert calls == (3 if invalid_tool else 2)
+    assert _text(events) == teaching + ("\n" if invalid_tool else "\n\n") + DISPLAY
     restored = Session.loads(session.dumps())
-    assert [p.tool_call_id for p in restored.pending] == ["correction"]
+    assert [p.tool_call_id for p in restored.pending] == [
+        "correction" if invalid_tool else "first-direction"
+    ]
     saved = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
     assert saved.count(teaching) == 1
     assert saved.count(DISPLAY.replace("\n", "\\n")) == 1
+
+
+@pytest.mark.anyio
+async def test_streamed_feedback_repairs_one_rejected_memory_call() -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls in (2, 3):
+            if calls == 3:
+                retry = next(
+                    p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+                )
+                assert "Retry only the rejected calls, in this order: remember" in str(
+                    retry.content
+                )
+            yield teaching
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    json_args=json.dumps(
+                        {
+                            "key": "note",
+                            "value": "saved",
+                            "review": _review(
+                                answer_id="older-answer" if calls == 2 else "original"
+                            ),
+                        }
+                    ),
+                    tool_call_id=f"remember-{calls}",
+                )
+            }
+        elif calls == 4:
+            yield {
+                0: DeltaToolCall(name="finish", json_args="{}", tool_call_id="finish")
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert calls == 4
+    assert _text(events) == teaching
+    assert sum(e.type == "memory.updated" for e in events) == 1
+    assert session.memory == {"note": "saved"}
+    assert session.finished
+    assert (
+        ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
+        == 1
+    )

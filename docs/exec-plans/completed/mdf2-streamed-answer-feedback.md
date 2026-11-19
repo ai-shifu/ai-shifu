@@ -3,7 +3,7 @@
 ## Purpose / Big Picture
 
 Let learners read ordinary feedback as it is generated. A tool validation problem
-should request only the missing portion and should not cause repeated teaching.
+should request only missing or rejected tool calls. The repair ignores any prose.
 
 ## Progress
 
@@ -13,25 +13,27 @@ should request only the missing portion and should not cause repeated teaching.
 
 ## Surprises & Discoveries
 
-The engine can receive an invalid action without receiving prose. The single
-repair must cover both defects; separate tool and output retries are too broad
-for this path.
+A response can contain a valid action with no prose, or a valid structured
+correction alongside streamed prose. Both can run as soon as the action passes
+validation. Rejected calls in a tool batch can be retried without repeating
+successful calls.
 
 ## Decision Log
 
 Keep the existing feedback formats and native deferral mechanism. Stream
 ordinary prose immediately and use ordinary validators to authorize actions.
-Display engine-rendered checking directions only after their existing checks.
-The text already displayed is retained even if the action ultimately fails.
+Check engine-rendered hints and learner controls before delivery. Treat initial
+prose as final as it arrives, including when the model later chooses structured
+checking. Preserve the displayed text in history if the action ultimately fails.
 
 ## Outcomes & Retrospective
 
 All seven prior DeepSeek Flash and Gemini 4 Hydrogen cases and all three
 GPT-6 Luna answer-feedback cases passed a single low-reasoning replay. Nine
 previously failing steps used a single tool-only repair; the remaining step
-passed on its first response. The deterministic suite verifies split replies
-in both orders, rejected repair recovery, and persisted interaction controls.
-The course host contracts and historical evaluator replay pass.
+passed on its first response. These replays preceded the review follow-up.
+The deterministic suite verifies tool-only first replies, targeted repairs,
+discarded repair prose, and persisted teaching and interaction controls.
 
 ## Context and Orientation
 
@@ -41,9 +43,10 @@ enable the mode for one text answer bound to authored material.
 
 ## Plan of Work
 
-Track whether teaching reached the learner. When a native retry is required,
-request only the missing teaching or action. A complete action held for missing
-teaching goes through the normal tool path after the next response supplies it.
+Use native validation to identify missing or rejected calls and request those
+calls once. Accept valid actions with no prose and discard text in a repair.
+If the first attempt has successful sibling calls, keep their results and
+accept only the rejected calls on repair.
 
 ## Concrete Steps
 

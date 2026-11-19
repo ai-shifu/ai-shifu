@@ -554,7 +554,7 @@ class Engine:
         Off preserves portable hosts' previous optional contract.
 
         `stream_answer_feedback` streams ordinary prose for a uniquely anchored answer,
-        then allows a single request to repair its action or missing prose.
+        then allows a single request to repair missing or rejected tool calls.
 
         `buffer_model_responses` withholds each model response's text until its
         tools succeed or defer and discards the text if that response is retried.
@@ -679,7 +679,11 @@ class Engine:
         self, ctx: RunContext[Deps], output: str | DeferredToolRequests
     ) -> str | DeferredToolRequests:
         """Require an actual tool call after an unexecuted textual interaction."""
-        if isinstance(output, str) and ctx.deps.feedback_contract:
+        if (
+            isinstance(output, str)
+            and ctx.deps.feedback_contract
+            and not ctx.deps.stream_answer_feedback
+        ):
             response = next(
                 (m for m in reversed(ctx.messages) if isinstance(m, ModelResponse)),
                 None,
@@ -712,6 +716,13 @@ class Engine:
                     ctx.deps.hide_feedback_response(response)
             ctx.deps.interaction_markup_pending = True
             raise ModelRetry(INTERACTION_MARKUP_RETRY)
+        if (
+            isinstance(output, str)
+            and ctx.deps.stream_answer_feedback
+            and ctx.deps.finished is None
+        ):
+            message = "Call interact or finish for the next authored action with its feedback."
+            raise ModelRetry(message)
         return output
 
     async def _feedback_retry_history(
@@ -719,7 +730,7 @@ class Engine:
     ) -> list[ModelMessage]:
         if self.buffer_model_responses and not ctx.deps.feedback_contract:
             return direction_history(messages, {}, ctx.deps.hidden_feedback_responses)
-        if not ctx.deps.feedback_contract:
+        if not ctx.deps.feedback_contract or ctx.deps.stream_answer_feedback:
             return messages
         return feedback_retry_history(
             messages,
@@ -795,7 +806,7 @@ class Engine:
                 instructions += (
                     "\n\nOrdinary teaching prose is shown as it arrives. In checking-direction "
                     "correction, use only structured interact.feedback and no free prose. "
-                    "A repair instruction names the missing part; supply only that part."
+                    "A repair requests only missing or rejected tool calls. Do not repeat teaching."
                 )
         if ctx.deps.authored_answer_reference is not None:
             instructions += answer_reference_instructions(
@@ -1344,12 +1355,7 @@ class Engine:
             return _display(displayed) if displayed else []
 
         def _text(text: str, *, from_model: bool = False) -> list[Event]:
-            if (
-                from_model
-                and deps.feedback_repair_attempted
-                and deps.feedback_draft is not None
-                and deps.feedback_draft.missing == "action"
-            ):
+            if from_model and deps.feedback_repair_tools is not None:
                 return []
             if buffer_direction:
                 direction_chunks.append(text)
@@ -1694,9 +1700,10 @@ class Engine:
                         session.usage = accumulate_usage(session.usage, result.usage)
                         prepared_events: list[Event] = []
                         for call_id in direction_pending:
-                            prepared_events.extend(
-                                _text(deps.direction_rendered[call_id])
-                            )
+                            direction = deps.direction_rendered[call_id]
+                            if call_id in deps.displayed_direction_prose:
+                                direction = "\n\n" + direction
+                            prepared_events.extend(_text(direction))
                         prepared_events.extend(_flush_markup())
                         prepared_content = "".join(shown)
                         for event in prepared_events:

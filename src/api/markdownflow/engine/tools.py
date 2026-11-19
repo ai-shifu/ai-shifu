@@ -41,8 +41,6 @@ if TYPE_CHECKING:
 
     from pydantic_ai.tools import ToolDefinition
 
-    from .feedback_repair import FeedbackDraft
-
 
 @dataclass
 class Deps:
@@ -78,7 +76,8 @@ class Deps:
     feedback_text_delivered: bool = False
     stream_answer_feedback: bool = False
     feedback_response_displayed: bool = False
-    feedback_draft: FeedbackDraft | None = None
+    # None outside repair; an empty tuple allows either next terminal tool.
+    feedback_repair_tools: tuple[str, ...] | None = None
     feedback_repair_attempted: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
@@ -794,9 +793,9 @@ def validate_direction_call(
         problem, _ = feedback_response_problem(ctx.deps, response)
         if problem:
             ctx.deps.hide_feedback_response(response)
-            raise ModelRetry(
-                problem + "; correct the whole response before any display"
-            )
+            if not ctx.deps.stream_answer_feedback:
+                problem += "; correct the whole response before any display"
+            raise ModelRetry(problem)
 
 
 def feedback_response_problem(
@@ -829,7 +828,8 @@ def feedback_response_problem(
         )  # interact validates its entire structured call before display.
     delivery_problem = None
     if (
-        deps.feedback_text_pending
+        not deps.stream_answer_feedback
+        and deps.feedback_text_pending
         and any(call.tool_name in ("interact", "finish") for call in calls)
         and not any(
             isinstance(p, TextPart) and p.content.strip() for p in response.parts
@@ -862,8 +862,14 @@ def feedback_response_problem(
     if (
         deps.feedback_review is None
         and (
-            any(isinstance(p, TextPart) and p.content.strip() for p in response.parts)
-            or any(call.tool_name in ("interact", "finish") for call in calls)
+            any(call.tool_name in ("interact", "finish") for call in calls)
+            or (
+                not deps.stream_answer_feedback
+                and any(
+                    isinstance(p, TextPart) and p.content.strip()
+                    for p in response.parts
+                )
+            )
         )
         and review is None
     ):
@@ -878,7 +884,8 @@ def feedback_response_problem(
         )
     selected = review or deps.feedback_review
     if (
-        selected is not None
+        not deps.stream_answer_feedback
+        and selected is not None
         and selected.phase == "accepted"
         and any(call.tool_name in ("interact", "finish") for call in calls)
         and not deps.feedback_text_delivered
@@ -1000,15 +1007,7 @@ async def interact(
             direction = feedback
         else:
             review = feedback
-    # When checking a held action, report invalid controls before the missing prose.
-    # No action can defer or return a successful result before the feedback check.
-    check_feedback_after_control = (
-        ctx.deps.stream_answer_feedback
-        and ctx.deps.feedback_draft is not None
-        and ctx.deps.feedback_draft.missing == "prose"
-    )
-    if not check_feedback_after_control:
-        validate_direction_call(ctx, review=review)
+    validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
     if (
         prompt is not None or variable is not None
@@ -1186,6 +1185,9 @@ async def interact(
                     for control in ctx.deps.script_questions
                 )
             if not authored_pause:
+                if ctx.deps.stream_answer_feedback:
+                    message = "Use the next authored interaction or finish instead of adding a continue control."
+                    raise ModelRetry(message)
                 msg = (
                     "You asked the learner to continue without presenting anything in this turn. "
                     "Deliver the next part of the script as content first, then pause where the "
@@ -1195,8 +1197,6 @@ async def interact(
         if ctx.deps.no_pauses:
             # Carry on in the same turn when the lesson has no authored pause. Leave a repaired
             # interaction deferred so only the learner can answer a control first written as text.
-            if check_feedback_after_control:
-                validate_direction_call(ctx, review=review)
             return NO_PAUSE
     direction_text = direction.render() if direction is not None else ""
     if direction is not None:
@@ -1246,16 +1246,22 @@ async def interact(
             problem = "direction must not contain unexecuted interaction markup"
         if not problem and (
             response is None
-            or any(
+            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
+        ):
+            problem = "direction must be the sole tool call in its response"
+        if (
+            not problem
+            and not ctx.deps.stream_answer_feedback
+            and response is not None
+            and any(
                 isinstance(p, TextPart) and p.content.strip() for p in response.parts
             )
-            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
         ):
             problem = "direction must be the sole tool call, without free content in its response"
         if problem:
-            raise ModelRetry(
-                problem + "; correct the whole call before anything is displayed"
-            )
+            if not ctx.deps.stream_answer_feedback:
+                problem += "; correct the whole call before anything is displayed"
+            raise ModelRetry(problem)
     problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
     if problem:
         # Deferred, the question would wait for an answer the learner has no controls to give.
@@ -1266,8 +1272,6 @@ async def interact(
             "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
         )
         raise ModelRetry(msg)
-    if check_feedback_after_control:
-        validate_direction_call(ctx, review=review)
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
         ctx.deps.direction_rendered[ctx.tool_call_id] = direction_text

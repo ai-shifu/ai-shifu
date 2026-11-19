@@ -585,12 +585,7 @@ def test_authored_system_answers_use_the_same_account_memory_in_both_modes(
     def chat(**_kwargs: object) -> Iterator[FakeChunk]:
         nonlocal phase
         phase += 1
-        if phase > 2:
-            assert phase == 3
-            yield FakeChunk(
-                result="Thanks, I recorded your answer.", finish_reason="stop"
-            )
-            return
+        assert phase <= 2
         if phase == 1:
             yield FakeChunk(result=f"{question}\n")
             name = "interact"
@@ -639,8 +634,10 @@ def test_authored_system_answers_use_the_same_account_memory_in_both_modes(
         )
         if authored:
             events = list(entry.agent_lesson_events(app, user_input=answer, **params))
-            assert phase == 3
+            # A valid finish can complete the lesson without an added prose request.
+            assert phase == 2
             assert any(event.type == GeneratedType.DONE for event in events)
+            assert not any(event.type == GeneratedType.CONTENT for event in events)
             session = load_agent_session(app, user, outline)
             assert session is not None
             assert session.all_memory()[question] == answer
