@@ -169,6 +169,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Attribute synthetic quality evaluation usage to its selected course](./completed/mdf2-quality-usage-attribution.md)
 - [Responsive canvases for newly generated MarkdownFlow 2.0 visuals](./completed/mdf2-responsive-canvas.md)
 - [Reuse the 1.0 formatter for every 2.0 lesson mode](./completed/mdf2-shared-element-format.md)
+- [Stream answer feedback and repair incomplete actions](./completed/mdf2-streamed-answer-feedback.md)
 - [Semantic summaries for older MarkdownFlow teaching](./completed/mdf2-teaching-semantic-summary.md)
 - [Unavailable Learner Values](./completed/mdf2-unavailable-learner-values.md)
 - [Remove unused memory definition type configuration](./completed/memory-definition-type-cleanup.md)

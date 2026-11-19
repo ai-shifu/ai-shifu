@@ -1,8 +1,9 @@
 # Declare the feedback branch before displaying this returned text answer
 
 On the first feedback for a uniquely anchored text input, send the complete
-authored feedback and the actual tool call in the same response. The host
-withholds rejected prose. When the next step asks for input or a pause, use
+authored feedback and the actual tool call in the same response on the first
+attempt. The host validates the branch before running the action. When the next
+step asks for input or a pause, use
 `interact.feedback`. When no authored step remains, use `finish.feedback` in
 that same response. Read and memory tools use `review` when declaring an
 ordinary feedback branch. Structured checking direction uses the special form

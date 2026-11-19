@@ -560,6 +560,11 @@ def test_live_evaluation_reports_the_reviewed_prose_with_its_evidence(
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     fixture = next(case for case in catalog if case["id"] == case_id)
     fixture["replay"][response_index]["text"] = prose
+    if case_id == "lf-feedback-missing-branch":
+        # Live feedback displays the first response; the retry supplies only the action.
+        fixture["replay"][response_index - 1]["text"] = fixture["replay"][
+            response_index
+        ].pop("text")
     case = Case.model_validate(fixture)
     requests = []
     intent_key = (

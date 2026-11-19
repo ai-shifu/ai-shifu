@@ -215,12 +215,14 @@ def direction_history(
     messages: list[ModelMessage],
     rendered: dict[str, str],
     hidden: set[int] | None = None,
+    *,
+    displayed_prose: dict[str, str] | None = None,
 ) -> list[ModelMessage]:
-    """Keep only displayed direction text in new teaching, retaining all tool/user evidence.
+    """Keep the structured response's displayed teaching and original tool evidence.
 
-    A rejected structured response's free prose was never displayed. Accepted
-    tool arguments remain original, and their exact rendered text is also stored
-    as teaching so existing history, summaries and reports see what was shown.
+    A streaming host may already have shown some free prose before seeing a
+    structured call. Store that prose and any rendered hint as the learner saw
+    them, so history, summaries, and reports reflect the delivered teaching.
     """
     result = []
     for message in messages:
@@ -245,7 +247,12 @@ def direction_history(
             # remains, but an empty assistant would be invalid provider history.
             continue
         parts = [p for p in message.parts if not isinstance(p, TextPart)]
-        shown = [rendered[p.tool_call_id] for p in calls if p.tool_call_id in rendered]
+        shown = [
+            source[p.tool_call_id]
+            for source in (displayed_prose or {}, rendered)
+            for p in calls
+            if p.tool_call_id in source
+        ]
         result.append(
             replace(
                 message,

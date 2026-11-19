@@ -479,6 +479,7 @@ def agent_lesson_events(
                 recall_history_compaction=False,
                 exercise_statistics=True,
                 feedback_contract=True,
+                stream_answer_feedback=True,
                 memory_reserved_keys=system_keys,
                 # Retained lessons can have active system bindings. The engine
                 # allows these only on a matching authored control.

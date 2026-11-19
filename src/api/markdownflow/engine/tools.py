@@ -65,6 +65,7 @@ class Deps:
     direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
     direction_sections: dict[str, str] = field(default_factory=dict)
     direction_rendered: dict[str, str] = field(default_factory=dict)
+    displayed_direction_prose: dict[str, str] = field(default_factory=dict)
     feedback_contract: bool = False
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)
@@ -73,6 +74,18 @@ class Deps:
     )
     feedback_text_pending: bool = False
     feedback_text_delivered: bool = False
+    stream_answer_feedback: bool = False
+    feedback_response_displayed: bool = False
+    # None outside repair; an empty tuple allows either next terminal tool.
+    feedback_repair_tools: tuple[str, ...] | None = None
+    feedback_repair_memory_targets: dict[int, tuple[str, str]] = field(
+        default_factory=dict
+    )
+    feedback_repair_attempted: bool = False
+    feedback_remember_writes: dict[str, tuple[tuple[str, str], ...]] = field(
+        default_factory=dict
+    )
+    interrupted_feedback_response: ModelResponse | None = None
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
@@ -110,6 +123,8 @@ class Deps:
 
     def hide_feedback_response(self, response: ModelResponse) -> None:
         """Track withheld prose until a successful replacement actually supplies it."""
+        if self.stream_answer_feedback and self.feedback_response_displayed:
+            return  # The teaching already reached the learner; retain it in history.
         # SDK history projection can release the original response. Keep its ID
         # unique until this turn's Deps is discarded, including final projection.
         self._hidden_feedback_objects[id(response)] = response
@@ -785,9 +800,9 @@ def validate_direction_call(
         problem, _ = feedback_response_problem(ctx.deps, response)
         if problem:
             ctx.deps.hide_feedback_response(response)
-            raise ModelRetry(
-                problem + "; correct the whole response before any display"
-            )
+            if not ctx.deps.stream_answer_feedback:
+                problem += "; correct the whole response before any display"
+            raise ModelRetry(problem)
 
 
 def feedback_response_problem(
@@ -820,7 +835,8 @@ def feedback_response_problem(
         )  # interact validates its entire structured call before display.
     delivery_problem = None
     if (
-        deps.feedback_text_pending
+        not deps.stream_answer_feedback
+        and deps.feedback_text_pending
         and any(call.tool_name in ("interact", "finish") for call in calls)
         and not any(
             isinstance(p, TextPart) and p.content.strip() for p in response.parts
@@ -853,8 +869,14 @@ def feedback_response_problem(
     if (
         deps.feedback_review is None
         and (
-            any(isinstance(p, TextPart) and p.content.strip() for p in response.parts)
-            or any(call.tool_name in ("interact", "finish") for call in calls)
+            any(call.tool_name in ("interact", "finish") for call in calls)
+            or (
+                not deps.stream_answer_feedback
+                and any(
+                    isinstance(p, TextPart) and p.content.strip()
+                    for p in response.parts
+                )
+            )
         )
         and review is None
     ):
@@ -869,7 +891,8 @@ def feedback_response_problem(
         )
     selected = review or deps.feedback_review
     if (
-        selected is not None
+        not deps.stream_answer_feedback
+        and selected is not None
         and selected.phase == "accepted"
         and any(call.tool_name in ("interact", "finish") for call in calls)
         and not deps.feedback_text_delivered
@@ -1169,6 +1192,9 @@ async def interact(
                     for control in ctx.deps.script_questions
                 )
             if not authored_pause:
+                if ctx.deps.stream_answer_feedback:
+                    message = "Use the next authored interaction or finish instead of adding a continue control."
+                    raise ModelRetry(message)
                 msg = (
                     "You asked the learner to continue without presenting anything in this turn. "
                     "Deliver the next part of the script as content first, then pause where the "
@@ -1227,16 +1253,22 @@ async def interact(
             problem = "direction must not contain unexecuted interaction markup"
         if not problem and (
             response is None
-            or any(
+            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
+        ):
+            problem = "direction must be the sole tool call in its response"
+        if (
+            not problem
+            and not ctx.deps.stream_answer_feedback
+            and response is not None
+            and any(
                 isinstance(p, TextPart) and p.content.strip() for p in response.parts
             )
-            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
         ):
             problem = "direction must be the sole tool call, without free content in its response"
         if problem:
-            raise ModelRetry(
-                problem + "; correct the whole call before anything is displayed"
-            )
+            if not ctx.deps.stream_answer_feedback:
+                problem += "; correct the whole call before anything is displayed"
+            raise ModelRetry(problem)
     problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
     if problem:
         # Deferred, the question would wait for an answer the learner has no controls to give.
@@ -1423,6 +1455,20 @@ async def prepare_memory_tool(
     )
 
 
+def remember_target(
+    deps: Deps, key: str, scope: Literal["session", "user"]
+) -> tuple[Literal["session", "user"], str] | None:
+    """Resolve the normalized key and actual scope of a memory write."""
+    normalized = normalize_variable_name(key)
+    if normalized is None or len(normalized) > _MEMORY_KEY_LIMIT:
+        return None
+    if deps.memory_keys is not None and (
+        normalized not in deps.memory_keys or normalized in deps.memory_deleted_keys
+    ):
+        scope = "user"
+    return scope, normalized
+
+
 async def remember(
     ctx: RunContext[Deps],
     key: str,
@@ -1453,16 +1499,12 @@ async def remember(
         validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
-    normalized_key = normalize_variable_name(key)
-    if normalized_key is None or len(normalized_key) > _MEMORY_KEY_LIMIT:
+    destination = remember_target(ctx.deps, key, scope)
+    if destination is None:
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
-    key = normalized_key
+    scope, key = destination
     if len(value) > _MEMORY_VALUE_LIMIT:
         return "Not remembered: the value exceeds 2000 characters. Continue teaching."
-    if ctx.deps.memory_keys is not None and (
-        key not in ctx.deps.memory_keys or key in ctx.deps.memory_deleted_keys
-    ):
-        scope = "user"
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
     if problem := _memory_capacity_error(target, key, value):
         return problem
@@ -1474,6 +1516,7 @@ async def remember(
     if problem := _memory_capacity_error(target, key, value):
         return problem
     target[key] = value
+    writes = [destination]
     if (
         scope == "user"
         and isinstance(ctx.deps.answer_hashes.get(key), str)
@@ -1482,8 +1525,11 @@ async def remember(
         # A named answer is mirrored in session scope; an accepted correction wins now.
         ctx.deps.memory[key] = value
         ctx.deps.answer_hashes[key] = answer_fingerprint(value)
+        writes.append(("session", key))
     elif scope == "session":
         ctx.deps.answer_hashes.pop(key, None)
+    if ctx.deps.stream_answer_feedback and ctx.tool_call_id is not None:
+        ctx.deps.feedback_remember_writes[ctx.tool_call_id] = tuple(writes)
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
 
