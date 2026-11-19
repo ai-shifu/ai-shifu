@@ -1780,18 +1780,28 @@ class Engine:
                 # so a retry can continue rather than replay that teaching. Appending only
                 # new messages also preserves original evidence behind history projections.
                 new_messages = events.new_messages()
+                interrupted_response = deps.interrupted_feedback_response
                 if (
-                    deps.interrupted_feedback_response is not None
-                    and deps.feedback_response_displayed
+                    deps.stream_answer_feedback
+                    and new_messages
+                    and isinstance(tail := new_messages[-1], ModelResponse)
+                    and tail.state == "interrupted"
                 ):
-                    # The SDK rejected this response before recording it. Save only
-                    # what reached the learner; unfinished tool calls never ran.
-                    visible = "".join(shown[response_shown_start:])
+                    # A transport error leaves the raw partial response in SDK history.
+                    interrupted_response = tail
+                    new_messages.pop()
+                if (
+                    interrupted_response is not None
+                    and deps.feedback_response_displayed
+                    and any(
+                        isinstance(part, TextPart)
+                        for part in interrupted_response.parts
+                    )
+                    and (visible := "".join(shown[response_shown_start:]))
+                ):
+                    # Keep only what reached the learner. Unfinished tools never ran.
                     new_messages.append(
-                        replace(
-                            deps.interrupted_feedback_response,
-                            parts=[TextPart(visible)],
-                        )
+                        replace(interrupted_response, parts=[TextPart(visible)])
                     )
                 session.messages = [
                     *session.messages,

@@ -2077,3 +2077,96 @@ async def test_truncated_answer_response_saves_visible_prose_without_running_too
     assert WRONG in saved
     assert restored.interrupted
     assert not restored.finished
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("during_repair", [False, True])
+async def test_feedback_transport_failure_saves_only_displayed_history(
+    during_repair: bool,
+) -> None:
+    calls = 0
+    teaching = "The learner saw this feedback before the connection dropped."
+    suppressed = "The tool-only repair unexpectedly repeated some teaching."
+    interrupted_call = 3 if during_repair else 2
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2 and during_repair:
+            yield teaching
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    json_args=json.dumps(
+                        {"key": "note", "value": "saved", "review": _review()}
+                    ),
+                    tool_call_id="completed-note",
+                ),
+                1: DeltaToolCall(
+                    name="finish",
+                    json_args=json.dumps({"review": _review(), "summary": []}),
+                    tool_call_id="rejected-finish",
+                ),
+            }
+        elif calls == interrupted_call:
+            yield suppressed if during_repair else teaching
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    json_args='{"summary":',
+                    tool_call_id="unfinished-action",
+                )
+            }
+            message = "provider disconnected"
+            raise RuntimeError(message)
+        else:
+            history = ModelMessagesTypeAdapter.dump_json(messages).decode()
+            assert history.count(teaching) == 1
+            assert suppressed not in history
+            assert "unfinished-action" not in history
+            yield {
+                0: DeltaToolCall(
+                    name="finish", json_args="{}", tool_call_id="recovered"
+                )
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+
+    assert calls == interrupted_call
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) and e.retryable for e in events)
+    assert not session.finished
+    restored = Session.loads(session.dumps())
+    assert restored.interrupted
+    saved = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
+    assert saved.count(teaching) == 1
+    assert suppressed not in saved
+    assert "unfinished-action" not in saved
+    assert WRONG in saved
+    if during_repair:
+        assert restored.memory == {"note": "saved"}
+        assert any(
+            isinstance(p, ToolReturnPart) and p.tool_call_id == "completed-note"
+            for message in restored.messages
+            for p in message.parts
+        )
+        assert any(
+            isinstance(p, RetryPromptPart) and p.tool_call_id == "rejected-finish"
+            for message in restored.messages
+            for p in message.parts
+        )
+
+    events = await _collect(engine.run_turn(restored, ContinueTurn()))
+    assert calls == interrupted_call + 1
+    assert restored.finished
+    assert teaching not in _text(events)

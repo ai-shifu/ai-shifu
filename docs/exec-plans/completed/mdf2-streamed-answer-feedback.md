@@ -65,7 +65,9 @@ when a tool is still invalid. Existing event and tool formats remain in use.
 ## Idempotence and Recovery
 
 Keep repair data local to a turn. Keep already displayed text and the original
-answer in history on failure. Never execute an invalid or interrupted action.
+answer in history on failure. If the provider disconnects, trim the partial
+response in SDK history to the prose already shown. Keep earlier tool results.
+Never execute an invalid or interrupted action.
 
 ## Interfaces and Dependencies
 
