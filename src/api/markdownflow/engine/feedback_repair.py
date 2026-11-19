@@ -8,7 +8,13 @@ from uuid import uuid4
 
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.exceptions import UnexpectedModelBehavior
-from pydantic_ai.messages import ModelRequest, RetryPromptPart, TextPart, ToolCallPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    RetryPromptPart,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+)
 
 from .interaction_markup import contains_interaction_markup
 from .tools import Deps, feedback_response_problem
@@ -27,6 +33,20 @@ class FeedbackDraft:
     prose_delivered: bool = False
     action: ToolCallPart | None = None
     required_prose_error: str | None = None
+    batch: bool = False
+    rejected_tools: tuple[str, ...] = ()
+
+
+_REPAIRABLE_TOOLS = frozenset(
+    {
+        "interact",
+        "finish",
+        "remember",
+        "recall",
+        "read_exercise_history",
+        "calculate_exercise_statistics",
+    }
+)
 
 
 class CompleteFeedback(AbstractCapability[Deps]):
@@ -46,7 +66,7 @@ class CompleteFeedback(AbstractCapability[Deps]):
             if isinstance(last, ModelRequest)
             else []
         )
-        if not retries:
+        if not isinstance(last, ModelRequest) or not retries:
             deps.feedback_draft = None
             return request_context
         if deps.feedback_repair_attempted:
@@ -65,7 +85,27 @@ class CompleteFeedback(AbstractCapability[Deps]):
             draft.missing = "both"
             draft.action = None
         answer_id = next(iter(deps.direction_sections))
-        if draft.missing == "action":
+        if draft.batch:
+            rejected = tuple(p.tool_name for p in retries if p.tool_name is not None)
+            completed = {
+                part.tool_name
+                for part in last.parts
+                if isinstance(part, ToolReturnPart)
+            }
+            if (
+                len(rejected) != len(retries)
+                or not set(rejected) <= _REPAIRABLE_TOOLS
+                or completed.intersection(rejected)
+            ):
+                message = "Cannot safely identify the rejected feedback tool batch"
+                raise UnexpectedModelBehavior(message)
+            draft.rejected_tools = rejected
+            notice = (
+                "The learner already saw the teaching. Do not write any prose. "
+                f"Retry only the rejected calls, in this order: {', '.join(rejected)}. "
+                f"Use current answer_id {answer_id}. Do not repeat successful tools."
+            )
+        elif draft.missing == "action":
             status = (
                 "The learner already saw the teaching. "
                 if draft.prose_delivered
@@ -130,8 +170,15 @@ class CompleteFeedback(AbstractCapability[Deps]):
             raise UnexpectedModelBehavior(message)
         if draft is not None and deps.feedback_repair_attempted:
             if draft.missing == "action":
-                if not one_action:
-                    message = "Answer feedback repair did not provide one action"
+                matches = (
+                    tuple(call.tool_name for call in calls) == draft.rejected_tools
+                    if draft.batch
+                    else one_action
+                )
+                if not matches:
+                    message = (
+                        "Answer feedback repair did not provide the requested tools"
+                    )
                     raise UnexpectedModelBehavior(message)
                 # Redundant prose was not streamed during the repair request.
                 return replace(
@@ -164,8 +211,12 @@ class CompleteFeedback(AbstractCapability[Deps]):
             raise UnexpectedModelBehavior(message)
         if deps.feedback_repair_attempted:
             return response
-        if deps.feedback_response_displayed and (not calls or one_action):
-            deps.feedback_draft = FeedbackDraft("action", prose_delivered=True)
+        if deps.feedback_response_displayed and (
+            not calls or one_action or len(calls) > 1
+        ):
+            deps.feedback_draft = FeedbackDraft(
+                "action", prose_delivered=True, batch=len(calls) > 1
+            )
         elif one_action:
             problem, _ = feedback_response_problem(deps, response)
             with_body = replace(response, parts=[TextPart("Feedback"), *response.parts])

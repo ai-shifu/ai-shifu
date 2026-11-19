@@ -1674,3 +1674,88 @@ async def test_streamed_feedback_incomplete_repair_keeps_visible_prose_without_a
         ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
         == 1
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("replay_completed", [False, True])
+async def test_streamed_batch_repairs_only_rejected_calls(
+    replay_completed: bool,
+) -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+            return
+        saved = {
+            0: DeltaToolCall(
+                name="remember",
+                json_args=json.dumps(
+                    {"key": "note", "value": "saved", "review": _review()}
+                ),
+                tool_call_id=f"note-{calls}",
+            ),
+        }
+        if calls == 2:
+            yield teaching
+            yield {
+                **saved,
+                1: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "text",
+                            "prompt": "Rejected control",
+                            "placeholder": "Answer",
+                            "review": _review(),
+                        }
+                    ),
+                    tool_call_id="rejected-control",
+                ),
+            }
+        elif calls == 3:
+            retry = next(
+                p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+            )
+            assert "in this order: interact" in str(retry.content)
+            yield teaching
+            yield {
+                **(saved if replay_completed else {}),
+                1: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "text",
+                            "prompt": "Valid control",
+                            "placeholder": "Answer",
+                            "review": _review(),
+                        }
+                    ),
+                    tool_call_id="valid-control",
+                ),
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    engine.interaction_check = lambda spec: (
+        "Invalid control" if spec.prompt == "Rejected control" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert calls == 3
+    assert _text(events) == teaching
+    assert sum(e.type == "memory.updated" for e in events) == 1
+    assert session.memory == {"note": "saved"}
+    assert any(isinstance(e, ErrorEvent) for e in events) is replay_completed
+    assert [p.tool_call_id for p in session.pending] == (
+        [] if replay_completed else ["valid-control"]
+    )
