@@ -148,9 +148,10 @@ Release mismatch requires manual investigation. Ref and Release writes are not
 an atomic transaction. If a retry returns 403/404 after main changes workflow
 files, verify `PAT_TOKEN` has the workflow-write authorization described above,
 then rerun that original event; do not switch its source to current main.
-Never publish as part of retry/recovery. Preparation
-previews and final product/MarkdownFlow notes are file-based; final notes use the
-highest reachable lower final tag at the frozen candidate, not later main tags.
+Never publish as part of retry/recovery. The preparation PR has a concise,
+file-based manual handoff rather than a notes preview. Final product/MarkdownFlow
+notes use the highest reachable lower final tag at the frozen candidate, not
+later main tags.
 Commitizen runs with `--start-rev` in a temporary local clone checked out at the
 candidate, preserving breaking-change bodies and candidate-specific note
 configuration without changing the caller's checkout or local edits. Each

@@ -7,6 +7,7 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 import urllib.request
@@ -149,8 +150,78 @@ class FrozenCommitizenNotes(unittest.TestCase):
             request.full_url == "https://api.github.com/repos/fixture/product/pulls/42"
         )
 
+    def test_pr_body_is_concise_without_generating_notes_or_network_calls(self) -> None:
+        """Keep the manual handoff without fetching or rendering release details."""
+        output = self.repo / "release-pr.md"
+        arguments = [
+            "release_notes.py",
+            "--source",
+            self.git("rev-parse", "HEAD"),
+            "--version",
+            "3.0.1",
+            "--repository",
+            "fixture/product",
+            "--output",
+            str(output),
+            "--pr-body",
+        ]
+        with (
+            chdir(self.repo),
+            mock.patch("sys.argv", arguments),
+            mock.patch.object(
+                notes, "generate_notes", side_effect=AssertionError("No notes needed")
+            ),
+            mock.patch.object(
+                urllib.request, "urlopen", side_effect=AssertionError("No network")
+            ),
+        ):
+            notes.main()
+        assert output.read_text(encoding="utf-8") == (
+            "This PR prepares release v3.0.1; it creates no formal tag or Release.\n\n"
+            "A human must review CI and manually merge into main. "
+            "AI/scripts must never merge. Never enable auto-merge.\n"
+            "Merging main retains the existing latest-image and production CICD/Drone triggers.\n\n"
+            "After merge, a human must review and manually Publish the generated draft in GitHub.\n"
+        )
+
+    def test_pr_body_validates_release_identity(self) -> None:
+        """The lightweight path retains source, version and repository validation."""
+        output = self.repo / "release-pr.md"
+        source = self.git("rev-parse", "HEAD")
+        for candidate, version, repository in (
+            ("HEAD", "3.0.1", "fixture/product"),
+            (source, "not-a-version", "fixture/product"),
+            (source, "3.0.1", "not-a-repository"),
+        ):
+            arguments = [
+                sys.executable,
+                str(Path(notes.__file__)),
+                "--source",
+                candidate,
+                "--version",
+                version,
+                "--repository",
+                repository,
+                "--output",
+                str(output),
+                "--pr-body",
+            ]
+            with self.subTest(
+                candidate=candidate, version=version, repository=repository
+            ):
+                result = subprocess.run(
+                    arguments,
+                    cwd=self.repo,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                assert result.returncode != 0
+                assert "ValueError" in result.stderr
+                assert not output.exists()
+
     def test_release_installation_preserves_existing_keys(self) -> None:
-        """Published notes and PR previews give the same safe installation path."""
+        """Published notes retain the safe installation path."""
         self.change.write_text("candidate\n", encoding="utf-8")
         source = self.commit("fix: generate a private installation key")
         installation_commands = """git clone https://github.com/fixture/product.git
@@ -163,65 +234,55 @@ python3 ../scripts/prepare_env.py
 # LLM_MODEL_1_NAME is optional; an empty name displays the configured model ID.
 docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d"""
 
-        for preview in (False, True):
-            with self.subTest(pr_preview=preview):
-                output = self.repo / "release-body.md"
-                arguments = [
-                    "release_notes.py",
-                    "--source",
-                    source,
-                    "--version",
-                    "3.0.1",
-                    "--repository",
-                    "fixture/product",
-                    "--output",
-                    str(output),
-                ]
-                if preview:
-                    arguments.append("--pr-body")
-                with (
-                    chdir(self.repo),
-                    mock.patch("sys.argv", arguments),
-                    mock.patch.object(notes, "dependency_notes", return_value=""),
-                ):
-                    notes.main()
-                rendered = output.read_text(encoding="utf-8")
-                installation_section = rendered.split(
-                    "## Installation from Source\n\n", 1
-                )[1]
-                installation = installation_section.split(
-                    "\nExisting installations", 1
-                )[0]
-                assert installation_commands in installation
-                assert (
-                    "Python 3.10+ on a POSIX host (Linux, macOS or WSL)\n"
-                    "and Docker Compose 2.24.4+" in installation
-                )
-                assert "include both Compose files on every" in installation
-                assert (
-                    "Compose command, including restarts and upgrades." in installation
-                )
-                assert "cp .env.example.full .env" not in rendered
-                assert "docker compose up" not in rendered
-                assert "secrets.token_urlsafe" not in rendered
-                assert (
-                    "Keep the original saved configuration and historical effective "
-                    "`SECRET_KEY`." in rendered
-                )
-                assert (
-                    "Existing pinned deployments must retain their original Compose "
-                    "commands" in rendered
-                )
-                assert "not add `docker-compose.secret-key.yml` blindly" in rendered
-                assert "before a deliberate migration." in rendered
-                assert (
-                    "https://github.com/fixture/product/blob/v3.0.1/"
-                    "INSTALL_MANUAL.md#secret-key-preservation-and-recovery" in rendered
-                )
-                assert (
-                    "https://github.com/fixture/product/blob/v3.0.1/"
-                    "INSTALL_MANUAL.md#upgrading-to-numbered-models" in rendered
-                )
+        output = self.repo / "release-body.md"
+        arguments = [
+            "release_notes.py",
+            "--source",
+            source,
+            "--version",
+            "3.0.1",
+            "--repository",
+            "fixture/product",
+            "--output",
+            str(output),
+        ]
+        with (
+            chdir(self.repo),
+            mock.patch("sys.argv", arguments),
+            mock.patch.object(notes, "dependency_notes", return_value=""),
+        ):
+            notes.main()
+        rendered = output.read_text(encoding="utf-8")
+        installation_section = rendered.split("## Installation from Source\n\n", 1)[1]
+        installation = installation_section.split("\nExisting installations", 1)[0]
+        assert installation_commands in installation
+        assert (
+            "Python 3.10+ on a POSIX host (Linux, macOS or WSL)\n"
+            "and Docker Compose 2.24.4+" in installation
+        )
+        assert "include both Compose files on every" in installation
+        assert "Compose command, including restarts and upgrades." in installation
+        assert "cp .env.example.full .env" not in rendered
+        assert "docker compose up" not in rendered
+        assert "secrets.token_urlsafe" not in rendered
+        assert (
+            "Keep the original saved configuration and historical effective "
+            "`SECRET_KEY`." in rendered
+        )
+        assert (
+            "Existing pinned deployments must retain their original Compose "
+            "commands" in rendered
+        )
+        assert "not add `docker-compose.secret-key.yml` blindly" in rendered
+        assert "before a deliberate migration." in rendered
+        assert (
+            "https://github.com/fixture/product/blob/v3.0.1/"
+            "INSTALL_MANUAL.md#secret-key-preservation-and-recovery" in rendered
+        )
+        assert (
+            "https://github.com/fixture/product/blob/v3.0.1/"
+            "INSTALL_MANUAL.md#upgrading-to-numbered-models" in rendered
+        )
 
 
 if __name__ == "__main__":
