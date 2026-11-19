@@ -67,6 +67,7 @@ class Deps:
     direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
     direction_sections: dict[str, str] = field(default_factory=dict)
     direction_rendered: dict[str, str] = field(default_factory=dict)
+    displayed_direction_prose: dict[str, str] = field(default_factory=dict)
     feedback_contract: bool = False
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)

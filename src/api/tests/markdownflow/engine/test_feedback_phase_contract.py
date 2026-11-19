@@ -1759,3 +1759,39 @@ async def test_streamed_batch_repairs_only_rejected_calls(
     assert [p.tool_call_id for p in session.pending] == (
         [] if replay_completed else ["valid-control"]
     )
+
+
+@pytest.mark.anyio
+async def test_streamed_rejected_direction_preserves_displayed_prose_in_history() -> (
+    None
+):
+    calls = 0
+    teaching = "The learner has already seen this explanation."
+    control = {"type": "text", "prompt": "", "placeholder": "Answer"}
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(control, "original")
+        elif calls == 2:
+            yield teaching
+            yield _call({**control, "direction": _direction()}, "mixed")
+        elif calls == 3:
+            yield _call({**control, "direction": _direction()}, "correction")
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert calls == 3
+    assert _text(events) == teaching + "\n" + DISPLAY
+    restored = Session.loads(session.dumps())
+    assert [p.tool_call_id for p in restored.pending] == ["correction"]
+    saved = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
+    assert saved.count(teaching) == 1
+    assert saved.count(DISPLAY.replace("\n", "\\n")) == 1

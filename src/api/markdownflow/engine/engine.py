@@ -1230,6 +1230,7 @@ class Engine:
         said: list[str] = []
         shown: list[str] = []
         response_index = 0
+        response_shown_start = 0
         shown_response = 0
         after_pause = False
         history_saved = False
@@ -1435,6 +1436,7 @@ class Engine:
                         for e in _flush_markup():
                             yield e
                         response_index += 1
+                        response_shown_start = len(shown)
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
                         # A later text part of the same response can still carry that
                         # block's parameter body, so it is only settled here.
@@ -1453,6 +1455,7 @@ class Engine:
                     elif isinstance(ev, FunctionToolCallEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
+                        direction_call = None
                         if buffer_direction or deps.stream_answer_feedback:
                             response = next(
                                 (
@@ -1467,17 +1470,21 @@ class Engine:
                                 if response is not None
                                 else None
                             )
-                            if response is not None and (
-                                problem
-                                or any(
-                                    isinstance(p, ToolCallPart) and has_direction(p)
-                                    for p in response.parts
+                            if response is not None:
+                                direction_call = next(
+                                    (
+                                        p
+                                        for p in response.parts
+                                        if isinstance(p, ToolCallPart)
+                                        and has_direction(p)
+                                    ),
+                                    None,
                                 )
-                            ):
-                                # The entire structured response is validated in interact.
-                                # Mixed free content is rejected, not clipped into a hint.
+                            if problem or direction_call is not None:
+                                # Interact validates the structured call separately
+                                # from any prose already streamed by the host.
                                 direction_chunks.clear()
-                                if problem:
+                                if problem and response is not None:
                                     deps.hide_feedback_response(response)
                             elif (
                                 deps.feedback_contract or self.buffer_model_responses
@@ -1493,6 +1500,14 @@ class Engine:
                                 buffer_direction = False
                         for e in _flush_markup():
                             yield e
+                        if (
+                            deps.stream_answer_feedback
+                            and direction_call is not None
+                            and deps.feedback_response_displayed
+                        ):
+                            deps.displayed_direction_prose[
+                                direction_call.tool_call_id
+                            ] = "".join(shown[response_shown_start:])
                         yield ToolCall(
                             id=ev.part.tool_call_id,
                             name=ev.part.tool_name,
@@ -1598,6 +1613,7 @@ class Engine:
                                     ),
                                     deps.direction_rendered,
                                     deps.hidden_feedback_responses,
+                                    displayed_prose=deps.displayed_direction_prose,
                                 ),
                             ]
                             if session.started
@@ -1616,6 +1632,7 @@ class Engine:
                                 session.messages,
                                 deps.direction_rendered,
                                 deps.hidden_feedback_responses,
+                                displayed_prose=deps.displayed_direction_prose,
                             )
                         history_saved = True
                         direction_pending: set[str] = set()
@@ -1763,6 +1780,7 @@ class Engine:
                         ),
                         deps.direction_rendered,
                         deps.hidden_feedback_responses,
+                        displayed_prose=deps.displayed_direction_prose,
                     ),
                 ]
                 session.messages = language_request_history(session.messages, None)
