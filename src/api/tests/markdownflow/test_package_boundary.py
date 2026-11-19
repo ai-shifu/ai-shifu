@@ -31,7 +31,7 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     assert len(hashes) == 15
     # Record reviewed runtime guidance changes and keep the historical fixture intact.
     hashes["system"] = (
-        "c4866f30fc0db308831e244fd505d1e039d1c2a42ff9f56b00f5c3efbd39c42e"
+        "a3d929ab1942cac940e033a01992a03f2c58184be1c70bd198561918d47a4059"
     )
     hashes["exercise_statistics"] = (
         "a3a239ad85b130d3832a2f26caa9e129e370edc738a615c883cbe5a0e2f5ebce"
@@ -46,10 +46,10 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
         "0cce2b9128a3e996a8d901278bc9bc7893ce5a831fb4eedd2ea21a455f674256"
     )
     hashes["answer_review"] = (
-        "24405941f019dfd09ec49114b0e70261eefeda2bf8cbaace7ead55e6a788458a"
+        "d65ad38b02d57dfdde1200a06bab66a65d2a40803b600ce8a126d1986aec824b"
     )
     hashes["feedback_contract"] = (
-        "0ed7209037a211f5e4276f1c4504620d53e476b8de1644c35e24793e716375b8"
+        "343b0f43b5755bf47ffabb6cdb63577025f292ae42e919ff9bf6a977cbf8ce10"
     )
     # Teaching history compaction was removed: its prompts are gone, and recall
     # guidance no longer points at the read_teaching tool.
