@@ -1840,6 +1840,79 @@ async def test_streamed_feedback_binds_rejected_memory_write_to_its_original_tar
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("mirrored", [False, True])
+async def test_streamed_feedback_protects_session_mirrors_of_successful_writes(
+    mirrored: bool,
+) -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+    key = "goal" if mirrored else "note"
+
+    def write(call_id: str, scope: str, value: object) -> DeltaToolCall:
+        return DeltaToolCall(
+            name="remember",
+            json_args=json.dumps(
+                {"key": key, "scope": scope, "value": value, "review": _review()}
+            ),
+            tool_call_id=call_id,
+        )
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {
+                    "type": "text",
+                    "question": "goal",
+                    "placeholder": "Answer",
+                },
+                "original",
+            )
+        elif calls == 2:
+            yield teaching
+            yield {
+                0: write("user-write", "user", "saved user note"),
+                1: write("failed-session-write", "session", ["invalid value"]),
+            }
+        elif calls == 3:
+            assert not mirrored
+            retry = next(
+                p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+            )
+            assert retry.tool_call_id == "failed-session-write"
+            assert "Do not write any prose" in str(retry.content)
+            yield teaching
+            yield {0: write("replacement", "session", "corrected session note")}
+        elif calls == 4:
+            yield {
+                0: DeltaToolCall(name="finish", json_args="{}", tool_call_id="finish")
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(
+        SCRIPT.replace("?[...Answer]", "?[{{goal}}...Answer]", 1)
+    )
+    await _collect(engine.run_turn(session))
+    assert session.pending[0].spec.variable == "goal"
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+
+    assert calls == (2 if mirrored else 4)
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) for e in events) is mirrored
+    assert session.user_memory == {key: "saved user note"}
+    assert session.memory == (
+        {"goal": "saved user note"}
+        if mirrored
+        else {"goal": WRONG, "note": "corrected session note"}
+    )
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("invalid_tool", [False, True])
 async def test_streamed_direction_preserves_displayed_prose_in_history(
     invalid_tool: bool,

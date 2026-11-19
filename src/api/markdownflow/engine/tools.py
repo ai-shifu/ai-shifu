@@ -82,6 +82,9 @@ class Deps:
         default_factory=dict
     )
     feedback_repair_attempted: bool = False
+    feedback_remember_writes: dict[str, tuple[tuple[str, str], ...]] = field(
+        default_factory=dict
+    )
     interrupted_feedback_response: ModelResponse | None = None
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
@@ -1513,6 +1516,7 @@ async def remember(
     if problem := _memory_capacity_error(target, key, value):
         return problem
     target[key] = value
+    writes = [destination]
     if (
         scope == "user"
         and isinstance(ctx.deps.answer_hashes.get(key), str)
@@ -1521,8 +1525,11 @@ async def remember(
         # A named answer is mirrored in session scope; an accepted correction wins now.
         ctx.deps.memory[key] = value
         ctx.deps.answer_hashes[key] = answer_fingerprint(value)
+        writes.append(("session", key))
     elif scope == "session":
         ctx.deps.answer_hashes.pop(key, None)
+    if ctx.deps.stream_answer_feedback and ctx.tool_call_id is not None:
+        ctx.deps.feedback_remember_writes[ctx.tool_call_id] = tuple(writes)
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
 

@@ -48,21 +48,17 @@ def _memory_repair_targets(
     ]
     targets = {part.tool_call_id: _remember_call_target(deps, part) for part in writes}
     completed = {
-        targets.get(part.tool_call_id)
+        target
         for part in returned
         if part.tool_name == "remember"
+        for target in deps.feedback_remember_writes.get(part.tool_call_id, ())
     }
     repair_targets = {}
     for index, retry in enumerate(retries):
         if retry.tool_name != "remember":
             continue
         target = targets.get(retry.tool_call_id)
-        if (
-            len(targets) != len(writes)
-            or target is None
-            or None in completed
-            or target in completed
-        ):
+        if len(targets) != len(writes) or target is None or target in completed:
             message = (
                 "Cannot safely identify a distinct target for the rejected memory write"
             )
@@ -182,6 +178,8 @@ class CompleteFeedback(AbstractCapability[Deps]):
         deps = ctx.deps
         if not deps.stream_answer_feedback:
             return response
+        # The preceding batch has already supplied its results to the retry hook.
+        deps.feedback_remember_writes.clear()
         if response.finish_reason not in (None, "stop", "tool_call"):
             # This hook runs before the SDK records the response in history.
             if any(isinstance(part, TextPart) for part in response.parts):
