@@ -34,7 +34,7 @@ type CreateFailureCategory = 'username_taken' | 'invalid_input' | 'other';
 const USERNAME_PATTERN = /^[a-z][a-z0-9_.-]{2,31}$/;
 const NICKNAME_MAX_LENGTH = 50;
 const USERNAME_TAKEN_CODE = 1047;
-const INVALID_INPUT_CODES = new Set([1018, 1019, 1020, 1046]);
+const INVALID_INPUT_CODES = new Set([1018, 1019, 1020, 1046, 1049]);
 
 const isValidPassword = (value: string) =>
   value.length >= 8 && /[a-zA-Z]/.test(value) && /[0-9]/.test(value);

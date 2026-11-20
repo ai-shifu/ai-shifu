@@ -13,6 +13,7 @@ from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
 from flaskr.service.user.operator_account_creation import (
     create_operator_password_account,
 )
+from flaskr.service.user.password_utils import validate_password_strength
 from flaskr.service.user.repository import get_password_hash
 from flaskr.service.user.usernames import (
     is_username,
@@ -194,6 +195,34 @@ def test_invalid_input_is_rejected_without_writes(
             )
         assert UserInfo.query.count() == 0
         assert AuthCredential.query.count() == 0
+
+
+@pytest.mark.parametrize(
+    ("candidate", "accepted"),
+    [
+        ("a1" + "x" * 70, True),
+        ("a1" + "x" * 71, False),
+        ("a1" + "\u00e9" * 35, True),
+        ("a1" + "\u00e9" * 36, False),
+    ],
+    ids=[
+        "ascii-72-bytes",
+        "ascii-73-bytes",
+        "multibyte-72-bytes",
+        "multibyte-74-bytes",
+    ],
+)
+def test_passwords_beyond_bcrypt_input_limit_are_rejected(
+    app: object, candidate: str, accepted: bool
+) -> None:
+    """Bcrypt ignores bytes after the 72nd, so longer passwords are refused."""
+    with app.app_context():
+        if accepted:
+            validate_password_strength(candidate)
+            return
+        with pytest.raises(AppError) as exc_info:
+            validate_password_strength(candidate)
+        assert exc_info.value.code == 1049
 
 
 def test_phone_and_email_password_login_still_resolve(

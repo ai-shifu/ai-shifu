@@ -190,6 +190,81 @@ describe('UserCreateAccountDialog', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
   });
 
+  it.each([
+    [1046, 'invalid_input'],
+    [1049, 'invalid_input'],
+    [undefined, 'other'],
+  ])(
+    'maps backend code %s to the %s failure category',
+    async (code, failureCategory) => {
+      mockCreateUser.mockRejectedValue(
+        Object.assign(new Error('Request failed'), code ? { code } : {}),
+      );
+      const { onCreated } = renderDialog();
+      fill({ account: 'alice', entry: VALID_ENTRY, repeat: VALID_ENTRY });
+      submit();
+
+      expect(await screen.findByText('Request failed')).toBeInTheDocument();
+      expect(onCreated).not.toHaveBeenCalled();
+      expect(mockTrackEvent).toHaveBeenLastCalledWith(
+        'operator_user_create_result',
+        { result: 'failed', failure_category: failureCategory },
+      );
+    },
+  );
+
+  it('tracks one exposure per opening and none while closed', () => {
+    const props = { onCreated: jest.fn(), onOpenChange: jest.fn() };
+    const { rerender } = render(
+      <UserCreateAccountDialog
+        open={false}
+        {...props}
+      />,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    rerender(
+      <UserCreateAccountDialog
+        open
+        {...props}
+      />,
+    );
+    rerender(
+      <UserCreateAccountDialog
+        open
+        {...props}
+      />,
+    );
+    expect(trackedNames()).toEqual(['operator_user_create_dialog_viewed']);
+
+    rerender(
+      <UserCreateAccountDialog
+        open={false}
+        {...props}
+      />,
+    );
+    rerender(
+      <UserCreateAccountDialog
+        open
+        {...props}
+      />,
+    );
+    expect(trackedNames()).toEqual([
+      'operator_user_create_dialog_viewed',
+      'operator_user_create_dialog_viewed',
+    ]);
+  });
+
+  it('still creates the account when the tracking promise rejects', async () => {
+    mockTrackEvent.mockRejectedValue(new Error('analytics unavailable'));
+    const { onCreated } = renderDialog();
+    fill({ account: 'alice', entry: VALID_ENTRY, repeat: VALID_ENTRY });
+    submit();
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(mockCreateUser).toHaveBeenCalledTimes(1);
+  });
+
   it('still creates the account when analytics throws', async () => {
     mockTrackEvent.mockImplementation(() => {
       throw new Error('analytics unavailable');

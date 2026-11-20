@@ -120,10 +120,10 @@
     "description": "El usuario inicia sesión en la página de inicio de sesión con contraseña usando este nombre de usuario y contraseña. Comparte las credenciales de forma segura; podrá cambiar la contraseña después de iniciar sesión.",
     "errors": {
       "nicknameTooLong": "El nombre visible no puede superar los 50 caracteres.",
-      "passwordInvalid": "La contraseña debe tener al menos 8 caracteres e incluir letras y dígitos.",
+      "passwordInvalid": "La contraseña debe tener al menos 8 caracteres e incluir letras sin tilde (A-Z o a-z) y dígitos.",
       "passwordMismatch": "Las dos contraseñas no coinciden.",
       "submitFailed": "No se pudo crear la cuenta. Inténtalo de nuevo.",
-      "usernameInvalid": "Usa de 3 a 32 caracteres: empieza por una letra y después usa minúsculas, dígitos, «.», «_» o «-»."
+      "usernameInvalid": "Usa de 3 a 32 caracteres: empieza por una letra y después usa minúsculas a-z (sin tildes ni ñ), dígitos, «.», «_» o «-»."
     },
     "nicknameLabel": "Nombre visible (opcional)",
     "nicknamePlaceholder": "Por defecto, el nombre de usuario",
