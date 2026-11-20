@@ -120,10 +120,10 @@
     "description": "L’utilisateur se connecte sur la page de connexion par mot de passe avec ce nom d’utilisateur et ce mot de passe. Transmettez les identifiants de manière sécurisée ; il pourra changer le mot de passe après connexion.",
     "errors": {
       "nicknameTooLong": "Le nom affiché ne doit pas dépasser 50 caractères.",
-      "passwordInvalid": "Le mot de passe doit comporter au moins 8 caractères, avec des lettres et des chiffres.",
+      "passwordInvalid": "Le mot de passe doit comporter au moins 8 caractères, avec des lettres non accentuées (A-Z ou a-z) et des chiffres.",
       "passwordMismatch": "Les deux mots de passe ne correspondent pas.",
       "submitFailed": "Impossible de créer le compte. Veuillez réessayer.",
-      "usernameInvalid": "Utilisez 3 à 32 caractères : une lettre d’abord, puis des minuscules, des chiffres, « . », « _ » ou « - »."
+      "usernameInvalid": "Utilisez 3 à 32 caractères : une lettre d’abord, puis des minuscules a-z (sans accents), des chiffres, « . », « _ » ou « - »."
     },
     "nicknameLabel": "Nom affiché (facultatif)",
     "nicknamePlaceholder": "Par défaut, le nom d’utilisateur",

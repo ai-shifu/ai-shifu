@@ -133,11 +133,14 @@ deployments where learners are provisioned centrally.
   available only when `LOGIN_METHODS_ENABLED` includes `password`; the endpoint
   otherwise rejects the request with `server.user.passwordLoginDisabled`.
 - A username is 3-32 characters, starts with a letter, and contains only
-  lower-case letters, digits, `.`, `_`, or `-`. Input is trimmed and
+  ASCII lower-case letters `a-z`, digits, `.`, `_`, or `-`. Input is trimmed and
   lower-cased. Because a username never starts with a digit or contains `@`,
   it cannot be confused with a phone number or email address, so the existing
   password login field accepts all three without a separate login method.
-- The initial password follows the shared password-strength rule. The display
+- The initial password follows the shared password-strength rule: at least 8
+  characters with an ASCII letter and a digit, and at most 72 UTF-8 bytes,
+  because bcrypt ignores anything longer (`server.user.passwordTooLong`). The
+  byte limit also applies to setting and changing a password. The display
   name is optional (at most 50 characters) and defaults to the username.
 - A username must not match any active account's `user_identify` or any active
   credential identifier. A short named lock plus row locks serialize the check

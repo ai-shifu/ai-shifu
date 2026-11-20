@@ -120,10 +120,10 @@
     "description": "用户可在密码登录页使用该用户名和密码登录。请通过安全渠道告知用户，用户登录后可自行修改密码。",
     "errors": {
       "nicknameTooLong": "昵称不能超过 50 个字符。",
-      "passwordInvalid": "密码至少 8 位，且需包含字母和数字。",
+      "passwordInvalid": "密码至少 8 位，且需包含英文字母（A-Z 或 a-z）和数字。",
       "passwordMismatch": "两次输入的密码不一致。",
       "submitFailed": "账号创建失败，请重试。",
-      "usernameInvalid": "用户名须为 3-32 个字符，以字母开头，只能包含小写字母、数字、“.”、“_”或“-”。"
+      "usernameInvalid": "用户名须为 3-32 个字符，以字母开头，只能包含小写英文字母 a-z、数字、“.”、“_”或“-”。"
     },
     "nicknameLabel": "昵称（选填）",
     "nicknamePlaceholder": "默认与用户名相同",

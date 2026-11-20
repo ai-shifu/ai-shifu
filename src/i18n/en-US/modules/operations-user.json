@@ -120,10 +120,10 @@
     "description": "The user signs in on the password login page with this username and password. Share the credentials securely; the user can change the password after signing in.",
     "errors": {
       "nicknameTooLong": "Display name must be 50 characters or fewer.",
-      "passwordInvalid": "Password must be at least 8 characters and contain letters and digits.",
+      "passwordInvalid": "Password must be at least 8 characters and contain English letters (A-Z or a-z) and digits.",
       "passwordMismatch": "The two passwords do not match.",
       "submitFailed": "Unable to create the account. Please try again.",
-      "usernameInvalid": "Use 3-32 characters: start with a letter, then lowercase letters, digits, \".\", \"_\", or \"-\"."
+      "usernameInvalid": "Use 3-32 characters: start with a letter, then lowercase letters a-z, digits, \".\", \"_\", or \"-\"."
     },
     "nicknameLabel": "Display name (optional)",
     "nicknamePlaceholder": "Defaults to the username",

@@ -3969,6 +3969,7 @@ export type I18nKey =
   | 'server.user.passwordLoginTooManyAttempts'
   | 'server.user.passwordNeedsDigit'
   | 'server.user.passwordNeedsLetter'
+  | 'server.user.passwordTooLong'
   | 'server.user.passwordTooShort'
   | 'server.user.phoneAlreadyRegistered'
   | 'server.user.phoneNotBound'

@@ -43,6 +43,7 @@
     "passwordLoginTooManyAttempts": "Too many sign-in attempts. Please try again later.",
     "passwordNeedsDigit": "Password must contain at least one digit",
     "passwordNeedsLetter": "Password must contain at least one letter",
+    "passwordTooLong": "Password is too long. Use at most 72 bytes; accented letters and other non-English characters take more than one byte each.",
     "passwordTooShort": "Password must be at least 8 characters",
     "phoneAlreadyRegistered": "This phone number is already registered. Use another phone number.",
     "phoneNotBound": "This account does not have a phone number to replace.",
@@ -57,6 +58,6 @@
     "userNotPermission": "The current user is not allowed to perform this action",
     "userTokenExpired": "Token Expired",
     "usernameAlreadyRegistered": "This username is already taken. Choose another username.",
-    "usernameInvalid": "Usernames must be 3-32 characters, start with a letter, and contain only lowercase letters, digits, \".\", \"_\", or \"-\"."
+    "usernameInvalid": "Usernames must be 3-32 characters, start with a letter, and contain only lowercase letters a-z, digits, \".\", \"_\", or \"-\"."
   }
 }
