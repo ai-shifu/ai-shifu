@@ -198,6 +198,12 @@ jest.mock('./UserCancellationDialog', () => ({
     ) : null,
 }));
 
+jest.mock('./UserCreateAccountDialog', () => ({
+  __esModule: true,
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid='create-account-dialog' /> : null,
+}));
+
 jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: jest.fn() }),
 }));
@@ -2089,5 +2095,27 @@ describe('AdminOperationUsersPage', () => {
         }),
       );
     });
+  });
+
+  it('offers username account creation only when password login is enabled', async () => {
+    await renderResolvedPage();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.operationsUser.createAccount.action',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the create-account dialog when password login is enabled', async () => {
+    mockEnvState.loginMethodsEnabled = ['phone', 'password'];
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.createAccount.action',
+      }),
+    );
+
+    expect(screen.getByTestId('create-account-dialog')).toBeInTheDocument();
   });
 });

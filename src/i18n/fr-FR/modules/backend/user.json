@@ -39,6 +39,7 @@
     "mailCheckError": "Erreur du code de vérification par e-mail",
     "mailSendExpired": "Le code de vérification par e-mail a expiré",
     "passwordAlreadySet": "Mot de passe déjà défini",
+    "passwordLoginDisabled": "La connexion par mot de passe n’est pas activée : impossible de créer des comptes avec nom d’utilisateur.",
     "passwordLoginTooManyAttempts": "Trop de tentatives de connexion. Veuillez réessayer plus tard.",
     "passwordNeedsDigit": "Le mot de passe doit contenir au moins un chiffre",
     "passwordNeedsLetter": "Le mot de passe doit contenir au moins une lettre",
@@ -54,6 +55,8 @@
     "userNotFound": "Utilisateur introuvable",
     "userNotLogin": "Utilisateur non connecté",
     "userNotPermission": "L'utilisateur actuel n'est pas autorisé à effectuer cette action",
-    "userTokenExpired": "Jeton expiré"
+    "userTokenExpired": "Jeton expiré",
+    "usernameAlreadyRegistered": "Ce nom d’utilisateur est déjà pris. Choisissez-en un autre.",
+    "usernameInvalid": "Le nom d’utilisateur doit comporter de 3 à 32 caractères, commencer par une lettre et ne contenir que des lettres minuscules, des chiffres, « . », « _ » ou « - »."
   }
 }

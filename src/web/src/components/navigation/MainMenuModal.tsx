@@ -40,6 +40,7 @@ import { useEnvStore } from '@/store/env-store';
 import { environment } from '@/config/environment';
 import { resolveWideLogoSource } from '@/components/logo/logo-source';
 import SetPasswordModal from '../settings/SetPasswordModal';
+import ChangePasswordModal from '../settings/ChangePasswordModal';
 import SessionManagerModal from '../settings/SessionManagerModal';
 import CourseMemoryDialog from '../settings/CourseMemoryDialog';
 
@@ -151,7 +152,12 @@ const MainMenuModal = ({
     typeof userInfo?.mobile === 'string' && userInfo.mobile.trim() !== '';
   const hasEmail =
     typeof userInfo?.email === 'string' && userInfo.email.trim() !== '';
-  const canSetPassword = isPasswordEnabled && (hasMobile || hasEmail);
+  // An account that already has a password changes it with the current one;
+  // this is the only password path for operator-created username accounts.
+  const canChangePassword =
+    isPasswordEnabled && Boolean(userInfo?.has_password);
+  const canSetPassword =
+    isPasswordEnabled && !canChangePassword && (hasMobile || hasEmail);
 
   const { trackEvent } = useTracking();
   const previewMode = useSystemStore(state => state.previewMode);
@@ -242,6 +248,31 @@ const MainMenuModal = ({
     setSetPasswordModalOpen(true);
     onClose?.(evt);
   };
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+  const onChangePasswordClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    trackEvent(EVENT_NAMES.USER_MENU_CHANGE_PASSWORD, {});
+    setChangePasswordModalOpen(true);
+    onClose?.(evt);
+  };
+  const changePasswordRow = canChangePassword ? (
+    <button
+      type='button'
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onChangePasswordClick}
+      title={t('module.settings.changePassword')}
+    >
+      <KeyRound
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>
+        {t('module.settings.changePassword')}
+      </div>
+    </button>
+  ) : null;
+
   const setPasswordRow = canSetPassword ? (
     <button
       type='button'
@@ -461,6 +492,7 @@ const MainMenuModal = ({
             </div>
           </div>
           {setPasswordRow}
+          {changePasswordRow}
           {sessionsRow}
           <button
             type='button'
@@ -595,6 +627,10 @@ const MainMenuModal = ({
         open={setPasswordModalOpen}
         onClose={() => setSetPasswordModalOpen(false)}
         onSuccess={refreshUserInfo}
+      />
+      <ChangePasswordModal
+        open={changePasswordModalOpen}
+        onClose={() => setChangePasswordModalOpen(false)}
       />
     </>
   );

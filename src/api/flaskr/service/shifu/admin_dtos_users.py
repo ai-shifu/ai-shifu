@@ -24,6 +24,15 @@ class AdminOperationUserContactChangeRequestDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationUserCreateRequestDTO(BaseModel):
+    """Operator request to create a username + password account."""
+
+    username: str = Field(..., min_length=1, max_length=64, description="Username")
+    password: str = Field(..., min_length=1, max_length=128, description="Password")
+    nickname: str = Field(default="", max_length=50, description="Display name")
+
+
+@register_schema_to_swagger
 class AdminOperationUserCourseSummaryDTO(BaseModel):
     """Course summary shown in operator user-related course lists."""
 

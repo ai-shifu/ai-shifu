@@ -39,6 +39,7 @@
     "mailCheckError": "Email verification code error",
     "mailSendExpired": "Email verification code expired",
     "passwordAlreadySet": "Password already set",
+    "passwordLoginDisabled": "Password sign-in is not enabled, so username accounts cannot be created.",
     "passwordLoginTooManyAttempts": "Too many sign-in attempts. Please try again later.",
     "passwordNeedsDigit": "Password must contain at least one digit",
     "passwordNeedsLetter": "Password must contain at least one letter",
@@ -54,6 +55,8 @@
     "userNotFound": "User Not Found",
     "userNotLogin": "User Not Logged In",
     "userNotPermission": "The current user is not allowed to perform this action",
-    "userTokenExpired": "Token Expired"
+    "userTokenExpired": "Token Expired",
+    "usernameAlreadyRegistered": "This username is already taken. Choose another username.",
+    "usernameInvalid": "Usernames must be 3-32 characters, start with a letter, and contain only lowercase letters, digits, \".\", \"_\", or \"-\"."
   }
 }
