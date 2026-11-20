@@ -22,6 +22,7 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.usernames import USERNAME_PROVIDER, normalize_username
 from flaskr.util.uuid import generate_id
 from sqlalchemy import update
 
@@ -212,6 +213,9 @@ class UserAggregate:
     @property
     def username(self) -> str:
         """Return the account username, if present."""
+        credential = self._preferred_identifier(USERNAME_PROVIDER)
+        if credential:
+            return credential.identifier
         if self.identify:
             return self.identify
         if self.email:
@@ -219,6 +223,11 @@ class UserAggregate:
         if self.mobile:
             return self.mobile
         return self.user_bid
+
+    @property
+    def has_password(self) -> bool:
+        """Return whether the account can sign in with a password."""
+        return any(credential.provider == "password" for credential in self.credentials)
 
     @property
     def display_name(self) -> str:
@@ -279,6 +288,7 @@ class UserAggregate:
             user_avatar=self.avatar,
             is_creator=self.is_creator,
             is_operator=self.is_operator,
+            has_password=self.has_password,
         )
 
 
@@ -290,6 +300,8 @@ def _normalize_identifier(provider: str, identifier: str | None) -> str:
         return normalized.lower()
     if provider == "phone":
         return normalize_phone_identifier(normalized)
+    if provider == USERNAME_PROVIDER:
+        return normalize_username(normalized)
     return normalized
 
 

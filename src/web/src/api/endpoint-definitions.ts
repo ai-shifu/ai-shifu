@@ -36,6 +36,7 @@ const api = {
   completeCreatorOnboarding: 'POST /user/onboarding/complete',
   loginPassword: 'POST /user/login_password',
   setPassword: 'POST /user/set_password',
+  changePassword: 'POST /user/change_password',
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
   getReferralInvitePreview: 'GET /referral/invite-preview',
@@ -162,6 +163,7 @@ const api = {
     'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/invitations',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
+  createAdminOperationUser: 'POST /shifu/admin/operations/users',
   changeAdminOperationUserContact:
     'POST /shifu/admin/operations/users/{user_bid}/contact',
   getAdminOperationUserCancellationPreview:

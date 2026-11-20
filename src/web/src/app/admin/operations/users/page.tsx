@@ -54,6 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
+import { Button } from '@/components/ui/Button';
 import { TooltipProvider } from '@/components/ui/Tooltip';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
@@ -72,6 +73,7 @@ import UserCreditDeductionDialog from './UserCreditDeductionDialog';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
 import UserCancellationDialog from './UserCancellationDialog';
 import UserContactChangeDialog from './[user_bid]/UserContactChangeDialog';
+import UserCreateAccountDialog from './UserCreateAccountDialog';
 import useOperatorGuard from '../use-operator-guard';
 import type {
   AdminOperationUserCourseItem,
@@ -375,6 +377,9 @@ export default function AdminOperationUsersPage() {
   const loginMethodsEnabled = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
   );
+  // Username accounts sign in through password login, so creating them only
+  // makes sense when that login method is exposed.
+  const canCreatePasswordAccount = loginMethodsEnabled.includes('password');
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
@@ -405,6 +410,7 @@ export default function AdminOperationUsersPage() {
     useState<AdminOperationUserItem | null>(null);
   const [contactChangeDialogUser, setContactChangeDialogUser] =
     useState<AdminOperationUserItem | null>(null);
+  const [createAccountDialogOpen, setCreateAccountDialogOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
   );
@@ -1101,7 +1107,19 @@ export default function AdminOperationUsersPage() {
       <TooltipProvider delayDuration={150}>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
           <AdminBreadcrumb items={[{ label: tOperationsUsers('title') }]} />
-          <AdminTitle title={tOperationsUsers('title')} />
+          <AdminTitle
+            title={tOperationsUsers('title')}
+            actions={
+              canCreatePasswordAccount ? (
+                <Button
+                  type='button'
+                  onClick={() => setCreateAccountDialogOpen(true)}
+                >
+                  {tOperationsUsers('createAccount.action')}
+                </Button>
+              ) : null
+            }
+          />
 
           <AdminMetricCardGroup
             title={tOperationsUsers('overview.title')}
@@ -1715,6 +1733,14 @@ export default function AdminOperationUsersPage() {
             }}
             onCancelled={() => {
               setCancellationDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
+              void fetchUserOverview();
+            }}
+          />
+          <UserCreateAccountDialog
+            open={createAccountDialogOpen}
+            onOpenChange={setCreateAccountDialogOpen}
+            onCreated={() => {
               void fetchUsers(pageIndex, appliedFilters, quickFilter);
               void fetchUserOverview();
             }}

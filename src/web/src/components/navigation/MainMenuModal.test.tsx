@@ -37,6 +37,7 @@ const mockUserStoreState = {
     mobile: '13800000000',
     email: 'user@example.com',
     is_creator: false,
+    has_password: false,
   },
   logout: jest.fn(),
   refreshUserInfo: mockRefreshUserInfo,
@@ -105,6 +106,7 @@ jest.mock('@/hooks/use-tracking', () => ({
     USER_MENU_BASIC_INFO: 'USER_MENU_BASIC_INFO',
     USER_MENU_PERSONALIZED: 'USER_MENU_PERSONALIZED',
     USER_MENU_SET_PASSWORD: 'USER_MENU_SET_PASSWORD',
+    USER_MENU_CHANGE_PASSWORD: 'USER_MENU_CHANGE_PASSWORD',
     USER_APP_ABOUT_VIEWED:
       jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_ABOUT_VIEWED,
     USER_APP_ABOUT_CLOSED:
@@ -185,6 +187,12 @@ jest.mock('@/components/PopupModal', () => ({
     open: boolean;
     children: React.ReactNode;
   }) => (open ? <div>{children}</div> : null),
+}));
+
+jest.mock('../settings/ChangePasswordModal', () => ({
+  __esModule: true,
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid='change-password-modal' /> : null,
 }));
 
 jest.mock('../settings/SetPasswordModal', () => ({
@@ -285,6 +293,7 @@ describe('MainMenuModal', () => {
       mobile: '13800000000',
       email: 'user@example.com',
       is_creator: false,
+      has_password: false,
     };
     mockEnvState.loginMethodsEnabled = ['password', 'phone'];
     mockEnvState.logoWideUrl = '';
@@ -1321,6 +1330,7 @@ describe('MainMenuModal', () => {
         mobile: '13800000000',
         email: 'user@example.com',
         is_creator: isCreator,
+        has_password: false,
       };
 
       render(
@@ -1455,6 +1465,7 @@ describe('MainMenuModal', () => {
       mobile: '   ',
       email: '\t',
       is_creator: false,
+      has_password: false,
     };
 
     render(
@@ -1468,6 +1479,66 @@ describe('MainMenuModal', () => {
 
     expect(
       screen.queryByText('module.settings.setPassword'),
+    ).not.toBeInTheDocument();
+  });
+
+  test.each([
+    ['a username-only account', '', ''],
+    ['a contact account that already has a password', '13800000000', ''],
+  ])(
+    'offers change password instead of set password for %s',
+    (_, mobile, email) => {
+      mockUserStoreState.userInfo = {
+        mobile,
+        email,
+        is_creator: false,
+        has_password: true,
+      };
+
+      render(
+        <MainMenuModal
+          open
+          onClose={jest.fn()}
+          onPersonalInfoClick={jest.fn()}
+          surface='learner'
+        />,
+      );
+
+      expect(
+        screen.queryByText('module.settings.setPassword'),
+      ).not.toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.settings.changePassword' }),
+      );
+
+      expect(screen.getByTestId('change-password-modal')).toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'USER_MENU_CHANGE_PASSWORD',
+        {},
+      );
+    },
+  );
+
+  test('hides change password when password login is unavailable', () => {
+    mockEnvState.loginMethodsEnabled = ['phone'];
+    mockUserStoreState.userInfo = {
+      mobile: '',
+      email: '',
+      is_creator: false,
+      has_password: true,
+    };
+
+    render(
+      <MainMenuModal
+        open
+        onClose={jest.fn()}
+        onPersonalInfoClick={jest.fn()}
+        surface='learner'
+      />,
+    );
+
+    expect(
+      screen.queryByText('module.settings.changePassword'),
     ).not.toBeInTheDocument();
   });
 

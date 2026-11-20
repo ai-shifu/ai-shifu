@@ -53,7 +53,7 @@ User-facing workflow and page behavior specifications live here.
 - [Operator Role Design](../product-specs/operator-role.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-09` | Canonical: `true`
 - [Operator User Management](../product-specs/operator-user-management.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-08` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-20` | Canonical: `true`
 - [Operator User Points](../product-specs/operator-user-points-columns.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-11-09` | Canonical: `true`
 - [Operator User Points Grant](../product-specs/operator-user-points-grant.md)

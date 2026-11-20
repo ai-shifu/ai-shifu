@@ -39,9 +39,11 @@
     "mailCheckError": "邮件验证码错误",
     "mailSendExpired": "邮件验证码过期",
     "passwordAlreadySet": "密码已设置",
+    "passwordLoginDisabled": "未开启密码登录，无法创建用户名账号",
     "passwordLoginTooManyAttempts": "登录尝试次数过多，请稍后再试",
     "passwordNeedsDigit": "密码需包含至少一个数字",
     "passwordNeedsLetter": "密码需包含至少一个字母",
+    "passwordTooLong": "密码过长，最多 72 字节；中文等非英文字符每个占用多个字节",
     "passwordTooShort": "密码长度至少为8位",
     "phoneAlreadyRegistered": "该手机号已注册，请更换其他手机号",
     "phoneNotBound": "当前账号未绑定手机号，无法更换",
@@ -54,6 +56,8 @@
     "userNotFound": "没有找到用户",
     "userNotLogin": "用户没有登录",
     "userNotPermission": "当前用户无权限执行此操作",
-    "userTokenExpired": "Token失效"
+    "userTokenExpired": "Token失效",
+    "usernameAlreadyRegistered": "该用户名已被占用，请更换其他用户名",
+    "usernameInvalid": "用户名须为 3-32 个字符，以字母开头，只能包含小写英文字母 a-z、数字、“.”、“_”或“-”"
   }
 }

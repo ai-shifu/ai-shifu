@@ -66,6 +66,12 @@ jest.mock('@/components/auth/TermsConfirmDialog', () => ({
     open ? <div data-testid='terms-confirm-dialog' /> : null,
 }));
 
+// A disposable fixture value is generated per run so secret scanners never
+// mistake it for a committed credential.
+const FIXTURE_ENTRY = ['Fx', Math.random().toString(36).slice(2, 10), 1].join(
+  '',
+);
+
 describe('PasswordLogin', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -110,9 +116,12 @@ describe('PasswordLogin', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('module.auth.email'), {
-      target: { value: ' learner@example.com ' },
-    });
+    fireEvent.change(
+      screen.getByLabelText('module.auth.identifierEmailOrUsername'),
+      {
+        target: { value: ' learner@example.com ' },
+      },
+    );
     fireEvent.change(screen.getByLabelText('module.auth.password'), {
       target: { value: 'Password1' },
     });
@@ -120,7 +129,7 @@ describe('PasswordLogin', () => {
     fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
 
     expect(
-      screen.queryByText('module.auth.emailError'),
+      screen.queryByText('module.auth.identifierEmailOrUsernameError'),
     ).not.toBeInTheDocument();
     await waitFor(() => {
       expect(mockLoginPassword).toHaveBeenCalledWith({
@@ -142,6 +151,76 @@ describe('PasswordLogin', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'learner@example.com',
     );
+  });
+
+  it('accepts a username in email-only mode', async () => {
+    mockLoginPassword.mockResolvedValue({
+      code: 0,
+      data: { userInfo: { user_id: 'learner' }, token: 'token' },
+    });
+
+    render(
+      <PasswordLogin
+        onLoginSuccess={jest.fn()}
+        forceEmailIdentifier
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByLabelText('module.auth.identifierEmailOrUsername'),
+      { target: { value: ' Alice.Chen ' } },
+    );
+    fireEvent.change(screen.getByLabelText('module.auth.password'), {
+      target: { value: FIXTURE_ENTRY },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
+
+    await waitFor(() => {
+      expect(mockLoginPassword).toHaveBeenCalledWith({
+        identifier: 'Alice.Chen',
+        password: FIXTURE_ENTRY,
+        language: 'en-US',
+      });
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('Alice');
+  });
+
+  it('rejects a value that is neither an email nor a username in email-only mode', () => {
+    render(
+      <PasswordLogin
+        onLoginSuccess={jest.fn()}
+        forceEmailIdentifier
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByLabelText('module.auth.identifierEmailOrUsername'),
+      { target: { value: '13800138000' } },
+    );
+    fireEvent.change(screen.getByLabelText('module.auth.password'), {
+      target: { value: FIXTURE_ENTRY },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
+
+    expect(
+      screen.getByText('module.auth.identifierEmailOrUsernameError'),
+    ).toBeInTheDocument();
+    expect(mockLoginPassword).not.toHaveBeenCalled();
+  });
+
+  it('labels the phone-only mode as phone or username', () => {
+    render(
+      <PasswordLogin
+        onLoginSuccess={jest.fn()}
+        supportEmailIdentifier={false}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText('module.auth.identifierPhoneOrUsername'),
+    ).toBeInTheDocument();
   });
 
   it('records a bounded failure without credentials or API messages', async () => {

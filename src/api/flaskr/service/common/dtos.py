@@ -34,6 +34,7 @@ class UserInfo:
     user_avatar: str
     is_creator: bool
     is_operator: bool
+    has_password: bool
     analytics_enabled: bool
 
     def __init__(
@@ -49,6 +50,7 @@ class UserInfo:
         user_avatar: object = None,
         is_creator: object = False,
         is_operator: object = False,
+        has_password: object = False,
     ) -> None:
         """Build a serialized user-information payload."""
         self.user_id = user_id
@@ -64,6 +66,7 @@ class UserInfo:
         self.user_avatar = user_avatar
         self.is_creator = is_creator
         self.is_operator = is_operator
+        self.has_password = bool(has_password)
         self.analytics_enabled = not is_analytics_user_excluded(user_bid=user_id)
 
     def __json__(self) -> dict:
@@ -80,6 +83,7 @@ class UserInfo:
             "avatar": self.user_avatar,
             "is_creator": self.is_creator,
             "is_operator": self.is_operator,
+            "has_password": self.has_password,
             "analytics_enabled": self.analytics_enabled,
         }
 
