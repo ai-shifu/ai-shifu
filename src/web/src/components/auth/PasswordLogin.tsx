@@ -21,6 +21,11 @@ import {
   buildLoginResultAnalytics,
 } from '@/lib/login-analytics';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Mirrors the backend username format: a leading letter keeps usernames
+// distinct from phone numbers, and the missing "@" from email addresses.
+const USERNAME_PATTERN = /^[a-z][a-z0-9_.-]{2,31}$/;
+
 interface PasswordLoginProps {
   onLoginSuccess: () => void;
   supportEmailIdentifier?: boolean;
@@ -49,9 +54,9 @@ export function PasswordLogin({
   const identifierTexts = useMemo(() => {
     if (isEmailOnlyIdentifier) {
       return {
-        label: t('module.auth.email'),
-        placeholder: t('module.auth.emailPlaceholder'),
-        emptyError: t('module.auth.emailEmpty'),
+        label: t('module.auth.identifierEmailOrUsername'),
+        placeholder: t('module.auth.identifierEmailOrUsernamePlaceholder'),
+        emptyError: t('module.auth.identifierEmailOrUsernameEmpty'),
       };
     }
     return supportEmailIdentifier
@@ -61,9 +66,9 @@ export function PasswordLogin({
           emptyError: t('module.auth.identifierEmpty'),
         }
       : {
-          label: t('module.auth.identifierPhoneOnly'),
-          placeholder: t('module.auth.identifierPhoneOnlyPlaceholder'),
-          emptyError: t('module.auth.identifierPhoneOnlyEmpty'),
+          label: t('module.auth.identifierPhoneOrUsername'),
+          placeholder: t('module.auth.identifierPhoneOrUsernamePlaceholder'),
+          emptyError: t('module.auth.identifierPhoneOrUsernameEmpty'),
         };
   }, [isEmailOnlyIdentifier, supportEmailIdentifier, t]);
 
@@ -75,9 +80,10 @@ export function PasswordLogin({
     }
     if (
       isEmailOnlyIdentifier &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)
+      !EMAIL_PATTERN.test(normalizedValue) &&
+      !USERNAME_PATTERN.test(normalizedValue.toLowerCase())
     ) {
-      setIdentifierError(t('module.auth.emailError'));
+      setIdentifierError(t('module.auth.identifierEmailOrUsernameError'));
       return false;
     }
     setIdentifierError('');
@@ -208,9 +214,9 @@ export function PasswordLogin({
           <Input
             id='identifier'
             data-bidi='ltr'
-            type={isEmailOnlyIdentifier ? 'email' : 'text'}
-            inputMode={isEmailOnlyIdentifier ? 'email' : undefined}
-            autoComplete={isEmailOnlyIdentifier ? 'email' : 'username'}
+            type='text'
+            autoComplete='username'
+            autoCapitalize='none'
             placeholder={identifierTexts.placeholder}
             value={identifier}
             onChange={handleIdentifierChange}

@@ -39,6 +39,7 @@
     "mailCheckError": "Der E-Mail-Bestätigungscode ist falsch.",
     "mailSendExpired": "Der E-Mail-Bestätigungscode ist abgelaufen.",
     "passwordAlreadySet": "Das Passwort wurde bereits festgelegt.",
+    "passwordLoginDisabled": "Die Passwortanmeldung ist nicht aktiviert, daher können keine Benutzernamenkonten erstellt werden.",
     "passwordLoginTooManyAttempts": "Zu viele Anmeldeversuche. Bitte versuchen Sie es später noch einmal.",
     "passwordNeedsDigit": "Passwort muss mindestens eine Ziffer enthalten",
     "passwordNeedsLetter": "Passwort muss mindestens einen Buchstaben enthalten",
@@ -54,6 +55,8 @@
     "userNotFound": "Benutzer nicht gefunden",
     "userNotLogin": "Benutzer nicht eingeloggt",
     "userNotPermission": "Der aktuelle Benutzer darf diese Aktion nicht ausführen.",
-    "userTokenExpired": "Token abgelaufen"
+    "userTokenExpired": "Token abgelaufen",
+    "usernameAlreadyRegistered": "Dieser Benutzername ist bereits vergeben. Wählen Sie einen anderen Benutzernamen.",
+    "usernameInvalid": "Benutzernamen müssen 3–32 Zeichen lang sein, mit einem Buchstaben beginnen und dürfen nur Kleinbuchstaben, Ziffern, „.“, „_“ oder „-“ enthalten."
   }
 }

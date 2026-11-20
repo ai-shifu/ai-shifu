@@ -39,6 +39,7 @@
     "mailCheckError": "El código de verificación enviado por correo no es correcto.",
     "mailSendExpired": "El código de verificación enviado por correo ha caducado.",
     "passwordAlreadySet": "Ya se ha establecido una contraseña.",
+    "passwordLoginDisabled": "El inicio de sesión con contraseña no está activado, por lo que no se pueden crear cuentas con nombre de usuario.",
     "passwordLoginTooManyAttempts": "Demasiados intentos de inicio de sesión. Inténtalo más tarde.",
     "passwordNeedsDigit": "La contraseña debe contener al menos un número.",
     "passwordNeedsLetter": "La contraseña debe contener al menos una letra.",
@@ -54,6 +55,8 @@
     "userNotFound": "No se ha encontrado el usuario.",
     "userNotLogin": "El usuario no ha iniciado sesión.",
     "userNotPermission": "El usuario actual no tiene permiso para realizar esta acción.",
-    "userTokenExpired": "El token ha caducado."
+    "userTokenExpired": "El token ha caducado.",
+    "usernameAlreadyRegistered": "Este nombre de usuario ya está en uso. Elige otro.",
+    "usernameInvalid": "El nombre de usuario debe tener entre 3 y 32 caracteres, empezar por una letra y contener solo letras minúsculas, dígitos, «.», «_» o «-»."
   }
 }

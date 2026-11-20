@@ -39,6 +39,7 @@
     "mailCheckError": "邮件验证码错误",
     "mailSendExpired": "邮件验证码过期",
     "passwordAlreadySet": "密码已设置",
+    "passwordLoginDisabled": "未开启密码登录，无法创建用户名账号",
     "passwordLoginTooManyAttempts": "登录尝试次数过多，请稍后再试",
     "passwordNeedsDigit": "密码需包含至少一个数字",
     "passwordNeedsLetter": "密码需包含至少一个字母",
@@ -54,6 +55,8 @@
     "userNotFound": "没有找到用户",
     "userNotLogin": "用户没有登录",
     "userNotPermission": "当前用户无权限执行此操作",
-    "userTokenExpired": "Token失效"
+    "userTokenExpired": "Token失效",
+    "usernameAlreadyRegistered": "该用户名已被占用，请更换其他用户名",
+    "usernameInvalid": "用户名须为 3-32 个字符，以字母开头，只能包含小写字母、数字、“.”、“_”或“-”"
   }
 }

@@ -144,6 +144,17 @@ export type AdminOperationUserContactChangeRequest = {
   reason: string;
 };
 
+export type AdminOperationUserCreateRequest = {
+  username: string;
+  password: string;
+  nickname: string;
+};
+
+export type AdminOperationUserCreateResponse = {
+  user_bid: string;
+  username: string;
+};
+
 export type AdminOperationUserContactChangeResponse = {
   user_bid: string;
   contact_type: 'phone' | 'email';

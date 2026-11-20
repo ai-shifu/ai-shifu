@@ -2,7 +2,7 @@
 title: Operator User Management
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-09-08
+last_reviewed: 2026-11-20
 canonical: true
 ---
 
@@ -122,7 +122,54 @@ renewal cancellation, and final cancellation.
   no user, amount, balance, reason, note, request identifier or raw error is
   collected.
 
-## Backend Plan
+## Username Account Creation Contract
+
+Operators can create accounts that have no phone number or email address and
+sign in with a username and password. This targets private or organizational
+deployments where learners are provisioned centrally.
+
+- Creation is exposed as a `Create account` action on User Management and the
+  operator-only `POST /api/shifu/admin/operations/users` endpoint. Both are
+  available only when `LOGIN_METHODS_ENABLED` includes `password`; the endpoint
+  otherwise rejects the request with `server.user.passwordLoginDisabled`.
+- A username is 3-32 characters, starts with a letter, and contains only
+  lower-case letters, digits, `.`, `_`, or `-`. Input is trimmed and
+  lower-cased. Because a username never starts with a digit or contains `@`,
+  it cannot be confused with a phone number or email address, so the existing
+  password login field accepts all three without a separate login method.
+- The initial password follows the shared password-strength rule. The display
+  name is optional (at most 50 characters) and defaults to the username.
+- A username must not match any active account's `user_identify` or any active
+  credential identifier. A short named lock plus row locks serialize the check
+  and the insert; a conflict returns `server.user.usernameAlreadyRegistered`
+  without writes.
+- The account is one `user_users` row (`user_identify` = username, registered
+  state) plus a verified `username` credential and a `password` credential
+  whose `subject_format` is `username`, created in one unit of work. The
+  operator action is logged as `security_event=operator_password_account_created`
+  with the operator and target `user_bid` only.
+- The user can change the password after signing in. `UserInfo` exposes a
+  `has_password` boolean; when password login is enabled and it is true, the
+  account menu offers `Change password` (current password + new password via
+  `POST /api/user/change_password`) instead of the verification-code
+  `Set password` entry, which would otherwise fail with
+  `passwordAlreadySet`. This is the only password path for username-only
+  accounts. The entry emits `user_menu_change_password` on click, and the
+  dialog emits `user_password_change_result` with `result=success|failed`
+  once per request; no password, user ID, or raw error is tracked.
+  Verification-code password reset is unavailable to username-only accounts
+  because they have no contact to receive a code.
+- The dialog emits `operator_user_create_dialog_viewed` once per open,
+  `operator_user_create_submitted` once per single-flight request that passed
+  client validation, and `operator_user_create_result` once per request with
+  `result=success|failed`; failures add
+  `failure_category=username_taken|invalid_input|other`. The eligible
+  population is operators on deployments with password login enabled.
+  Operations reporting uses the family to measure adoption and the success rate
+  over 7- and 30-day periods. Usernames, display names, passwords, user IDs,
+  and raw errors are never tracked, and tracking failures never affect the
+  creation result.
+
 
 - Keep operator admin endpoints grouped under the existing `/api/shifu/admin/operations/...` namespace for consistency with course management.
 - Add a new list endpoint:

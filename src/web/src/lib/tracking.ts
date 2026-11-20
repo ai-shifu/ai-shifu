@@ -15,6 +15,10 @@ export const EVENT_NAMES = {
   USER_MENU_BASIC_INFO: 'user_menu_basic_info',
   USER_MENU_PERSONALIZED: 'user_menu_personalized',
   USER_MENU_SET_PASSWORD: 'user_menu_set_password',
+  // Password change: the menu entry is the attempt signal and the result is
+  // the terminal outcome (`result: success | failed`, nothing else).
+  USER_MENU_CHANGE_PASSWORD: 'user_menu_change_password',
+  USER_PASSWORD_CHANGE_RESULT: 'user_password_change_result',
   USER_APP_ABOUT_VIEWED: 'user_app_about_viewed',
   USER_APP_ABOUT_CLOSED: 'user_app_about_closed',
   USER_APP_OPEN_SOURCE_CLICKED: 'user_app_open_source_clicked',

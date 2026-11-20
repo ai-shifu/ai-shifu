@@ -112,6 +112,31 @@
     },
     "empty": "--"
   },
+  "createAccount": {
+    "action": "Create account",
+    "cancel": "Cancel",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordPlaceholder": "Enter the password again",
+    "description": "The user signs in on the password login page with this username and password. Share the credentials securely; the user can change the password after signing in.",
+    "errors": {
+      "nicknameTooLong": "Display name must be 50 characters or fewer.",
+      "passwordInvalid": "Password must be at least 8 characters and contain letters and digits.",
+      "passwordMismatch": "The two passwords do not match.",
+      "submitFailed": "Unable to create the account. Please try again.",
+      "usernameInvalid": "Use 3-32 characters: start with a letter, then lowercase letters, digits, \".\", \"_\", or \"-\"."
+    },
+    "nicknameLabel": "Display name (optional)",
+    "nicknamePlaceholder": "Defaults to the username",
+    "passwordLabel": "Initial password",
+    "passwordPlaceholder": "At least 8 characters with letters and digits",
+    "submit": "Create account",
+    "submitting": "Creating...",
+    "successDescription": "{username} can now sign in with the initial password.",
+    "successTitle": "Account created",
+    "title": "Create username account",
+    "usernameLabel": "Username",
+    "usernamePlaceholder": "3-32 characters, starting with a letter"
+  },
   "credits": {
     "longTerm": "Long-term valid"
   },

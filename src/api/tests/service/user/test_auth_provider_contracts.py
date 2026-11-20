@@ -278,6 +278,7 @@ def test_password_failures_share_one_public_error_and_never_mint_tokens(
     [
         ("  PERSON@EXAMPLE.COM  ", "person@example.com"),
         ("+86 13800138000", "13800138000"),
+        ("  Alice.Chen ", "alice.chen"),
     ],
 )
 def test_password_login_finds_password_by_account_across_identifier_types(
@@ -320,8 +321,8 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         )
     # Resolve the alias again under the account guard before checking credentials.
     assert lookup.call_args_list == [
-        call(normalized, providers=["phone", "email"]),
-        call(normalized, providers=["phone", "email"]),
+        call(normalized, providers=["phone", "email", "username"]),
+        call(normalized, providers=["phone", "email", "username"]),
     ]
     mint.assert_called_once_with(app, "account-1")
     credentials.assert_called_once_with(user_bid="account-1", provider_name="password")
