@@ -43,7 +43,7 @@ jobs:
 
       - name: Install release note tooling
         if: steps.source.outputs.create_draft == 'true'
-        run: python -m pip install commitizen==4.16.2
+        run: python -m pip install commitizen==4.19.4
 
       - name: Generate notes at the frozen candidate
         if: steps.source.outputs.create_draft == 'true'
