@@ -859,7 +859,15 @@ def register_live_follow_up_routes(
             preview_mode=preview_mode,
             source=source,
         )
-        api_key = str(get_config("GEMINI_API_KEY", "") or "").strip()
+        # Same key names as Live availability in flaskr.api.llm.
+        api_key = next(
+            (
+                value
+                for name in llm_routing.GEMINI_API_KEY_ENVS
+                if (value := str(get_config(name, "") or "").strip())
+            ),
+            "",
+        )
         if not api_key:
             raise_param_error("live_follow_up")
 

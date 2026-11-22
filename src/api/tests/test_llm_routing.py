@@ -114,6 +114,27 @@ def test_credentials_come_from_litellm_variables(
     }
 
 
+@pytest.mark.parametrize(
+    ("model", "key"),
+    [
+        ("openai/gpt-4o", "OPENAI_API_KEY"),
+        ("anthropic/claude-sonnet-4-5", "ANTHROPIC_API_KEY"),
+        ("dashscope/qwen-max", "DASHSCOPE_API_KEY"),
+        ("bigmodel/glm-4.6", "BIGMODEL_API_KEY"),
+        ("siliconflow/Qwen/Qwen3-8B", "SILICONFLOW_API_KEY"),
+    ],
+)
+def test_blank_credentials_count_as_missing(
+    clean_env: dict[str, str], model: str, key: str
+) -> None:
+    # An env file line such as ``OPENAI_API_KEY=`` must not pass validation.
+    clean_env[key] = "  "
+    route = llm_routing.resolve_route(model)
+    assert route is not None
+    assert route.missing_credentials == (key,)
+    assert not route.configured
+
+
 @pytest.mark.parametrize("key", ["GEMINI_API_KEY", "GOOGLE_API_KEY"])
 def test_gemini_accepts_either_litellm_key_name(
     clean_env: dict[str, str], key: str

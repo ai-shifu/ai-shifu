@@ -54,7 +54,11 @@ touching anything else.
   cannot infer some bare registry names such as `deepseek-chat`. Routing
   checks the provider list or the registry entry's `litellm_provider` first.
 - `litellm.validate_environment` reports nothing for `bigmodel` and `zai`;
-  routing checks their key variables directly.
+  routing checks their key variables directly. For other providers it only
+  checks that a variable name exists, so routing removes blank credential
+  variables (for example `OPENAI_API_KEY=` from an env file) before asking.
+- Live availability accepts `GEMINI_API_KEY` or `GOOGLE_API_KEY`; the Live
+  session endpoint uses the same names from `GEMINI_API_KEY_ENVS`.
 - Bare `gemini-*` IDs resolve to Vertex AI in LiteLLM. Compat rewrites them to
   `gemini/` so existing slots stay on the Gemini API key.
 - LiteLLM's DeepSeek default base is `https://api.deepseek.com/beta`; the old

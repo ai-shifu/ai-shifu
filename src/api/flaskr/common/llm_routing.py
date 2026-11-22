@@ -128,6 +128,25 @@ def env_value(name: str) -> str:
     return value or legacy_llm_compat.legacy_env_value(name)
 
 
+# Variables LiteLLM accepts for the Gemini API key, in lookup order.
+GEMINI_API_KEY_ENVS: tuple[str, ...] = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
+
+# Credential-like variable suffixes; a blank value means the setting is absent.
+_CREDENTIAL_ENV_SUFFIXES = ("_KEY", "_TOKEN", "_API_BASE", "_BASE_URL", "_API_VERSION")
+
+
+def _drop_blank_credential_envs() -> None:
+    """Remove blank credential variables so LiteLLM reports them as missing.
+
+    ``litellm.validate_environment`` only checks that a name exists, so an
+    ``OPENAI_API_KEY=`` line left in an env file would count as configured.
+    Removing a blank value changes nothing else: LiteLLM treats it as unset.
+    """
+    for name, value in list(os.environ.items()):
+        if name.endswith(_CREDENTIAL_ENV_SUFFIXES) and not value.strip():
+            os.environ.pop(name, None)
+
+
 # Key variables LiteLLM reads for these providers but does not report from
 # ``validate_environment`` in the pinned version.
 _UNREPORTED_KEY_ENVS: dict[str, str] = {
@@ -146,6 +165,7 @@ def _missing_credentials(provider: str, model: str) -> tuple[str, ...]:
     key_env = _UNREPORTED_KEY_ENVS.get(provider)
     if key_env:
         return () if str(os.environ.get(key_env) or "").strip() else (key_env,)
+    _drop_blank_credential_envs()
     try:
         environment = litellm.validate_environment(model=f"{provider}/{model}")
     except Exception:

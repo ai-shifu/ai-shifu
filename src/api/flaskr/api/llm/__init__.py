@@ -45,7 +45,7 @@ from flaskr.common.config import (
     parse_llm_model_max_input_tokens,
     parse_llm_model_max_output_tokens,
 )
-from flaskr.common.llm_routing import env_value, resolve_route
+from flaskr.common.llm_routing import GEMINI_API_KEY_ENVS, env_value, resolve_route
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
@@ -970,7 +970,10 @@ def _prepare_litellm_request_kwargs(
 
 def _gemini_api_key() -> str:
     # LiteLLM accepts either name for the Gemini API.
-    return str(get_config("GEMINI_API_KEY") or get_config("GOOGLE_API_KEY") or "")
+    for name in GEMINI_API_KEY_ENVS:
+        if value := str(get_config(name) or "").strip():
+            return value
+    return ""
 
 
 def _init_gemini_models() -> None:

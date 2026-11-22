@@ -592,9 +592,12 @@ def test_session_rejects_invalid_shape_mode_surface_and_origin(
 
 
 @pytest.mark.parametrize("api_base_url", ["", "https://proxy.example.com/google/"])
+# Live availability accepts either LiteLLM name, so the session must too.
+@pytest.mark.parametrize("api_key_env", ["GEMINI_API_KEY", "GOOGLE_API_KEY"])
 def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     monkeypatch: pytest.MonkeyPatch,
     api_base_url: str,
+    api_key_env: str,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_session_validation(monkeypatch)
@@ -602,7 +605,7 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
         routes,
         "get_config",
         lambda name, default=None: {
-            "GEMINI_API_KEY": "test-gemini-key",
+            api_key_env: "test-gemini-key",
             "GEMINI_API_BASE": api_base_url,
         }.get(name, default),
     )
