@@ -24,36 +24,6 @@ export const countQuestionLength = (name: string): number =>
 export const previewQuestion = (name: string): string =>
   Array.from(name).slice(0, QUESTION_PREVIEW_LENGTH).join('');
 
-const findFencedRanges = (content: string): Range[] => {
-  const ranges: Range[] = [];
-  let fence: { char: string; length: number; start: number } | null = null;
-  let offset = 0;
-  for (const line of content.split('\n')) {
-    const lineEnd = offset + line.length;
-    if (fence) {
-      const close = line.match(FENCE_CLOSE);
-      if (
-        close &&
-        close[1][0] === fence.char &&
-        close[1].length >= fence.length
-      ) {
-        ranges.push({ start: fence.start, end: lineEnd });
-        fence = null;
-      }
-    } else {
-      const open = line.match(FENCE_OPEN);
-      if (open) {
-        fence = { char: open[1][0], length: open[1].length, start: offset };
-      }
-    }
-    offset = lineEnd + 1;
-  }
-  if (fence) {
-    ranges.push({ start: fence.start, end: content.length });
-  }
-  return ranges;
-};
-
 const isInside = (at: number, ranges: Range[]): boolean =>
   ranges.some(range => at >= range.start && at < range.end);
 
@@ -78,37 +48,66 @@ const indexOutsideMarkers = (
 };
 
 /**
- * Locate HTML comments the way the backend preprocessor does: complete
- * {{ }} markers are protected, so comment syntax inside a question name
- * neither opens nor closes a comment.
+ * Locate fenced code blocks and HTML comments in one source-order pass, the
+ * way the backend preprocessor does: a fence cannot open inside a comment,
+ * a comment cannot open inside a fence, and complete {{ }} markers are
+ * protected so comment syntax inside a question neither opens nor closes one.
  */
-const findCommentRanges = (
-  content: string,
-  markers: Marker[],
-  fenced: Range[],
-): Range[] => {
+const findLiteralRanges = (content: string, markers: Marker[]): Range[] => {
   const ranges: Range[] = [];
-  let at = 0;
-  while (at < content.length) {
-    const open = indexOutsideMarkers(content, COMMENT_OPEN, at, markers);
-    if (open < 0) {
-      break;
-    }
-    if (isInside(open, fenced)) {
-      at = open + COMMENT_OPEN.length;
+  let fence: { char: string; length: number; start: number } | null = null;
+  let commentStart = -1;
+  let offset = 0;
+  const findInLine = (token: string, from: number, lineEnd: number) => {
+    const at = indexOutsideMarkers(content, token, from, markers);
+    return at >= 0 && at + token.length <= lineEnd ? at : -1;
+  };
+  for (const line of content.split('\n')) {
+    const lineEnd = offset + line.length;
+    if (fence) {
+      const close = line.match(FENCE_CLOSE);
+      if (
+        close &&
+        close[1][0] === fence.char &&
+        close[1].length >= fence.length
+      ) {
+        ranges.push({ start: fence.start, end: lineEnd });
+        fence = null;
+      }
+      offset = lineEnd + 1;
       continue;
     }
-    const close = indexOutsideMarkers(
-      content,
-      COMMENT_CLOSE,
-      open + COMMENT_OPEN.length,
-      markers,
-    );
-    if (close < 0) {
-      break;
+    if (commentStart < 0) {
+      const open = line.match(FENCE_OPEN);
+      if (open) {
+        fence = { char: open[1][0], length: open[1].length, start: offset };
+        offset = lineEnd + 1;
+        continue;
+      }
     }
-    ranges.push({ start: open, end: close + COMMENT_CLOSE.length });
-    at = close + COMMENT_CLOSE.length;
+    let at = offset;
+    while (at < lineEnd) {
+      if (commentStart >= 0) {
+        const close = findInLine(COMMENT_CLOSE, at, lineEnd);
+        if (close < 0) {
+          break;
+        }
+        ranges.push({ start: commentStart, end: close + COMMENT_CLOSE.length });
+        commentStart = -1;
+        at = close + COMMENT_CLOSE.length;
+      } else {
+        const open = findInLine(COMMENT_OPEN, at, lineEnd);
+        if (open < 0) {
+          break;
+        }
+        commentStart = open;
+        at = open + COMMENT_OPEN.length;
+      }
+    }
+    offset = lineEnd + 1;
+  }
+  if (fence) {
+    ranges.push({ start: fence.start, end: content.length });
   }
   return ranges;
 };
@@ -125,8 +124,7 @@ export const findOverlongQuestions = (
 ): OverlongQuestion[] => {
   const text = content || '';
   const markers: Marker[] = findDocumentVariableMarkers(text);
-  const fenced = findFencedRanges(text);
-  const literal = [...fenced, ...findCommentRanges(text, markers, fenced)];
+  const literal = findLiteralRanges(text, markers);
   const seen = new Set<string>();
   const overlong: OverlongQuestion[] = [];
   for (const marker of markers) {

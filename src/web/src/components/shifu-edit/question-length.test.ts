@@ -66,6 +66,21 @@ describe('question length limit', () => {
     ).toEqual([{ name: 'q'.repeat(201), length: 201 }]);
   });
 
+  test('does not open a fence inside an HTML comment', () => {
+    const overlong = 'q'.repeat(201);
+
+    expect(
+      findOverlongQuestions(
+        ['<!--', '```', '-->', `{{${overlong}}}`].join('\n'),
+      ),
+    ).toEqual([{ name: overlong, length: 201 }]);
+    expect(
+      findOverlongQuestions(
+        ['```', '<!--', '```', `{{${overlong}}}`].join('\n'),
+      ),
+    ).toEqual([{ name: overlong, length: 201 }]);
+  });
+
   test('previews whole code points', () => {
     expect(previewQuestion('😀'.repeat(30))).toBe('😀'.repeat(20));
   });
