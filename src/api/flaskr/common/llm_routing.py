@@ -200,6 +200,8 @@ _ALTERNATIVE_CREDENTIAL_ENVS: dict[str, tuple[str, ...]] = {
         "TOGETHER_AI_API_KEY",
         "TOGETHER_AI_TOKEN",
     ),
+    "REPLICATE_API_KEY": ("REPLICATE_API_TOKEN",),
+    "HUGGINGFACE_API_KEY": ("HF_TOKEN",),
 }
 
 

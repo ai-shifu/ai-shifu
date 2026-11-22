@@ -427,6 +427,29 @@ def test_together_accepts_each_key_name_litellm_reads(
 
 
 @pytest.mark.parametrize(
+    ("model", "reported", "alias"),
+    [
+        (
+            "replicate/meta/llama-3-8b-instruct",
+            "REPLICATE_API_KEY",
+            "REPLICATE_API_TOKEN",
+        ),
+        ("huggingface/meta-llama/Llama-3-8B", "HUGGINGFACE_API_KEY", "HF_TOKEN"),
+    ],
+)
+def test_key_aliases_litellm_completion_reads_satisfy_validation(
+    clean_env: dict[str, str], model: str, reported: str, alias: str
+) -> None:
+    route = llm_routing.resolve_route(model)
+    assert route is not None
+    assert reported in route.missing_credentials
+    clean_env[alias] = "secret"
+    route = llm_routing.resolve_route(model)
+    assert route is not None
+    assert reported not in route.missing_credentials
+
+
+@pytest.mark.parametrize(
     "slot_model", ["qwen/qwen-max", "dashscope/qwen-max", "qwen-max"]
 )
 def test_billing_candidates_include_the_canonical_litellm_id(
