@@ -303,24 +303,44 @@ def _api_base_without_directives(provider: str, model: str) -> str | None:
         return None
 
 
+class _RoutableBareModels:
+    """Bare ids whose LiteLLM registry entry names a known provider.
+
+    ``litellm.register_model`` also stores local metadata such as an output
+    token ceiling without a provider; such an entry does not make an id
+    routable.
+    """
+
+    def __init__(self, model_cost: dict, providers: frozenset[str]) -> None:
+        self._model_cost = model_cost
+        self._providers = providers
+
+    def provider(self, model: str) -> str | None:
+        entry = self._model_cost.get(model)
+        registered = entry.get("litellm_provider") if isinstance(entry, dict) else None
+        return registered if registered in self._providers else None
+
+    def __contains__(self, model: object) -> bool:
+        return isinstance(model, str) and self.provider(model) is not None
+
+
 def resolve_route(model: object) -> LLMRoute | None:
     """Resolve a model id to its LiteLLM provider, or None if LiteLLM cannot."""
     requested = str(model or "").strip()
     if not requested:
         return None
     model_cost = getattr(litellm, "model_cost", None) or {}
-    litellm_id = legacy_llm_compat.rewrite_model_id(requested, model_cost)
-    prefix, separator, _rest = litellm_id.partition("/")
     providers = litellm_provider_names()
+    routable = _RoutableBareModels(model_cost, providers)
+    litellm_id = legacy_llm_compat.rewrite_model_id(requested, routable)
+    prefix, separator, _rest = litellm_id.partition("/")
     if separator:
         if prefix not in providers:
             return None
-    elif litellm_id in model_cost:
+    elif litellm_id in routable:
         # A bare registry name carries its provider; get_llm_provider cannot
         # always infer it from the name alone (for example deepseek-chat).
-        registered = model_cost[litellm_id].get("litellm_provider")
-        if isinstance(registered, str) and registered in providers:
-            litellm_id = f"{registered}/{litellm_id}"
+        litellm_id = f"{routable.provider(litellm_id)}/{litellm_id}"
     else:
         # get_llm_provider prints a provider-list banner for every miss.
         return None

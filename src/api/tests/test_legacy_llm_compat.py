@@ -63,6 +63,20 @@ def test_legacy_model_ids_route_to_litellm_providers(
     assert (route.provider, route.model) == (provider, invoke_model)
 
 
+def test_token_metadata_does_not_hide_the_legacy_prefix(
+    clean_env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _ = clean_env
+    # An output-limit override registers metadata without a provider.
+    model_cost = dict(llm_routing.litellm.model_cost)
+    model_cost["deepseek-unlisted"] = {"max_output_tokens": 1234}
+    monkeypatch.setattr(llm_routing.litellm, "model_cost", model_cost)
+
+    route = llm_routing.resolve_route("deepseek-unlisted")
+    assert route is not None
+    assert (route.provider, route.model) == ("deepseek", "deepseek-unlisted")
+
+
 def test_known_bare_names_are_already_litellm_ids() -> None:
     assert legacy_llm_compat.rewrite_model_id("gpt-4o", {"gpt-4o"}) == "gpt-4o"
     assert legacy_llm_compat.rewrite_model_id("openai/gpt-4o") == "openai/gpt-4o"
