@@ -1818,3 +1818,113 @@ def test_settle_usage_prefers_the_renamed_provider_rate(
 
     assert payload["status"] == "settled"
     assert payload["consumed_credits"] == expected_credits
+
+
+def _load_rate_rename_migration() -> object:
+    import importlib.util
+    from pathlib import Path
+
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "migrations"
+        / "versions"
+        / "a3c5e7f9b1d2_rename_llm_rate_providers_to_litellm.py"
+    )
+    spec = importlib.util.spec_from_file_location("rate_rename_migration", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    ("rate_model", "usage_provider", "usage_model"),
+    [
+        # A full legacy model id, used by a slot moved to the LiteLLM id.
+        ("qwen/deepseek-v4-flash", "dashscope", "dashscope/deepseek-v4-flash"),
+        # A provider-local model id, used by the LiteLLM id.
+        ("deepseek-v4-flash", "dashscope", "dashscope/deepseek-v4-flash"),
+        # A full legacy model id, used by usage recorded before the upgrade.
+        ("qwen/deepseek-v4-flash", "qwen", "qwen/deepseek-v4-flash"),
+    ],
+)
+def test_migrated_legacy_rate_settles_usage_under_either_model_id(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    rate_model: str,
+    usage_provider: str,
+    usage_model: str,
+) -> None:
+    """A ``qwen`` rate keeps charging after migration, whichever id is used."""
+    migration = _load_rate_rename_migration()
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda _app, _usage: "creator-migrated",
+    )
+    install_llm_routes(
+        monkeypatch,
+        {
+            "qwen/deepseek-v4-flash": ("dashscope", "deepseek-v4-flash"),
+            "dashscope/deepseek-v4-flash": ("dashscope", "deepseek-v4-flash"),
+        },
+        exclusive=True,
+    )
+    usage_bid = "usage-llm-migrated"
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-migrated", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-migrated",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-migrated",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid="rate-migrated-wildcard",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-migrated-legacy",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="2.0000000000",
+                    provider="qwen",
+                    model=rate_model,
+                ),
+                _create_usage(
+                    usage_bid=usage_bid,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider=usage_provider,
+                    model=usage_model,
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        monkeypatch.setattr(migration.op, "get_bind", dao.db.session.connection)
+        migration.upgrade()
+        dao.db.session.commit()
+        migrated = CreditUsageRate.query.filter_by(
+            rate_bid="rate-migrated-legacy"
+        ).one()
+        assert migrated.provider == "dashscope"
+        assert not migrated.model.startswith("qwen/")
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
+
+    assert payload["status"] == "settled"
+    assert payload["consumed_credits"] == 2
