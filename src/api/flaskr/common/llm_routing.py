@@ -214,6 +214,10 @@ _ALTERNATIVE_CREDENTIAL_ENVS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Reported variables LiteLLM's completion path fills with its own default.
+_DEFAULTED_ENVS: frozenset[str] = frozenset({"AZURE_API_VERSION"})
+
+
 def _has_alternative_credential(missing_key: str) -> bool:
     return any(
         str(os.environ.get(name) or "").strip()
@@ -252,6 +256,7 @@ def _missing_credentials(
         if key
         and not str(os.environ.get(str(key)) or "").strip()
         and not _has_alternative_credential(str(key))
+        and str(key) not in _DEFAULTED_ENVS
         # LiteLLM already resolved a default endpoint (Ollama's localhost).
         and not (resolved_api_base and str(key).endswith(("_API_BASE", "_BASE_URL")))
     )

@@ -104,7 +104,8 @@ touching anything else.
 - `AZURE_AD_TOKEN` stands in for a missing `AZURE_API_KEY`, and
   `TOGETHER_API_KEY`, `TOGETHER_AI_API_KEY` or `TOGETHER_AI_TOKEN` for
   `TOGETHERAI_API_KEY`, `REPLICATE_API_TOKEN` for `REPLICATE_API_KEY` and
-  `HF_TOKEN` for `HUGGINGFACE_API_KEY`, matching
+  `HF_TOKEN` for `HUGGINGFACE_API_KEY`; `AZURE_API_VERSION` is optional
+  because LiteLLM defaults it, matching
   the names LiteLLM's completion path reads.
 - Legacy `GEMINI_API_URL` is ignored only when its host is the public Gemini
   endpoint; a proxy URL still reaches the Live token path.

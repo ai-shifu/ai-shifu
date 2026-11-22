@@ -393,7 +393,8 @@ def test_region_in_model_id_reaches_completion_as_api_base(
 def test_azure_ad_token_stands_in_for_the_api_key(
     clean_env: dict[str, str],
 ) -> None:
-    clean_env.update(AZURE_API_BASE="https://x.example", AZURE_API_VERSION="v1")
+    # LiteLLM falls back to its default API version when none is set.
+    clean_env.update(AZURE_API_BASE="https://x.example")
     route = llm_routing.resolve_route("azure/my-deployment")
     assert route is not None
     assert route.missing_credentials == ("AZURE_API_KEY",)
