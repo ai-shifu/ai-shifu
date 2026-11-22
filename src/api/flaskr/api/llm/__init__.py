@@ -45,7 +45,7 @@ from flaskr.common.config import (
     parse_llm_model_max_input_tokens,
     parse_llm_model_max_output_tokens,
 )
-from flaskr.common.llm_routing import GEMINI_API_KEY_ENVS, env_value, resolve_route
+from flaskr.common.llm_routing import GEMINI_API_KEY_ENVS, config_value, resolve_route
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
@@ -982,11 +982,7 @@ def _init_gemini_models() -> None:
     if not api_key:
         GEMINI_MODELS.clear()
         return
-    base_url = (
-        str(get_config("GEMINI_API_BASE") or "").strip()
-        or env_value("GEMINI_API_BASE")
-        or None
-    )
+    base_url = config_value("GEMINI_API_BASE", get_config) or None
     GEMINI_MODELS[:] = _load_gemini_models(api_key, base_url)
     if GEMINI_MODELS:
         _log_info(f"gemini models: {GEMINI_MODELS}")

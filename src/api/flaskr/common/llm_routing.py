@@ -15,6 +15,10 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # litellm fetches its model cost map from GitHub at import time by default,
 # which stalls every worker boot (and times out entirely on hosts without
@@ -128,10 +132,30 @@ class LLMRoute:
         return {"custom_llm_provider": self.provider, **dict(self.credentials)}
 
 
+class _ReaderView:
+    """Expose a ``name -> value`` reader with the ``Mapping.get`` shape."""
+
+    def __init__(self, read: Callable[[str], object]) -> None:
+        self._read = read
+
+    def get(self, name: str, default: object = None) -> object:
+        value = self._read(name)
+        return default if value is None else value
+
+
+def config_value(name: str, read: Callable[[str], object]) -> str:
+    """Read a LiteLLM-named setting through ``read``, such as ``get_config``.
+
+    The legacy name stands in while compat lasts, read through the same
+    reader, so settings stored outside the environment keep working.
+    """
+    value = str(read(name) or "").strip()
+    return value or legacy_llm_compat.legacy_env_value(name, _ReaderView(read))
+
+
 def env_value(name: str) -> str:
     """Read a LiteLLM variable, honoring its legacy name while compat lasts."""
-    value = str(os.environ.get(name) or "").strip()
-    return value or legacy_llm_compat.legacy_env_value(name)
+    return config_value(name, os.environ.get)
 
 
 # Variables LiteLLM accepts for the Gemini API key, in lookup order.

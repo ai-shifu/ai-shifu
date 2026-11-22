@@ -933,8 +933,9 @@ def register_live_follow_up_routes(
             issued_at = datetime.fromtimestamp(admission.issued_at_ms / 1000, tz=UTC)
             token = mint_gemini_live_ephemeral_token(
                 api_key=api_key,
-                api_base_url=str(get_config("GEMINI_API_BASE", "") or "").strip()
-                or llm_routing.env_value("GEMINI_API_BASE"),
+                api_base_url=llm_routing.config_value(
+                    "GEMINI_API_BASE", lambda name: get_config(name, "")
+                ),
                 model=provisional_binding.model,
                 voice_name=voice,
                 system_instruction=system_instruction,

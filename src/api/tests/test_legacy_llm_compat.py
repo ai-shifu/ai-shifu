@@ -18,7 +18,14 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.no_mock_llm
 
-_CREDENTIAL_SUFFIXES = ("_API_KEY", "_API_BASE", "_API_URL", "_BASE_URL")
+_CREDENTIAL_SUFFIXES = (
+    "_KEY",
+    "_TOKEN",
+    "_API_BASE",
+    "_API_URL",
+    "_BASE_URL",
+    "_API_VERSION",
+)
 
 
 @pytest.fixture

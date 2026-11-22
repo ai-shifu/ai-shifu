@@ -199,6 +199,23 @@ class TestConfigurationValidation:
 
         assert Config(app.config, app) is not None
 
+    def test_model_one_expanding_to_empty_fails(self, monkeypatch: object) -> None:
+        """A reference to an empty variable is not a model id."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("COURSE_MODEL", " ")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "${COURSE_MODEL}")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+        app = Flask(__name__)
+        app.logger = MagicMock()
+
+        with pytest.raises(EnvironmentConfigError) as exc_info:
+            Config(app.config, app)
+
+        assert "expands to an empty value" in str(exc_info.value)
+
     def test_unrecognized_model_one_fails(self, monkeypatch: object) -> None:
         """A model id outside LiteLLM's rules cannot start the service."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
