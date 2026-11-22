@@ -1320,7 +1320,11 @@ const ScriptEditor = ({
     [mdflow],
   );
   const isOverlongQuestionWarningVisible =
-    isLessonNode && isMdflowLoaded && overlongQuestions.length > 0;
+    isLessonNode &&
+    isMdflowLoaded &&
+    !isLoading &&
+    !isHistoryPage &&
+    overlongQuestions.length > 0;
   const overlongQuestionWarningRef = useRef({ scope: '', visible: false });
 
   useEffect(() => {
@@ -1920,7 +1924,7 @@ const ScriptEditor = ({
                       <Columns2 className='h-4 w-4' />
                     </Button>
                   )}
-                  {isOverlongQuestionWarningVisible && !isLoading ? (
+                  {isOverlongQuestionWarningVisible ? (
                     <OverlongQuestionsAlert questions={overlongQuestions} />
                   ) : null}
                   {isLoading ? (

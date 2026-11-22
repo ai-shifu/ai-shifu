@@ -234,7 +234,6 @@ def test_risk_rejection_rolls_back_new_revision_outline_deletions_and_history(
         ("?[{{ sys_custom }} ...Answer]", "server.profile.keyReserved"),
         ("?[%{{sys_custom}} Yes | No]", "server.profile.keyReserved"),
         ("Remember a name in %{{sys_user_nickname}}.", "server.profile.keyReserved"),
-        ("?[{{" + "q" * 201 + "}} ...Answer]", "server.profile.keyTooLong"),
     ],
 )
 def test_import_rejects_invalid_questions_before_risk_checks_or_persistence(
@@ -287,6 +286,23 @@ def test_import_rejects_invalid_questions_before_risk_checks_or_persistence(
             LogDraftStruct.query.filter_by(created_user_bid=import_owner).count()
             == history_count
         )
+
+
+def test_import_keeps_overlong_questions_as_draft_content(
+    app: object, import_owner: str
+) -> None:
+    payload = _payload()
+    content = "?[{{" + "q" * 201 + "}} ...Answer]"
+    payload["outline_items"][-1]["content"] = content
+
+    bid = transfers.import_shifu(app, None, _file(payload), import_owner)
+
+    with app.app_context():
+        contents = {
+            row.content
+            for row in DraftOutlineItem.query.filter_by(shifu_bid=bid, deleted=0)
+        }
+    assert content in contents
 
 
 def test_import_preserves_system_variable_references(

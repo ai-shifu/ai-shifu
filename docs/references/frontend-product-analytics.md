@@ -696,7 +696,10 @@ context are handled separately by the shared transport.
   least one, including when a lesson loads with one already present. Changes
   that keep the warning visible do not count again.
 - Population: Users editing a loaded lesson in the course editor. Chapter
-  nodes, unloaded content and the loading state are excluded.
+  nodes, unloaded content, the loading state and the lesson history page are
+  excluded, so tracking uses the same condition as rendering the alert.
+  Questions inside fenced code blocks or HTML comments are not counted,
+  matching the backend publish check.
 - Deduplication: Once per transition into the warning state within one
   course-and-lesson editing scope, held in a component ref. Fixing every
   overlong question and introducing a new one starts a new exposure; switching
@@ -709,7 +712,7 @@ context are handled separately by the shared transport.
   predecessor or repository-owned consumer to migrate.
 - Delivery: Use `useTracking` without awaiting. Missing analytics or a failed
   delivery never hides the warning, and the warning never blocks autosave;
-  the backend publish and import checks remain the source of truth.
+  the backend publish check remains the source of truth.
 - Verification: Exact name and payload, absence of question text, transition
   and re-entry deduplication, chapter and at-limit exclusions, and unavailable
   analytics.

@@ -1325,6 +1325,46 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(warningCalls()).toHaveLength(0);
     });
 
+    test('waits for loading to finish before showing or tracking', () => {
+      setLessonNode();
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+      mockShifuState.isLoading = true;
+      try {
+        const { rerender } = render(<ScriptEditor id='shifu-1' />);
+        expect(
+          screen.queryByTestId('overlong-questions-alert'),
+        ).not.toBeInTheDocument();
+        expect(warningCalls()).toHaveLength(0);
+
+        mockShifuState.isLoading = false;
+        rerender(<ScriptEditor id='shifu-1' />);
+        expect(
+          screen.getByTestId('overlong-questions-alert'),
+        ).toBeInTheDocument();
+        expect(warningCalls()).toHaveLength(1);
+      } finally {
+        mockShifuState.isLoading = false;
+      }
+    });
+
+    test('does not track on the history page', () => {
+      setLessonNode();
+      baseActions.loadMdflowHistory.mockResolvedValue({ items: [] });
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+
+      render(
+        <ScriptEditor
+          id='shifu-1'
+          initialViewMode='history'
+        />,
+      );
+
+      expect(
+        screen.queryByTestId('overlong-questions-alert'),
+      ).not.toBeInTheDocument();
+      expect(warningCalls()).toHaveLength(0);
+    });
+
     test('keeps the warning when analytics is unavailable', () => {
       setLessonNode();
       mockTrackEvent.mockResolvedValue(false);

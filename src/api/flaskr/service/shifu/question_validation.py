@@ -28,8 +28,9 @@ def assert_course_question_names_allowed(document: MarkdownFlowDocument) -> None
 def assert_course_question_names_within_limit(document: MarkdownFlowDocument) -> None:
     """Reject any {{ }} question longer than the authored length limit.
 
-    Draft saves skip this check so autosave never discards an author's text;
-    publish and import enforce it before content reaches learners.
+    Draft saves and imports skip this check so neither autosave nor restoring
+    an exported backup discards an author's text; publish enforces it before
+    content reaches learners.
     """
     for name in document.extract_variables():
         if is_question_name_too_long(name):

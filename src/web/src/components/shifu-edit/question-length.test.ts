@@ -33,6 +33,28 @@ describe('question length limit', () => {
     expect(findOverlongQuestions(`{{${'q'.repeat(200)}}}`)).toEqual([]);
   });
 
+  test('ignores fenced code blocks and HTML comments like the backend', () => {
+    const overlong = 'q'.repeat(201);
+    const content = [
+      '```md',
+      `{{${overlong}}}`,
+      '```',
+      `<!-- {{${overlong}}} -->`,
+      '<!--',
+      `?[{{${overlong}}} ...Answer]`,
+      '-->',
+      '~~~~',
+      '~~~',
+      `{{${overlong}}}`,
+      '~~~~',
+    ].join('\n');
+
+    expect(findOverlongQuestions(content)).toEqual([]);
+    expect(findOverlongQuestions(`${content}\n\n{{${overlong}}}`)).toEqual([
+      { name: overlong, length: 201 },
+    ]);
+  });
+
   test('previews whole code points', () => {
     expect(previewQuestion('😀'.repeat(30))).toBe('😀'.repeat(20));
   });
