@@ -623,3 +623,14 @@ BILL_SYS_CONFIG_SEEDS = (
         "updated_by": "system",
     },
 )
+
+# LLM usage written before rate providers took LiteLLM names (migration
+# a3c5e7f9b1d2) stores the earlier name; settlement maps it to the renamed
+# rate provider. Keep this while such usage records can still be settled.
+RENAMED_LLM_BILLING_PROVIDERS: dict[str, str] = {
+    "qwen": "dashscope",
+    "glm": "bigmodel",
+    "ark": "volcengine",
+    "ernie_v2": "qianfan",
+    "silicon": "siliconflow",
+}

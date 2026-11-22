@@ -376,6 +376,20 @@ def test_azure_ad_token_stands_in_for_the_api_key(
     assert route.configured
 
 
+@pytest.mark.parametrize("key", ["TOGETHERAI_API_KEY", "TOGETHER_API_KEY"])
+def test_together_accepts_each_key_name_litellm_reads(
+    clean_env: dict[str, str], key: str
+) -> None:
+    model = "together_ai/meta-llama/Llama-3-8b-chat-hf"
+    route = llm_routing.resolve_route(model)
+    assert route is not None
+    assert route.missing_credentials == ("TOGETHERAI_API_KEY",)
+    clean_env[key] = "secret"
+    route = llm_routing.resolve_route(model)
+    assert route is not None
+    assert route.configured
+
+
 @pytest.mark.parametrize(
     "slot_model", ["qwen/qwen-max", "dashscope/qwen-max", "qwen-max"]
 )

@@ -1736,3 +1736,85 @@ def test_resolve_credit_multiplier_label_uses_utc_default_settlement(
 
     assert captured
     assert set(captured) == {utc_sentinel}
+
+
+@pytest.mark.parametrize(
+    ("stored_provider", "model", "rates", "expected_credits"),
+    [
+        # An unroutable bare endpoint id still follows its renamed provider.
+        ("ark", "ep-123", [("volcengine", "ep-123", "2.0000000000")], 2),
+        # A leftover row under the old name loses to the LiteLLM-named row the
+        # migration kept for the same identity.
+        (
+            "qwen",
+            "qwen/qwen-max",
+            [
+                ("qwen", "qwen-max", "1.0000000000"),
+                ("dashscope", "qwen-max", "2.0000000000"),
+            ],
+            2,
+        ),
+    ],
+)
+def test_settle_usage_prefers_the_renamed_provider_rate(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_provider: str,
+    model: str,
+    rates: list[tuple[str, str, str]],
+    expected_credits: int,
+) -> None:
+    """Pre-rename usage settles against the LiteLLM-named rate."""
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda _app, _usage: "creator-alias",
+    )
+    install_llm_routes(
+        monkeypatch, {"qwen/qwen-max": ("dashscope", "qwen-max")}, exclusive=True
+    )
+    usage_bid = f"usage-llm-alias-{stored_provider}"
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-alias", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-alias",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid=f"bucket-alias-{stored_provider}",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid=f"rate-alias-{stored_provider}-{index}",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit=rate_credits,
+                    provider=provider,
+                    model=rate_model,
+                )
+                for index, (provider, rate_model, rate_credits) in enumerate(rates)
+            ]
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid=usage_bid,
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider=stored_provider,
+                model=model,
+                input_value=1000,
+                input_cache=0,
+                output=0,
+                total=1000,
+            )
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
+
+    assert payload["status"] == "settled"
+    assert payload["consumed_credits"] == expected_credits

@@ -84,8 +84,11 @@ touching anything else.
   Gemini Live and capability filtering need `supportedGenerationMethods`.
 - Startup requires `LLM_MODEL_1_ID` to be routable with its provider's
   credentials present, instead of "any one known key is set".
-- Settlement accepts the provider the usage model resolves to as a fallback
-  identity, so in-flight and replayed pre-rename records still match.
+- Settlement maps a pre-rename stored provider through
+  `RENAMED_LLM_BILLING_PROVIDERS` (billing consts, kept while such usage can
+  be settled), or else uses the provider the usage model resolves to, and
+  ranks that identity above the stored one, so pre-rename records match the
+  LiteLLM-named rate even when the model id is not routable.
 - The migration also rewrites legacy full model ids in rate rows
   (`qwen/qwen-max` -> `dashscope/qwen-max`), and rate lookup adds the
   canonical LiteLLM id as a candidate, so legacy and LiteLLM slot ids both
@@ -94,8 +97,11 @@ touching anything else.
 - When LiteLLM strips routing from a model id (the region in
   `bedrock_mantle/<region>/<model>`), routing forwards the endpoint it implied
   as `api_base`, because completion only sees the stripped model.
-- `AZURE_AD_TOKEN` stands in for a missing `AZURE_API_KEY`, matching LiteLLM's
-  Azure completion path.
+- `AZURE_AD_TOKEN` stands in for a missing `AZURE_API_KEY`, and
+  `TOGETHER_API_KEY`/`TOGETHER_AI_API_KEY` for `TOGETHERAI_API_KEY`, matching
+  the names LiteLLM's completion path reads.
+- Legacy `GEMINI_API_URL` is ignored only when its host is the public Gemini
+  endpoint; a proxy URL still reaches the Live token path.
 - Live readiness checks only the in-memory Gemini discovery result, which is
   empty unless a Gemini key was set at startup.
 - Pinned images up to `v3.1.3` read the earlier names; `INSTALL_MANUAL.md`
@@ -131,10 +137,10 @@ verification and, later, deleting the compat layer.
 ## Concrete Steps
 
 ```bash
-cd src/api && python -m pytest -q tests/test_llm_routing.py \
+(cd src/api && python -m pytest -q tests/test_llm_routing.py \
   tests/test_legacy_llm_compat.py tests/test_llm.py \
-  tests/migrations/test_litellm_rate_provider_migration.py
-cd src/api && python scripts/generate_env_examples.py
+  tests/migrations/test_litellm_rate_provider_migration.py)
+(cd src/api && python scripts/generate_env_examples.py)
 ```
 
 ## Validation and Acceptance

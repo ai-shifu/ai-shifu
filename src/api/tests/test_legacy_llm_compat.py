@@ -134,6 +134,13 @@ def test_litellm_variable_wins_over_legacy_variable(
             "https://generativelanguage.googleapis.com",
             "",
         ),
+        # A proxy whose path mentions that host is still a base URL.
+        (
+            "GEMINI_API_URL",
+            "GEMINI_API_BASE",
+            "https://proxy.example/generativelanguage.googleapis.com",
+            "https://proxy.example/generativelanguage.googleapis.com",
+        ),
         ("QWEN_API_URL", "DASHSCOPE_API_BASE", "  ", ""),
     ],
 )

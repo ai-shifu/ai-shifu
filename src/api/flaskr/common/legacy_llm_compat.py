@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
     from collections.abc import Container, Mapping
@@ -43,8 +44,9 @@ _PROVIDER_CREDENTIAL_ENVS: dict[str, tuple[str | None, str | None]] = {
     "gemini": (None, "GEMINI_API_BASE"),
 }
 
-# Earlier releases ignored this Gemini base so LiteLLM used its own default.
-_IGNORED_LEGACY_VALUES: dict[str, tuple[str, ...]] = {
+# Earlier releases ignored the public Gemini endpoint as a base so LiteLLM used
+# its own default; a proxy on another host is still a base URL.
+_IGNORED_LEGACY_HOSTS: dict[str, tuple[str, ...]] = {
     "GEMINI_API_URL": ("generativelanguage.googleapis.com",),
 }
 
@@ -90,9 +92,7 @@ def legacy_env_value(
     if not legacy or _value(env, litellm_name):
         return ""
     value = _value(env, legacy)
-    if not value or any(
-        marker in value for marker in _IGNORED_LEGACY_VALUES.get(legacy, ())
-    ):
+    if not value or urlsplit(value).hostname in _IGNORED_LEGACY_HOSTS.get(legacy, ()):
         return ""
     _warn_once(f"env:{legacy}", f"{legacy} is deprecated; set {litellm_name} instead.")
     return value
