@@ -68,7 +68,7 @@ class FrozenCommitizenNotes(unittest.TestCase):
             capture_output=True,
             text=True,
         ).stdout.strip()
-        assert installed == "4.16.2", "Install commitizen==4.16.2 for release tests"
+        assert installed == "4.19.4", "Install commitizen==4.19.4 for release tests"
         migration = (
             "Anonymous API access is removed; configure API_TOKEN before upgrading."
         )

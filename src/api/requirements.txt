@@ -52,7 +52,7 @@ jsonschema-specifications==2023.12.1
 langfuse==4.14.4
 logfire-api==5.1.0
 Mako==1.4.3
-markdown-it-py==4.0.0
+markdown-it-py==4.3.0
 MarkupSafe==2.1.5
 litellm==1.109.1
 openpyxl==3.1.5

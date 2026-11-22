@@ -167,7 +167,7 @@ earliest unmerged branch first, then replay successors in order.
 
 ## Interfaces and Dependencies
 
-- Ruff is pinned at 0.17.3 in `lefthook.yml`,
+- Ruff is pinned at 0.17.6 in `lefthook.yml`,
   `.github/workflows/lint.yml`, `docs/engineering-baseline.md`, and
   `scripts/check_dev_tools.py`, with the contributor install command mirrored
   in `INSTALL_MANUAL.md`; backend test tooling also pins the version in
