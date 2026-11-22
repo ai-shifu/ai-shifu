@@ -57,6 +57,10 @@ touching anything else.
   routing checks their key variables directly. For other providers it only
   checks that a variable name exists, so routing removes blank credential
   variables (for example `OPENAI_API_KEY=` from an env file) before asking.
+  Routing also expands `${VAR}` in credential variables, as `EnhancedConfig`
+  does, because LiteLLM reads them raw, and accepts an endpoint LiteLLM
+  resolved by default (Ollama's localhost) in place of a reported
+  `*_API_BASE`.
 - Live availability accepts `GEMINI_API_KEY` or `GOOGLE_API_KEY`; the Live
   session endpoint uses the same names from `GEMINI_API_KEY_ENVS`.
 - Bare `gemini-*` IDs resolve to Vertex AI in LiteLLM. Compat rewrites them to

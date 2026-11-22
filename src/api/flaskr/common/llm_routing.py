@@ -13,6 +13,7 @@ configuration validation uses it before the application is built.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 
 # litellm fetches its model cost map from GitHub at import time by default,
@@ -140,16 +141,29 @@ GEMINI_API_KEY_ENVS: tuple[str, ...] = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
 _CREDENTIAL_ENV_SUFFIXES = ("_KEY", "_TOKEN", "_API_BASE", "_BASE_URL", "_API_VERSION")
 
 
-def _drop_blank_credential_envs() -> None:
-    """Remove blank credential variables so LiteLLM reports them as missing.
+_ENV_REFERENCE = re.compile(r"\$\{([^}]+)\}")
 
-    ``litellm.validate_environment`` only checks that a name exists, so an
-    ``OPENAI_API_KEY=`` line left in an env file would count as configured.
-    Removing a blank value changes nothing else: LiteLLM treats it as unset.
+
+def _normalize_credential_envs() -> None:
+    """Prepare credential variables for LiteLLM, which reads them raw.
+
+    ``${VAR}`` references are expanded the way ``EnhancedConfig`` expands
+    configuration values (an unset reference stays literal), because LiteLLM
+    would otherwise send the placeholder as the credential. Blank values are
+    removed: ``litellm.validate_environment`` only checks that a name exists,
+    so an ``OPENAI_API_KEY=`` line would count as configured, while LiteLLM
+    treats a blank value as unset anyway.
     """
     for name, value in list(os.environ.items()):
-        if name.endswith(_CREDENTIAL_ENV_SUFFIXES) and not value.strip():
+        if not name.endswith(_CREDENTIAL_ENV_SUFFIXES):
+            continue
+        expanded = _ENV_REFERENCE.sub(
+            lambda match: os.environ.get(match.group(1), match.group(0)), value
+        )
+        if not expanded.strip():
             os.environ.pop(name, None)
+        elif expanded != value:
+            os.environ[name] = expanded
 
 
 # Missing key -> variables LiteLLM's completion path accepts in its place but
@@ -180,7 +194,9 @@ _UNREPORTED_KEY_ENVS: dict[str, str] = {
 }
 
 
-def _missing_credentials(provider: str, model: str) -> tuple[str, ...]:
+def _missing_credentials(
+    provider: str, model: str, resolved_api_base: str | None
+) -> tuple[str, ...]:
     registry = _json_provider_registry()
     if registry is not None and registry.exists(provider):
         key_env = getattr(registry.get(provider), "api_key_env", None)
@@ -190,7 +206,6 @@ def _missing_credentials(provider: str, model: str) -> tuple[str, ...]:
     key_env = _UNREPORTED_KEY_ENVS.get(provider)
     if key_env:
         return () if str(os.environ.get(key_env) or "").strip() else (key_env,)
-    _drop_blank_credential_envs()
     try:
         environment = litellm.validate_environment(model=f"{provider}/{model}")
     except Exception:
@@ -202,6 +217,8 @@ def _missing_credentials(provider: str, model: str) -> tuple[str, ...]:
         if key
         and not str(os.environ.get(str(key)) or "").strip()
         and not _has_alternative_credential(str(key))
+        # LiteLLM already resolved a default endpoint (Ollama's localhost).
+        and not (resolved_api_base and str(key).endswith(("_API_BASE", "_BASE_URL")))
     )
 
 
@@ -233,6 +250,7 @@ def resolve_route(model: object) -> LLMRoute | None:
     else:
         # get_llm_provider prints a provider-list banner for every miss.
         return None
+    _normalize_credential_envs()
     try:
         invoke_model, provider, _key, api_base = litellm.get_llm_provider(litellm_id)
     except Exception:
@@ -250,7 +268,9 @@ def resolve_route(model: object) -> LLMRoute | None:
         # sees the stripped model, so forward the endpoint it implied.
         credentials["api_base"] = api_base
     missing = (
-        () if "api_key" in credentials else _missing_credentials(provider, invoke_model)
+        ()
+        if "api_key" in credentials
+        else _missing_credentials(provider, invoke_model, api_base)
     )
     return LLMRoute(
         provider=provider,

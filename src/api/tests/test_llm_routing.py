@@ -135,6 +135,27 @@ def test_blank_credentials_count_as_missing(
     assert not route.configured
 
 
+def test_credential_references_are_expanded_before_litellm_reads_them(
+    clean_env: dict[str, str],
+) -> None:
+    clean_env.update(SHARED_KEY="real-secret", OPENAI_API_KEY="${SHARED_KEY}")
+    route = llm_routing.resolve_route("openai/gpt-4o")
+    assert route is not None
+    assert route.configured
+    # LiteLLM reads the variable itself, so it must hold the expanded value.
+    assert os.environ["OPENAI_API_KEY"] == "real-secret"
+
+
+def test_resolved_default_endpoint_satisfies_the_base_check(
+    clean_env: dict[str, str],
+) -> None:
+    _ = clean_env
+    route = llm_routing.resolve_route("ollama/llama3")
+    assert route is not None
+    assert route.api_base == "http://localhost:11434"
+    assert route.configured
+
+
 @pytest.mark.parametrize("key", ["GEMINI_API_KEY", "GOOGLE_API_KEY"])
 def test_gemini_accepts_either_litellm_key_name(
     clean_env: dict[str, str], key: str
