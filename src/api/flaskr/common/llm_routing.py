@@ -107,8 +107,12 @@ class LLMRoute:
     ``provider`` is LiteLLM's provider name; it is also the billing and usage
     identity. ``model`` is the provider-local id sent to LiteLLM.
     ``missing_credentials`` names environment variables LiteLLM needs but
-    cannot find. ``credentials`` carries values only legacy variables supply;
-    LiteLLM reads every other credential from its own variables.
+    cannot find, for providers whose credential names AI-Shifu has checked
+    against LiteLLM's completion path. ``unverified_missing_credentials``
+    holds what LiteLLM's environment check reports for any other provider;
+    that check can ask for more than completion needs, so it only warns.
+    ``credentials`` carries values only legacy variables supply; LiteLLM reads
+    every other credential from its own variables.
     """
 
     provider: str
@@ -116,6 +120,7 @@ class LLMRoute:
     api_base: str | None = None
     missing_credentials: tuple[str, ...] = ()
     credentials: tuple[tuple[str, str], ...] = ()
+    unverified_missing_credentials: tuple[str, ...] = ()
 
     @property
     def configured(self) -> bool:
@@ -213,6 +218,25 @@ _ALTERNATIVE_CREDENTIAL_ENVS: dict[str, tuple[str, ...]] = {
     "HUGGINGFACE_API_KEY": ("HF_TOKEN",),
 }
 
+
+# Providers whose credential variables were checked against LiteLLM's
+# completion path, so a missing one blocks startup and requests. For other
+# providers LiteLLM's environment check can over-report (alternative key
+# names, built-in defaults), so a missing variable is only a warning.
+CONFIRMED_CREDENTIAL_PROVIDERS: frozenset[str] = frozenset(
+    {
+        "openai",
+        "anthropic",
+        "dashscope",
+        "deepseek",
+        "gemini",
+        "bigmodel",
+        "zai",
+        "volcengine",
+        "openrouter",
+        *EXTRA_OPENAI_COMPATIBLE_PROVIDERS,
+    }
+)
 
 # Reported variables LiteLLM's completion path fills with its own default.
 _DEFAULTED_ENVS: frozenset[str] = frozenset({"AZURE_API_VERSION"})
@@ -312,12 +336,14 @@ def resolve_route(model: object) -> LLMRoute | None:
         if "api_key" in credentials
         else _missing_credentials(provider, invoke_model, api_base)
     )
+    confirmed = provider in CONFIRMED_CREDENTIAL_PROVIDERS
     return LLMRoute(
         provider=provider,
         model=invoke_model,
         api_base=credentials.get("api_base") or api_base or None,
-        missing_credentials=missing,
+        missing_credentials=missing if confirmed else (),
         credentials=tuple(sorted(credentials.items())),
+        unverified_missing_credentials=() if confirmed else missing,
     )
 
 

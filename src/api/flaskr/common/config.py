@@ -2312,6 +2312,15 @@ def _llm_model_1_route_problem(model: object) -> str | None:
             f"LLM_MODEL_1_ID {model!r} uses LiteLLM provider {route.provider!r}; "
             f"set {', '.join(route.missing_credentials)}"
         )
+    if route.unverified_missing_credentials:
+        logging.getLogger(__name__).warning(
+            "LLM_MODEL_1_ID %r uses LiteLLM provider %r, and LiteLLM reports %s "
+            "unset. LiteLLM may not need them; if it does, requests to this "
+            "model fail until they are set.",
+            model,
+            route.provider,
+            ", ".join(route.unverified_missing_credentials),
+        )
     return None
 
 

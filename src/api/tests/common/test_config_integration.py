@@ -1,5 +1,6 @@
 """Integration tests for the complete configuration system."""
 
+import logging
 import os
 from unittest.mock import MagicMock, patch
 
@@ -215,6 +216,24 @@ class TestConfigurationValidation:
             Config(app.config, app)
 
         assert "expands to an empty value" in str(exc_info.value)
+
+    def test_unverified_provider_credentials_only_warn(
+        self, monkeypatch: object, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A provider outside the checked list starts with a warning."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "mistral/mistral-large-latest")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+
+        app = Flask(__name__)
+        app.logger = MagicMock()
+
+        with caplog.at_level(logging.WARNING):
+            assert Config(app.config, app) is not None
+        assert "MISTRAL_API_KEY" in caplog.text
 
     def test_unrecognized_model_one_fails(self, monkeypatch: object) -> None:
         """A model id outside LiteLLM's rules cannot start the service."""

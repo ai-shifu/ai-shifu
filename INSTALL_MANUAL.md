@@ -26,7 +26,7 @@ src/
 
 ### Required LLM Configuration
 
-Text models follow [LiteLLM's provider rules](https://docs.litellm.ai/docs/providers). Set `LLM_MODEL_1_ID` to a LiteLLM model ID, usually `provider/model`, and set that provider's environment variables as LiteLLM documents them. Any provider LiteLLM supports works this way. `LLM_MODEL_1_ID` is required and has no default; startup fails if LiteLLM cannot route it or cannot find its provider's API key. `LLM_MODEL_1_NAME` is optional; an omitted or blank name displays the configured model ID.
+Text models follow [LiteLLM's provider rules](https://docs.litellm.ai/docs/providers). Set `LLM_MODEL_1_ID` to a LiteLLM model ID, usually `provider/model`, and set that provider's environment variables as LiteLLM documents them. Any provider LiteLLM supports works this way. `LLM_MODEL_1_ID` is required and has no default; startup fails if LiteLLM cannot route it. For the providers in the table below, startup also fails when the provider's API key is missing; for other providers, startup logs a warning naming the variables LiteLLM reports unset, and requests fail until any that are really needed are set. `LLM_MODEL_1_NAME` is optional; an omitted or blank name displays the configured model ID.
 
 | Provider | Example model ID | API key | Optional base URL |
 | --- | --- | --- | --- |

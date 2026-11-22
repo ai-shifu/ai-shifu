@@ -86,8 +86,13 @@ touching anything else.
   only legacy variables supply. Compat never writes `os.environ`.
 - No per-provider `/models` discovery. Only Gemini discovery remains, because
   Gemini Live and capability filtering need `supportedGenerationMethods`.
-- Startup requires `LLM_MODEL_1_ID` to be routable with its provider's
-  credentials present, instead of "any one known key is set".
+- Startup requires `LLM_MODEL_1_ID` to be routable. Missing credentials
+  block startup and requests only for `CONFIRMED_CREDENTIAL_PROVIDERS`
+  (the documented providers, whose variables were checked against
+  LiteLLM's completion path). For any other provider LiteLLM's environment
+  check over-reported in review (Azure, Together, Ollama, Replicate, Hugging
+  Face), so its result only logs a startup warning (user decision,
+  2026-11-22).
 - Settlement maps a pre-rename stored provider through
   `RENAMED_LLM_BILLING_PROVIDERS` (billing consts, kept while such usage can
   be settled), or else uses the provider the usage model resolves to, and

@@ -397,12 +397,12 @@ def test_azure_ad_token_stands_in_for_the_api_key(
     clean_env.update(AZURE_API_BASE="https://x.example")
     route = llm_routing.resolve_route("azure/my-deployment")
     assert route is not None
-    assert route.missing_credentials == ("AZURE_API_KEY",)
+    assert route.unverified_missing_credentials == ("AZURE_API_KEY",)
 
     clean_env["AZURE_AD_TOKEN"] = "token"
     route = llm_routing.resolve_route("azure/my-deployment")
     assert route is not None
-    assert route.configured
+    assert not route.unverified_missing_credentials
 
 
 @pytest.mark.parametrize(
@@ -420,11 +420,11 @@ def test_together_accepts_each_key_name_litellm_reads(
     model = "together_ai/meta-llama/Llama-3-8b-chat-hf"
     route = llm_routing.resolve_route(model)
     assert route is not None
-    assert route.missing_credentials == ("TOGETHERAI_API_KEY",)
+    assert route.unverified_missing_credentials == ("TOGETHERAI_API_KEY",)
     clean_env[key] = "secret"
     route = llm_routing.resolve_route(model)
     assert route is not None
-    assert route.configured
+    assert not route.unverified_missing_credentials
 
 
 @pytest.mark.parametrize(
@@ -443,11 +443,11 @@ def test_key_aliases_litellm_completion_reads_satisfy_validation(
 ) -> None:
     route = llm_routing.resolve_route(model)
     assert route is not None
-    assert reported in route.missing_credentials
+    assert reported in route.unverified_missing_credentials
     clean_env[alias] = "secret"
     route = llm_routing.resolve_route(model)
     assert route is not None
-    assert reported not in route.missing_credentials
+    assert reported not in route.unverified_missing_credentials
 
 
 @pytest.mark.parametrize(
@@ -487,6 +487,27 @@ def test_prefixed_live_only_model_is_rejected_without_metadata(
     with pytest.raises(AppError) as exc_info:
         model_selection.resolve_model_slot("1")
     assert exc_info.value.code == ERROR_CODE["server.llm.modelUnavailable"]
+
+
+def test_unverified_provider_credentials_warn_instead_of_blocking(
+    clean_env: dict[str, str],
+) -> None:
+    _ = clean_env
+    # Mistral is outside the providers whose credential names were checked.
+    route = llm_routing.resolve_route("mistral/mistral-large-latest")
+    assert route is not None
+    assert route.provider not in llm_routing.CONFIRMED_CREDENTIAL_PROVIDERS
+    assert route.unverified_missing_credentials == ("MISTRAL_API_KEY",)
+    assert route.missing_credentials == ()
+    assert route.configured
+    params, invoke_model, provider = llm.get_litellm_params_and_model(
+        "mistral/mistral-large-latest"
+    )
+    assert (params, invoke_model, provider) == (
+        {"custom_llm_provider": "mistral"},
+        "mistral-large-latest",
+        "mistral",
+    )
 
 
 def test_billing_identity_uses_litellm_provider_names(
