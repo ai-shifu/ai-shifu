@@ -86,6 +86,20 @@ touching anything else.
   credentials present, instead of "any one known key is set".
 - Settlement accepts the provider the usage model resolves to as a fallback
   identity, so in-flight and replayed pre-rename records still match.
+- The migration also rewrites legacy full model ids in rate rows
+  (`qwen/qwen-max` -> `dashscope/qwen-max`), and rate lookup adds the
+  canonical LiteLLM id as a candidate, so legacy and LiteLLM slot ids both
+  match migrated rates. Downgrade is best effort and renames every
+  LiteLLM-named LLM row back.
+- When LiteLLM strips routing from a model id (the region in
+  `bedrock_mantle/<region>/<model>`), routing forwards the endpoint it implied
+  as `api_base`, because completion only sees the stripped model.
+- `AZURE_AD_TOKEN` stands in for a missing `AZURE_API_KEY`, matching LiteLLM's
+  Azure completion path.
+- Live readiness checks only the in-memory Gemini discovery result, which is
+  empty unless a Gemini key was set at startup.
+- Pinned images up to `v3.1.3` read the earlier names; `INSTALL_MANUAL.md`
+  tells pinned installs to use them.
 
 ## Outcomes & Retrospective
 

@@ -182,6 +182,23 @@ class TestConfigurationValidation:
 
         assert Config(app.config, app) is not None
 
+    def test_model_one_interpolation_is_expanded_before_routing(
+        self, monkeypatch: object
+    ) -> None:
+        """Model 1 is checked after ``${VAR}`` expansion, like normal reads."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("COURSE_MODEL", "dashscope/qwen-max")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "${COURSE_MODEL}")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.setenv("DASHSCOPE_API_KEY", "test-provider-key")
+
+        app = Flask(__name__)
+        app.logger = MagicMock()
+
+        assert Config(app.config, app) is not None
+
     def test_unrecognized_model_one_fails(self, monkeypatch: object) -> None:
         """A model id outside LiteLLM's rules cannot start the service."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")

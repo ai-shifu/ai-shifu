@@ -279,6 +279,12 @@ docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
 Keep both `-f` options on every Compose command for this new deployment,
 including restarts and upgrades.
 
+Pinned images up to `v3.1.3` predate LiteLLM model configuration: they read
+the earlier variable names and model prefixes listed in
+[Upgrading to LiteLLM model configuration](#upgrading-to-litellm-model-configuration),
+such as `QWEN_API_KEY` with `qwen/qwen-max` instead of `DASHSCOPE_API_KEY`
+with `dashscope/qwen-max`. Use those names with such an image.
+
 Existing pinned deployments must retain their original commands and effective
 key until a deliberate migration. Adding the overlay can activate a previously
 ignored `.env` value and break existing sessions or encrypted configuration.

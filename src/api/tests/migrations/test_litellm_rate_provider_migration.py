@@ -84,7 +84,18 @@ def test_upgrade_renames_llm_rows_and_downgrade_restores_them(
         # A LiteLLM-named row for the same identity already wins.
         _row(9, LLM, "qwen", "qwen-plus"),
         _row(10, LLM, "dashscope", "qwen-plus"),
+        # Full legacy model ids move to the LiteLLM prefix too.
+        _row(11, LLM, "qwen", "qwen/qwen-turbo"),
+        _row(12, LLM, "*", "silicon/deepseek-ai/DeepSeek-V3"),
     ]
+
+    def identities() -> dict[int, tuple[str, str]]:
+        return {
+            row.id: (row.provider, row.model)
+            for row in connection.execute(
+                sa.select(rates.c.id, rates.c.provider, rates.c.model)
+            )
+        }
 
     with engine.begin() as connection:
         metadata.create_all(connection)
@@ -93,39 +104,23 @@ def test_upgrade_renames_llm_rows_and_downgrade_restores_them(
 
         migration.upgrade()
         migration.upgrade()  # A rerun finds nothing left to rename.
-        upgraded = dict(
-            connection.execute(sa.select(rates.c.id, rates.c.provider)).all()
-        )
+        upgraded = identities()
 
         migration.downgrade()
-        downgraded = dict(
-            connection.execute(sa.select(rates.c.id, rates.c.provider)).all()
-        )
+        downgraded = identities()
 
     engine.dispose()
+    original = {row["id"]: (row["provider"], row["model"]) for row in rows}
     assert upgraded == {
-        1: "dashscope",
-        2: "bigmodel",
-        3: "volcengine",
-        4: "qianfan",
-        5: "siliconflow",
-        6: "openai",
-        7: "*",
-        8: "ark",
-        9: "qwen",
-        10: "dashscope",
+        **original,
+        1: ("dashscope", "qwen-max"),
+        2: ("bigmodel", "glm-4.6"),
+        3: ("volcengine", "doubao"),
+        4: ("qianfan", "ernie-4.5"),
+        5: ("siliconflow", "Qwen/Qwen3-8B"),
+        11: ("dashscope", "dashscope/qwen-turbo"),
+        12: ("*", "siliconflow/deepseek-ai/DeepSeek-V3"),
     }
     # Row 9 kept its name; row 10 was LiteLLM-named before the upgrade and
     # also blocks the downgrade of its identity.
-    assert downgraded == {
-        1: "qwen",
-        2: "glm",
-        3: "ark",
-        4: "ernie_v2",
-        5: "silicon",
-        6: "openai",
-        7: "*",
-        8: "ark",
-        9: "qwen",
-        10: "dashscope",
-    }
+    assert downgraded == original

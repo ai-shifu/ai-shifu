@@ -1841,7 +1841,9 @@ def get_model_generation_methods(model: str) -> frozenset[str] | None:
 def _resolve_billing_rate_identity(model: str) -> tuple[str, list[str]]:
     provider, actual_model = _resolve_provider_for_model(model)
     candidates: list[str] = []
-    for candidate in (actual_model, model):
+    # The canonical LiteLLM id matches rates whatever form the slot used.
+    canonical = f"{provider}/{actual_model}" if provider else ""
+    for candidate in (actual_model, model, canonical):
         normalized = str(candidate or "").strip()
         if normalized and normalized not in candidates:
             candidates.append(normalized)
@@ -2002,7 +2004,9 @@ def is_live_follow_up_model_available(model: object) -> bool:
         or normalized_model not in GEMINI_LIVE_MODEL_ALLOWLIST
     ):
         return False
-    if not _gemini_api_key().strip() or normalized_model not in GEMINI_MODELS:
+    # Discovery only fills GEMINI_MODELS when a Gemini key was configured, so
+    # readiness stays in memory instead of re-reading shared configuration.
+    if normalized_model not in GEMINI_MODELS:
         return False
     return "bidiGenerateContent" in MODEL_SUPPORTED_GENERATION_METHODS.get(
         normalized_model, frozenset()

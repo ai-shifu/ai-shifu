@@ -117,6 +117,11 @@ class LLMRoute:
         """Return whether LiteLLM has the provider's credentials."""
         return not self.missing_credentials
 
+    @property
+    def litellm_id(self) -> str:
+        """Return the canonical LiteLLM model id, ``provider/model``."""
+        return f"{self.provider}/{self.model}"
+
     def completion_params(self) -> dict[str, str]:
         """Return the provider arguments passed to ``litellm.completion``."""
         return {"custom_llm_provider": self.provider, **dict(self.credentials)}
@@ -147,6 +152,20 @@ def _drop_blank_credential_envs() -> None:
             os.environ.pop(name, None)
 
 
+# Missing key -> variables LiteLLM's completion path accepts in its place but
+# ``validate_environment`` does not consider.
+_ALTERNATIVE_CREDENTIAL_ENVS: dict[str, tuple[str, ...]] = {
+    "AZURE_API_KEY": ("AZURE_AD_TOKEN",),
+}
+
+
+def _has_alternative_credential(missing_key: str) -> bool:
+    return any(
+        str(os.environ.get(name) or "").strip()
+        for name in _ALTERNATIVE_CREDENTIAL_ENVS.get(missing_key, ())
+    )
+
+
 # Key variables LiteLLM reads for these providers but does not report from
 # ``validate_environment`` in the pinned version.
 _UNREPORTED_KEY_ENVS: dict[str, str] = {
@@ -170,7 +189,21 @@ def _missing_credentials(provider: str, model: str) -> tuple[str, ...]:
         environment = litellm.validate_environment(model=f"{provider}/{model}")
     except Exception:
         return ()
-    return tuple(str(key) for key in environment.get("missing_keys") or () if key)
+    return tuple(
+        str(key)
+        for key in environment.get("missing_keys") or ()
+        # Some checks report a whole group when one member is missing.
+        if key
+        and not str(os.environ.get(str(key)) or "").strip()
+        and not _has_alternative_credential(str(key))
+    )
+
+
+def _api_base_without_directives(provider: str, model: str) -> str | None:
+    try:
+        return litellm.get_llm_provider(f"{provider}/{model}")[3]
+    except Exception:
+        return None
 
 
 def resolve_route(model: object) -> LLMRoute | None:
@@ -201,6 +234,15 @@ def resolve_route(model: object) -> LLMRoute | None:
     if not provider or not invoke_model:
         return None
     credentials = legacy_llm_compat.legacy_credentials(provider)
+    if (
+        api_base
+        and "api_base" not in credentials
+        and api_base != _api_base_without_directives(provider, invoke_model)
+    ):
+        # The id carried routing LiteLLM strips from the returned model, such
+        # as the region in ``bedrock_mantle/<region>/<model>``. Completion only
+        # sees the stripped model, so forward the endpoint it implied.
+        credentials["api_base"] = api_base
     missing = (
         () if "api_key" in credentials else _missing_credentials(provider, invoke_model)
     )

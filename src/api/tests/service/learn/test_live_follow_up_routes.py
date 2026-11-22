@@ -222,10 +222,10 @@ def test_readiness_requires_discovered_live_model(
     from flaskr.api import llm
 
     model = routes.GEMINI_LIVE_MODEL_ID
+    # Without a Gemini key at startup, discovery leaves GEMINI_MODELS empty.
     monkeypatch.setattr(
-        llm, "_gemini_api_key", lambda: "test-key" if provider_enabled else ""
+        llm, "GEMINI_MODELS", [model] if provider_enabled and discovered else []
     )
-    monkeypatch.setattr(llm, "GEMINI_MODELS", [model] if discovered else [])
     monkeypatch.setitem(
         llm.MODEL_SUPPORTED_GENERATION_METHODS, model, frozenset(methods)
     )

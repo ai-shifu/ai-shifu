@@ -345,6 +345,55 @@ def test_gemini_capabilities_apply_to_prefixed_ids(
     assert exc_info.value.code == ERROR_CODE["server.llm.modelUnavailable"]
 
 
+def test_region_in_model_id_reaches_completion_as_api_base(
+    clean_env: dict[str, str],
+) -> None:
+    _ = clean_env
+    route = llm_routing.resolve_route("bedrock_mantle/eu-west-1/openai.gpt-oss-120b")
+    assert route is not None
+    assert route.model == "openai.gpt-oss-120b"
+    # Completion sees only the stripped model, so the region's endpoint is
+    # forwarded explicitly instead of LiteLLM's default region.
+    assert route.completion_params()["api_base"] == (
+        "https://bedrock-mantle.eu-west-1.api.aws/v1"
+    )
+    plain = llm_routing.resolve_route("dashscope/qwen-max")
+    assert plain is not None
+    assert "api_base" not in plain.completion_params()
+
+
+def test_azure_ad_token_stands_in_for_the_api_key(
+    clean_env: dict[str, str],
+) -> None:
+    clean_env.update(AZURE_API_BASE="https://x.example", AZURE_API_VERSION="v1")
+    route = llm_routing.resolve_route("azure/my-deployment")
+    assert route is not None
+    assert route.missing_credentials == ("AZURE_API_KEY",)
+
+    clean_env["AZURE_AD_TOKEN"] = "token"
+    route = llm_routing.resolve_route("azure/my-deployment")
+    assert route is not None
+    assert route.configured
+
+
+@pytest.mark.parametrize(
+    "slot_model", ["qwen/qwen-max", "dashscope/qwen-max", "qwen-max"]
+)
+def test_billing_candidates_include_the_canonical_litellm_id(
+    clean_env: dict[str, str], monkeypatch: pytest.MonkeyPatch, slot_model: str
+) -> None:
+    _ = clean_env
+    if slot_model == "qwen-max":
+        monkeypatch.setattr(
+            llm, "_resolve_provider_for_model", lambda _m: ("dashscope", "qwen-max")
+        )
+    # A migrated rate keyed ``dashscope/qwen-max`` matches every slot form.
+    provider, candidates = llm._resolve_billing_rate_identity(slot_model)
+    assert provider == "dashscope"
+    assert "dashscope/qwen-max" in candidates
+    assert candidates[0] == "qwen-max"
+
+
 def test_billing_identity_uses_litellm_provider_names(
     clean_env: dict[str, str],
 ) -> None:

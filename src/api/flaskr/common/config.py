@@ -2330,7 +2330,10 @@ class EnhancedConfig:
         missing_required = []
         validation_errors = []
         # Check if at least one LLM is configured
-        llm_problem = _llm_model_1_route_problem(os.environ.get("LLM_MODEL_1_ID"))
+        llm_problem = _llm_model_1_route_problem(
+            # Expand ``${VAR}`` like normal reads before routing the id.
+            self._interpolate(str(os.environ.get("LLM_MODEL_1_ID") or ""))
+        )
         if llm_problem:
             errors.append(llm_problem)
         if (
