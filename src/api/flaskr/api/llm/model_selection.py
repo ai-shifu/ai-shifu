@@ -118,13 +118,14 @@ def resolve_model_slot(index: object) -> str:
     ):
         raise_error("server.llm.modelUnavailable")
     try:
-        params, _, _ = get_litellm_params_and_model(model)
+        params, invoke_model, provider = get_litellm_params_and_model(model)
     except AppError as exc:
         if exc.code != ERROR_CODE["server.llm.specifiedLlmNotConfigured"]:
             raise
         # Provider diagnostics can contain physical identities; keep them internal.
         raise_error("server.llm.modelUnavailable")
-    if not params:
+    # ``gemini/<live model>`` names a Live-only model even without metadata.
+    if not params or (provider == "gemini" and is_live_follow_up_model(invoke_model)):
         raise_error("server.llm.modelUnavailable")
     return model
 

@@ -155,6 +155,7 @@ def config_value(name: str, read: Callable[[str], object]) -> str:
 
 def env_value(name: str) -> str:
     """Read a LiteLLM variable, honoring its legacy name while compat lasts."""
+    _normalize_credential_envs()
     return config_value(name, os.environ.get)
 
 
@@ -162,7 +163,15 @@ def env_value(name: str) -> str:
 GEMINI_API_KEY_ENVS: tuple[str, ...] = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
 
 # Credential-like variable suffixes; a blank value means the setting is absent.
-_CREDENTIAL_ENV_SUFFIXES = ("_KEY", "_TOKEN", "_API_BASE", "_BASE_URL", "_API_VERSION")
+# ``_API_URL`` covers the legacy base URL names compat still reads.
+_CREDENTIAL_ENV_SUFFIXES = (
+    "_KEY",
+    "_TOKEN",
+    "_API_BASE",
+    "_BASE_URL",
+    "_API_URL",
+    "_API_VERSION",
+)
 
 
 _ENV_REFERENCE = re.compile(r"\$\{([^}]+)\}")

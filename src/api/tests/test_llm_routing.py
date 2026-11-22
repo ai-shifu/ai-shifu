@@ -467,6 +467,27 @@ def test_billing_candidates_include_the_canonical_litellm_id(
     assert candidates[0] == "qwen-max"
 
 
+def test_prefixed_live_only_model_is_rejected_without_metadata(
+    clean_env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.live_follow_up_config import (
+        GEMINI_LIVE_ONLY_MODEL_IDS,
+    )
+
+    clean_env["GEMINI_API_KEY"] = "secret"
+    live_model = min(GEMINI_LIVE_ONLY_MODEL_IDS)
+    # Discovery failed or a proxy omitted generation-method metadata.
+    monkeypatch.setattr(llm, "MODEL_SUPPORTED_GENERATION_METHODS", {})
+    values = {"LLM_MODEL_1_ID": f"gemini/{live_model}"}
+    monkeypatch.setattr(
+        model_selection, "get_config", lambda key, *_args: values.get(key)
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        model_selection.resolve_model_slot("1")
+    assert exc_info.value.code == ERROR_CODE["server.llm.modelUnavailable"]
+
+
 def test_billing_identity_uses_litellm_provider_names(
     clean_env: dict[str, str],
 ) -> None:

@@ -164,6 +164,19 @@ def test_legacy_base_urls_stand_in_for_unset_litellm_variables(
     assert llm_routing.env_value(litellm_env) == "https://native.example"
 
 
+def test_legacy_base_url_references_are_expanded(
+    clean_env: dict[str, str],
+) -> None:
+    clean_env.update(
+        QWEN_API_KEY="k",
+        PROXY_BASE="https://proxy.example/v1",
+        QWEN_API_URL="${PROXY_BASE}",
+    )
+    route = llm_routing.resolve_route("qwen/qwen-max")
+    assert route is not None
+    assert route.completion_params()["api_base"] == "https://proxy.example/v1"
+
+
 def test_compat_never_writes_the_environment(clean_env: dict[str, str]) -> None:
     clean_env.update(QWEN_API_KEY="k", ARK_API_KEY="a", GEMINI_API_URL="https://p")
     before = dict(clean_env)
