@@ -5,6 +5,8 @@
     "descriptionSuffix": "para guiar a la IA durante la enseñanza",
     "modeCode": "Avanzado",
     "modeText": "Sencillo",
+    "questionTooLongItem": "«{preview}…» ({length}/{max})",
+    "questionTooLongTitle": "{count, plural, one {# pregunta supera los {max} caracteres} other {# preguntas superan los {max} caracteres}}. Acórtalas antes de publicar; el borrador se sigue guardando.",
     "title": "Instrucciones de enseñanza"
   },
   "history": {

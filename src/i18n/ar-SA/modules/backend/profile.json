@@ -3,6 +3,7 @@
   "__flat__": {
     "keyInvalid": "تعذّر حفظ الذاكرة: يجب ألا يكون السؤال فارغًا وألا يحتوي على أحرف تحكم أو «}}».",
     "keyReserved": "البادئة sys_ محجوزة لحقول النظام.",
+    "keyTooLong": "السؤال طويل جدًا ({length}/{max_length} حرفًا): \"{preview}…\". اختصره إلى {max_length} حرفًا أو أقل ثم حاول مرة أخرى.",
     "language": "اللغة",
     "learnerProfileOptimizationEmptyResponse": "لم يُعد الذكاء الاصطناعي محتوى محسنًا، يرجى المحاولة مرة أخرى",
     "learnerProfileOptimizationFailed": "حدث خطأ في خدمة تحسين الذكاء الاصطناعي، يرجى المحاولة مرة أخرى لاحقًا",

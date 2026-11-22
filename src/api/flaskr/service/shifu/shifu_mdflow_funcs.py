@@ -18,6 +18,7 @@ from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.question_validation import (
     assert_course_question_names_allowed,
     assert_no_new_system_declarations,
+    is_question_name_too_long,
 )
 from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_draft_meta,
@@ -278,6 +279,10 @@ def save_shifu_mdflow(
                 for variable in variables:
                     # System references never declare course-owned questions.
                     if variable.startswith("sys_"):
+                        continue
+                    # Keep the draft, but defer the definition until the author
+                    # shortens the question; publish rejects it meanwhile.
+                    if is_question_name_too_long(variable):
                         continue
                     exist_variable = next(
                         (v for v in variable_definitions if v.profile_key == variable),

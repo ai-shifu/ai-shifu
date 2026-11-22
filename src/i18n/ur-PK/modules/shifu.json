@@ -5,6 +5,8 @@
     "descriptionSuffix": " فارمیٹ میں لکھیں تاکہ AI کو پڑھانے کی ہدایات ملیں۔",
     "modeCode": "پیشہ ورانہ",
     "modeText": "دوستانہ",
+    "questionTooLongItem": "\"{preview}…\" ({length}/{max})",
+    "questionTooLongTitle": "{count, plural, one {# سوال {max} حروف سے لمبا ہے} other {# سوالات {max} حروف سے لمبے ہیں}}۔ شائع کرنے سے پہلے انہیں مختصر کریں؛ مسودہ محفوظ ہوتا رہے گا۔",
     "title": "تدریسی پرامپٹ"
   },
   "history": {

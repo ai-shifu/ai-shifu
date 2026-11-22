@@ -5,6 +5,8 @@
     "descriptionSuffix": " لتوجيه الذكاء الاصطناعي إلى طريقة التدريس",
     "modeCode": "احترافي",
     "modeText": "ودود",
+    "questionTooLongItem": "\"{preview}…\" ({length}/{max})",
+    "questionTooLongTitle": "{count, plural, one {سؤال واحد أطول من {max} حرفًا} other {# أسئلة أطول من {max} حرفًا}}. اختصرها قبل النشر؛ تظل المسودة محفوظة.",
     "title": "موجه التدريس"
   },
   "history": {

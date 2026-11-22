@@ -5,6 +5,8 @@
     "descriptionSuffix": "เพื่อกำกับวิธีสอนของ AI",
     "modeCode": "มืออาชีพ",
     "modeText": "เป็นมิตร",
+    "questionTooLongItem": "\"{preview}…\" ({length}/{max})",
+    "questionTooLongTitle": "มีคำถาม {count} ข้อที่ยาวเกิน {max} อักขระ โปรดย่อก่อนเผยแพร่ แบบร่างยังคงบันทึกตามปกติ",
     "title": "พรอมต์การสอน"
   },
   "history": {

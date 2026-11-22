@@ -97,3 +97,9 @@ export const wechatLogin = ({
  * Maximum character length for titles (Shifu name, Chapter name, Lesson name)
  */
 export const TITLE_MAX_LENGTH = 100;
+
+/**
+ * Maximum length, in Unicode code points, of a question inside {{ }}.
+ * Must match QUESTION_NAME_MAX_LENGTH in src/api/flaskr/service/shifu/consts.py.
+ */
+export const QUESTION_NAME_MAX_LENGTH = 200;

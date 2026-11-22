@@ -87,3 +87,8 @@ STATUS_PUBLISHED = 1
 # Maximum length for shifu name/title
 # Must match TITLE_MAX_LENGTH constant in frontend (src/web/src/constants/ui-constants.ts)
 SHIFU_NAME_MAX_LENGTH = 100
+
+# Maximum length, in Unicode code points, of the question text inside {{ }}.
+# Stays below the 255-character variable key column.
+# Must match QUESTION_NAME_MAX_LENGTH in src/web/src/constants/ui-constants.ts.
+QUESTION_NAME_MAX_LENGTH = 200

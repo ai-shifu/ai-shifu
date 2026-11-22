@@ -17,6 +17,7 @@ from flaskr.service.learn.api import (
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.question_validation import (
     assert_course_question_names_allowed,
+    assert_course_question_names_within_limit,
     assert_no_new_system_declarations,
 )
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -218,7 +219,9 @@ def import_shifu(
             content = item.get("content", "")
             if not isinstance(content, str):
                 raise_error("server.shifu.importFileInvalid")
-            assert_course_question_names_allowed(MarkdownFlowDocument(content))
+            document = MarkdownFlowDocument(content)
+            assert_course_question_names_allowed(document)
+            assert_course_question_names_within_limit(document)
             assert_no_new_system_declarations(content)
         structure_data = import_data.get("structure")
         _import_model_selection(shifu_data, "llm")

@@ -5,6 +5,8 @@
     "descriptionSuffix": "格式撰写，指导 AI 如何授课",
     "modeCode": "专业",
     "modeText": "友好",
+    "questionTooLongItem": "「{preview}…」（{length}/{max}）",
+    "questionTooLongTitle": "有 {count} 个问题超过 {max} 字，请在发布前缩短；草稿仍会正常保存。",
     "title": "授课提示词"
   },
   "history": {

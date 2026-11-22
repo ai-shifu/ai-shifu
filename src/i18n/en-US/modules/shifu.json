@@ -5,6 +5,8 @@
     "descriptionSuffix": "format to guide AI teaching",
     "modeCode": "Pro",
     "modeText": "Easy",
+    "questionTooLongItem": "“{preview}…” ({length}/{max})",
+    "questionTooLongTitle": "{count, plural, one {# question is longer than {max} characters} other {# questions are longer than {max} characters}}. Shorten them before publishing; drafts still save.",
     "title": "Teaching Prompts"
   },
   "history": {
