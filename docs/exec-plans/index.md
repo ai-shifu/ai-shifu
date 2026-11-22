@@ -29,6 +29,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Learner image input](./active/learner-image-input.md)
 - [Lesson reset limit backed by SQL](./active/lesson-reset-limit.md)
 - [Show interaction titles in listen and classroom modes](./active/listen-classroom-question-titles.md)
+- [Route text models by LiteLLM's rules](./active/litellm-provider-compat.md)
 - [Local storage response safety](./active/local-storage-response-safety.md)
 - [Keep Authored Input Hints Out of Choice Buttons](./active/markdownflow-authored-inputs.md)
 - [Use one question for MarkdownFlow answers](./active/markdownflow-question-interactions.md)

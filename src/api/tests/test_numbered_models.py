@@ -11,6 +11,8 @@ from flaskr.api import llm
 from flaskr.api.llm import _attach_credit_multipliers, model_selection
 from flaskr.service.common.models import AppError
 
+from tests.common.fixtures.llm_routes import install_llm_routes
+
 pytestmark = pytest.mark.no_mock_llm
 
 
@@ -283,9 +285,8 @@ def test_course_catalog_loads_rates_once_for_available_slots(
             "test",
         ),
     )
-    monkeypatch.setattr(
-        llm,
-        "MODEL_ALIAS_MAP",
+    install_llm_routes(
+        monkeypatch,
         {model: ("test", model) for model in ("test/default", "test/advanced")},
     )
     rates = [
@@ -357,15 +358,7 @@ def test_old_allowlist_and_discovered_models_never_define_catalog(
         LLM_ALLOWED_MODEL_DISPLAY_NAMES="Old",
         **{"llm-allowed-models": "test/legacy"},
     )
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "test": llm.ProviderState(
-                enabled=True, params={"api_key": "test"}, models=["test/discovered"]
-            )
-        },
-    )
+    install_llm_routes(monkeypatch, {"test/discovered": ("test", "test/discovered")})
     assert llm.get_current_models(object()) == []
     assert llm.get_course_model_options(object()) == []
 

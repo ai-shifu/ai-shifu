@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
-from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
@@ -81,6 +80,7 @@ from flaskr.service.user.models import (
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 
+from tests.common.fixtures.llm_routes import install_llm_routes
 from tests.common.fixtures.model_factories import (
     make_generated_block,
     make_generated_element,
@@ -131,18 +131,7 @@ def _configure_default_model_route(
 ) -> None:
     """Credit estimates resolve legacy course choices through configured model one."""
     _ = app  # Initialize provider configuration before installing the test route.
-    from flaskr.api import llm
-
-    monkeypatch.setitem(
-        llm.PROVIDER_STATES,
-        "openai",
-        llm.ProviderState(
-            enabled=True,
-            params={"api_key": "test-key"},
-            models=["gpt-test"],
-        ),
-    )
-    monkeypatch.setitem(llm.MODEL_ALIAS_MAP, "gpt-test", ("openai", "gpt-test"))
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
 
 @pytest.fixture(autouse=True)
@@ -2054,12 +2043,11 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
         "flaskr.service.shifu.admin_operations.courses_credit_usage.get_all_provider_configs",
         fake_get_all_provider_configs,
     )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin_operations.courses_credit_usage.PROVIDER_STATES",
+    install_llm_routes(
+        monkeypatch,
         {
-            "openai": SimpleNamespace(models=["gpt-known"]),
-            "gemini": SimpleNamespace(models=["shared-model"]),
-            "other": SimpleNamespace(models=["shared-model"]),
+            "gpt-known": ("openai", "gpt-known"),
+            "shared-model": ("gemini", "shared-model"),
         },
     )
 

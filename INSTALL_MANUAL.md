@@ -26,15 +26,22 @@ src/
 
 ### Required LLM Configuration
 
-Configure at least one LLM provider and map `LLM_MODEL_1_ID` to a text model served by that provider. `LLM_MODEL_1_ID` is required and has no default. `LLM_MODEL_1_NAME` is optional; an omitted or blank name displays the configured model ID. Supported providers include:
+Text models follow [LiteLLM's provider rules](https://docs.litellm.ai/docs/providers). Set `LLM_MODEL_1_ID` to a LiteLLM model ID, usually `provider/model`, and set that provider's environment variables as LiteLLM documents them. Any provider LiteLLM supports works this way. `LLM_MODEL_1_ID` is required and has no default; startup fails if LiteLLM cannot route it or cannot find its provider's API key. `LLM_MODEL_1_NAME` is optional; an omitted or blank name displays the configured model ID.
 
-- **OpenAI** API Key
-- **Baidu ERNIE** API credentials
-- **ByteDance Volcengine Ark** API Key
-- **SiliconFlow** API Key
-- **Zhipu GLM** API Key
-- **DeepSeek** API Key
-- **Alibaba Qwen** API Key
+| Provider | Example model ID | API key | Optional base URL |
+| --- | --- | --- | --- |
+| OpenAI | `openai/gpt-4o` or `gpt-4o` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| Alibaba DashScope (Qwen) | `dashscope/qwen-max` | `DASHSCOPE_API_KEY` | `DASHSCOPE_API_BASE` |
+| DeepSeek | `deepseek/deepseek-chat` | `DEEPSEEK_API_KEY` | `DEEPSEEK_API_BASE` |
+| Google Gemini | `gemini/gemini-2.5-pro` | `GEMINI_API_KEY` | `GEMINI_API_BASE` |
+| Zhipu BigModel (GLM) | `bigmodel/glm-4.6` | `BIGMODEL_API_KEY` | `BIGMODEL_API_BASE` |
+| ByteDance Volcengine Ark | `volcengine/<endpoint-id>` | `VOLCENGINE_API_KEY` | `VOLCENGINE_API_BASE` |
+| Baidu Qianfan (ERNIE) | `qianfan/ernie-4.5-turbo-128k` | `QIANFAN_API_KEY` | `QIANFAN_API_BASE` |
+| SiliconFlow | `siliconflow/Qwen/Qwen3-8B` | `SILICONFLOW_API_KEY` | `SILICONFLOW_API_BASE` |
+| Anthropic | `anthropic/claude-sonnet-4-5` | `ANTHROPIC_API_KEY` | |
+| OpenRouter | `openrouter/anthropic/claude-sonnet-4.5` | `OPENROUTER_API_KEY` | |
+
+The table lists common choices, not a limit. Baidu Qianfan and SiliconFlow are OpenAI-compatible providers the pinned LiteLLM does not ship yet; AI-Shifu registers them with LiteLLM under the names upstream proposals use, so they follow the same rules. Gemini Live voice follow-up and Gemini TTS read `GEMINI_API_KEY`.
 
 ### Optional Services
 
@@ -61,7 +68,7 @@ a POSIX host is required; no Python packages need to be installed):
 python3 scripts/prepare_env.py
 ```
 
-For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `BIGMODEL_API_KEY`) and set `LLM_MODEL_1_ID` to a text model ID available through that provider. `LLM_MODEL_1_NAME` is optional; omit it or leave it blank to display the configured model ID. The template intentionally leaves both values empty, but only the ID is required. Database defaults match the bundled services; review security settings before production use.
+For Docker-based workflows, set `LLM_MODEL_1_ID` to a LiteLLM model ID (for example `openai/gpt-4o` or `dashscope/qwen-max`) and set that provider's LiteLLM API key variable (for example `OPENAI_API_KEY` or `DASHSCOPE_API_KEY`). `LLM_MODEL_1_NAME` is optional; omit it or leave it blank to display the configured model ID. The template intentionally leaves both values empty, but only the ID is required. Database defaults match the bundled services; review security settings before production use.
 
 ### Step 3: Configure Environment Variables
 
@@ -81,9 +88,9 @@ These variables are essential for the application to run:
    - Keep the saved value for the lifetime of the instance, including upgrades
    - Run the installer separately for independent dev/test/prod environments
 
-3. **LLM Provider** (at least one required)
-   - Choose from: OpenAI, ERNIE, ARK, SiliconFlow, GLM, DeepSeek, Qwen
-   - See `docker/.env.example.full` for specific provider configurations
+3. **LLM Provider** (the provider of model 1 is required)
+   - Any LiteLLM provider; set its API key variable as LiteLLM names it
+   - See [Required LLM Configuration](#required-llm-configuration) for common providers
 
 4. **Numbered Course Models**
    - `LLM_MODEL_1_ID`: required physical text model ID served by the configured provider; no default. Model 1 is always the course default.
@@ -222,7 +229,7 @@ selected model, voice, and server-built prompt. The browser then opens the
 Gemini Live WebSocket directly, so the AI-Shifu ingress does not need a
 WebSocket Upgrade route. Production still needs HTTPS for microphone access,
 and the browser must be able to reach `generativelanguage.googleapis.com`.
-The server must also reach the token-creation API. If `GEMINI_API_URL` is set,
+The server must also reach the token-creation API. If `GEMINI_API_BASE` is set,
 token creation reuses that HTTPS base URL, including any proxy path prefix,
 and appends `/v1beta/auth_tokens`; an existing terminal `/v1beta` is reused
 instead of duplicated. If unset, token creation uses Google's official API.
@@ -449,6 +456,39 @@ voice follow-up retain their separate contracts.
 
 See the [numbered-model deployment runbook](docs/exec-plans/completed/numbered-course-models.md#deployment-runbook).
 Do not roll back to a build that treats newly saved numeric choices as physical IDs.
+
+## Upgrading to LiteLLM model configuration
+
+Model IDs and provider variables now follow LiteLLM's rules. Earlier AI-Shifu
+names keep working for a limited compatibility period; each one logs a
+deprecation warning naming its replacement. A LiteLLM-named variable always
+wins over its earlier name. Move to the new names before the compatibility
+period ends.
+
+| Earlier setting | LiteLLM setting |
+| --- | --- |
+| `QWEN_API_KEY`, `QWEN_API_URL` | `DASHSCOPE_API_KEY`, `DASHSCOPE_API_BASE` |
+| `ARK_API_KEY` | `VOLCENGINE_API_KEY` |
+| `ERNIE_API_KEY` | `QIANFAN_API_KEY` |
+| `SILICON_API_KEY`, `SILICON_API_URL` | `SILICONFLOW_API_KEY`, `SILICONFLOW_API_BASE` |
+| `DEEPSEEK_API_URL` | `DEEPSEEK_API_BASE` |
+| `GEMINI_API_URL` | `GEMINI_API_BASE` |
+| Model ID `qwen/<model>` | `dashscope/<model>` |
+| Model ID `glm/<model>` | `bigmodel/<model>` |
+| Model ID `ark/<endpoint>` | `volcengine/<endpoint>` |
+| Model ID `ernie/<model>` | `qianfan/<model>` |
+| Model ID `silicon/<model>` | `siliconflow/<model>` |
+| Bare `gemini-*`, `deepseek-*` or unlisted `gpt*` model ID | `gemini/...`, `deepseek/...`, `openai/...` |
+
+`BIGMODEL_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `DEEPSEEK_API_KEY` and
+`GEMINI_API_KEY` are already LiteLLM names and need no change.
+
+Billing and usage now record LiteLLM's provider name. The database migration
+renames LLM credit rate providers (`qwen` to `dashscope`, `glm` to `bigmodel`,
+`ark` to `volcengine`, `ernie_v2` to `qianfan`, `silicon` to `siliconflow`).
+Usage written before the upgrade still settles against the renamed rates.
+Historical usage records keep the provider name they were written with. Create
+new LLM rates with LiteLLM provider names.
 
 ## Upgrading existing profile-onboarding prompts for Spanish
 

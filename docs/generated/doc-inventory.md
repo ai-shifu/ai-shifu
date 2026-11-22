@@ -64,6 +64,7 @@
 | `docs/exec-plans/active/learner-image-input.md` | Learner image input | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/lesson-reset-limit.md` | Lesson reset limit backed by SQL | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/listen-classroom-question-titles.md` | Show interaction titles in listen and classroom modes | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/litellm-provider-compat.md` | Route text models by LiteLLM's rules | `exec-plan-active` | `active` | `backend` | `2026-11-20` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-authored-inputs.md` | Keep Authored Input Hints Out of Choice Buttons | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/markdownflow-question-interactions.md` | Use one question for MarkdownFlow answers | `exec-plan-active` | `active` | `learner` | `2026-11-11` | `true` |

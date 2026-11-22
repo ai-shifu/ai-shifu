@@ -54,6 +54,8 @@ from flaskr.service.metering.consts import (
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
 
+from tests.common.fixtures.llm_routes import install_llm_routes
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -812,6 +814,78 @@ def test_settle_usage_prefers_exact_rate_over_wildcard(
         assert payload["status"] == "settled"
         assert payload["consumed_credits"] == 2
         assert entry.amount == Decimal("-2.0000000000")
+
+
+@pytest.mark.parametrize(
+    ("stored_provider", "expected_credits"),
+    [
+        # Written before the rename to LiteLLM provider names.
+        ("qwen", 2),
+        # Written after it.
+        ("dashscope", 2),
+    ],
+)
+def test_settle_usage_matches_renamed_provider_rate_through_model_route(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_provider: str,
+    expected_credits: int,
+) -> None:
+    """A record that predates the provider rename still finds the renamed rate."""
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda _app, _usage: "creator-rename",
+    )
+    install_llm_routes(monkeypatch, {"qwen/qwen-max": ("dashscope", "qwen-max")})
+    usage_bid = f"usage-llm-{stored_provider}"
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-rename", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-rename",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid=f"bucket-{stored_provider}",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid=f"rate-llm-input-wildcard-{stored_provider}",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid=f"rate-llm-input-renamed-{stored_provider}",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="2.0000000000",
+                    provider="dashscope",
+                    model="qwen-max",
+                ),
+                _create_usage(
+                    usage_bid=usage_bid,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider=stored_provider,
+                    model="qwen/qwen-max",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
+
+    assert payload["status"] == "settled"
+    assert payload["consumed_credits"] == expected_credits
 
 
 @pytest.mark.parametrize(

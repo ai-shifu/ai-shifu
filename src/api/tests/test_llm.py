@@ -40,6 +40,26 @@ def _install_litellm_stub() -> None:
     litellm_stub.get_model_info = get_model_info
     litellm_stub.get_supported_openai_params = lambda **_kwargs: []
     litellm_stub.completion = lambda *_args, **_kwargs: iter([])
+    # Enough of LiteLLM's routing surface for flaskr.common.llm_routing.
+    litellm_stub.provider_list = [
+        "openai",
+        "gemini",
+        "deepseek",
+        "dashscope",
+        "volcengine",
+        "bigmodel",
+        "anthropic",
+    ]
+
+    def get_llm_provider(model: str) -> tuple[str, str, None, None]:
+        provider, _sep, invoke_model = model.partition("/")
+        return invoke_model, provider, None, None
+
+    litellm_stub.get_llm_provider = get_llm_provider
+    litellm_stub.validate_environment = lambda **_kwargs: {
+        "keys_in_environment": True,
+        "missing_keys": [],
+    }
     sys.modules["litellm"] = litellm_stub
     sys.modules["litellm.types"] = litellm_types_stub
     sys.modules["litellm.types.utils"] = litellm_utils_stub
@@ -119,6 +139,8 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
 )
+
+from tests.common.fixtures.llm_routes import install_llm_routes
 
 pytestmark = pytest.mark.no_mock_llm
 
@@ -228,36 +250,15 @@ def _configure_model_list(monkeypatch: object) -> None:
         "ark/doubao-seed-2-0-lite-260428",
         "qwen/no-rate-model",
     ]
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
+    install_llm_routes(
+        monkeypatch,
         {
-            "qwen": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "qwen-key"},
-                models=["qwen/deepseek-v4-flash", "qwen/no-rate-model"],
-                prefix="qwen/",
-                wildcard_prefixes=(),
-            ),
-            "ark": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "ark-key"},
-                models=["ark/doubao-seed-2-0-lite-260428"],
-                prefix="ark/",
-                wildcard_prefixes=(),
-            ),
-        },
-    )
-    monkeypatch.setattr(
-        llm,
-        "MODEL_ALIAS_MAP",
-        {
-            "qwen/deepseek-v4-flash": ("qwen", "deepseek-v4-flash"),
+            "qwen/deepseek-v4-flash": ("dashscope", "deepseek-v4-flash"),
             "ark/doubao-seed-2-0-lite-260428": (
-                "ark",
+                "volcengine",
                 "doubao-seed-2-0-lite-260428",
             ),
-            "qwen/no-rate-model": ("qwen", "no-rate-model"),
+            "qwen/no-rate-model": ("dashscope", "no-rate-model"),
         },
     )
     config = {
@@ -295,47 +296,47 @@ def test_get_current_models_adds_output_token_credit_multiplier(
             [
                 _create_credit_rate(
                     rate_bid="default-output",
-                    provider="qwen",
+                    provider="dashscope",
                     model="qwen/deepseek-v4-flash",
                     credits_per_unit="0.000066667",
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-provider-wildcard-output",
-                    provider="ark",
+                    provider="volcengine",
                     model="*",
                     credits_per_unit="0.00001",
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-input-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="9",
                     billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-cache-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="8",
                     billing_metric=BILLING_METRIC_LLM_CACHE_TOKENS,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-debug-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="7",
                     usage_scene=BILL_USAGE_SCENE_DEBUG,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-preview-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="6",
                     usage_scene=BILL_USAGE_SCENE_PREVIEW,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-output",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="0.0001800009",
                 ),
@@ -373,21 +374,21 @@ def test_get_current_models_uses_fixed_credit_1x_anchor(
             [
                 _create_credit_rate(
                     rate_bid="default-original-output",
-                    provider="qwen",
+                    provider="dashscope",
                     model="qwen/deepseek-v4-flash",
                     credits_per_unit="0.000066667",
                     effective_from=datetime(2026, 1, 1, 0, 0, 0),
                 ),
                 _create_credit_rate(
                     rate_bid="default-edited-output",
-                    provider="qwen",
+                    provider="dashscope",
                     model="qwen/deepseek-v4-flash",
                     credits_per_unit="0.000466669",
                     effective_from=datetime(2026, 2, 1, 0, 0, 0),
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-output",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="0.0001800009",
                     effective_from=datetime(2026, 1, 1, 0, 0, 0),
@@ -441,7 +442,7 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
         db.session.add(
             _create_credit_rate(
                 rate_bid="default-output",
-                provider="qwen",
+                provider="dashscope",
                 model="qwen/deepseek-v4-flash",
                 credits_per_unit="0.000066667",
             )
@@ -478,68 +479,6 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
     assert all(item["credit_multiplier"] is None for item in models)
 
 
-def test_deepseek_model_loader_lists_models(monkeypatch: object) -> None:
-    captured = {}
-
-    def fake_get(url: object, headers: object = None, timeout: object = None) -> object:
-        captured["url"] = url
-        captured["headers"] = headers
-        captured["timeout"] = timeout
-        return FakeModelsResponse(
-            {
-                "object": "list",
-                "data": [
-                    {"id": "deepseek-flash", "object": "model"},
-                    {"id": "deepseek-v4-pro", "object": "model"},
-                ],
-            }
-        )
-
-    monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="deepseek",
-        api_key_env="DEEPSEEK_API_KEY",
-        base_url_env="DEEPSEEK_API_URL",
-        default_base_url="https://api.deepseek.com",
-    )
-
-    models = llm._load_deepseek_models(
-        config,
-        {"api_key": "test-key", "api_base": "https://api.deepseek.com"},
-        "https://api.deepseek.com",
-    )
-
-    assert models == ["deepseek-flash", "deepseek-v4-pro"]
-    assert captured["url"] == "https://api.deepseek.com/models"
-    assert captured["headers"]["Authorization"] == "Bearer test-key"
-    assert captured["timeout"] == 20
-
-
-def test_deepseek_model_loader_falls_back_when_list_models_fails(
-    monkeypatch: object,
-) -> None:
-    def fake_get(*args: object, **kwargs: object) -> None:
-        _ = args, kwargs
-        message = "network unavailable"
-        raise RuntimeError(message)
-
-    monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="deepseek",
-        api_key_env="DEEPSEEK_API_KEY",
-        base_url_env="DEEPSEEK_API_URL",
-        default_base_url="https://api.deepseek.com",
-    )
-
-    models = llm._load_deepseek_models(
-        config,
-        {"api_key": "test-key", "api_base": "https://api.deepseek.com"},
-        "https://api.deepseek.com",
-    )
-
-    assert models == ["deepseek-flash", "deepseek-v4-flash", "deepseek-v4-pro"]
-
-
 def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
     monkeypatch: object,
 ) -> None:
@@ -565,17 +504,8 @@ def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
         )
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    models = llm._load_gemini_models(
-        config,
-        {"api_key": "test-key"},
-        None,
-    )
+    models = llm._load_gemini_models("test-key", None)
 
     assert models == [
         "gemini-3.7-flash",
@@ -625,13 +555,8 @@ def test_gemini_model_loader_discovers_capabilities_on_later_pages(
         )
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    models = llm._load_gemini_models(config, {"api_key": "test-key"}, None)
+    models = llm._load_gemini_models("test-key", None)
 
     assert models == [
         "gemini-3.7-flash",
@@ -704,10 +629,7 @@ def test_gemini_native_proxy_preserves_version_prefix_and_capabilities(
         )
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
-    )
-    assert llm._load_gemini_models(config, {"api_key": "test-key"}, base_url) == [
+    assert llm._load_gemini_models("test-key", base_url) == [
         "gemini-3.7-flash",
         live_model,
     ]
@@ -732,11 +654,8 @@ def test_gemini_openai_proxy_preserves_text_discovery_without_native_probe(
         return FakeModelsResponse({"data": [{"id": "gemini-3.7-flash"}]})
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
-    )
     assert llm._load_gemini_models(
-        config, {"api_key": "test-key"}, "https://gemini-proxy.example.com/v1"
+        "test-key", "https://gemini-proxy.example.com/v1"
     ) == ["gemini-3.7-flash"]
     assert requests_seen == ["https://gemini-proxy.example.com/v1/models"]
     assert "gemini-3.7-flash" not in llm.MODEL_SUPPORTED_GENERATION_METHODS
@@ -754,13 +673,8 @@ def test_gemini_model_loader_never_logs_api_key_from_request_errors(
 
     monkeypatch.setattr(llm.requests, "get", raise_request_error)
     monkeypatch.setattr(llm, "_log_warning", warnings.append)
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    assert llm._load_gemini_models(config, {"api_key": secret}, None) == []
+    assert llm._load_gemini_models(secret, None) == []
     assert warnings == ["load gemini models failed"]
     assert secret not in "".join(warnings)
 
@@ -784,17 +698,8 @@ def test_gemini_compatible_proxy_clears_stale_capability_metadata(
         "_fetch_provider_models",
         lambda *_args, **_kwargs: [proxy_model],
     )
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    models = llm._load_gemini_models(
-        config,
-        {"api_key": "test-key"},
-        "https://gemini-proxy.example.com/v1",
-    )
+    models = llm._load_gemini_models("test-key", "https://gemini-proxy.example.com/v1")
 
     assert models == [proxy_model]
     assert proxy_model not in llm.MODEL_SUPPORTED_GENERATION_METHODS
@@ -813,21 +718,16 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
     other_bidi_only_model: str,
 ) -> None:
     live_model = "gemini-3.8-live"
+    monkeypatch.setattr(llm, "_gemini_api_key", lambda: "test-key")
     monkeypatch.setattr(
         llm,
-        "PROVIDER_STATES",
-        {
-            "gemini": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test-key"},
-                models=[
-                    "gemini-3.7-flash",
-                    live_model,
-                    other_bidi_only_model,
-                    "openai-compatible-without-capabilities",
-                ],
-            )
-        },
+        "GEMINI_MODELS",
+        [
+            "gemini-3.7-flash",
+            live_model,
+            other_bidi_only_model,
+            "openai-compatible-without-capabilities",
+        ],
     )
     monkeypatch.setattr(
         llm,
@@ -895,11 +795,8 @@ def test_known_live_only_models_never_enter_text_catalogs(
     monkeypatch: pytest.MonkeyPatch, model: str, capabilities_discovered: bool
 ) -> None:
     monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {"gemini": llm.ProviderState(enabled=True, params={}, models=[model])},
-    )
+    monkeypatch.setattr(llm, "_gemini_api_key", lambda: "test-key")
+    monkeypatch.setattr(llm, "GEMINI_MODELS", [model])
     monkeypatch.setattr(
         llm,
         "MODEL_SUPPORTED_GENERATION_METHODS",
@@ -917,7 +814,7 @@ def test_known_live_only_models_never_enter_text_catalogs(
     )
 
 
-def test_qwen_prefixed_model_routes_without_fetched_alias(
+def test_legacy_qwen_prefix_routes_to_dashscope_through_litellm(
     monkeypatch: object, app: object
 ) -> None:
     captured = {}
@@ -930,28 +827,12 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
 
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={
-            "api_key": "test-key",
-            "api_base": "https://example.com",
-            "custom_llm_provider": "dashscope",
-        },
-        models=[],
-        prefix=llm.QWEN_PREFIX,
-        wildcard_prefixes=(llm.QWEN_PREFIX,),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"qwen": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {})
+    # LiteLLM reads the DashScope key itself; the legacy prefix is rewritten.
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "test-key")
     monkeypatch.setattr(
         llm,
         "MODEL_MAX_OUTPUT_TOKENS",
         {"qwen/deepseek-v4-flash": 393216},
-    )
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_CONFIG_HINTS",
-        {"qwen": "QWEN_API_KEY,QWEN_API_URL"},
     )
 
     responses = list(
@@ -968,6 +849,8 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 
     assert [resp.result for resp in responses] == ["ok"]
     assert captured["model"] == "deepseek-v4-flash"
+    assert captured["kwargs"]["custom_llm_provider"] == "dashscope"
+    assert "api_key" not in captured["kwargs"]
     assert captured["kwargs"]["temperature"] == 0.7
     assert captured["kwargs"]["extra_body"] == {"enable_thinking": False}
     assert captured["kwargs"]["enable_thinking"] is None
@@ -1133,7 +1016,7 @@ def test_max_input_tokens_reads_metadata_for_the_serving_provider(
     monkeypatch.setattr(
         llm,
         "get_litellm_params_and_model",
-        lambda _model: ({"custom_llm_provider": "dashscope"}, model, "qwen"),
+        lambda _model: ({"custom_llm_provider": "dashscope"}, model, "dashscope"),
     )
     monkeypatch.setattr(llm.litellm, "get_model_info", model_info, raising=False)
 
@@ -1240,37 +1123,6 @@ def test_stream_litellm_completion_without_configured_limit(
         assert "max_tokens" not in captured
     else:
         assert captured["max_tokens"] == expected_max_tokens
-
-
-def test_qwen_provider_config_keeps_prefix_fallback() -> None:
-    qwen_config = next(
-        config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == "qwen"
-    )
-
-    assert qwen_config.wildcard_prefixes == (llm.QWEN_PREFIX,)
-    assert qwen_config.custom_llm_provider == "dashscope"
-
-
-@pytest.mark.parametrize(
-    ("provider_key", "expected_litellm_provider"),
-    [
-        ("deepseek", "deepseek"),
-        ("qwen", "dashscope"),
-        ("ark", "volcengine"),
-        ("glm", "zai"),
-        ("silicon", "openai"),
-        ("ernie_v2", "openai"),
-    ],
-)
-def test_provider_configs_use_expected_litellm_adapters(
-    provider_key: object,
-    expected_litellm_provider: object,
-) -> None:
-    provider_config = next(
-        config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == provider_key
-    )
-
-    assert provider_config.custom_llm_provider == expected_litellm_provider
 
 
 @pytest.mark.parametrize(
@@ -1408,7 +1260,7 @@ def test_request_patch_merge_is_shallow_and_deduplicates_lists() -> None:
     }
 
 
-@pytest.mark.parametrize("provider_key", ["QWEN", "Silicon"])
+@pytest.mark.parametrize("provider_key", ["DASHSCOPE", "SiliconFlow"])
 def test_provider_patch_disables_thinking_and_preserves_extra_body(
     monkeypatch: object, provider_key: object
 ) -> None:
@@ -1458,9 +1310,9 @@ def test_zai_request_preparation_keeps_legacy_models_without_thinking(
 
     for model_id in ("glm-4-flash", "GLM-4-FLASH-250414", "glm-5-future"):
         prepared = llm._prepare_litellm_request_kwargs(
-            "glm",
+            "bigmodel",
             model_id,
-            {"custom_llm_provider": "zai"},
+            {"custom_llm_provider": "bigmodel"},
             {"response_format": {"type": "json_object"}},
         )
 
@@ -1480,7 +1332,7 @@ def test_ark_uses_litellm_thinking_and_provider_response_format_patch(
     )
 
     prepared = llm._prepare_litellm_request_kwargs(
-        "ark",
+        "volcengine",
         "doubao-seed",
         {"custom_llm_provider": "volcengine"},
         {
@@ -1514,7 +1366,7 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
     )
 
     prepared = llm._prepare_litellm_request_kwargs(
-        "qwen",
+        "dashscope",
         str(model_id),
         {"custom_llm_provider": "dashscope"},
         {
@@ -1535,12 +1387,14 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
     assert prepared["temperature"] == 0.3
     assert (
         "additional_drop_params"
-        not in llm._LITELLM_COMPATIBILITY_PATCHES[("qwen", str(model_id).casefold())]
+        not in llm._LITELLM_COMPATIBILITY_PATCHES[
+            ("dashscope", str(model_id).casefold())
+        ]
     )
     assert prepared["allowed_openai_params"] == ["response_format"]
-    assert llm._LITELLM_COMPATIBILITY_PATCHES[("qwen", str(model_id).casefold())] == {
-        "reasoning_effort": "low"
-    }
+    assert llm._LITELLM_COMPATIBILITY_PATCHES[
+        ("dashscope", str(model_id).casefold())
+    ] == {"reasoning_effort": "low"}
     assert prepared["additional_drop_params"][0] == "caller_only"
     assert prepared["additional_drop_params"].count("enable_thinking") == 1
     assert "reasoning" in prepared["additional_drop_params"]
@@ -1755,7 +1609,7 @@ def test_openai_gpt_6_exact_request_patches() -> None:
     }
 
 
-@pytest.mark.parametrize("provider", ["openai", "ernie_v2", "silicon", "gemini"])
+@pytest.mark.parametrize("provider", ["openai", "qianfan", "siliconflow", "gemini"])
 def test_openai_responses_route_uses_the_resolved_provider(provider: str) -> None:
     kwargs = {
         "tools": [{"type": "function", "function": {"name": "lookup"}}],
@@ -2144,14 +1998,14 @@ def test_litellm_native_adapter_contracts() -> None:
                 "dashscope",
                 "qwen3.8-max-0902",
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                prepared("qwen", "dashscope", "qwen3.8-max-0902"),
+                prepared("dashscope", "dashscope", "qwen3.8-max-0902"),
             ),
             "dashscope_glm_53": adapter_contract(
                 "dashscope",
                 "ZHIPU/GLM-5.3-Flash",
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 prepared(
-                    "qwen",
+                    "dashscope",
                     "dashscope",
                     "ZHIPU/GLM-5.3-Flash",
                     {
@@ -2169,7 +2023,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 "doubao-seed-2-0-lite-260428",
                 "https://ark.cn-beijing.volces.com/api/v3",
                 prepared(
-                    "ark",
+                    "volcengine",
                     "volcengine",
                     "doubao-seed-2-0-lite-260428",
                     {
@@ -2185,7 +2039,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 "glm-5.2",
                 "https://open.bigmodel.cn/api/paas/v4",
                 prepared(
-                    "glm",
+                    "zai",
                     "zai",
                     "glm-5.2",
                     {
@@ -2201,7 +2055,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 "glm-4-flash",
                 "https://open.bigmodel.cn/api/paas/v4",
                 prepared(
-                    "glm",
+                    "zai",
                     "zai",
                     "glm-4-flash",
                     {"response_format": {"type": "json_object"}},
@@ -2348,7 +2202,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 model,
                 "https://open.bigmodel.cn/api/paas/v4",
                 prepared(
-                    "glm", "zai", model,
+                    "zai", "zai", model,
                     {
                         "thinking": {"type": "enabled"},
                         "extra_body": {"thinking": {"type": "enabled"}},
@@ -2361,7 +2215,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 "dashscope",
                 model,
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                prepared("qwen", "dashscope", model, {
+                prepared("dashscope", "dashscope", model, {
                     "reasoning_effort": "high",
                     "enable_thinking": True,
                     "allowed_openai_params": ["response_format"],
@@ -2603,27 +2457,8 @@ def test_chat_llm_uses_shared_minimum_thinking_preparation(
         "_litellm_minimum_thinking_params",
         lambda *_args, **_kwargs: {"reasoning_effort": "none"},
     )
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={
-            "api_key": "test-key",
-            "api_base": "https://api.deepseek.com",
-            "custom_llm_provider": "deepseek",
-        },
-        models=["deepseek-v4-pro"],
-        prefix="",
-        wildcard_prefixes=(),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"deepseek": provider_state})
-    monkeypatch.setattr(
-        llm,
-        "MODEL_ALIAS_MAP",
-        {"deepseek-v4-pro": ("deepseek", "deepseek-v4-pro")},
-    )
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_CONFIG_HINTS",
-        {"deepseek": "DEEPSEEK_API_KEY,DEEPSEEK_API_URL"},
+    install_llm_routes(
+        monkeypatch, {"deepseek-v4-pro": ("deepseek", "deepseek-v4-pro")}
     )
 
     list(
@@ -2674,26 +2509,7 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
         minimum_thinking_params,
     )
     monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "test": llm.ProviderState(
-                enabled=True,
-                params={
-                    "api_key": "test-key",
-                    "custom_llm_provider": "test-adapter",
-                },
-                models=["display-model"],
-            )
-        },
-    )
-    monkeypatch.setattr(
-        llm,
-        "MODEL_ALIAS_MAP",
-        {"display-model": ("test", "actual-model")},
-    )
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+    install_llm_routes(monkeypatch, {"display-model": ("test-adapter", "actual-model")})
 
     responses = list(
         llm.invoke_llm(
@@ -2715,19 +2531,7 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
 
 
 def _single_test_provider(monkeypatch: object) -> None:
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "test": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test-key"},
-                models=["test-model"],
-            )
-        },
-    )
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"test-model": ("test", "test-model")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+    install_llm_routes(monkeypatch, {"test-model": ("test", "test-model")})
 
 
 def test_invoke_llm_reports_the_finish_chunk_and_truncation(
@@ -2775,16 +2579,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
     monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     responses = list(
         llm.chat_llm(
@@ -2930,16 +2725,7 @@ def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
         "record_llm_usage",
         lambda *_args, **kwargs: captured_usage.update(kwargs),
     )
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     messages = [
         {"role": "system", "content": "system prompt"},
@@ -2992,16 +2778,7 @@ def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
     monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     span = DummySpan()
     common_kwargs = {
@@ -3085,16 +2862,7 @@ def test_chat_llm_falls_back_to_request_trace_id(
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
     monkeypatch.setattr(
         "flaskr.api.langfuse.get_request_trace_id", lambda: "request-trace-1"
     )
@@ -3591,10 +3359,10 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
         api_base = "https://llm.invalid/v1"
         messages = [{"role": "user", "content": "hello"}]
         for provider, model, upstream in [
-            ("qwen", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
+            ("dashscope", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
             ("openai", "gpt-6-sol", "gpt-6-sol"),
         ]:
-            adapter = "dashscope" if provider == "qwen" else "openai"
+            adapter = provider
             for name in (model, upstream, f"{adapter}/{upstream}"):
                 litellm.model_cost.pop(name, None)
             if provider == "openai":
@@ -3616,13 +3384,14 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                             HTTPHandler(client=http) if provider == "openai" else
                             OpenAI(api_key="test", base_url=api_base, http_client=http)
                         )
-                        llm.MODEL_ALIAS_MAP = {model: (provider, upstream)}
-                        llm.PROVIDER_STATES = {provider: llm.ProviderState(
-                            enabled=True, models=[model], params={
-                                "api_key": "test", "api_base": api_base,
-                                "custom_llm_provider": adapter, "client": client,
-                            },
-                        )}
+                        params = {
+                            "api_key": "test", "api_base": api_base,
+                            "custom_llm_provider": adapter, "client": client,
+                        }
+                        llm.get_litellm_params_and_model = (
+                            lambda _requested, params=params, upstream=upstream, provider=provider:
+                            (params, upstream, provider)
+                        )
                         llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
                         body = {"model": model, "messages": messages, "stream": stream, "max_tokens": requested}
                         request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
@@ -3746,25 +3515,14 @@ def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
     limit: int | None,
 ) -> None:
     provider = (
-        "qwen"
+        "dashscope"
         if model.startswith("qwen/")
         else "gemini"
         if model.startswith("gemini")
         else "openai"
     )
     invoke_model = model.removeprefix("qwen/")
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {model: (provider, invoke_model)})
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            provider: llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test", "custom_llm_provider": provider},
-                models=[model],
-            )
-        },
-    )
+    install_llm_routes(monkeypatch, {model: (provider, invoke_model)})
     monkeypatch.setattr(
         llm, "MODEL_MAX_OUTPUT_TOKENS", {} if limit is None else {model: limit}
     )
@@ -4174,21 +3932,7 @@ def test_stream_gateway_completion_preserves_tool_call_chunks(
 
 def _use_fake_provider(monkeypatch: object) -> None:
     """Point the model resolver at a stub provider so chat_llm reaches litellm."""
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "openai": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test-key", "api_base": "https://example.com"},
-                models=["gpt-test"],
-                prefix="",
-                wildcard_prefixes=("gpt",),
-            )
-        },
-    )
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
 
 @pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])

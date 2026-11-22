@@ -17,6 +17,8 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import CreditWallet, CreditWalletBucket
 
+from tests.common.fixtures.llm_routes import install_llm_routes
+
 
 @pytest.fixture
 def gateway_route_app(monkeypatch: pytest.MonkeyPatch) -> Flask:
@@ -69,7 +71,9 @@ def _headers(**extra: str) -> dict[str, str]:
 
 
 @pytest.fixture
-def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, list]:
+def numbered_gateway_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[dict, list, dict]:
     from flaskr.api import llm
     from flaskr.api.llm import model_selection
     from flaskr.route import model_gateway as gateway
@@ -88,18 +92,8 @@ def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, lis
         "get_config",
         lambda key, default=None: config.get(key, default),
     )
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "test": llm.ProviderState(
-                enabled=True, params={"api_key": "test"}, models=models
-            )
-        },
-    )
-    monkeypatch.setattr(
-        llm, "MODEL_ALIAS_MAP", {model: ("test", model) for model in models}
-    )
+    routes = {model: ("test", model) for model in models}
+    install_llm_routes(monkeypatch, routes, exclusive=True)
     monkeypatch.setattr(llm, "MODEL_SUPPORTED_GENERATION_METHODS", {})
     rows = [
         SimpleNamespace(
@@ -116,7 +110,7 @@ def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, lis
     monkeypatch.setattr(llm, "_load_llm_output_rate_rows", lambda _app: rows)
     monkeypatch.setattr(llm, "load_llm_credit_1x_unit_cost", lambda: Decimal(1))
     monkeypatch.setattr(gateway, "has_complete_llm_rates", lambda _model: True)
-    return config, rows
+    return config, rows, routes
 
 
 @pytest.mark.no_mock_llm
@@ -137,7 +131,7 @@ def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, lis
 )
 def test_numbered_catalog_preserves_gateway_default_alias(
     monkeypatch: pytest.MonkeyPatch,
-    numbered_gateway_catalog: tuple[dict, list],
+    numbered_gateway_catalog: tuple[dict, list, dict],
     model_one: str | None,
     ineligible_model: str | None,
     reason: str | None,
@@ -146,11 +140,11 @@ def test_numbered_catalog_preserves_gateway_default_alias(
     from flaskr.api import llm
     from flaskr.route import model_gateway as gateway
 
-    config, rows = numbered_gateway_catalog
+    config, rows, routes = numbered_gateway_catalog
     if model_one is not None:
         config["LLM_MODEL_1_ID"] = model_one
     if reason == "unavailable":
-        del llm.MODEL_ALIAS_MAP[ineligible_model]
+        del routes[ineligible_model]
     elif reason == "unrated":
         rows[:] = [row for row in rows if row.model != ineligible_model]
     elif reason == "incomplete_rates":

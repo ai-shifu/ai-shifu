@@ -158,7 +158,7 @@ class TestEnhancedConfigValidation:
         # (MISSING_REQUIRED_ENV doesn't have LLM keys either)
         assert (
             "Missing required environment variables" in error_msg
-            or "At least one LLM API key must be configured" in error_msg
+            or "LLM_MODEL_1_ID" in error_msg
         )
         # If it's about missing required, check for specific variables
         if "Missing required environment variables" in error_msg:
@@ -173,6 +173,7 @@ class TestEnhancedConfigValidation:
         # Set up environment without LLM keys
         for key, value in NO_LLM_ENV.items():
             monkeypatch.setenv(key, value)
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
 
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
 
@@ -180,7 +181,7 @@ class TestEnhancedConfigValidation:
             config.validate_environment()
 
         error_msg = str(exc_info.value)
-        assert "At least one LLM API key must be configured" in error_msg
+        assert "set OPENAI_API_KEY" in error_msg
 
     def test_validate_creator_customization_requires_encryption_key(
         self, monkeypatch: object

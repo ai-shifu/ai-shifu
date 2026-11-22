@@ -8,7 +8,7 @@ import logging
 import os
 import secrets
 import time
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
@@ -45,6 +45,7 @@ from flaskr.common.config import (
     parse_llm_model_max_input_tokens,
     parse_llm_model_max_output_tokens,
 )
+from flaskr.common.llm_routing import env_value, resolve_route
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
@@ -72,47 +73,12 @@ from .live_catalog import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ProviderConfig:
-    """Describe configuration for one LLM provider."""
-
-    key: str
-    api_key_env: str
-    base_url_env: str | None = None
-    default_base_url: str | None = None
-    prefix: str = ""
-    fetch_models: bool = True
-    filter_fn: Callable[[str], bool] | None = None
-    static_models: list[str] = field(default_factory=list)
-    extra_models: list[str] = field(default_factory=list)
-    wildcard_prefixes: tuple[str, ...] = ()
-    config_hint: str = ""
-    custom_llm_provider: str | None = None
-    model_loader: (
-        Callable[
-            [ProviderConfig, dict[str, str], str | None], list[str | tuple[str, str]]
-        ]
-        | None
-    ) = None
-
-
-@dataclass
-class ProviderState:
-    """Track availability and retry state for one LLM provider."""
-
-    enabled: bool
-    params: dict[str, str] | None
-    models: list[str]
-    prefix: str = ""
-    wildcard_prefixes: tuple[str, ...] = ()
-
-
-MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
-PROVIDER_STATES: dict[str, ProviderState] = {}
 MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
 MODEL_MAX_INPUT_TOKENS: dict[str, int] = {}
 MODEL_SUPPORTED_GENERATION_METHODS: dict[str, frozenset[str]] = {}
 _GEMINI_CAPABILITY_DISCOVERED_MODELS: set[str] = set()
+# Gemini models discovered at startup; Live and capability checks use them.
+GEMINI_MODELS: list[str] = []
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 _INCOMPLETE_FINISH_REASONS = frozenset({"content_filter", "length"})
 
@@ -326,83 +292,6 @@ def resolve_llm_max_input_tokens(
     if isinstance(limit, int) and not isinstance(limit, bool) and limit > 0:
         return limit
     return None
-
-
-def _register_provider_models(
-    config: ProviderConfig, raw_models: list[str | tuple[str, str]]
-) -> list[str]:
-    seen = set()
-    display_models: list[str] = []
-    for model_id in raw_models:
-        actual_model = None
-        if isinstance(model_id, tuple):
-            model_name, actual_model = model_id
-        else:
-            model_name = model_id
-        if not model_name:
-            continue
-        display = f"{config.prefix}{model_name}" if config.prefix else model_name
-        if display in seen:
-            continue
-        seen.add(display)
-        MODEL_ALIAS_MAP[display] = (config.key, actual_model or model_name)
-        if actual_model and actual_model not in MODEL_ALIAS_MAP:
-            MODEL_ALIAS_MAP[actual_model] = (config.key, actual_model)
-        display_models.append(display)
-    return display_models
-
-
-def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
-    api_key = get_config(config.api_key_env)
-    if not api_key:
-        _log_warning(f"{config.api_key_env} not configured")
-        return ProviderState(
-            enabled=False,
-            params=None,
-            models=[],
-            prefix=config.prefix,
-            wildcard_prefixes=config.wildcard_prefixes,
-        )
-    base_url = None
-    if config.base_url_env:
-        base_url = get_config(config.base_url_env)
-    if not base_url:
-        base_url = config.default_base_url
-    if (
-        config.key == "gemini"
-        and base_url
-        and "generativelanguage.googleapis.com" in base_url
-    ):
-        base_url = None
-        _log_info("Skipping GEMINI_API_URL override to use LiteLLM default endpoint")
-    params: dict[str, str] = {"api_key": api_key}
-    if base_url:
-        params["api_base"] = base_url
-    if config.custom_llm_provider:
-        params["custom_llm_provider"] = config.custom_llm_provider
-    if config.model_loader:
-        raw_models = config.model_loader(config, params, base_url)
-    else:
-        raw_models: list[str | tuple[str, str]] = list(config.static_models)
-        if config.fetch_models:
-            try:
-                fetched_models = _fetch_provider_models(api_key, base_url)
-                if config.filter_fn:
-                    fetched_models = [m for m in fetched_models if config.filter_fn(m)]
-                raw_models.extend(fetched_models)
-            except Exception as exc:
-                _log_warning(f"load {config.key} models error: {exc}")
-        raw_models.extend(config.extra_models)
-    display_models = _register_provider_models(config, raw_models)
-    if display_models:
-        _log_info(f"{config.key} models: {display_models}")
-    return ProviderState(
-        enabled=True,
-        params=params,
-        models=display_models,
-        prefix=config.prefix,
-        wildcard_prefixes=config.wildcard_prefixes,
-    )
 
 
 def _build_models_url(base_url: str | None) -> str:
@@ -686,25 +575,16 @@ def _iter_stream_with_precontent_retry(
 
 
 def _resolve_provider_for_model(model: str) -> tuple[str | None, str]:
-    alias = MODEL_ALIAS_MAP.get(model)
-    if alias:
-        return alias
-    for provider_key, state in PROVIDER_STATES.items():
-        for prefix in state.wildcard_prefixes:
-            if model.startswith(prefix):
-                normalized = model
-                if state.prefix and model.startswith(state.prefix):
-                    normalized = model.replace(state.prefix, "", 1)
-                return provider_key, normalized
-    return None, model
+    """Return LiteLLM's provider name and the provider-local model id."""
+    route = resolve_route(model)
+    if route is None:
+        return None, model
+    return route.provider, route.model
 
 
-def _load_gemini_models(
-    config: ProviderConfig, params: dict[str, str], base_url: str | None
-) -> list[str | tuple[str, str]]:
-    _ = config
-    models: list[str | tuple[str, str]] = []
-    api_key = params.get("api_key")
+def _load_gemini_models(api_key: str, base_url: str | None) -> list[str]:
+    """Discover Gemini text and Live models with their generation methods."""
+    models: list[str] = []
     if not api_key:
         return models
     for discovered_model in _GEMINI_CAPABILITY_DISCOVERED_MODELS:
@@ -777,29 +657,6 @@ def _load_gemini_models(
     return models
 
 
-def _load_deepseek_models(
-    config: ProviderConfig, params: dict[str, str], base_url: str | None
-) -> list[str | tuple[str, str]]:
-    api_key = params.get("api_key", "")
-    try:
-        return _fetch_provider_models(api_key, base_url)
-    except Exception as exc:
-        _log_warning(f"load {config.key} models error: {exc}")
-        return list(DEEPSEEK_FALLBACK_MODELS)
-
-
-QWEN_PREFIX = "qwen/"
-ERNIE_V2_PREFIX = "ernie/"
-GLM_PREFIX = "glm/"
-SILICON_PREFIX = "silicon/"
-GEMINI_PREFIX = ""
-DEEPSEEK_FALLBACK_MODELS = [
-    "deepseek-flash",
-    "deepseek-v4-flash",
-    "deepseek-v4-pro",
-]
-
-
 _REASONING_EFFORT_CAPABILITIES = (
     ("none", "supports_none_reasoning_effort"),
     ("minimal", "supports_minimal_reasoning_effort"),
@@ -834,13 +691,13 @@ _THINKING_CONFLICT_PATHS = (
 # The normal path is capability-driven. Keep only overrides whose removal
 # changes the provider request or the application's minimum thinking behavior.
 _LITELLM_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
-    ("qwen", None): {"extra_body": {"enable_thinking": False}},
-    ("silicon", None): {"extra_body": {"enable_thinking": False}},
-    ("ark", None): {"allowed_openai_params": ["response_format"]},
-    ("qwen", "glm-5.3"): {"reasoning_effort": "low"},
-    ("qwen", "glm-5.3-flash"): {"reasoning_effort": "low"},
-    ("qwen", "zhipu/glm-5.3"): {"reasoning_effort": "low"},
-    ("qwen", "zhipu/glm-5.3-flash"): {"reasoning_effort": "low"},
+    ("dashscope", None): {"extra_body": {"enable_thinking": False}},
+    ("siliconflow", None): {"extra_body": {"enable_thinking": False}},
+    ("volcengine", None): {"allowed_openai_params": ["response_format"]},
+    ("dashscope", "glm-5.3"): {"reasoning_effort": "low"},
+    ("dashscope", "glm-5.3-flash"): {"reasoning_effort": "low"},
+    ("dashscope", "zhipu/glm-5.3"): {"reasoning_effort": "low"},
+    ("dashscope", "zhipu/glm-5.3-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-3.7-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-3.8-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-2.5-pro"): {"reasoning_effort": "minimal"},
@@ -890,13 +747,8 @@ def _merge_litellm_param_patch(
 
 
 def _litellm_provider_name(provider_key: str, provider_params: dict[str, str]) -> str:
-    configured_provider = provider_params.get("custom_llm_provider")
-    if configured_provider:
-        return configured_provider
-    for config in LITELLM_PROVIDER_CONFIGS:
-        if config.key == provider_key and config.custom_llm_provider:
-            return config.custom_llm_provider
-    return provider_key
+    """Return the LiteLLM provider for a request; provider keys are LiteLLM names."""
+    return provider_params.get("custom_llm_provider") or provider_key
 
 
 def _litellm_supported_openai_params(
@@ -1116,94 +968,30 @@ def _prepare_litellm_request_kwargs(
     return _merge_litellm_param_patch(prepared, policy_params)
 
 
-LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
-    ProviderConfig(
-        key="openai",
-        api_key_env="OPENAI_API_KEY",
-        base_url_env="OPENAI_BASE_URL",
-        default_base_url="https://api.openai.com/v1",
-        filter_fn=lambda model_id: model_id.startswith("gpt"),
-        wildcard_prefixes=("gpt",),
-        config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
-        custom_llm_provider="openai",
-    ),
-    ProviderConfig(
-        key="qwen",
-        api_key_env="QWEN_API_KEY",
-        base_url_env="QWEN_API_URL",
-        default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        prefix=QWEN_PREFIX,
-        wildcard_prefixes=(QWEN_PREFIX,),
-        config_hint="QWEN_API_KEY,QWEN_API_URL",
-        custom_llm_provider="dashscope",
-    ),
-    ProviderConfig(
-        key="ernie_v2",
-        api_key_env="ERNIE_API_KEY",
-        default_base_url="https://qianfan.baidubce.com/v2",
-        prefix=ERNIE_V2_PREFIX,
-        config_hint="ERNIE_API_KEY",
-        custom_llm_provider="openai",
-    ),
-    ProviderConfig(
-        key="deepseek",
-        api_key_env="DEEPSEEK_API_KEY",
-        base_url_env="DEEPSEEK_API_URL",
-        default_base_url="https://api.deepseek.com",
-        config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
-        custom_llm_provider="deepseek",
-        model_loader=_load_deepseek_models,
-    ),
-    ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-        default_base_url=None,
-        prefix=GEMINI_PREFIX,
-        fetch_models=False,
-        wildcard_prefixes=("gemini-",),
-        config_hint="GEMINI_API_KEY,GEMINI_API_URL",
-        custom_llm_provider="gemini",
-        model_loader=_load_gemini_models,
-    ),
-    ProviderConfig(
-        key="glm",
-        api_key_env="BIGMODEL_API_KEY",
-        default_base_url="https://open.bigmodel.cn/api/paas/v4",
-        prefix=GLM_PREFIX,
-        config_hint="BIGMODEL_API_KEY",
-        custom_llm_provider="zai",
-    ),
-    ProviderConfig(
-        key="silicon",
-        api_key_env="SILICON_API_KEY",
-        default_base_url="https://api.siliconflow.cn/v1",
-        prefix=SILICON_PREFIX,
-        config_hint="SILICON_API_KEY,SILICON_API_URL",
-        custom_llm_provider="openai",
-    ),
-    ProviderConfig(
-        key="ark",
-        api_key_env="ARK_API_KEY",
-        default_base_url="https://ark.cn-beijing.volces.com/api/v3",
-        prefix="ark/",
-        config_hint="ARK_API_KEY",
-        custom_llm_provider="volcengine",
-    ),
-]
+def _gemini_api_key() -> str:
+    # LiteLLM accepts either name for the Gemini API.
+    return str(get_config("GEMINI_API_KEY") or get_config("GOOGLE_API_KEY") or "")
 
-PROVIDER_CONFIG_HINTS: dict[str, str] = {}
-for config in LITELLM_PROVIDER_CONFIGS:
-    PROVIDER_STATES[config.key] = _init_litellm_provider(config)
-    PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
 
+def _init_gemini_models() -> None:
+    """Discover Gemini capabilities; other providers need no discovery."""
+    api_key = _gemini_api_key().strip()
+    if not api_key:
+        GEMINI_MODELS.clear()
+        return
+    base_url = (
+        str(get_config("GEMINI_API_BASE") or "").strip()
+        or env_value("GEMINI_API_BASE")
+        or None
+    )
+    GEMINI_MODELS[:] = _load_gemini_models(api_key, base_url)
+    if GEMINI_MODELS:
+        _log_info(f"gemini models: {GEMINI_MODELS}")
+
+
+_init_gemini_models()
 MODEL_MAX_OUTPUT_TOKENS.update(_load_and_register_model_max_output_tokens())
 MODEL_MAX_INPUT_TOKENS.update(_load_model_max_input_tokens())
-
-
-any_litellm_enabled = any(state.enabled for state in PROVIDER_STATES.values())
-if not any_litellm_enabled:
-    _log_warning("No LLM Configured")
 
 
 class LLMStreamaUsage:
@@ -1286,22 +1074,22 @@ def get_litellm_params_and_model(
     str,
     str | None,
 ]:
-    """Return LiteLLM params, actual model, and application provider key."""
-    requested_model = model
-    provider_key, invoke_model = _resolve_provider_for_model(model)
-    if provider_key:
-        state = PROVIDER_STATES.get(provider_key)
-        params = state.params if state else None
-        if not params:
-            raise_error_with_args(
-                "server.llm.specifiedLlmNotConfigured",
-                model=requested_model,
-                config_var=PROVIDER_CONFIG_HINTS.get(
-                    provider_key, provider_key.upper()
-                ),
-            )
-        return params, invoke_model, provider_key
-    return None, model, None
+    """Return LiteLLM params, the provider-local model and LiteLLM's provider.
+
+    Unrecognized ids return ``(None, model, None)``. A recognized provider
+    whose credentials LiteLLM cannot find raises ``specifiedLlmNotConfigured``
+    naming the missing environment variables.
+    """
+    route = resolve_route(model)
+    if route is None:
+        return None, model, None
+    if not route.configured:
+        raise_error_with_args(
+            "server.llm.specifiedLlmNotConfigured",
+            model=model,
+            config_var=",".join(route.missing_credentials),
+        )
+    return route.completion_params(), route.model, route.provider
 
 
 def invoke_llm(
@@ -2036,6 +1824,17 @@ def _build_model_options(
     return _attach_credit_multipliers(app, options)
 
 
+def get_model_generation_methods(model: str) -> frozenset[str] | None:
+    """Return discovered Gemini generation methods for a model id, if any."""
+    methods = MODEL_SUPPORTED_GENERATION_METHODS.get(model)
+    if methods is not None:
+        return methods
+    provider, invoke_model = _resolve_provider_for_model(model)
+    if provider == "gemini":
+        return MODEL_SUPPORTED_GENERATION_METHODS.get(invoke_model)
+    return None
+
+
 def _resolve_billing_rate_identity(model: str) -> tuple[str, list[str]]:
     provider, actual_model = _resolve_provider_for_model(model)
     candidates: list[str] = []
@@ -2185,8 +1984,8 @@ def get_current_models(app: Flask) -> list[dict[str, object]]:
         for model in dict.fromkeys(litellm_models)
         if not is_live_follow_up_model(model)
         and (
-            not MODEL_SUPPORTED_GENERATION_METHODS.get(model)
-            or "generateContent" in MODEL_SUPPORTED_GENERATION_METHODS[model]
+            not get_model_generation_methods(model)
+            or "generateContent" in get_model_generation_methods(model)
         )
     ]
     return _build_model_options(app, available_models)
@@ -2200,10 +1999,7 @@ def is_live_follow_up_model_available(model: object) -> bool:
         or normalized_model not in GEMINI_LIVE_MODEL_ALLOWLIST
     ):
         return False
-    gemini_state = PROVIDER_STATES.get("gemini")
-    if not gemini_state or not gemini_state.enabled:
-        return False
-    if normalized_model not in gemini_state.models:
+    if not _gemini_api_key().strip() or normalized_model not in GEMINI_MODELS:
         return False
     return "bidiGenerateContent" in MODEL_SUPPORTED_GENERATION_METHODS.get(
         normalized_model, frozenset()

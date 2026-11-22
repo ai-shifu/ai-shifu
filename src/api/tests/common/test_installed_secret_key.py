@@ -45,7 +45,7 @@ def test_saved_key_survives_manual_startup_and_reinstallation(
     assert key not in first.stdout + first.stderr
     monkeypatch.setenv("SECRET_KEY", key)
     monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite://")
-    monkeypatch.setenv("LLM_MODEL_1_ID", "test-model")
+    monkeypatch.setenv("LLM_MODEL_1_ID", "openai/test-model")
     monkeypatch.setenv("OPENAI_API_KEY", "test-provider-key")
     app = Flask(__name__)
     app.config = Config(app.config, app)

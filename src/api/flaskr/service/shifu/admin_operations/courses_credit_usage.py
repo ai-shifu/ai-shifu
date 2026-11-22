@@ -10,8 +10,9 @@ import re
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from flaskr.api.llm import PROVIDER_STATES, get_current_models
+from flaskr.api.llm import get_current_models
 from flaskr.api.tts import get_all_provider_configs
+from flaskr.common import llm_routing
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -215,15 +216,12 @@ class _CourseCreditUsageModelLabelResolver:
                 if option_provider and option_model and label:
                     label_map[(option_provider, option_model)] = label
 
-            for provider_name, state in PROVIDER_STATES.items():
-                normalized_provider = str(provider_name or "").strip().lower()
-                if not normalized_provider:
-                    continue
-                for state_model in getattr(state, "models", []) or []:
-                    normalized_model = str(state_model or "").strip()
-                    label = label_by_model.get(normalized_model, "")
-                    if normalized_model and label:
-                        label_map[(normalized_provider, normalized_model)] = label
+            # Usage records store LiteLLM's provider and provider-local model.
+            for option_model, label in label_by_model.items():
+                route = llm_routing.resolve_route(option_model)
+                if route is not None:
+                    label_map[(route.provider, route.model)] = label
+                    label_map[(route.provider, option_model)] = label
         except Exception:
             label_map = {}
 

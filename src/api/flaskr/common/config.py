@@ -598,30 +598,90 @@ Default: "phone".""",
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
         default="",
-        description="OpenAI API key for GPT models",
+        description=("OpenAI API key (LiteLLM openai provider)."),
         secret=True,
         group="llm",
     ),
     "OPENAI_BASE_URL": EnvVar(
         name="OPENAI_BASE_URL",
         description=(
-            "OpenAI API base URL. A proxy must forward /responses for text generation, "
-            "and /models for discovery."
+            "Optional OpenAI API base URL. A proxy must forward /responses for text "
+            "generation."
         ),
         group="llm",
     ),
-    "ERNIE_API_KEY": EnvVar(
-        name="ERNIE_API_KEY",
+    "DASHSCOPE_API_KEY": EnvVar(
+        name="DASHSCOPE_API_KEY",
         default="",
-        description="Baidu ERNIE API Key",
+        description=(
+            "Alibaba Cloud DashScope (Qwen) API key (LiteLLM dashscope provider, "
+            "models dashscope/...)."
+        ),
         secret=True,
         group="llm",
     ),
-    "ARK_API_KEY": EnvVar(
-        name="ARK_API_KEY",
+    "DASHSCOPE_API_BASE": EnvVar(
+        name="DASHSCOPE_API_BASE",
         default="",
-        description="ByteDance Volcengine Ark API Key",
+        description=(
+            "Optional DashScope API base URL; blank uses "
+            "https://dashscope.aliyuncs.com/compatible-mode/v1."
+        ),
+        group="llm",
+    ),
+    "VOLCENGINE_API_KEY": EnvVar(
+        name="VOLCENGINE_API_KEY",
+        default="",
+        description=(
+            "ByteDance Volcengine Ark API key (LiteLLM volcengine provider, "
+            "models volcengine/<endpoint>)."
+        ),
         secret=True,
+        group="llm",
+    ),
+    "VOLCENGINE_API_BASE": EnvVar(
+        name="VOLCENGINE_API_BASE",
+        default="",
+        description=(
+            "Optional Volcengine Ark API base URL; blank uses "
+            "https://ark.cn-beijing.volces.com/api/v3."
+        ),
+        group="llm",
+    ),
+    "QIANFAN_API_KEY": EnvVar(
+        name="QIANFAN_API_KEY",
+        default="",
+        description=(
+            "Baidu Qianfan (ERNIE) API key (models qianfan/...). AI-Shifu registers "
+            "this OpenAI-compatible provider with LiteLLM."
+        ),
+        secret=True,
+        group="llm",
+    ),
+    "QIANFAN_API_BASE": EnvVar(
+        name="QIANFAN_API_BASE",
+        default="",
+        description=(
+            "Optional Qianfan API base URL; blank uses https://qianfan.baidubce.com/v2."
+        ),
+        group="llm",
+    ),
+    "SILICONFLOW_API_KEY": EnvVar(
+        name="SILICONFLOW_API_KEY",
+        default="",
+        description=(
+            "SiliconFlow API key (models siliconflow/...). AI-Shifu registers this "
+            "OpenAI-compatible provider with LiteLLM."
+        ),
+        secret=True,
+        group="llm",
+    ),
+    "SILICONFLOW_API_BASE": EnvVar(
+        name="SILICONFLOW_API_BASE",
+        default="",
+        description=(
+            "Optional SiliconFlow API base URL; blank uses https://api.siliconflow.cn/v1."
+        ),
         group="llm",
     ),
     "ARK_ACCESS_KEY_ID": EnvVar(
@@ -638,44 +698,52 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
-    "SILICON_API_KEY": EnvVar(
-        name="SILICON_API_KEY",
-        default="",
-        description="SiliconFlow API Key",
-        secret=True,
-        group="llm",
-    ),
     "BIGMODEL_API_KEY": EnvVar(
         name="BIGMODEL_API_KEY",
         default="",
-        description="Zhipu BigModel API key for GLM models",
+        description=(
+            "Zhipu BigModel API key (LiteLLM bigmodel provider, models bigmodel/...)."
+        ),
         secret=True,
+        group="llm",
+    ),
+    "BIGMODEL_API_BASE": EnvVar(
+        name="BIGMODEL_API_BASE",
+        default="",
+        description=(
+            "Optional BigModel API base URL; blank uses https://open.bigmodel.cn."
+        ),
         group="llm",
     ),
     "DEEPSEEK_API_KEY": EnvVar(
         name="DEEPSEEK_API_KEY",
         default="",
-        description="DeepSeek API Key",
+        description=(
+            "DeepSeek API key (LiteLLM deepseek provider, models deepseek/...)."
+        ),
         secret=True,
         group="llm",
     ),
-    "DEEPSEEK_API_URL": EnvVar(
-        name="DEEPSEEK_API_URL",
-        default="https://api.deepseek.com",
-        description="DeepSeek API URL",
+    "DEEPSEEK_API_BASE": EnvVar(
+        name="DEEPSEEK_API_BASE",
+        default="",
+        description=("Optional DeepSeek API base URL; blank uses LiteLLM's default."),
         group="llm",
     ),
     "GEMINI_API_KEY": EnvVar(
         name="GEMINI_API_KEY",
         default="",
-        description="Google Gemini API key",
+        description=(
+            "Google Gemini API key (LiteLLM gemini provider, models gemini/...). "
+            "Gemini Live and Gemini TTS also use it."
+        ),
         secret=True,
         group="llm",
     ),
-    "GEMINI_API_URL": EnvVar(
-        name="GEMINI_API_URL",
+    "GEMINI_API_BASE": EnvVar(
+        name="GEMINI_API_BASE",
         default="",
-        description="Optional Google Gemini API base URL (leave blank to use default)",
+        description=("Optional Gemini API base URL; blank uses the default endpoint."),
         group="llm",
     ),
     "GEMINI_LIVE_ENABLED": EnvVar(
@@ -742,19 +810,6 @@ Default: "phone".""",
         description="Maximum Gemini Live credential issuance attempts across users in a rolling minute.",
         group="llm",
         required=False,
-    ),
-    "QWEN_API_KEY": EnvVar(
-        name="QWEN_API_KEY",
-        default="",
-        description="Alibaba Cloud Qwen API Key",
-        secret=True,
-        group="llm",
-    ),
-    "QWEN_API_URL": EnvVar(
-        name="QWEN_API_URL",
-        default="",
-        description="Alibaba Cloud Qwen API URL",
-        group="llm",
     ),
     "ASK_PROVIDER_TIMEOUT_SECONDS": EnvVar(
         name="ASK_PROVIDER_TIMEOUT_SECONDS",
@@ -1989,7 +2044,7 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         default="https://generativelanguage.googleapis.com/v1beta",
         description=(
             "Base URL of the Gemini generateContent API used for speech "
-            "synthesis. Independent of GEMINI_API_URL, which configures the "
+            "synthesis. Independent of GEMINI_API_BASE, which configures the "
             "LiteLLM chat endpoint."
         ),
         group="tts",
@@ -2240,19 +2295,24 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
 }
 
 
-# API key variables of the providers in flaskr.api.llm.LITELLM_PROVIDER_CONFIGS.
-# That module imports this one, so the list lives here and a test keeps the two
-# in step.
-LLM_PROVIDER_API_KEY_ENVS: tuple[str, ...] = (
-    "OPENAI_API_KEY",
-    "QWEN_API_KEY",
-    "ERNIE_API_KEY",
-    "DEEPSEEK_API_KEY",
-    "GEMINI_API_KEY",
-    "BIGMODEL_API_KEY",
-    "SILICON_API_KEY",
-    "ARK_API_KEY",
-)
+def _llm_model_1_route_problem(model: object) -> str | None:
+    """Explain why LLM_MODEL_1_ID cannot be served, or return None."""
+    if not str(model or "").strip():
+        return None  # Reported as a missing required variable.
+    from flaskr.common.llm_routing import resolve_route
+
+    route = resolve_route(model)
+    if route is None:
+        return (
+            f"LLM_MODEL_1_ID {model!r} is not a model id LiteLLM recognizes; "
+            "use LiteLLM's provider/model form"
+        )
+    if not route.configured:
+        return (
+            f"LLM_MODEL_1_ID {model!r} uses LiteLLM provider {route.provider!r}; "
+            f"set {', '.join(route.missing_credentials)}"
+        )
+    return None
 
 
 class EnhancedConfig:
@@ -2270,11 +2330,9 @@ class EnhancedConfig:
         missing_required = []
         validation_errors = []
         # Check if at least one LLM is configured
-        has_llm = any(
-            self.get(var) not in (None, "") for var in LLM_PROVIDER_API_KEY_ENVS
-        )
-        if not has_llm:
-            errors.append("At least one LLM API key must be configured")
+        llm_problem = _llm_model_1_route_problem(os.environ.get("LLM_MODEL_1_ID"))
+        if llm_problem:
+            errors.append(llm_problem)
         if (
             self.get("CREATOR_CUSTOMIZATION_ENABLED")
             and not str(self.get("CREATOR_INTEGRATION_ENCRYPTION_KEY") or "").strip()

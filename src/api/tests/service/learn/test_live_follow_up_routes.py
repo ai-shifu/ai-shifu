@@ -222,15 +222,10 @@ def test_readiness_requires_discovered_live_model(
     from flaskr.api import llm
 
     model = routes.GEMINI_LIVE_MODEL_ID
-    monkeypatch.setitem(
-        llm.PROVIDER_STATES,
-        "gemini",
-        llm.ProviderState(
-            enabled=provider_enabled,
-            params={},
-            models=[model] if discovered else [],
-        ),
+    monkeypatch.setattr(
+        llm, "_gemini_api_key", lambda: "test-key" if provider_enabled else ""
     )
+    monkeypatch.setattr(llm, "GEMINI_MODELS", [model] if discovered else [])
     monkeypatch.setitem(
         llm.MODEL_SUPPORTED_GENERATION_METHODS, model, frozenset(methods)
     )
@@ -608,7 +603,7 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
         "get_config",
         lambda name, default=None: {
             "GEMINI_API_KEY": "test-gemini-key",
-            "GEMINI_API_URL": api_base_url,
+            "GEMINI_API_BASE": api_base_url,
         }.get(name, default),
     )
     minted: list[dict[str, object]] = []
