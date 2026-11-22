@@ -153,6 +153,27 @@ def test_credential_references_are_expanded_before_litellm_reads_them(
     assert os.environ["OPENAI_API_KEY"] == "real-secret"
 
 
+def test_reference_to_an_empty_variable_counts_as_missing(
+    clean_env: dict[str, str],
+) -> None:
+    # The blank variable sorts first, so it is removed before the reference
+    # to it would be expanded from a changing environment.
+    clean_env.update(A_EMPTY_KEY="", OPENAI_API_KEY="${A_EMPTY_KEY}")
+    route = llm_routing.resolve_route("openai/gpt-4o")
+    assert route is not None
+    assert route.missing_credentials == ("OPENAI_API_KEY",)
+
+
+def test_credential_whitespace_is_trimmed_for_litellm(
+    clean_env: dict[str, str],
+) -> None:
+    clean_env["OPENAI_API_KEY"] = "  my-key  "
+    route = llm_routing.resolve_route("openai/gpt-4o")
+    assert route is not None
+    assert route.configured
+    assert os.environ["OPENAI_API_KEY"] == "my-key"
+
+
 def test_resolved_default_endpoint_satisfies_the_base_check(
     clean_env: dict[str, str],
 ) -> None:

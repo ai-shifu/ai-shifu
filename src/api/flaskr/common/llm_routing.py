@@ -187,21 +187,31 @@ def _normalize_credential_envs() -> None:
 
     ``${VAR}`` references are expanded the way ``EnhancedConfig`` expands
     configuration values (an unset reference stays literal), because LiteLLM
-    would otherwise send the placeholder as the credential. Blank values are
+    would otherwise send the placeholder as the credential. Surrounding
+    whitespace is trimmed, as configuration reads did. Blank values are
     removed: ``litellm.validate_environment`` only checks that a name exists,
     so an ``OPENAI_API_KEY=`` line would count as configured, while LiteLLM
     treats a blank value as unset anyway.
     """
-    for name, value in list(os.environ.items()):
+    # Resolve every reference against one snapshot, so removing a blank
+    # variable cannot leave a reference to it unexpanded.
+    snapshot = dict(os.environ)
+    updates: dict[str, str | None] = {}
+    for name, value in snapshot.items():
         if not name.endswith(_CREDENTIAL_ENV_SUFFIXES):
             continue
         expanded = _ENV_REFERENCE.sub(
-            lambda match: os.environ.get(match.group(1), match.group(0)), value
-        )
-        if not expanded.strip():
-            os.environ.pop(name, None)
+            lambda match: snapshot.get(match.group(1), match.group(0)), value
+        ).strip()
+        if not expanded:
+            updates[name] = None
         elif expanded != value:
-            os.environ[name] = expanded
+            updates[name] = expanded
+    for name, value in updates.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
 
 
 # Missing key -> variables LiteLLM's completion path accepts in its place but
