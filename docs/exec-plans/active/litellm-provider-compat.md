@@ -98,7 +98,8 @@ touching anything else.
   `bedrock_mantle/<region>/<model>`), routing forwards the endpoint it implied
   as `api_base`, because completion only sees the stripped model.
 - `AZURE_AD_TOKEN` stands in for a missing `AZURE_API_KEY`, and
-  `TOGETHER_API_KEY`/`TOGETHER_AI_API_KEY` for `TOGETHERAI_API_KEY`, matching
+  `TOGETHER_API_KEY`, `TOGETHER_AI_API_KEY` or `TOGETHER_AI_TOKEN` for
+  `TOGETHERAI_API_KEY`, matching
   the names LiteLLM's completion path reads.
 - Legacy `GEMINI_API_URL` is ignored only when its host is the public Gemini
   endpoint; a proxy URL still reaches the Live token path.

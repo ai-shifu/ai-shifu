@@ -157,7 +157,11 @@ def _drop_blank_credential_envs() -> None:
 _ALTERNATIVE_CREDENTIAL_ENVS: dict[str, tuple[str, ...]] = {
     "AZURE_API_KEY": ("AZURE_AD_TOKEN",),
     # LiteLLM resolves Together's key from any of these names.
-    "TOGETHERAI_API_KEY": ("TOGETHER_API_KEY", "TOGETHER_AI_API_KEY"),
+    "TOGETHERAI_API_KEY": (
+        "TOGETHER_API_KEY",
+        "TOGETHER_AI_API_KEY",
+        "TOGETHER_AI_TOKEN",
+    ),
 }
 
 

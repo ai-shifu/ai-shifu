@@ -376,7 +376,15 @@ def test_azure_ad_token_stands_in_for_the_api_key(
     assert route.configured
 
 
-@pytest.mark.parametrize("key", ["TOGETHERAI_API_KEY", "TOGETHER_API_KEY"])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "TOGETHERAI_API_KEY",
+        "TOGETHER_API_KEY",
+        "TOGETHER_AI_API_KEY",
+        "TOGETHER_AI_TOKEN",
+    ],
+)
 def test_together_accepts_each_key_name_litellm_reads(
     clean_env: dict[str, str], key: str
 ) -> None:
