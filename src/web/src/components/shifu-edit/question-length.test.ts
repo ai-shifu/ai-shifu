@@ -55,6 +55,17 @@ describe('question length limit', () => {
     ]);
   });
 
+  test('measures comment syntax inside a question like the backend', () => {
+    const name = `${'q'.repeat(195)}<!--note-->`;
+
+    expect(findOverlongQuestions(`?[{{${name}}} ...Answer]`)).toEqual([
+      { name, length: 206 },
+    ]);
+    expect(
+      findOverlongQuestions(`{{${'q'.repeat(150)}-->}} {{${'q'.repeat(201)}}}`),
+    ).toEqual([{ name: 'q'.repeat(201), length: 201 }]);
+  });
+
   test('previews whole code points', () => {
     expect(previewQuestion('😀'.repeat(30))).toBe('😀'.repeat(20));
   });

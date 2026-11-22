@@ -18,7 +18,7 @@ export function OverlongQuestionsAlert({
 
   return (
     <div
-      role='alert'
+      role='status'
       data-testid='overlong-questions-alert'
       className='mb-3 flex gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive'
     >

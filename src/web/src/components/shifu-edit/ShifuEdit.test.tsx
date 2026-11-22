@@ -1263,7 +1263,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
       expect(screen.getByTestId('overlong-questions-alert')).toHaveAttribute(
         'role',
-        'alert',
+        'status',
       );
       expect(screen.getAllByRole('listitem')).toHaveLength(2);
       expect(warningCalls()).toEqual([
