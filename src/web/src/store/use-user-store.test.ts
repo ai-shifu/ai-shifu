@@ -98,6 +98,52 @@ describe('useUserStore.initUser', () => {
     expect(mockChangeLanguage).not.toHaveBeenCalled();
   });
 
+  test.each([false, true])(
+    'restores a username-only account with a stored guest flag of %s',
+    async faked => {
+      mockTokenState = { token: 'username-token', faked };
+      const account = {
+        user_id: 'username-user',
+        username: 'classroom-learner',
+        mobile: '',
+        email: '',
+        has_password: true,
+      };
+      mockGetUserInfo.mockResolvedValueOnce(account);
+
+      await useUserStore.getState().initUser();
+
+      expect(mockTokenState).toEqual({ token: 'username-token', faked: false });
+      expect(useUserStore.getState()).toMatchObject({
+        userInfo: account,
+        isInitialized: true,
+        isLoggedIn: true,
+        isGuest: false,
+      });
+      expect(mockRegisterTmp).not.toHaveBeenCalled();
+    },
+  );
+
+  test('keeps a guest with a generated username signed out', async () => {
+    mockTokenState = { token: 'guest-token', faked: true };
+    mockGetUserInfo.mockResolvedValueOnce({
+      user_id: 'guest-user',
+      username: 'guest-user',
+      mobile: '',
+      email: '',
+      has_password: false,
+    });
+
+    await useUserStore.getState().initUser();
+
+    expect(mockTokenState).toEqual({ token: 'guest-token', faked: true });
+    expect(useUserStore.getState()).toMatchObject({
+      isInitialized: true,
+      isLoggedIn: false,
+      isGuest: true,
+    });
+  });
+
   test('passes exclusion from restored user info and restores guest eligibility on logout', async () => {
     mockTokenState = { token: 'excluded-token', faked: false };
     const excludedUser = {
