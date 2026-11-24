@@ -120,7 +120,9 @@ New backend configuration keys:
 
 Every key, certificate, and public key also accepts an inline value without
 the `_PATH` suffix (for example `WECHATPAY_PUBLIC_KEY`). Inline values win over
-paths and may use escaped `\n` newlines.
+paths. Only WeChat Pay inline PEM values accept escaped `\n` newlines;
+Alipay inline keys are passed to the SDK unchanged, so use the single-line key
+content there.
 
 `WECHATPAY_APP_ID` falls back to `WECHAT_APP_ID` when empty.
 
