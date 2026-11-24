@@ -114,6 +114,9 @@ def app() -> Iterator[Flask | None]:
     os.environ["ADMIN_DB_URI"] = _test_db_uri
     os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+    # The universal code is ignored in production, which is the ENV default.
+    # "testing" is non-production without enabling development hot reload.
+    os.environ["ENV"] = "testing"
     os.environ["LLM_MODEL_1_NAME"] = "Test model"
     os.environ["LLM_MODEL_1_ID"] = "gpt-test"
     os.environ["OPENAI_API_KEY"] = "test-key"

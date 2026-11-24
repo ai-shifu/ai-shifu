@@ -87,6 +87,7 @@ def user_trial_client(monkeypatch: object, tmp_path: object) -> object:
         SECRET_KEY="test-secret-key",
         TOKEN_EXPIRE_TIME=60 * 60,
         UNIVERSAL_VERIFICATION_CODE="9999",
+        ENV="testing",
         REDIS_KEY_PREFIX="test:",
         REDIS_KEY_PREFIX_USER="test:user:",
         REDIS_KEY_PREFIX_PHONE_CODE="test:phone:",

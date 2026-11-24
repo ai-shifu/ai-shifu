@@ -118,6 +118,12 @@ def create_app(*, serving_http: bool = True) -> Flask:
 
     register_builtin_providers()
 
+    from flaskr.service.user.verification_codes import (
+        log_universal_verification_code_status,
+    )
+
+    log_universal_verification_code_status(flask_app)
+
     # Init LLM
     with flask_app.app_context():
         from flaskr.api import llm  # noqa: F401

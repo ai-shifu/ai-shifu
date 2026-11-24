@@ -65,7 +65,7 @@ docker compose -f docker-compose.latest.yml up -d
 - `LLM_MODEL_1_ID` 必填且没有默认值；2–9 号模型 ID 可选，支持跳号。所有编号的 `NAME` 均可选，未填写或留空时直接显示该编号配置的模型 ID；只有名称、没有模型 ID 的编号不会展示。历史课程中的无效选择自动使用 1 号，无需数据清洗。
 - 已有安装升级前，请按照[编号模型升级说明](INSTALL_MANUAL.md#upgrading-to-numbered-models)完成新编号配置，再启动新镜像；latest、固定版本和开发模式均适用。
 - 启动时若系统中还没有管理员，会自动创建 `admin` 账号并生成随机密码，该账号是管理员和老师，并拥有内置 Demo 课程。用 `docker logs ai-shifu-api` 查看密码，登录后请在账号菜单中修改。普通登录（即使是第一个账号）不会获得管理员角色。
-- 默认通用验证码为 1024（仅用于演示/测试，生产环境请修改或禁用）。
+- `UNIVERSAL_VERIFICATION_CODE` 仅用于本地开发，只有 `ENV` 不是 `production` 时才生效。之前依赖它登录的已有部署，请参阅[升级：通用验证码](INSTALL_MANUAL.md#upgrading-universal-verification-code)。
 - `docker-compose.latest.yml` 使用 `:latest` 镜像标签，适合希望获取最新构建的场景（或在本地构建 `:latest` 镜像后启动）；全新安装固定版本时，需同时使用下方的 `docker-compose.yml` 与 `docker-compose.secret-key.yml`。
 - 安装程序首次创建 `.env` 时会生成独立随机的 `SECRET_KEY`，文件权限为仅当前用户可读写。重启、升级以及所有后端容器和 worker 都复用该文件；请安全备份。已有文件只校验、不覆盖，修改前请阅读[密钥保留与恢复说明](INSTALL_MANUAL.md#secret-key-preservation-and-recovery)。
 
@@ -85,7 +85,7 @@ python3 ../scripts/prepare_env.py
 # - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务
 # - REDIS_HOST：可选；如需 Redis 缓存/锁可配置外部 Redis（留空则禁用）
 # - SECRET_KEY：已由安装程序生成并保存，请保留该值
-# - UNIVERSAL_VERIFICATION_CODE：测试验证码（生产环境请清空/禁用）
+# - UNIVERSAL_VERIFICATION_CODE：仅限开发使用的测试验证码，ENV=production 时不生效
 
 docker compose -f docker-compose.latest.yml up -d
 
