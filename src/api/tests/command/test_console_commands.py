@@ -405,3 +405,29 @@ def test_bootstrap_admin_skip_prints_no_password(
 
     assert result.exit_code == 0
     assert result.output == "bootstrap_admin: skipped (operator_exists).\n"
+
+
+def test_bootstrap_admin_with_configured_password_does_not_print_it(
+    console_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.user import admin_bootstrap
+
+    console_app.config["LOGIN_METHODS_ENABLED"] = "phone,password"
+    monkeypatch.setattr(
+        admin_bootstrap,
+        "bootstrap_admin_account",
+        Mock(
+            return_value=admin_bootstrap.BootstrapAdminResult(
+                created=True,
+                reason="created",
+                username="admin",
+                password_from_config=True,
+            )
+        ),
+    )
+
+    result = console_app.test_cli_runner().invoke(args=["console", "bootstrap_admin"])
+
+    assert result.exit_code == 0
+    assert "Username: admin" in result.output
+    assert "Password: the value of BOOTSTRAP_ADMIN_PASSWORD" in result.output

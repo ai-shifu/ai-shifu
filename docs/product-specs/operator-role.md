@@ -72,16 +72,20 @@ signs in before its owner.
 
 `flask console bootstrap_admin` runs on every API container start. When no
 active account has `is_operator`, it creates the `admin` username account with
-a random password and grants:
+a random password, or with `BOOTSTRAP_ADMIN_PASSWORD` when an automated
+environment such as the runtime harness sets it, and grants:
 
 - `is_creator = true`, running the creator-grant post-auth extensions
 - `is_operator = true`
 - ownership of the bundled demo course when the deployment holds exactly one
-  course
+  course, counting published and draft records together, and every record of
+  it is still owned by the demo importer
 
-The password is printed once to the command output (the container log), never
-to application logs. When an operator already exists, or the `admin` username
-is taken, the command does nothing.
+A generated password is printed once to the command output (the container
+log), never to application logs; a configured password is never printed. When
+an operator already exists, or the `admin` username is taken, the command does
+nothing. The pinned, latest, development and runtime-harness Compose stacks all
+run it and enable password login.
 
 ### Existing deployments upgrading later
 
@@ -126,9 +130,9 @@ surfaces.
   `is_operator`.
 - Extend `mark_user_roles(...)` so it can persist both `is_creator` and
   `is_operator`.
-- Update the first-account bootstrap path to grant both roles.
-- Keep Google OAuth bootstrap aligned with the same "verified account only"
-  rule so unverified Google profiles do not consume the first-account slot.
+- Grant both roles only through `flask console bootstrap_admin`
+  (`service/user/admin_bootstrap.py`); phone, email and Google sign-in never
+  grant `is_operator`.
 
 ## Frontend Changes
 
@@ -146,11 +150,11 @@ surfaces.
 
 ## Verification
 
-The first-account bootstrap is in `service/user/phone_flow.py`.
-`test_auth_infrastructure_boundaries.py` checks that a bootstrap lock failure
-does not grant roles. `test_repository_boundaries.py` covers durable role
-updates.
+The admin bootstrap is in `service/user/admin_bootstrap.py`.
+`test_admin_bootstrap.py` covers account creation, skips, demo course
+assignment and rollback, and the sign-in tests check that the first account
+gets no roles. `test_repository_boundaries.py` covers durable role updates.
 
-- Backend tests for DTO serialization and first-account bootstrap role grants.
+- Backend tests for DTO serialization and the admin bootstrap role grants.
 - Frontend type check to ensure the new field does not break user state
   consumers.

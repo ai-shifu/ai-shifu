@@ -14,8 +14,10 @@
 - `python scripts/check_architecture_boundaries.py` freezes current boundary
   debt and fails new architectural drift.
 - `cd src/web && npm run test:e2e` validates the browser smoke paths.
-- The default dev harness pins phone login for smoke determinism even when the
-  shared local `.env` contains other auth overrides.
+- The default dev harness pins phone and password login for smoke determinism
+  even when the shared local `.env` contains other auth overrides. The smoke
+  session signs in as the bootstrap `admin` account, the stack's only
+  administrator.
 - Playwright smoke failures must emit a screenshot, console/network summary,
   trace, and the final `X-Request-ID`.
 - `cd src/api && python scripts/harness_diagnostics.py --request-id <id>`

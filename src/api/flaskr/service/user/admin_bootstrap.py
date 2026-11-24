@@ -54,7 +54,9 @@ class BootstrapAdminResult:
     created: bool
     reason: str
     username: str = ""
+    # Empty when the password came from BOOTSTRAP_ADMIN_PASSWORD.
     password: str = ""
+    password_from_config: bool = False
 
 
 def generate_bootstrap_password(length: int = BOOTSTRAP_PASSWORD_LENGTH) -> str:
@@ -80,32 +82,23 @@ def _has_operator() -> bool:
 def _assign_single_demo_course(user_bid: str) -> None:
     """Give the admin the bundled demo course when it is the only course.
 
-    Only a course still owned by the demo importer moves, so a course a teacher
-    authored is never taken over.
+    A course counts once whether it has a published record, a draft record or
+    both. Only a course whose records are all still owned by the demo importer
+    moves, so a course a teacher authored is never taken over.
     """
-    # Holds a model class, so it keeps the CapWords spelling.
-    ShifuModel: type[PublishedShifu | DraftShifu] = PublishedShifu  # noqa: N806
-    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
-    if course_count == 0:
-        course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
-        ShifuModel = DraftShifu  # noqa: N806
-    if course_count != 1:
+    records: list[PublishedShifu | DraftShifu] = [
+        *PublishedShifu.query.filter(PublishedShifu.deleted == 0).all(),
+        *DraftShifu.query.filter(DraftShifu.deleted == 0).all(),
+    ]
+    if len({record.shifu_bid for record in records}) != 1:
         return
-    course = (
-        ShifuModel.query.filter(ShifuModel.deleted == 0)
-        .order_by(ShifuModel.id.asc())
-        .first()
-    )
-    if course is None or (course.created_user_bid or "") not in DEMO_COURSE_OWNERS:
+    if any(
+        (record.created_user_bid or "") not in DEMO_COURSE_OWNERS for record in records
+    ):
         return
-    course.created_user_bid = user_bid
-    # Permission checks read the owner from the draft as well.
-    draft = DraftShifu.query.filter(
-        DraftShifu.deleted == 0,
-        DraftShifu.shifu_bid == course.shifu_bid,
-    ).first()
-    if draft is not None:
-        draft.created_user_bid = user_bid
+    # Permission checks read the owner from both the published and draft records.
+    for record in records:
+        record.created_user_bid = user_bid
     db.session.flush()
 
 
@@ -130,8 +123,9 @@ def bootstrap_admin_account(app: Flask) -> BootstrapAdminResult:
     )
     if not lock.acquire(blocking=True, blocking_timeout=_LOCK_WAIT_SECONDS):
         return BootstrapAdminResult(created=False, reason="busy")
+    configured_password = str(app.config.get("BOOTSTRAP_ADMIN_PASSWORD") or "")
     try:
-        password = generate_bootstrap_password()
+        password = configured_password or generate_bootstrap_password()
         # One transaction: an account is never left without its roles, so a
         # failed run is retried on the next start instead of being skipped.
         with app_context_scope(app), unit_of_work():
@@ -173,5 +167,7 @@ def bootstrap_admin_account(app: Flask) -> BootstrapAdminResult:
         created=True,
         reason="created",
         username=created["username"],
-        password=password,
+        # Never echo back a configured secret.
+        password="" if configured_password else password,
+        password_from_config=bool(configured_password),
     )

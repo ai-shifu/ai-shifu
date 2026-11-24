@@ -539,8 +539,12 @@ docker logs ai-shifu-api 2>&1 | grep -A3 "administrator account created"
 Sign in with password login as `admin`, then change the password from the
 account menu. The command does nothing while any administrator exists, so it
 never replaces an existing password, and existing deployments keep their
-current administrators. For a manual installation, run
+current administrators. The development stack runs the same command; read its
+password with `docker logs ai-shifu-api-dev`. For a manual installation, run
 `flask console bootstrap_admin` from `src/api` after `flask db upgrade`.
+Automated environments can set `BOOTSTRAP_ADMIN_PASSWORD` to choose the
+password instead; it is used only when the account is created and is never
+printed.
 
 ### Local Demo Login
 
