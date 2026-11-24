@@ -438,6 +438,9 @@ ENV_VARS: dict[str, EnvVar] = {
     "DEFAULT_LOGIN_METHOD": EnvVar(
         name="DEFAULT_LOGIN_METHOD",
         default="phone",
+        # The installation template opens on password login so a fresh
+        # install can sign in with its bootstrap admin account.
+        example="password",
         description=(
             'Default login method tab. Values: "phone" | "email" | '
             '"google" | "password"'
@@ -454,6 +457,9 @@ ENV_VARS: dict[str, EnvVar] = {
     "LOGIN_METHODS_ENABLED": EnvVar(
         name="LOGIN_METHODS_ENABLED",
         default="phone",
+        # The installation template enables password login for the bootstrap
+        # admin account; runtime defaults stay unchanged.
+        example="phone,password",
         description="""Login methods exposed to users.
 Values: "phone" | "email" | "google" | "password" combinations (comma-separated)
 Default: "phone".""",

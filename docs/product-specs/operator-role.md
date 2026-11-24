@@ -2,7 +2,7 @@
 title: Operator Role Design
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-24
 canonical: true
 ---
 
@@ -17,17 +17,17 @@ course permissions are handled separately through `created_user_bid` and
 `AiCourseAuth`.
 
 The separate operator role preserves existing creator behavior. Because this repository is open source and commonly
-self-hosted, the first real account in a fresh deployment must automatically
-receive both creator and operator access so the instance is usable without
-manual database edits.
+self-hosted, a fresh deployment must get an operator without manual database
+edits. Being the first account to sign in is not proof of owning the
+deployment, so the operator comes from an explicit bootstrap account instead.
 
 ## Goals
 
 - Add a durable account-level `operator` role without replacing `creator`.
 - Preserve existing creator logic while making authoring shared permissions
   grant the account-level creator capability they require.
-- Ensure the first verified real account in a fresh deployment becomes both a
-  creator and an operator.
+- Ensure a deployment without any operator gets a bootstrap `admin` account
+  that is both a creator and an operator.
 - Surface the new role in backend DTOs and frontend user state so future
   operator-specific UI can rely on it.
 
@@ -64,15 +64,24 @@ manual database edits.
 
 ## Bootstrap Rules
 
-### First verified account
+### Bootstrap admin account
 
-When the first verified real account is detected in a fresh deployment, grant:
+Sign-in never grants `is_operator`, including to the first verified account of
+a fresh deployment. An open instance could otherwise be taken over by whoever
+signs in before its owner.
 
-- `is_creator = true`
+`flask console bootstrap_admin` runs on every API container start. When no
+active account has `is_operator`, it creates the `admin` username account with
+a random password and grants:
+
+- `is_creator = true`, running the creator-grant post-auth extensions
 - `is_operator = true`
+- ownership of the bundled demo course when the deployment holds exactly one
+  course
 
-This extends the current bootstrap path that already grants creator access to
-the first verified account.
+The password is printed once to the command output (the container log), never
+to application logs. When an operator already exists, or the `admin` username
+is taken, the command does nothing.
 
 ### Existing deployments upgrading later
 

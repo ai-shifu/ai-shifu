@@ -349,3 +349,59 @@ def test_user_import_and_demo_commands_forward_to_services(
     result = runner.invoke(args=["console", "update_demo_shifu"])
     assert result.exit_code == 0
     update_demo.assert_called_once_with(console_app)
+
+
+@pytest.mark.parametrize(
+    ("login_methods", "warns"), [("phone,password", False), ("phone", True)]
+)
+def test_bootstrap_admin_prints_new_credentials_once(
+    console_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    login_methods: str,
+    warns: bool,
+) -> None:
+    from flaskr.service.user import admin_bootstrap
+
+    console_app.config["LOGIN_METHODS_ENABLED"] = login_methods
+    password = "Generated1Password"
+    monkeypatch.setattr(
+        admin_bootstrap,
+        "bootstrap_admin_account",
+        Mock(
+            return_value=admin_bootstrap.BootstrapAdminResult(
+                created=True,
+                reason="created",
+                username="admin",
+                password=password,
+            )
+        ),
+    )
+
+    result = console_app.test_cli_runner().invoke(args=["console", "bootstrap_admin"])
+
+    assert result.exit_code == 0
+    assert "Username: admin" in result.output
+    assert f"Password: {password}" in result.output
+    assert result.output.count(password) == 1
+    assert ("Password login is disabled" in result.output) is warns
+
+
+def test_bootstrap_admin_skip_prints_no_password(
+    console_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.user import admin_bootstrap
+
+    monkeypatch.setattr(
+        admin_bootstrap,
+        "bootstrap_admin_account",
+        Mock(
+            return_value=admin_bootstrap.BootstrapAdminResult(
+                created=False, reason="operator_exists"
+            )
+        ),
+    )
+
+    result = console_app.test_cli_runner().invoke(args=["console", "bootstrap_admin"])
+
+    assert result.exit_code == 0
+    assert result.output == "bootstrap_admin: skipped (operator_exists).\n"

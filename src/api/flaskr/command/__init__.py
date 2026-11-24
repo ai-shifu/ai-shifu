@@ -453,3 +453,33 @@ def enable_commands(app: Flask) -> None:
         """Update demo shifu."""
         app.logger.info("Updating demo shifu...")
         update_demo_shifu(app)
+
+    @console.command(name="bootstrap_admin")
+    def bootstrap_admin_command() -> None:
+        """Create the admin account when no operator exists and print its password."""
+        from flaskr.service.user.admin_bootstrap import bootstrap_admin_account
+
+        result = bootstrap_admin_account(app)
+        if not result.created:
+            click.echo(f"bootstrap_admin: skipped ({result.reason}).")
+            return
+        # Printed once to the console (container log) only, never to app logs.
+        lines = [
+            "=" * 64,
+            "AI-Shifu administrator account created",
+            f"  Username: {result.username}",
+            f"  Password: {result.password}",
+            "Sign in with password login, then change this password from the",
+            "account menu. It is shown only this once.",
+        ]
+        enabled_methods = {
+            method.strip().lower()
+            for method in str(app.config.get("LOGIN_METHODS_ENABLED") or "").split(",")
+        }
+        if "password" not in enabled_methods:
+            lines.append(
+                "Password login is disabled: add `password` to "
+                "LOGIN_METHODS_ENABLED and restart before signing in."
+            )
+        lines.append("=" * 64)
+        click.echo("\n".join(lines))

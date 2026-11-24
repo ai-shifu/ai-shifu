@@ -13,14 +13,10 @@ from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.memory.api import migrate_course_memory
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.consts import (
-    USER_STATE_PAID,
     USER_STATE_REGISTERED,
-    USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -28,7 +24,6 @@ from flaskr.service.user.repository import (
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
-    mark_user_roles,
     update_user_entity_fields,
     upsert_credential,
     upsert_wechat_credentials,
@@ -38,45 +33,9 @@ from flaskr.service.user.utils import (
     generate_token,
 )
 from flaskr.service.user.verification_codes import consume_verification_code
-from sqlalchemy import text
 
 if TYPE_CHECKING:
     from flask import Flask
-
-BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
-
-
-def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> bool | None:
-    bind = db.session.get_bind()
-    dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
-    if dialect_name != "mysql":
-        return None
-
-    lock_value = db.session.execute(
-        text("SELECT GET_LOCK(:name, :timeout_seconds)"),
-        {
-            "name": BOOTSTRAP_LOCK_NAME,
-            "timeout_seconds": timeout_seconds,
-        },
-    ).scalar()
-    acquired = bool(lock_value)
-    if not acquired:
-        app.logger.warning(
-            "init_first_course skip bootstrap: failed to acquire named lock %s",
-            BOOTSTRAP_LOCK_NAME,
-        )
-    return acquired
-
-
-def _release_bootstrap_lock() -> None:
-    bind = db.session.get_bind()
-    dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
-    if dialect_name != "mysql":
-        return
-    db.session.execute(
-        text("SELECT RELEASE_LOCK(:name)"),
-        {"name": BOOTSTRAP_LOCK_NAME},
-    )
 
 
 def migrate_user_study_record(
@@ -213,76 +172,6 @@ def migrate_user_study_record(
     )
 
 
-def init_first_course(app: Flask, user_id: str) -> bool:
-    # Ensure pending state changes are visible to subsequent queries
-    """Initialize first course."""
-    db.session.flush()
-
-    # Count only verified users for the bootstrap check.
-    # Support both legacy verified states (1..3) and canonical verified states
-    # (1102..1104), while intentionally excluding unregistered states.
-    verified_states = [
-        1,
-        2,
-        3,
-        USER_STATE_REGISTERED,
-        USER_STATE_TRAIL,
-        USER_STATE_PAID,
-    ]
-    lock_acquired = _acquire_bootstrap_lock(app)
-    if lock_acquired is False:
-        return False
-    creator_granted_now = False
-    try:
-        verified_users = (
-            UserEntity.query.filter(UserEntity.deleted == 0)
-            .filter(UserEntity.state.in_(verified_states))
-            .order_by(UserEntity.created_at.asc(), UserEntity.id.asc())
-            .limit(2)
-            .all()
-        )
-        if len(verified_users) != 1 or verified_users[0].user_bid != user_id:
-            db.session.flush()
-            return False
-
-        # Bootstrap the first verified account so self-hosted deployments are
-        # manageable without extra manual role assignment.
-        creator_granted_now = not bool(verified_users[0].is_creator)
-        mark_user_roles(user_id, is_creator=True, is_operator=True)
-
-        # Holds a model class, so it keeps the CapWords spelling.
-        ShifuModel: PublishedShifu | DraftShifu = PublishedShifu  # noqa: N806
-        # Assign demo shifu only when there is exactly one published course
-        course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
-        if course_count == 0:
-            course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
-            ShifuModel = DraftShifu  # noqa: N806
-        if course_count != 1:
-            db.session.flush()
-            return creator_granted_now
-
-        course = (
-            ShifuModel.query.filter(ShifuModel.deleted == 0)
-            .order_by(ShifuModel.id.asc())
-            .first()
-        )
-        if course:
-            # Persist creator on the published record
-            course.created_user_bid = user_id
-            # Also persist creator on the corresponding draft (used by permission checks)
-            draft = DraftShifu.query.filter(
-                DraftShifu.deleted == 0,
-                DraftShifu.shifu_bid == course.shifu_bid,
-            ).first()
-            if draft:
-                draft.created_user_bid = user_id
-        db.session.flush()
-        return creator_granted_now
-    finally:
-        if lock_acquired:
-            _release_bootstrap_lock()
-
-
 def verify_phone_code(
     app: Flask,
     user_id: str | None,
@@ -396,9 +285,6 @@ def verify_phone_code(
                 identifier=normalized_phone,
                 defaults=defaults,
             )
-            creator_granted_now = (
-                init_first_course(app, target_aggregate.user_bid) or creator_granted_now
-            )
         else:
             entity = get_user_entity_by_bid(
                 target_aggregate.user_bid, include_deleted=True
@@ -416,9 +302,6 @@ def verify_phone_code(
                 entity = update_user_entity_fields(entity, **updates)
                 if promote_state:
                     created_new_user = True
-                    creator_granted_now = (
-                        init_first_course(app, entity.user_bid) or creator_granted_now
-                    )
 
         upsert_credential(
             app,

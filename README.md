@@ -63,7 +63,7 @@ Notes
 
 - `LLM_MODEL_1_ID` is required and has no default. Configure optional model IDs for numbers 2-9; gaps are supported. All `LLM_MODEL_<number>_NAME` values are optional: omitted or blank names display the configured model ID. A name without a model ID does not enable an option. Historical selections automatically use model 1 when they do not reference a configured number; no data cleanup is needed.
 - For an existing installation, follow [Upgrading to numbered models](INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new images. This applies to latest, pinned-release and development Compose modes.
-- First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
+- On start, an installation without an administrator creates an `admin` account with a random password, promoted to Admin and Creator and given the bundled demo course. Read the password with `docker logs ai-shifu-api` and change it from the account menu after signing in. Signing in, even as the first account, never grants the administrator role.
 - Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
 - `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). For a fresh pinned-release installation, use both `docker-compose.yml` and `docker-compose.secret-key.yml` as described below.
 - The installer creates `.env` with a private random `SECRET_KEY` once. Keep and securely back up this file across restarts and upgrades; all backend containers and workers reuse it. Existing files are validated and never overwritten. See [key preservation and recovery](INSTALL_MANUAL.md#secret-key-preservation-and-recovery) before changing existing configuration.
@@ -144,8 +144,8 @@ for automatic triggers, manual backfills and use with the existing Compose bundl
 After Docker starts:
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
-2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
-3. The first verified user becomes Admin and Creator
+2. Sign in with password login as `admin`, using the password printed by `docker logs ai-shifu-api` on first start
+3. Change that password from the account menu; `admin` is already Admin and Creator
 
 ## Internationalization (i18n)
 

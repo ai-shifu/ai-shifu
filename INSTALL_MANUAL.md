@@ -523,6 +523,25 @@ do not call the LLM.
 - Course authoring and administration: `http://localhost:3000/admin`
 - API: `http://localhost:5800`
 
+### First Login
+
+Signing in never grants the administrator role, not even to the first
+account. Instead, every start of the API container runs
+`flask console bootstrap_admin`. When the installation has no administrator, it
+creates an `admin` account with a random password, grants it the administrator
+and teacher roles, and assigns the bundled demo course when it is the only
+course. The password is printed once to the container log:
+
+```bash
+docker logs ai-shifu-api 2>&1 | grep -A3 "administrator account created"
+```
+
+Sign in with password login as `admin`, then change the password from the
+account menu. The command does nothing while any administrator exists, so it
+never replaces an existing password, and existing deployments keep their
+current administrators. For a manual installation, run
+`flask console bootstrap_admin` from `src/api` after `flask db upgrade`.
+
 ### Local Demo Login
 
 With the unmodified Docker template, phone login is enabled and
