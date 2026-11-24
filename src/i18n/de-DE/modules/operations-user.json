@@ -112,6 +112,31 @@
     },
     "empty": "--"
   },
+  "createAccount": {
+    "action": "Konto erstellen",
+    "cancel": "Abbrechen",
+    "confirmPasswordLabel": "Passwort bestätigen",
+    "confirmPasswordPlaceholder": "Passwort erneut eingeben",
+    "description": "Der Nutzer meldet sich auf der Passwort-Anmeldeseite mit diesem Benutzernamen und Passwort an. Teilen Sie die Zugangsdaten sicher mit; das Passwort kann nach der Anmeldung geändert werden.",
+    "errors": {
+      "nicknameTooLong": "Der Anzeigename darf höchstens 50 Zeichen lang sein.",
+      "passwordInvalid": "Das Passwort muss mindestens 8 Zeichen lang sein und lateinische Buchstaben (A–Z oder a–z) sowie Ziffern enthalten.",
+      "passwordMismatch": "Die beiden Passwörter stimmen nicht überein.",
+      "submitFailed": "Das Konto konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+      "usernameInvalid": "Verwenden Sie 3–32 Zeichen: zuerst ein Buchstabe, dann Kleinbuchstaben a–z (ohne Umlaute), Ziffern, „.“, „_“ oder „-“."
+    },
+    "nicknameLabel": "Anzeigename (optional)",
+    "nicknamePlaceholder": "Standardmäßig der Benutzername",
+    "passwordLabel": "Anfangspasswort",
+    "passwordPlaceholder": "Mindestens 8 Zeichen mit Buchstaben und Ziffern",
+    "submit": "Konto erstellen",
+    "submitting": "Wird erstellt...",
+    "successDescription": "{username} kann sich jetzt mit dem Anfangspasswort anmelden.",
+    "successTitle": "Konto erstellt",
+    "title": "Benutzernamenkonto erstellen",
+    "usernameLabel": "Benutzername",
+    "usernamePlaceholder": "3–32 Zeichen, beginnend mit einem Buchstaben"
+  },
   "credits": {
     "longTerm": "Langfristig gültig"
   },
