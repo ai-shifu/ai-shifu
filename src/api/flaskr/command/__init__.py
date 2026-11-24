@@ -464,13 +464,23 @@ def enable_commands(app: Flask) -> None:
             click.echo(f"bootstrap_admin: skipped ({result.reason}).")
             return
         # Printed once to the console (container log) only, never to app logs.
+        if result.password_from_config:
+            password_lines = [
+                "  Password: the value of BOOTSTRAP_ADMIN_PASSWORD",
+                "Sign in with password login. Remove BOOTSTRAP_ADMIN_PASSWORD",
+                "from the environment once you no longer need it.",
+            ]
+        else:
+            password_lines = [
+                f"  Password: {result.password}",
+                "Sign in with password login, then change this password from the",
+                "account menu. It is shown only this once.",
+            ]
         lines = [
             "=" * 64,
             "AI-Shifu administrator account created",
             f"  Username: {result.username}",
-            f"  Password: {result.password}",
-            "Sign in with password login, then change this password from the",
-            "account menu. It is shown only this once.",
+            *password_lines,
         ]
         enabled_methods = {
             method.strip().lower()

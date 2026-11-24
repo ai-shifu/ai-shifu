@@ -135,7 +135,7 @@ docker compose -f docker-compose.dev.yml up --build -d
 Docker 启动后：
 
 1. 用浏览器打开 `http://localhost:8080`，访问 Cook Web（学习端与内容管理界面）
-2. 选择密码登录，用户名 `admin`，密码见首次启动时 `docker logs ai-shifu-api` 输出
+2. 选择密码登录，用户名 `admin`，密码见首次启动时 `docker logs ai-shifu-api` 输出（开发模式为 `docker logs ai-shifu-api-dev`）
 3. 登录后在账号菜单中修改密码；`admin` 已是管理员与老师
 
 ## 国际化（i18n）

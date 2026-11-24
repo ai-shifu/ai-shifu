@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 from flaskr.dao import db
+from flaskr.service.common.models import AppError
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user import admin_bootstrap
 from flaskr.service.user.admin_bootstrap import (
@@ -251,3 +252,65 @@ def test_failed_role_grant_rolls_back_so_the_next_start_retries(
     retried = bootstrap_admin_account(app)
     assert retried.created is True
     assert _admin(app).is_operator == 1
+
+
+def test_configured_password_is_used_and_not_returned(
+    app: object, test_client: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    configured = "Configured1Password"
+    monkeypatch.setitem(app.config, "BOOTSTRAP_ADMIN_PASSWORD", configured)
+
+    result = bootstrap_admin_account(app)
+
+    assert result.created is True
+    assert result.password_from_config is True
+    assert result.password == ""
+    assert _login(test_client, "admin", configured)["code"] == 0
+
+
+def test_weak_configured_password_creates_nothing(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(app.config, "BOOTSTRAP_ADMIN_PASSWORD", "short")
+
+    with pytest.raises(AppError):
+        bootstrap_admin_account(app)
+
+    with app.app_context():
+        assert UserInfo.query.filter_by(user_identify="admin").count() == 0
+
+
+def test_draft_only_course_counts_toward_the_course_total(app: object) -> None:
+    demo_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        db.session.add(PublishedShifu(shifu_bid=demo_bid, title="Published demo"))
+        db.session.add(DraftShifu(shifu_bid=demo_bid, title="Published demo"))
+        db.session.add(DraftShifu(shifu_bid=uuid.uuid4().hex[:32], title="Draft only"))
+        db.session.commit()
+
+    bootstrap_admin_account(app)
+
+    admin_bid = _admin(app).user_bid
+    with app.app_context():
+        published = PublishedShifu.query.filter_by(shifu_bid=demo_bid).one()
+        assert published.created_user_bid != admin_bid
+
+
+def test_teacher_owned_draft_blocks_the_demo_transfer(app: object) -> None:
+    teacher_bid = _add_user(app)
+    shifu_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        db.session.add(PublishedShifu(shifu_bid=shifu_bid, title="Demo"))
+        db.session.add(
+            DraftShifu(shifu_bid=shifu_bid, title="Demo", created_user_bid=teacher_bid)
+        )
+        db.session.commit()
+
+    bootstrap_admin_account(app)
+
+    admin_bid = _admin(app).user_bid
+    with app.app_context():
+        published = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        assert published.created_user_bid != admin_bid
+        assert draft.created_user_bid == teacher_bid

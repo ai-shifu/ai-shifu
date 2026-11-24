@@ -435,6 +435,18 @@ ENV_VARS: dict[str, EnvVar] = {
         description="Upper bound for the DSL `limit` field accepted by creator-analytics",
         group="analytics",
     ),
+    "BOOTSTRAP_ADMIN_PASSWORD": EnvVar(
+        name="BOOTSTRAP_ADMIN_PASSWORD",
+        required=False,
+        secret=True,
+        description=(
+            "Password for the admin account that `flask console bootstrap_admin`\n"
+            "creates when the installation has no administrator, for automated\n"
+            "environments such as CI. Leave empty to generate a random password\n"
+            "and print it once. It is used only when the account is created."
+        ),
+        group="auth",
+    ),
     "DEFAULT_LOGIN_METHOD": EnvVar(
         name="DEFAULT_LOGIN_METHOD",
         default="phone",
