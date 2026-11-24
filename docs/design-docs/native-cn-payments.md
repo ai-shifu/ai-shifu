@@ -2,7 +2,7 @@
 title: Native China Payments
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-23
 canonical: true
 ---
 
@@ -115,8 +115,30 @@ New backend configuration keys:
 - `WECHATPAY_MERCHANT_SERIAL_NO`
 - `WECHATPAY_PRIVATE_KEY_PATH`
 - `WECHATPAY_PLATFORM_CERT_PATH`
+- `WECHATPAY_PUBLIC_KEY_ID`
+- `WECHATPAY_PUBLIC_KEY_PATH`
+
+Every key, certificate, and public key also accepts an inline value without
+the `_PATH` suffix (for example `WECHATPAY_PUBLIC_KEY`). Inline values win over
+paths and may use escaped `\n` newlines.
 
 `WECHATPAY_APP_ID` falls back to `WECHAT_APP_ID` when empty.
+
+### WeChat Pay notification verification
+
+WeChat Pay signs notifications either with the merchant's WeChat Pay public
+key or with a platform certificate. The `Wechatpay-Serial` header selects the
+key:
+
+- A serial starting with `PUB_KEY_ID_` must equal `WECHATPAY_PUBLIC_KEY_ID`
+  and is verified with the configured WeChat Pay public key.
+- Any other serial must match the configured platform certificate's serial
+  number (case-insensitive, leading zeros ignored).
+
+Notifications without the serial header, with an unknown serial, or with a
+`Wechatpay-Timestamp` more than five minutes from server time are rejected
+before the resource is decrypted. Merchants may configure both keys during a
+migration from platform certificates to the public key.
 `HOST_URL` is required outside local/test environments. Alipay and WeChat Pay
 notification URLs are derived from `HOST_URL` and `PATH_PREFIX` as
 `/api/callback/alipay-notify` and `/api/callback/wechatpay-notify` by default.

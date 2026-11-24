@@ -1554,6 +1554,25 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         secret=True,
         group="payment",
     ),
+    "WECHATPAY_PUBLIC_KEY_ID": EnvVar(
+        name="WECHATPAY_PUBLIC_KEY_ID",
+        default="",
+        description="WeChat Pay public key ID (PUB_KEY_ID_...) for merchants using public key verification",
+        group="payment",
+    ),
+    "WECHATPAY_PUBLIC_KEY_PATH": EnvVar(
+        name="WECHATPAY_PUBLIC_KEY_PATH",
+        default="",
+        description="Filesystem path to the WeChat Pay public key for notification verification",
+        group="payment",
+    ),
+    "WECHATPAY_PUBLIC_KEY": EnvVar(
+        name="WECHATPAY_PUBLIC_KEY",
+        default="",
+        description="Inline WeChat Pay public key for notification verification",
+        secret=True,
+        group="payment",
+    ),
     "STRIPE_SECRET_KEY": EnvVar(
         name="STRIPE_SECRET_KEY",
         default="",
