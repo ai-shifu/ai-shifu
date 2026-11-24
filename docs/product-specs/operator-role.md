@@ -73,7 +73,7 @@ signs in before its owner.
 `flask console bootstrap_admin` runs on every API container start. When no
 active account has `is_operator`, it creates the `admin` username account with
 a random password, or with `BOOTSTRAP_ADMIN_PASSWORD` when an automated
-environment such as the runtime harness sets it, and grants:
+environment sets it, and grants:
 
 - `is_creator = true`, running the creator-grant post-auth extensions
 - `is_operator = true`
@@ -85,7 +85,12 @@ A generated password is printed once to the command output (the container
 log), never to application logs; a configured password is never printed. When
 an operator already exists, or the `admin` username is taken, the command does
 nothing. The pinned, latest, development and runtime-harness Compose stacks all
-run it and enable password login.
+run it. The development and runtime-harness stacks enable password login
+themselves. The pinned and latest stacks read `LOGIN_METHODS_ENABLED` from
+`docker/.env`: the generated template enables password login, but an existing
+`.env` that lists only `phone` must add `password` before `admin` can sign in.
+The runtime-harness browser setup reads the generated password from the API
+container log, as an operator would.
 
 ### Existing deployments upgrading later
 

@@ -23,8 +23,6 @@ services:
       INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
       # Password login serves the bootstrap admin account that e2e signs in as.
       LOGIN_METHODS_ENABLED: phone,password
-      # Loopback-only CI stack: e2e signs in as admin with the same fallback.
-      BOOTSTRAP_ADMIN_PASSWORD: "${AI_SHIFU_TEST_ADMIN_PASSWORD:-RuntimeHarness1Admin}"
       DEFAULT_LOGIN_METHOD: phone
       CAPTCHA_CODE_OVERRIDE: "0000"
       OPENAI_BASE_URL: http://ai-shifu-interaction-model:8000/v1

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from unittest.mock import Mock
 
 import pytest
+from flaskr.common import config as common_config
 from flaskr.dao import db
 from flaskr.service.common.models import AppError
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
@@ -35,6 +37,22 @@ def _isolate_tables(app: object) -> object:
     _clear()
     yield
     _clear()
+
+
+@pytest.fixture(autouse=True)
+def _unset_configured_password(monkeypatch: pytest.MonkeyPatch) -> object:
+    """Start each test without BOOTSTRAP_ADMIN_PASSWORD and restore it after.
+
+    App-backed tests share one process environment and config cache, so a
+    configured password must not leak into a later test on the same worker.
+    """
+    key = "BOOTSTRAP_ADMIN_PASSWORD"
+    # Record the original value, or its absence, so the undo restores it.
+    monkeypatch.setitem(os.environ, key, os.environ.get(key, ""))
+    monkeypatch.delitem(os.environ, key)
+    common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
+    yield
+    common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
@@ -258,7 +276,7 @@ def test_configured_password_is_used_and_not_returned(
     app: object, test_client: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     configured = "Configured1Password"
-    monkeypatch.setitem(app.config, "BOOTSTRAP_ADMIN_PASSWORD", configured)
+    monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", configured)
 
     result = bootstrap_admin_account(app)
 
@@ -271,7 +289,7 @@ def test_configured_password_is_used_and_not_returned(
 def test_weak_configured_password_creates_nothing(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setitem(app.config, "BOOTSTRAP_ADMIN_PASSWORD", "short")
+    monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", "short")
 
     with pytest.raises(AppError):
         bootstrap_admin_account(app)
