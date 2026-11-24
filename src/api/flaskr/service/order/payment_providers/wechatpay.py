@@ -37,6 +37,10 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
+_PUBLIC_KEY_ID_PREFIX = "PUB_KEY_ID_"
+_SIGNATURE_MAX_AGE_SECONDS = 300
+
+
 class WechatPayProvider(PaymentProvider):
     """Direct WeChat Pay API v3 provider implementation."""
 
@@ -319,13 +323,15 @@ class WechatPayProvider(PaymentProvider):
         normalized_headers = {
             str(key).lower(): str(value) for key, value in (headers or {}).items()
         }
-        timestamp = normalized_headers.get("wechatpay-timestamp", "")
+        timestamp = normalized_headers.get("wechatpay-timestamp", "").strip()
         nonce = normalized_headers.get("wechatpay-nonce", "")
         signature = normalized_headers.get("wechatpay-signature", "")
-        if not timestamp or not nonce or not signature:
+        serial = normalized_headers.get("wechatpay-serial", "").strip()
+        if not timestamp or not nonce or not signature or not serial:
             error_message = "WeChat Pay signature headers missing"
             raise RuntimeError(error_message)
-        public_key = _load_public_key_from_certificate()
+        _ensure_fresh_signature_timestamp(timestamp)
+        public_key = _load_verification_public_key(serial)
         message = f"{timestamp}\n{nonce}\n{raw_body}\n".encode()
         public_key.verify(
             base64.b64decode(signature),
@@ -391,24 +397,67 @@ def _sign_with_merchant_key(message: str) -> str:
 
 
 def _load_private_key() -> RSAPrivateKey:
-    inline = str(get_config("WECHATPAY_PRIVATE_KEY", "") or "").strip()
-    pem = (
-        inline.encode("utf-8")
-        if inline
-        else Path(_required_config("WECHATPAY_PRIVATE_KEY_PATH")).read_bytes()
-    )
+    pem = _load_pem("WECHATPAY_PRIVATE_KEY", "WECHATPAY_PRIVATE_KEY_PATH")
     return serialization.load_pem_private_key(pem, password=None)
 
 
-def _load_public_key_from_certificate() -> RSAPublicKey:
-    inline = str(get_config("WECHATPAY_PLATFORM_CERT", "") or "").strip()
-    pem = (
-        inline.encode("utf-8")
-        if inline
-        else Path(_required_config("WECHATPAY_PLATFORM_CERT_PATH")).read_bytes()
-    )
-    cert = x509.load_pem_x509_certificate(pem)
-    return cert.public_key()
+def _ensure_fresh_signature_timestamp(timestamp: str) -> None:
+    """Reject notifications whose signed timestamp is outside the replay window."""
+    try:
+        signed_at = int(timestamp)
+    except ValueError:
+        message = "WeChat Pay signature timestamp invalid"
+        raise RuntimeError(message) from None
+    if abs(time.time() - signed_at) > _SIGNATURE_MAX_AGE_SECONDS:
+        message = "WeChat Pay signature timestamp expired"
+        raise RuntimeError(message)
+
+
+def _load_verification_public_key(serial: str) -> RSAPublicKey:
+    """Return the WeChat Pay key that matches the notification serial header.
+
+    Merchants verify either with the WeChat Pay public key (serial
+    ``PUB_KEY_ID_...``) or with a platform certificate (serial = certificate
+    serial number). A serial that matches neither configured key is rejected so
+    a rotated or foreign key never verifies a payment.
+    """
+    if serial.upper().startswith(_PUBLIC_KEY_ID_PREFIX):
+        expected_key_id = _required_config("WECHATPAY_PUBLIC_KEY_ID")
+        if serial != expected_key_id:
+            message = f"WeChat Pay public key ID mismatch: {serial}"
+            raise RuntimeError(message)
+        pem = _load_pem("WECHATPAY_PUBLIC_KEY", "WECHATPAY_PUBLIC_KEY_PATH")
+        return serialization.load_pem_public_key(pem)
+
+    certificate = _load_platform_certificate()
+    if _normalize_serial(format(certificate.serial_number, "X")) != _normalize_serial(
+        serial
+    ):
+        message = f"WeChat Pay platform certificate serial mismatch: {serial}"
+        raise RuntimeError(message)
+    return certificate.public_key()
+
+
+def _load_platform_certificate() -> x509.Certificate:
+    pem = _load_pem("WECHATPAY_PLATFORM_CERT", "WECHATPAY_PLATFORM_CERT_PATH")
+    return x509.load_pem_x509_certificate(pem)
+
+
+def _normalize_serial(serial: str) -> str:
+    return serial.strip().upper().lstrip("0")
+
+
+def _load_pem(inline_name: str, path_name: str) -> bytes:
+    """Load PEM material inline first, then from the configured file path.
+
+    Inline values may arrive from single-line environment variables whose
+    newlines are escaped as a backslash plus ``n``; those are restored before
+    parsing.
+    """
+    inline = str(get_config(inline_name, "") or "").strip()
+    if inline:
+        return inline.replace("\\n", "\n").encode("utf-8")
+    return Path(_required_config(path_name)).read_bytes()
 
 
 register_payment_provider(WechatPayProvider)
