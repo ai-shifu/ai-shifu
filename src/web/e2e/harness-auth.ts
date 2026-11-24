@@ -1,12 +1,66 @@
+import { spawnSync } from 'node:child_process';
+
 import { expect, Page } from '@playwright/test';
 
 const DEFAULT_PHONE = process.env.AI_SHIFU_TEST_PHONE || '13800138000';
 const DEFAULT_OTP = process.env.AI_SHIFU_TEST_OTP || '1024';
 const DEFAULT_CAPTCHA = process.env.AI_SHIFU_TEST_CAPTCHA || '0000';
-// Matches BOOTSTRAP_ADMIN_PASSWORD in docker/docker-compose.runtime-harness.yml.
 const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD =
-  process.env.AI_SHIFU_TEST_ADMIN_PASSWORD || 'RuntimeHarness1Admin';
+// The API service of both the development and the runtime-harness stacks.
+const API_SERVICE = 'ai-shifu-api-dev';
+// A generated password is one run of letters and digits. The line printed for
+// a configured BOOTSTRAP_ADMIN_PASSWORD contains spaces and never matches.
+const BOOTSTRAP_PASSWORD_LINE = /^\s*Password: ([A-Za-z0-9]+)\s*$/gm;
+
+const runDocker = (args: string[]) => {
+  const result = spawnSync('docker', args, { encoding: 'utf8' });
+  if (result.error || result.status !== 0) {
+    throw new Error(
+      `docker ${args[0]} failed: ${result.error?.message || result.stderr}`,
+    );
+  }
+  return `${result.stdout}${result.stderr}`;
+};
+
+// Read the password the way an operator does on a fresh stack: from the banner
+// `flask console bootstrap_admin` prints to the API container log.
+const readBootstrapAdminPassword = () => {
+  const filters = [
+    '--filter',
+    `label=com.docker.compose.service=${API_SERVICE}`,
+  ];
+  const project = process.env.AI_SHIFU_COMPOSE_PROJECT;
+  if (project) {
+    filters.push('--filter', `label=com.docker.compose.project=${project}`);
+  }
+  const containers = runDocker(['ps', '-q', ...filters])
+    .split(/\s+/)
+    .filter(Boolean);
+  if (containers.length !== 1) {
+    throw new Error(
+      `Expected one running ${API_SERVICE} container, found ` +
+        `${containers.length}. Set AI_SHIFU_COMPOSE_PROJECT, or set ` +
+        'AI_SHIFU_TEST_ADMIN_PASSWORD to the admin password.',
+    );
+  }
+
+  const log = runDocker(['logs', containers[0]]);
+  let password = '';
+  for (const match of log.matchAll(BOOTSTRAP_PASSWORD_LINE)) {
+    password = match[1];
+  }
+  if (!password) {
+    throw new Error(
+      'The API container log has no generated admin password, for example ' +
+        'because the container was recreated or BOOTSTRAP_ADMIN_PASSWORD is ' +
+        'set. Set AI_SHIFU_TEST_ADMIN_PASSWORD to the admin password.',
+    );
+  }
+  return password;
+};
+
+const adminPassword = () =>
+  process.env.AI_SHIFU_TEST_ADMIN_PASSWORD || readBootstrapAdminPassword();
 
 export const callHarnessApi = async <T>(
   page: Page,
@@ -100,7 +154,7 @@ export const loginAsAdmin = async (page: Page, redirectPath: string) => {
 
   const passwordInput = await ensureLoginInputVisible(page, '#password');
   await page.locator('#identifier').fill(ADMIN_USERNAME);
-  await passwordInput.fill(ADMIN_PASSWORD);
+  await passwordInput.fill(adminPassword());
 
   const termsCheckbox = page.locator('#terms');
   if (await termsCheckbox.isVisible()) {
