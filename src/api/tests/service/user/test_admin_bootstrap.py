@@ -10,7 +10,7 @@ from unittest.mock import Mock
 import pytest
 from flaskr.common import config as common_config
 from flaskr.dao import db
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user import admin_bootstrap
 from flaskr.service.user.admin_bootstrap import (
     BOOTSTRAP_ADMIN_USERNAME,
@@ -31,6 +31,7 @@ def _isolate_tables(app: object) -> object:
             db.session.query(UserInfo).delete()
             db.session.query(PublishedShifu).delete()
             db.session.query(DraftShifu).delete()
+            db.session.query(AiCourseAuth).delete()
             db.session.commit()
 
     _clear()
@@ -211,6 +212,38 @@ def test_admin_does_not_take_over_when_several_courses_exist(app: object) -> Non
         assert admin_bid not in owners
 
 
+def test_admin_can_view_both_imported_demos(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    demo_bids = {
+        "DEMO_SHIFU_BID": uuid.uuid4().hex[:32],
+        "DEMO_EN_SHIFU_BID": uuid.uuid4().hex[:32],
+    }
+    monkeypatch.setattr(
+        "flaskr.service.user.utils.get_dynamic_config",
+        lambda key, default="": demo_bids.get(key, default),
+    )
+    with app.app_context():
+        for key, shifu_bid in demo_bids.items():
+            db.session.add(
+                PublishedShifu(
+                    shifu_bid=shifu_bid, title=key, created_user_bid="system"
+                )
+            )
+        db.session.commit()
+
+    bootstrap_admin_account(app)
+
+    admin_bid = _admin(app).user_bid
+    with app.app_context():
+        auths = AiCourseAuth.query.filter_by(user_id=admin_bid, status=1).all()
+        assert {auth.course_id for auth in auths} == set(demo_bids.values())
+        assert all(json.loads(auth.auth_type) == ["view"] for auth in auths)
+        # Two courses: view access only, ownership stays with the importer.
+        owners = {row.created_user_bid for row in PublishedShifu.query.all()}
+        assert owners == {"system"}
+
+
 def test_admin_does_not_take_over_a_teacher_owned_single_course(app: object) -> None:
     teacher_bid = _add_user(app)
     shifu_bid = uuid.uuid4().hex[:32]
@@ -250,12 +283,12 @@ def test_failed_role_grant_rolls_back_so_the_next_start_retries(
     real_grant = admin_bootstrap._grant_bootstrap_admin_roles
     calls: list[str] = []
 
-    def fail_first_grant(user_bid: str) -> bool:
+    def fail_first_grant(grant_app: object, user_bid: str) -> bool:
         calls.append(user_bid)
         if len(calls) == 1:
             message = "grant failed"
             raise RuntimeError(message)
-        return real_grant(user_bid)
+        return real_grant(grant_app, user_bid)
 
     monkeypatch.setattr(
         admin_bootstrap, "_grant_bootstrap_admin_roles", fail_first_grant
