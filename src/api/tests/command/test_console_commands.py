@@ -412,6 +412,9 @@ def test_bootstrap_admin_rejected_password_fails_without_printing_it(
 ) -> None:
     from flaskr.service.user import admin_bootstrap
 
+    # A plain Flask config, so the value does not reach the process environment.
+    configured = "Sentinel1Configured"
+    console_app.config["BOOTSTRAP_ADMIN_PASSWORD"] = configured
     monkeypatch.setattr(
         admin_bootstrap,
         "bootstrap_admin_account",
@@ -427,6 +430,7 @@ def test_bootstrap_admin_rejected_password_fails_without_printing_it(
     assert result.exit_code == 1
     assert "BOOTSTRAP_ADMIN_PASSWORD was rejected" in result.output
     assert "No admin account was created" in result.output
+    assert configured not in result.output
 
 
 def test_bootstrap_admin_with_configured_password_does_not_print_it(

@@ -29,6 +29,7 @@ from flaskr.service.user.operator_account_creation import (
 from flaskr.service.user.password_utils import validate_password_strength
 from flaskr.service.user.repository import mark_user_roles
 from flaskr.service.user.utils import (
+    ensure_demo_course_permissions,
     mark_creator_role_if_needed,
     run_creator_granted_post_auth,
 )
@@ -112,13 +113,16 @@ def _assign_single_demo_course(user_bid: str) -> None:
     db.session.flush()
 
 
-def _grant_bootstrap_admin_roles(user_bid: str) -> bool:
+def _grant_bootstrap_admin_roles(app: Flask, user_bid: str) -> bool:
     """Make ``user_bid`` an operator and creator; return whether creator is new.
 
     Runs inside the caller's unit of work.
     """
     creator_granted_now = mark_creator_role_if_needed(user_bid)
     mark_user_roles(user_bid, is_operator=True)
+    # The demo import ran before this account existed, so it could not grant
+    # the demos to it; grant them now, whether or not ownership moves below.
+    ensure_demo_course_permissions(app, user_bid)
     _assign_single_demo_course(user_bid)
     return creator_granted_now
 
@@ -160,7 +164,7 @@ def bootstrap_admin_account(app: Flask) -> BootstrapAdminResult:
                     return BootstrapAdminResult(created=False, reason="username_taken")
                 raise
             user_bid = created["user_bid"]
-            creator_granted_now = _grant_bootstrap_admin_roles(user_bid)
+            creator_granted_now = _grant_bootstrap_admin_roles(app, user_bid)
     finally:
         # An expired lock must not turn a committed creation into a failure.
         with contextlib.suppress(Exception):
