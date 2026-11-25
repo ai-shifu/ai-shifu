@@ -54,6 +54,8 @@ from flaskr.service.metering.consts import (
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
 
+from tests.common.fixtures.llm_routes import install_llm_routes
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -812,6 +814,78 @@ def test_settle_usage_prefers_exact_rate_over_wildcard(
         assert payload["status"] == "settled"
         assert payload["consumed_credits"] == 2
         assert entry.amount == Decimal("-2.0000000000")
+
+
+@pytest.mark.parametrize(
+    ("stored_provider", "expected_credits"),
+    [
+        # Written before the rename to LiteLLM provider names.
+        ("qwen", 2),
+        # Written after it.
+        ("dashscope", 2),
+    ],
+)
+def test_settle_usage_matches_renamed_provider_rate_through_model_route(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_provider: str,
+    expected_credits: int,
+) -> None:
+    """A record that predates the provider rename still finds the renamed rate."""
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda _app, _usage: "creator-rename",
+    )
+    install_llm_routes(monkeypatch, {"qwen/qwen-max": ("dashscope", "qwen-max")})
+    usage_bid = f"usage-llm-{stored_provider}"
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-rename", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-rename",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid=f"bucket-{stored_provider}",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid=f"rate-llm-input-wildcard-{stored_provider}",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid=f"rate-llm-input-renamed-{stored_provider}",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="2.0000000000",
+                    provider="dashscope",
+                    model="qwen-max",
+                ),
+                _create_usage(
+                    usage_bid=usage_bid,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider=stored_provider,
+                    model="qwen/qwen-max",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
+
+    assert payload["status"] == "settled"
+    assert payload["consumed_credits"] == expected_credits
 
 
 @pytest.mark.parametrize(
@@ -1662,3 +1736,217 @@ def test_resolve_credit_multiplier_label_uses_utc_default_settlement(
 
     assert captured
     assert set(captured) == {utc_sentinel}
+
+
+@pytest.mark.parametrize(
+    ("stored_provider", "model", "rates", "expected_credits"),
+    [
+        # An unroutable bare endpoint id still follows its renamed provider.
+        ("ark", "ep-123", [("volcengine", "ep-123", "2.0000000000")], 2),
+        # A leftover row under the old name loses to the LiteLLM-named row the
+        # migration kept for the same identity.
+        (
+            "qwen",
+            "qwen/qwen-max",
+            [
+                ("qwen", "qwen-max", "1.0000000000"),
+                ("dashscope", "qwen-max", "2.0000000000"),
+            ],
+            2,
+        ),
+    ],
+)
+def test_settle_usage_prefers_the_renamed_provider_rate(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_provider: str,
+    model: str,
+    rates: list[tuple[str, str, str]],
+    expected_credits: int,
+) -> None:
+    """Pre-rename usage settles against the LiteLLM-named rate."""
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda _app, _usage: "creator-alias",
+    )
+    install_llm_routes(
+        monkeypatch, {"qwen/qwen-max": ("dashscope", "qwen-max")}, exclusive=True
+    )
+    usage_bid = f"usage-llm-alias-{stored_provider}"
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-alias", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-alias",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid=f"bucket-alias-{stored_provider}",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid=f"rate-alias-{stored_provider}-{index}",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit=rate_credits,
+                    provider=provider,
+                    model=rate_model,
+                )
+                for index, (provider, rate_model, rate_credits) in enumerate(rates)
+            ]
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid=usage_bid,
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider=stored_provider,
+                model=model,
+                input_value=1000,
+                input_cache=0,
+                output=0,
+                total=1000,
+            )
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
+
+    assert payload["status"] == "settled"
+    assert payload["consumed_credits"] == expected_credits
+
+
+def _load_rate_rename_migration() -> object:
+    import importlib.util
+    from pathlib import Path
+
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "migrations"
+        / "versions"
+        / "a3c5e7f9b1d2_copy_llm_rates_to_litellm_names.py"
+    )
+    spec = importlib.util.spec_from_file_location("rate_rename_migration", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    ("rate_model", "usage_provider", "usage_model"),
+    [
+        # A full legacy model id, used by a slot moved to the LiteLLM id.
+        ("qwen/deepseek-v4-flash", "dashscope", "dashscope/deepseek-v4-flash"),
+        # A provider-local model id, used by the LiteLLM id.
+        ("deepseek-v4-flash", "dashscope", "dashscope/deepseek-v4-flash"),
+        # A full legacy model id, used by usage recorded before the upgrade.
+        ("qwen/deepseek-v4-flash", "qwen", "qwen/deepseek-v4-flash"),
+    ],
+)
+# The release and the migration roll out in either order (CN rolls the image
+# first; sim shares CN's database), so the rate must match both before and
+# after the copy.
+@pytest.mark.parametrize("run_migration", [True, False])
+def test_migrated_legacy_rate_settles_usage_under_either_model_id(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    rate_model: str,
+    usage_provider: str,
+    usage_model: str,
+    run_migration: bool,
+) -> None:
+    """A ``qwen`` rate keeps charging before and after migration."""
+    migration = _load_rate_rename_migration()
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda _app, _usage: "creator-migrated",
+    )
+    install_llm_routes(
+        monkeypatch,
+        {
+            "qwen/deepseek-v4-flash": ("dashscope", "deepseek-v4-flash"),
+            "dashscope/deepseek-v4-flash": ("dashscope", "deepseek-v4-flash"),
+        },
+        exclusive=True,
+    )
+    usage_bid = "usage-llm-migrated"
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-migrated", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-migrated",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-migrated",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid="rate-migrated-wildcard",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-migrated-legacy",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="2.0000000000",
+                    provider="qwen",
+                    model=rate_model,
+                ),
+                # Added later (larger id) for the same model under any
+                # provider; the legacy row must win before and after the
+                # migration, as its copy does.
+                _create_rate(
+                    rate_bid="rate-migrated-any-provider",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="5.0000000000",
+                    provider="*",
+                    model=rate_model,
+                ),
+                _create_usage(
+                    usage_bid=usage_bid,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider=usage_provider,
+                    model=usage_model,
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        if run_migration:
+            monkeypatch.setattr(migration.op, "get_bind", dao.db.session.connection)
+            migration.upgrade()
+            dao.db.session.commit()
+            copied = CreditUsageRate.query.filter(
+                CreditUsageRate.rate_bid.like(migration.COPY_RATE_BID_PREFIX + "%"),
+                CreditUsageRate.provider == "dashscope",
+            ).one()
+            assert not copied.model.startswith("qwen/")
+            # The earlier row stays for processes on the previous release.
+            legacy = CreditUsageRate.query.filter_by(
+                rate_bid="rate-migrated-legacy"
+            ).one()
+            assert legacy.provider == "qwen"
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
+
+    assert payload["status"] == "settled"
+    assert payload["consumed_credits"] == 2

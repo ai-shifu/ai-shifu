@@ -1,29 +1,24 @@
-"""Verify LLM discovery degradation, numbered model isolation and gateway limits."""
+"""Verify numbered model isolation, gateway limits and provider boundaries."""
 
 import os
 import subprocess
 import sys
 import textwrap
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from flaskr.api import llm
 from flaskr.api.llm import model_selection
-from flaskr.common.config import (
-    ENV_VARS,
-    LLM_PROVIDER_API_KEY_ENVS,
-    EnhancedConfig,
-    EnvironmentConfigError,
-)
 from flaskr.service.common.models import ERROR_CODE, AppError
+
+from tests.common.fixtures.llm_routes import install_llm_routes
 
 pytestmark = pytest.mark.no_mock_llm
 
 
 @pytest.fixture(autouse=True)
 def provider_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {})
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
 
 
@@ -50,165 +45,6 @@ def test_numbered_model_slots_do_not_read_retired_allowlist_sources(
         {"index": "1", "display_name": "Daily", "model": "test/daily"}
     ]
     assert all(call.args[0].startswith("LLM_MODEL_") for call in reader.call_args_list)
-
-
-def test_missing_api_key_disables_provider_without_discovery(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(llm, "get_config", lambda _: "")
-    fetch = Mock()
-    monkeypatch.setattr(llm, "_fetch_provider_models", fetch)
-    result = llm._init_litellm_provider(
-        llm.ProviderConfig(
-            "example", "EXAMPLE_KEY", prefix="example/", wildcard_prefixes=("model-",)
-        )
-    )
-    assert result == llm.ProviderState(
-        enabled=False,
-        params=None,
-        models=[],
-        prefix="example/",
-        wildcard_prefixes=("model-",),
-    )
-    assert llm.MODEL_ALIAS_MAP == {}
-    fetch.assert_not_called()
-
-
-@pytest.mark.parametrize("key_name", ["BIGMODEL_API_KEY", "GLM_API_KEY"])
-def test_bigmodel_startup_validation_matches_provider_credentials(
-    monkeypatch: pytest.MonkeyPatch, key_name: str
-) -> None:
-    """Only the credential actually used by GLM may satisfy startup validation."""
-    environment = {
-        "SQLALCHEMY_DATABASE_URI": "sqlite://",
-        "SECRET_KEY": "test-secret",
-        "UNIVERSAL_VERIFICATION_CODE": "123456",
-        "LLM_MODEL_1_ID": "glm/glm-4",
-        key_name: "test-provider-key",
-    }
-    with patch.dict(os.environ, environment, clear=True):
-        settings = EnhancedConfig(ENV_VARS)
-        monkeypatch.setattr(llm, "get_config", settings.get)
-        fetch = Mock(return_value=["glm-4"])
-        monkeypatch.setattr(llm, "_fetch_provider_models", fetch)
-        provider = next(
-            item for item in llm.LITELLM_PROVIDER_CONFIGS if item.key == "glm"
-        )
-
-        if key_name == "BIGMODEL_API_KEY":
-            settings.validate_environment()
-            state = llm._init_litellm_provider(provider)
-            assert state.enabled
-            assert state.params["api_key"] == environment[key_name]
-            assert state.models == ["glm/glm-4"]
-            fetch.assert_called_once_with(
-                environment[key_name], provider.default_base_url
-            )
-        else:
-            with pytest.raises(
-                EnvironmentConfigError,
-                match="At least one LLM API key must be configured",
-            ):
-                settings.validate_environment()
-            assert not llm._init_litellm_provider(provider).enabled
-            fetch.assert_not_called()
-
-
-def test_provider_discovery_filters_duplicates_and_registers_alias_routes(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        llm, "get_config", {"KEY": "key", "URL": "https://llm.invalid/v1"}.get
-    )
-    fetch = Mock(return_value=["chat-a", "embedding-b", "chat-a", "", "chat-b"])
-    monkeypatch.setattr(llm, "_fetch_provider_models", fetch)
-    config = llm.ProviderConfig(
-        "example",
-        "KEY",
-        base_url_env="URL",
-        prefix="example/",
-        static_models=["static"],
-        extra_models=[("alias", "actual"), ("alias", "other"), ""],
-        filter_fn=lambda model: model.startswith("chat-"),
-        custom_llm_provider="openai",
-    )
-    result = llm._init_litellm_provider(config)
-    assert result.enabled
-    assert result.params == {
-        "api_key": "key",
-        "api_base": "https://llm.invalid/v1",
-        "custom_llm_provider": "openai",
-    }
-    assert result.models == [
-        "example/static",
-        "example/chat-a",
-        "example/chat-b",
-        "example/alias",
-    ]
-    assert llm.MODEL_ALIAS_MAP["example/alias"] == ("example", "actual")
-    assert llm.MODEL_ALIAS_MAP["actual"] == ("example", "actual")
-    fetch.assert_called_once_with("key", "https://llm.invalid/v1")
-
-
-def test_failed_discovery_keeps_static_and_extra_models_available(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(llm, "get_config", lambda _: "key")
-    monkeypatch.setattr(
-        llm, "_fetch_provider_models", Mock(side_effect=ConnectionError("offline"))
-    )
-    config = llm.ProviderConfig(
-        "example",
-        "KEY",
-        default_base_url="https://llm.invalid/v1",
-        static_models=["static"],
-        extra_models=["extra"],
-    )
-    result = llm._init_litellm_provider(config)
-    assert result.enabled
-    assert result.models == ["static", "extra"]
-    assert result.params["api_base"] == "https://llm.invalid/v1"
-
-
-def test_dashscope_catalog_uses_provider_discovery(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(llm, "get_config", {"QWEN_API_KEY": "test-key"}.get)
-    monkeypatch.setattr(
-        llm,
-        "_fetch_provider_models",
-        Mock(return_value=["qwen3.8-max-0902", "vanchin/deepseek-v3"]),
-    )
-    config = next(item for item in llm.LITELLM_PROVIDER_CONFIGS if item.key == "qwen")
-
-    result = llm._init_litellm_provider(config)
-
-    assert result.models == ["qwen/qwen3.8-max-0902", "qwen/vanchin/deepseek-v3"]
-    assert llm.MODEL_ALIAS_MAP["qwen/vanchin/deepseek-v3"] == (
-        "qwen",
-        "vanchin/deepseek-v3",
-    )
-
-
-def test_custom_model_loader_owns_discovery_and_gemini_uses_native_endpoint(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        llm,
-        "get_config",
-        {"KEY": "key", "URL": "https://generativelanguage.googleapis.com/v1beta"}.get,
-    )
-    loader = Mock(return_value=[("display", "actual")])
-    fetch = Mock()
-    monkeypatch.setattr(llm, "_fetch_provider_models", fetch)
-    config = llm.ProviderConfig(
-        "gemini", "KEY", base_url_env="URL", model_loader=loader
-    )
-    result = llm._init_litellm_provider(config)
-    assert result.params == {"api_key": "key"}
-    assert result.models == ["display"]
-    loader.assert_called_once_with(config, {"api_key": "key"}, None)
-    fetch.assert_not_called()
 
 
 def test_models_endpoint_handles_empty_key_and_ignores_entries_without_ids(
@@ -352,7 +188,7 @@ def test_gateway_routed_config_has_priority_over_upstream_metadata(
 def test_gateway_still_rejects_unroutable_models_without_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {})
+    install_llm_routes(monkeypatch, {}, exclusive=True)
     lookup = Mock(side_effect=RuntimeError("unknown"))
     monkeypatch.setattr(llm.litellm, "get_max_tokens", lookup)
     with pytest.raises(AppError) as caught:
@@ -364,11 +200,10 @@ def test_gateway_still_rejects_unroutable_models_without_metadata(
 def test_gateway_still_requires_provider_credentials_when_limits_are_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"model": ("openai", "model")})
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {"openai": llm.ProviderState(enabled=False, params=None, models=[])},
+    install_llm_routes(
+        monkeypatch,
+        {"model": ("openai", "model")},
+        missing={"model": ("OPENAI_API_KEY",)},
     )
     lookup = Mock(side_effect=RuntimeError("unknown"))
     monkeypatch.setattr(llm.litellm, "get_max_tokens", lookup)
@@ -557,9 +392,7 @@ def test_litellm_stream_logs_with_its_own_loop() -> None:
         """
     )
     env = {
-        key: value
-        for key, value in os.environ.items()
-        if key not in LLM_PROVIDER_API_KEY_ENVS
+        key: value for key, value in os.environ.items() if not key.endswith("_API_KEY")
     }
     env.update(
         LITELLM_LOCAL_MODEL_COST_MAP="True",
@@ -575,10 +408,3 @@ def test_litellm_stream_logs_with_its_own_loop() -> None:
         check=False,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-
-
-def test_startup_llm_check_covers_every_provider_api_key() -> None:
-    provider_keys = {config.api_key_env for config in llm.LITELLM_PROVIDER_CONFIGS}
-
-    assert set(LLM_PROVIDER_API_KEY_ENVS) == provider_keys
-    assert provider_keys <= set(ENV_VARS)

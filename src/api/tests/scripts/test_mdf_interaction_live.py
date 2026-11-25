@@ -18,6 +18,8 @@ from scripts.mdf_interaction_question_judge import (
     judge_question,
 )
 
+from tests.common.fixtures.llm_routes import install_llm_routes
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
@@ -31,16 +33,7 @@ def configure_provider(
 
     record_usage = Mock(side_effect=AssertionError("application usage write"))
     monkeypatch.setattr(llm, "record_llm_usage", record_usage)
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-eval": ("openai", "gpt-eval")})
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "openai": llm.ProviderState(
-                enabled=True, params={"api_key": "test-key"}, models=["gpt-eval"]
-            )
-        },
-    )
+    install_llm_routes(monkeypatch, {"gpt-eval": ("openai", "gpt-eval")})
 
     def complete(
         tool_name: str, arguments: str, **kwargs: object

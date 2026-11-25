@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from tests.common.fixtures.llm_routes import install_llm_routes
+
 
 def _install_litellm_stub() -> None:
     if "litellm" in sys.modules:
@@ -162,16 +164,7 @@ def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> Non
         return iter(chunks)
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     span = DummySpan()
     responses = list(
@@ -189,8 +182,10 @@ def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> Non
     assert responses[-1].is_end is True
     assert responses[-1].is_truncated is False
     assert responses[-1].finish_reason == "stop"
-    assert captured_kwargs["kwargs"]["api_key"] == "test-key"
-    assert captured_kwargs["kwargs"]["api_base"] == "https://example.com"
+    # LiteLLM reads OPENAI_API_KEY and OPENAI_BASE_URL itself.
+    assert captured_kwargs["kwargs"]["custom_llm_provider"] == "openai"
+    assert "api_key" not in captured_kwargs["kwargs"]
+    assert "api_base" not in captured_kwargs["kwargs"]
     assert captured_kwargs["kwargs"]["stream"] is True
     assert span.generation_args["name"] == "unit-test"
     assert span.generation_args["trace_id"] == "trace-1"
@@ -226,16 +221,7 @@ def test_invoke_llm_preserves_incomplete_terminal_metadata(
         )
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     span = DummySpan()
     responses = list(

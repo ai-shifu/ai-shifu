@@ -26,6 +26,7 @@ from .consts import (
     CREDIT_ROUNDING_MODE_FLOOR,
     CREDIT_ROUNDING_MODE_ROUND,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
+    RENAMED_LLM_BILLING_PROVIDERS,
 )
 from .models import CreditUsageRate
 from .primitives import (
@@ -34,7 +35,7 @@ from .primitives import (
     quantize_credit_amount,
     to_decimal,
 )
-from .rate_references import resolve_llm_rate_identity
+from .rate_references import legacy_llm_rate_aliases, resolve_llm_rate_identity
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -348,10 +349,22 @@ def load_usage_rate(
     provider = str(usage.provider or "").strip()
     model = str(usage.model or "").strip()
     model_candidates = [model] if model else [""]
+    # A record written before a provider rename stores the old name. Its
+    # renamed provider, or the provider its model id resolves to today, is the
+    # fallback identity and wins over a leftover row under the old name.
+    fallback_provider = ""
+    if int(usage.usage_type or 0) == BILL_USAGE_TYPE_LLM:
+        fallback_provider = RENAMED_LLM_BILLING_PROVIDERS.get(provider, "")
     if int(usage.usage_type or 0) == BILL_USAGE_TYPE_LLM and model:
         resolved_provider, resolved_models = resolve_llm_rate_identity(model)
         if not provider and resolved_provider:
             provider = resolved_provider
+        elif (
+            resolved_provider
+            and resolved_provider != provider
+            and not fallback_provider
+        ):
+            fallback_provider = resolved_provider
         model_candidates = []
         for candidate in [*resolved_models, model]:
             normalized = str(candidate or "").strip()
@@ -359,6 +372,14 @@ def load_usage_rate(
                 model_candidates.append(normalized)
         if not model_candidates:
             model_candidates = [model]
+    # Rate rows not yet migrated to LiteLLM names still bill this usage, so
+    # this release settles correctly before and after the migration.
+    legacy_providers: set[str] = set()
+    if int(usage.usage_type or 0) == BILL_USAGE_TYPE_LLM:
+        legacy_providers, legacy_models = legacy_llm_rate_aliases(
+            {provider, fallback_provider}, model_candidates
+        )
+        model_candidates.extend(legacy_models)
     usage_scene = int(usage.usage_scene or 0)
     rows = (
         CreditUsageRate.query.filter(
@@ -376,7 +397,8 @@ def load_usage_rate(
         for row in rows
         if row.effective_from <= settlement_at
         and (row.effective_to is None or row.effective_to > settlement_at)
-        and row.provider in {provider, "*"}
+        and row.provider
+        in ({provider, fallback_provider, "*"} | legacy_providers) - {""}
         and row.model in set(model_candidates).union({"*"})
     ]
     if not candidates:
@@ -387,7 +409,10 @@ def load_usage_rate(
     }
     candidates.sort(
         key=lambda row: (
+            bool(fallback_provider) and row.provider == fallback_provider,
             row.provider == provider,
+            # Rank an unmigrated row as its renamed row would rank, above "*".
+            row.provider in legacy_providers,
             row.model in set(model_candidates),
             model_priority.get(row.model, 0),
             row.effective_from or NAIVE_DATETIME_MIN,

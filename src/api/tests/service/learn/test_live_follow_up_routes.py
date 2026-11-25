@@ -222,14 +222,9 @@ def test_readiness_requires_discovered_live_model(
     from flaskr.api import llm
 
     model = routes.GEMINI_LIVE_MODEL_ID
-    monkeypatch.setitem(
-        llm.PROVIDER_STATES,
-        "gemini",
-        llm.ProviderState(
-            enabled=provider_enabled,
-            params={},
-            models=[model] if discovered else [],
-        ),
+    # Without a Gemini key at startup, discovery leaves GEMINI_MODELS empty.
+    monkeypatch.setattr(
+        llm, "GEMINI_MODELS", [model] if provider_enabled and discovered else []
     )
     monkeypatch.setitem(
         llm.MODEL_SUPPORTED_GENERATION_METHODS, model, frozenset(methods)
@@ -597,9 +592,15 @@ def test_session_rejects_invalid_shape_mode_surface_and_origin(
 
 
 @pytest.mark.parametrize("api_base_url", ["", "https://proxy.example.com/google/"])
+# Live availability accepts either LiteLLM name, so the session must too.
+@pytest.mark.parametrize("api_key_env", ["GEMINI_API_KEY", "GOOGLE_API_KEY"])
+# A proxy stored under the earlier setting name still reaches token minting.
+@pytest.mark.parametrize("api_base_env", ["GEMINI_API_BASE", "GEMINI_API_URL"])
 def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     monkeypatch: pytest.MonkeyPatch,
     api_base_url: str,
+    api_key_env: str,
+    api_base_env: str,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_session_validation(monkeypatch)
@@ -607,8 +608,8 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
         routes,
         "get_config",
         lambda name, default=None: {
-            "GEMINI_API_KEY": "test-gemini-key",
-            "GEMINI_API_URL": api_base_url,
+            api_key_env: "test-gemini-key",
+            api_base_env: api_base_url,
         }.get(name, default),
     )
     minted: list[dict[str, object]] = []
