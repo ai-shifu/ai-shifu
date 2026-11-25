@@ -11,21 +11,21 @@ learners.
 
 ## Progress
 
-- [x] 2026-11-25 13:20 CST: Inventoried Ping++ references (21 backend
+- [x] 2026-11-25 12:20 CST: Inventoried Ping++ references (21 backend
       modules, 31 web files, 58 test files, i18n, `pingpp` dependency, docs).
-- [x] 2026-11-25 15:30 CST: Backend: removed the provider, `pingpp`, the
+- [x] 2026-11-25 13:05 CST: Backend: removed the provider, `pingpp`, the
       callback route, the order and billing Ping++ branches, the creator Ping++
       integration and `PINGXX_*`; kept historical reads (528c297f5).
-- [x] 2026-11-25 16:40 CST: Web: removed the `pingxx` payment channel and the
+- [x] 2026-11-25 13:40 CST: Web: removed the `pingxx` payment channel and the
       Ping++ fallback in the learner cashier; renamed the billing QR dialog,
       polling hook and channel type to provider-neutral names; kept the
       historical provider label and operator filters.
-- [x] 2026-11-25 16:45 CST: i18n (dropped the Ping++ integration labels and the
+- [x] 2026-11-25 13:45 CST: i18n (dropped the Ping++ integration labels and the
       unused provider-with-channel label), regenerated env example and i18n
       keys, updated design docs and the billing AGENTS guide.
-- [x] 2026-11-25 15:20 CST: Guard: `test_pingxx_retirement_guard.py` forbids
+- [x] 2026-11-25 13:00 CST: Guard: `test_pingxx_retirement_guard.py` forbids
       `pingpp` and confines `pingxx` to the listed history readers.
-- [x] 2026-11-25 16:50 CST: Validation: backend 16329 passed (3 LLM contract
+- [x] 2026-11-25 13:50 CST: Validation: backend 16329 passed (3 LLM contract
       tests fail locally on main as well); web 3930 passed under `TZ=UTC`
       (two promotion date tests depend on the local time zone); `tsc` and
       ESLint clean.
