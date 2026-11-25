@@ -634,3 +634,16 @@ RENAMED_LLM_BILLING_PROVIDERS: dict[str, str] = {
     "ernie_v2": "qianfan",
     "silicon": "siliconflow",
 }
+
+# Rate rows may still use the earlier names until migration a3c5e7f9b1d2 runs,
+# and earlier code keeps billing under them until every release has the
+# rename. Settlement therefore also matches rows under these earlier model id
+# prefixes, so the migration and the image rollout can happen in any order.
+# Keep these while any environment may hold rate rows under the earlier names.
+RENAMED_LLM_MODEL_PREFIXES: dict[str, str] = {
+    "qwen/": "dashscope/",
+    "glm/": "bigmodel/",
+    "ark/": "volcengine/",
+    "ernie/": "qianfan/",
+    "silicon/": "siliconflow/",
+}

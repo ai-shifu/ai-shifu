@@ -1849,14 +1849,19 @@ def _load_rate_rename_migration() -> object:
         ("qwen/deepseek-v4-flash", "qwen", "qwen/deepseek-v4-flash"),
     ],
 )
+# The release and the migration roll out in either order (CN rolls the image
+# first; sim shares CN's database), so the rate must match both before and
+# after the rename.
+@pytest.mark.parametrize("run_migration", [True, False])
 def test_migrated_legacy_rate_settles_usage_under_either_model_id(
     billing_settlement_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     rate_model: str,
     usage_provider: str,
     usage_model: str,
+    run_migration: bool,
 ) -> None:
-    """A ``qwen`` rate keeps charging after migration, whichever id is used."""
+    """A ``qwen`` rate keeps charging before and after migration."""
     migration = _load_rate_rename_migration()
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
@@ -1915,14 +1920,15 @@ def test_migrated_legacy_rate_settles_usage_under_either_model_id(
         )
         dao.db.session.commit()
 
-        monkeypatch.setattr(migration.op, "get_bind", dao.db.session.connection)
-        migration.upgrade()
-        dao.db.session.commit()
-        migrated = CreditUsageRate.query.filter_by(
-            rate_bid="rate-migrated-legacy"
-        ).one()
-        assert migrated.provider == "dashscope"
-        assert not migrated.model.startswith("qwen/")
+        if run_migration:
+            monkeypatch.setattr(migration.op, "get_bind", dao.db.session.connection)
+            migration.upgrade()
+            dao.db.session.commit()
+            migrated = CreditUsageRate.query.filter_by(
+                rate_bid="rate-migrated-legacy"
+            ).one()
+            assert migrated.provider == "dashscope"
+            assert not migrated.model.startswith("qwen/")
 
         payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
 

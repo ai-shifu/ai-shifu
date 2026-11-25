@@ -27,6 +27,7 @@ from .consts import (
     CREDIT_ROUNDING_MODE_ROUND,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
     RENAMED_LLM_BILLING_PROVIDERS,
+    RENAMED_LLM_MODEL_PREFIXES,
 )
 from .models import CreditUsageRate
 from .primitives import (
@@ -372,6 +373,23 @@ def load_usage_rate(
                 model_candidates.append(normalized)
         if not model_candidates:
             model_candidates = [model]
+    # Rate rows not yet migrated to LiteLLM names still bill this usage, at
+    # the lowest priority, so settlement does not depend on the migration
+    # running before or after this release.
+    legacy_providers: set[str] = set()
+    if int(usage.usage_type or 0) == BILL_USAGE_TYPE_LLM:
+        current_providers = {provider, fallback_provider} - {""}
+        legacy_providers = {
+            legacy
+            for legacy, renamed in RENAMED_LLM_BILLING_PROVIDERS.items()
+            if renamed in current_providers
+        } - current_providers
+        for candidate in list(model_candidates):
+            for legacy_prefix, prefix in RENAMED_LLM_MODEL_PREFIXES.items():
+                if candidate.startswith(prefix) and len(candidate) > len(prefix):
+                    legacy_model = legacy_prefix + candidate[len(prefix) :]
+                    if legacy_model not in model_candidates:
+                        model_candidates.append(legacy_model)
     usage_scene = int(usage.usage_scene or 0)
     rows = (
         CreditUsageRate.query.filter(
@@ -389,7 +407,8 @@ def load_usage_rate(
         for row in rows
         if row.effective_from <= settlement_at
         and (row.effective_to is None or row.effective_to > settlement_at)
-        and row.provider in {provider, fallback_provider, "*"} - {""}
+        and row.provider
+        in ({provider, fallback_provider, "*"} | legacy_providers) - {""}
         and row.model in set(model_candidates).union({"*"})
     ]
     if not candidates:
