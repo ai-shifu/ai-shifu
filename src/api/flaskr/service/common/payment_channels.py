@@ -16,36 +16,52 @@ if TYPE_CHECKING:
 SUPPORTED_PAYMENT_PROVIDERS = frozenset({"stripe", "alipay", "wechatpay"})
 _DEFAULT_ENABLED_PROVIDERS = "alipay,wechatpay,stripe"
 # Credentials a provider needs before it is enabled implicitly (when
-# PAYMENT_CHANNELS_ENABLED is empty). Each inner tuple is one requirement that
-# any of its settings satisfies, e.g. an inline key or a key file path.
-_PROVIDER_REQUIRED_SETTINGS: dict[str, tuple[tuple[str, ...], ...]] = {
+# PAYMENT_CHANNELS_ENABLED is empty). Each requirement lists alternatives; an
+# alternative is satisfied when all of its settings are set (e.g. an inline key
+# or a key file path, or a public key together with its ID).
+_PROVIDER_REQUIRED_SETTINGS: dict[str, tuple[tuple[tuple[str, ...], ...], ...]] = {
     "alipay": (
-        ("ALIPAY_APP_ID",),
-        ("ALIPAY_APP_PRIVATE_KEY", "ALIPAY_APP_PRIVATE_KEY_PATH"),
-        ("ALIPAY_PUBLIC_KEY", "ALIPAY_PUBLIC_KEY_PATH"),
+        (("ALIPAY_APP_ID",),),
+        (("ALIPAY_APP_PRIVATE_KEY",), ("ALIPAY_APP_PRIVATE_KEY_PATH",)),
+        (("ALIPAY_PUBLIC_KEY",), ("ALIPAY_PUBLIC_KEY_PATH",)),
     ),
     "wechatpay": (
-        ("WECHATPAY_APP_ID", "WECHAT_APP_ID"),
-        ("WECHATPAY_MCH_ID",),
-        ("WECHATPAY_MERCHANT_SERIAL_NO",),
-        ("WECHATPAY_API_V3_KEY",),
-        ("WECHATPAY_PRIVATE_KEY", "WECHATPAY_PRIVATE_KEY_PATH"),
+        (("WECHATPAY_APP_ID",), ("WECHAT_APP_ID",)),
+        (("WECHATPAY_MCH_ID",),),
+        (("WECHATPAY_MERCHANT_SERIAL_NO",),),
+        (("WECHATPAY_API_V3_KEY",),),
+        (("WECHATPAY_PRIVATE_KEY",), ("WECHATPAY_PRIVATE_KEY_PATH",)),
         (
-            "WECHATPAY_PLATFORM_CERT",
-            "WECHATPAY_PLATFORM_CERT_PATH",
-            "WECHATPAY_PUBLIC_KEY",
-            "WECHATPAY_PUBLIC_KEY_PATH",
+            ("WECHATPAY_PLATFORM_CERT",),
+            ("WECHATPAY_PLATFORM_CERT_PATH",),
+            ("WECHATPAY_PUBLIC_KEY", "WECHATPAY_PUBLIC_KEY_ID"),
+            ("WECHATPAY_PUBLIC_KEY_PATH", "WECHATPAY_PUBLIC_KEY_ID"),
         ),
     ),
-    "stripe": (("STRIPE_SECRET_KEY",),),
+    "stripe": ((("STRIPE_SECRET_KEY",),),),
 }
+_STRIPE_CHANNELS = frozenset(
+    {"checkout", "checkout_session", "intent", "payment_intent"}
+)
+
+
+def _is_set(name: str) -> bool:
+    return bool(str(get_config(name, "") or "").strip())
 
 
 def _has_credentials(provider: str) -> bool:
-    return all(
-        any(str(get_config(name, "") or "").strip() for name in names)
-        for names in _PROVIDER_REQUIRED_SETTINGS[provider]
-    )
+    try:
+        return all(
+            any(
+                all(_is_set(name) for name in alternative)
+                for alternative in requirement
+            )
+            for requirement in _PROVIDER_REQUIRED_SETTINGS[provider]
+        )
+    except ValueError:
+        # An undecryptable stored credential leaves the provider unconfigured
+        # instead of failing /api/runtime-config for every learner.
+        return False
 
 
 def enabled_payment_provider_list() -> list[str]:
@@ -104,6 +120,10 @@ def resolve_payment_channel(
         provider_from_channel = requested_channel_lower
     elif requested_channel:
         provider_from_channel = _provider_for_channel(requested_channel_lower)
+        if not provider_from_channel and not requested_payment_channel:
+            # An unknown channel (e.g. the retired Ping++ "wx_wap") must not
+            # fall through to whichever provider happens to be the default.
+            raise_error("server.pay.payChannelNotSupport")
 
     target_provider = requested_payment_channel or provider_from_channel
 
@@ -196,6 +216,8 @@ def _provider_for_channel(channel: str) -> str:
         return "alipay"
     if channel in {"wx_pub_qr", "wx_pub"}:
         return "wechatpay"
+    if channel in _STRIPE_CHANNELS:
+        return "stripe"
     return ""
 
 

@@ -21,7 +21,7 @@ The first payment surfaces are Alipay QR, WeChat Native QR, and WeChat JSAPI. We
 
 ## Provider Selection
 
-`PAYMENT_CHANNELS_ENABLED` accepts `alipay`, `wechatpay` and `stripe`, in the order the client should offer them. Unknown names, including the retired `pingxx`, are ignored. When it is empty, every provider whose complete credentials are configured is enabled: Alipay needs the app ID, app private key and Alipay public key; WeChat Pay needs the app ID, merchant ID, merchant serial number, APIv3 key, private key and a platform certificate or WeChat Pay public key; Stripe needs its secret key (keys may be inline or a file path). Billing discount campaigns use the same effective list to decide whether Stripe coupons must be published first.
+`PAYMENT_CHANNELS_ENABLED` accepts `alipay`, `wechatpay` and `stripe`, in the order the client should offer them. Unknown names, including the retired `pingxx`, are ignored. When it is empty, every provider whose complete credentials are configured is enabled: Alipay needs the app ID, app private key and Alipay public key; WeChat Pay needs the app ID, merchant ID, merchant serial number, APIv3 key, private key, and either a platform certificate or a WeChat Pay public key together with `WECHATPAY_PUBLIC_KEY_ID`; Stripe needs its secret key (keys may be inline or a file path). A stored credential that cannot be decrypted counts as missing, so it never breaks `/api/runtime-config`. Without a provider hint, an unknown channel such as the retired `wx_wap` is rejected rather than routed to the default provider. Billing discount campaigns use the same effective list to decide whether Stripe coupons must be published first.
 
 Channel resolution:
 
