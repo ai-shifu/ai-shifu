@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -20,10 +21,14 @@ from .base import (
     PaymentRefundRequest,
     PaymentRefundResult,
     PaymentRequest,
+    payment_request_expires_at,
 )
 
 if TYPE_CHECKING:
     from flask import Flask
+
+
+_DEFAULT_TIMEOUT_EXPRESS = "15m"
 
 
 class AlipayProvider(PaymentProvider):
@@ -46,9 +51,7 @@ class AlipayProvider(PaymentProvider):
         biz_model.total_amount = _format_cny_amount(request.amount)
         biz_model.subject = request.subject or request.order_bid
         biz_model.body = request.body or request.subject or request.order_bid
-        biz_model.timeout_express = str(
-            (request.extra or {}).get("timeout_express") or "15m"
-        )
+        biz_model.timeout_express = _timeout_express(request)
 
         precreate_request = sdk["AlipayTradePrecreateRequest"](biz_model=biz_model)
         notify_url = (
@@ -326,6 +329,24 @@ def _read_required_key(config_name: str, inline_config_name: str = "") -> str:
     if not path.exists():
         raise FileNotFoundError(key_path)
     return path.read_text(encoding="utf-8").strip()
+
+
+def _timeout_express(request: PaymentRequest) -> str:
+    """Return how long the QR code may be paid, never past the order deadline.
+
+    Alipay only accepts whole minutes, so round down: the code must expire no
+    later than the order, otherwise a learner could pay an order we already
+    treat as timed out.
+    """
+    explicit = str((request.extra or {}).get("timeout_express") or "").strip()
+    if explicit:
+        return explicit
+    expires_at = payment_request_expires_at(request)
+    if expires_at is None:
+        return _DEFAULT_TIMEOUT_EXPRESS
+    remaining = expires_at - dt.datetime.now(dt.UTC)
+    minutes = int(remaining.total_seconds() // 60)
+    return f"{max(minutes, 1)}m"
 
 
 def _format_cny_amount(amount: int) -> str:

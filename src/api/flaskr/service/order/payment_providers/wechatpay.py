@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import json
 import secrets
 import time
@@ -27,6 +28,7 @@ from .base import (
     PaymentRefundRequest,
     PaymentRefundResult,
     PaymentRequest,
+    payment_request_expires_at,
 )
 
 if TYPE_CHECKING:
@@ -39,6 +41,9 @@ if TYPE_CHECKING:
 
 _PUBLIC_KEY_ID_PREFIX = "PUB_KEY_ID_"
 _SIGNATURE_MAX_AGE_SECONDS = 300
+# WeChat Pay rejects a time_expire closer than one minute away.
+_MIN_TIME_EXPIRE_SECONDS = 60
+_CHINA_TZ = dt.timezone(dt.timedelta(hours=8))
 
 
 class WechatPayProvider(PaymentProvider):
@@ -217,7 +222,7 @@ class WechatPayProvider(PaymentProvider):
             str(get_config("WECHATPAY_WEBHOOK_URL", "") or "")
             or build_wechatpay_notify_url()
         )
-        return {
+        body: dict[str, object] = {
             "appid": _wechatpay_app_id(),
             "mchid": _required_config("WECHATPAY_MCH_ID"),
             "description": (request.subject or request.order_bid)[:127],
@@ -228,6 +233,10 @@ class WechatPayProvider(PaymentProvider):
                 "currency": str(request.currency or "CNY").upper(),
             },
         }
+        time_expire = _time_expire(request)
+        if time_expire:
+            body["time_expire"] = time_expire
+        return body
 
     def _request(
         self,
@@ -445,6 +454,19 @@ def _load_platform_certificate() -> x509.Certificate:
 
 def _normalize_serial(serial: str) -> str:
     return serial.strip().upper().lstrip("0")
+
+
+def _time_expire(request: PaymentRequest) -> str:
+    """Format the order deadline as WeChat Pay's RFC 3339 ``time_expire``.
+
+    Without it WeChat keeps the code payable after the order times out here.
+    """
+    expires_at = payment_request_expires_at(request)
+    if expires_at is None:
+        return ""
+    earliest = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=_MIN_TIME_EXPIRE_SECONDS)
+    deadline = max(expires_at, earliest).replace(microsecond=0)
+    return deadline.astimezone(_CHINA_TZ).isoformat()
 
 
 def _load_pem(inline_name: str, path_name: str) -> bytes:

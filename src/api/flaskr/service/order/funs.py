@@ -317,6 +317,17 @@ def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
     return current_time > created_at + dt.timedelta(seconds=pay_order_expire_time)
 
 
+def _order_payment_expires_at(app: Flask, order: Order) -> dt.datetime | None:
+    """Return when an unpaid order times out, for provider-side code expiry."""
+    pay_order_expire_time = app.config.get("PAY_ORDER_EXPIRE_TIME", 10 * 60)
+    if pay_order_expire_time is None or order.created_at is None:
+        return None
+    created_at = order.created_at
+    if created_at.tzinfo is None:
+        created_at = pytz.UTC.localize(created_at)
+    return created_at + dt.timedelta(seconds=int(pay_order_expire_time))
+
+
 @contextmanager
 def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]:
     """Serialize order initialization for a user-course pair to avoid duplicate unpaid orders created by concurrent requests."""
@@ -1601,7 +1612,8 @@ def _generate_alipay_charge(
                 "order_bid": buy_record.order_bid,
                 "user_bid": buy_record.user_bid,
                 "shifu_bid": buy_record.shifu_bid,
-            }
+            },
+            "expires_at": _order_payment_expires_at(app, buy_record),
         },
     )
     _assert_payment_lifecycle_lock_owned()
@@ -1675,7 +1687,8 @@ def _generate_wechatpay_charge(
             "order_bid": buy_record.order_bid,
             "user_bid": buy_record.user_bid,
             "shifu_bid": buy_record.shifu_bid,
-        }
+        },
+        "expires_at": _order_payment_expires_at(app, buy_record),
     }
     if channel == "wx_pub":
         user = load_user_aggregate(buy_record.user_bid)
