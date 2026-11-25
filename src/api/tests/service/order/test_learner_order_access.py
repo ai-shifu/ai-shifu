@@ -1,6 +1,6 @@
 """Regression coverage for learner order ownership and mutable states."""
 
-from datetime import timedelta
+from datetime import timedelta, timezone
 from decimal import Decimal
 from threading import Event
 from types import SimpleNamespace
@@ -322,6 +322,162 @@ def test_native_success_during_repricing_completes_the_order(
             Order.query.filter_by(order_bid=order_bid).one().status
             == ORDER_STATUS_SUCCESS
         )
+
+
+def _seed_native_attempt(
+    order: Order,
+    provider: str,
+    attempt: str,
+    *,
+    status: int,
+) -> None:
+    model = AlipayOrder if provider == "alipay" else WechatPayOrder
+    db.session.add(
+        model(
+            **{
+                f"{provider}_order_bid": f"{attempt}-snapshot",
+                "biz_domain": "order",
+                "order_bid": order.order_bid,
+                "user_bid": order.user_bid,
+                "shifu_bid": order.shifu_bid,
+                "provider_attempt_id": attempt,
+                "amount": 20000,
+                "currency": "CNY",
+                "status": status,
+                "raw_status": "pending" if status == 0 else "closed",
+            }
+        )
+    )
+
+
+def _paid_payload(provider: str, paid_at: object) -> dict[str, object]:
+    china = paid_at.astimezone(timezone(timedelta(hours=8)))
+    if provider == "alipay":
+        return {
+            "trade_status": "TRADE_SUCCESS",
+            "total_amount": "200.00",
+            "gmt_payment": china.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    return {
+        "trade_state": "SUCCESS",
+        "amount": {"total": 20000},
+        "success_time": china.isoformat(timespec="seconds"),
+    }
+
+
+def _notify_paid(app: object, provider: str, attempt: str, paid_at: object) -> bool:
+    return success_buy_record_from_native(
+        app,
+        provider,
+        PaymentNotificationResult(
+            order_bid=attempt,
+            status="paid",
+            provider_payload=_paid_payload(provider, paid_at),
+            charge_id=f"{attempt}-transaction",
+        ),
+    )
+
+
+def _quiet_order_side_effects(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    granted: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu",
+        lambda _app, order_bid: granted.append(order_bid),
+    )
+    monkeypatch.setattr("flaskr.service.order.funs.set_user_state", lambda *_args: None)
+    return granted
+
+
+@pytest.mark.parametrize("provider", ["alipay", "wechatpay"])
+def test_paid_superseded_native_attempt_completes_the_order(
+    app: object, monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    """A code shown before switching payment method still grants the course."""
+    granted = _quiet_order_side_effects(monkeypatch)
+    with app.app_context():
+        order = _seed_order(
+            order_bid=f"superseded-{provider}-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="wechatpay",
+        )
+        _seed_native_attempt(order, provider, f"{provider}-old", status=3)
+        _seed_native_attempt(
+            order, "wechatpay", f"wechatpay-latest-{provider}", status=0
+        )
+        db.session.commit()
+        order_bid = order.order_bid
+
+    assert _notify_paid(app, provider, f"{provider}-old", now_utc()) is True
+
+    with app.app_context():
+        assert Order.query.filter_by(order_bid=order_bid).one().status == (
+            ORDER_STATUS_SUCCESS
+        )
+    assert granted == [order_bid]
+
+
+@pytest.mark.parametrize("provider", ["alipay", "wechatpay"])
+@pytest.mark.parametrize(
+    ("paid_after_deadline", "expected_status"),
+    [(False, ORDER_STATUS_SUCCESS), (True, ORDER_STATUS_TIMEOUT)],
+)
+def test_timed_out_order_accepts_only_payments_made_before_its_deadline(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    paid_after_deadline: bool,
+    expected_status: int,
+) -> None:
+    _quiet_order_side_effects(monkeypatch)
+    monkeypatch.setitem(app.config, "PAY_ORDER_EXPIRE_TIME", 1800)
+    with app.app_context():
+        order = _seed_order(
+            order_bid=f"timeout-{provider}-{paid_after_deadline}",
+            status=ORDER_STATUS_TIMEOUT,
+            payment_channel=provider,
+        )
+        created_at = now_utc() - timedelta(hours=1)
+        order.created_at = created_at.replace(tzinfo=None)
+        _seed_native_attempt(
+            order, provider, f"{provider}-late-{paid_after_deadline}", status=0
+        )
+        db.session.commit()
+        order_bid = order.order_bid
+
+    deadline = created_at + timedelta(seconds=1800)
+    paid_at = deadline + timedelta(seconds=1 if paid_after_deadline else -60)
+    _notify_paid(app, provider, f"{provider}-late-{paid_after_deadline}", paid_at)
+
+    with app.app_context():
+        assert Order.query.filter_by(order_bid=order_bid).one().status == (
+            expected_status
+        )
+
+
+def test_second_paid_attempt_on_a_paid_order_is_not_granted_again(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    granted = _quiet_order_side_effects(monkeypatch)
+    with app.app_context():
+        order = _seed_order(
+            order_bid="double-paid-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="wechatpay",
+        )
+        _seed_native_attempt(order, "alipay", "double-alipay", status=3)
+        _seed_native_attempt(order, "wechatpay", "double-wechat", status=0)
+        db.session.commit()
+
+    assert _notify_paid(app, "wechatpay", "double-wechat", now_utc()) is True
+    assert _notify_paid(app, "alipay", "double-alipay", now_utc()) is True
+    assert _notify_paid(app, "alipay", "double-alipay", now_utc()) is True
+
+    assert granted == ["double-paid-order"]
+    with app.app_context():
+        snapshot = AlipayOrder.query.filter_by(
+            provider_attempt_id="double-alipay"
+        ).one()
+        assert snapshot.status == 1
 
 
 def test_pingxx_success_during_repricing_completes_the_order(

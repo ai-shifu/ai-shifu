@@ -89,6 +89,8 @@ Both flows are idempotent:
 - Duplicate notifications update the raw snapshot but do not duplicate wallet grants or course purchase effects.
 - Amount mismatch raises an error and the callback returns provider-specific failure output.
 
+For learner course orders, any paid attempt of the order completes it, not only the latest one: a learner may pay a code shown before switching payment method, and that code is still valid because codes expire with the order. A pending or repricing order is completed directly. An order already flipped to timeout (the learner reopened checkout after the deadline) is completed only when the provider's payment time (`success_time` for WeChat Pay, `gmt_payment`/`send_pay_date` for Alipay) is no later than the order deadline. A paid attempt on an order that is already paid is not granted again and is logged as `duplicate native payment needs a manual refund`.
+
 ## Frontend Behavior
 
 Learner checkout:
