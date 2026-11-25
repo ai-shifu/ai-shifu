@@ -229,19 +229,20 @@ def test_risk_rejection_rolls_back_new_revision_outline_deletions_and_history(
 
 @pytest.mark.parametrize("replace_existing", [False, True])
 @pytest.mark.parametrize(
-    "content",
+    ("content", "error_key"),
     [
-        "?[{{ sys_custom }} ...Answer]",
-        "?[%{{sys_custom}} Yes | No]",
-        "Remember a name in %{{sys_user_nickname}}.",
+        ("?[{{ sys_custom }} ...Answer]", "server.profile.keyReserved"),
+        ("?[%{{sys_custom}} Yes | No]", "server.profile.keyReserved"),
+        ("Remember a name in %{{sys_user_nickname}}.", "server.profile.keyReserved"),
     ],
 )
-def test_import_rejects_system_declarations_before_risk_checks_or_persistence(
+def test_import_rejects_invalid_questions_before_risk_checks_or_persistence(
     app: object,
     import_owner: str,
     monkeypatch: pytest.MonkeyPatch,
     replace_existing: bool,
     content: str,
+    error_key: str,
 ) -> None:
     bid = (
         transfers.import_shifu(app, None, _file(_payload()), import_owner)
@@ -268,7 +269,7 @@ def test_import_rejects_system_declarations_before_risk_checks_or_persistence(
     with pytest.raises(AppError) as error:
         transfers.import_shifu(app, bid, _file(payload), import_owner)
 
-    assert error.value.code == ERROR_CODE["server.profile.keyReserved"]
+    assert error.value.code == ERROR_CODE[error_key]
     risk_check.assert_not_called()
     with app.app_context():
         assert (
@@ -285,6 +286,23 @@ def test_import_rejects_system_declarations_before_risk_checks_or_persistence(
             LogDraftStruct.query.filter_by(created_user_bid=import_owner).count()
             == history_count
         )
+
+
+def test_import_keeps_overlong_questions_as_draft_content(
+    app: object, import_owner: str
+) -> None:
+    payload = _payload()
+    content = "?[{{" + "q" * 201 + "}} ...Answer]"
+    payload["outline_items"][-1]["content"] = content
+
+    bid = transfers.import_shifu(app, None, _file(payload), import_owner)
+
+    with app.app_context():
+        contents = {
+            row.content
+            for row in DraftOutlineItem.query.filter_by(shifu_bid=bid, deleted=0)
+        }
+    assert content in contents
 
 
 def test_import_preserves_system_variable_references(

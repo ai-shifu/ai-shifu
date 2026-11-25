@@ -684,3 +684,35 @@ context are handled separately by the shared transport.
   operations recovery reporting, grouped by surface. The events measure
   outline recovery, without inferring that teaching started. No backfill or
   dual writing. Analytics is best-effort and never affects the retry.
+
+## Editor question length warning
+
+- Business question and metric: How often do teachers write a `{{ }}` question
+  longer than the 200-character publish limit, and by how much? Count warning
+  exposures per lesson editing scope and read `longest_length` to judge whether
+  the limit is set too tight. This does not prove the teacher read or fixed it.
+- Event: `creator_question_length_warning_shown`, emitted from a post-commit
+  effect when the open lesson's content goes from no overlong questions to at
+  least one, including when a lesson loads with one already present. Changes
+  that keep the warning visible do not count again.
+- Population: Users editing a loaded lesson in the course editor. Chapter
+  nodes, unloaded content, the loading state and the lesson history page are
+  excluded, so tracking uses the same condition as rendering the alert.
+  Questions inside fenced code blocks or HTML comments are not counted,
+  matching the backend publish check.
+- Deduplication: Once per transition into the warning state within one
+  course-and-lesson editing scope, held in a component ref. Fixing every
+  overlong question and introducing a new one starts a new exposure; switching
+  lessons resets the scope. No persistent deduplication.
+- Complete feature payload: `{ overlong_count: number, longest_length: number }`,
+  both finite positive integers counted in Unicode code points. Never send the
+  question text, a preview, course or lesson titles or identifiers, or errors.
+- Consumer and compatibility: Aggregate exposure counts and the
+  `longest_length` distribution in Umami. This additive event has no
+  predecessor or repository-owned consumer to migrate.
+- Delivery: Use `useTracking` without awaiting. Missing analytics or a failed
+  delivery never hides the warning, and the warning never blocks autosave;
+  the backend publish check remains the source of truth.
+- Verification: Exact name and payload, absence of question text, transition
+  and re-entry deduplication, chapter and at-limit exclusions, and unavailable
+  analytics.

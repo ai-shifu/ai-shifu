@@ -5,6 +5,8 @@
     "descriptionSuffix": "Format schreiben, um der KI Anweisungen für den Unterricht zu geben",
     "modeCode": "Professionell",
     "modeText": "Freundlich",
+    "questionTooLongItem": "„{preview}…“ ({length}/{max})",
+    "questionTooLongTitle": "{count, plural, one {# Frage ist länger als {max} Zeichen} other {# Fragen sind länger als {max} Zeichen}}. Kürzen Sie sie vor dem Veröffentlichen; Entwürfe werden weiterhin gespeichert.",
     "title": "Lehranweisungen"
   },
   "history": {

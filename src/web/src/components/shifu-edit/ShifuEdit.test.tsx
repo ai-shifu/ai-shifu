@@ -1248,6 +1248,137 @@ describe('ShifuEdit draft conflict checks', () => {
     );
   });
 
+  describe('overlong question warning', () => {
+    const overlongQuestion = `Which topic ${'q'.repeat(189)}`;
+    const warningCalls = () =>
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'creator_question_length_warning_shown',
+      );
+
+    test('shows the warning and tracks one allowlisted exposure', () => {
+      setLessonNode();
+      mockShifuState.mdflow = `?[{{${overlongQuestion}}} ...Answer]\n\n{{${'问'.repeat(250)}}} {{short}}`;
+
+      const { rerender } = render(<ScriptEditor id='shifu-1' />);
+
+      expect(screen.getByTestId('overlong-questions-alert')).toHaveAttribute(
+        'role',
+        'status',
+      );
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+      expect(warningCalls()).toEqual([
+        [
+          'creator_question_length_warning_shown',
+          { overlong_count: 2, longest_length: 250 },
+        ],
+      ]);
+      const serialized = JSON.stringify(warningCalls()[0][1]);
+      expect(serialized).not.toContain('Which topic');
+      expect(serialized).not.toContain('问');
+
+      rerender(<ScriptEditor id='shifu-1' />);
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+      rerender(<ScriptEditor id='shifu-1' />);
+
+      expect(warningCalls()).toHaveLength(1);
+    });
+
+    test('tracks again only after the warning was resolved and reappears', () => {
+      setLessonNode();
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+      const { rerender } = render(<ScriptEditor id='shifu-1' />);
+
+      mockShifuState.mdflow = `{{${'q'.repeat(200)}}}`;
+      rerender(<ScriptEditor id='shifu-1' />);
+      expect(
+        screen.queryByTestId('overlong-questions-alert'),
+      ).not.toBeInTheDocument();
+
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+      rerender(<ScriptEditor id='shifu-1' />);
+
+      expect(warningCalls()).toHaveLength(2);
+    });
+
+    test('stays silent for questions at the limit and for chapters', () => {
+      setLessonNode();
+      mockShifuState.mdflow = `?[{{${'😀'.repeat(200)}}} ...Answer]`;
+      const { unmount } = render(<ScriptEditor id='shifu-1' />);
+      expect(
+        screen.queryByTestId('overlong-questions-alert'),
+      ).not.toBeInTheDocument();
+      unmount();
+
+      mockShifuState.currentNode = {
+        bid: 'chapter-1',
+        id: 'chapter-1',
+        depth: 0,
+        name: 'Chapter 1',
+        children: [],
+      };
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+      render(<ScriptEditor id='shifu-1' />);
+
+      expect(
+        screen.queryByTestId('overlong-questions-alert'),
+      ).not.toBeInTheDocument();
+      expect(warningCalls()).toHaveLength(0);
+    });
+
+    test('waits for loading to finish before showing or tracking', () => {
+      setLessonNode();
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+      mockShifuState.isLoading = true;
+      try {
+        const { rerender } = render(<ScriptEditor id='shifu-1' />);
+        expect(
+          screen.queryByTestId('overlong-questions-alert'),
+        ).not.toBeInTheDocument();
+        expect(warningCalls()).toHaveLength(0);
+
+        mockShifuState.isLoading = false;
+        rerender(<ScriptEditor id='shifu-1' />);
+        expect(
+          screen.getByTestId('overlong-questions-alert'),
+        ).toBeInTheDocument();
+        expect(warningCalls()).toHaveLength(1);
+      } finally {
+        mockShifuState.isLoading = false;
+      }
+    });
+
+    test('does not track on the history page', () => {
+      setLessonNode();
+      baseActions.loadMdflowHistory.mockResolvedValue({ items: [] });
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+
+      render(
+        <ScriptEditor
+          id='shifu-1'
+          initialViewMode='history'
+        />,
+      );
+
+      expect(
+        screen.queryByTestId('overlong-questions-alert'),
+      ).not.toBeInTheDocument();
+      expect(warningCalls()).toHaveLength(0);
+    });
+
+    test('keeps the warning when analytics is unavailable', () => {
+      setLessonNode();
+      mockTrackEvent.mockResolvedValue(false);
+      mockShifuState.mdflow = `{{${overlongQuestion}}}`;
+
+      render(<ScriptEditor id='shifu-1' />);
+
+      expect(
+        screen.getByTestId('overlong-questions-alert'),
+      ).toBeInTheDocument();
+      expect(warningCalls()).toHaveLength(1);
+    });
+  });
+
   test('tracks history entry clicks for the current lesson', async () => {
     setLessonNode();
 

@@ -45,6 +45,7 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.question_validation import (
     assert_course_question_names_allowed,
+    assert_course_question_names_within_limit,
 )
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
@@ -134,9 +135,9 @@ def publish_shifu_draft(
             raise_error("server.shifu.shifuNotFound")
         outline_items = load_existing_outline_items(shifu_id, include_content=True)
         for outline in outline_items:
-            assert_course_question_names_allowed(
-                MarkdownFlowDocument(outline.content or "")
-            )
+            document = MarkdownFlowDocument(outline.content or "")
+            assert_course_question_names_allowed(document)
+            assert_course_question_names_within_limit(document)
         normalized_provider_config, live_contract_error = (
             normalize_live_follow_up_course_config(
                 course_model=course_model_selection(selection_model(shifu_draft))[

@@ -3,6 +3,7 @@
   "__flat__": {
     "keyInvalid": "无法保存记忆：问题不能为空，且不能包含控制字符或「}}」。",
     "keyReserved": "sys_ 前缀为系统字段保留。",
+    "keyTooLong": "问题过长（{length}/{max_length} 字）：「{preview}…」。请缩短到 {max_length} 字以内后重试。",
     "language": "语言",
     "learnerProfileOptimizationEmptyResponse": "AI 没有返回优化后的内容，请重试",
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",

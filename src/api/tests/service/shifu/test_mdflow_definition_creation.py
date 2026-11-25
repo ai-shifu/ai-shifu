@@ -302,3 +302,21 @@ def test_restore_rejects_historical_system_question_without_new_revision(
 
     assert exc_info.value.code == ERROR_CODE["server.profile.keyReserved"]
     assert _committed_course_rows(app, DraftOutlineItem, draft_course.bid) == before
+
+
+def test_save_keeps_draft_with_overlong_question_but_defers_its_definition(
+    app: Flask, draft_course: SimpleNamespace
+) -> None:
+    overlong = "q" * 201
+    limit_key = "问" * 200
+    content = f"?[{{{{{overlong}}}}} ...Answer]\n\n?[{{{{{limit_key}}}}} ...Answer]"
+
+    result = mdflow.save_shifu_mdflow(
+        app, draft_course.owner, draft_course.bid, draft_course.outline_bid, content
+    )
+
+    assert result["conflict"] is False
+    outlines = _committed_course_rows(app, DraftOutlineItem, draft_course.bid)
+    assert content in {row.content for row in outlines}
+    definitions = _committed_course_rows(app, Variable, draft_course.bid)
+    assert [row.key for row in definitions] == [limit_key]

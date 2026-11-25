@@ -3,6 +3,7 @@
   "__flat__": {
     "keyInvalid": "Impossible d’enregistrer cette mémoire : la question ne peut pas être vide ni contenir de caractères de contrôle ou « }} ».",
     "keyReserved": "Le préfixe sys_ est réservé aux champs système.",
+    "keyTooLong": "Une question est trop longue ({length}/{max_length} caractères) : « {preview}… ». Raccourcissez-la à {max_length} caractères maximum, puis réessayez.",
     "language": "Langue",
     "learnerProfileOptimizationEmptyResponse": "L’IA n’a renvoyé aucun contenu optimisé. Réessayez.",
     "learnerProfileOptimizationFailed": "Le service d’optimisation par IA a rencontré une erreur. Réessayez plus tard.",

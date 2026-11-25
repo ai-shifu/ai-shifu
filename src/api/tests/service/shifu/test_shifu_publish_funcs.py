@@ -410,10 +410,16 @@ def test_publish_rejects_invalid_live_contract_before_retiring_current_version(
 
 
 @pytest.mark.parametrize(
-    "content", ["?[{{ sys_custom }} ...Answer]", "?[%{{sys_custom}} Yes | No]"]
+    ("content", "error_key"),
+    [
+        ("?[{{ sys_custom }} ...Answer]", "server.profile.keyReserved"),
+        ("?[%{{sys_custom}} Yes | No]", "server.profile.keyReserved"),
+        ("?[{{" + "问" * 201 + "}} ...Answer]", "server.profile.keyTooLong"),
+        ("Hello {{" + "q" * 201 + "}}.", "server.profile.keyTooLong"),
+    ],
 )
-def test_publish_rejects_system_question_keys_before_retiring_current_version(
-    app: object, monkeypatch: pytest.MonkeyPatch, content: str
+def test_publish_rejects_invalid_question_keys_before_retiring_current_version(
+    app: object, monkeypatch: pytest.MonkeyPatch, content: str, error_key: str
 ) -> None:
     from flaskr.service.shifu import shifu_publish_funcs as module
 
@@ -456,7 +462,7 @@ def test_publish_rejects_system_question_keys_before_retiring_current_version(
             base_url="https://example.com",
         )
 
-    assert error.value.code == ERROR_CODE["server.profile.keyReserved"]
+    assert error.value.code == ERROR_CODE[error_key]
     summary.assert_not_called()
     background_thread.assert_not_called()
     with app.app_context():

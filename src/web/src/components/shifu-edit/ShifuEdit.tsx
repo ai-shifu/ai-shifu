@@ -51,6 +51,8 @@ import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
 import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editor-onboarding-steps';
 import OutlineTree from '@/components/outline-tree';
 import DraftConflictDialog from './DraftConflictDialog';
+import { OverlongQuestionsAlert } from './OverlongQuestionsAlert';
+import { findOverlongQuestions } from './question-length';
 import Loading from '../loading';
 import Header from '../header';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
@@ -1313,6 +1315,41 @@ const ScriptEditor = ({
     [mdflow],
   );
 
+  const overlongQuestions = useMemo(
+    () => findOverlongQuestions(mdflow),
+    [mdflow],
+  );
+  const isOverlongQuestionWarningVisible =
+    isLessonNode &&
+    isMdflowLoaded &&
+    !isLoading &&
+    !isHistoryPage &&
+    overlongQuestions.length > 0;
+  const overlongQuestionWarningRef = useRef({ scope: '', visible: false });
+
+  useEffect(() => {
+    const previous = overlongQuestionWarningRef.current;
+    const wasVisible = previous.scope === editorScopeKey && previous.visible;
+    overlongQuestionWarningRef.current = {
+      scope: editorScopeKey,
+      visible: isOverlongQuestionWarningVisible,
+    };
+    if (!isOverlongQuestionWarningVisible || wasVisible) {
+      return;
+    }
+    trackEvent('creator_question_length_warning_shown', {
+      overlong_count: overlongQuestions.length,
+      longest_length: Math.max(
+        ...overlongQuestions.map(question => question.length),
+      ),
+    });
+  }, [
+    editorScopeKey,
+    isOverlongQuestionWarningVisible,
+    overlongQuestions,
+    trackEvent,
+  ]);
+
   const resolvedDebugVariableValues = useMemo(() => {
     const candidates = [debugVariableValues, debugItems[0]?.variables];
     for (const candidate of candidates) {
@@ -1887,6 +1924,9 @@ const ScriptEditor = ({
                       <Columns2 className='h-4 w-4' />
                     </Button>
                   )}
+                  {isOverlongQuestionWarningVisible ? (
+                    <OverlongQuestionsAlert questions={overlongQuestions} />
+                  ) : null}
                   {isLoading ? (
                     <div className='h-40 flex items-center justify-center'>
                       <Loading />

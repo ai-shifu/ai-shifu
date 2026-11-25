@@ -5,6 +5,8 @@
     "descriptionSuffix": "pour guider l’enseignement par IA",
     "modeCode": "Pro",
     "modeText": "Simple",
+    "questionTooLongItem": "« {preview}… » ({length}/{max})",
+    "questionTooLongTitle": "{count, plural, one {# question dépasse {max} caractères} other {# questions dépassent {max} caractères}}. Raccourcissez-les avant de publier ; le brouillon reste enregistré.",
     "title": "Prompts pédagogiques"
   },
   "history": {

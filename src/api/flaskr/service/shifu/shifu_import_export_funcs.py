@@ -218,6 +218,7 @@ def import_shifu(
             content = item.get("content", "")
             if not isinstance(content, str):
                 raise_error("server.shifu.importFileInvalid")
+            # Overlong questions import as drafts, like autosave; publish rejects them.
             assert_course_question_names_allowed(MarkdownFlowDocument(content))
             assert_no_new_system_declarations(content)
         structure_data = import_data.get("structure")
