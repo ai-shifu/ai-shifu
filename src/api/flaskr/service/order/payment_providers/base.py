@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from flaskr.service.common.models import raise_error
+
 
 @dataclass(slots=True)
 class PaymentRequest:
@@ -39,29 +41,27 @@ def payment_request_expires_at(request: PaymentRequest) -> dt.datetime | None:
     return value.astimezone(dt.UTC)
 
 
-# Shortest payable window a native provider accepts (WeChat Pay requires one
-# minute). An order with less time left cannot get a code that expires with it.
-MIN_PAYMENT_WINDOW_SECONDS = 60
-
-
-class PaymentWindowExpiredError(RuntimeError):
-    """Raised before provider I/O when the order deadline is too close."""
+# Shortest order lifetime left at which a native payment code may be issued.
+# WeChat Pay moves any time_expire earlier than "received + 1 minute" to that
+# point, so keep one minute plus a margin that covers signing and the 10 s
+# provider HTTP timeout; the code then never outlives the order.
+MIN_PAYMENT_WINDOW_SECONDS = 120
 
 
 def remaining_payment_window(request: PaymentRequest) -> dt.timedelta | None:
     """Return the time left before the order deadline, rejecting short windows.
 
-    Returns ``None`` when the request carries no deadline. Raises
-    ``PaymentWindowExpiredError`` when less than ``MIN_PAYMENT_WINDOW_SECONDS``
-    remain, so no provider code is issued that could outlive the order.
+    Returns ``None`` when the request carries no deadline. Raises the
+    ``server.order.orderPayExpired`` application error when less than
+    ``MIN_PAYMENT_WINDOW_SECONDS`` remain, before any provider I/O, so the
+    learner is told to place a new order.
     """
     expires_at = payment_request_expires_at(request)
     if expires_at is None:
         return None
     remaining = expires_at - dt.datetime.now(dt.UTC)
     if remaining.total_seconds() < MIN_PAYMENT_WINDOW_SECONDS:
-        message = "Order payment window has expired"
-        raise PaymentWindowExpiredError(message)
+        raise_error("server.order.orderPayExpired")
     return remaining
 
 

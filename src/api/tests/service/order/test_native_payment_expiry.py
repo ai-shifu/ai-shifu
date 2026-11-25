@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.order import funs
 from flaskr.service.order.payment_providers import alipay, wechatpay
 from flaskr.service.order.payment_providers.base import (
     PaymentRequest,
-    PaymentWindowExpiredError,
     payment_request_expires_at,
 )
 
@@ -29,6 +29,9 @@ def _request(**extra: object) -> PaymentRequest:
         client_ip="127.0.0.1",
         extra=dict(extra),
     )
+
+
+_EXPIRED_CODE = ERROR_CODE["server.order.orderPayExpired"]
 
 
 def _utcnow() -> dt.datetime:
@@ -56,19 +59,21 @@ def test_wechat_time_expire_uses_the_order_deadline_in_china_time() -> None:
 
 
 @pytest.mark.parametrize(
-    "remaining", [dt.timedelta(seconds=59), dt.timedelta(minutes=-5)]
+    "remaining",
+    [dt.timedelta(seconds=59), dt.timedelta(seconds=119), dt.timedelta(minutes=-5)],
 )
-def test_wechat_rejects_orders_without_a_full_minute_left(
+def test_wechat_rejects_orders_too_close_to_their_deadline(
     remaining: dt.timedelta,
 ) -> None:
     request = _request(expires_at=_utcnow() + remaining)
 
-    with pytest.raises(PaymentWindowExpiredError):
+    with pytest.raises(AppError) as error:
         wechatpay._time_expire(request)
+    assert error.value.code == _EXPIRED_CODE
 
 
 def test_wechat_time_expire_never_extends_a_short_window() -> None:
-    deadline = (_utcnow() + dt.timedelta(seconds=90)).replace(microsecond=0)
+    deadline = (_utcnow() + dt.timedelta(seconds=150)).replace(microsecond=0)
 
     value = wechatpay._time_expire(_request(expires_at=deadline))
 
@@ -99,7 +104,7 @@ def test_wechat_body_omits_time_expire_without_a_deadline(
     ("remaining", "expected"),
     [
         (dt.timedelta(minutes=29, seconds=40), "29m"),
-        (dt.timedelta(seconds=90), "1m"),
+        (dt.timedelta(seconds=150), "2m"),
     ],
 )
 def test_alipay_timeout_rounds_down_to_the_order_deadline(
@@ -111,13 +116,15 @@ def test_alipay_timeout_rounds_down_to_the_order_deadline(
 
 
 @pytest.mark.parametrize(
-    "remaining", [dt.timedelta(seconds=30), dt.timedelta(minutes=-5)]
+    "remaining",
+    [dt.timedelta(seconds=30), dt.timedelta(seconds=119), dt.timedelta(minutes=-5)],
 )
-def test_alipay_rejects_orders_without_a_full_minute_left(
+def test_alipay_rejects_orders_too_close_to_their_deadline(
     remaining: dt.timedelta,
 ) -> None:
-    with pytest.raises(PaymentWindowExpiredError):
+    with pytest.raises(AppError) as error:
         alipay._timeout_express(_request(expires_at=_utcnow() + remaining))
+    assert error.value.code == _EXPIRED_CODE
 
 
 def test_alipay_timeout_keeps_explicit_and_default_values() -> None:
