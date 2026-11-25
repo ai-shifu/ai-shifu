@@ -91,7 +91,13 @@ Both flows are idempotent:
 
 For learner course orders, any paid attempt of the order completes it, not only the latest one: a learner may pay a code shown before switching payment method, and that code is still valid because codes expire with the order. A pending or repricing order is completed directly. An order already flipped to timeout (the learner reopened checkout after the deadline) is completed only when the provider's payment time (`success_time` for WeChat Pay, `gmt_payment`/`send_pay_date` for Alipay) is no later than the order deadline. When a course order is paid, everything else the learner could still pay for that course is retired in the same transaction: other open orders of the same learner and course are timed out (coupons and campaigns released as on a normal timeout), and after commit the still-pending native attempts of the paid order and of those orders are closed at the provider. Closing is best effort and never undoes the purchase.
 
-A paid attempt on an order that is already paid (from the webhook or from a payment sync) is not granted again: it is logged as `duplicate native payment needs a manual refund` and sends a `重复支付告警` Feishu alert with the order, attempt and transaction IDs so operations can refund it in the merchant console.
+The webhook and payment sync apply the same rules to a paid attempt (`_apply_paid_native_attempt`):
+
+- If this order, or another order of the same learner and course, is already paid, the course is not granted again; the payment is logged as `duplicate native payment needs a manual refund` and a `重复支付告警` Feishu alert is sent. This also covers a sibling retired by the purchase whose own code was paid in time.
+- Otherwise the course is granted when the provider amount matches the attempt, the attempt matches the order's current price, and the order may still complete (pending, repricing, or timed out with a payment time no later than the deadline).
+- Any other paid attempt (price changed, paid after the deadline) is logged as `paid native attempt not applied` and sends a `支付未入账告警` alert for a manual grant or refund.
+
+Sibling retirement locks other open orders with `SKIP LOCKED` in `id` order, so two concurrent payment flows for the same course never wait on each other; a sibling skipped that way is caught by the duplicate check if it is paid too. An Alipay close whose request failed in transport is only accepted when the trade query reports `TRADE_CLOSED`; `ACQ.TRADE_NOT_EXIST` alone does not prove the close reached Alipay.
 
 ## Frontend Behavior
 

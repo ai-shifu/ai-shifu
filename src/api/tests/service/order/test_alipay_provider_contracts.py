@@ -312,29 +312,27 @@ def test_close_failure_requires_a_verified_closed_trade(
             assert error.value is failure
 
 
-@pytest.mark.parametrize("close_exception", [False, True])
-def test_close_treats_an_unscanned_precreate_as_cancelled(
-    close_exception: bool, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    provider = alipay.AlipayProvider()
-    not_exist = {
+def _not_exist_trade() -> dict[str, str]:
+    return {
         "code": "40004",
         "msg": "Business Failed",
         "sub_code": "ACQ.TRADE_NOT_EXIST",
         "sub_msg": "交易不存在",
     }
-    close = (
-        Mock(side_effect=RuntimeError("close transport failed"))
-        if close_exception
-        else Mock(return_value={"alipay_trade_close_response": not_exist})
-    )
+
+
+def test_close_treats_an_unscanned_precreate_as_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = alipay.AlipayProvider()
+    close = Mock(return_value={"alipay_trade_close_response": _not_exist_trade()})
     monkeypatch.setattr(
         provider, "_ensure_client", Mock(return_value=Mock(execute=close))
     )
     monkeypatch.setattr(
         provider,
         "sync_reference",
-        Mock(return_value=Mock(provider_payload={"trade": dict(not_exist)})),
+        Mock(return_value=Mock(provider_payload={"trade": _not_exist_trade()})),
     )
 
     result = provider.cancel_payment(
@@ -345,6 +343,32 @@ def test_close_treats_an_unscanned_precreate_as_cancelled(
 
     assert result.status == "cancelled"
     assert result.raw_response["sub_code"] == "ACQ.TRADE_NOT_EXIST"
+
+
+def test_close_transport_failure_is_not_confirmed_by_a_missing_trade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A close that may never have reached Alipay cannot retire an unscanned code."""
+    provider = alipay.AlipayProvider()
+    failure = RuntimeError("close transport failed")
+    monkeypatch.setattr(
+        provider,
+        "_ensure_client",
+        Mock(return_value=Mock(execute=Mock(side_effect=failure))),
+    )
+    monkeypatch.setattr(
+        provider,
+        "sync_reference",
+        Mock(return_value=Mock(provider_payload={"trade": _not_exist_trade()})),
+    )
+
+    with pytest.raises(RuntimeError) as error:
+        provider.cancel_payment(
+            provider_reference="attempt-test",
+            reference_type="payment",
+            app=Flask(__name__),
+        )
+    assert error.value is failure
 
 
 def test_close_still_fails_for_other_query_errors(

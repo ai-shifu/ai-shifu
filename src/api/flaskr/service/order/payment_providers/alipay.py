@@ -190,9 +190,11 @@ class AlipayProvider(PaymentProvider):
                 app=app,
             )
             payload = dict(notification.provider_payload.get("trade") or {})
+            if close_error is not None and not _trade_is_closed(payload):
+                # The close may never have reached Alipay; an unscanned code
+                # then still reads as "not exist" yet stays payable.
+                raise close_error
             if not _trade_is_closed_or_never_created(payload):
-                if close_error is not None:
-                    raise close_error
                 raise RuntimeError(
                     payload.get("sub_msg")
                     or payload.get("msg")
@@ -331,15 +333,19 @@ def _read_required_key(config_name: str, inline_config_name: str = "") -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
+def _trade_is_closed(trade: dict[str, object]) -> bool:
+    return str(trade.get("trade_status") or "").upper() == "TRADE_CLOSED"
+
+
 def _trade_is_closed_or_never_created(trade: dict[str, object]) -> bool:
     """Return True when an attempt can no longer be paid as an open trade.
 
     A precreate QR code only becomes an Alipay trade once a buyer scans it,
     so closing an unscanned attempt reports ``ACQ.TRADE_NOT_EXIST``. That is
-    the normal case when a learner switches payment method before scanning.
-    The code itself still expires with the order (see ``_timeout_express``).
+    the normal case when a learner switches payment method before scanning;
+    once Alipay has received the close, scanning the code shows it as closed.
     """
-    if str(trade.get("trade_status") or "").upper() == "TRADE_CLOSED":
+    if _trade_is_closed(trade):
         return True
     return str(trade.get("sub_code") or "").upper() == _TRADE_NOT_EXIST
 
