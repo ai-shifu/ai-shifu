@@ -25,10 +25,10 @@ def legacy_llm_rate_aliases(
 ) -> tuple[set[str], list[str]]:
     """Return earlier provider names and model ids for LiteLLM-named identities.
 
-    Rate rows keep the earlier names until migration a3c5e7f9b1d2 runs, so
-    lookups also try these. An earlier-named row ranks below rows under the
-    current names and above ``*`` provider rows, as its renamed row would, so
-    the selected rate is the same before and after the migration. Legacy
+    Rate rows exist only under the earlier names until migration a3c5e7f9b1d2
+    copies them, so lookups also try these. An earlier-named row ranks below
+    rows under the current names and above ``*`` provider rows, as its copy
+    does, so the selected rate is the same before and after the migration. Legacy
     model ids rank below every current model candidate.
     """
     current = {str(provider or "").strip() for provider in providers} - {""}

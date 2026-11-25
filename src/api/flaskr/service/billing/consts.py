@@ -635,12 +635,11 @@ RENAMED_LLM_BILLING_PROVIDERS: dict[str, str] = {
     "silicon": "siliconflow",
 }
 
-# Rate rows keep the earlier names until migration a3c5e7f9b1d2 runs, so rate
-# lookups also match rows under these earlier model id prefixes and this
-# release works in both database states. Code before this release only finds
-# the earlier names, so the migration must wait until every process sharing
-# the database runs this release. Keep these while any environment may hold
-# rate rows under the earlier names.
+# Rate rows exist only under the earlier names until migration a3c5e7f9b1d2
+# copies them to LiteLLM names (it keeps the earlier rows for code before this
+# release), so rate lookups also match rows under these earlier model id
+# prefixes and this release works in both database states. Keep these while
+# any environment may hold rate rows only under the earlier names.
 RENAMED_LLM_MODEL_PREFIXES: dict[str, str] = {
     "qwen/": "dashscope/",
     "glm/": "bigmodel/",

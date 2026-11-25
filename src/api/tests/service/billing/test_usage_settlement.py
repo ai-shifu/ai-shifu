@@ -1828,7 +1828,7 @@ def _load_rate_rename_migration() -> object:
         Path(__file__).resolve().parents[3]
         / "migrations"
         / "versions"
-        / "a3c5e7f9b1d2_rename_llm_rate_providers_to_litellm.py"
+        / "a3c5e7f9b1d2_copy_llm_rates_to_litellm_names.py"
     )
     spec = importlib.util.spec_from_file_location("rate_rename_migration", path)
     assert spec is not None
@@ -1851,7 +1851,7 @@ def _load_rate_rename_migration() -> object:
 )
 # The release and the migration roll out in either order (CN rolls the image
 # first; sim shares CN's database), so the rate must match both before and
-# after the rename.
+# after the copy.
 @pytest.mark.parametrize("run_migration", [True, False])
 def test_migrated_legacy_rate_settles_usage_under_either_model_id(
     billing_settlement_app: Flask,
@@ -1908,7 +1908,7 @@ def test_migrated_legacy_rate_settles_usage_under_either_model_id(
                 ),
                 # Added later (larger id) for the same model under any
                 # provider; the legacy row must win before and after the
-                # migration, as its renamed row does.
+                # migration, as its copy does.
                 _create_rate(
                     rate_bid="rate-migrated-any-provider",
                     usage_type=BILL_USAGE_TYPE_LLM,
@@ -1935,11 +1935,16 @@ def test_migrated_legacy_rate_settles_usage_under_either_model_id(
             monkeypatch.setattr(migration.op, "get_bind", dao.db.session.connection)
             migration.upgrade()
             dao.db.session.commit()
-            migrated = CreditUsageRate.query.filter_by(
+            copied = CreditUsageRate.query.filter(
+                CreditUsageRate.rate_bid.like(migration.COPY_RATE_BID_PREFIX + "%"),
+                CreditUsageRate.provider == "dashscope",
+            ).one()
+            assert not copied.model.startswith("qwen/")
+            # The earlier row stays for processes on the previous release.
+            legacy = CreditUsageRate.query.filter_by(
                 rate_bid="rate-migrated-legacy"
             ).one()
-            assert migrated.provider == "dashscope"
-            assert not migrated.model.startswith("qwen/")
+            assert legacy.provider == "qwen"
 
         payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
 

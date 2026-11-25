@@ -1,4 +1,4 @@
-"""Verify LLM rate providers are renamed to LiteLLM provider names."""
+"""Verify LLM rates are copied to LiteLLM provider names."""
 
 import importlib.util
 from datetime import datetime
@@ -12,7 +12,7 @@ MIGRATION_PATH = (
     API_ROOT
     / "migrations"
     / "versions"
-    / "a3c5e7f9b1d2_rename_llm_rate_providers_to_litellm.py"
+    / "a3c5e7f9b1d2_copy_llm_rates_to_litellm_names.py"
 )
 LLM = 1101
 TTS = 1102
@@ -34,13 +34,22 @@ def _rates_table(metadata: sa.MetaData) -> sa.Table:
     return sa.Table(
         "credit_usage_rates",
         metadata,
-        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+        sa.Column("rate_bid", sa.String(36), nullable=False, unique=True),
+        sa.Column("deleted", sa.Integer, nullable=False, default=0),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+        sa.Column("updated_at", sa.DateTime, nullable=False),
         sa.Column("usage_type", sa.Integer),
         sa.Column("provider", sa.String(32)),
-        sa.Column("model", sa.String(64)),
+        sa.Column("model", sa.String(100)),
         sa.Column("usage_scene", sa.Integer),
         sa.Column("billing_metric", sa.Integer),
+        sa.Column("unit_size", sa.Integer),
+        sa.Column("credits_per_unit", sa.Numeric(20, 10)),
+        sa.Column("rounding_mode", sa.Integer),
         sa.Column("effective_from", sa.DateTime),
+        sa.Column("effective_to", sa.DateTime, nullable=True),
+        sa.Column("status", sa.Integer),
         sa.UniqueConstraint(
             "usage_type",
             "provider",
@@ -52,19 +61,30 @@ def _rates_table(metadata: sa.MetaData) -> sa.Table:
     )
 
 
-def _row(row_id: int, usage_type: int, provider: str, model: str) -> dict:
+def _row(
+    row_id: int, usage_type: int, provider: str, model: str, *, deleted: int = 0
+) -> dict:
     return {
         "id": row_id,
+        "rate_bid": f"rate-{row_id}",
+        "deleted": deleted,
+        "created_at": EFFECTIVE,
+        "updated_at": EFFECTIVE,
         "usage_type": usage_type,
         "provider": provider,
         "model": model,
         "usage_scene": 1,
         "billing_metric": 1,
+        "unit_size": 1000,
+        "credits_per_unit": row_id,
+        "rounding_mode": 1,
         "effective_from": EFFECTIVE,
+        "effective_to": None,
+        "status": 1,
     }
 
 
-def test_upgrade_renames_llm_rows_and_downgrade_restores_them(
+def test_upgrade_copies_llm_rows_and_downgrade_removes_the_copies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     migration = _load_migration_module()
@@ -87,32 +107,58 @@ def test_upgrade_renames_llm_rows_and_downgrade_restores_them(
         # Full legacy model ids move to the LiteLLM prefix too.
         _row(11, LLM, "qwen", "qwen/qwen-turbo"),
         _row(12, LLM, "*", "silicon/deepseek-ai/DeepSeek-V3"),
+        # Deleted rows are not copied.
+        _row(13, LLM, "qwen", "qwen-long", deleted=1),
+    ]
+    rate_columns = [
+        column.name for column in rates.c if column.name not in {"id", "rate_bid"}
     ]
 
-    def identities() -> dict[int, tuple[str, str]]:
+    def snapshot() -> dict[str, dict]:
         return {
-            row.id: (row.provider, row.model)
-            for row in connection.execute(
-                sa.select(rates.c.id, rates.c.provider, rates.c.model)
-            )
+            row["rate_bid"]: {column: row[column] for column in rate_columns}
+            for row in connection.execute(sa.select(rates)).mappings()
         }
 
     with engine.begin() as connection:
         metadata.create_all(connection)
         connection.execute(rates.insert(), rows)
+        original = snapshot()
         monkeypatch.setattr(migration.op, "get_bind", lambda: connection)
 
         migration.upgrade()
-        migration.upgrade()  # A rerun finds nothing left to rename.
-        upgraded = identities()
+        migration.upgrade()  # A rerun finds nothing left to copy.
+        upgraded = snapshot()
 
         migration.downgrade()
-        downgraded = identities()
+        downgraded = snapshot()
 
     engine.dispose()
-    original = {row["id"]: (row["provider"], row["model"]) for row in rows}
-    assert upgraded == {
-        **original,
+    copies = {
+        bid: values
+        for bid, values in upgraded.items()
+        if bid.startswith(migration.COPY_RATE_BID_PREFIX)
+    }
+    assert all(len(bid) == 36 for bid in copies)
+    # Every earlier row stays as it was.
+    assert {bid: upgraded[bid] for bid in original} == original
+
+    def source(source_id: int) -> dict:
+        return original[f"rate-{source_id}"]
+
+    copied = {}
+    for values in copies.values():
+        source_id = int(values["credits_per_unit"])
+        expected = {
+            **source(source_id),
+            "provider": values["provider"],
+            "model": values["model"],
+            "created_at": values["created_at"],
+            "updated_at": values["updated_at"],
+        }
+        assert values == expected
+        copied[source_id] = (values["provider"], values["model"])
+    assert copied == {
         1: ("dashscope", "qwen-max"),
         2: ("bigmodel", "glm-4.6"),
         3: ("volcengine", "doubao"),
@@ -121,6 +167,5 @@ def test_upgrade_renames_llm_rows_and_downgrade_restores_them(
         11: ("dashscope", "dashscope/qwen-turbo"),
         12: ("*", "siliconflow/deepseek-ai/DeepSeek-V3"),
     }
-    # Row 9 kept its name; row 10 was LiteLLM-named before the upgrade and
-    # also blocks the downgrade of its identity.
+    # Downgrade removes only the copies, keeping row 10 that predates them.
     assert downgraded == original
