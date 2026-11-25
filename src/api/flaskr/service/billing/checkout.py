@@ -2356,6 +2356,9 @@ def _build_provider_checkout_request(
                 channel=channel,
             )
         )
+        if order.expires_at is not None:
+            # Keep the native QR code from outliving the pending order.
+            provider_options["expires_at"] = order.expires_at
 
     payment_request = PaymentRequest(
         order_bid=order.bill_order_bid,
