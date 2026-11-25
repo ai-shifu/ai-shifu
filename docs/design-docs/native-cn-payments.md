@@ -45,6 +45,8 @@ The shared provider layer under `src/api/flaskr/service/order/payment_providers/
 
 Native providers implement `create_subscription` by delegating to one-time payment creation. This matches the current Ping++ billing behavior: local billing subscription activation happens only after a paid order is confirmed.
 
+Payment codes expire with the order. Course orders pass `created_at + PAY_ORDER_EXPIRE_TIME` and billing orders pass their `expires_at` as `PaymentRequest.extra["expires_at"]`. WeChat Pay sends it as `time_expire` (China time, at least one minute ahead, as WeChat requires). Alipay converts the remaining time to `timeout_express`, rounded down to whole minutes. Without this, the default WeChat and Alipay windows outlive the order: a learner could pay an order that has already timed out locally, and the notification would not grant the course.
+
 Native refunds are intentionally unsupported in this release. `refund_payment` raises an unsupported-provider error path and billing returns `unsupported`.
 
 ## Raw Snapshots

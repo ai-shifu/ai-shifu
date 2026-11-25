@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,6 +22,21 @@ class PaymentRequest:
     body: str
     client_ip: str
     extra: dict[str, Any] = field(default_factory=dict)
+
+
+def payment_request_expires_at(request: PaymentRequest) -> dt.datetime | None:
+    """Return the order deadline passed in ``extra["expires_at"]`` as UTC.
+
+    Naive datetimes are treated as UTC, matching how orders store
+    ``created_at``/``expires_at``. Providers use this to stop the payment code
+    from outliving the order it pays for.
+    """
+    value = (request.extra or {}).get("expires_at")
+    if not isinstance(value, dt.datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=dt.UTC)
+    return value.astimezone(dt.UTC)
 
 
 @dataclass(slots=True)
