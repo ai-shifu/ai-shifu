@@ -14,7 +14,6 @@ export type CreatorBillingInterval =
   | 'unknown';
 export type CreatorBillingProvider =
   | 'stripe'
-  | 'pingxx'
   | 'alipay'
   | 'wechatpay'
   | 'manual'
@@ -105,7 +104,6 @@ export function normalizeCreatorBillingProvider(
     .toLowerCase();
   if (
     normalized === 'stripe' ||
-    normalized === 'pingxx' ||
     normalized === 'alipay' ||
     normalized === 'wechatpay' ||
     normalized === 'manual'

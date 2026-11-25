@@ -87,26 +87,22 @@ function shortenIntervalLabel(label: string): string {
 
 function resolveCheckoutProvider(
   stripeAvailable: boolean,
-  pingxxAvailable: boolean,
   alipayAvailable: boolean,
   wechatpayAvailable: boolean,
 ): BillingProvider | null {
   if (stripeAvailable) return 'stripe';
   if (alipayAvailable) return 'alipay';
   if (wechatpayAvailable) return 'wechatpay';
-  if (pingxxAvailable) return 'pingxx';
   return null;
 }
 
 function isProviderAvailable(
   provider: BillingProvider | null | undefined,
   stripeAvailable: boolean,
-  pingxxAvailable: boolean,
   alipayAvailable: boolean,
   wechatpayAvailable: boolean,
 ): provider is BillingProvider {
   if (provider === 'stripe') return stripeAvailable;
-  if (provider === 'pingxx') return pingxxAvailable;
   if (provider === 'alipay') return alipayAvailable;
   if (provider === 'wechatpay') return wechatpayAvailable;
   return false;
@@ -115,6 +111,7 @@ function isProviderAvailable(
 function isSelfManagedPreorderProvider(
   provider: BillingProvider | null | undefined,
 ): provider is BillingProvider {
+  // 'pingxx' is retired but its subscriptions still renew with native QR.
   return (
     provider === 'pingxx' || provider === 'alipay' || provider === 'wechatpay'
   );
@@ -257,7 +254,6 @@ export type BillingPlanComparisonTableProps = {
   renderFreeColumn: boolean;
   checkoutLoadingKey: string;
   stripeAvailable: boolean;
-  pingxxAvailable: boolean;
   alipayAvailable: boolean;
   wechatpayAvailable: boolean;
   onSelectPlanCheckout: (
@@ -278,7 +274,6 @@ export function BillingPlanComparisonTable({
   renderFreeColumn,
   checkoutLoadingKey,
   stripeAvailable,
-  pingxxAvailable,
   alipayAvailable,
   wechatpayAvailable,
   onSelectPlanCheckout,
@@ -290,7 +285,6 @@ export function BillingPlanComparisonTable({
   const featureRows = buildFeatureRows(trialFeatureKeys, paidPlans);
   const provider = resolveCheckoutProvider(
     stripeAvailable,
-    pingxxAvailable,
     alipayAvailable,
     wechatpayAvailable,
   );
@@ -401,7 +395,6 @@ export function BillingPlanComparisonTable({
             isProviderAvailable(
               immediateUpgradeProvider,
               stripeAvailable,
-              pingxxAvailable,
               alipayAvailable,
               wechatpayAvailable,
             )
@@ -425,7 +418,6 @@ export function BillingPlanComparisonTable({
           isProviderAvailable(
             currentProvider,
             stripeAvailable,
-            pingxxAvailable,
             alipayAvailable,
             wechatpayAvailable,
           );
@@ -456,7 +448,6 @@ export function BillingPlanComparisonTable({
           isProviderAvailable(
             immediateUpgradeProvider,
             stripeAvailable,
-            pingxxAvailable,
             alipayAvailable,
             wechatpayAvailable,
           )

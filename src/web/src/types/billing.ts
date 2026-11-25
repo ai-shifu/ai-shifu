@@ -14,6 +14,7 @@ export type AdminBillingConsoleTab =
 
 export type BillingProvider =
   | 'stripe'
+  // Retired 2026-11-25; kept to display historical orders and subscriptions.
   | 'pingxx'
   | 'alipay'
   | 'wechatpay'
@@ -83,7 +84,6 @@ export type AdminBillingProviderPriceValidationResult = {
 
 export type BillingCustomizationProvider =
   | 'wechat_oauth'
-  | 'pingxx'
   | 'stripe'
   | 'alipay'
   | 'wechatpay';
@@ -134,7 +134,7 @@ export type BillingCustomization = {
   integrations: BillingCustomizationIntegration[];
 };
 
-export type BillingPingxxChannel = 'wx_pub_qr' | 'alipay_qr';
+export type BillingQrChannel = 'wx_pub_qr' | 'alipay_qr';
 
 export type BillingCapabilityStatus =
   | 'active'

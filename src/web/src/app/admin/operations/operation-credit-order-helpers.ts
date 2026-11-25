@@ -1,7 +1,7 @@
 import {
   formatBillingCreditAmount,
   formatBillingDateTime,
-  resolveBillingPingxxChannelLabel,
+  resolveBillingQrChannelLabel,
   resolveBillingOrderStatusLabel,
   resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
@@ -9,7 +9,7 @@ import {
 import type {
   BillingOrderStatus,
   BillingOrderType,
-  BillingPingxxChannel,
+  BillingQrChannel,
   BillingProvider,
 } from '@/types/billing';
 import type {
@@ -25,10 +25,10 @@ const BILLING_PROVIDERS = [
   'pingxx',
   'stripe',
 ] as const satisfies readonly BillingProvider[];
-const PINGXX_CHANNELS = [
+const QR_CHANNELS = [
   'wx_pub_qr',
   'alipay_qr',
-] as const satisfies readonly BillingPingxxChannel[];
+] as const satisfies readonly BillingQrChannel[];
 const BILLING_ORDER_STATUSES = [
   'init',
   'pending',
@@ -58,8 +58,8 @@ function isBillingProvider(value: string): value is BillingProvider {
   return (BILLING_PROVIDERS as readonly string[]).includes(value);
 }
 
-function isPingxxChannel(value: string): value is BillingPingxxChannel {
-  return (PINGXX_CHANNELS as readonly string[]).includes(value);
+function isQrChannel(value: string): value is BillingQrChannel {
+  return (QR_CHANNELS as readonly string[]).includes(value);
 }
 
 function isBillingOrderStatus(value: string): value is BillingOrderStatus {
@@ -142,8 +142,8 @@ export function resolveOperationCreditOrderPaymentChannelLabel(
     return providerLabel;
   }
 
-  if (isPingxxChannel(channel)) {
-    return `${providerLabel} / ${resolveBillingPingxxChannelLabel(t, channel)}`;
+  if (isQrChannel(channel)) {
+    return `${providerLabel} / ${resolveBillingQrChannelLabel(t, channel)}`;
   }
 
   if (channel === 'checkout_session') {

@@ -2,7 +2,7 @@
 title: Native China Payments
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-11-23
+last_reviewed: 2026-11-25
 canonical: true
 ---
 
@@ -10,7 +10,7 @@ canonical: true
 
 ## Scope
 
-This design adds direct merchant integrations for Alipay and WeChat Pay while keeping Ping++ and Stripe available through the existing configuration gate.
+This design adds direct merchant integrations for Alipay and WeChat Pay. They replaced Ping++ in China production on 2026-11-25, and Ping++ was then removed from the codebase (see Ping++ Retirement below). Stripe stays available through the same configuration gate.
 
 The first release covers two business flows:
 
@@ -21,20 +21,16 @@ The first payment surfaces are Alipay QR, WeChat Native QR, and WeChat JSAPI. We
 
 ## Provider Selection
 
-`PAYMENT_CHANNELS_ENABLED` accepts `wechatpay,alipay,pingxx,stripe`.
+`PAYMENT_CHANNELS_ENABLED` accepts `alipay`, `wechatpay` and `stripe`, in the order the client should offer them. Unknown names, including the retired `pingxx`, are ignored. When it is empty, every provider whose credentials are configured is enabled (`ALIPAY_APP_ID`, `WECHATPAY_MCH_ID`, `STRIPE_SECRET_KEY`).
 
-Channel resolution is intentionally conservative:
+Channel resolution:
 
-- `alipay_qr` prefers `alipay` when enabled, then falls back to `pingxx`.
-- `wx_pub_qr` and `wx_pub` prefer `wechatpay` when enabled, then fall back to `pingxx`.
+- `alipay_qr` uses `alipay`.
+- `wx_pub_qr` and `wx_pub` use `wechatpay`.
 - `stripe:*` stays on Stripe.
-- Unsupported provider/channel combinations fail with `server.pay.payChannelNotSupport`.
+- A disabled provider and unsupported provider/channel combinations fail with `server.pay.payChannelNotSupport`; there is no fallback provider.
 
-The default provider list remains `pingxx,stripe`. On the legacy course-order
-path, explicit provider hints and the availability of configured credentials
-can affect selection. The resolver also accepts additional providers scoped to
-the course owner. The channel fallback above describes the implicit provider
-selection. See `payment_channel_resolution.py` under the order service.
+The resolver also accepts additional providers scoped to the course owner. Free orders are attributed to the market provider (Stripe, then Alipay, then WeChat Pay), or to an empty channel when no provider is enabled. See `payment_channel_resolution.py` under the order service.
 
 ## Backend Integration
 
@@ -43,11 +39,11 @@ The shared provider layer under `src/api/flaskr/service/order/payment_providers/
 - `AlipayProvider`: uses the official `alipay-sdk-python==3.7.1098` package for `alipay.trade.precreate`, notification signature verification, and trade query.
 - `WechatPayProvider`: uses `requests` and `cryptography` for API v3 request signing, Native order creation, JSAPI parameter signing, notification signature verification, AES-256-GCM resource decryption, and order query.
 
-Native providers implement `create_subscription` by delegating to one-time payment creation. This matches the current Ping++ billing behavior: local billing subscription activation happens only after a paid order is confirmed.
+Native providers implement `create_subscription` by delegating to one-time payment creation. Local billing subscription activation happens only after a paid order is confirmed.
 
-Payment codes expire with the order. Course orders pass `created_at + PAY_ORDER_EXPIRE_TIME` and billing orders pass their `expires_at` as `PaymentRequest.extra["expires_at"]`. WeChat Pay sends it unchanged as `time_expire` (China time). Alipay converts the remaining time to `timeout_express`, rounded down to whole minutes. WeChat moves any `time_expire` earlier than one minute after it receives the request to that point, so an order with less than two minutes left (one minute plus a margin for signing and the 10 s HTTP timeout) is rejected with `server.order.orderPayExpired` before any provider call instead of getting a code that outlives it.
+Payment codes expire with the order. Without this, the default WeChat and Alipay windows outlive the order: a learner could pay an order that has already timed out locally, and the notification would not grant the course. Course orders pass `created_at + PAY_ORDER_EXPIRE_TIME` and billing orders pass their `expires_at` as `PaymentRequest.extra["expires_at"]`. WeChat Pay sends it unchanged as `time_expire` (China time). Alipay converts the remaining time to `timeout_express`, rounded down to whole minutes. WeChat moves any `time_expire` earlier than one minute after it receives the request to that point, so an order with less than two minutes left (one minute plus a margin for signing and the 10 s HTTP timeout) is rejected with `server.order.orderPayExpired` before any provider call instead of getting a code that outlives it.
 
-Closing an Alipay attempt that was never scanned returns `ACQ.TRADE_NOT_EXIST`, because a precreate QR code only becomes a trade once scanned. `cancel_payment` treats that as closed, so learners can switch from Alipay to WeChat Pay before paying. Verified on sim (2026-11-25): after such a close, scanning the old Alipay code shows the trade as closed and it cannot be paid. Without this, the default WeChat and Alipay windows outlive the order: a learner could pay an order that has already timed out locally, and the notification would not grant the course.
+Closing an Alipay attempt that was never scanned returns `ACQ.TRADE_NOT_EXIST`, because a precreate QR code only becomes a trade once scanned. `cancel_payment` treats that as closed, so learners can switch from Alipay to WeChat Pay before paying. Verified on sim (2026-11-25): after such a close, scanning the old Alipay code shows the trade as closed and it cannot be paid.
 
 Native refunds are intentionally unsupported in this release. `refund_payment` raises an unsupported-provider error path and billing returns `unsupported`.
 
@@ -111,8 +107,8 @@ Learner checkout:
 Billing checkout:
 
 - `stripe` opens Stripe Checkout.
-- `pingxx`, `alipay`, and `wechatpay` use the existing QR dialog and sync polling.
-- The QR dialog limits channel switching for native providers because the provider is fixed for the created billing order.
+- `alipay` and `wechatpay` use the QR dialog (`BillingNativeQrDialog`) and sync polling (`useBillingQrPolling`).
+- Each native provider issues one kind of code, so the dialog shows no channel switch; the learner picks Alipay or WeChat Pay before checkout.
 
 ## Configuration
 
@@ -161,11 +157,21 @@ notification URLs are derived from `HOST_URL` and `PATH_PREFIX` as
 Stripe webhooks still must be registered in Stripe Dashboard as
 `https://your-domain.com/api/order/stripe/webhook`.
 
+## Ping++ Retirement
+
+China production switched `PAYMENT_CHANNELS_ENABLED` from `pingxx` to `alipay,wechatpay` on 2026-11-25 12:39 CST. The last Ping++ charge expired at 14:13 CST the same day, and Ping++ was then removed (`docs/exec-plans/active/remove-pingxx.md`):
+
+- No Ping++ provider, `pingpp` dependency, `PINGXX_*` setting or `/api/callback/pingxx-callback` route remains, and creators can no longer configure a Ping++ integration.
+- `order_pingxx_orders`, `PingxxOrder` and `legacy_pingxx_snapshot_query` stay for read-only history: learner payment detail and operator order views and filters.
+- Ping++ subscriptions count as manual-payment subscriptions, so they renew, preorder and upgrade with Alipay or WeChat Pay.
+- A pending Ping++ billing order is never reopened (`server.order.orderPayExpired`); sync keeps it pending without calling Ping++ so the timeout scan expires it.
+- `tests/service/order/test_pingxx_retirement_guard.py` forbids `pingpp` and limits `pingxx` mentions to the history readers it lists.
+
 ## Verification Focus
 
 The primary checks are:
 
-- Channel resolution for native-first and Ping++ fallback behavior.
+- Channel resolution without a fallback provider.
 - Provider payload construction and notification normalization.
 - Legacy learner order idempotency and amount mismatch rejection.
 - Billing checkout, sync, webhook paid state transition, and duplicate grant protection.

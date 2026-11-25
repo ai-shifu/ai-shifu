@@ -16,16 +16,11 @@ import {
 import { cn } from '@/lib/utils';
 import {
   formatBillingPrice,
-  resolveBillingPingxxChannelLabel,
+  resolveBillingQrChannelLabel,
 } from '@/lib/billing';
-import type { BillingPingxxChannel, BillingProvider } from '@/types/billing';
+import type { BillingQrChannel, BillingProvider } from '@/types/billing';
 
-const BILLING_PINGXX_CHANNELS: BillingPingxxChannel[] = [
-  'wx_pub_qr',
-  'alipay_qr',
-];
-
-type BillingPingxxQrDialogProps = {
+type BillingNativeQrDialogProps = {
   billingOrderBid: string;
   amountInMinor: number;
   currency: string;
@@ -35,16 +30,16 @@ type BillingPingxxQrDialogProps = {
   open: boolean;
   prepaidOffsetAmount?: number;
   productName: string;
-  provider?: BillingProvider;
+  provider: BillingProvider;
   qrUrl: string;
-  selectedChannel: BillingPingxxChannel;
+  selectedChannel: BillingQrChannel;
   agreed: boolean;
-  onChannelChange: (channel: BillingPingxxChannel) => void;
+  onChannelChange: (channel: BillingQrChannel) => void;
   onAgreedChange: (agreed: boolean) => void;
   onOpenChange: (open: boolean) => void;
 };
 
-export function BillingPingxxQrDialog({
+export function BillingNativeQrDialog({
   billingOrderBid,
   amountInMinor,
   currency,
@@ -54,25 +49,22 @@ export function BillingPingxxQrDialog({
   open,
   prepaidOffsetAmount = 0,
   productName,
-  provider = 'pingxx',
+  provider,
   qrUrl,
   selectedChannel,
   agreed,
   onChannelChange,
   onAgreedChange,
   onOpenChange,
-}: BillingPingxxQrDialogProps) {
+}: BillingNativeQrDialogProps) {
   const { t, i18n } = useTranslation();
   const agreementUrl = getPaymentAgreementUrl();
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(
     expiresInSeconds,
   );
-  const availableChannels =
-    provider === 'alipay'
-      ? (['alipay_qr'] as BillingPingxxChannel[])
-      : provider === 'wechatpay'
-        ? (['wx_pub_qr'] as BillingPingxxChannel[])
-        : BILLING_PINGXX_CHANNELS;
+  // Each native provider issues one kind of QR code.
+  const availableChannels: BillingQrChannel[] =
+    provider === 'alipay' ? ['alipay_qr'] : ['wx_pub_qr'];
 
   useEffect(() => {
     const syncRemainingSeconds = (value: number | null) => {
@@ -158,7 +150,7 @@ export function BillingPingxxQrDialog({
                   'text-right font-semibold',
                   remainingSeconds > 0 ? 'text-slate-900' : 'text-rose-600',
                 )}
-                data-testid='billing-pingxx-expiration-countdown'
+                data-testid='billing-qr-expiration-countdown'
               >
                 {remainingSeconds > 0
                   ? t('module.billing.checkout.expiresInValue', {
@@ -176,7 +168,7 @@ export function BillingPingxxQrDialog({
               <Button
                 key={channel}
                 className='rounded-xl'
-                data-testid={`billing-pingxx-channel-${channel}`}
+                data-testid={`billing-qr-channel-${channel}`}
                 disabled={isLoading}
                 onClick={() => {
                   if (channel !== selectedChannel) {
@@ -186,7 +178,7 @@ export function BillingPingxxQrDialog({
                 type='button'
                 variant={channel === selectedChannel ? 'default' : 'outline'}
               >
-                {resolveBillingPingxxChannelLabel(t, channel)}
+                {resolveBillingQrChannelLabel(t, channel)}
               </Button>
             ))}
           </div>
@@ -194,10 +186,10 @@ export function BillingPingxxQrDialog({
           <div className='flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-5'>
             <div className='relative'>
               <QRCodeSVG
-                data-testid='billing-pingxx-qr-code'
+                data-testid='billing-qr-qr-code'
                 level='M'
                 size={192}
-                value={qrUrl || 'billing-pingxx-qrcode-placeholder'}
+                value={qrUrl || 'billing-qr-qrcode-placeholder'}
               />
               {isLoading ? (
                 <div className='absolute inset-0 flex items-center justify-center rounded-md bg-white/80'>
@@ -206,7 +198,7 @@ export function BillingPingxxQrDialog({
               ) : null}
             </div>
             <p className='text-center text-sm text-slate-500'>
-              {resolveBillingPingxxChannelLabel(t, selectedChannel)}
+              {resolveBillingQrChannelLabel(t, selectedChannel)}
             </p>
           </div>
         </div>
@@ -214,12 +206,12 @@ export function BillingPingxxQrDialog({
         {agreementUrl ? (
           <div className='flex items-center gap-2 text-sm text-slate-600'>
             <Checkbox
-              id='billing-pingxx-agreement'
+              id='billing-qr-agreement'
               checked={agreed}
               onCheckedChange={checked => onAgreedChange(checked === true)}
             />
             <label
-              htmlFor='billing-pingxx-agreement'
+              htmlFor='billing-qr-agreement'
               className='cursor-pointer leading-none'
             >
               {t('module.billing.checkout.agreementPrefix')}{' '}

@@ -398,7 +398,7 @@ const qrPayment = {
   price: '99',
   channel: 'wx_pub_qr',
   qr_url: 'https://provider.example/private-qr',
-  payment_channel: 'pingxx',
+  payment_channel: 'wechatpay',
   payment_payload: {},
   status: ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
 };
@@ -427,7 +427,7 @@ describe('learner payment modal analytics producers', () => {
     mockEnvState = {
       stripePublishableKey: '',
       stripeEnabled: 'false',
-      paymentChannels: ['pingxx'],
+      paymentChannels: ['wechatpay', 'alipay'],
       currencySymbol: '¥',
       enableWxcode: 'false',
     };
@@ -446,7 +446,7 @@ describe('learner payment modal analytics producers', () => {
         channel: 'wx_pub_qr',
         qrUrl: 'https://provider.example/private-qr',
         status: ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
-        paymentChannel: 'pingxx',
+        paymentChannel: 'wechatpay',
         paymentPayload: {},
       },
       isLoading: false,
@@ -695,7 +695,7 @@ describe('learner payment modal analytics producers', () => {
       ...mockEnvState,
       stripePublishableKey: 'private-stripe-publishable-key',
       stripeEnabled: 'true',
-      paymentChannels: ['pingxx', 'stripe'],
+      paymentChannels: ['wechatpay', 'alipay', 'stripe'],
     };
     const { rerender } = render(
       <PayModal
@@ -831,7 +831,7 @@ describe('learner payment modal analytics producers', () => {
       ...mockEnvState,
       stripePublishableKey: 'private-stripe-publishable-key',
       stripeEnabled: 'true',
-      paymentChannels: ['pingxx', 'stripe'],
+      paymentChannels: ['wechatpay', 'alipay', 'stripe'],
     };
     mockPaymentFlowState = {
       ...mockPaymentFlowState,
@@ -961,7 +961,7 @@ describe('learner payment modal analytics producers', () => {
       ...mockEnvState,
       stripePublishableKey: 'private-stripe-key',
       stripeEnabled: 'true',
-      paymentChannels: ['pingxx', 'stripe'],
+      paymentChannels: ['wechatpay', 'alipay', 'stripe'],
     };
     const { rerender } = render(
       <PayModal
@@ -1177,12 +1177,12 @@ describe('learner payment modal analytics producers', () => {
       expect(mockApplyCoupon).toHaveBeenCalledWith({
         code: 'desktop-sensitive-coupon',
         channel: 'wx_pub_qr',
-        paymentChannel: 'pingxx',
+        paymentChannel: 'wechatpay',
       });
     });
     expect(mockRefreshPayment).toHaveBeenLastCalledWith({
       channel: 'wx_pub_qr',
-      paymentChannel: 'pingxx',
+      paymentChannel: 'wechatpay',
       snapshot: pendingOrder,
     });
     expect(eventCalls('learner_coupon_apply')).toEqual([
@@ -1218,7 +1218,7 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalledTimes(1));
     expect(mockRefreshPayment).toHaveBeenCalledWith({
       channel: 'wx_pub_qr',
-      paymentChannel: 'pingxx',
+      paymentChannel: 'wechatpay',
       snapshot: pendingOrder,
     });
     expect(screen.queryByText('module.pay.pay')).not.toBeInTheDocument();
@@ -1443,7 +1443,7 @@ describe('learner payment modal analytics producers', () => {
     mockWechatJsapiAvailable = true;
     mockEnvState = {
       ...mockEnvState,
-      paymentChannels: ['pingxx', 'wechatpay'],
+      paymentChannels: ['alipay', 'wechatpay'],
       enableWxcode: 'true',
     };
     render(
@@ -1570,12 +1570,12 @@ describe('learner payment modal analytics producers', () => {
       expect(mockApplyCoupon).toHaveBeenCalledWith({
         code: 'mobile-sensitive-coupon',
         channel: 'alipay_qr',
-        paymentChannel: 'pingxx',
+        paymentChannel: 'alipay',
       });
     });
     expect(mockRefreshPayment).toHaveBeenLastCalledWith({
       channel: 'alipay_qr',
-      paymentChannel: 'pingxx',
+      paymentChannel: 'alipay',
       snapshot: pendingOrder,
     });
     expect(eventCalls('learner_coupon_apply')).toEqual([

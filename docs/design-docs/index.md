@@ -31,7 +31,7 @@ Implementation and architecture decisions that shape repository behavior live he
 - [MarkdownFlow engine library](../design-docs/markdownflow-engine-library.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [Native China Payments](../design-docs/native-cn-payments.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-11-23` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-11-25` | Canonical: `true`
 - [Official Client Model Gateway](../design-docs/official-client-model-gateway.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-27` | Canonical: `true`
 - [Operator Course/User Request Optimization](../design-docs/operator-course-user-request-optimization.md)
