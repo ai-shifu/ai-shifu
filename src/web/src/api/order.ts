@@ -1,6 +1,6 @@
 import request from '@/lib/request';
 
-export type PaymentChannel = 'pingxx' | 'stripe' | 'alipay' | 'wechatpay';
+export type PaymentChannel = 'stripe' | 'alipay' | 'wechatpay';
 
 export interface StripePaymentPayload {
   mode?: 'payment_intent' | 'checkout_session';

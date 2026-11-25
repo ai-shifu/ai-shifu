@@ -8,7 +8,7 @@ import {
   formatBillingPrice,
   getBillingProductCampaignBonusCredits,
   hasBillingProductBonusCampaign,
-  extractBillingPingxxQrCode,
+  extractBillingQrCode,
   formatBillingCompactDateTime,
   formatBillingDate,
   formatBillingDateTime,
@@ -516,7 +516,7 @@ describe('billing datetime display helpers', () => {
   });
 });
 
-describe('extractBillingPingxxQrCode', () => {
+describe('extractBillingQrCode', () => {
   function buildCheckoutResult(
     credential: Record<string, string>,
   ): BillingCheckoutResult {
@@ -531,7 +531,7 @@ describe('extractBillingPingxxQrCode', () => {
 
   test('extracts an Alipay native QR credential', () => {
     expect(
-      extractBillingPingxxQrCode(
+      extractBillingQrCode(
         buildCheckoutResult({ alipay_qr: 'https://qr.example/alipay' }),
         'alipay_qr',
       ),
@@ -543,7 +543,7 @@ describe('extractBillingPingxxQrCode', () => {
 
   test('extracts a WeChat Pay native QR credential', () => {
     expect(
-      extractBillingPingxxQrCode(
+      extractBillingQrCode(
         buildCheckoutResult({ wx_pub_qr: 'weixin://wxpay/bizpayurl' }),
         'wx_pub_qr',
       ),
@@ -555,13 +555,10 @@ describe('extractBillingPingxxQrCode', () => {
 
   test('returns null when requested QR credential is missing or empty', () => {
     expect(
-      extractBillingPingxxQrCode(buildCheckoutResult({}), 'alipay_qr'),
+      extractBillingQrCode(buildCheckoutResult({}), 'alipay_qr'),
     ).toBeNull();
     expect(
-      extractBillingPingxxQrCode(
-        buildCheckoutResult({ alipay_qr: '' }),
-        'alipay_qr',
-      ),
+      extractBillingQrCode(buildCheckoutResult({ alipay_qr: '' }), 'alipay_qr'),
     ).toBeNull();
   });
 });

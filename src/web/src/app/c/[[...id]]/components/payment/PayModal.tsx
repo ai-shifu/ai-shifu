@@ -163,7 +163,6 @@ export const PayModal = ({
     () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
     [paymentChannels],
   );
-  const pingxxChannelEnabled = normalizedPaymentChannels.includes('pingxx');
   const alipayChannelEnabled = normalizedPaymentChannels.includes('alipay');
   const wechatpayChannelEnabled =
     normalizedPaymentChannels.includes('wechatpay');
@@ -181,8 +180,8 @@ export const PayModal = ({
     enableWxcode,
     openId: userInfo?.openid,
   });
-  const isWechatQrAvailable = pingxxChannelEnabled || wechatpayChannelEnabled;
-  const isAlipayQrAvailable = pingxxChannelEnabled || alipayChannelEnabled;
+  const isWechatQrAvailable = wechatpayChannelEnabled;
+  const isAlipayQrAvailable = alipayChannelEnabled;
   const qrChannelEnabled = isWechatQrAvailable || isAlipayQrAvailable;
   const availableQrChannels = useMemo(() => {
     const channels: string[] = [];
@@ -257,13 +256,13 @@ export const PayModal = ({
         return 'stripe';
       }
       if (channel === PAY_CHANNEL_ZHIFUBAO) {
-        return alipayChannelEnabled ? 'alipay' : 'pingxx';
+        return alipayChannelEnabled ? 'alipay' : undefined;
       }
       if (
         channel === PAY_CHANNEL_WECHAT ||
         channel === PAY_CHANNEL_WECHAT_JSAPI
       ) {
-        return wechatpayChannelEnabled ? 'wechatpay' : 'pingxx';
+        return wechatpayChannelEnabled ? 'wechatpay' : undefined;
       }
       return undefined;
     },
@@ -658,7 +657,7 @@ export const PayModal = ({
                   {isLoggedIn ? (
                     <>
                       <div
-                        className={`${styles.channelSelectors} ${qrChannelEnabled ? styles.pingxxSelected : ''}`}
+                        className={`${styles.channelSelectors} ${qrChannelEnabled ? styles.qrSelected : ''}`}
                       >
                         {qrChannelEnabled ? (
                           <div className={styles.channelSwitchWrapper}>

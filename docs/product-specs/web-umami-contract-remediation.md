@@ -479,7 +479,9 @@ raw rejection.
 
 Allowed markets are `domestic|global`; product types `plan|topup`; source
 surfaces `global_pricing|billing_overview|stripe_return`; providers
-`stripe|pingxx|alipay|wechatpay|manual|other`; payment channels
+`stripe|alipay|wechatpay|manual|other` (`pingxx` appears only in events
+recorded before its 2026-11-25 retirement; the client now reports it as
+`other`); payment channels
 `wx_pub_qr|alipay_qr|not_applicable`; intervals
 `day|month|year|one_time|unknown`. Failure categories are
 `checkout_request_failed`, `missing_order`, `missing_redirect`,

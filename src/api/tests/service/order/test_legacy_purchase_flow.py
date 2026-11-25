@@ -101,7 +101,7 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         lambda *_args, **_kwargs: None,
     )
 
-    def _fake_pingxx_charge(**kwargs: object) -> object:
+    def _fake_wechatpay_charge(**kwargs: object) -> object:
         buy_record = kwargs["buy_record"]
         buy_record.status = ORDER_STATUS_TO_BE_PAID
         dao.db.session.add(buy_record)
@@ -112,13 +112,19 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
             buy_record.paid_price,
             kwargs["channel"],
             "legacy-qr-url",
-            payment_channel="pingxx",
+            payment_channel="wechatpay",
         )
 
     monkeypatch.setattr(
         order_funs,
-        "_generate_pingxx_charge",
-        _fake_pingxx_charge,
+        "_generate_wechatpay_charge",
+        _fake_wechatpay_charge,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.common.payment_channels.get_config",
+        lambda key, default="": (
+            "alipay,wechatpay" if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
     )
 
     init_result = init_buy_record(
@@ -129,13 +135,13 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
     charge_result = generate_charge(
         legacy_order_app,
         init_result.order_id,
-        "wx_wap",
+        "wx_pub_qr",
         "127.0.0.1",
     )
     query_result = query_buy_record(legacy_order_app, init_result.order_id)
 
-    assert charge_result.payment_channel == "pingxx"
-    assert charge_result.channel == "wx_wap"
+    assert charge_result.payment_channel == "wechatpay"
+    assert charge_result.channel == "wx_pub_qr"
     assert charge_result.qr_url == "legacy-qr-url"
     assert query_result.order_id == init_result.order_id
     assert query_result.user_id == "legacy-user-1"
@@ -146,13 +152,13 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
 
         assert order is not None
         assert order.status == ORDER_STATUS_TO_BE_PAID
-        assert order.payment_channel == "pingxx"
+        assert order.payment_channel == "wechatpay"
         assert BillingOrder.query.count() == 0
 
 
 @pytest.mark.parametrize(
     ("enabled_payment_channels", "expected_payment_channel"),
-    [("pingxx", "pingxx"), ("stripe", "stripe")],
+    [("alipay,wechatpay", "alipay"), ("stripe", "stripe"), ("", "")],
 )
 def test_zero_price_order_completes_with_market_channel_without_provider(
     legacy_order_app: Flask,
@@ -174,7 +180,7 @@ def test_zero_price_order_completes_with_market_channel_without_provider(
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     monkeypatch.setattr(order_funs, "set_user_state", lambda *_args: None)
     monkeypatch.setattr(
-        "flaskr.service.order.payment_channel_resolution.get_config",
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default=None: (
             enabled_payment_channels if key == "PAYMENT_CHANNELS_ENABLED" else default
         ),

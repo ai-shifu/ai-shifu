@@ -56,7 +56,7 @@ def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
         "BILL_CREDIT_PRECISION": 4,
         "STRIPE_PUBLISHABLE_KEY": "pk_test_global",
         "STRIPE_ENABLED": True,
-        "PAYMENT_CHANNELS_ENABLED": "pingxx,stripe",
+        "PAYMENT_CHANNELS_ENABLED": "alipay,wechatpay,stripe",
         "PAY_ORDER_EXPIRE_TIME": 600,
         "UI_ALWAYS_SHOW_LESSON_TREE": False,
         "LOGO_WIDE_URL": "https://cdn.example.com/global-wide.png",
@@ -94,6 +94,10 @@ def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
     monkeypatch.setattr(
         public_urls,
         "get_config",
+        lambda key, default="": config_values.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default="": config_values.get(key, default),
     )
     monkeypatch.setattr(
@@ -273,7 +277,7 @@ def test_runtime_config_hides_creator_keys_without_matching_capability(
     assert payload["wechatAppId"] == ""
     assert payload["enableWechatCode"] is False
     assert payload["stripePublishableKey"] == "pk_test_global"
-    assert payload["paymentChannels"] == ["pingxx", "stripe"]
+    assert payload["paymentChannels"] == ["alipay", "wechatpay", "stripe"]
     assert payload["paymentConfigurationReady"] is False
 
 

@@ -3,31 +3,8 @@
 from types import SimpleNamespace
 
 from flaskr.service.order.payment_providers.alipay import AlipayProvider
-from flaskr.service.order.payment_providers.pingxx import PingxxProvider
 from flaskr.service.order.payment_providers.stripe import StripeProvider
 from flaskr.service.order.payment_providers.wechatpay import WechatPayProvider
-
-
-def test_pingxx_cancellation_reverses_the_charge(monkeypatch: object) -> None:
-    reversed_ids: list[str] = []
-    charge = SimpleNamespace(
-        reverse=lambda charge_id: (
-            reversed_ids.append(charge_id) or {"id": charge_id, "reversed": True}
-        )
-    )
-    provider = PingxxProvider()
-    monkeypatch.setattr(
-        provider, "_ensure_client", lambda _app: SimpleNamespace(Charge=charge)
-    )
-
-    result = provider.cancel_payment(
-        provider_reference="ch_old",
-        reference_type="charge",
-        app=SimpleNamespace(),
-    )
-
-    assert reversed_ids == ["ch_old"]
-    assert result.status == "cancelled"
 
 
 def test_wechat_cancellation_calls_close_order(monkeypatch: object) -> None:
@@ -148,29 +125,6 @@ def test_stripe_cancellation_preserves_a_completed_checkout_session(
 
     assert result.status == "completed"
     assert result.raw_response["payment_status"] == "paid"
-
-
-def test_pingxx_cancellation_recovers_an_already_reversed_charge(
-    monkeypatch: object,
-) -> None:
-    charge = SimpleNamespace(
-        reverse=lambda _charge_id: (_ for _ in ()).throw(
-            RuntimeError("already reversed")
-        ),
-        retrieve=lambda charge_id: {"id": charge_id, "reversed": True},
-    )
-    provider = PingxxProvider()
-    monkeypatch.setattr(
-        provider, "_ensure_client", lambda _app: SimpleNamespace(Charge=charge)
-    )
-
-    result = provider.cancel_payment(
-        provider_reference="ch_reversed",
-        reference_type="charge",
-        app=SimpleNamespace(),
-    )
-
-    assert result.status == "cancelled"
 
 
 def test_alipay_cancellation_closes_trade(monkeypatch: object) -> None:

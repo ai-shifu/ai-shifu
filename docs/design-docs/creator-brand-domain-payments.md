@@ -22,7 +22,8 @@ share the configuration. Chinese product copy calls this role `课程负责人`.
 ## Goals
 
 - Let an eligible course owner configure wide and square logos, one active
-  custom domain, a WeChat OAuth app, and Pingxx, Stripe, Alipay, or WeChat Pay.
+  custom domain, a WeChat OAuth app, and Stripe, Alipay, or WeChat Pay (the
+  Ping++ integration was removed on 2026-11-25).
 - Route learner course payments directly to the course owner's merchant account.
 - Keep secrets encrypted and write-only through public APIs.
 - Bind every new learner order to the exact integration version used to create it.

@@ -622,7 +622,7 @@ def _apply_order_source_filter(query: Query, order_source: str) -> Query:
 
 
 def _resolve_order_display_payment_channel(order: Order) -> str:
-    """Correct the legacy model default for free orders on non-Ping++ markets."""
+    """Show free orders saved with the old ``pingxx`` model default as market orders."""
     payment_channel = str(order.payment_channel or "").strip()
     if payment_channel != "pingxx" or Decimal(order.paid_price or 0) != Decimal(0):
         return payment_channel
@@ -636,9 +636,6 @@ def _apply_payment_channel_filter(query: Query, payment_channel: str) -> Query:
         return query
 
     market_provider = resolve_market_payment_provider()
-    if market_provider == "pingxx":
-        return query.filter(Order.payment_channel == normalized_channel)
-
     legacy_free_order = db.and_(
         Order.payment_channel == "pingxx",
         Order.paid_price == Decimal(0),

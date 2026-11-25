@@ -116,7 +116,7 @@ def test_full_discount_coupon_attributes_free_order_to_stripe(
         db.session.commit()
 
     monkeypatch.setattr(
-        "flaskr.service.order.payment_channel_resolution.get_config",
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default=None: (
             "stripe" if key == "PAYMENT_CHANNELS_ENABLED" else default
         ),

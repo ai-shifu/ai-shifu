@@ -33,7 +33,6 @@ type BillingOverviewShowcaseProps = {
   monthlyPlans: BillingPlan[];
   orderedPlans: BillingPlan[];
   alipayAvailable: boolean;
-  pingxxAvailable: boolean;
   renderFreeCard: boolean;
   showcaseTab: ShowcaseTab;
   stripeAvailable: boolean;
@@ -68,7 +67,6 @@ function sortPlansByOrderedIndex(
 
 function resolveCheckoutProvider(
   stripeAvailable: boolean,
-  pingxxAvailable: boolean,
   alipayAvailable: boolean,
   wechatpayAvailable: boolean,
 ): BillingProvider | null {
@@ -80,9 +78,6 @@ function resolveCheckoutProvider(
   }
   if (wechatpayAvailable) {
     return 'wechatpay';
-  }
-  if (pingxxAvailable) {
-    return 'pingxx';
   }
   return null;
 }
@@ -97,7 +92,6 @@ export function BillingOverviewShowcase({
   monthlyPlans,
   orderedPlans,
   alipayAvailable,
-  pingxxAvailable,
   renderFreeCard,
   showcaseTab,
   stripeAvailable,
@@ -173,7 +167,6 @@ export function BillingOverviewShowcase({
                 getBillingProductCampaignBonusCredits(product);
               const provider = resolveCheckoutProvider(
                 stripeAvailable,
-                pingxxAvailable,
                 alipayAvailable,
                 wechatpayAvailable,
               );
@@ -245,7 +238,6 @@ export function BillingOverviewShowcase({
             isTrialCurrentPlan={isTrialCurrentPlan}
             orderedPlans={orderedPlans}
             paidPlans={paidPlans}
-            pingxxAvailable={pingxxAvailable}
             renderFreeColumn={renderFreeCard}
             stripeAvailable={stripeAvailable}
             trialOffer={trialOffer}

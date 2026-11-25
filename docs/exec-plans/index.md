@@ -50,6 +50,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Define and align MarkdownFlow text variable names](./active/question-memory-key-compatibility.md)
 - [Hide extra interaction questions in reading mode](./active/reading-interaction-questions.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
+- [Remove Ping++](./active/remove-pingxx.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Account-linked Skill request pageviews](./active/skill-request-analytics.md)

@@ -30,6 +30,16 @@ from tests.common.fixtures.model_factories import make_billing_order
 _CREATOR = "checkout-boundary-creator"
 
 
+@pytest.fixture(autouse=True)
+def _enable_native_channels(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.common.payment_channels.get_config",
+        lambda key, default="": (
+            "alipay,wechatpay" if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
+
+
 def _committed_order(app: object, bill_order_bid: str) -> object:
     """Read through a separate connection: only committed state is visible."""
     with app.app_context(), dao.db.engine.connect() as connection:
@@ -43,7 +53,7 @@ def _committed_order(app: object, bill_order_bid: str) -> object:
 def _seed_pending_topup_order(
     app: object,
     *,
-    payment_provider: str = "pingxx",
+    payment_provider: str = "alipay",
     channel: str = "alipay_qr",
     provider_reference_id: str = "",
 ) -> tuple[str, str]:
@@ -258,7 +268,7 @@ def test_a_late_charge_snapshot_is_recorded_as_pending(
     """The charge is pending even when the order it belongs to is settled."""
     from flaskr.service.billing.consts import BILLING_ORDER_STATUS_PAID
     from flaskr.service.common.models import AppError
-    from flaskr.service.order.models import PingxxOrder
+    from flaskr.service.order.models import AlipayOrder
 
     bill_order_bid, _product_bid = _seed_pending_topup_order(app)
 
@@ -284,13 +294,13 @@ def test_a_late_charge_snapshot_is_recorded_as_pending(
 
     with app.app_context():
         snapshot = (
-            PingxxOrder.query.filter_by(
+            AlipayOrder.query.filter_by(
                 biz_domain="billing", bill_order_bid=bill_order_bid
             )
-            .order_by(PingxxOrder.id.desc())
+            .order_by(AlipayOrder.id.desc())
             .first()
         )
-        assert snapshot.charge_id == "ch_late_snapshot"
+        assert snapshot.provider_attempt_id == "ch_late_snapshot"
         # Pending (0), not the settled order's paid status (1).
         assert int(snapshot.status or 0) == 0
 

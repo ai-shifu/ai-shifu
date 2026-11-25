@@ -29,6 +29,9 @@ from flaskr.service.billing.runtime_config import (
     build_runtime_billing_context,
 )
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.common.payment_channels import (
+    enabled_payment_provider_list,
+)
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -192,7 +195,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         custom_payment_channels = (
             [
                 provider
-                for provider in ("pingxx", "stripe", "alipay", "wechatpay")
+                for provider in ("stripe", "alipay", "wechatpay")
                 if provider in public_integrations
             ]
             if custom_payment_enabled
@@ -211,10 +214,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         payment_channels = (
             custom_payment_channels
             if custom_payment_enabled
-            else _to_list(
-                get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe"),
-                ["pingxx", "stripe"],
-            )
+            else enabled_payment_provider_list()
         )
         stripe_publishable_key = (
             str(public_integrations.get("stripe", {}).get("publishable_key") or "")

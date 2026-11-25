@@ -113,7 +113,7 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
   });
 
   test('hides Stripe provider discount column and actions without Stripe channel', async () => {
-    setMockPaymentChannels(['pingxx']);
+    setMockPaymentChannels(['alipay', 'wechatpay']);
     render(<AdminOperationPromotionsPage />);
 
     await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));

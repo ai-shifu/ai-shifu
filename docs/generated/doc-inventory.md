@@ -36,7 +36,7 @@
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-10-27` | `true` |
 | `docs/design-docs/learner-follow-up-input-shortcuts.md` | Learner follow-up input shortcuts | `design-doc` | `implemented` | `learner-web` | `2026-09-04` | `true` |
 | `docs/design-docs/markdownflow-engine-library.md` | MarkdownFlow engine library | `design-doc` | `implemented` | `backend` | `2026-10-26` | `true` |
-| `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `implemented` | `backend` | `2026-11-23` | `true` |
+| `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `implemented` | `backend` | `2026-11-25` | `true` |
 | `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-27` | `true` |
 | `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `implemented` | `frontend` | `2026-11-09` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-11-09` | `true` |
@@ -85,6 +85,7 @@
 | `docs/exec-plans/active/question-memory-key-compatibility.md` | Define and align MarkdownFlow text variable names | `exec-plan-active` | `active` | `learner` | `2026-10-24` | `true` |
 | `docs/exec-plans/active/reading-interaction-questions.md` | Hide extra interaction questions in reading mode | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/remove-pingxx.md` | Remove Ping++ | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |

@@ -1415,39 +1415,6 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         group="auth",
     ),
     # Payment Providers
-    "PINGXX_SECRET_KEY": EnvVar(
-        name="PINGXX_SECRET_KEY",
-        default="",
-        description="Ping++ API secret key used for charge creation",
-        secret=True,
-        group="payment",
-    ),
-    "PINGXX_PRIVATE_KEY_PATH": EnvVar(
-        name="PINGXX_PRIVATE_KEY_PATH",
-        default="",
-        description="Filesystem path to the Ping++ RSA private key",
-        group="payment",
-    ),
-    "PINGXX_PRIVATE_KEY": EnvVar(
-        name="PINGXX_PRIVATE_KEY",
-        default="",
-        description="Inline Ping++ RSA private key for per-owner SaaS configuration",
-        secret=True,
-        group="payment",
-    ),
-    "PINGXX_WEBHOOK_PUBLIC_KEY": EnvVar(
-        name="PINGXX_WEBHOOK_PUBLIC_KEY",
-        default="",
-        description="Ping++ webhook RSA public key for signature verification",
-        secret=True,
-        group="payment",
-    ),
-    "PINGXX_APP_ID": EnvVar(
-        name="PINGXX_APP_ID",
-        default="",
-        description="Ping++ application identifier",
-        group="payment",
-    ),
     "ALIPAY_APP_ID": EnvVar(
         name="ALIPAY_APP_ID",
         default="",
@@ -1624,10 +1591,11 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     ),
     "PAYMENT_CHANNELS_ENABLED": EnvVar(
         name="PAYMENT_CHANNELS_ENABLED",
-        default="pingxx,stripe",
+        default="",
         description=(
-            "Comma-separated list of enabled payment providers "
-            "(e.g., wechatpay,alipay,pingxx,stripe)"
+            "Comma-separated list of enabled payment providers: alipay, "
+            "wechatpay, stripe. Empty enables every provider whose complete "
+            "credentials are configured."
         ),
         group="payment",
     ),

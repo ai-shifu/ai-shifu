@@ -9,7 +9,7 @@ import type {
   BillingMetricName,
   BillingOrderStatus,
   BillingOrderType,
-  BillingPingxxChannel,
+  BillingQrChannel,
   BillingPlan,
   BillingPlanInterval,
   BillingProvider,
@@ -821,19 +821,19 @@ export function openBillingCheckoutUrl(url: string): void {
   window.location.assign(url);
 }
 
-export function resolveBillingPingxxChannelLabel(
+export function resolveBillingQrChannelLabel(
   t: BillingTranslator,
-  channel: BillingPingxxChannel,
+  channel: BillingQrChannel,
 ): string {
   return channel === 'wx_pub_qr'
     ? t('module.pay.wechatPay')
     : t('module.pay.alipay');
 }
 
-export function extractBillingPingxxQrCode(
+export function extractBillingQrCode(
   result: BillingCheckoutResult,
-  preferredChannel: BillingPingxxChannel = 'wx_pub_qr',
-): { channel: BillingPingxxChannel; url: string } | null {
+  preferredChannel: BillingQrChannel = 'wx_pub_qr',
+): { channel: BillingQrChannel; url: string } | null {
   const credential =
     typeof result.payment_payload === 'object' && result.payment_payload
       ? (result.payment_payload as Record<string, unknown>).credential
@@ -843,7 +843,7 @@ export function extractBillingPingxxQrCode(
   }
 
   const normalizedCredential = credential as Record<string, unknown>;
-  const channels: BillingPingxxChannel[] =
+  const channels: BillingQrChannel[] =
     preferredChannel === 'wx_pub_qr'
       ? ['wx_pub_qr', 'alipay_qr']
       : ['alipay_qr', 'wx_pub_qr'];
@@ -914,10 +914,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.labels.providerAlipay'),
     t('module.billing.catalog.labels.providerManual'),
     t('module.billing.catalog.labels.providerPingxx'),
-    t('module.billing.catalog.labels.providerWithChannel', {
-      provider: t('module.billing.catalog.labels.providerPingxx'),
-      channel: t('module.pay.wechatPay'),
-    }),
     t('module.billing.catalog.labels.providerStripe'),
     t('module.billing.catalog.labels.providerWechatpay'),
     t('module.billing.catalog.plans.creatorMonthly.description'),
@@ -1184,7 +1180,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     ),
     t('module.billing.admin.entitlements.customization.logoReady'),
     t('module.billing.admin.entitlements.customization.providers.alipay'),
-    t('module.billing.admin.entitlements.customization.providers.pingxx'),
     t('module.billing.admin.entitlements.customization.providers.stripe'),
     t('module.billing.admin.entitlements.customization.providers.wechat_oauth'),
     t('module.billing.admin.entitlements.customization.providers.wechatpay'),

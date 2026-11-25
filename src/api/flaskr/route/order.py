@@ -149,7 +149,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
                         description: Payment channel. Domestic channels accept wx_pub_qr, wx_pub, alipay_qr and so on; the Stripe channel accepts stripe or stripe:checkout_session
                     payment_channel:
                         type: string
-                        description: Target payment provider, one of pingxx, stripe, alipay or wechatpay (resolved from configuration when omitted)
+                        description: Target payment provider, one of stripe, alipay or wechatpay (resolved from configuration when omitted)
         responses:
             200:
                 description: Payment requested

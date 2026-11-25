@@ -41,7 +41,7 @@ def legacy_stripe_snapshot_query() -> Query:
 
 
 def legacy_pingxx_snapshot_query() -> Query:
-    """Return legacy pingxx snapshot query."""
+    """Return the read-only query for historical Ping++ order snapshots."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
         PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_ORDER,
@@ -53,14 +53,6 @@ def billing_stripe_snapshot_query() -> Query:
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
         StripeOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
-    )
-
-
-def billing_pingxx_snapshot_query() -> Query:
-    """Return billing pingxx snapshot query."""
-    return PingxxOrder.query.filter(
-        PingxxOrder.deleted == 0,
-        PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
     )
 
 
@@ -326,93 +318,6 @@ def upsert_billing_stripe_snapshot(
     return snapshot
 
 
-def upsert_billing_pingxx_snapshot(
-    *,
-    bill_order_bid: str,
-    creator_bid: str,
-    amount: int,
-    currency: str,
-    raw_status: int,
-    charge_id: str = "",
-    charge_object: object | None = None,
-    transaction_no: str = "",
-    app_id: str = "",
-    channel: str = "",
-    subject: str = "",
-    body: str = "",
-    client_ip: str = "",
-    extra: object | None = None,
-) -> PingxxOrder:
-    """Create or update billing pingxx snapshot."""
-    snapshot = (
-        billing_pingxx_snapshot_query()
-        .filter(PingxxOrder.bill_order_bid == bill_order_bid)
-        .order_by(PingxxOrder.id.desc())
-        .first()
-    )
-    if snapshot is None:
-        snapshot = PingxxOrder(
-            pingxx_order_bid=bill_order_bid,
-            biz_domain=RAW_BIZ_DOMAIN_BILLING,
-            bill_order_bid=bill_order_bid,
-            creator_bid=creator_bid,
-            user_bid="",
-            shifu_bid="",
-            order_bid="",
-            extra="{}",
-            charge_object="{}",
-        )
-
-    payload_charge_id = _extract_object_id(charge_object, prefix="ch_")
-    snapshot.biz_domain = RAW_BIZ_DOMAIN_BILLING
-    snapshot.pingxx_order_bid = bill_order_bid
-    snapshot.bill_order_bid = bill_order_bid
-    snapshot.creator_bid = creator_bid
-    snapshot.order_bid = ""
-    snapshot.user_bid = ""
-    snapshot.shifu_bid = ""
-    snapshot.amount = int(amount or 0)
-    snapshot.currency = str(currency or snapshot.currency or "CNY")
-    snapshot.status = int(raw_status)
-    snapshot.charge_id = charge_id or payload_charge_id or snapshot.charge_id
-    snapshot.transaction_no = (
-        transaction_no
-        or _extract_order_no(charge_object)
-        or snapshot.transaction_no
-        or bill_order_bid
-    )
-    snapshot.app_id = app_id or _extract_pingxx_app_id(charge_object) or snapshot.app_id
-    snapshot.channel = (
-        channel or _extract_object_value(charge_object, "channel") or snapshot.channel
-    )
-    snapshot.subject = (
-        subject or _extract_object_value(charge_object, "subject") or snapshot.subject
-    )
-    snapshot.body = (
-        body or _extract_object_value(charge_object, "body") or snapshot.body
-    )
-    snapshot.client_ip = (
-        client_ip
-        or _extract_object_value(charge_object, "client_ip")
-        or snapshot.client_ip
-    )
-
-    resolved_extra = extra
-    if resolved_extra is None and isinstance(charge_object, dict):
-        resolved_extra = charge_object.get("extra")
-    if resolved_extra is not None:
-        snapshot.extra = _stringify_payload(resolved_extra)
-    elif not snapshot.extra:
-        snapshot.extra = "{}"
-
-    if charge_object is not None:
-        snapshot.charge_object = _stringify_payload(charge_object)
-    elif not snapshot.charge_object:
-        snapshot.charge_object = "{}"
-
-    return snapshot
-
-
 def _extract_object_id(payload: object, *, prefix: str) -> str:
     if not isinstance(payload, dict):
         return ""
@@ -426,15 +331,6 @@ def _extract_order_no(payload: object) -> str:
     if not isinstance(payload, dict):
         return ""
     return str(payload.get("order_no") or "")
-
-
-def _extract_pingxx_app_id(payload: object) -> str:
-    if not isinstance(payload, dict):
-        return ""
-    value = payload.get("app")
-    if isinstance(value, dict):
-        return str(value.get("id") or "")
-    return str(value or "")
 
 
 def _extract_object_value(payload: object, key: str) -> str:

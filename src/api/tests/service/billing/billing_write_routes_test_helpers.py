@@ -87,8 +87,9 @@ from flaskr.service.billing.subscriptions import (
     repair_topup_grant_expiries,
     sync_subscription_lifecycle_events,
 )
+from flaskr.service.common import payment_channels as payment_channel_resolution
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.order.models import PingxxOrder, StripeOrder
+from flaskr.service.order.models import AlipayOrder, StripeOrder, WechatPayOrder
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
     PaymentNotificationResult,
@@ -156,6 +157,7 @@ __all__ = [
     "CREDIT_SOURCE_TYPE_SUBSCRIPTION",
     "CREDIT_SOURCE_TYPE_TOPUP",
     "ERROR_CODE",
+    "AlipayOrder",
     "BillingCampaign",
     "BillingCampaignProduct",
     "BillingCampaignProviderDiscount",
@@ -168,8 +170,8 @@ __all__ = [
     "CreditWallet",
     "CreditWalletBucket",
     "Decimal",
-    "PingxxOrder",
     "StripeOrder",
+    "WechatPayOrder",
     "add_active_subscription",
     "add_trial_subscription_state",
     "apply_billing_subscription_provider_update",
@@ -435,7 +437,8 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
 
     stripe_requests: list[dict] = []
     stripe_expire_requests: list[dict] = []
-    pingxx_requests: list[dict] = []
+    native_requests: list[dict] = []
+    native_amounts: dict[str, tuple[str, int]] = {}
     refund_requests: list[dict] = []
 
     class FakeStripeProvider:
@@ -612,11 +615,15 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                 status="succeeded",
             )
 
-    class FakePingxxProvider:
+    class FakeNativeProvider:
+        def __init__(self, provider: str) -> None:
+            self.provider = provider
+
         def create_payment(self, *, request: object, app: object) -> object:
             _ = app
-            pingxx_requests.append(
+            native_requests.append(
                 {
+                    "provider": self.provider,
                     "order_bid": request.order_bid,
                     "channel": request.channel,
                     "subject": request.subject,
@@ -624,29 +631,52 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                     "extra": request.extra,
                 }
             )
+            native_amounts[request.order_bid] = (self.provider, int(request.amount))
+            qr_url = f"https://{self.provider}.test/qr"
             return PaymentCreationResult(
-                provider_reference="ch_billing_test",
-                raw_response={"id": "ch_billing_test", "paid": False},
-                extra={"credential": {"alipay_qr": "https://pingxx.test/qr"}},
+                provider_reference=request.order_bid,
+                raw_response={"qr_code": qr_url},
+                extra={
+                    "credential": {request.channel: qr_url},
+                    "qr_url": qr_url,
+                    "raw_request": {"out_trade_no": request.order_bid},
+                },
             )
 
         def sync_reference(
             self, *, provider_reference: str, reference_type: str, app: object
         ) -> object:
             _ = app
-            assert reference_type == "charge"
+            assert reference_type == "payment"
+            _provider, amount = native_amounts.get(
+                provider_reference, (self.provider, 0)
+            )
+            if self.provider == "alipay":
+                trade = {
+                    "out_trade_no": provider_reference,
+                    "trade_no": f"trade-{provider_reference}",
+                    "trade_status": "TRADE_SUCCESS",
+                    "total_amount": f"{amount / 100:.2f}",
+                }
+            else:
+                trade = {
+                    "out_trade_no": provider_reference,
+                    "transaction_id": f"wx-{provider_reference}",
+                    "trade_state": "SUCCESS",
+                    "amount": {"total": amount, "payer_total": amount},
+                }
             return PaymentNotificationResult(
-                order_bid="",
+                order_bid=provider_reference,
                 status="manual_sync",
-                provider_payload={"charge": {"id": provider_reference, "paid": True}},
-                charge_id=provider_reference,
+                provider_payload={"trade": trade},
+                charge_id=str(trade.get("trade_no") or trade.get("transaction_id")),
             )
 
     def _fake_get_payment_provider(channel: str) -> object:
         if channel == "stripe":
             return FakeStripeProvider()
-        if channel == "pingxx":
-            return FakePingxxProvider()
+        if channel in {"alipay", "wechatpay"}:
+            return FakeNativeProvider(channel)
         message = f"Unexpected provider: {channel}"
         raise AssertionError(message)
 
@@ -668,6 +698,16 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
         billing_write_routes_module,
         "is_billing_enabled",
         lambda: True,
+    )
+    original_channel_config = payment_channel_resolution.get_config
+    monkeypatch.setattr(
+        payment_channel_resolution,
+        "get_config",
+        lambda key, default="": (
+            "alipay,wechatpay,stripe"
+            if key == "PAYMENT_CHANNELS_ENABLED"
+            else original_channel_config(key, default)
+        ),
     )
 
     @app.errorhandler(AppError)
@@ -699,7 +739,7 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                 "app": app,
                 "stripe_requests": stripe_requests,
                 "stripe_expire_requests": stripe_expire_requests,
-                "pingxx_requests": pingxx_requests,
+                "native_requests": native_requests,
                 "refund_requests": refund_requests,
             }
 

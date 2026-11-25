@@ -197,7 +197,6 @@ export const MobilePaymentDialog = ({
     () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
     [paymentChannels],
   );
-  const pingxxChannelEnabled = normalizedPaymentChannels.includes('pingxx');
   const alipayChannelEnabled = normalizedPaymentChannels.includes('alipay');
   const wechatpayChannelEnabled =
     normalizedPaymentChannels.includes('wechatpay');
@@ -215,9 +214,8 @@ export const MobilePaymentDialog = ({
     enableWxcode,
     openId: userInfo?.openid,
   });
-  const wechatPaymentAvailable =
-    pingxxChannelEnabled || wechatpayChannelEnabled;
-  const alipayPaymentAvailable = pingxxChannelEnabled || alipayChannelEnabled;
+  const wechatPaymentAvailable = wechatpayChannelEnabled;
+  const alipayPaymentAvailable = alipayChannelEnabled;
   const qrChannelEnabled = wechatPaymentAvailable || alipayPaymentAvailable;
   const isStripeSelected = payChannel.startsWith('stripe');
   const stripePayload = (paymentInfo?.paymentPayload ||
@@ -280,13 +278,13 @@ export const MobilePaymentDialog = ({
         return 'stripe';
       }
       if (channel === PAY_CHANNEL_ZHIFUBAO) {
-        return alipayChannelEnabled ? 'alipay' : 'pingxx';
+        return alipayChannelEnabled ? 'alipay' : undefined;
       }
       if (
         channel === PAY_CHANNEL_WECHAT ||
         channel === PAY_CHANNEL_WECHAT_JSAPI
       ) {
-        return wechatpayChannelEnabled ? 'wechatpay' : 'pingxx';
+        return wechatpayChannelEnabled ? 'wechatpay' : undefined;
       }
       return undefined;
     },

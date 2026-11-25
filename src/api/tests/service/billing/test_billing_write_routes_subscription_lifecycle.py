@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -35,6 +36,7 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     ERROR_CODE,
+    AlipayOrder,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -43,7 +45,6 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     CreditWallet,
     CreditWalletBucket,
     Decimal,
-    PingxxOrder,
     StripeOrder,
     apply_billing_subscription_provider_update,
     billing_subscriptions_module,
@@ -70,7 +71,7 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
 class TestBillingWriteRoutesSubscriptionLifecycle:
     """Verify billing write routes subscription lifecycle behavior."""
 
-    def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
+    def test_native_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
@@ -80,34 +81,34 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
             },
             headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
 
         assert checkout["code"] == 0
-        assert checkout["data"]["provider"] == "pingxx"
+        assert checkout["data"]["provider"] == "alipay"
         assert checkout["data"]["status"] == "pending"
         assert checkout["data"]["payment_mode"] == "subscription"
         assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
-            "https://pingxx.test/qr"
+            "https://alipay.test/qr"
         )
-        assert billing_write_client["pingxx_requests"][0]["subject"] == "月套餐·轻量版"
-        assert billing_write_client["pingxx_requests"][0]["body"] == "月套餐·轻量版"
+        assert billing_write_client["native_requests"][0]["subject"] == "月套餐·轻量版"
+        assert billing_write_client["native_requests"][0]["body"] == "月套餐·轻量版"
 
         with app.app_context():
             order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1"
             ).one()
-            raw_order = PingxxOrder.query.filter_by(
+            raw_order = AlipayOrder.query.filter_by(
                 biz_domain="billing",
                 bill_order_bid=bill_order_bid,
             ).one()
             assert order.status == BILLING_ORDER_STATUS_PENDING
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT
-            assert subscription.billing_provider == "pingxx"
+            assert subscription.billing_provider == "alipay"
             assert subscription.provider_subscription_id == ""
             assert raw_order.status == 0
             assert raw_order.order_bid == ""
@@ -132,7 +133,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                 creator_bid="creator-1",
                 source_bid=bill_order_bid,
             ).one()
-            raw_order = PingxxOrder.query.filter_by(
+            raw_order = AlipayOrder.query.filter_by(
                 biz_domain="billing",
                 bill_order_bid=bill_order_bid,
             ).one()
@@ -164,9 +165,9 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             ).one()
             assert ledger.expires_at == subscription.current_period_end_at
             assert raw_order.status == 1
-            assert raw_order.charge_id == "ch_billing_test"
+            assert raw_order.transaction_id == f"trade-{bill_order_bid}"
             assert (
-                PingxxOrder.query.filter_by(
+                AlipayOrder.query.filter_by(
                     biz_domain="billing",
                     bill_order_bid=bill_order_bid,
                 ).count()
@@ -177,8 +178,8 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             )
             assert expire_event.scheduled_at == subscription.current_period_end_at
 
-    def test_pending_pingxx_subscription_order_reuses_checkout_credential(
-        self, billing_write_client: object
+    def test_pending_native_subscription_order_reuses_checkout_credential(
+        self, billing_write_client: object, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         client = billing_write_client["client"]
 
@@ -186,11 +187,36 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
             },
             headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
+
+        # Reopening asks Alipay first; the code is reused only while payable.
+        from flaskr.service.billing import checkout as billing_checkout
+        from flaskr.service.order.payment_providers.base import (
+            PaymentNotificationResult,
+        )
+
+        monkeypatch.setattr(
+            billing_checkout,
+            "get_payment_provider",
+            lambda _name: SimpleNamespace(
+                sync_reference=lambda *, provider_reference, **_kwargs: (
+                    PaymentNotificationResult(
+                        order_bid=provider_reference,
+                        status="manual_sync",
+                        provider_payload={
+                            "trade": {
+                                "out_trade_no": provider_reference,
+                                "trade_status": "WAIT_BUYER_PAY",
+                            }
+                        },
+                    )
+                )
+            ),
+        )
 
         refreshed = client.post(
             f"/api/billing/orders/{bill_order_bid}/checkout",
@@ -198,20 +224,20 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
         ).get_json(force=True)
 
         assert refreshed["code"] == 0
-        assert refreshed["data"]["provider"] == "pingxx"
+        assert refreshed["data"]["provider"] == "alipay"
         assert refreshed["data"]["payment_mode"] == "subscription"
         assert refreshed["data"]["status"] == "pending"
         assert refreshed["data"]["payment_payload"]["credential"]["alipay_qr"] == (
-            "https://pingxx.test/qr"
+            "https://alipay.test/qr"
         )
         assert refreshed["data"]["bill_order_bid"] == bill_order_bid
         assert (
             refreshed["data"]["payment_payload"] == checkout["data"]["payment_payload"]
         )
-        assert len(billing_write_client["pingxx_requests"]) == 1
-        assert billing_write_client["pingxx_requests"][0]["order_bid"] == bill_order_bid
-        assert billing_write_client["pingxx_requests"][0]["subject"] == "月套餐·轻量版"
-        assert billing_write_client["pingxx_requests"][0]["body"] == "月套餐·轻量版"
+        assert len(billing_write_client["native_requests"]) == 1
+        assert billing_write_client["native_requests"][0]["order_bid"] == bill_order_bid
+        assert billing_write_client["native_requests"][0]["subject"] == "月套餐·轻量版"
+        assert billing_write_client["native_requests"][0]["body"] == "月套餐·轻量版"
 
     def test_subscription_checkout_reuses_same_pending_stripe_order_within_timeout(
         self, billing_write_client: object
@@ -549,7 +575,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
             },
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
@@ -569,38 +595,6 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
         with app.app_context():
             order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             assert order.status == BILLING_ORDER_STATUS_TIMEOUT
-
-    def test_pingxx_wechat_subscription_checkout_aligns_legacy_charge_extra(
-        self, billing_write_client: object, monkeypatch: object
-    ) -> None:
-        client = billing_write_client["client"]
-
-        def fake_get_config(key: object, default: object = None) -> object:
-            if key == "PINGXX_APP_ID":
-                return "app_billing_test"
-            return default
-
-        monkeypatch.setattr(
-            "flaskr.service.billing.checkout.get_config",
-            fake_get_config,
-        )
-
-        checkout = client.post(
-            "/api/billing/subscriptions/checkout",
-            json={
-                "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
-                "channel": "wx_pub_qr",
-            },
-        ).get_json(force=True)
-
-        assert checkout["code"] == 0
-        request = billing_write_client["pingxx_requests"][0]
-        assert request["channel"] == "wx_pub_qr"
-        assert request["extra"]["app_id"] == "app_billing_test"
-        assert request["extra"]["charge_extra"] == {
-            "product_id": "bill-product-plan-monthly"
-        }
 
     def test_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client: object
@@ -1084,7 +1078,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                 currency="CNY",
                 payable_amount=9900,
                 paid_amount=9900,
-                payment_provider="pingxx",
+                payment_provider="alipay",
                 channel="alipay_qr",
                 provider_reference_id="ch_pingxx_renewal_early_1",
                 status=BILLING_ORDER_STATUS_PAID,
@@ -1127,7 +1121,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                     "bill_order_bid": "bill-pingxx-start-early-1",
                     "subscription_bid": "sub-pingxx-early-renewal",
                     "product_bid": "bill-product-plan-monthly",
-                    "payment_provider": "pingxx",
+                    "payment_provider": "alipay",
                 },
                 created_at=current_cycle_start,
                 updated_at=current_cycle_start,
@@ -1209,7 +1203,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                 currency="CNY",
                 payable_amount=9900,
                 paid_amount=9900,
-                payment_provider="pingxx",
+                payment_provider="alipay",
                 channel="alipay_qr",
                 provider_reference_id="ch_pingxx_renewal_late_1",
                 status=BILLING_ORDER_STATUS_PAID,
@@ -1285,7 +1279,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                 currency="CNY",
                 payable_amount=990,
                 paid_amount=990,
-                payment_provider="pingxx",
+                payment_provider="alipay",
                 channel="alipay_qr",
                 provider_reference_id="ch_pingxx_start_repair_1",
                 status=BILLING_ORDER_STATUS_PAID,
@@ -1401,7 +1395,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                 currency="CNY",
                 payable_amount=990,
                 paid_amount=990,
-                payment_provider="pingxx",
+                payment_provider="wechatpay",
                 channel="wx_pub_qr",
                 provider_reference_id="ch_reactivate_expired_1",
                 status=BILLING_ORDER_STATUS_PAID,
@@ -1507,7 +1501,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                     "bill_order_bid": "bill-repair-existing-expired-1",
                     "subscription_bid": "sub-repair-existing-expired",
                     "product_bid": "bill-product-plan-monthly",
-                    "payment_provider": "pingxx",
+                    "payment_provider": "alipay",
                 },
                 created_at=datetime(2026, 4, 20, 19, 22, 1),
                 updated_at=paid_at,
@@ -1521,7 +1515,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                 currency="CNY",
                 payable_amount=990,
                 paid_amount=990,
-                payment_provider="pingxx",
+                payment_provider="wechatpay",
                 channel="wx_pub_qr",
                 provider_reference_id="ch_repair_existing_expired_1",
                 status=BILLING_ORDER_STATUS_PAID,
@@ -1545,7 +1539,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
                     "bill_order_bid": order.bill_order_bid,
                     "subscription_bid": subscription.subscription_bid,
                     "product_bid": order.product_bid,
-                    "payment_provider": "pingxx",
+                    "payment_provider": "alipay",
                     "grant_reason": "subscription",
                     "bucket_credit_state": "available",
                 },
