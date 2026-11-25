@@ -827,7 +827,7 @@ class TestBillingWriteRoutesTopup:
             return default
 
         monkeypatch.setattr(
-            "flaskr.service.order.payment_channel_resolution.get_config",
+            "flaskr.service.common.payment_channels.get_config",
             fake_get_config,
         )
 

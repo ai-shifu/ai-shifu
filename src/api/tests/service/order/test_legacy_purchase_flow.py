@@ -121,7 +121,7 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         _fake_wechatpay_charge,
     )
     monkeypatch.setattr(
-        "flaskr.service.order.payment_channel_resolution.get_config",
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default="": (
             "alipay,wechatpay" if key == "PAYMENT_CHANNELS_ENABLED" else default
         ),
@@ -180,7 +180,7 @@ def test_zero_price_order_completes_with_market_channel_without_provider(
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     monkeypatch.setattr(order_funs, "set_user_state", lambda *_args: None)
     monkeypatch.setattr(
-        "flaskr.service.order.payment_channel_resolution.get_config",
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default=None: (
             enabled_payment_channels if key == "PAYMENT_CHANNELS_ENABLED" else default
         ),

@@ -17,7 +17,7 @@ from flaskr.service.common.models import (
     raise_param_error,
 )
 from flaskr.service.common.pagination import normalize_pagination
-from flaskr.service.config import get_config
+from flaskr.service.common.payment_channels import enabled_payment_providers
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func
@@ -502,11 +502,9 @@ def update_admin_billing_campaign_status(
 def _should_require_provider_discount_sync_for_benefit(benefit_type: int) -> bool:
     if benefit_type != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
         return False
-    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "") or "")
-    enabled_channels = {
-        item.strip().lower() for item in enabled_raw.split(",") if item.strip()
-    }
-    return enabled_channels == {"stripe"}
+    # Same effective providers as checkout and /api/runtime-config, so an
+    # implicit Stripe-only market still requires published Stripe coupons.
+    return enabled_payment_providers() == {"stripe"}
 
 
 def resolve_catalog_campaign_payload(

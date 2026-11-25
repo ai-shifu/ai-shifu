@@ -27,8 +27,8 @@ from flaskr.service.common.native_payment_status import (
     is_native_payment_payable,
     resolve_native_payment_state,
 )
+from flaskr.service.common.payment_channels import resolve_payment_channel
 from flaskr.service.order.models import StripeOrder
-from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
     PaymentRefundRequest,

@@ -28,10 +28,10 @@ from flaskr.service.billing.runtime_config import (
     build_runtime_billing_context,
 )
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.config.funcs import get_config
-from flaskr.service.order.payment_channel_resolution import (
+from flaskr.service.common.payment_channels import (
     enabled_payment_provider_list,
 )
+from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
 
