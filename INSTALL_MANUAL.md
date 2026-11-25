@@ -300,10 +300,13 @@ validated and preserved.
 python3 scripts/prepare_env.py --output src/api/.env
 ```
 
-The Docker template includes demo authentication settings such as
-`UNIVERSAL_VERIFICATION_CODE`. The API and frontend commands below bind to
-loopback so those settings are not exposed through either development server.
-Before making the application remotely accessible, clear the universal code,
+The Docker template sets `ENV=production`, leaves `UNIVERSAL_VERIFICATION_CODE`
+empty and enables password login. To sign in by phone without an SMS provider
+during local development, set `ENV=development` and choose your own
+`UNIVERSAL_VERIFICATION_CODE`; the code is ignored whenever `ENV` is
+`production`. The API and frontend commands below bind to loopback so those
+settings are not exposed through either development server. Before making the
+application remotely accessible, set `ENV=production`, clear the universal code
 and configure a real login provider. Keep the generated `SECRET_KEY` unchanged.
 
 Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
@@ -450,6 +453,30 @@ voice follow-up retain their separate contracts.
 See the [numbered-model deployment runbook](docs/exec-plans/completed/numbered-course-models.md#deployment-runbook).
 Do not roll back to a build that treats newly saved numeric choices as physical IDs.
 
+## Upgrading: universal verification code
+
+`UNIVERSAL_VERIFICATION_CODE` is now ignored while `ENV` is `production`, which
+is the default. Earlier Docker bundles enabled it with the value `1024`, which
+let anyone sign in as any account. If your installation has no SMS or email
+provider and you only ever signed in with that code, set a password once:
+
+1. Add `password` to `LOGIN_METHODS_ENABLED` in `docker/.env`, for example
+   `LOGIN_METHODS_ENABLED="phone,password"`.
+2. Temporarily add `ENV="development"` to `docker/.env`, keep
+   `UNIVERSAL_VERIFICATION_CODE`, and restart the stack.
+3. Sign in by phone with the universal code, open the account menu, choose
+   **Set Password**, and confirm it with the universal code.
+4. Set `ENV="production"` again, clear `UNIVERSAL_VERIFICATION_CODE`, and
+   restart. From now on, sign in with password login.
+
+> **Warning:** while step 2 is active, anyone who knows the universal code can
+> sign in as any account. Do it while the instance is not publicly reachable,
+> and do not leave `ENV` set to `development`.
+
+The pinned and latest Compose bundles no longer set the code themselves, so a
+value left in `docker/.env` is the only remaining source; clearing it is
+recommended even though production ignores it.
+
 ## Upgrading existing profile-onboarding prompts for Spanish
 
 When upgrading an installation that already saved the profile-onboarding
@@ -549,10 +576,7 @@ An existing password is never replaced.
   first start. It needs 8 or more characters with a letter and a digit, and it
   is never printed.
 
-### Local Demo Login
-
-With the unmodified Docker template, phone login is enabled and
-`UNIVERSAL_VERIFICATION_CODE=1024` accepts the demo code without SMS delivery.
-Use a valid test phone number. This shortcut applies only while that setting
-is enabled; installations with it cleared require their configured login
-provider.
+`UNIVERSAL_VERIFICATION_CODE` is a development-only shortcut. It is ignored
+while `ENV` is `production` (the default) and must never be enabled on a
+publicly reachable instance, because anyone who knows it can sign in as any
+account.

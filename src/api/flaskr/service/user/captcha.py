@@ -12,6 +12,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import is_production_environment
 from flaskr.service.common.models import raise_error
 from PIL import Image, ImageDraw, ImageFont
 
@@ -30,11 +31,6 @@ _CAPTCHA_FONT_CANDIDATES = (
     "DejaVuSans-Bold.ttf",
 )
 _RANDOM = random.SystemRandom()
-
-
-def _is_production(app: Flask) -> bool:
-    environment = app.config.get("ENV") or app.config.get("MODE") or ""
-    return str(environment).strip().lower() in {"prod", "production"}
 
 
 def _cache_prefix(app: Flask, config_key: str, suffix: str) -> str:
@@ -104,7 +100,7 @@ def _store_captcha_payload(
 
 def _generate_code(app: Flask) -> str:
     override = app.config.get("CAPTCHA_CODE_OVERRIDE")
-    if override and not _is_production(app):
+    if override and not is_production_environment(app):
         return _normalize_code(str(override))[:4]
     return "".join(_RANDOM.choice(_CAPTCHA_ALPHABET) for _ in range(4))
 

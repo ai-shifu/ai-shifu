@@ -20,6 +20,10 @@ services:
       LOGIN_METHODS_ENABLED: phone,password
       DEFAULT_LOGIN_METHOD: phone
       CAPTCHA_CODE_OVERRIDE: "0000"
+      # Every port of this stack binds to loopback, so the demo verification
+      # code stays local. It only works outside production ENV.
+      ENV: development
+      UNIVERSAL_VERIFICATION_CODE: "${UNIVERSAL_VERIFICATION_CODE:-1024}"
       CREATOR_INTEGRATION_ENCRYPTION_KEY: "9KxIo7loUIAmGkQmxUHQWwLpyJBKdIIFxg9FgDtw9NI="
       SAAS_DB_URI: "mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4"
       REDIS_HOST: ai-shifu-redis

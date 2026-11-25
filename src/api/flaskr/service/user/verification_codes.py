@@ -16,7 +16,11 @@ from typing import TYPE_CHECKING, Literal
 from flaskr.common.cache_provider import CacheLock, CacheProvider
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.cache_provider import redis_cache as distributed_lock_cache
-from flaskr.common.config import get_redis_derived_prefix, get_redis_key_prefix
+from flaskr.common.config import (
+    get_redis_derived_prefix,
+    get_redis_key_prefix,
+    is_production_environment,
+)
 from flaskr.dao import db, get_redis_client
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
@@ -54,6 +58,35 @@ def _renew_verification_lock(
             app.logger.exception("Failed to renew verification code lock")
             lock_lost_event.set()
             return
+
+
+def universal_verification_code(app: Flask) -> str | None:
+    """Return the configured universal code, or None when it must not apply.
+
+    The code lets anyone pass verification for any identifier, so it is
+    honored only outside production. ``ENV`` defaults to production, so a
+    deployment that never opts into development never accepts it.
+    """
+    configured = str(app.config.get("UNIVERSAL_VERIFICATION_CODE") or "").strip()
+    if not configured or is_production_environment(app):
+        return None
+    return configured
+
+
+def log_universal_verification_code_status(app: Flask) -> None:
+    """Warn at startup when the universal code is configured, without its value."""
+    if not str(app.config.get("UNIVERSAL_VERIFICATION_CODE") or "").strip():
+        return
+    if is_production_environment(app):
+        app.logger.warning(
+            "UNIVERSAL_VERIFICATION_CODE is set but ignored because ENV is "
+            "production; clear it from the deployment configuration."
+        )
+        return
+    app.logger.warning(
+        "UNIVERSAL_VERIFICATION_CODE is active: anyone who knows it can pass "
+        "verification for any account. Use it only on non-public instances."
+    )
 
 
 def _verification_code_settings(app: Flask, kind: CodeKind) -> tuple[str, int]:
@@ -300,9 +333,9 @@ def consume_verification_code(
     if not code:
         raise_param_error("code")
 
-    fix_code: str | None = app.config.get("UNIVERSAL_VERIFICATION_CODE")
-    if fix_code and code == fix_code:
-        # Universal code is accepted in dev/test environments and should not
+    fix_code = universal_verification_code(app)
+    if fix_code and hmac.compare_digest(code.encode(), fix_code.encode()):
+        # Universal code is accepted only outside production and should not
         # affect cache/db state.
         return
 

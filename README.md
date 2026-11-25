@@ -64,7 +64,7 @@ Notes
 - `LLM_MODEL_1_ID` is required and has no default. Configure optional model IDs for numbers 2-9; gaps are supported. All `LLM_MODEL_<number>_NAME` values are optional: omitted or blank names display the configured model ID. A name without a model ID does not enable an option. Historical selections automatically use model 1 when they do not reference a configured number; no data cleanup is needed.
 - For an existing installation, follow [Upgrading to numbered models](INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new images. This applies to latest, pinned-release and development Compose modes.
 - On start, an installation without an administrator creates an `admin` account with a random password, promoted to Admin and Creator and given the bundled demo course. Read the password with `docker logs ai-shifu-api` and change it from the account menu after signing in. Signing in, even as the first account, never grants the administrator role.
-- Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
+- `UNIVERSAL_VERIFICATION_CODE` is a development-only shortcut and is ignored unless `ENV` is not `production`. Existing installations that signed in with it must follow [Upgrading: universal verification code](INSTALL_MANUAL.md#upgrading-universal-verification-code).
 - `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). For a fresh pinned-release installation, use both `docker-compose.yml` and `docker-compose.secret-key.yml` as described below.
 - The installer creates `.env` with a private random `SECRET_KEY` once. Keep and securely back up this file across restarts and upgrades; all backend containers and workers reuse it. Existing files are validated and never overwritten. See [key preservation and recovery](INSTALL_MANUAL.md#secret-key-preservation-and-recovery) before changing existing configuration.
 
@@ -84,7 +84,7 @@ python3 ../scripts/prepare_env.py
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
 # - SECRET_KEY: Already generated and saved by the installer; preserve this value
-# - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
+# - UNIVERSAL_VERIFICATION_CODE: Development-only test code; ignored when ENV=production
 # - Any other optional integrations
 
 docker compose -f docker-compose.latest.yml up -d

@@ -1412,12 +1412,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
         required=False,
-        example="1024",
         description=(
-            "Universal verification code for testing.\n"
-            "**SECURITY WARNING:** Do NOT set this in production environments.\n"
-            "If set, it will allow anyone to bypass verification.\n"
-            "Only use for local development or testing."
+            "Universal verification code for local development and testing.\n"
+            "**SECURITY WARNING:** While active, anyone who knows it can pass\n"
+            "verification for any account. It is ignored when ENV is production\n"
+            "(the default); it takes effect only with a non-production ENV such\n"
+            "as development. Never enable it on a publicly reachable instance."
         ),
         group="auth",
     ),
@@ -2801,6 +2801,22 @@ def get_explicit_env_override(key: str) -> str | None:
     instead of reading ``os.environ`` outside this module.
     """
     return os.environ.get(key)
+
+
+NON_PRODUCTION_ENVIRONMENT_NAMES = frozenset(
+    {"development", "dev", "testing", "test", "local"}
+)
+
+
+def is_production_environment(app: Flask) -> bool:
+    """Return whether the app must be treated as production.
+
+    Fails closed: only an explicit development or test ``ENV`` is
+    non-production, so an empty, unknown or misspelled value keeps
+    development-only shortcuts disabled.
+    """
+    environment = str(app.config.get("ENV") or "").strip().lower()
+    return environment not in NON_PRODUCTION_ENVIRONMENT_NAMES
 
 
 def get_redis_key_prefix(app: Flask | None = None) -> str:

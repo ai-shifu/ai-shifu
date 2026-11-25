@@ -266,6 +266,7 @@ def test_console_send_sms_code_accepts_configured_universal_code_without_provide
         "send_sms_code_ali",
         lambda _app, _mobile, _code: None,
     )
+    monkeypatch.setitem(app.config, "ENV", "development")
     monkeypatch.setitem(app.config, "UNIVERSAL_VERIFICATION_CODE", "1024")
 
     response, body = _post_json(
