@@ -84,22 +84,25 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 
-def _install_unpaid_pingxx_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    provider = billing_checkout_module.get_payment_provider("pingxx")
-    reversed_references: set[str] = set()
+def _install_unpaid_alipay_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = billing_checkout_module.get_payment_provider("alipay")
+    closed_references: set[str] = set()
 
     def sync_reference(
         *, provider_reference: str, **_kwargs: object
     ) -> PaymentNotificationResult:
         return PaymentNotificationResult(
-            order_bid="",
+            order_bid=provider_reference,
             status="manual_sync",
-            charge_id=provider_reference,
+            charge_id="",
             provider_payload={
-                "charge": {
-                    "id": provider_reference,
-                    "paid": False,
-                    "reversed": provider_reference in reversed_references,
+                "trade": {
+                    "out_trade_no": provider_reference,
+                    "trade_status": (
+                        "TRADE_CLOSED"
+                        if provider_reference in closed_references
+                        else "WAIT_BUYER_PAY"
+                    ),
                 }
             },
         )
@@ -107,7 +110,7 @@ def _install_unpaid_pingxx_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     def cancel_payment(
         *, provider_reference: str, **_kwargs: object
     ) -> PaymentCancellationResult:
-        reversed_references.add(provider_reference)
+        closed_references.add(provider_reference)
         return PaymentCancellationResult(
             provider_reference=provider_reference, raw_response={}, status="cancelled"
         )
@@ -159,7 +162,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         )
@@ -193,8 +196,8 @@ class TestBillingWriteRoutesPreorder:
     @pytest.mark.parametrize(
         ("subscription_provider", "payment_provider"),
         [
-            ("stripe", "pingxx"),
-            ("manual", "pingxx"),
+            ("stripe", "alipay"),
+            ("manual", "alipay"),
         ],
     )
     def test_subscription_checkout_rejects_preorder_for_managed_or_mismatched_provider(
@@ -237,7 +240,7 @@ class TestBillingWriteRoutesPreorder:
             monkeypatch.setattr(
                 "flaskr.service.order.payment_channel_resolution.get_config",
                 lambda key, default=None: (
-                    "pingxx,alipay" if key == "PAYMENT_CHANNELS_ENABLED" else default
+                    "alipay" if key == "PAYMENT_CHANNELS_ENABLED" else default
                 ),
             )
 
@@ -292,7 +295,7 @@ class TestBillingWriteRoutesPreorder:
                     currency="CNY",
                     payable_amount=990,
                     paid_amount=990,
-                    payment_provider="pingxx",
+                    payment_provider="alipay",
                     channel="alipay_qr",
                     provider_reference_id="ch_preorder_existing",
                     status=BILLING_ORDER_STATUS_PAID,
@@ -312,7 +315,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         )
@@ -326,7 +329,7 @@ class TestBillingWriteRoutesPreorder:
     def test_subscription_checkout_ignores_unpaid_preorder_attempt(
         self, billing_write_client: object, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _install_unpaid_pingxx_provider(monkeypatch)
+        _install_unpaid_alipay_provider(monkeypatch)
         client = billing_write_client["client"]
         app = billing_write_client["app"]
         now = now_utc()
@@ -361,7 +364,7 @@ class TestBillingWriteRoutesPreorder:
                     currency="CNY",
                     payable_amount=990,
                     paid_amount=0,
-                    payment_provider="pingxx",
+                    payment_provider="alipay",
                     channel="alipay_qr",
                     provider_reference_id="ch_preorder_unpaid_attempt",
                     status=BILLING_ORDER_STATUS_PENDING,
@@ -380,7 +383,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         ).get_json(force=True)
@@ -447,7 +450,7 @@ class TestBillingWriteRoutesPreorder:
                     currency="CNY",
                     payable_amount=990,
                     paid_amount=990,
-                    payment_provider="pingxx",
+                    payment_provider="alipay",
                     channel="alipay_qr",
                     provider_reference_id="ch_preorder_lock_race",
                     status=BILLING_ORDER_STATUS_PAID,
@@ -474,7 +477,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         ).get_json(force=True)
@@ -542,7 +545,7 @@ class TestBillingWriteRoutesPreorder:
                     "bill_order_bid": "bill-preorder-current-cycle",
                     "subscription_bid": "sub-preorder-sync",
                     "product_bid": "bill-product-plan-monthly-pro",
-                    "payment_provider": "pingxx",
+                    "payment_provider": "alipay",
                 },
                 created_at=current_period_start,
                 updated_at=current_period_start,
@@ -556,7 +559,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         ).get_json(force=True)
@@ -689,7 +692,7 @@ class TestBillingWriteRoutesPreorder:
                 currency="CNY",
                 payable_amount=990,
                 paid_amount=990,
-                payment_provider="pingxx",
+                payment_provider="alipay",
                 channel="alipay_qr",
                 provider_reference_id="ch_preorder_damaged_replay",
                 status=BILLING_ORDER_STATUS_PAID,
@@ -721,7 +724,7 @@ class TestBillingWriteRoutesPreorder:
                     "bill_order_bid": order.bill_order_bid,
                     "subscription_bid": subscription.subscription_bid,
                     "product_bid": order.product_bid,
-                    "payment_provider": "pingxx",
+                    "payment_provider": "alipay",
                 },
                 created_at=current_period_start,
                 updated_at=current_period_start,
@@ -743,7 +746,7 @@ class TestBillingWriteRoutesPreorder:
                     "bill_order_bid": order.bill_order_bid,
                     "subscription_bid": subscription.subscription_bid,
                     "product_bid": order.product_bid,
-                    "payment_provider": "pingxx",
+                    "payment_provider": "alipay",
                     "grant_reason": "subscription",
                     "bucket_credit_state": "reserved",
                     "reserved_until": to_utc_iso(current_period_end),
@@ -832,7 +835,7 @@ class TestBillingWriteRoutesPreorder:
                     "bill_order_bid": "bill-preorder-same-plan-current",
                     "subscription_bid": "sub-preorder-same-plan-sync",
                     "product_bid": "bill-product-plan-monthly",
-                    "payment_provider": "pingxx",
+                    "payment_provider": "alipay",
                 },
                 created_at=current_period_start,
                 updated_at=current_period_start,
@@ -846,7 +849,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         ).get_json(force=True)
@@ -912,7 +915,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly-pro",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "upgrade_immediate",
             },
         ).get_json(force=True)
@@ -969,7 +972,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "upgrade_immediate",
             },
         ).get_json(force=True)
@@ -987,7 +990,7 @@ class TestBillingWriteRoutesPreorder:
                 bill_order_bid=response["data"]["bill_order_bid"],
             ).one()
             assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
-            assert order.payment_provider == "pingxx"
+            assert order.payment_provider == "alipay"
             assert order.metadata_json["current_product_bid"] == (
                 BILLING_TRIAL_PRODUCT_BID
             )
@@ -1035,7 +1038,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         ).get_json(force=True)
@@ -1090,7 +1093,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "preorder",
             },
         ).get_json(force=True)
@@ -1157,7 +1160,7 @@ class TestBillingWriteRoutesPreorder:
                     currency="CNY",
                     payable_amount=990,
                     paid_amount=990,
-                    payment_provider="pingxx",
+                    payment_provider="alipay",
                     channel="alipay_qr",
                     provider_reference_id="ch_preorder_paid",
                     status=BILLING_ORDER_STATUS_PAID,
@@ -1212,7 +1215,7 @@ class TestBillingWriteRoutesPreorder:
                         "bill_order_bid": "bill-preorder-paid",
                         "subscription_bid": "sub-preorder-upgrade",
                         "product_bid": "bill-product-plan-monthly",
-                        "payment_provider": "pingxx",
+                        "payment_provider": "alipay",
                         "grant_reason": "subscription_renewal",
                         "bucket_credit_state": "reserved",
                         "reserved_until": to_utc_iso(current_period_end),
@@ -1227,7 +1230,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-yearly-lite",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "upgrade_immediate",
             },
         )
@@ -1359,7 +1362,7 @@ class TestBillingWriteRoutesPreorder:
                     currency="CNY",
                     payable_amount=990,
                     paid_amount=990,
-                    payment_provider="pingxx",
+                    payment_provider="alipay",
                     channel="alipay_qr",
                     provider_reference_id="ch_preorder_paid_provider_mismatch",
                     status=BILLING_ORDER_STATUS_PAID,
@@ -1399,7 +1402,7 @@ class TestBillingWriteRoutesPreorder:
     def test_subscription_checkout_allows_immediate_upgrade_with_unpaid_preorder_attempt(
         self, billing_write_client: object, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _install_unpaid_pingxx_provider(monkeypatch)
+        _install_unpaid_alipay_provider(monkeypatch)
         client = billing_write_client["client"]
         app = billing_write_client["app"]
         now = now_utc()
@@ -1435,7 +1438,7 @@ class TestBillingWriteRoutesPreorder:
                     currency="CNY",
                     payable_amount=990,
                     paid_amount=0,
-                    payment_provider="pingxx",
+                    payment_provider="alipay",
                     channel="alipay_qr",
                     provider_reference_id="ch_preorder_pending",
                     status=BILLING_ORDER_STATUS_PENDING,
@@ -1454,7 +1457,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-yearly-lite",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "upgrade_immediate",
             },
         ).get_json(force=True)
@@ -1522,7 +1525,7 @@ class TestBillingWriteRoutesPreorder:
                 currency="CNY",
                 payable_amount=990,
                 paid_amount=990,
-                payment_provider="pingxx",
+                payment_provider="alipay",
                 channel="alipay_qr",
                 provider_reference_id="ch_preorder_absorbed_replay",
                 status=BILLING_ORDER_STATUS_PAID,
@@ -1600,7 +1603,7 @@ class TestBillingWriteRoutesPreorder:
                     currency="CNY",
                     payable_amount=800000,
                     paid_amount=800000,
-                    payment_provider="pingxx",
+                    payment_provider="alipay",
                     channel="alipay_qr",
                     provider_reference_id="ch_preorder_zero_paid",
                     status=BILLING_ORDER_STATUS_PAID,
@@ -1620,7 +1623,7 @@ class TestBillingWriteRoutesPreorder:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-yearly-lite",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "action": "upgrade_immediate",
             },
         ).get_json(force=True)
@@ -1629,7 +1632,7 @@ class TestBillingWriteRoutesPreorder:
             payload["code"]
             == ERROR_CODE["server.billing.subscriptionUpgradeAmountInvalid"]
         )
-        assert billing_write_client["pingxx_requests"] == []
+        assert billing_write_client["native_requests"] == []
 
         with app.app_context():
             subscription = BillingSubscription.query.filter_by(

@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.service.order import raw_snapshots as snapshots
-from flaskr.service.order.models import PingxxOrder, StripeOrder
+from flaskr.service.order.models import StripeOrder
 
 
 @pytest.fixture
@@ -160,39 +160,3 @@ def test_billing_stripe_update_repairs_blank_raw_payloads_without_touching_legac
     assert billing.amount == 200
     assert legacy.metadata_json == "legacy"
     assert legacy.checkout_session_object == "legacy"
-
-
-@pytest.mark.parametrize(
-    "charge", [None, {"id": "not-a-charge", "app": "app-test", "channel": "alipay_qr"}]
-)
-def test_billing_pingxx_update_preserves_identifiers_and_initializes_legacy_payloads(
-    snapshot_scope: None, charge: dict | None
-) -> None:
-    del snapshot_scope
-    bid = uuid4().hex
-    row = PingxxOrder(
-        biz_domain="billing",
-        bill_order_bid=bid,
-        charge_id="ch-stored",
-        transaction_no="stored-order",
-        app_id="stored-app",
-        extra="",
-        charge_object="",
-    )
-    db.session.add(row)
-    db.session.flush()
-    result = snapshots.upsert_billing_pingxx_snapshot(
-        bill_order_bid=bid,
-        creator_bid="teacher",
-        amount=200,
-        currency="CNY",
-        raw_status=1,
-        charge_object=charge,
-    )
-    db.session.flush()
-    assert result is row
-    assert row.charge_id == "ch-stored"
-    assert row.transaction_no == "stored-order"
-    assert row.extra == "{}"
-    assert row.app_id == ("app-test" if charge else "stored-app")
-    assert json.loads(row.charge_object) == (charge or {})

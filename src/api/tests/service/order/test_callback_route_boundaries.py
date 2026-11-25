@@ -8,7 +8,7 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.route import callback
-from flaskr.service.order.models import AlipayOrder, Order, PingxxOrder, WechatPayOrder
+from flaskr.service.order.models import AlipayOrder, Order, WechatPayOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
 from tests.service.billing.test_billing_callbacks import (
@@ -109,7 +109,7 @@ def test_scoped_native_callback_routes_once_after_matching_integration(
         )
 
 
-@pytest.mark.parametrize("provider_name", ["alipay", "wechatpay", "pingxx"])
+@pytest.mark.parametrize("provider_name", ["alipay", "wechatpay"])
 @pytest.mark.parametrize("failure_phase", ["verification", "integration"])
 def test_scoped_failure_hides_details_and_does_not_apply_payment(
     billing_callback_app: Flask,
@@ -136,33 +136,6 @@ def test_scoped_failure_hides_details_and_does_not_apply_payment(
         assert response.get_json() == {"code": "FAIL", "message": "processing error"}
     services.billing.assert_not_called()
     services.legacy.assert_not_called()
-
-
-@pytest.mark.parametrize("status", ["charge.succeeded", "refund.succeeded"])
-@pytest.mark.parametrize("billing_matched", [False, True])
-def test_scoped_pingxx_only_applies_successful_charge(
-    billing_callback_app: Flask,
-    services: SimpleNamespace,
-    monkeypatch: pytest.MonkeyPatch,
-    status: str,
-    billing_matched: bool,
-) -> None:
-    services.context.provider = "pingxx"
-    services.notification.status = status
-    services.notification.provider_payload = {"type": status}
-    billing = Mock(return_value=SimpleNamespace(matched=billing_matched))
-    legacy = Mock()
-    monkeypatch.setattr(callback, "handle_billing_pingxx_webhook", billing)
-    monkeypatch.setattr(callback, "success_buy_record_from_pingxx", legacy)
-    response = billing_callback_app.test_client().post(
-        "/api/order/webhooks/pingxx/token"
-    )
-    assert response.get_data(as_text=True) == "pingxx callback success"
-    assert billing.call_count == (status == "charge.succeeded")
-    if status == "charge.succeeded" and not billing_matched:
-        legacy.assert_called_once_with(billing_callback_app, "charge", {"type": status})
-    else:
-        legacy.assert_not_called()
 
 
 def test_scoped_stripe_forwards_raw_bytes_signature_and_expected_integration(
@@ -216,7 +189,7 @@ def test_legacy_alipay_verification_failure_returns_retry_response(
     services.billing.assert_not_called()
 
 
-@pytest.mark.parametrize("provider_name", ["pingxx", "alipay", "wechatpay"])
+@pytest.mark.parametrize("provider_name", ["alipay", "wechatpay"])
 @pytest.mark.parametrize("mismatch", ["none", "creator", "integration", "missing"])
 def test_matching_integration_uses_latest_order_snapshot_and_exact_owner(
     billing_callback_app: Flask,
@@ -233,14 +206,8 @@ def test_matching_integration_uses_latest_order_snapshot_and_exact_owner(
                 payment_integration_bid="integration",
             )
         )
-        model = {
-            "pingxx": PingxxOrder,
-            "alipay": AlipayOrder,
-            "wechatpay": WechatPayOrder,
-        }[provider_name]
-        identifier = (
-            "transaction_no" if provider_name == "pingxx" else "provider_attempt_id"
-        )
+        model = {"alipay": AlipayOrder, "wechatpay": WechatPayOrder}[provider_name]
+        identifier = "provider_attempt_id"
         for domain, bid in [
             ("order", "old-order"),
             ("order", order_bid),
@@ -254,11 +221,6 @@ def test_matching_integration_uses_latest_order_snapshot_and_exact_owner(
                         "order_bid": bid,
                         f"{provider_name}_order_bid": uuid4().hex,
                     },
-                    **(
-                        {"extra": "{}", "charge_object": "{}"}
-                        if provider_name == "pingxx"
-                        else {}
-                    ),
                 )
             )
         db.session.commit()

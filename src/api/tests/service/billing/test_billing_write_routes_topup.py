@@ -29,6 +29,7 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_GIFT,
     CREDIT_SOURCE_TYPE_TOPUP,
+    AlipayOrder,
     BillingCampaign,
     BillingCampaignProduct,
     BillingCampaignProviderDiscount,
@@ -38,7 +39,6 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     CreditWallet,
     CreditWalletBucket,
     Decimal,
-    PingxxOrder,
     StripeOrder,
     add_active_subscription,
     add_trial_subscription_state,
@@ -72,7 +72,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
             headers={"X-Language": "zh-CN"},
@@ -81,10 +81,10 @@ class TestBillingWriteRoutesTopup:
 
         assert checkout["data"]["status"] == "pending"
         assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
-            "https://pingxx.test/qr"
+            "https://alipay.test/qr"
         )
-        assert billing_write_client["pingxx_requests"][0]["subject"] == "20 积分包"
-        assert billing_write_client["pingxx_requests"][0]["body"] == "20 积分包"
+        assert billing_write_client["native_requests"][0]["subject"] == "20 积分包"
+        assert billing_write_client["native_requests"][0]["body"] == "20 积分包"
 
         sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
@@ -103,7 +103,7 @@ class TestBillingWriteRoutesTopup:
                 creator_bid="creator-1",
                 source_bid=bill_order_bid,
             ).one()
-            raw_order = PingxxOrder.query.filter_by(
+            raw_order = AlipayOrder.query.filter_by(
                 biz_domain="billing",
                 bill_order_bid=bill_order_bid,
             ).one()
@@ -118,9 +118,9 @@ class TestBillingWriteRoutesTopup:
             assert ledger.amount == 20
             assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
             assert raw_order.status == 1
-            assert raw_order.charge_id == "ch_billing_test"
+            assert raw_order.transaction_id == f"trade-{bill_order_bid}"
             assert (
-                PingxxOrder.query.filter_by(
+                AlipayOrder.query.filter_by(
                     biz_domain="billing",
                     bill_order_bid=bill_order_bid,
                 ).count()
@@ -246,7 +246,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -310,7 +310,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -369,7 +369,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -410,7 +410,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -436,7 +436,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -492,7 +492,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
             },
         ).get_json(force=True)
         paid_order_bid = paid_checkout["data"]["bill_order_bid"]
@@ -513,7 +513,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -592,7 +592,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -670,7 +670,7 @@ class TestBillingWriteRoutesTopup:
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -743,7 +743,7 @@ class TestBillingWriteRoutesTopup:
                         currency="CNY",
                         payable_amount=5000,
                         paid_amount=5000,
-                        payment_provider="pingxx",
+                        payment_provider="alipay",
                         channel="alipay_qr",
                         provider_reference_id="ch_topup_repair_1",
                         status=BILLING_ORDER_STATUS_PAID,
@@ -814,7 +814,7 @@ class TestBillingWriteRoutesTopup:
             assert wallet.reserved_credits == Decimal("0E-10")
             assert wallet.version == 0
 
-    def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
+    def test_topup_checkout_uses_default_native_channel_when_provider_omitted(
         self, billing_write_client: object, monkeypatch: object
     ) -> None:
         client = billing_write_client["client"]
@@ -823,7 +823,7 @@ class TestBillingWriteRoutesTopup:
 
         def fake_get_config(key: object, default: object = None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
-                return "pingxx"
+                return "alipay"
             return default
 
         monkeypatch.setattr(
@@ -839,12 +839,12 @@ class TestBillingWriteRoutesTopup:
         ).get_json(force=True)
 
         assert checkout["code"] == 0
-        assert checkout["data"]["provider"] == "pingxx"
+        assert checkout["data"]["provider"] == "alipay"
         assert checkout["data"]["status"] == "pending"
         assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
-            "https://pingxx.test/qr"
+            "https://alipay.test/qr"
         )
-        assert billing_write_client["pingxx_requests"][0]["channel"] == "alipay_qr"
+        assert billing_write_client["native_requests"][0]["channel"] == "alipay_qr"
 
     def test_topup_sync_rebuilds_wallet_snapshot_from_bucket_balances(
         self, billing_write_client: object

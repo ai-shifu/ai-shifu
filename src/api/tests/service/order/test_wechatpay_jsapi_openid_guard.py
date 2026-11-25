@@ -1,4 +1,4 @@
-"""Verify Ping++ JSAPI charges refuse to run without a bound WeChat openid."""
+"""Verify WeChat Pay JSAPI charges refuse to run without a bound WeChat openid."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ WECHAT_OPEN_ID_REQUIRED_CODE = 5002
 
 
 class _RecordingProvider:
-    """Capture the charge payload instead of calling Ping++."""
+    """Capture the payment request instead of calling WeChat Pay."""
 
     def __init__(self) -> None:
         self.requests: list[PaymentRequest] = []
@@ -32,27 +32,21 @@ class _RecordingProvider:
         del app
         self.requests.append(request)
         return PaymentCreationResult(
-            provider_reference="ch_test",
-            raw_response={
-                "id": "ch_test",
-                "order_no": request.order_bid,
-                "app": "app_test",
-                "channel": request.channel,
-                "currency": request.currency,
-                "subject": request.subject,
-                "body": request.body,
-                "client_ip": request.client_ip,
-                "extra": request.extra.get("charge_extra", {}),
-                "credential": {"wx_pub": {"package": "prepay_id=test"}},
+            provider_reference=request.order_bid,
+            raw_response={"prepay_id": "prepay-test"},
+            extra={
+                "mode": "jsapi",
+                "prepay_id": "prepay-test",
+                "jsapi_params": {"package": "prepay_id=prepay-test"},
+                "raw_request": {"payer": {"openid": request.extra.get("open_id")}},
             },
         )
 
 
 @pytest.fixture
-def pingxx_provider(monkeypatch: pytest.MonkeyPatch) -> _RecordingProvider:
+def wechatpay_provider(monkeypatch: pytest.MonkeyPatch) -> _RecordingProvider:
     provider = _RecordingProvider()
     monkeypatch.setattr(order_funs, "get_payment_provider", lambda _name: provider)
-    monkeypatch.setattr(order_funs, "get_config", lambda *_args, **_kwargs: "app_test")
     return provider
 
 
@@ -69,7 +63,7 @@ def _make_order(creator_bid: str = "") -> Order:
 
 
 def _generate(app: Flask, creator_bid: str = "") -> object:
-    return order_funs._generate_pingxx_charge(
+    return order_funs._generate_wechatpay_charge(
         app=app,
         buy_record=_make_order(creator_bid),
         course=SimpleNamespace(bid="shifu-jsapi-openid", title="Course"),
@@ -102,7 +96,7 @@ class _UserStub:
 def test_jsapi_charge_rejects_missing_open_id(
     app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    pingxx_provider: _RecordingProvider,
+    wechatpay_provider: _RecordingProvider,
     open_id: str | None,
 ) -> None:
     monkeypatch.setattr(
@@ -115,13 +109,13 @@ def test_jsapi_charge_rejects_missing_open_id(
         _generate(app)
 
     assert excinfo.value.code == WECHAT_OPEN_ID_REQUIRED_CODE
-    assert pingxx_provider.requests == []
+    assert wechatpay_provider.requests == []
 
 
 def test_jsapi_charge_rejects_unknown_user(
     app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    pingxx_provider: _RecordingProvider,
+    wechatpay_provider: _RecordingProvider,
 ) -> None:
     monkeypatch.setattr(order_funs, "load_user_aggregate", lambda _user_bid: None)
 
@@ -129,13 +123,13 @@ def test_jsapi_charge_rejects_unknown_user(
         _generate(app)
 
     assert excinfo.value.code == WECHAT_OPEN_ID_REQUIRED_CODE
-    assert pingxx_provider.requests == []
+    assert wechatpay_provider.requests == []
 
 
 def test_jsapi_charge_sends_bound_open_id(
     app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    pingxx_provider: _RecordingProvider,
+    wechatpay_provider: _RecordingProvider,
 ) -> None:
     monkeypatch.setattr(
         order_funs,
@@ -146,20 +140,15 @@ def test_jsapi_charge_sends_bound_open_id(
     with app.app_context():
         result = _generate(app)
 
-    assert len(pingxx_provider.requests) == 1
-    assert pingxx_provider.requests[0].extra["charge_extra"] == {
-        "open_id": "o_test_openid"
-    }
-    assert result.payment_channel == "pingxx"
-    assert result.payment_payload["credential"] == {
-        "wx_pub": {"package": "prepay_id=test"}
-    }
+    assert len(wechatpay_provider.requests) == 1
+    assert wechatpay_provider.requests[0].extra["open_id"] == "o_test_openid"
+    assert result.payment_channel == "wechatpay"
 
 
 def test_jsapi_charge_uses_the_creator_own_wechat_app(
     app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    pingxx_provider: _RecordingProvider,
+    wechatpay_provider: _RecordingProvider,
 ) -> None:
     """A learner of a creator with their own official account holds its open ID."""
     user = _UserStub({"": "o_platform", "wx-creator-app": "o_creator"})
@@ -174,13 +163,13 @@ def test_jsapi_charge_uses_the_creator_own_wechat_app(
         _generate(app, creator_bid="creator-with-wechat")
 
     assert user.requested_app_ids == ["wx-creator-app"]
-    assert pingxx_provider.requests[0].extra["charge_extra"] == {"open_id": "o_creator"}
+    assert wechatpay_provider.requests[0].extra["open_id"] == "o_creator"
 
 
 def test_jsapi_charge_falls_back_to_the_platform_app_when_resolution_fails(
     app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    pingxx_provider: _RecordingProvider,
+    wechatpay_provider: _RecordingProvider,
 ) -> None:
     """A broken lookup must not add a new failure path to a money flow."""
 
@@ -196,15 +185,13 @@ def test_jsapi_charge_falls_back_to_the_platform_app_when_resolution_fails(
         _generate(app, creator_bid="creator-with-broken-integration")
 
     assert user.requested_app_ids == [""]
-    assert pingxx_provider.requests[0].extra["charge_extra"] == {
-        "open_id": "o_platform"
-    }
+    assert wechatpay_provider.requests[0].extra["open_id"] == "o_platform"
 
 
 def test_jsapi_charge_refuses_a_foreign_apps_open_id(
     app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    pingxx_provider: _RecordingProvider,
+    wechatpay_provider: _RecordingProvider,
 ) -> None:
     """Charging a creator's app with a platform open ID would be rejected."""
     user = _UserStub({"": "o_platform"})
@@ -219,4 +206,4 @@ def test_jsapi_charge_refuses_a_foreign_apps_open_id(
         _generate(app, creator_bid="creator-with-wechat")
 
     assert excinfo.value.code == WECHAT_OPEN_ID_REQUIRED_CODE
-    assert pingxx_provider.requests == []
+    assert wechatpay_provider.requests == []

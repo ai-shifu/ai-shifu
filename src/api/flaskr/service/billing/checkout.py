@@ -27,8 +27,7 @@ from flaskr.service.common.native_payment_status import (
     is_native_payment_payable,
     resolve_native_payment_state,
 )
-from flaskr.service.config import get_config
-from flaskr.service.order.models import PingxxOrder, StripeOrder
+from flaskr.service.order.models import StripeOrder
 from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
@@ -38,10 +37,8 @@ from flaskr.service.order.payment_providers import (
 )
 from flaskr.service.order.raw_snapshots import (
     billing_native_snapshot_query,
-    billing_pingxx_snapshot_query,
     billing_stripe_snapshot_query,
     native_snapshot_model,
-    upsert_billing_pingxx_snapshot,
     upsert_billing_stripe_snapshot,
     upsert_native_snapshot,
 )
@@ -100,7 +97,12 @@ from .paid_side_effects import (
 from .paid_side_effects import (
     stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
-from .payment_policy import is_manual_payment_provider, manual_payments_are_compatible
+from .payment_policy import (
+    LEGACY_PINGXX_PROVIDER,
+    is_legacy_pingxx_provider,
+    is_manual_payment_provider,
+    manual_payments_are_compatible,
+)
 from .preorders import (
     CHECKOUT_ACTION_PREORDER,
     CHECKOUT_ACTION_UPGRADE_IMMEDIATE,
@@ -558,7 +560,7 @@ def create_billing_subscription_checkout(
     checkout_action = _normalize_checkout_action(payload.get("action"))
     payment_provider, channel = _resolve_billing_payment_channel(
         payload,
-        default_pingxx_channel="alipay_qr",
+        default_channel="alipay_qr",
     )
 
     # The lock spans both steps: the order row is created and committed under
@@ -977,7 +979,7 @@ def create_billing_topup_checkout(
     product_bid = _normalize_bid(payload.get("product_bid"))
     payment_provider, channel = _resolve_billing_payment_channel(
         payload,
-        default_pingxx_channel="alipay_qr",
+        default_channel="alipay_qr",
     )
 
     with app_context_scope(app):
@@ -1196,6 +1198,9 @@ def _prepare_existing_billing_order_checkout(
     manual_attempt_needs_replacement = False
     with unit_of_work():
         order, product = _load_reopen_targets(bill_order_bid, product_bid)
+        if is_legacy_pingxx_provider(order.payment_provider):
+            # Ping++ codes expire within 24 hours and Ping++ is retired.
+            raise_error("server.order.orderPayExpired")
         if (
             is_manual_payment_provider(order.payment_provider)
             and order.provider_reference_id
@@ -1241,8 +1246,6 @@ def _prepare_existing_billing_order_checkout(
             pending_stripe_session_id = _stored_stripe_checkout_session_id(order)
 
     if saved_manual_checkout is not None:
-        if saved_manual_checkout.provider == "pingxx":
-            return saved_manual_checkout
         sync_billing_order(app, creator_bid, bill_order_bid, {})
         with unit_of_work():
             order = _load_billing_order_by_bid(bill_order_bid)
@@ -1355,9 +1358,7 @@ def _record_confirmed_manual_payment_closure(order: BillingOrder) -> bool:
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     payload = metadata.get("latest_provider_payload") or {}
     closed = (
-        bool((payload.get("charge") or {}).get("reversed"))
-        if order.payment_provider == "pingxx"
-        else resolve_native_payment_state(order.payment_provider, payload)
+        resolve_native_payment_state(order.payment_provider, payload)
         == NATIVE_PAYMENT_STATE_CANCELED
     )
     if not closed:
@@ -1391,7 +1392,7 @@ def _close_manual_payment_before_replacement(
         reference = order.provider_reference_id
     result = get_payment_provider(provider_name).cancel_payment(
         provider_reference=reference,
-        reference_type="charge" if provider_name == "pingxx" else "trade",
+        reference_type="trade",
         app=app,
     )
     if result.status != "cancelled":
@@ -1628,7 +1629,7 @@ def refund_billing_order(
         if order is None:
             raise_error("server.order.orderNotFound")
 
-        if order.payment_provider in {"pingxx", "alipay", "wechatpay"}:
+        if is_manual_payment_provider(order.payment_provider):
             return BillingRefundResultDTO(
                 bill_order_bid=order.bill_order_bid,
                 provider=order.payment_provider,
@@ -1773,8 +1774,8 @@ def sync_billing_order(
 
         if order.payment_provider == "stripe":
             order_update = _sync_stripe_order(app, order, session_id=session_id)
-        elif order.payment_provider == "pingxx":
-            order_update = _sync_pingxx_order(app, order)
+        elif is_legacy_pingxx_provider(order.payment_provider):
+            order_update = _sync_legacy_pingxx_order(order)
         elif order.payment_provider in {"alipay", "wechatpay"}:
             order_update = _sync_native_order(app, order)
         else:
@@ -1890,7 +1891,7 @@ def _build_billing_order_sync_result(
 def _resolve_billing_payment_channel(
     payload: dict[str, object],
     *,
-    default_pingxx_channel: str,
+    default_channel: str,
 ) -> tuple[str, str]:
     return resolve_payment_channel(
         payment_channel_hint=_normalize_payment_provider_hint(
@@ -1899,7 +1900,7 @@ def _resolve_billing_payment_channel(
         or None,
         channel_hint=_normalize_bid(payload.get("channel")) or None,
         stored_channel=None,
-        default_pingxx_channel=default_pingxx_channel,
+        default_channel=default_channel,
     )
 
 
@@ -2339,14 +2340,6 @@ def _build_provider_checkout_request(
                 "quantity": 1,
             }
         ]
-    elif payment_provider == "pingxx":
-        provider_options.update(
-            _build_pingxx_provider_options(
-                creator_bid=creator_bid,
-                product=product,
-                channel=channel,
-            )
-        )
     else:
         provider_options.update(
             _build_native_provider_options(
@@ -2608,36 +2601,6 @@ def _build_checkout_response_payload(
     }
 
 
-def _build_pingxx_provider_options(
-    *,
-    creator_bid: str,
-    product: BillingProduct,
-    channel: str,
-) -> dict[str, object]:
-    normalized_channel = _normalize_bid(channel)
-    charge_extra: dict[str, Any]
-
-    if normalized_channel == "wx_pub_qr":
-        charge_extra = {"product_id": product.product_bid}
-    elif normalized_channel == "alipay_qr":
-        charge_extra = {}
-    elif normalized_channel == "wx_pub":
-        user = load_user_aggregate(creator_bid)
-        open_id = str(user.wechat_open_id or "").strip() if user else ""
-        if not open_id:
-            raise_error("server.pay.wechatOpenIdRequired")
-        charge_extra = {"open_id": open_id}
-    elif normalized_channel == "wx_wap":
-        charge_extra = {}
-    else:
-        raise_error("server.pay.payChannelNotSupport")
-
-    return {
-        "app_id": str(get_config("PINGXX_APP_ID", "") or "").strip(),
-        "charge_extra": charge_extra,
-    }
-
-
 def _build_native_provider_options(
     *,
     creator_bid: str,
@@ -2692,28 +2655,6 @@ def _persist_billing_raw_snapshot_from_checkout(
             latest_charge_id=str(result.extra.get("latest_charge_id") or ""),
             receipt_url=str(result.extra.get("receipt_url") or ""),
             payment_method=str(result.extra.get("payment_method") or ""),
-        )
-        return
-
-    if order.payment_provider == "pingxx":
-        charge = result.raw_response or {}
-        _persist_billing_pingxx_raw_snapshot(
-            order,
-            create_if_missing=True,
-            raw_snapshot_status=raw_snapshot_status,
-            charge_id=str(result.provider_reference or ""),
-            charge_object=charge,
-            transaction_no=str(charge.get("order_no") or ""),
-            app_id=(
-                str(charge.get("app", {}).get("id") or "")
-                if isinstance(charge.get("app"), dict)
-                else str(charge.get("app") or "")
-            ),
-            channel=str(charge.get("channel") or order.channel or ""),
-            subject=str(charge.get("subject") or subject or ""),
-            body=str(charge.get("body") or body or ""),
-            client_ip=str(charge.get("client_ip") or ""),
-            extra=charge.get("extra"),
         )
         return
 
@@ -2779,56 +2720,6 @@ def _persist_billing_stripe_raw_snapshot(
         latest_charge_id=latest_charge_id,
         receipt_url=receipt_url,
         payment_method=payment_method,
-    )
-    db.session.add(snapshot)
-
-
-def _persist_billing_pingxx_raw_snapshot(
-    order: BillingOrder,
-    *,
-    create_if_missing: bool,
-    raw_snapshot_status: int | None = None,
-    charge_id: str = "",
-    charge_object: object | None = None,
-    transaction_no: str = "",
-    app_id: str = "",
-    channel: str = "",
-    subject: str = "",
-    body: str = "",
-    client_ip: str = "",
-    extra: object | None = None,
-) -> None:
-    raw_status = (
-        int(raw_snapshot_status)
-        if raw_snapshot_status is not None
-        else _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
-            int(order.status or BILLING_ORDER_STATUS_INIT), 0
-        )
-    )
-    existing = (
-        billing_pingxx_snapshot_query()
-        .filter(PingxxOrder.bill_order_bid == order.bill_order_bid)
-        .order_by(PingxxOrder.id.desc())
-        .first()
-    )
-    if existing is None and not create_if_missing:
-        return
-
-    snapshot = upsert_billing_pingxx_snapshot(
-        bill_order_bid=order.bill_order_bid,
-        creator_bid=order.creator_bid,
-        amount=int(order.payable_amount or 0),
-        currency=str(order.currency or "CNY"),
-        raw_status=raw_status,
-        charge_id=charge_id,
-        charge_object=charge_object,
-        transaction_no=transaction_no,
-        app_id=app_id,
-        channel=channel,
-        subject=subject,
-        body=body,
-        client_ip=client_ip,
-        extra=extra,
     )
     db.session.add(snapshot)
 
@@ -3192,8 +3083,6 @@ def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
         return "subscription"
     if order.payment_provider == "stripe":
         return "checkout_session"
-    if order.payment_provider == "pingxx":
-        return "charge"
     if order.payment_provider in {"alipay", "wechatpay"}:
         return "payment"
     return ""
@@ -3252,81 +3141,23 @@ def _sync_stripe_subscription_order(
     return order_update
 
 
-def _sync_pingxx_order(
-    app: Flask,
+def _sync_legacy_pingxx_order(
     order: BillingOrder,
 ) -> BillingOrderProviderUpdateResult:
-    if not order.provider_reference_id:
-        # No pingxx charge was ever created for this order (e.g. a subscription
-        # renewal preorder whose charge creation never happened). Treat it as
-        # still unpaid instead of raising orderNotFound so callers such as the
-        # pending-order timeout scan can expire it normally.
-        return _apply_billing_order_provider_update(
-            order,
-            provider="pingxx",
-            event_type="manual_sync",
-            source="sync",
-            payload={},
-            provider_reference_id="",
-            target_status=BILLING_ORDER_STATUS_PENDING,
-        )
+    """Keep a retired Ping++ order pending without calling Ping++.
 
-    provider = get_payment_provider("pingxx")
-    sync_result = provider.sync_reference(
-        provider_reference=order.provider_reference_id,
-        reference_type="charge",
-        app=app,
-    )
-    charge = sync_result.provider_payload.get("charge", {}) or {}
-    target_status = BILLING_ORDER_STATUS_PENDING
-    if charge.get("paid") or charge.get("time_paid"):
-        target_status = BILLING_ORDER_STATUS_PAID
-    elif charge.get("reversed"):
-        target_status = BILLING_ORDER_STATUS_CANCELED
-
-    order_update = _apply_billing_order_provider_update(
+    Ping++ codes expire within 24 hours, so the pending-order timeout scan
+    expires these orders normally.
+    """
+    return _apply_billing_order_provider_update(
         order,
-        provider="pingxx",
+        provider=LEGACY_PINGXX_PROVIDER,
         event_type="manual_sync",
         source="sync",
-        payload={"charge": charge},
-        provider_reference_id=str(charge.get("id") or order.provider_reference_id),
-        target_status=target_status,
+        payload={},
+        provider_reference_id=str(order.provider_reference_id or ""),
+        target_status=BILLING_ORDER_STATUS_PENDING,
     )
-    _persist_billing_pingxx_raw_snapshot(
-        order,
-        create_if_missing=False,
-        charge_id=str(charge.get("id") or order.provider_reference_id),
-        charge_object=charge,
-        transaction_no=str(charge.get("order_no") or ""),
-        app_id=(
-            str(charge.get("app", {}).get("id") or "")
-            if isinstance(charge.get("app"), dict)
-            else str(charge.get("app") or "")
-        ),
-        channel=str(charge.get("channel") or order.channel or ""),
-        subject=str(charge.get("subject") or ""),
-        body=str(charge.get("body") or ""),
-        client_ip=str(charge.get("client_ip") or ""),
-        extra=charge.get("extra"),
-    )
-    if (
-        order_update.applied
-        and order.subscription_bid
-        and target_status == BILLING_ORDER_STATUS_PAID
-    ):
-        subscription = _load_subscription_by_bid(order.subscription_bid)
-        if subscription is not None:
-            _apply_subscription_checkout_success(
-                app,
-                subscription,
-                payload=charge,
-                provider="pingxx",
-                event_type="manual_sync",
-                source="sync",
-            )
-
-    return order_update
 
 
 def _sync_native_order(
@@ -3335,7 +3166,7 @@ def _sync_native_order(
 ) -> BillingOrderProviderUpdateResult:
     provider_name = _normalize_bid(order.payment_provider)
     if not order.provider_reference_id:
-        # Same as pingxx: no native trade was ever created for this order, so
+        # No native trade was ever created for this order, so
         # treat it as still unpaid instead of raising orderNotFound and let the
         # caller (e.g. the pending-order timeout scan) expire it normally.
         return _apply_billing_order_provider_update(
@@ -3498,32 +3329,6 @@ def _load_billing_subscription_for_stripe_event(
     return None
 
 
-def _load_billing_order_for_pingxx_event(
-    *,
-    charge_id: str,
-    order_no: str,
-) -> BillingOrder | None:
-    query = BillingOrder.query.filter(
-        BillingOrder.deleted == 0,
-        BillingOrder.payment_provider == "pingxx",
-    )
-    if charge_id:
-        order = (
-            query.filter(BillingOrder.provider_reference_id == charge_id)
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
-        if order is not None:
-            return order
-    if order_no:
-        return (
-            query.filter(BillingOrder.bill_order_bid == order_no)
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
-    return None
-
-
 def _load_billing_order_for_native_event(
     *,
     provider: str,
@@ -3572,11 +3377,9 @@ def _load_billing_order_for_native_event(
 
 load_billing_order_for_stripe_event = _load_billing_order_for_stripe_event
 load_billing_subscription_for_stripe_event = _load_billing_subscription_for_stripe_event
-load_billing_order_for_pingxx_event = _load_billing_order_for_pingxx_event
 load_billing_order_for_native_event = _load_billing_order_for_native_event
 resolve_billing_order_provider_reference_type = (
     _resolve_billing_order_provider_reference_type
 )
 persist_billing_stripe_raw_snapshot = _persist_billing_stripe_raw_snapshot
-persist_billing_pingxx_raw_snapshot = _persist_billing_pingxx_raw_snapshot
 persist_billing_native_raw_snapshot = _persist_billing_native_raw_snapshot

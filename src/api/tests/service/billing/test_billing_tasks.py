@@ -966,10 +966,10 @@ def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
     assert payload["timeout_count"] == 1
 
 
-def test_sync_pingxx_order_without_reference_does_not_raise(
+def test_sync_legacy_pingxx_order_without_reference_does_not_raise(
     billing_task_integration_app: Flask,
 ) -> None:
-    from flaskr.service.billing.checkout import _sync_pingxx_order
+    from flaskr.service.billing.checkout import _sync_legacy_pingxx_order
 
     with billing_task_integration_app.app_context():
         order = make_billing_order(
@@ -983,9 +983,9 @@ def test_sync_pingxx_order_without_reference_does_not_raise(
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json={},
         )
-        # No pingxx charge was ever created: must not raise orderNotFound and
-        # must keep the order pending so the caller can expire it.
-        result = _sync_pingxx_order(billing_task_integration_app, order)
+        # Ping++ is retired: syncing a historical order must not call Ping++
+        # and must keep it pending so the timeout scan can expire it.
+        result = _sync_legacy_pingxx_order(order)
 
     assert result is not None
     assert int(order.status) == BILLING_ORDER_STATUS_PENDING

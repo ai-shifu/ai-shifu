@@ -47,7 +47,6 @@ __all__ = [
 # Ensure built-in providers are registered on import.
 from . import (  # noqa: E402
     alipay,  # noqa: F401
-    pingxx,  # noqa: F401
     stripe,  # noqa: F401
     wechatpay,  # noqa: F401
 )

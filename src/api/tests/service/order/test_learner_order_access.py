@@ -1,5 +1,6 @@
 """Regression coverage for learner order ownership and mutable states."""
 
+import json
 from datetime import UTC, timedelta, timezone
 from decimal import Decimal
 from threading import Event
@@ -25,7 +26,6 @@ from flaskr.service.order.funs import (
     get_payment_details,
     query_buy_record,
     success_buy_record_from_native,
-    success_buy_record_from_pingxx,
     sync_native_payment_order,
 )
 from flaskr.service.order.models import (
@@ -46,7 +46,7 @@ def _seed_order(
     order_bid: str,
     user_bid: str = "owner-user",
     status: int = ORDER_STATUS_INIT,
-    payment_channel: str = "pingxx",
+    payment_channel: str = "wechatpay",
 ) -> Order:
     order = Order(
         order_bid=order_bid,
@@ -61,6 +61,39 @@ def _seed_order(
     db.session.add(order)
     db.session.commit()
     return order
+
+
+def _wechatpay_attempt(
+    order: Order,
+    attempt_id: str,
+    *,
+    channel: str = "wx_pub_qr",
+    qr_url: str = "",
+    status: int = 0,
+) -> WechatPayOrder:
+    return WechatPayOrder(
+        wechatpay_order_bid=f"{attempt_id}-snapshot",
+        biz_domain="order",
+        order_bid=order.order_bid,
+        user_bid=order.user_bid,
+        shifu_bid=order.shifu_bid,
+        provider_attempt_id=attempt_id,
+        channel=channel,
+        amount=20000,
+        currency="CNY",
+        status=status,
+        raw_status="pending",
+        raw_response=json.dumps({"code_url": qr_url}) if qr_url else "{}",
+    )
+
+
+def _enable_native_channels(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.order.payment_channel_resolution.get_config",
+        lambda key, default="": (
+            "alipay,wechatpay" if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -131,16 +164,8 @@ def test_pending_order_reuses_existing_payment_attempt(
             status=ORDER_STATUS_TO_BE_PAID,
         )
         db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="pending-provider-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="alipay_qr",
-                amount=20000,
-                extra="{}",
-                charge_object=('{"credential":{"alipay_qr":"https://pay.example/qr"}}'),
+            _wechatpay_attempt(
+                order, "pending-provider-attempt", qr_url="https://pay.example/qr"
             )
         )
         db.session.commit()
@@ -156,10 +181,11 @@ def test_pending_order_reuses_existing_payment_attempt(
         "flaskr.service.order.funs.get_payment_provider", track_provider_request
     )
 
+    _enable_native_channels(monkeypatch)
     result = generate_charge(
         app,
         "pending-payment-order",
-        "alipay_qr",
+        "wx_pub_qr",
         "127.0.0.1",
         expected_user="owner-user",
     )
@@ -168,7 +194,7 @@ def test_pending_order_reuses_existing_payment_attempt(
     assert result.qr_url == "https://pay.example/qr"
     assert result.payment_payload == {
         "qr_url": "https://pay.example/qr",
-        "credential": {"alipay_qr": "https://pay.example/qr"},
+        "credential": {"wx_pub_qr": "https://pay.example/qr"},
     }
 
 
@@ -178,20 +204,7 @@ def test_pending_order_does_not_resume_an_empty_qr_credential(app: object) -> No
             order_bid="pending-empty-payment-order",
             status=ORDER_STATUS_TO_BE_PAID,
         )
-        db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="pending-empty-provider-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="wx_pub_qr",
-                amount=20000,
-                status=0,
-                extra="{}",
-                charge_object='{"credential":{"wx_pub_qr":""}}',
-            )
-        )
+        db.session.add(_wechatpay_attempt(order, "pending-empty-provider-attempt"))
         db.session.commit()
 
         assert _resume_pending_charge(app, order) is None
@@ -200,24 +213,6 @@ def test_pending_order_does_not_resume_an_empty_qr_credential(app: object) -> No
 @pytest.mark.parametrize(
     ("payment_channel", "snapshot_factory"),
     [
-        (
-            "pingxx",
-            lambda order: PingxxOrder(
-                pingxx_order_bid="expired-pingxx-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="wx_pub_qr",
-                amount=20000,
-                status=0,
-                extra="{}",
-                charge_object=(
-                    '{"time_expire":1,"credential":'
-                    '{"wx_pub_qr":"https://pay.example/expired"}}'
-                ),
-            ),
-        ),
         (
             "stripe",
             lambda order: StripeOrder(
@@ -753,53 +748,6 @@ def test_failed_close_after_payment_keeps_the_purchase(
         )
 
 
-def test_pingxx_success_during_repricing_completes_the_order(
-    app: object,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.order.funs.get_shifu_creator_bid", lambda *_args: "teacher"
-    )
-    monkeypatch.setattr(
-        "flaskr.service.order.funs.set_shifu_context", lambda *_args: None
-    )
-    monkeypatch.setattr(
-        "flaskr.service.order.funs.send_order_feishu", lambda *_args: None
-    )
-    monkeypatch.setattr("flaskr.service.order.funs.set_user_state", lambda *_args: None)
-    with app.app_context():
-        order = _seed_order(
-            order_bid="repricing-pingxx-order",
-            status=ORDER_STATUS_REPRICING,
-        )
-        db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="repricing-pingxx-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="wx_pub_qr",
-                amount=20000,
-                status=0,
-                charge_id="ch_repricing",
-                extra="{}",
-                charge_object="{}",
-            )
-        )
-        db.session.commit()
-        order_bid = order.order_bid
-
-    result = success_buy_record_from_pingxx(app, "ch_repricing", {"paid": True})
-
-    assert result is not None
-    with app.app_context():
-        assert (
-            Order.query.filter_by(order_bid=order_bid).one().status
-            == ORDER_STATUS_SUCCESS
-        )
-
-
 def test_coupon_closes_pending_attempt_before_repricing(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -828,31 +776,11 @@ def test_coupon_closes_pending_attempt_before_repricing(
         )
         db.session.add_all(
             [
-                PingxxOrder(
-                    pingxx_order_bid="coupon-pending-attempt",
-                    biz_domain="order",
-                    order_bid=order.order_bid,
-                    user_bid=order.user_bid,
-                    shifu_bid=order.shifu_bid,
-                    channel="wx_pub_qr",
-                    amount=20000,
-                    status=0,
-                    charge_id="ch_coupon_pending",
-                    extra="{}",
-                    charge_object='{"credential":{"wx_pub_qr":"https://pay.example/old"}}',
+                _wechatpay_attempt(
+                    order, "coupon-pending-attempt", qr_url="https://pay.example/old"
                 ),
-                PingxxOrder(
-                    pingxx_order_bid="coupon-second-pending-attempt",
-                    biz_domain="order",
-                    order_bid=order.order_bid,
-                    user_bid=order.user_bid,
-                    shifu_bid=order.shifu_bid,
-                    channel="wx_pub",
-                    amount=20000,
-                    status=0,
-                    charge_id="ch_coupon_second_pending",
-                    extra="{}",
-                    charge_object='{"credential":{"wx_pub":{"package":"prepay_id=test"}}}',
+                _wechatpay_attempt(
+                    order, "coupon-second-pending-attempt", channel="wx_pub"
                 ),
                 Coupon(
                     coupon_bid="coupon-reprice-fixed",
@@ -879,8 +807,8 @@ def test_coupon_closes_pending_attempt_before_repricing(
     )
 
     assert cancelled == [
-        ("ch_coupon_second_pending", "charge"),
-        ("ch_coupon_pending", "charge"),
+        ("coupon-second-pending-attempt", "trade"),
+        ("coupon-pending-attempt", "trade"),
     ]
     assert result is not None
     assert result.value_to_pay == "180.00"
@@ -888,11 +816,11 @@ def test_coupon_closes_pending_attempt_before_repricing(
         stored_order = Order.query.filter_by(
             order_bid="coupon-reprices-pending-order"
         ).one()
-        stored_attempt = PingxxOrder.query.filter_by(
-            pingxx_order_bid="coupon-pending-attempt"
+        stored_attempt = WechatPayOrder.query.filter_by(
+            provider_attempt_id="coupon-pending-attempt"
         ).one()
-        second_attempt = PingxxOrder.query.filter_by(
-            pingxx_order_bid="coupon-second-pending-attempt"
+        second_attempt = WechatPayOrder.query.filter_by(
+            provider_attempt_id="coupon-second-pending-attempt"
         ).one()
         assert stored_order.status == ORDER_STATUS_INIT
         assert stored_order.paid_price == Decimal("180.00")
@@ -1021,18 +949,10 @@ def test_invalid_coupon_keeps_pending_attempt_active(
             status=ORDER_STATUS_TO_BE_PAID,
         )
         db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="invalid-coupon-active-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="wx_pub_qr",
-                amount=20000,
-                status=0,
-                charge_id="ch_still_active",
-                extra="{}",
-                charge_object='{"credential":{"wx_pub_qr":"https://pay.example/current"}}',
+            _wechatpay_attempt(
+                order,
+                "invalid-coupon-active-attempt",
+                qr_url="https://pay.example/current",
             )
         )
         db.session.commit()
@@ -1054,8 +974,8 @@ def test_invalid_coupon_keeps_pending_attempt_active(
             == ORDER_STATUS_TO_BE_PAID
         )
         assert (
-            PingxxOrder.query.filter_by(
-                pingxx_order_bid="invalid-coupon-active-attempt"
+            WechatPayOrder.query.filter_by(
+                provider_attempt_id="invalid-coupon-active-attempt"
             )
             .one()
             .status
@@ -1130,21 +1050,7 @@ def test_payment_provider_work_stops_after_lifecycle_lock_ownership_is_lost(
             order_bid="lock-lost-cancel",
             status=ORDER_STATUS_TO_BE_PAID,
         )
-        db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="lock-lost-cancel-attempt",
-                biz_domain="order",
-                order_bid=cancel_order.order_bid,
-                user_bid=cancel_order.user_bid,
-                shifu_bid=cancel_order.shifu_bid,
-                channel="wx_pub_qr",
-                amount=20000,
-                status=0,
-                charge_id="ch_lock_lost",
-                extra="{}",
-                charge_object="{}",
-            )
-        )
+        db.session.add(_wechatpay_attempt(cancel_order, "lock-lost-cancel-attempt"))
         db.session.commit()
 
     ownership_lost = Event()
@@ -1205,9 +1111,12 @@ def test_coupon_rejects_terminal_order_without_mutation(
     assert usage_count == 0
 
 
-def test_pingxx_payment_detail_exposes_only_learner_status_fields(app: object) -> None:
+def test_historical_pingxx_payment_detail_exposes_only_learner_status_fields(
+    app: object,
+) -> None:
+    """Ping++ no longer takes payments, but its past orders stay readable."""
     with app.app_context():
-        order = _seed_order(order_bid="minimal-pingxx-detail")
+        order = _seed_order(order_bid="minimal-pingxx-detail", payment_channel="pingxx")
         db.session.add(
             PingxxOrder(
                 pingxx_order_bid="pingxx-secret-snapshot",

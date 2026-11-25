@@ -502,7 +502,7 @@ def update_admin_billing_campaign_status(
 def _should_require_provider_discount_sync_for_benefit(benefit_type: int) -> bool:
     if benefit_type != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
         return False
-    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
+    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "") or "")
     enabled_channels = {
         item.strip().lower() for item in enabled_raw.split(",") if item.strip()
     }

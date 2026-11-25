@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr.service.billing.checkout import refund_billing_order
 
+from tests.common.fixtures.model_factories import make_billing_order
 from tests.service.billing import (
     billing_write_routes_test_helpers as write_route_helpers,
 )
 from tests.service.billing.billing_write_routes_test_helpers import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_TYPE_TOPUP,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_SOURCE_TYPE_REFUND,
     BillingOrder,
@@ -140,18 +142,18 @@ class TestBillingWriteRoutesRefundAuth:
                 == 1
             )
 
-    def test_refund_pingxx_order_returns_unsupported(
+    def test_refund_native_order_returns_unsupported(
         self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        add_active_subscription(app, subscription_bid="sub-topup-refund-pingxx-1")
+        add_active_subscription(app, subscription_bid="sub-topup-refund-alipay-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
@@ -172,13 +174,43 @@ class TestBillingWriteRoutesRefundAuth:
             order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
 
+    def test_refund_historical_pingxx_order_returns_unsupported(
+        self, billing_write_client: object
+    ) -> None:
+        """Ping++ is retired; its paid orders stay readable but never refund."""
+        app = billing_write_client["app"]
+        with app.app_context():
+            write_route_helpers.dao.db.session.add(
+                make_billing_order(
+                    bill_order_bid="bill-historical-pingxx-refund",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_TOPUP,
+                    product_bid="bill-product-topup-small",
+                    payable_amount=5000,
+                    paid_amount=5000,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="ch_historical_pingxx",
+                    status=BILLING_ORDER_STATUS_PAID,
+                    metadata_json={},
+                )
+            )
+            write_route_helpers.dao.db.session.commit()
+            refund = refund_billing_order(
+                app, "creator-1", "bill-historical-pingxx-refund", {}
+            )
+
+        assert refund.status == "unsupported"
+        assert refund.provider == "pingxx"
+        assert billing_write_client["refund_requests"] == []
+
     def test_write_routes_require_creator(self, billing_write_client: object) -> None:
         client = billing_write_client["client"]
         response = client.post(
             "/api/billing/topups/checkout",
             json={
                 "product_bid": "bill-product-topup-small",
-                "payment_provider": "pingxx",
+                "payment_provider": "alipay",
             },
             headers={"X-Creator": "0"},
         )

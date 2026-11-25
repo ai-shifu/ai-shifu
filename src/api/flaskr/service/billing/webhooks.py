@@ -1,4 +1,4 @@
-"""Stripe and Pingxx webhook handlers for billing state transitions."""
+"""Stripe and native payment webhook handlers for billing state transitions."""
 
 from __future__ import annotations
 
@@ -21,9 +21,6 @@ from .checkout import (
     load_billing_order_for_native_event as _load_billing_order_for_native_event,
 )
 from .checkout import (
-    load_billing_order_for_pingxx_event as _load_billing_order_for_pingxx_event,
-)
-from .checkout import (
     load_billing_order_for_stripe_event as _load_billing_order_for_stripe_event,
 )
 from .checkout import (
@@ -31,9 +28,6 @@ from .checkout import (
 )
 from .checkout import (
     persist_billing_native_raw_snapshot as _persist_billing_native_raw_snapshot,
-)
-from .checkout import (
-    persist_billing_pingxx_raw_snapshot as _persist_billing_pingxx_raw_snapshot,
 )
 from .checkout import (
     persist_billing_stripe_raw_snapshot as _persist_billing_stripe_raw_snapshot,
@@ -368,91 +362,6 @@ def apply_billing_stripe_notification(
             event_type=event_type,
             bill_order_bid=order.bill_order_bid if order else None,
             subscription_bid=subscription.subscription_bid if subscription else None,
-            status_code=200,
-        )
-
-
-def handle_billing_pingxx_webhook(
-    app: Flask,
-    payload: dict[str, object],
-) -> BillingWebhookResult:
-    """Handle Pingxx billing callbacks using the shared billing state machine."""
-    event_type = str((payload or {}).get("type", "") or "")
-    charge = (payload or {}).get("data", {}).get("object", {}) or {}
-    charge_id = _normalize_bid(charge.get("id"))
-    order_no = _normalize_bid(charge.get("order_no"))
-
-    with app_context_scope(app), unit_of_work():
-        order = _load_billing_order_for_pingxx_event(
-            charge_id=charge_id,
-            order_no=order_no,
-        )
-        if order is None:
-            return BillingWebhookResult(
-                status="not_billing",
-                matched=False,
-                event_type=event_type or None,
-                charge_id=charge_id or None,
-                order_no=order_no or None,
-                status_code=202,
-            )
-
-        target_status = None
-        if event_type == "charge.succeeded":
-            target_status = BILLING_ORDER_STATUS_PAID
-
-        order_update = _apply_billing_order_provider_update(
-            order,
-            provider="pingxx",
-            event_type=event_type,
-            source="webhook",
-            payload=payload,
-            provider_reference_id=charge_id or order.provider_reference_id,
-            target_status=target_status,
-        )
-        _persist_billing_pingxx_raw_snapshot(
-            order,
-            create_if_missing=False,
-            charge_id=charge_id or order.provider_reference_id,
-            charge_object=charge,
-            transaction_no=order_no,
-            app_id=(
-                str(charge.get("app", {}).get("id") or "")
-                if isinstance(charge.get("app"), dict)
-                else str(charge.get("app") or "")
-            ),
-            channel=str(charge.get("channel") or order.channel or ""),
-            subject=str(charge.get("subject") or ""),
-            body=str(charge.get("body") or ""),
-            client_ip=str(charge.get("client_ip") or ""),
-            extra=charge.get("extra"),
-        )
-        if (
-            order_update.applied
-            and order.subscription_bid
-            and target_status == BILLING_ORDER_STATUS_PAID
-        ):
-            from .subscriptions import load_subscription_by_bid
-
-            subscription = load_subscription_by_bid(order.subscription_bid)
-            if subscription is not None:
-                _apply_subscription_checkout_success(
-                    app,
-                    subscription,
-                    payload=charge,
-                    provider="pingxx",
-                    event_type=event_type or "charge.succeeded",
-                )
-
-        order_update.stage_after_state_changes(app, order)
-        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
-        return BillingWebhookResult(
-            status="paid"
-            if target_status == BILLING_ORDER_STATUS_PAID
-            else "acknowledged",
-            matched=True,
-            event_type=event_type or None,
-            bill_order_bid=order.bill_order_bid,
             status_code=200,
         )
 

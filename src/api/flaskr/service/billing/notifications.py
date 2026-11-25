@@ -65,7 +65,6 @@ _SUPPORTED_FEISHU_ORDER_TYPES = {
     BILLING_ORDER_TYPE_TOPUP,
 }
 _FEISHU_CHANNEL_LABELS = {
-    "pingxx": "用户购买 (Pingxx)",
     "stripe": "用户购买 (Stripe)",
     "alipay": "用户购买 (支付宝)",
     "wechatpay": "用户购买 (微信支付)",

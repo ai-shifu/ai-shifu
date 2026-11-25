@@ -71,7 +71,7 @@ class Order(db.Model):
     payment_channel = Column(
         String(50),
         nullable=False,
-        default="pingxx",
+        default="",
         comment="Payment channel",
         index=True,
     )

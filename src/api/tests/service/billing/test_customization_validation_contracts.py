@@ -54,7 +54,7 @@ def credential_material() -> tuple[str, str, str]:
     )
 
 
-@pytest.mark.parametrize("provider", ["pingxx", "alipay", "wechatpay", "wechat_oauth"])
+@pytest.mark.parametrize("provider", ["alipay", "wechatpay", "wechat_oauth"])
 @pytest.mark.parametrize("bare_base64", [False, True])
 def test_provider_credentials_accept_valid_pem_and_bare_base64(
     provider: str, bare_base64: bool, credential_material: tuple[str, str, str]
@@ -75,7 +75,11 @@ def test_provider_credentials_accept_valid_pem_and_bare_base64(
     customization._probe_provider_credentials(Flask(__name__), provider, {}, secret)
 
 
-@pytest.mark.parametrize("provider", ["pingxx", "alipay", "wechatpay"])
+def test_retired_pingxx_is_not_an_integration_provider() -> None:
+    assert "pingxx" not in customization.INTEGRATION_PROVIDERS
+
+
+@pytest.mark.parametrize("provider", ["alipay", "wechatpay"])
 def test_invalid_private_keys_fail_before_activation(provider: str) -> None:
     with pytest.raises(ValueError, match="Private key is not a valid PEM key"):
         customization._probe_provider_credentials(
