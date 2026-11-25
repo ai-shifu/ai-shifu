@@ -312,6 +312,89 @@ def test_close_failure_requires_a_verified_closed_trade(
             assert error.value is failure
 
 
+def _not_exist_trade() -> dict[str, str]:
+    return {
+        "code": "40004",
+        "msg": "Business Failed",
+        "sub_code": "ACQ.TRADE_NOT_EXIST",
+        "sub_msg": "交易不存在",
+    }
+
+
+def test_close_treats_an_unscanned_precreate_as_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = alipay.AlipayProvider()
+    close = Mock(return_value={"alipay_trade_close_response": _not_exist_trade()})
+    monkeypatch.setattr(
+        provider, "_ensure_client", Mock(return_value=Mock(execute=close))
+    )
+    monkeypatch.setattr(
+        provider,
+        "sync_reference",
+        Mock(return_value=Mock(provider_payload={"trade": _not_exist_trade()})),
+    )
+
+    result = provider.cancel_payment(
+        provider_reference="attempt-test",
+        reference_type="payment",
+        app=Flask(__name__),
+    )
+
+    assert result.status == "cancelled"
+    assert result.raw_response["sub_code"] == "ACQ.TRADE_NOT_EXIST"
+
+
+def test_close_transport_failure_is_not_confirmed_by_a_missing_trade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A close that may never have reached Alipay cannot retire an unscanned code."""
+    provider = alipay.AlipayProvider()
+    failure = RuntimeError("close transport failed")
+    monkeypatch.setattr(
+        provider,
+        "_ensure_client",
+        Mock(return_value=Mock(execute=Mock(side_effect=failure))),
+    )
+    monkeypatch.setattr(
+        provider,
+        "sync_reference",
+        Mock(return_value=Mock(provider_payload={"trade": _not_exist_trade()})),
+    )
+
+    with pytest.raises(RuntimeError) as error:
+        provider.cancel_payment(
+            provider_reference="attempt-test",
+            reference_type="payment",
+            app=Flask(__name__),
+        )
+    assert error.value is failure
+
+
+def test_close_still_fails_for_other_query_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = alipay.AlipayProvider()
+    monkeypatch.setattr(
+        provider,
+        "_ensure_client",
+        Mock(return_value=Mock(execute=Mock(return_value={"code": "40004"}))),
+    )
+    trade = {"code": "40004", "sub_code": "ACQ.SYSTEM_ERROR", "sub_msg": "busy"}
+    monkeypatch.setattr(
+        provider,
+        "sync_reference",
+        Mock(return_value=Mock(provider_payload={"trade": trade})),
+    )
+
+    with pytest.raises(RuntimeError, match="busy"):
+        provider.cancel_payment(
+            provider_reference="attempt-test",
+            reference_type="payment",
+            app=Flask(__name__),
+        )
+
+
 def test_sdk_client_uses_configured_keys_and_gateway(
     alipay_config: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

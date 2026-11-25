@@ -244,7 +244,10 @@ def test_http_failure_never_parses_a_success_result(
 
 
 def _signed_notification(
-    key: rsa.RSAPrivateKey, api_key: str, resource_payload: dict
+    key: rsa.RSAPrivateKey,
+    api_key: str,
+    resource_payload: dict,
+    serial: str = "1",
 ) -> tuple[dict[str, str], str]:
     nonce = "resource1234"
     associated_data = "transaction"
@@ -271,9 +274,16 @@ def _signed_notification(
         "Wechatpay-Timestamp": "1700000000",
         "Wechatpay-Nonce": "notification-test",
         "Wechatpay-Signature": base64.b64encode(signature).decode(),
+        "Wechatpay-Serial": serial,
     }, body
 
 
+@pytest.fixture
+def notification_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wechatpay.time, "time", lambda: 1700000100)
+
+
+@pytest.mark.usefixtures("notification_clock")
 @pytest.mark.parametrize("as_bytes", [False, True])
 @pytest.mark.parametrize(
     "resource",
@@ -306,6 +316,7 @@ def test_signed_encrypted_webhook_round_trip(
     assert result.provider_payload["resource"] == resource
 
 
+@pytest.mark.usefixtures("notification_clock")
 def test_tampered_webhook_is_rejected_before_decryption(
     merchant_material: tuple[rsa.RSAPrivateKey, str, str],
     wechat_config: dict[str, str],
@@ -326,13 +337,20 @@ def test_tampered_webhook_is_rejected_before_decryption(
 
 
 @pytest.mark.parametrize(
-    "missing_header", ["Wechatpay-Timestamp", "Wechatpay-Nonce", "Wechatpay-Signature"]
+    "missing_header",
+    [
+        "Wechatpay-Timestamp",
+        "Wechatpay-Nonce",
+        "Wechatpay-Signature",
+        "Wechatpay-Serial",
+    ],
 )
 def test_unsigned_webhook_is_rejected(missing_header: str) -> None:
     headers = {
         "Wechatpay-Timestamp": "123",
         "Wechatpay-Nonce": "nonce",
         "Wechatpay-Signature": "signature",
+        "Wechatpay-Serial": "1",
     }
     headers.pop(missing_header)
     with pytest.raises(RuntimeError, match="signature headers missing"):
@@ -382,7 +400,7 @@ def test_keys_can_be_loaded_from_files(
         == merchant_material[0].private_numbers()
     )
     assert (
-        wechatpay._load_public_key_from_certificate().public_numbers()
+        wechatpay._load_platform_certificate().public_key().public_numbers()
         == merchant_material[0].public_key().public_numbers()
     )
 
@@ -496,4 +514,107 @@ def test_native_refund_fails_explicitly() -> None:
     with pytest.raises(RuntimeError, match="WeChat Pay refunds are not supported"):
         wechatpay.WechatPayProvider().refund_payment(
             request=PaymentRefundRequest(order_bid="order-test"), app=Flask(__name__)
+        )
+
+
+def _public_key_pem(key: rsa.RSAPrivateKey) -> str:
+    return (
+        key.public_key()
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode()
+    )
+
+
+@pytest.mark.usefixtures("notification_clock")
+@pytest.mark.parametrize("escaped_newlines", [False, True])
+def test_public_key_mode_verifies_notification_by_key_id(
+    escaped_newlines: bool,
+    merchant_material: tuple[rsa.RSAPrivateKey, str, str],
+    wechat_config: dict[str, str],
+) -> None:
+    public_pem = _public_key_pem(merchant_material[0])
+    wechat_config["WECHATPAY_PUBLIC_KEY"] = (
+        public_pem.replace("\n", "\\n") if escaped_newlines else public_pem
+    )
+    wechat_config["WECHATPAY_PUBLIC_KEY_ID"] = "PUB_KEY_ID_0001"
+    resource = {"out_trade_no": "attempt-test", "trade_state": "SUCCESS"}
+    headers, body = _signed_notification(
+        merchant_material[0],
+        wechat_config["WECHATPAY_API_V3_KEY"],
+        resource,
+        serial="PUB_KEY_ID_0001",
+    )
+    result = wechatpay.WechatPayProvider().verify_webhook(
+        headers=headers, raw_body=body, app=Flask(__name__)
+    )
+    assert result.order_bid == "attempt-test"
+    assert result.status == "SUCCESS"
+
+
+@pytest.mark.usefixtures("notification_clock")
+@pytest.mark.parametrize(
+    ("serial", "error"),
+    [
+        ("PUB_KEY_ID_9999", "public key ID mismatch"),
+        ("ABCDEF", "platform certificate serial mismatch"),
+    ],
+)
+def test_notification_signed_for_another_key_is_rejected_before_decryption(
+    serial: str,
+    error: str,
+    merchant_material: tuple[rsa.RSAPrivateKey, str, str],
+    wechat_config: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wechat_config["WECHATPAY_PLATFORM_CERT"] = merchant_material[2]
+    wechat_config["WECHATPAY_PUBLIC_KEY"] = _public_key_pem(merchant_material[0])
+    wechat_config["WECHATPAY_PUBLIC_KEY_ID"] = "PUB_KEY_ID_0001"
+    headers, body = _signed_notification(
+        merchant_material[0], wechat_config["WECHATPAY_API_V3_KEY"], {}, serial=serial
+    )
+    provider = wechatpay.WechatPayProvider()
+    decrypt = Mock()
+    monkeypatch.setattr(provider, "_decrypt_notification_resource", decrypt)
+    with pytest.raises(RuntimeError, match=error):
+        provider.verify_webhook(headers=headers, raw_body=body, app=Flask(__name__))
+    decrypt.assert_not_called()
+
+
+def test_platform_certificate_serial_ignores_case_and_leading_zeros(
+    merchant_material: tuple[rsa.RSAPrivateKey, str, str],
+    wechat_config: dict[str, str],
+) -> None:
+    wechat_config["WECHATPAY_PLATFORM_CERT"] = merchant_material[2]
+    key = wechatpay._load_verification_public_key("0001")
+    assert key.public_numbers() == merchant_material[0].public_key().public_numbers()
+
+
+@pytest.mark.parametrize(
+    ("now", "timestamp", "error"),
+    [
+        (1700000301, "1700000000", "timestamp expired"),
+        (1699999699, "1700000000", "timestamp expired"),
+        (1700000000, "not-a-number", "timestamp invalid"),
+    ],
+)
+def test_stale_or_malformed_signature_timestamp_is_rejected(
+    now: int,
+    timestamp: str,
+    error: str,
+    merchant_material: tuple[rsa.RSAPrivateKey, str, str],
+    wechat_config: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wechat_config["WECHATPAY_PLATFORM_CERT"] = merchant_material[2]
+    monkeypatch.setattr(wechatpay.time, "time", lambda: now)
+    headers, body = _signed_notification(
+        merchant_material[0], wechat_config["WECHATPAY_API_V3_KEY"], {}
+    )
+    headers["Wechatpay-Timestamp"] = timestamp
+    with pytest.raises(RuntimeError, match=error):
+        wechatpay.WechatPayProvider().verify_webhook(
+            headers=headers, raw_body=body, app=Flask(__name__)
         )
