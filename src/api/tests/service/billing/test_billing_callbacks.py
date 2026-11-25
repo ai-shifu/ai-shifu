@@ -23,16 +23,13 @@ from flaskr.service.billing.models import (
     BillingOrder,
     BillingSubscription,
     CreditLedgerEntry,
-    CreditWallet,
-    CreditWalletBucket,
 )
 from flaskr.service.billing.provider_state import _apply_billing_order_provider_update
 from flaskr.service.billing.webhooks import (
     apply_billing_native_notification,
-    handle_billing_pingxx_webhook,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
-from flaskr.service.order.models import AlipayOrder, Order, PingxxOrder, WechatPayOrder
+from flaskr.service.order.models import AlipayOrder, Order, WechatPayOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
 from tests.common.fixtures.bill_products import build_bill_products
@@ -66,21 +63,6 @@ def billing_callback_app() -> Iterator[Flask]:
         dao.db.drop_all()
 
 
-def _create_pingxx_billing_order(bill_order_bid: str, charge_id: str) -> BillingOrder:
-    return make_billing_order(
-        bill_order_bid=bill_order_bid,
-        creator_bid="creator-1",
-        order_type=BILLING_ORDER_TYPE_TOPUP,
-        product_bid="bill-product-topup-small",
-        payable_amount=19900,
-        payment_provider="pingxx",
-        channel="alipay_qr",
-        provider_reference_id=charge_id,
-        status=BILLING_ORDER_STATUS_PENDING,
-        metadata_json={},
-    )
-
-
 def _create_active_subscription(creator_bid: str = "creator-1") -> BillingSubscription:
     now = datetime(2024, 4, 8, 12, 0, 0)
     return BillingSubscription(
@@ -90,35 +72,6 @@ def _create_active_subscription(creator_bid: str = "creator-1") -> BillingSubscr
         status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
         current_period_start_at=now - timedelta(days=1),
         current_period_end_at=now + timedelta(days=30),
-    )
-
-
-def _create_billing_pingxx_raw_snapshot(
-    bill_order_bid: str, charge_id: str
-) -> PingxxOrder:
-    return PingxxOrder(
-        pingxx_order_bid=bill_order_bid,
-        biz_domain="billing",
-        bill_order_bid=bill_order_bid,
-        creator_bid="creator-1",
-        user_bid="",
-        shifu_bid="",
-        order_bid="",
-        transaction_no=bill_order_bid,
-        app_id="app_billing_test",
-        channel="alipay_qr",
-        amount=19900,
-        currency="CNY",
-        subject="Billing topup",
-        body="Billing topup",
-        client_ip="127.0.0.1",
-        extra="{}",
-        status=0,
-        charge_id=charge_id,
-        refund_id="",
-        failure_code="",
-        failure_msg="",
-        charge_object="{}",
     )
 
 
@@ -246,42 +199,6 @@ def _wechatpay_notification(
     )
 
 
-def _create_legacy_pingxx_records(
-    order_bid: str, charge_id: str
-) -> tuple[Order, PingxxOrder]:
-    order = Order(
-        order_bid=order_bid,
-        shifu_bid="legacy-shifu-1",
-        user_bid="legacy-user-1",
-        payable_price=Decimal("199.00"),
-        paid_price=Decimal("199.00"),
-        payment_channel="pingxx",
-        status=ORDER_STATUS_TO_BE_PAID,
-    )
-    pingxx_order = PingxxOrder(
-        pingxx_order_bid=f"pingxx-{order_bid}",
-        user_bid=order.user_bid,
-        shifu_bid=order.shifu_bid,
-        order_bid=order.order_bid,
-        transaction_no="txn-legacy-1",
-        app_id="app_legacy_test",
-        channel="alipay_qr",
-        amount=19900,
-        currency="CNY",
-        subject="Legacy course",
-        body="Legacy course",
-        client_ip="127.0.0.1",
-        extra="{}",
-        status=0,
-        charge_id=charge_id,
-        refund_id="",
-        failure_code="",
-        failure_msg="",
-        charge_object="{}",
-    )
-    return order, pingxx_order
-
-
 def _create_legacy_wechatpay_records(
     order_bid: str, provider_attempt_id: str
 ) -> tuple[Order, WechatPayOrder]:
@@ -315,80 +232,17 @@ def _create_legacy_wechatpay_records(
     return order, wechatpay_order
 
 
-class TestBillingPingxxCallbacks:
-    """Verify billing pingxx callbacks behavior."""
+class TestBillingNativeCallbacks:
+    """Verify billing native callbacks behavior."""
 
-    def test_pingxx_callback_marks_billing_order_paid(
-        self, billing_callback_app: object
-    ) -> None:
-        with billing_callback_app.app_context():
-            dao.db.session.add(_create_active_subscription())
-            dao.db.session.add(
-                _create_pingxx_billing_order("bill-pingxx-1", "ch_billing_pingxx_1")
-            )
-            dao.db.session.add(
-                _create_billing_pingxx_raw_snapshot(
-                    "bill-pingxx-1",
-                    "ch_billing_pingxx_1",
-                )
-            )
-            dao.db.session.commit()
-
-            body = {
-                "type": "charge.succeeded",
-                "data": {
-                    "object": {
-                        "id": "ch_billing_pingxx_1",
-                        "order_no": "bill-pingxx-1",
-                        "paid": True,
-                        "time_paid": 1712577600,
-                    }
-                },
-            }
-            payload, status_code = handle_billing_pingxx_webhook(
-                billing_callback_app, body
-            )
-
-            assert status_code == 200
-            assert payload["matched"] is True
-            assert payload["status"] == "paid"
-
-            duplicate_payload, duplicate_status = handle_billing_pingxx_webhook(
-                billing_callback_app, body
-            )
-            assert duplicate_status == 200
-            assert duplicate_payload["matched"] is True
-
-            order = BillingOrder.query.filter_by(bill_order_bid="bill-pingxx-1").one()
-            raw_order = PingxxOrder.query.filter_by(
-                biz_domain="billing",
-                bill_order_bid="bill-pingxx-1",
-            ).one()
-            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
-            bucket = CreditWalletBucket.query.filter_by(
-                creator_bid="creator-1",
-                source_bid="bill-pingxx-1",
-            ).one()
-            ledger = CreditLedgerEntry.query.filter_by(
-                creator_bid="creator-1",
-                source_bid="bill-pingxx-1",
-            ).one()
-            assert order.status == BILLING_ORDER_STATUS_PAID
-            assert order.paid_at is not None
-            assert raw_order.status == 1
-            assert raw_order.charge_id == "ch_billing_pingxx_1"
-            assert wallet.available_credits == 20
-            assert bucket.available_credits == 20
-            assert ledger.amount == 20
-
-    def test_pingxx_callback_syncs_manual_trial_subscription_provider(
+    def test_native_callback_syncs_manual_trial_subscription_provider(
         self, billing_callback_app: object
     ) -> None:
         with billing_callback_app.app_context():
             now = datetime(2026, 4, 8, 12, 0, 0)
             dao.db.session.add(
                 BillingSubscription(
-                    subscription_bid="sub-manual-trial-to-pingxx",
+                    subscription_bid="sub-manual-trial-to-alipay",
                     creator_bid="creator-1",
                     product_bid="bill-product-plan-trial",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -399,191 +253,66 @@ class TestBillingPingxxCallbacks:
             )
             dao.db.session.add(
                 make_billing_order(
-                    bill_order_bid="bill-pingxx-trial-upgrade-1",
+                    bill_order_bid="bill-alipay-trial-upgrade-1",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
                     product_bid="bill-product-plan-monthly",
-                    subscription_bid="sub-manual-trial-to-pingxx",
+                    subscription_bid="sub-manual-trial-to-alipay",
                     payable_amount=9900,
-                    payment_provider="pingxx",
-                    channel="wx_pub_qr",
-                    provider_reference_id="ch_trial_upgrade_pingxx_1",
+                    payment_provider="alipay",
+                    channel="alipay_qr",
+                    provider_reference_id="bill-alipay-trial-upgrade-1",
                     status=BILLING_ORDER_STATUS_PENDING,
                     metadata_json={"checkout_type": "subscription"},
                 )
             )
             dao.db.session.add(
-                _create_billing_pingxx_raw_snapshot(
-                    "bill-pingxx-trial-upgrade-1",
-                    "ch_trial_upgrade_pingxx_1",
+                _create_billing_native_raw_snapshot(
+                    "alipay",
+                    "bill-alipay-trial-upgrade-1",
+                    "bill-alipay-trial-upgrade-1",
+                    amount=9900,
                 )
             )
             dao.db.session.commit()
 
-            body = {
-                "type": "charge.succeeded",
-                "data": {
-                    "object": {
-                        "id": "ch_trial_upgrade_pingxx_1",
-                        "order_no": "bill-pingxx-trial-upgrade-1",
-                        "paid": True,
-                        "time_paid": 1785470453,
-                        "channel": "wx_pub_qr",
-                    }
-                },
-            }
+        notification = _alipay_notification(
+            "bill-alipay-trial-upgrade-1", "TRADE_SUCCESS", amount="99.00"
+        )
+        payload, status_code = apply_billing_native_notification(
+            billing_callback_app, "alipay", notification
+        )
 
-            payload, status_code = handle_billing_pingxx_webhook(
-                billing_callback_app, body
-            )
-
-            assert status_code == 200
-            assert payload["status"] == "paid"
+        assert status_code == 200
+        assert payload["status"] == "paid"
+        with billing_callback_app.app_context():
             subscription = BillingSubscription.query.filter_by(
-                subscription_bid="sub-manual-trial-to-pingxx"
+                subscription_bid="sub-manual-trial-to-alipay"
             ).one()
             order = BillingOrder.query.filter_by(
-                bill_order_bid="bill-pingxx-trial-upgrade-1"
+                bill_order_bid="bill-alipay-trial-upgrade-1"
             ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert subscription.product_bid == "bill-product-plan-monthly"
-            assert subscription.billing_provider == "pingxx"
-            assert subscription.metadata_json["provider"] == "pingxx"
+            assert subscription.billing_provider == "alipay"
+            assert subscription.metadata_json["provider"] == "alipay"
             assert subscription.metadata_json["latest_source"] == "webhook"
             subscription.cancel_at_period_end = 1
             subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
             dao.db.session.commit()
 
-            duplicate_payload, duplicate_status = handle_billing_pingxx_webhook(
-                billing_callback_app, body
-            )
+        duplicate_payload, duplicate_status = apply_billing_native_notification(
+            billing_callback_app, "alipay", notification
+        )
 
-            assert duplicate_status == 200
-            assert duplicate_payload["status"] == "paid"
+        assert duplicate_status == 200
+        assert duplicate_payload["status"] == "paid"
+        with billing_callback_app.app_context():
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-manual-trial-to-alipay"
+            ).one()
             assert subscription.cancel_at_period_end == 1
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
-
-    def test_pingxx_callback_reports_non_billing_payload(
-        self, billing_callback_app: object
-    ) -> None:
-        body = {
-            "type": "charge.succeeded",
-            "data": {
-                "object": {
-                    "id": "ch_legacy_pingxx_1",
-                    "order_no": "legacy-order-1",
-                    "paid": True,
-                }
-            },
-        }
-        payload, status_code = handle_billing_pingxx_webhook(billing_callback_app, body)
-
-        assert status_code == 202
-        assert payload["matched"] is False
-        assert payload["status"] == "not_billing"
-
-    def test_pingxx_callback_route_reuses_billing_and_legacy_paths(
-        self, billing_callback_app: object, monkeypatch: object
-    ) -> None:
-        monkeypatch.setattr(
-            "flaskr.service.order.funs.get_shifu_creator_bid",
-            lambda *_args, **_kwargs: "creator-legacy-1",
-        )
-        monkeypatch.setattr(
-            "flaskr.service.order.funs.set_user_state",
-            lambda *_args, **_kwargs: None,
-        )
-        monkeypatch.setattr(
-            "flaskr.service.order.funs.send_order_feishu",
-            lambda *_args, **_kwargs: None,
-        )
-        monkeypatch.setattr(
-            "flaskr.service.order.funs.query_buy_record",
-            lambda *_args, **_kwargs: {},
-        )
-
-        with billing_callback_app.app_context():
-            dao.db.session.add(_create_active_subscription())
-            dao.db.session.add(
-                _create_pingxx_billing_order(
-                    "bill-pingxx-route-1",
-                    "ch_billing_pingxx_route_1",
-                )
-            )
-            dao.db.session.add(
-                _create_billing_pingxx_raw_snapshot(
-                    "bill-pingxx-route-1",
-                    "ch_billing_pingxx_route_1",
-                )
-            )
-            legacy_order, legacy_pingxx_order = _create_legacy_pingxx_records(
-                "legacy-pingxx-order-1",
-                "ch_legacy_pingxx_route_1",
-            )
-            dao.db.session.add(legacy_order)
-            dao.db.session.add(legacy_pingxx_order)
-            dao.db.session.commit()
-
-        with billing_callback_app.test_client() as client:
-            billing_response = client.post(
-                "/api/callback/pingxx-callback",
-                json={
-                    "type": "charge.succeeded",
-                    "data": {
-                        "object": {
-                            "id": "ch_billing_pingxx_route_1",
-                            "order_no": "bill-pingxx-route-1",
-                            "paid": True,
-                            "time_paid": 1712577600,
-                        }
-                    },
-                },
-            )
-            legacy_response = client.post(
-                "/api/callback/pingxx-callback",
-                json={
-                    "type": "charge.succeeded",
-                    "data": {
-                        "object": {
-                            "id": "ch_legacy_pingxx_route_1",
-                            "order_no": "legacy-pingxx-order-1",
-                            "paid": True,
-                            "time_paid": 1712577600,
-                        }
-                    },
-                },
-            )
-
-        assert billing_response.status_code == 200
-        assert billing_response.data.decode("utf-8") == "pingxx callback success"
-        assert legacy_response.status_code == 200
-        assert legacy_response.data.decode("utf-8") == "pingxx callback success"
-
-        with billing_callback_app.app_context():
-            billing_order = BillingOrder.query.filter_by(
-                bill_order_bid="bill-pingxx-route-1"
-            ).one()
-            billing_raw = PingxxOrder.query.filter_by(
-                biz_domain="billing",
-                bill_order_bid="bill-pingxx-route-1",
-            ).one()
-            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
-            legacy_order = Order.query.filter_by(
-                order_bid="legacy-pingxx-order-1"
-            ).one()
-            legacy_pingxx_order = PingxxOrder.query.filter_by(
-                charge_id="ch_legacy_pingxx_route_1"
-            ).one()
-
-            assert billing_order.status == BILLING_ORDER_STATUS_PAID
-            assert billing_raw.status == 1
-            assert wallet.available_credits == 20
-            assert legacy_order.status == ORDER_STATUS_SUCCESS
-            assert legacy_pingxx_order.status == 1
-
-
-class TestBillingNativeCallbacks:
-    """Verify billing native callbacks behavior."""
 
     def test_alipay_billing_callback_duplicate_paid_is_idempotent(
         self, billing_callback_app: object

@@ -134,8 +134,6 @@ def test_provider_registry_constructs_fresh_instances_and_rejects_unknown_channe
         ("stripe", "stripe", "unknown", None, None, ("stripe", "checkout_session")),
         ("stripe", "stripe", "stripe:", None, None, ("stripe", "checkout_session")),
         ("wechatpay", None, "wechatpay:wx_pub", None, None, ("wechatpay", "wx_pub")),
-        ("pingxx", None, "wx_wap", None, None, ("pingxx", "wx_wap")),
-        ("pingxx", None, "custom-channel", None, None, ("pingxx", "custom-channel")),
         ("alipay,wechatpay", None, None, "disabled", "wx_pub", ("wechatpay", "wx_pub")),
     ],
 )
@@ -160,7 +158,7 @@ def test_channel_resolution_applies_enabled_fallbacks_and_explicit_subchannel_ru
             payment_channel_hint=hint,
             channel_hint=channel,
             stored_channel=stored,
-            default_pingxx_channel=default,
+            default_channel=default,
         )
         == expected
     )
@@ -173,6 +171,10 @@ def test_channel_resolution_applies_enabled_fallbacks_and_explicit_subchannel_ru
         ("stripe", "unknown", None),
         ("wechatpay", "wechatpay", "alipay_qr"),
         ("alipay", "stripe", None),
+        # Ping++ is retired: neither its name nor its H5 channel resolves.
+        ("pingxx", None, "wx_wap"),
+        ("pingxx", "pingxx", "alipay_qr"),
+        ("alipay,wechatpay", None, "custom-channel"),
     ],
 )
 def test_channel_resolution_never_uses_unavailable_or_incompatible_provider(

@@ -19,28 +19,21 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.billing.provider_state import BillingOrderProviderUpdateResult
-from flaskr.service.order.models import PingxxOrder
+from flaskr.service.order.models import AlipayOrder
 
 from tests.service.billing.test_billing_callbacks import (
+    _alipay_notification,
     _create_active_subscription,
-    _create_billing_pingxx_raw_snapshot,
-    _create_pingxx_billing_order,
+    _create_billing_native_raw_snapshot,
+    _create_native_billing_order,
     build_bill_products,
 )
 
-_ORDER_BID = "bill-pingxx-uow-failure"
-_CHARGE_ID = "ch_billing_pingxx_uow_failure"
-_BODY = {
-    "type": "charge.succeeded",
-    "data": {
-        "object": {
-            "id": _CHARGE_ID,
-            "order_no": _ORDER_BID,
-            "paid": True,
-            "time_paid": 1712577600,
-        }
-    },
-}
+_ORDER_BID = "bill-alipay-uow-failure"
+
+
+def _paid_notification() -> object:
+    return _alipay_notification(_ORDER_BID, "TRADE_SUCCESS")
 
 
 @pytest.fixture
@@ -67,23 +60,23 @@ def webhook_app() -> object:
         dao.db.drop_all()
 
 
-def _seed_pending_pingxx_order(app: object) -> None:
+def _seed_pending_alipay_order(app: object) -> None:
     with app.app_context():
         dao.db.session.add_all(
             [
                 _create_active_subscription(),
-                _create_pingxx_billing_order(_ORDER_BID, _CHARGE_ID),
-                _create_billing_pingxx_raw_snapshot(_ORDER_BID, _CHARGE_ID),
+                _create_native_billing_order(_ORDER_BID, "alipay", _ORDER_BID),
+                _create_billing_native_raw_snapshot("alipay", _ORDER_BID, _ORDER_BID),
             ]
         )
         dao.db.session.commit()
 
 
-def test_pingxx_webhook_failure_rolls_back_and_dispatches_nothing(
+def test_native_webhook_failure_rolls_back_and_dispatches_nothing(
     webhook_app: object, monkeypatch: object
 ) -> None:
     dispatched: list[str] = []
-    _seed_pending_pingxx_order(webhook_app)
+    _seed_pending_alipay_order(webhook_app)
 
     def failing_stage(*_args: object, **_kwargs: object) -> None:
         message = "stage boom"
@@ -100,29 +93,31 @@ def test_pingxx_webhook_failure_rolls_back_and_dispatches_nothing(
     )
 
     with pytest.raises(RuntimeError, match="stage boom"):
-        webhooks.handle_billing_pingxx_webhook(webhook_app, _BODY)
+        webhooks.apply_billing_native_notification(
+            webhook_app, "alipay", _paid_notification()
+        )
 
     with webhook_app.app_context():
         dao.db.session.expire_all()
         order = BillingOrder.query.filter_by(bill_order_bid=_ORDER_BID).one()
-        raw_order = PingxxOrder.query.filter_by(
+        raw_order = AlipayOrder.query.filter_by(
             biz_domain="billing", bill_order_bid=_ORDER_BID
         ).one()
         assert order.status == BILLING_ORDER_STATUS_PENDING
         assert not order.paid_at
         # The raw snapshot is staged in the same unit of work and rolls back
-        # with it: both its status and the stored charge payload are as seeded.
+        # with it: its status and raw status are as seeded.
         assert int(raw_order.status or 0) == 0
-        assert raw_order.charge_object == "{}"
+        assert raw_order.raw_status == "pending"
     assert dispatched == []
 
 
-def test_pingxx_webhook_dispatches_only_after_the_paid_status_is_durable(
+def test_native_webhook_dispatches_only_after_the_paid_status_is_durable(
     webhook_app: object, monkeypatch: object
 ) -> None:
     seen_status: list[int] = []
     open_transactions: list[bool] = []
-    _seed_pending_pingxx_order(webhook_app)
+    _seed_pending_alipay_order(webhook_app)
 
     def record_dispatch(*_a: object, **_k: object) -> None:
         # This fixture runs on an in-memory SQLite database, where every
@@ -141,7 +136,9 @@ def test_pingxx_webhook_dispatches_only_after_the_paid_status_is_durable(
         BillingOrderProviderUpdateResult, "dispatch_after_commit", record_dispatch
     )
 
-    _payload, status_code = webhooks.handle_billing_pingxx_webhook(webhook_app, _BODY)
+    _payload, status_code = webhooks.apply_billing_native_notification(
+        webhook_app, "alipay", _paid_notification()
+    )
 
     assert status_code == 200
     assert open_transactions == [False]

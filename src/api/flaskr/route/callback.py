@@ -6,18 +6,10 @@ from flaskr.service.billing.customization import (
     build_provider_config_overrides,
     resolve_provider_credential_context,
 )
-from flaskr.service.billing.webhooks import (
-    apply_billing_native_notification,
-    handle_billing_pingxx_webhook,
-)
-from flaskr.service.common.models import AppError
+from flaskr.service.billing.webhooks import apply_billing_native_notification
 from flaskr.service.config import config_overrides
-from flaskr.service.order import (
-    handle_stripe_webhook,
-    success_buy_record_from_native,
-    success_buy_record_from_pingxx,
-)
-from flaskr.service.order.models import Order, PingxxOrder
+from flaskr.service.order import handle_stripe_webhook, success_buy_record_from_native
+from flaskr.service.order.models import Order
 from flaskr.service.order.payment_providers import get_payment_provider
 from flaskr.service.order.raw_snapshots import native_snapshot_model
 
@@ -63,16 +55,6 @@ def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
                     context.creator_bid,
                     context.integration_bid,
                 )
-                if provider_name == "pingxx":
-                    body = notification.provider_payload
-                    if notification.status == "charge.succeeded":
-                        billing_result = handle_billing_pingxx_webhook(app, body)
-                        if not billing_result.matched:
-                            success_buy_record_from_pingxx(
-                                app, notification.charge_id or "", body
-                            )
-                    return _plain_text_response("pingxx callback success")
-
                 billing_result = apply_billing_native_notification(
                     app, provider_name, notification
                 )
@@ -86,31 +68,6 @@ def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
                 if provider_name == "alipay":
                     return _plain_text_response("failure")
                 return jsonify({"code": "FAIL", "message": "processing error"}), 400
-
-    # pingxx支付回调
-    @app.route(path_prefix + "/pingxx-callback", methods=["POST"])
-    @bypass_token_validation
-    def pingxx_callback() -> Response | tuple[Response, int]:
-        body = request.get_json()
-        app.logger.info("pingxx-callback: %s", body)
-        event_type = body.get("type", "")
-        if event_type == "charge.succeeded":
-            order_no = body.get("data", {}).get("object", {}).get("order_no", "")
-            charge_id = body.get("data", {}).get("object", {}).get("id", "")
-            app.logger.info("pingxx-callback: charge.succeeded order_no: %s", order_no)
-            billing_result = handle_billing_pingxx_webhook(app, body)
-            if not billing_result.matched:
-                try:
-                    success_buy_record_from_pingxx(app, charge_id, body)
-                except AppError:
-                    app.logger.exception("Pingxx callback failed")
-                    return jsonify({"code": "FAIL", "message": "processing error"}), 400
-            # 处理支付成功逻辑
-            # do something
-
-        response = make_response("pingxx callback success")
-        response.mimetype = "text/plain"
-        return response
 
     @app.route(path_prefix + "/alipay-notify", methods=["POST"])
     @bypass_token_validation
@@ -202,28 +159,16 @@ def _require_matching_integration(
     creator_bid: str,
     integration_bid: str,
 ) -> None:
-    local_order_bid = ""
-    if provider_name == "pingxx":
-        snapshot = (
-            PingxxOrder.query.filter(
-                PingxxOrder.transaction_no == provider_order_bid,
-                PingxxOrder.biz_domain == "order",
-            )
-            .order_by(PingxxOrder.id.desc())
-            .first()
+    model = native_snapshot_model(provider_name)
+    snapshot = (
+        model.query.filter(
+            model.provider_attempt_id == provider_order_bid,
+            model.biz_domain == "order",
         )
-        local_order_bid = str(getattr(snapshot, "order_bid", "") or "")
-    else:
-        model = native_snapshot_model(provider_name)
-        snapshot = (
-            model.query.filter(
-                model.provider_attempt_id == provider_order_bid,
-                model.biz_domain == "order",
-            )
-            .order_by(model.id.desc())
-            .first()
-        )
-        local_order_bid = str(getattr(snapshot, "order_bid", "") or "")
+        .order_by(model.id.desc())
+        .first()
+    )
+    local_order_bid = str(getattr(snapshot, "order_bid", "") or "")
     order = Order.query.filter(Order.order_bid == local_order_bid).first()
     if (
         order is None

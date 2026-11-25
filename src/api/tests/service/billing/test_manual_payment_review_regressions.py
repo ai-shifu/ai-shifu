@@ -334,7 +334,7 @@ def test_saved_native_credential_is_reconciled_before_reuse(
             assert CreditWalletBucket.query.count() == 0
 
 
-@pytest.mark.parametrize("provider", ["pingxx", "alipay", "wechatpay"])
+@pytest.mark.parametrize("provider", ["alipay", "wechatpay"])
 def test_closed_timed_out_trade_can_be_replaced_without_closing_again(
     billing_renewal_app: Flask, monkeypatch: pytest.MonkeyPatch, provider: str
 ) -> None:
@@ -342,9 +342,7 @@ def test_closed_timed_out_trade_can_be_replaced_without_closing_again(
     fake.sync_reference.return_value = PaymentNotificationResult(
         order_bid="old-order",
         status="manual_sync",
-        provider_payload={"charge": {"id": "old-attempt", "reversed": True}}
-        if provider == "pingxx"
-        else {
+        provider_payload={
             "trade": {
                 "out_trade_no": "old-attempt",
                 "trade_status": "TRADE_CLOSED",

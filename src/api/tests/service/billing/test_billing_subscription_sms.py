@@ -46,8 +46,8 @@ from flaskr.service.billing.tasks import (
     send_subscription_purchase_sms_task,
 )
 from flaskr.service.billing.webhooks import (
+    apply_billing_native_notification,
     apply_billing_stripe_notification,
-    handle_billing_pingxx_webhook,
 )
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.service.user.consts import USER_STATE_REGISTERED
@@ -240,7 +240,7 @@ def _create_pending_topup_order(
     *,
     bill_order_bid: str,
     creator_bid: str = "creator-1",
-    charge_id: str = "ch_billing_feishu_topup_1",
+    provider_attempt_id: str = "alipay-billing-feishu-topup-1",
 ) -> BillingOrder:
     return make_billing_order(
         bill_order_bid=bill_order_bid,
@@ -248,9 +248,9 @@ def _create_pending_topup_order(
         order_type=BILLING_ORDER_TYPE_TOPUP,
         product_bid="bill-product-topup-small",
         payable_amount=5000,
-        payment_provider="pingxx",
+        payment_provider="alipay",
         channel="alipay_qr",
-        provider_reference_id=charge_id,
+        provider_reference_id=provider_attempt_id,
         status=BILLING_ORDER_STATUS_PENDING,
         metadata_json={},
     )
@@ -555,7 +555,7 @@ def test_stripe_delayed_checkout_waits_for_async_payment_success(
     with app.app_context():
         order = _create_pending_topup_order(
             bill_order_bid=bill_order_bid,
-            charge_id="cs_delayed_topup_1",
+            provider_attempt_id="cs_delayed_topup_1",
         )
         order.payment_provider = "stripe"
         order.channel = "checkout_session"
@@ -733,7 +733,7 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
         assert notification["requested_at"].endswith("Z")
 
 
-def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
+def test_native_topup_webhook_enqueues_billing_paid_feishu_once(
     billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -764,24 +764,28 @@ def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
         dao.db.session.add(
             _create_pending_topup_order(
                 bill_order_bid="billing-topup-feishu-1",
-                charge_id="ch_billing_feishu_topup_1",
+                provider_attempt_id="alipay-billing-feishu-topup-1",
             )
         )
         dao.db.session.commit()
 
-    body = {
-        "type": "charge.succeeded",
-        "data": {
-            "object": {
-                "id": "ch_billing_feishu_topup_1",
-                "order_no": "billing-topup-feishu-1",
-                "paid": True,
-                "time_paid": 1712577600,
-            }
+    notification = PaymentNotificationResult(
+        order_bid="alipay-billing-feishu-topup-1",
+        status="TRADE_SUCCESS",
+        provider_payload={
+            "out_trade_no": "alipay-billing-feishu-topup-1",
+            "trade_no": "trade-billing-feishu-topup-1",
+            "trade_status": "TRADE_SUCCESS",
+            "total_amount": "50.00",
         },
-    }
-    first_payload, first_status = handle_billing_pingxx_webhook(app, body)
-    second_payload, second_status = handle_billing_pingxx_webhook(app, body)
+        charge_id="trade-billing-feishu-topup-1",
+    )
+    first_payload, first_status = apply_billing_native_notification(
+        app, "alipay", notification
+    )
+    second_payload, second_status = apply_billing_native_notification(
+        app, "alipay", notification
+    )
 
     assert first_status == 200
     assert second_status == 200
@@ -805,31 +809,30 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
     _seed_creator(app)
     enqueued: list[str] = []
 
-    class FakePingxxProvider:
+    class FakeAlipayProvider:
         def sync_reference(
             self, *, provider_reference: str, reference_type: str, app: object
         ) -> object:
             _ = app
-            assert provider_reference == "ch_billing_feishu_topup_sync_1"
-            assert reference_type == "charge"
+            assert provider_reference == "alipay-billing-feishu-topup-sync-1"
+            assert reference_type == "payment"
             return PaymentNotificationResult(
-                order_bid="",
+                order_bid=provider_reference,
                 status="manual_sync",
                 provider_payload={
-                    "charge": {
-                        "id": provider_reference,
-                        "order_no": "billing-topup-sync-feishu-1",
-                        "paid": True,
-                        "time_paid": 1712577600,
-                        "channel": "alipay_qr",
+                    "trade": {
+                        "out_trade_no": provider_reference,
+                        "trade_no": "trade-billing-topup-sync-feishu-1",
+                        "trade_status": "TRADE_SUCCESS",
+                        "total_amount": "50.00",
                     }
                 },
-                charge_id=provider_reference,
+                charge_id="trade-billing-topup-sync-feishu-1",
             )
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda _channel: FakePingxxProvider(),
+        lambda _channel: FakeAlipayProvider(),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
@@ -854,7 +857,7 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
         dao.db.session.add(
             _create_pending_topup_order(
                 bill_order_bid="billing-topup-sync-feishu-1",
-                charge_id="ch_billing_feishu_topup_sync_1",
+                provider_attempt_id="alipay-billing-feishu-topup-sync-1",
             )
         )
         dao.db.session.commit()
@@ -884,7 +887,7 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
         assert notification["status"] == "pending"
 
 
-def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
+def test_sync_native_order_syncs_manual_trial_subscription_provider(
     billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -892,31 +895,31 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
     _seed_creator(app)
     paid_at = datetime(2026, 7, 31, 4, 0, 53)
 
-    class FakePingxxProvider:
+    class FakeWechatPayProvider:
         def sync_reference(
             self, *, provider_reference: str, reference_type: str, app: object
         ) -> object:
             _ = app
-            assert provider_reference == "ch_trial_upgrade_sync_pingxx_1"
-            assert reference_type == "charge"
+            assert provider_reference == "wechatpay-trial-upgrade-sync-1"
+            assert reference_type == "payment"
             return PaymentNotificationResult(
-                order_bid="",
+                order_bid=provider_reference,
                 status="manual_sync",
                 provider_payload={
-                    "charge": {
-                        "id": provider_reference,
-                        "order_no": "billing-trial-upgrade-sync-1",
-                        "paid": True,
-                        "time_paid": _utc_epoch(paid_at),
-                        "channel": "wx_pub_qr",
+                    "trade": {
+                        "out_trade_no": provider_reference,
+                        "transaction_id": "wx-trial-upgrade-sync-1",
+                        "trade_state": "SUCCESS",
+                        "success_time": paid_at.replace(tzinfo=UTC).isoformat(),
+                        "amount": {"total": 9900, "payer_total": 9900},
                     }
                 },
-                charge_id=provider_reference,
+                charge_id="wx-trial-upgrade-sync-1",
             )
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda _channel: FakePingxxProvider(),
+        lambda _channel: FakeWechatPayProvider(),
     )
 
     with app.app_context():
@@ -939,9 +942,9 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
                 product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-trial-upgrade-sync-1",
                 payable_amount=9900,
-                payment_provider="pingxx",
+                payment_provider="wechatpay",
                 channel="wx_pub_qr",
-                provider_reference_id="ch_trial_upgrade_sync_pingxx_1",
+                provider_reference_id="wechatpay-trial-upgrade-sync-1",
                 status=BILLING_ORDER_STATUS_PENDING,
                 metadata_json={"checkout_type": "subscription"},
             )
@@ -965,8 +968,8 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
         ).one()
         assert order.status == BILLING_ORDER_STATUS_PAID
         assert subscription.product_bid == "bill-product-plan-monthly"
-        assert subscription.billing_provider == "pingxx"
-        assert subscription.metadata_json["provider"] == "pingxx"
+        assert subscription.billing_provider == "wechatpay"
+        assert subscription.metadata_json["provider"] == "wechatpay"
         assert subscription.metadata_json["latest_source"] == "sync"
         subscription.cancel_at_period_end = 1
         subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED

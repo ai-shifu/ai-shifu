@@ -58,7 +58,6 @@ INTEGRATION_ACTIVE_KEY = "CUSTOMIZATION.INTEGRATION.{provider}.ACTIVE"
 INTEGRATION_VERSION_KEY = "CUSTOMIZATION.INTEGRATION.{provider}.VERSION"
 INTEGRATION_PROVIDERS = (
     "wechat_oauth",
-    "pingxx",
     "stripe",
     "alipay",
     "wechatpay",
@@ -69,14 +68,6 @@ _PROVIDER_CONFIG_KEYS = {
     "wechat_oauth": {
         "public": {"app_id": "WECHAT_APP_ID"},
         "secret": {"app_secret": "WECHAT_APP_SECRET"},
-    },
-    "pingxx": {
-        "public": {"app_id": "PINGXX_APP_ID"},
-        "secret": {
-            "secret_key": "PINGXX_SECRET_KEY",
-            "private_key": "PINGXX_PRIVATE_KEY",
-            "webhook_public_key": "PINGXX_WEBHOOK_PUBLIC_KEY",
-        },
     },
     "stripe": {
         "public": {
@@ -115,10 +106,6 @@ _PROVIDER_CONFIG_KEYS = {
 
 _PROVIDER_FIELDS = {
     "wechat_oauth": ({"app_id"}, {"app_secret"}),
-    "pingxx": (
-        {"app_id"},
-        {"secret_key", "private_key", "webhook_public_key"},
-    ),
     "stripe": ({"publishable_key"}, {"secret_key", "webhook_secret"}),
     "alipay": ({"app_id"}, {"app_private_key", "alipay_public_key"}),
     "wechatpay": (
@@ -127,7 +114,6 @@ _PROVIDER_FIELDS = {
     ),
 }
 _OPTIONAL_PUBLIC_FIELDS = {
-    "pingxx": {"channels"},
     "stripe": {"api_version", "currency", "alipay_enabled", "wechatpay_enabled"},
     "alipay": {"gateway_url"},
     "wechatpay": {"base_url"},
@@ -920,10 +906,6 @@ def _probe_provider_credentials(
     """Validate credentials before promoting an integration to active use."""
     if provider == "stripe":
         _probe_stripe_credentials(app, public_config, secret_config)
-        return
-    if provider == "pingxx":
-        _parse_pem_private_key(secret_config.get("private_key"))
-        _parse_pem_public_key(secret_config.get("webhook_public_key"))
         return
     if provider == "alipay":
         _parse_pem_private_key(secret_config.get("app_private_key"))
