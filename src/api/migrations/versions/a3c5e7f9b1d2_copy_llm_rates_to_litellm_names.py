@@ -19,8 +19,9 @@ constraint would reject it; the existing LiteLLM-named row already wins for
 that identity. Rerunning finds nothing left to copy.
 
 Copies get a ``rate_bid`` starting with ``COPY_RATE_BID_PREFIX`` (36
-characters in all, the column width), so downgrade deletes exactly the copies
-and keeps every other row.
+characters in all, the column width). Other rate bids are 32-character hex
+ids or ``credit-rate-`` seed names, neither of which can start with it, so
+downgrade deletes exactly the copies and keeps every other row.
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ down_revision = "d96fca5d4222"
 branch_labels = None
 depends_on = None
 
-COPY_RATE_BID_PREFIX = "a3c5"
+COPY_RATE_BID_PREFIX = "litellm-copy-"
+RATE_BID_LENGTH = 36
 
 
 BILL_USAGE_TYPE_LLM = 1101
@@ -140,7 +142,7 @@ def upgrade():
         provider, model = renamed
         values = {column: row[column] for column in _COPIED_COLUMNS}
         values.update(
-            rate_bid=COPY_RATE_BID_PREFIX + uuid.uuid4().hex,
+            rate_bid=(COPY_RATE_BID_PREFIX + uuid.uuid4().hex)[:RATE_BID_LENGTH],
             provider=provider,
             model=model,
             deleted=0,

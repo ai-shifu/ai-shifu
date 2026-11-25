@@ -109,6 +109,8 @@ def test_upgrade_copies_llm_rows_and_downgrade_removes_the_copies(
         _row(12, LLM, "*", "silicon/deepseek-ai/DeepSeek-V3"),
         # Deleted rows are not copied.
         _row(13, LLM, "qwen", "qwen-long", deleted=1),
+        # An operator-created rate with an ordinary hex id survives downgrade.
+        {**_row(14, LLM, "openai", "gpt-5"), "rate_bid": "a3c5" + "0" * 28},
     ]
     rate_columns = [
         column.name for column in rates.c if column.name not in {"id", "rate_bid"}
@@ -143,8 +145,10 @@ def test_upgrade_copies_llm_rows_and_downgrade_removes_the_copies(
     # Every earlier row stays as it was.
     assert {bid: upgraded[bid] for bid in original} == original
 
+    by_id = {int(values["credits_per_unit"]): values for values in original.values()}
+
     def source(source_id: int) -> dict:
-        return original[f"rate-{source_id}"]
+        return by_id[source_id]
 
     copied = {}
     for values in copies.values():
