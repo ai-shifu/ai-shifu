@@ -458,6 +458,15 @@ def test_second_paid_attempt_on_a_paid_order_is_not_granted_again(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     granted = _quiet_order_side_effects(monkeypatch)
+    alerts: list[tuple[str, list[str]]] = []
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_notify",
+        lambda _app, title, msgs: alerts.append((title, msgs)),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _name: SimpleNamespace(cancel_payment=lambda **_kwargs: None),
+    )
     with app.app_context():
         order = _seed_order(
             order_bid="double-paid-order",
@@ -473,11 +482,131 @@ def test_second_paid_attempt_on_a_paid_order_is_not_granted_again(
     assert _notify_paid(app, "alipay", "double-alipay", now_utc()) is True
 
     assert granted == ["double-paid-order"]
+    assert len(alerts) == 1
+    title, msgs = alerts[0]
+    assert title == "重复支付告警"
+    assert any("double-alipay" in line for line in msgs)
+    assert any("double-alipay-transaction" in line for line in msgs)
     with app.app_context():
         snapshot = AlipayOrder.query.filter_by(
             provider_attempt_id="double-alipay"
         ).one()
         assert snapshot.status == 1
+
+
+def test_paid_order_retires_open_orders_and_codes_for_the_same_course(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _quiet_order_side_effects(monkeypatch)
+    closed: list[tuple[str, str]] = []
+
+    def provider_for(name: str) -> object:
+        def cancel_payment(**kwargs: object) -> None:
+            closed.append((name, str(kwargs["provider_reference"])))
+
+        return SimpleNamespace(cancel_payment=cancel_payment)
+
+    monkeypatch.setattr("flaskr.service.order.funs.get_payment_provider", provider_for)
+    with app.app_context():
+        paid = _seed_order(
+            order_bid="retire-paid-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="wechatpay",
+        )
+        sibling = Order(
+            order_bid="retire-sibling-order",
+            shifu_bid=paid.shifu_bid,
+            user_bid=paid.user_bid,
+            payable_price=Decimal("200.00"),
+            paid_price=Decimal("200.00"),
+            payment_channel="alipay",
+            status=ORDER_STATUS_TO_BE_PAID,
+            deleted=0,
+        )
+        other_course = _seed_order(
+            order_bid="retire-other-course-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="wechatpay",
+        )
+        db.session.add(sibling)
+        db.session.commit()
+        _seed_native_attempt(paid, "wechatpay", "retire-paid-attempt", status=0)
+        _seed_native_attempt(paid, "wechatpay", "retire-open-wechat", status=0)
+        _seed_native_attempt(paid, "alipay", "retire-unscanned-alipay", status=3)
+        _seed_native_attempt(sibling, "alipay", "retire-sibling-alipay", status=0)
+        _seed_native_attempt(
+            other_course, "wechatpay", "retire-other-course-wechat", status=0
+        )
+        db.session.commit()
+
+    assert _notify_paid(app, "wechatpay", "retire-paid-attempt", now_utc()) is True
+
+    assert sorted(closed) == [
+        ("alipay", "retire-sibling-alipay"),
+        ("wechatpay", "retire-open-wechat"),
+    ]
+    with app.app_context():
+        statuses = {
+            o.order_bid: o.status
+            for o in Order.query.filter(Order.order_bid.like("retire-%")).all()
+        }
+        assert statuses == {
+            "retire-paid-order": ORDER_STATUS_SUCCESS,
+            "retire-sibling-order": ORDER_STATUS_TIMEOUT,
+            "retire-other-course-order": ORDER_STATUS_TO_BE_PAID,
+        }
+        snapshots = {
+            s.provider_attempt_id: s.status
+            for model in (AlipayOrder, WechatPayOrder)
+            for s in model.query.filter(
+                model.provider_attempt_id.like("retire-%")
+            ).all()
+        }
+        assert snapshots == {
+            "retire-paid-attempt": 1,
+            "retire-open-wechat": 3,
+            "retire-unscanned-alipay": 3,
+            "retire-sibling-alipay": 3,
+            "retire-other-course-wechat": 0,
+        }
+
+
+def test_failed_close_after_payment_keeps_the_purchase(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    granted = _quiet_order_side_effects(monkeypatch)
+
+    def failing_cancel(**_kwargs: object) -> None:
+        message = "provider unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _name: SimpleNamespace(cancel_payment=failing_cancel),
+    )
+    with app.app_context():
+        order = _seed_order(
+            order_bid="close-fails-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="wechatpay",
+        )
+        _seed_native_attempt(order, "wechatpay", "close-fails-paid", status=0)
+        _seed_native_attempt(order, "wechatpay", "close-fails-open", status=0)
+        db.session.commit()
+
+    assert _notify_paid(app, "wechatpay", "close-fails-paid", now_utc()) is True
+
+    assert granted == ["close-fails-order"]
+    with app.app_context():
+        assert Order.query.filter_by(order_bid="close-fails-order").one().status == (
+            ORDER_STATUS_SUCCESS
+        )
+        assert (
+            WechatPayOrder.query.filter_by(provider_attempt_id="close-fails-open")
+            .one()
+            .status
+            == 0
+        )
 
 
 def test_pingxx_success_during_repricing_completes_the_order(
