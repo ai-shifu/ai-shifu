@@ -198,7 +198,6 @@ describe('AdminBillingOperationsConsole', () => {
       domain: { host: '' },
       integrations: {
         wechat_oauth: { public_config: {}, secret_config: {} },
-        pingxx: { public_config: {}, secret_config: {} },
         stripe: { public_config: {}, secret_config: {} },
         alipay: { public_config: {}, secret_config: {} },
         wechatpay: { public_config: {}, secret_config: {} },

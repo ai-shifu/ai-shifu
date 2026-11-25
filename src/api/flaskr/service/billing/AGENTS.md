@@ -41,8 +41,10 @@ module-specific ownership and risk points.
 
 - Do not write new creator billing business state into legacy `/order`
   handlers or reuse `order_orders`; if provider raw snapshots are mirrored into
-  `order_pingxx_orders` / `order_stripe_orders`, keep them isolated with
-  billing-specific keys and domain filters.
+  `order_stripe_orders` or the native Alipay / WeChat Pay snapshot tables, keep
+  them isolated with billing-specific keys and domain filters.
+- Do not add Ping++ back: it is retired and `order_pingxx_orders` is read-only
+  history (see `docs/design-docs/native-cn-payments.md`).
 
 - Do not let route handlers absorb settlement, ledger mutation, or provider
   orchestration logic that belongs in dedicated billing helpers.

@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import api from '@/api';
 import type { BillingOrderStatus, BillingSyncResult } from '@/types/billing';
 
-const BILLING_PINGXX_POLL_INTERVAL_MS = 1000;
-const BILLING_PINGXX_TERMINAL_STATUSES = new Set<BillingOrderStatus>([
+const BILLING_QR_POLL_INTERVAL_MS = 1000;
+const BILLING_QR_TERMINAL_STATUSES = new Set<BillingOrderStatus>([
   'paid',
   'failed',
   'refunded',
@@ -11,17 +11,17 @@ const BILLING_PINGXX_TERMINAL_STATUSES = new Set<BillingOrderStatus>([
   'timeout',
 ]);
 
-type UseBillingPingxxPollingOptions = {
+type UseBillingQrPollingOptions = {
   open: boolean;
   billingOrderBid: string;
   onResolved?: (result: BillingSyncResult) => void | Promise<void>;
 };
 
-export function useBillingPingxxPolling({
+export function useBillingQrPolling({
   open,
   billingOrderBid,
   onResolved,
-}: UseBillingPingxxPollingOptions): void {
+}: UseBillingQrPollingOptions): void {
   const onResolvedRef = useRef(onResolved);
   const inFlightRef = useRef(false);
 
@@ -47,7 +47,7 @@ export function useBillingPingxxPolling({
         const result = (await api.syncBillingOrder({
           bill_order_bid: billingOrderBid,
         })) as BillingSyncResult;
-        if (!cancelled && BILLING_PINGXX_TERMINAL_STATUSES.has(result.status)) {
+        if (!cancelled && BILLING_QR_TERMINAL_STATUSES.has(result.status)) {
           await onResolvedRef.current?.(result);
         }
       } catch {
@@ -60,7 +60,7 @@ export function useBillingPingxxPolling({
 
     const timer = window.setInterval(
       () => void pollOrderStatus(),
-      BILLING_PINGXX_POLL_INTERVAL_MS,
+      BILLING_QR_POLL_INTERVAL_MS,
     );
 
     return () => {

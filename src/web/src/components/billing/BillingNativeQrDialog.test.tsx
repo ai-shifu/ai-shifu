@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react';
-import { BillingPingxxQrDialog } from './BillingPingxxQrDialog';
+import { BillingNativeQrDialog } from './BillingNativeQrDialog';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -13,10 +13,10 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/lib/billing', () => ({
   formatBillingPrice: () => '99.00',
   getPaymentAgreementUrl: () => null,
-  resolveBillingPingxxChannelLabel: () => 'Alipay',
+  resolveBillingQrChannelLabel: () => 'Alipay',
 }));
 
-describe('BillingPingxxQrDialog payment expiry', () => {
+describe('BillingNativeQrDialog payment expiry', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
@@ -37,26 +37,26 @@ describe('BillingPingxxQrDialog payment expiry', () => {
       onOpenChange: jest.fn(),
     };
     const { rerender, unmount } = render(
-      <BillingPingxxQrDialog
+      <BillingNativeQrDialog
         {...props}
         billingOrderBid='old-order'
       />,
     );
     const countdown = () =>
-      screen.getByTestId('billing-pingxx-expiration-countdown');
+      screen.getByTestId('billing-qr-expiration-countdown');
     expect(countdown()).toHaveTextContent('30:00');
     act(() => jest.advanceTimersByTime(300000));
     expect(countdown()).toHaveTextContent('25:00');
 
     rerender(
-      <BillingPingxxQrDialog
+      <BillingNativeQrDialog
         {...props}
         billingOrderBid='old-order'
       />,
     );
     expect(countdown()).toHaveTextContent('25:00');
     rerender(
-      <BillingPingxxQrDialog
+      <BillingNativeQrDialog
         {...props}
         billingOrderBid='new-order'
         qrUrl='https://payments.test/new'

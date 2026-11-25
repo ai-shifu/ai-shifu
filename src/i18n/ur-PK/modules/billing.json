@@ -38,7 +38,6 @@
         "logoReady": "اپ لوڈ کیا گیا",
         "providers": {
           "alipay": "علی پے",
-          "pingxx": "Ping++",
           "stripe": "Stripe",
           "wechat_oauth": "WeChat سروس اکاؤنٹ",
           "wechatpay": "WeChat پے"
@@ -518,8 +517,7 @@
       "providerManual": "دستی ایکٹیویشن",
       "providerPingxx": "Pingxx",
       "providerStripe": "Stripe",
-      "providerWechatpay": "WeChat پے",
-      "providerWithChannel": "{provider} / {channel}"
+      "providerWechatpay": "WeChat پے"
     },
     "plans": {
       "creatorMonthly": {
@@ -639,7 +637,6 @@
     },
     "providers": {
       "alipay": "علی پے",
-      "pingxx": "Ping++",
       "stripe": "Stripe",
       "wechat_oauth": "WeChat عوامی اکاؤنٹ",
       "wechatpay": "WeChat پے"

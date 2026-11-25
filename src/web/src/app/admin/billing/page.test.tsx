@@ -20,7 +20,7 @@ jest.mock('next/navigation', () => ({
 
 const mockEnvState = {
   billingEnabled: 'true',
-  paymentChannels: ['stripe', 'pingxx'],
+  paymentChannels: ['stripe', 'alipay'],
   runtimeConfigLoaded: true,
   stripeEnabled: 'true',
 };
@@ -105,7 +105,7 @@ describe('AdminBillingPage', () => {
     mockSearchParamsValue = '';
     mockReplace.mockReset();
     mockEnvState.billingEnabled = 'true';
-    mockEnvState.paymentChannels = ['stripe', 'pingxx'];
+    mockEnvState.paymentChannels = ['stripe', 'alipay'];
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
 

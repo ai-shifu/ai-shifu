@@ -63,7 +63,7 @@ describe('usePaymentFlow', () => {
     let oldResult: unknown;
     await act(async () => {
       const oldRequest = result.current
-        .refreshPayment({ channel: 'wx_wap', paymentChannel: 'pingxx' })
+        .refreshPayment({ channel: 'wx_pub_qr', paymentChannel: 'wechatpay' })
         .then(value => {
           oldResult = value;
         });
@@ -80,8 +80,8 @@ describe('usePaymentFlow', () => {
         order_id: 'order-1',
         user_id: 'user-1',
         price: '200.00',
-        channel: 'wx_wap',
-        payment_channel: 'pingxx',
+        channel: 'wx_pub_qr',
+        payment_channel: 'wechatpay',
         qr_url: 'https://pay.example/cancelled',
         payment_payload: {},
         status: 0,

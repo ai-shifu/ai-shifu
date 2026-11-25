@@ -8,6 +8,9 @@ canonical: true
 
 # Billing 设计文档
 
+> Ping++ retirement, 2026-11-25: Ping++ no longer takes payments and its provider, callback and settings were removed. Treat the Ping++ checkout, webhook and polling paths below as historical; native Alipay and WeChat Pay follow `native-cn-payments.md`. `order_pingxx_orders` stays as a read-only history table, and existing `pingxx` subscriptions renew with the native providers.
+
+
 原设计更新日期：2026-08-16
 
 本文保留 v1 / v1.1 的分期设计和初版接口草案。核对当前运行边界时，

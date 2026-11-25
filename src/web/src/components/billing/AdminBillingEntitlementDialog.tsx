@@ -82,10 +82,6 @@ const DRAFT_PROVIDER_FIELDS: Record<
   { public: string[]; secret: string[] }
 > = {
   wechat_oauth: { public: ['app_id'], secret: ['app_secret'] },
-  pingxx: {
-    public: ['app_id'],
-    secret: ['secret_key', 'private_key', 'webhook_public_key'],
-  },
   stripe: {
     public: ['publishable_key', 'api_version', 'currency'],
     secret: ['secret_key', 'webhook_secret'],
@@ -160,7 +156,6 @@ function createEmptyDraftIntegrations(): Record<
 > {
   return {
     wechat_oauth: createEmptyDraftIntegrationConfig(),
-    pingxx: createEmptyDraftIntegrationConfig(),
     stripe: createEmptyDraftIntegrationConfig(),
     alipay: createEmptyDraftIntegrationConfig(),
     wechatpay: createEmptyDraftIntegrationConfig(),
@@ -186,13 +181,6 @@ function cloneDraftIntegrations(
       secret_config: { ...source.wechat_oauth.secret_config },
       secret_configured_fields: [
         ...(source.wechat_oauth.secret_configured_fields || []),
-      ],
-    },
-    pingxx: {
-      public_config: { ...source.pingxx.public_config },
-      secret_config: { ...source.pingxx.secret_config },
-      secret_configured_fields: [
-        ...(source.pingxx.secret_configured_fields || []),
       ],
     },
     stripe: {

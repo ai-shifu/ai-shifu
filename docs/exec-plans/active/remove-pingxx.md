@@ -13,14 +13,22 @@ learners.
 
 - [x] 2026-11-25 13:20 CST: Inventoried Ping++ references (21 backend
       modules, 31 web files, 58 test files, i18n, `pingpp` dependency, docs).
-- [ ] Backend: drop the provider, `pingpp`, the callback route, the order and
-      billing Ping++ branches, the creator Ping++ integration and `PINGXX_*`
-      settings; keep historical reads.
-- [ ] Web: drop the `pingxx` payment channel, rename the billing QR dialog and
-      polling hook to provider-neutral names, keep the historical label.
-- [ ] i18n, generated env example, design docs.
-- [ ] Guard: architecture test that forbids `pingpp` and confines `pingxx`.
-- [ ] Validation: backend order/billing/common tests, web tests, tsc, lint.
+- [x] 2026-11-25 15:30 CST: Backend: removed the provider, `pingpp`, the
+      callback route, the order and billing Ping++ branches, the creator Ping++
+      integration and `PINGXX_*`; kept historical reads (528c297f5).
+- [x] 2026-11-25 16:40 CST: Web: removed the `pingxx` payment channel and the
+      Ping++ fallback in the learner cashier; renamed the billing QR dialog,
+      polling hook and channel type to provider-neutral names; kept the
+      historical provider label and operator filters.
+- [x] 2026-11-25 16:45 CST: i18n (dropped the Ping++ integration labels and the
+      unused provider-with-channel label), regenerated env example and i18n
+      keys, updated design docs and the billing AGENTS guide.
+- [x] 2026-11-25 15:20 CST: Guard: `test_pingxx_retirement_guard.py` forbids
+      `pingpp` and confines `pingxx` to the listed history readers.
+- [x] 2026-11-25 16:50 CST: Validation: backend 16329 passed (3 LLM contract
+      tests fail locally on main as well); web 3930 passed under `TZ=UTC`
+      (two promotion date tests depend on the local time zone); `tsc` and
+      ESLint clean.
 - [ ] SIM acceptance by the owner (0.1 CNY WeChat Native, Alipay QR), then
       merge and release.
 - [ ] Follow-up in deploy-config: remove `PINGXX_*` env, ConfigMap key,

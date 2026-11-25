@@ -14,7 +14,7 @@ import { BillingOverviewTab } from './BillingOverviewTab';
 
 const mockEnvState = {
   billingEnabled: 'true',
-  paymentChannels: ['stripe', 'pingxx'],
+  paymentChannels: ['stripe', 'wechatpay'],
   runtimeConfigLoaded: true,
   stripeEnabled: 'true',
 };
@@ -56,13 +56,6 @@ jest.mock('react-i18next', () => ({
         options?.count
       ) {
         return `${key}:${options.count}`;
-      }
-      if (
-        key === 'module.billing.catalog.labels.providerWithChannel' &&
-        typeof options?.provider === 'string' &&
-        typeof options?.channel === 'string'
-      ) {
-        return `${options.provider} / ${options.channel}`;
       }
       if (
         key === 'module.billing.checkout.expiresInValue' &&
@@ -411,7 +404,7 @@ function futureIso(days: number): string {
 
 describe('BillingOverviewTab', () => {
   beforeEach(() => {
-    mockEnvState.paymentChannels = ['stripe', 'pingxx'];
+    mockEnvState.paymentChannels = ['stripe', 'wechatpay'];
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
 
@@ -469,7 +462,7 @@ describe('BillingOverviewTab', () => {
       isLoading: false,
     });
     mockSyncBillingOrder.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-native-1',
       status: 'pending',
     });
   });
@@ -1196,9 +1189,7 @@ describe('BillingOverviewTab', () => {
         }),
       );
     });
-    expect(
-      await screen.findByTestId('billing-pingxx-qr-code'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('billing-qr-qr-code')).toBeInTheDocument();
   });
 
   test('lets manual paid subscribers upgrade with an available checkout provider', async () => {
@@ -1291,9 +1282,7 @@ describe('BillingOverviewTab', () => {
         }),
       );
     });
-    expect(
-      await screen.findByTestId('billing-pingxx-qr-code'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('billing-qr-qr-code')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.checkout.upgradeDescription'),
     ).toBeInTheDocument();
@@ -1304,7 +1293,7 @@ describe('BillingOverviewTab', () => {
 
   test('passes preorder action for self-managed same-tier renewal', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -1320,7 +1309,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: futureIso(10),
           grace_period_end_at: null,
@@ -1338,7 +1327,7 @@ describe('BillingOverviewTab', () => {
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
       bill_order_bid: 'order-preorder-1',
-      provider: 'pingxx',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       checkout_type: 'subscription_preorder',
@@ -1346,7 +1335,7 @@ describe('BillingOverviewTab', () => {
       payable_amount: 990,
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/preorder-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/preorder-wechat-qr',
         },
       },
     });
@@ -1379,7 +1368,7 @@ describe('BillingOverviewTab', () => {
         expect.objectContaining({
           action: 'preorder',
           channel: 'wx_pub_qr',
-          payment_provider: 'pingxx',
+          payment_provider: 'wechatpay',
           product_bid: 'bill-product-plan-monthly',
         }),
       );
@@ -1387,7 +1376,7 @@ describe('BillingOverviewTab', () => {
   });
 
   test('disables same-tier renewal when the current period already includes a prepaid cycle', () => {
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -1403,7 +1392,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-05-01T00:00:00Z',
           grace_period_end_at: null,
@@ -1482,7 +1471,7 @@ describe('BillingOverviewTab', () => {
 
   test('shows pending preorder and only lets higher-tier checkout use offset', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -1498,7 +1487,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
@@ -1516,7 +1505,7 @@ describe('BillingOverviewTab', () => {
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
       bill_order_bid: 'order-upgrade-1',
-      provider: 'pingxx',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       checkout_type: 'subscription_upgrade',
@@ -1525,7 +1514,7 @@ describe('BillingOverviewTab', () => {
       payable_amount: 760000,
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/upgrade-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/upgrade-wechat-qr',
         },
       },
     });
@@ -1568,7 +1557,7 @@ describe('BillingOverviewTab', () => {
         expect.objectContaining({
           action: 'upgrade_immediate',
           channel: 'wx_pub_qr',
-          payment_provider: 'pingxx',
+          payment_provider: 'wechatpay',
           product_bid: 'bill-product-plan-yearly-lite',
         }),
       );
@@ -1578,9 +1567,7 @@ describe('BillingOverviewTab', () => {
         'module.billing.checkout.upgradeWithPreorderDescription',
       ),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByTestId('billing-pingxx-qr-code'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('billing-qr-qr-code')).toBeInTheDocument();
     expect(screen.getByText(/7,600/)).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.checkout.prepaidOffsetLabel'),
@@ -1605,7 +1592,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
@@ -1648,7 +1635,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
@@ -1676,7 +1663,7 @@ describe('BillingOverviewTab', () => {
 
   test('shows same-plan pending preorder and keeps higher-tier upgrade available', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -1692,7 +1679,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
@@ -1710,7 +1697,7 @@ describe('BillingOverviewTab', () => {
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
       bill_order_bid: 'order-upgrade-same-plan-pending',
-      provider: 'pingxx',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       checkout_type: 'subscription_upgrade',
@@ -1720,7 +1707,7 @@ describe('BillingOverviewTab', () => {
       payable_amount: 18910,
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/same-plan-upgrade-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/same-plan-upgrade-wechat-qr',
         },
       },
     });
@@ -1764,14 +1751,12 @@ describe('BillingOverviewTab', () => {
         expect.objectContaining({
           action: 'upgrade_immediate',
           channel: 'wx_pub_qr',
-          payment_provider: 'pingxx',
+          payment_provider: 'wechatpay',
           product_bid: 'bill-product-plan-monthly-pro',
         }),
       );
     });
-    expect(
-      await screen.findByTestId('billing-pingxx-qr-code'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('billing-qr-qr-code')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.checkout.prepaidOffsetLabel'),
     ).toBeInTheDocument();
@@ -2110,13 +2095,13 @@ describe('BillingOverviewTab', () => {
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
       bill_order_bid: 'order-plan-reused-1',
-      provider: 'pingxx',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       expires_in_seconds: 1800,
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/reused-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/reused-wechat-qr',
         },
       },
     });
@@ -2147,18 +2132,18 @@ describe('BillingOverviewTab', () => {
       );
     });
 
-    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
     expect(mockRememberStripeBillingOrderForAnalytics).not.toHaveBeenCalled();
     expect(mockRememberStripeCheckoutSession).not.toHaveBeenCalled();
     expect(
-      screen.getByTestId('billing-pingxx-expiration-countdown'),
+      screen.getByTestId('billing-qr-expiration-countdown'),
     ).toHaveTextContent('module.billing.checkout.expiresInValue:30:00');
   });
 
-  test('shows an in-app Pingxx subscription QR and allows switching channels', async () => {
+  test('shows an in-app native WeChat subscription QR and refreshes the same order', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -2178,25 +2163,25 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
-      provider: 'pingxx',
+      bill_order_bid: 'order-plan-native-1',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       expires_in_seconds: 1800,
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/plan-wechat-qr',
         },
       },
     });
     mockCheckoutBillingOrder.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-replacement',
-      provider: 'pingxx',
+      bill_order_bid: 'order-plan-native-1',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       payment_payload: {
         credential: {
-          alipay_qr: 'https://pingxx.test/plan-alipay-qr',
+          wx_pub_qr: 'https://wechatpay.test/plan-wechat-qr-refreshed',
         },
       },
     });
@@ -2211,9 +2196,7 @@ describe('BillingOverviewTab', () => {
 
     expect(
       screen.getByText(
-        (_content, element) =>
-          element?.textContent ===
-          'module.billing.catalog.labels.providerPingxx / module.pay.wechatPay',
+        (_content, element) => element?.textContent === 'module.pay.wechatPay',
       ),
     ).toBeInTheDocument();
 
@@ -2231,35 +2214,23 @@ describe('BillingOverviewTab', () => {
       expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
         expect.objectContaining({
           channel: 'wx_pub_qr',
-          payment_provider: 'pingxx',
+          payment_provider: 'wechatpay',
           product_bid: 'bill-product-plan-yearly',
         }),
       );
     });
 
-    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     expect(
-      screen.getByTestId('billing-pingxx-expiration-countdown'),
+      screen.getByTestId('billing-qr-expiration-countdown'),
     ).toHaveTextContent('module.billing.checkout.expiresInValue:30:00');
-    expect(screen.getByRole('checkbox')).toBeChecked();
+    // Native WeChat Pay issues one kind of code: no switch to an Alipay code.
     expect(
-      screen.getByRole('button', {
-        name: 'module.pay.clickRefresh',
-      }),
-    ).toBeEnabled();
+      screen.queryByTestId('billing-qr-channel-alipay_qr'),
+    ).not.toBeInTheDocument();
 
-    await act(async () => {
-      await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
-    });
-
-    await waitFor(() => {
-      expect(mockCheckoutBillingOrder).toHaveBeenCalledWith({
-        bill_order_bid: 'order-plan-pingxx-1',
-        channel: 'alipay_qr',
-      });
-    });
     mockSyncBillingOrder.mockResolvedValueOnce({
-      bill_order_bid: 'order-plan-pingxx-replacement',
+      bill_order_bid: 'order-plan-native-1',
       status: 'pending',
     });
     await act(async () => {
@@ -2268,36 +2239,36 @@ describe('BillingOverviewTab', () => {
       );
     });
     expect(mockSyncBillingOrder).toHaveBeenLastCalledWith({
-      bill_order_bid: 'order-plan-pingxx-replacement',
+      bill_order_bid: 'order-plan-native-1',
     });
     expect(mockCheckoutBillingOrder).toHaveBeenLastCalledWith({
-      bill_order_bid: 'order-plan-pingxx-replacement',
-      channel: 'alipay_qr',
+      bill_order_bid: 'order-plan-native-1',
+      channel: 'wx_pub_qr',
     });
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_status',
       expect.objectContaining({
-        bill_order_bid: 'order-plan-pingxx-replacement',
+        bill_order_bid: 'order-plan-native-1',
         status: 'pending',
       }),
     );
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
-      'https://pingxx.test/plan-alipay-qr',
+      'https://wechatpay.test/plan-wechat-qr-refreshed',
     );
   });
 
   test('keeps a QR dismissal non-terminal before the same order succeeds', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockCheckoutBillingTopup.mockResolvedValue({
       bill_order_bid: 'order-topup-1',
-      provider: 'pingxx',
+      provider: 'wechatpay',
       payment_mode: 'one_time',
       status: 'pending',
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/wechat-qr',
         },
       },
     });
@@ -2336,13 +2307,13 @@ describe('BillingOverviewTab', () => {
       expect(mockCheckoutBillingTopup).toHaveBeenCalledWith(
         expect.objectContaining({
           channel: 'wx_pub_qr',
-          payment_provider: 'pingxx',
+          payment_provider: 'wechatpay',
           product_bid: 'bill-product-topup-small',
         }),
       );
     });
 
-    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     expect(screen.getByText('24-credit pack')).toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_attempt',
@@ -2355,7 +2326,7 @@ describe('BillingOverviewTab', () => {
         price_amount: 4600,
         currency: 'CNY',
         credit_amount: 24,
-        payment_provider: 'pingxx',
+        payment_provider: 'wechatpay',
         payment_channel: 'wx_pub_qr',
         checkout_action: 'topup',
         source_surface: 'billing_overview',
@@ -2366,7 +2337,7 @@ describe('BillingOverviewTab', () => {
       'creator_billing_checkout_status',
       expect.objectContaining({
         bill_order_bid: 'order-topup-1',
-        payment_provider: 'pingxx',
+        payment_provider: 'wechatpay',
         payment_channel: 'wx_pub_qr',
         status: 'pending',
       }),
@@ -2384,9 +2355,7 @@ describe('BillingOverviewTab', () => {
         ([eventName]) => eventName === 'creator_billing_checkout_result',
       ),
     ).toHaveLength(0);
-    expect(
-      screen.queryByTestId('billing-pingxx-qr-code'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('billing-qr-qr-code')).not.toBeInTheDocument();
 
     await act(async () => {
       await user.click(
@@ -2405,7 +2374,7 @@ describe('BillingOverviewTab', () => {
     });
     await waitFor(() => {
       expect(mockCheckoutBillingTopup).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+      expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     });
 
     mockSyncBillingOrder.mockResolvedValueOnce({
@@ -2441,23 +2410,21 @@ describe('BillingOverviewTab', () => {
           payload?.outcome === 'cancelled',
       ),
     ).toBe(false);
-    expect(
-      screen.queryByTestId('billing-pingxx-qr-code'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('billing-qr-qr-code')).not.toBeInTheDocument();
   });
 
   test('keeps a backend-canceled QR checkout non-terminal before a paid retry', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockCheckoutBillingTopup.mockResolvedValue({
       bill_order_bid: 'order-topup-cancelled-1',
-      provider: 'pingxx',
+      provider: 'wechatpay',
       payment_mode: 'one_time',
       status: 'pending',
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/wechat-qr',
         },
       },
     });
@@ -2487,7 +2454,7 @@ describe('BillingOverviewTab', () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+      expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     });
 
     mockSyncBillingOrder
@@ -2513,7 +2480,7 @@ describe('BillingOverviewTab', () => {
       });
       expect(mockMutateOverview).toHaveBeenCalled();
       expect(
-        screen.queryByTestId('billing-pingxx-qr-code'),
+        screen.queryByTestId('billing-qr-qr-code'),
       ).not.toBeInTheDocument();
     });
     expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -2545,7 +2512,7 @@ describe('BillingOverviewTab', () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+      expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     });
 
     await act(async () => {
@@ -2558,7 +2525,7 @@ describe('BillingOverviewTab', () => {
     await waitFor(() => {
       expect(mockSyncBillingOrder).toHaveBeenCalledTimes(2);
       expect(
-        screen.queryByTestId('billing-pingxx-qr-code'),
+        screen.queryByTestId('billing-qr-qr-code'),
       ).not.toBeInTheDocument();
     });
     const resultCalls = mockTrackEvent.mock.calls.filter(
@@ -2581,12 +2548,12 @@ describe('BillingOverviewTab', () => {
     ).toBe(false);
   });
 
-  test('polls pending Pingxx checkout and closes the QR dialog after payment', async () => {
+  test('polls pending native checkout and closes the QR dialog after payment', async () => {
     jest.useFakeTimers();
     const user = userEvent.setup({
       advanceTimers: jest.advanceTimersByTime,
     });
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -2602,7 +2569,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
@@ -2619,18 +2586,18 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
-      provider: 'pingxx',
+      bill_order_bid: 'order-plan-native-1',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/plan-wechat-qr',
         },
       },
     });
     mockSyncBillingOrder.mockResolvedValueOnce({
-      bill_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-native-1',
       status: 'paid',
     });
 
@@ -2652,7 +2619,7 @@ describe('BillingOverviewTab', () => {
       );
     });
 
-    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
 
     await act(async () => {
       jest.advanceTimersByTime(1000);
@@ -2660,7 +2627,7 @@ describe('BillingOverviewTab', () => {
 
     await waitFor(() => {
       expect(mockSyncBillingOrder).toHaveBeenCalledWith({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
       });
     });
     await waitFor(() => {
@@ -2670,24 +2637,24 @@ describe('BillingOverviewTab', () => {
         'billing-wallet-buckets',
       ]);
       expect(
-        screen.queryByTestId('billing-pingxx-qr-code'),
+        screen.queryByTestId('billing-qr-qr-code'),
       ).not.toBeInTheDocument();
     });
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_result',
       expect.objectContaining({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
         outcome: 'success',
       }),
     );
   });
 
-  test('keeps a recoverable Pingxx polling result non-terminal', async () => {
+  test('keeps a recoverable native polling result non-terminal', async () => {
     jest.useFakeTimers();
     const user = userEvent.setup({
       advanceTimers: jest.advanceTimersByTime,
     });
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -2703,7 +2670,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
@@ -2720,18 +2687,18 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-recoverable-1',
-      provider: 'pingxx',
+      bill_order_bid: 'order-plan-native-recoverable-1',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/plan-wechat-qr',
         },
       },
     });
     mockSyncBillingOrder.mockResolvedValueOnce({
-      bill_order_bid: 'order-plan-pingxx-recoverable-1',
+      bill_order_bid: 'order-plan-native-recoverable-1',
       status: 'canceled',
     });
 
@@ -2751,7 +2718,7 @@ describe('BillingOverviewTab', () => {
       );
     });
 
-    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
 
     await act(async () => {
       jest.advanceTimersByTime(1000);
@@ -2759,20 +2726,20 @@ describe('BillingOverviewTab', () => {
 
     await waitFor(() => {
       expect(mockSyncBillingOrder).toHaveBeenCalledWith({
-        bill_order_bid: 'order-plan-pingxx-recoverable-1',
+        bill_order_bid: 'order-plan-native-recoverable-1',
       });
       expect(mockMutateOverview).toHaveBeenCalled();
       expect(mockMutateSWRCache).toHaveBeenCalledWith([
         'billing-wallet-buckets',
       ]);
       expect(
-        screen.queryByTestId('billing-pingxx-qr-code'),
+        screen.queryByTestId('billing-qr-qr-code'),
       ).not.toBeInTheDocument();
     });
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_status',
       expect.objectContaining({
-        bill_order_bid: 'order-plan-pingxx-recoverable-1',
+        bill_order_bid: 'order-plan-native-recoverable-1',
         status: 'confirmation_failed',
       }),
     );
@@ -2785,7 +2752,7 @@ describe('BillingOverviewTab', () => {
 
   test('keeps a missing QR response non-terminal before the same order is paid', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -2805,30 +2772,30 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
-      provider: 'pingxx',
+      bill_order_bid: 'order-plan-native-1',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/plan-wechat-qr',
         },
       },
     });
     mockCheckoutBillingOrder.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
-      provider: 'pingxx',
+      bill_order_bid: 'order-plan-native-1',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       payment_payload: {},
     });
     mockSyncBillingOrder
       .mockResolvedValueOnce({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
         status: 'pending',
       })
       .mockResolvedValueOnce({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
         status: 'paid',
       });
 
@@ -2848,26 +2815,28 @@ describe('BillingOverviewTab', () => {
       );
     });
 
-    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
 
     await act(async () => {
-      await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
+      await user.click(
+        screen.getByRole('button', { name: 'module.pay.clickRefresh' }),
+      );
     });
 
     await waitFor(() => {
       expect(mockCheckoutBillingOrder).toHaveBeenCalledWith({
-        bill_order_bid: 'order-plan-pingxx-1',
-        channel: 'alipay_qr',
+        bill_order_bid: 'order-plan-native-1',
+        channel: 'wx_pub_qr',
       });
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'creator_billing_checkout_status',
         expect.objectContaining({
-          bill_order_bid: 'order-plan-pingxx-1',
-          payment_channel: 'alipay_qr',
+          bill_order_bid: 'order-plan-native-1',
+          payment_channel: 'wx_pub_qr',
           status: 'confirmation_failed',
         }),
       );
-      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+      expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     });
     expect(
       mockTrackEvent.mock.calls.filter(
@@ -2876,19 +2845,21 @@ describe('BillingOverviewTab', () => {
     ).toHaveLength(0);
 
     await act(async () => {
-      await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
+      await user.click(
+        screen.getByRole('button', { name: 'module.pay.clickRefresh' }),
+      );
     });
 
     await waitFor(() => {
       expect(mockSyncBillingOrder).toHaveBeenCalledTimes(2);
       expect(
-        screen.queryByTestId('billing-pingxx-qr-code'),
+        screen.queryByTestId('billing-qr-qr-code'),
       ).not.toBeInTheDocument();
     });
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_result',
       expect.objectContaining({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
         outcome: 'success',
       }),
     );
@@ -2899,9 +2870,9 @@ describe('BillingOverviewTab', () => {
     ).toHaveLength(1);
   });
 
-  test('keeps a manual Pingxx sync failure non-terminal before a paid retry', async () => {
+  test('keeps a manual native sync failure non-terminal before a paid retry', async () => {
     const user = userEvent.setup();
-    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.paymentChannels = ['wechatpay'];
     mockEnvState.stripeEnabled = 'false';
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -2917,7 +2888,7 @@ describe('BillingOverviewTab', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
-          billing_provider: 'pingxx',
+          billing_provider: 'wechatpay',
           current_period_start_at: '2026-04-01T00:00:00Z',
           current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
@@ -2934,20 +2905,20 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
-      provider: 'pingxx',
+      bill_order_bid: 'order-plan-native-1',
+      provider: 'wechatpay',
       payment_mode: 'subscription',
       status: 'pending',
       payment_payload: {
         credential: {
-          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+          wx_pub_qr: 'https://wechatpay.test/plan-wechat-qr',
         },
       },
     });
     mockSyncBillingOrder
       .mockRejectedValueOnce(new Error('private provider failure'))
       .mockResolvedValueOnce({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
         status: 'paid',
       });
 
@@ -2969,7 +2940,7 @@ describe('BillingOverviewTab', () => {
       );
     });
 
-    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
 
     await act(async () => {
       await user.click(
@@ -2981,15 +2952,15 @@ describe('BillingOverviewTab', () => {
 
     await waitFor(() => {
       expect(mockSyncBillingOrder).toHaveBeenCalledWith({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
       });
       expect(mockCheckoutBillingOrder).not.toHaveBeenCalled();
-      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+      expect(screen.getByTestId('billing-qr-qr-code')).toBeInTheDocument();
     });
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_status',
       expect.objectContaining({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
         status: 'confirmation_failed',
       }),
     );
@@ -3013,13 +2984,13 @@ describe('BillingOverviewTab', () => {
         'billing-wallet-buckets',
       ]);
       expect(
-        screen.queryByTestId('billing-pingxx-qr-code'),
+        screen.queryByTestId('billing-qr-qr-code'),
       ).not.toBeInTheDocument();
     });
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_result',
       expect.objectContaining({
-        bill_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-native-1',
         outcome: 'success',
       }),
     );

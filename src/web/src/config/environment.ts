@@ -238,12 +238,12 @@ function getStripeEnabled(): boolean {
 }
 
 function parsePaymentChannels(value?: string): string[] {
-  if (!value) return ['pingxx', 'stripe'];
+  if (!value) return [];
   const channels = value
     .split(',')
     .map(item => item.trim().toLowerCase())
     .filter(Boolean);
-  return channels.length > 0 ? channels : ['pingxx', 'stripe'];
+  return channels;
 }
 
 function getPaymentChannels(): string[] {

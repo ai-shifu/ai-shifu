@@ -39,8 +39,9 @@ at the end record where the current behavior is more specific.
 - Preserve the zero-refund product rule for preorder and upgrade flows.
 - Keep package credits auditable through `bill_orders`, `bill_subscriptions`,
   `credit_wallet_buckets`, and `credit_ledger_entries`.
-- Keep self-managed cycle rules for Pingxx, native Alipay, native WeChat Pay,
-  and manual grants: the local billing cycle decides the service window.
+- Keep self-managed cycle rules for native Alipay, native WeChat Pay, legacy
+  Ping++ subscriptions, and manual grants: the local billing cycle decides the
+  service window.
 
 ## Non-Goals
 
