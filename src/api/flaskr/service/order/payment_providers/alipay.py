@@ -20,10 +20,15 @@ from .base import (
     PaymentRefundRequest,
     PaymentRefundResult,
     PaymentRequest,
+    remaining_payment_window,
 )
 
 if TYPE_CHECKING:
     from flask import Flask
+
+
+_DEFAULT_TIMEOUT_EXPRESS = "15m"
+_TRADE_NOT_EXIST = "ACQ.TRADE_NOT_EXIST"
 
 
 class AlipayProvider(PaymentProvider):
@@ -46,9 +51,7 @@ class AlipayProvider(PaymentProvider):
         biz_model.total_amount = _format_cny_amount(request.amount)
         biz_model.subject = request.subject or request.order_bid
         biz_model.body = request.body or request.subject or request.order_bid
-        biz_model.timeout_express = str(
-            (request.extra or {}).get("timeout_express") or "15m"
-        )
+        biz_model.timeout_express = _timeout_express(request)
 
         precreate_request = sdk["AlipayTradePrecreateRequest"](biz_model=biz_model)
         notify_url = (
@@ -187,9 +190,11 @@ class AlipayProvider(PaymentProvider):
                 app=app,
             )
             payload = dict(notification.provider_payload.get("trade") or {})
-            if str(payload.get("trade_status") or "").upper() != "TRADE_CLOSED":
-                if close_error is not None:
-                    raise close_error
+            if close_error is not None and not _trade_is_closed(payload):
+                # The close may never have reached Alipay; an unscanned code
+                # then still reads as "not exist" yet stays payable.
+                raise close_error
+            if not _trade_is_closed_or_never_created(payload):
                 raise RuntimeError(
                     payload.get("sub_msg")
                     or payload.get("msg")
@@ -326,6 +331,39 @@ def _read_required_key(config_name: str, inline_config_name: str = "") -> str:
     if not path.exists():
         raise FileNotFoundError(key_path)
     return path.read_text(encoding="utf-8").strip()
+
+
+def _trade_is_closed(trade: dict[str, object]) -> bool:
+    return str(trade.get("trade_status") or "").upper() == "TRADE_CLOSED"
+
+
+def _trade_is_closed_or_never_created(trade: dict[str, object]) -> bool:
+    """Return True when an attempt can no longer be paid as an open trade.
+
+    A precreate QR code only becomes an Alipay trade once a buyer scans it,
+    so closing an unscanned attempt reports ``ACQ.TRADE_NOT_EXIST``. That is
+    the normal case when a learner switches payment method before scanning;
+    once Alipay has received the close, scanning the code shows it as closed.
+    """
+    if _trade_is_closed(trade):
+        return True
+    return str(trade.get("sub_code") or "").upper() == _TRADE_NOT_EXIST
+
+
+def _timeout_express(request: PaymentRequest) -> str:
+    """Return how long the QR code may be paid, never past the order deadline.
+
+    Alipay only accepts whole minutes, so round down: the code must expire no
+    later than the order, otherwise a learner could pay an order we already
+    treat as timed out. Orders with less than a minute left are rejected.
+    """
+    explicit = str((request.extra or {}).get("timeout_express") or "").strip()
+    if explicit:
+        return explicit
+    remaining = remaining_payment_window(request)
+    if remaining is None:
+        return _DEFAULT_TIMEOUT_EXPRESS
+    return f"{int(remaining.total_seconds() // 60)}m"
 
 
 def _format_cny_amount(amount: int) -> str:

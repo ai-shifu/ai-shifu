@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
+
+from flaskr.service.common.models import raise_error
 
 
 @dataclass(slots=True)
@@ -21,6 +24,45 @@ class PaymentRequest:
     body: str
     client_ip: str
     extra: dict[str, Any] = field(default_factory=dict)
+
+
+def payment_request_expires_at(request: PaymentRequest) -> dt.datetime | None:
+    """Return the order deadline passed in ``extra["expires_at"]`` as UTC.
+
+    Naive datetimes are treated as UTC, matching how orders store
+    ``created_at``/``expires_at``. Providers use this to stop the payment code
+    from outliving the order it pays for.
+    """
+    value = (request.extra or {}).get("expires_at")
+    if not isinstance(value, dt.datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=dt.UTC)
+    return value.astimezone(dt.UTC)
+
+
+# Shortest order lifetime left at which a native payment code may be issued.
+# WeChat Pay moves any time_expire earlier than "received + 1 minute" to that
+# point, so keep one minute plus a margin that covers signing and the 10 s
+# provider HTTP timeout; the code then never outlives the order.
+MIN_PAYMENT_WINDOW_SECONDS = 120
+
+
+def remaining_payment_window(request: PaymentRequest) -> dt.timedelta | None:
+    """Return the time left before the order deadline, rejecting short windows.
+
+    Returns ``None`` when the request carries no deadline. Raises the
+    ``server.order.orderPayExpired`` application error when less than
+    ``MIN_PAYMENT_WINDOW_SECONDS`` remain, before any provider I/O, so the
+    learner is told to place a new order.
+    """
+    expires_at = payment_request_expires_at(request)
+    if expires_at is None:
+        return None
+    remaining = expires_at - dt.datetime.now(dt.UTC)
+    if remaining.total_seconds() < MIN_PAYMENT_WINDOW_SECONDS:
+        raise_error("server.order.orderPayExpired")
+    return remaining
 
 
 @dataclass(slots=True)
