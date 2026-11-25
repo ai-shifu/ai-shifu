@@ -27,7 +27,6 @@ from .consts import (
     CREDIT_ROUNDING_MODE_ROUND,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
     RENAMED_LLM_BILLING_PROVIDERS,
-    RENAMED_LLM_MODEL_PREFIXES,
 )
 from .models import CreditUsageRate
 from .primitives import (
@@ -36,7 +35,7 @@ from .primitives import (
     quantize_credit_amount,
     to_decimal,
 )
-from .rate_references import resolve_llm_rate_identity
+from .rate_references import legacy_llm_rate_aliases, resolve_llm_rate_identity
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -374,22 +373,13 @@ def load_usage_rate(
         if not model_candidates:
             model_candidates = [model]
     # Rate rows not yet migrated to LiteLLM names still bill this usage, at
-    # the lowest priority, so settlement does not depend on the migration
-    # running before or after this release.
+    # the lowest priority, whichever order the migration and release land in.
     legacy_providers: set[str] = set()
     if int(usage.usage_type or 0) == BILL_USAGE_TYPE_LLM:
-        current_providers = {provider, fallback_provider} - {""}
-        legacy_providers = {
-            legacy
-            for legacy, renamed in RENAMED_LLM_BILLING_PROVIDERS.items()
-            if renamed in current_providers
-        } - current_providers
-        for candidate in list(model_candidates):
-            for legacy_prefix, prefix in RENAMED_LLM_MODEL_PREFIXES.items():
-                if candidate.startswith(prefix) and len(candidate) > len(prefix):
-                    legacy_model = legacy_prefix + candidate[len(prefix) :]
-                    if legacy_model not in model_candidates:
-                        model_candidates.append(legacy_model)
+        legacy_providers, legacy_models = legacy_llm_rate_aliases(
+            {provider, fallback_provider}, model_candidates
+        )
+        model_candidates.extend(legacy_models)
     usage_scene = int(usage.usage_scene or 0)
     rows = (
         CreditUsageRate.query.filter(

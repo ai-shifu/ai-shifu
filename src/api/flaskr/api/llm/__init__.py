@@ -51,7 +51,10 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditUsageRate
-from flaskr.service.billing.rate_references import format_credit_multiplier
+from flaskr.service.billing.rate_references import (
+    format_credit_multiplier,
+    legacy_llm_rate_aliases,
+)
 from flaskr.service.common.credit_rate_references import load_llm_credit_1x_unit_cost
 from flaskr.service.common.models import ERROR_CODE, AppError, raise_error_with_args
 from flaskr.service.config import get_config
@@ -1869,6 +1872,11 @@ def _select_credit_usage_rate(
     ]
     if not normalized_models:
         return None
+    # Rows not yet migrated to LiteLLM names still price the model.
+    legacy_providers, legacy_models = legacy_llm_rate_aliases(
+        {normalized_provider}, normalized_models
+    )
+    normalized_models.extend(legacy_models)
     candidate_set = set(normalized_models)
     model_priority = {
         model: len(normalized_models) - index
@@ -1879,7 +1887,7 @@ def _select_credit_usage_rate(
         for row in rows
         if row.effective_from <= now
         and (row.effective_to is None or row.effective_to > now)
-        and row.provider in {normalized_provider, "*"}
+        and row.provider in {normalized_provider, "*"} | legacy_providers
         and row.model in candidate_set.union({"*"})
     ]
     if not candidates:

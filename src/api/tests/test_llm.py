@@ -364,6 +364,41 @@ def test_get_current_models_adds_output_token_credit_multiplier(
     )
 
 
+def test_get_current_models_prices_rates_not_yet_renamed(
+    monkeypatch: object, app: object
+) -> None:
+    """Rate rows under earlier names still price models before migration."""
+    _configure_model_list(monkeypatch)
+    with app.app_context():
+        db.session.query(CreditUsageRate).delete()
+        db.session.add_all(
+            [
+                _create_credit_rate(
+                    rate_bid="legacy-qwen-output",
+                    provider="qwen",
+                    model="deepseek-v4-flash",
+                    credits_per_unit="0.000066667",
+                ),
+                _create_credit_rate(
+                    rate_bid="legacy-ark-output",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="0.0001800009",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        models = llm.get_current_models(app)
+
+        db.session.query(CreditUsageRate).delete()
+        db.session.commit()
+
+    by_model = {item["model"]: item for item in models}
+    assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier"] == 1
+    assert by_model["ark/doubao-seed-2-0-lite-260428"]["credit_multiplier"] == 3
+
+
 def test_get_current_models_uses_fixed_credit_1x_anchor(
     monkeypatch: object, app: object
 ) -> None:
