@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from decimal import Decimal
 
 NATIVE_PAYMENT_STATE_PAID = "paid"
@@ -20,6 +21,39 @@ def extract_native_trade_payload(payload: dict[str, object]) -> dict[str, object
     if isinstance(resource, dict) and resource:
         return resource
     return payload
+
+
+_CHINA_TZ = dt.timezone(dt.timedelta(hours=8))
+
+
+def extract_native_paid_at(
+    provider: str, payload: dict[str, object]
+) -> dt.datetime | None:
+    """Return when the provider says the trade was paid, as an aware datetime.
+
+    WeChat Pay reports ``success_time`` in RFC 3339. Alipay reports
+    ``gmt_payment`` (notifications) or ``send_pay_date`` (trade query) as
+    ``YYYY-MM-DD HH:MM:SS`` in China time. Returns None when absent or invalid.
+    """
+    trade_payload = extract_native_trade_payload(payload)
+    try:
+        if provider == "wechatpay":
+            value = str(trade_payload.get("success_time") or "").strip()
+            return dt.datetime.fromisoformat(value) if value else None
+        if provider == "alipay":
+            value = str(
+                trade_payload.get("gmt_payment")
+                or trade_payload.get("send_pay_date")
+                or ""
+            ).strip()
+            if not value:
+                return None
+            return dt.datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(
+                tzinfo=_CHINA_TZ
+            )
+    except ValueError:
+        return None
+    return None
 
 
 def extract_native_paid_amount(provider: str, payload: dict[str, object]) -> int | None:

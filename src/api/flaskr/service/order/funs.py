@@ -33,6 +33,7 @@ from flaskr.service.billing.api import (
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.native_payment_status import (
     extract_native_paid_amount,
+    extract_native_paid_at,
     extract_native_trade_status,
     native_snapshot_status,
 )
@@ -2722,6 +2723,32 @@ def get_payment_details(
         }
 
 
+# Snapshot statuses that already recorded money taken (paid, refunded).
+_NATIVE_PAID_SNAPSHOT_STATUSES = {1, 2}
+
+
+def _native_payment_can_complete_order(
+    app: Flask,
+    buy_record: Order,
+    provider: str,
+    payload: dict[str, object],
+) -> bool:
+    """Return whether a paid native attempt may mark this order as paid.
+
+    Pending and repricing orders accept it. An order already flipped to
+    TIMEOUT (the learner reopened checkout after the deadline) accepts it only
+    when the provider reports a payment time no later than the order deadline,
+    e.g. a notification retried after the flip.
+    """
+    if buy_record.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}:
+        return True
+    if buy_record.status != ORDER_STATUS_TIMEOUT:
+        return False
+    paid_at = extract_native_paid_at(provider, payload)
+    deadline = _order_payment_expires_at(app, buy_record)
+    return paid_at is not None and deadline is not None and paid_at <= deadline
+
+
 def success_buy_record_from_native(
     app: Flask,
     provider_name: str,
@@ -2787,7 +2814,7 @@ def success_buy_record_from_native(
             message = "Native payment amount mismatch"
             raise RuntimeError(message)
 
-        was_pending_attempt = native_order.status == 0
+        was_unpaid_attempt = native_order.status not in _NATIVE_PAID_SNAPSHOT_STATUSES
         _apply_native_snapshot_update(
             snapshot=native_order,
             provider=provider,
@@ -2796,29 +2823,37 @@ def success_buy_record_from_native(
         )
         db.session.add(native_order)
 
-        if (
-            _is_native_payment_successful(
-                provider,
-                notification.provider_payload or {},
-            )
-            and was_pending_attempt
-            and native_order.id
-            == (
-                legacy_native_snapshot_query(provider)
-                .filter(native_model.order_bid == native_order.order_bid)
-                .order_by(native_model.id.desc())
-                .with_entities(native_model.id)
-                .first()
-                or (None,)
-            )[0]
-            and (
-                decimal.Decimal(buy_record.paid_price or 0) <= 0
-                or int(native_order.amount or 0)
-                == int(decimal.Decimal(buy_record.paid_price) * 100)
-            )
-            and buy_record.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
-        ):
-            success_buy_record(app, buy_record.order_bid)
+        payload = notification.provider_payload or {}
+        if _is_native_payment_successful(provider, payload) and was_unpaid_attempt:
+            # Any attempt of this order counts, not only the latest one: a
+            # learner may pay a code shown before switching payment method.
+            # Codes expire with the order, so a paid attempt was paid in time.
+            amount_matches = decimal.Decimal(buy_record.paid_price or 0) <= 0 or int(
+                native_order.amount or 0
+            ) == int(decimal.Decimal(buy_record.paid_price) * 100)
+            if amount_matches and _native_payment_can_complete_order(
+                app, buy_record, provider, payload
+            ):
+                success_buy_record(app, buy_record.order_bid)
+            elif buy_record.status == ORDER_STATUS_SUCCESS:
+                app.logger.error(
+                    "duplicate native payment needs a manual refund "
+                    "provider=%s order_bid=%s provider_attempt_id=%s transaction_id=%s",
+                    provider,
+                    buy_record.order_bid,
+                    native_order.provider_attempt_id,
+                    native_order.transaction_id,
+                )
+            else:
+                app.logger.error(
+                    "paid native attempt not applied provider=%s order_bid=%s "
+                    "provider_attempt_id=%s order_status=%s amount_matches=%s",
+                    provider,
+                    buy_record.order_bid,
+                    native_order.provider_attempt_id,
+                    buy_record.status,
+                    amount_matches,
+                )
         _assert_payment_lifecycle_lock_owned()
         lifecycle_lease.release_checked()
         return True
