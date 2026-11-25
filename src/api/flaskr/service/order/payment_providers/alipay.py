@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -21,7 +20,7 @@ from .base import (
     PaymentRefundRequest,
     PaymentRefundResult,
     PaymentRequest,
-    payment_request_expires_at,
+    remaining_payment_window,
 )
 
 if TYPE_CHECKING:
@@ -336,17 +335,15 @@ def _timeout_express(request: PaymentRequest) -> str:
 
     Alipay only accepts whole minutes, so round down: the code must expire no
     later than the order, otherwise a learner could pay an order we already
-    treat as timed out.
+    treat as timed out. Orders with less than a minute left are rejected.
     """
     explicit = str((request.extra or {}).get("timeout_express") or "").strip()
     if explicit:
         return explicit
-    expires_at = payment_request_expires_at(request)
-    if expires_at is None:
+    remaining = remaining_payment_window(request)
+    if remaining is None:
         return _DEFAULT_TIMEOUT_EXPRESS
-    remaining = expires_at - dt.datetime.now(dt.UTC)
-    minutes = int(remaining.total_seconds() // 60)
-    return f"{max(minutes, 1)}m"
+    return f"{int(remaining.total_seconds() // 60)}m"
 
 
 def _format_cny_amount(amount: int) -> str:

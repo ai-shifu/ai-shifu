@@ -39,6 +39,32 @@ def payment_request_expires_at(request: PaymentRequest) -> dt.datetime | None:
     return value.astimezone(dt.UTC)
 
 
+# Shortest payable window a native provider accepts (WeChat Pay requires one
+# minute). An order with less time left cannot get a code that expires with it.
+MIN_PAYMENT_WINDOW_SECONDS = 60
+
+
+class PaymentWindowExpiredError(RuntimeError):
+    """Raised before provider I/O when the order deadline is too close."""
+
+
+def remaining_payment_window(request: PaymentRequest) -> dt.timedelta | None:
+    """Return the time left before the order deadline, rejecting short windows.
+
+    Returns ``None`` when the request carries no deadline. Raises
+    ``PaymentWindowExpiredError`` when less than ``MIN_PAYMENT_WINDOW_SECONDS``
+    remain, so no provider code is issued that could outlive the order.
+    """
+    expires_at = payment_request_expires_at(request)
+    if expires_at is None:
+        return None
+    remaining = expires_at - dt.datetime.now(dt.UTC)
+    if remaining.total_seconds() < MIN_PAYMENT_WINDOW_SECONDS:
+        message = "Order payment window has expired"
+        raise PaymentWindowExpiredError(message)
+    return remaining
+
+
 @dataclass(slots=True)
 class PaymentCreationResult:
     """Response data returned after creating a payment."""
