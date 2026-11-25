@@ -1,6 +1,6 @@
 """Regression coverage for learner order ownership and mutable states."""
 
-from datetime import timedelta, timezone
+from datetime import UTC, timedelta, timezone
 from decimal import Decimal
 from threading import Event
 from types import SimpleNamespace
@@ -26,6 +26,7 @@ from flaskr.service.order.funs import (
     query_buy_record,
     success_buy_record_from_native,
     success_buy_record_from_pingxx,
+    sync_native_payment_order,
 )
 from flaskr.service.order.models import (
     AlipayOrder,
@@ -351,6 +352,9 @@ def _seed_native_attempt(
 
 
 def _paid_payload(provider: str, paid_at: object) -> dict[str, object]:
+    if paid_at.tzinfo is None:
+        # now_utc() is naive UTC; astimezone() would read it as local time.
+        paid_at = paid_at.replace(tzinfo=UTC)
     china = paid_at.astimezone(timezone(timedelta(hours=8)))
     if provider == "alipay":
         return {
@@ -569,6 +573,146 @@ def test_paid_order_retires_open_orders_and_codes_for_the_same_course(
             "retire-sibling-alipay": 3,
             "retire-other-course-wechat": 0,
         }
+
+
+def _capture_alerts(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    titles: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_notify",
+        lambda _app, title, _msgs: titles.append(title),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _name: SimpleNamespace(cancel_payment=lambda **_kwargs: None),
+    )
+    return titles
+
+
+def test_on_time_payment_of_a_retired_sibling_is_a_duplicate(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sibling retired because the course was bought must not grant again."""
+    granted = _quiet_order_side_effects(monkeypatch)
+    alerts = _capture_alerts(monkeypatch)
+    monkeypatch.setitem(app.config, "PAY_ORDER_EXPIRE_TIME", 1800)
+    with app.app_context():
+        paid = _seed_order(
+            order_bid="retired-paid-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="wechatpay",
+        )
+        sibling = Order(
+            order_bid="retired-sibling-order",
+            shifu_bid=paid.shifu_bid,
+            user_bid=paid.user_bid,
+            payable_price=Decimal("200.00"),
+            paid_price=Decimal("200.00"),
+            payment_channel="alipay",
+            status=ORDER_STATUS_TO_BE_PAID,
+            deleted=0,
+        )
+        db.session.add(sibling)
+        db.session.commit()
+        _seed_native_attempt(paid, "wechatpay", "retired-paid-attempt", status=0)
+        _seed_native_attempt(sibling, "alipay", "retired-sibling-attempt", status=0)
+        db.session.commit()
+
+    assert _notify_paid(app, "wechatpay", "retired-paid-attempt", now_utc())
+    assert _notify_paid(app, "alipay", "retired-sibling-attempt", now_utc())
+
+    assert granted == ["retired-paid-order"]
+    assert alerts == ["重复支付告警"]
+    with app.app_context():
+        assert (
+            Order.query.filter_by(order_bid="retired-sibling-order").one().status
+            == ORDER_STATUS_TIMEOUT
+        )
+
+
+def _sync_paid(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    order_bid: str,
+    attempt: str,
+    paid_at: object,
+) -> None:
+    payload = _paid_payload("wechatpay", paid_at)
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _name: SimpleNamespace(
+            sync_reference=lambda **_kwargs: PaymentNotificationResult(
+                order_bid=attempt,
+                status="SUCCESS",
+                provider_payload=payload,
+                charge_id=f"{attempt}-transaction",
+            ),
+            cancel_payment=lambda **_kwargs: None,
+        ),
+    )
+    sync_native_payment_order(app, order_bid, payment_channel="wechatpay")
+
+
+def test_sync_uses_the_webhook_gate_for_late_payments(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    granted = _quiet_order_side_effects(monkeypatch)
+    alerts = _capture_alerts(monkeypatch)
+    monkeypatch.setitem(app.config, "PAY_ORDER_EXPIRE_TIME", 1800)
+    with app.app_context():
+        order = _seed_order(
+            order_bid="sync-late-order",
+            status=ORDER_STATUS_TIMEOUT,
+            payment_channel="wechatpay",
+        )
+        created_at = now_utc() - timedelta(hours=1)
+        order.created_at = created_at
+        _seed_native_attempt(order, "wechatpay", "sync-late-attempt", status=0)
+        db.session.commit()
+
+    deadline = created_at + timedelta(seconds=1800)
+    _sync_paid(
+        app,
+        monkeypatch,
+        "sync-late-order",
+        "sync-late-attempt",
+        deadline + timedelta(seconds=1),
+    )
+
+    assert granted == []
+    assert alerts == ["支付未入账告警"]
+    with app.app_context():
+        assert (
+            Order.query.filter_by(order_bid="sync-late-order").one().status
+            == ORDER_STATUS_TIMEOUT
+        )
+
+
+def test_sync_rejects_a_code_priced_before_the_order_changed(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    granted = _quiet_order_side_effects(monkeypatch)
+    alerts = _capture_alerts(monkeypatch)
+    with app.app_context():
+        order = _seed_order(
+            order_bid="sync-repriced-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="wechatpay",
+        )
+        _seed_native_attempt(order, "wechatpay", "sync-repriced-attempt", status=0)
+        order.paid_price = Decimal("250.00")
+        db.session.commit()
+
+    _sync_paid(
+        app, monkeypatch, "sync-repriced-order", "sync-repriced-attempt", now_utc()
+    )
+
+    assert granted == []
+    assert alerts == ["支付未入账告警"]
+    with app.app_context():
+        assert (
+            Order.query.filter_by(order_bid="sync-repriced-order").one().status
+            == ORDER_STATUS_TO_BE_PAID
+        )
 
 
 def test_failed_close_after_payment_keeps_the_purchase(

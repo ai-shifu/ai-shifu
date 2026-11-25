@@ -1993,13 +1993,19 @@ def sync_native_payment_order(
                 snapshot.amount,
                 actual_amount,
             )
-        paid = _is_native_payment_successful(
-            provider_name, sync_result.provider_payload
-        )
-        if paid and amount_matches and order.status != ORDER_STATUS_SUCCESS:
-            success_buy_record(app, order.order_bid)
-        elif paid and was_unpaid_attempt and order.status == ORDER_STATUS_SUCCESS:
-            _report_duplicate_native_payment(app, provider_name, order, snapshot)
+        payload = sync_result.provider_payload or {}
+        if _is_native_payment_successful(provider_name, payload) and (
+            was_unpaid_attempt or order.status != ORDER_STATUS_SUCCESS
+        ):
+            _apply_paid_native_attempt(
+                app,
+                provider=provider_name,
+                buy_record=order,
+                snapshot=snapshot,
+                payload=payload,
+                newly_paid=was_unpaid_attempt,
+                provider_amount_matches=amount_matches,
+            )
         db.session.add(snapshot)
         _assert_payment_lifecycle_lock_owned()
         lifecycle_lease.release_checked()
@@ -2752,6 +2758,61 @@ def _native_payment_can_complete_order(
     return paid_at is not None and deadline is not None and paid_at <= deadline
 
 
+def _course_paid_by_another_order(buy_record: Order) -> bool:
+    """Return whether the learner already bought this course in another order."""
+    return (
+        Order.query.filter(
+            Order.user_bid == buy_record.user_bid,
+            Order.shifu_bid == buy_record.shifu_bid,
+            Order.order_bid != buy_record.order_bid,
+            Order.status == ORDER_STATUS_SUCCESS,
+            Order.deleted == 0,
+        ).first()
+        is not None
+    )
+
+
+def _apply_paid_native_attempt(
+    app: Flask,
+    *,
+    provider: str,
+    buy_record: Order,
+    snapshot: object,
+    payload: dict[str, object],
+    newly_paid: bool,
+    provider_amount_matches: bool = True,
+) -> None:
+    """Grant, or alert on, a native attempt the provider reports as paid.
+
+    Shared by the webhook and payment sync so both apply the same rules: the
+    course is granted once, only for the current order price, and only for an
+    order that may still complete. Money taken in any other case raises a
+    Feishu alert so operations can grant or refund it by hand.
+    """
+    if buy_record.status == ORDER_STATUS_SUCCESS or _course_paid_by_another_order(
+        buy_record
+    ):
+        if newly_paid:
+            _report_unapplied_native_payment(
+                app, provider, buy_record, snapshot, duplicate=True
+            )
+        return
+    price_matches = decimal.Decimal(buy_record.paid_price or 0) <= 0 or int(
+        getattr(snapshot, "amount", 0) or 0
+    ) == int(decimal.Decimal(buy_record.paid_price) * 100)
+    if (
+        provider_amount_matches
+        and price_matches
+        and _native_payment_can_complete_order(app, buy_record, provider, payload)
+    ):
+        success_buy_record(app, buy_record.order_bid)
+        return
+    if newly_paid:
+        _report_unapplied_native_payment(
+            app, provider, buy_record, snapshot, duplicate=False
+        )
+
+
 def success_buy_record_from_native(
     app: Flask,
     provider_name: str,
@@ -2830,28 +2891,14 @@ def success_buy_record_from_native(
         if _is_native_payment_successful(provider, payload) and was_unpaid_attempt:
             # Any attempt of this order counts, not only the latest one: a
             # learner may pay a code shown before switching payment method.
-            # Codes expire with the order, so a paid attempt was paid in time.
-            amount_matches = decimal.Decimal(buy_record.paid_price or 0) <= 0 or int(
-                native_order.amount or 0
-            ) == int(decimal.Decimal(buy_record.paid_price) * 100)
-            if amount_matches and _native_payment_can_complete_order(
-                app, buy_record, provider, payload
-            ):
-                success_buy_record(app, buy_record.order_bid)
-            elif buy_record.status == ORDER_STATUS_SUCCESS:
-                _report_duplicate_native_payment(
-                    app, provider, buy_record, native_order
-                )
-            else:
-                app.logger.error(
-                    "paid native attempt not applied provider=%s order_bid=%s "
-                    "provider_attempt_id=%s order_status=%s amount_matches=%s",
-                    provider,
-                    buy_record.order_bid,
-                    native_order.provider_attempt_id,
-                    buy_record.status,
-                    amount_matches,
-                )
+            _apply_paid_native_attempt(
+                app,
+                provider=provider,
+                buy_record=buy_record,
+                snapshot=native_order,
+                payload=payload,
+                newly_paid=True,
+            )
         _assert_payment_lifecycle_lock_owned()
         lifecycle_lease.release_checked()
         return True
@@ -2973,7 +3020,11 @@ def _void_sibling_orders_and_collect_open_attempts(
             Order.status.in_(_OPEN_ORDER_STATUSES),
             Order.deleted == 0,
         )
-        .with_for_update()
+        .order_by(Order.id)
+        # A sibling locked right now is inside its own payment flow; skip it
+        # instead of waiting, which could deadlock two concurrent callbacks.
+        # If it gets paid too, that flow sees this purchase and alerts.
+        .with_for_update(skip_locked=True)
         .all()
     )
     for sibling in siblings:
@@ -3063,15 +3114,24 @@ def _close_native_attempts_after_payment(
             )
 
 
-def _report_duplicate_native_payment(
-    app: Flask, provider: str, buy_record: Order, snapshot: object
+def _report_unapplied_native_payment(
+    app: Flask,
+    provider: str,
+    buy_record: Order,
+    snapshot: object,
+    *,
+    duplicate: bool,
 ) -> None:
-    """Log and alert a native payment taken for an order that is already paid.
+    """Log and alert native money taken without granting the course.
 
-    Native providers cannot refund here yet, so operations refund it by hand.
+    ``duplicate`` means the course was already bought (this order or another
+    one), so the payment must be refunded. Otherwise the payment did not
+    qualify (price changed, paid after the deadline, ...) and needs a manual
+    decision. Native providers cannot refund here yet.
     """
     details = {
         "order_bid": buy_record.order_bid,
+        "order_status": buy_record.status,
         "user_bid": buy_record.user_bid,
         "shifu_bid": buy_record.shifu_bid,
         "provider": provider,
@@ -3079,21 +3139,29 @@ def _report_duplicate_native_payment(
         "transaction_id": str(getattr(snapshot, "transaction_id", "") or ""),
         "amount": int(getattr(snapshot, "amount", 0) or 0),
     }
-    app.logger.error("duplicate native payment needs a manual refund %s", details)
+    if duplicate:
+        app.logger.error("duplicate native payment needs a manual refund %s", details)
+        title = "重复支付告警"
+        note = "该课程已支付，这笔为重复付款，请在商户后台人工退款"  # noqa: RUF001 - Chinese ops alert
+    else:
+        app.logger.error("paid native attempt not applied %s", details)
+        title = "支付未入账告警"
+        note = "付款成功但未开课（金额与订单不一致或超过订单截止时间），请人工核对后补开课或退款"  # noqa: RUF001 - Chinese ops alert
     provider_label = {"alipay": "支付宝", "wechatpay": "微信支付"}.get(
         provider, provider
     )
     msgs = [
         f"订单号：{details['order_bid']}",  # noqa: RUF001 - Chinese ops alert
+        f"订单状态：{details['order_status']}",  # noqa: RUF001 - Chinese ops alert
         f"用户：{details['user_bid']}",  # noqa: RUF001 - Chinese ops alert
         f"课程：{details['shifu_bid']}",  # noqa: RUF001 - Chinese ops alert
         f"支付方式：{provider_label}",  # noqa: RUF001 - Chinese ops alert
         f"商户单号：{details['provider_attempt_id']}",  # noqa: RUF001 - Chinese ops alert
         f"交易号：{details['transaction_id']}",  # noqa: RUF001 - Chinese ops alert
         f"金额：{details['amount'] / 100:.2f}",  # noqa: RUF001 - Chinese ops alert
-        "该订单已支付，这笔为重复付款，请在商户后台人工退款",  # noqa: RUF001 - Chinese ops alert
+        note,
     ]
-    uow.on_commit(lambda: send_notify(app, "重复支付告警", msgs))
+    uow.on_commit(lambda: send_notify(app, title, msgs))
 
 
 def success_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO | None:
