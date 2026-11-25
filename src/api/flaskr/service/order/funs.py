@@ -1971,6 +1971,7 @@ def sync_native_payment_order(
         ):
             raise_error("server.order.orderNotFound")
 
+        was_unpaid_attempt = snapshot.status not in _NATIVE_PAID_SNAPSHOT_STATUSES
         _apply_native_snapshot_update(
             snapshot=snapshot,
             provider=provider_name,
@@ -1992,12 +1993,13 @@ def sync_native_payment_order(
                 snapshot.amount,
                 actual_amount,
             )
-        if (
-            _is_native_payment_successful(provider_name, sync_result.provider_payload)
-            and amount_matches
-            and order.status != ORDER_STATUS_SUCCESS
-        ):
+        paid = _is_native_payment_successful(
+            provider_name, sync_result.provider_payload
+        )
+        if paid and amount_matches and order.status != ORDER_STATUS_SUCCESS:
             success_buy_record(app, order.order_bid)
+        elif paid and was_unpaid_attempt and order.status == ORDER_STATUS_SUCCESS:
+            _report_duplicate_native_payment(app, provider_name, order, snapshot)
         db.session.add(snapshot)
         _assert_payment_lifecycle_lock_owned()
         lifecycle_lease.release_checked()
@@ -2725,6 +2727,7 @@ def get_payment_details(
 
 # Snapshot statuses that already recorded money taken (paid, refunded).
 _NATIVE_PAID_SNAPSHOT_STATUSES = {1, 2}
+_NATIVE_CLOSED_SNAPSHOT_STATUS = 3
 
 
 def _native_payment_can_complete_order(
@@ -2836,13 +2839,8 @@ def success_buy_record_from_native(
             ):
                 success_buy_record(app, buy_record.order_bid)
             elif buy_record.status == ORDER_STATUS_SUCCESS:
-                app.logger.error(
-                    "duplicate native payment needs a manual refund "
-                    "provider=%s order_bid=%s provider_attempt_id=%s transaction_id=%s",
-                    provider,
-                    buy_record.order_bid,
-                    native_order.provider_attempt_id,
-                    native_order.transaction_id,
+                _report_duplicate_native_payment(
+                    app, provider, buy_record, native_order
                 )
             else:
                 app.logger.error(
@@ -2949,6 +2947,155 @@ def success_buy_record_from_pingxx(
     return None
 
 
+_OPEN_ORDER_STATUSES = (
+    ORDER_STATUS_INIT,
+    ORDER_STATUS_TO_BE_PAID,
+    ORDER_STATUS_REPRICING,
+)
+
+
+def _void_sibling_orders_and_collect_open_attempts(
+    app: Flask, buy_record: Order
+) -> list[tuple[str, str, str]]:
+    """Retire everything else the learner could still pay for this course.
+
+    Joins the grant's unit of work. Other open orders of the same learner and
+    course are timed out (releasing their coupons and campaigns, as a normal
+    timeout does), and the still-pending native attempts of this order and
+    those orders are returned as ``(provider, attempt_id, order_bid)`` so they
+    can be closed at the provider once the grant is committed.
+    """
+    siblings = (
+        Order.query.filter(
+            Order.user_bid == buy_record.user_bid,
+            Order.shifu_bid == buy_record.shifu_bid,
+            Order.order_bid != buy_record.order_bid,
+            Order.status.in_(_OPEN_ORDER_STATUSES),
+            Order.deleted == 0,
+        )
+        .with_for_update()
+        .all()
+    )
+    for sibling in siblings:
+        app.logger.info(
+            "voiding open order=%s after order=%s was paid for the same course",
+            sibling.order_bid,
+            buy_record.order_bid,
+        )
+        sibling.status = ORDER_STATUS_TIMEOUT
+        db.session.add(sibling)
+        timeout_coupon_code_rollback(app, sibling.user_bid, sibling.order_bid)
+        void_promo_campaign_applications(app, sibling.user_bid, sibling.order_bid)
+
+    order_bids = [buy_record.order_bid, *(sibling.order_bid for sibling in siblings)]
+    attempts: list[tuple[str, str, str]] = []
+    for provider in ("alipay", "wechatpay"):
+        model = native_snapshot_model(provider)
+        snapshots = (
+            legacy_native_snapshot_query(provider)
+            .filter(model.order_bid.in_(order_bids), model.status == 0)
+            .order_by(model.id)
+            .all()
+        )
+        attempts.extend(
+            (provider, str(snapshot.provider_attempt_id), str(snapshot.order_bid))
+            for snapshot in snapshots
+            if snapshot.provider_attempt_id
+        )
+    return attempts
+
+
+def _close_native_attempts_after_payment(
+    app: Flask, attempts: list[tuple[str, str, str]]
+) -> None:
+    """Close still-open native codes once a course order is paid (best effort).
+
+    Runs after the grant commits, so a failure never undoes the purchase; it
+    is logged, and a later payment of such a code raises the duplicate-payment
+    alert. An unscanned Alipay code has no trade to close and stays payable
+    until it expires with its order.
+    """
+    for provider, attempt_id, order_bid in attempts:
+        try:
+            with _app_context_scope(app):
+                order = Order.query.filter(Order.order_bid == order_bid).first()
+                if order is None:
+                    continue
+                integration_bid = str(order.payment_integration_bid or "")
+                if integration_bid and str(order.payment_channel or "") != provider:
+                    app.logger.warning(
+                        "skip closing %s attempt=%s: order=%s uses another "
+                        "provider integration",
+                        provider,
+                        attempt_id,
+                        order_bid,
+                    )
+                    continue
+                credential_order = Order(
+                    creator_bid=str(order.creator_bid or ""),
+                    payment_channel=provider,
+                    payment_integration_bid=integration_bid,
+                )
+                with _order_credential_scope(app, credential_order):
+                    get_payment_provider(provider).cancel_payment(
+                        provider_reference=attempt_id,
+                        reference_type="payment",
+                        app=app,
+                    )
+                with unit_of_work():
+                    model = native_snapshot_model(provider)
+                    snapshot = (
+                        legacy_native_snapshot_query(provider)
+                        .filter(model.provider_attempt_id == attempt_id)
+                        .with_for_update()
+                        .first()
+                    )
+                    if snapshot is not None and snapshot.status == 0:
+                        snapshot.status = _NATIVE_CLOSED_SNAPSHOT_STATUS
+                        snapshot.raw_status = "CLOSED"
+                        db.session.add(snapshot)
+        except Exception:
+            app.logger.exception(
+                "failed to close %s attempt=%s of order=%s after payment",
+                provider,
+                attempt_id,
+                order_bid,
+            )
+
+
+def _report_duplicate_native_payment(
+    app: Flask, provider: str, buy_record: Order, snapshot: object
+) -> None:
+    """Log and alert a native payment taken for an order that is already paid.
+
+    Native providers cannot refund here yet, so operations refund it by hand.
+    """
+    details = {
+        "order_bid": buy_record.order_bid,
+        "user_bid": buy_record.user_bid,
+        "shifu_bid": buy_record.shifu_bid,
+        "provider": provider,
+        "provider_attempt_id": str(getattr(snapshot, "provider_attempt_id", "") or ""),
+        "transaction_id": str(getattr(snapshot, "transaction_id", "") or ""),
+        "amount": int(getattr(snapshot, "amount", 0) or 0),
+    }
+    app.logger.error("duplicate native payment needs a manual refund %s", details)
+    provider_label = {"alipay": "支付宝", "wechatpay": "微信支付"}.get(
+        provider, provider
+    )
+    msgs = [
+        f"订单号：{details['order_bid']}",  # noqa: RUF001 - Chinese ops alert
+        f"用户：{details['user_bid']}",  # noqa: RUF001 - Chinese ops alert
+        f"课程：{details['shifu_bid']}",  # noqa: RUF001 - Chinese ops alert
+        f"支付方式：{provider_label}",  # noqa: RUF001 - Chinese ops alert
+        f"商户单号：{details['provider_attempt_id']}",  # noqa: RUF001 - Chinese ops alert
+        f"交易号：{details['transaction_id']}",  # noqa: RUF001 - Chinese ops alert
+        f"金额：{details['amount'] / 100:.2f}",  # noqa: RUF001 - Chinese ops alert
+        "该订单已支付，这笔为重复付款，请在商户后台人工退款",  # noqa: RUF001 - Chinese ops alert
+    ]
+    uow.on_commit(lambda: send_notify(app, "重复支付告警", msgs))
+
+
 def success_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO | None:
     """Success buy record.
 
@@ -2976,6 +3123,13 @@ def success_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO | Non
             # own commit, matching the pre-migration ordering.
             order_bid = buy_record.order_bid
             uow.on_commit(lambda: send_order_feishu(app, order_bid))
+            open_attempts = _void_sibling_orders_and_collect_open_attempts(
+                app, buy_record
+            )
+            if open_attempts:
+                uow.on_commit(
+                    lambda: _close_native_attempts_after_payment(app, open_attempts)
+                )
         return query_buy_record(app, record_id)
     app.logger.error("record:%s not found", record_id)
     return None
