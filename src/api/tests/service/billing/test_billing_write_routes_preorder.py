@@ -238,7 +238,7 @@ class TestBillingWriteRoutesPreorder:
 
         if payment_provider == "alipay":
             monkeypatch.setattr(
-                "flaskr.service.order.payment_channel_resolution.get_config",
+                "flaskr.service.common.payment_channels.get_config",
                 lambda key, default=None: (
                     "alipay" if key == "PAYMENT_CHANNELS_ENABLED" else default
                 ),

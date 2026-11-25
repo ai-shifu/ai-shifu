@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 from flaskr.service.common.models import AppError
-from flaskr.service.order.funs import _resolve_payment_channel
-from flaskr.service.order.payment_channel_resolution import (
+from flaskr.service.common.payment_channels import (
     enabled_payment_provider_list,
     resolve_market_payment_provider,
 )
+from flaskr.service.order.funs import _resolve_payment_channel
 
 
 def _configure(monkeypatch: pytest.MonkeyPatch, **values: str) -> None:
     monkeypatch.setattr(
-        "flaskr.service.order.payment_channel_resolution.get_config",
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default="": values.get(key, default),
     )
 
@@ -28,12 +28,46 @@ class TestEnabledProviders:
 
         assert enabled_payment_provider_list() == ["wechatpay", "alipay"]
 
-    def test_unset_list_enables_providers_with_credentials(
+    def test_unset_list_enables_providers_with_complete_credentials(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _configure(monkeypatch, ALIPAY_APP_ID="alipay-app", STRIPE_SECRET_KEY="sk")
+        _configure(
+            monkeypatch,
+            ALIPAY_APP_ID="alipay-app",
+            ALIPAY_APP_PRIVATE_KEY_PATH="/keys/alipay-private.pem",
+            ALIPAY_PUBLIC_KEY="alipay-public",
+            WECHAT_APP_ID="wx-app",
+            WECHATPAY_MCH_ID="mch",
+            WECHATPAY_MERCHANT_SERIAL_NO="serial",
+            WECHATPAY_API_V3_KEY="v3",
+            WECHATPAY_PRIVATE_KEY="private",
+            WECHATPAY_PUBLIC_KEY_PATH="/keys/wechatpay-public.pem",
+            STRIPE_SECRET_KEY="sk",
+        )
 
-        assert enabled_payment_provider_list() == ["alipay", "stripe"]
+        assert enabled_payment_provider_list() == ["alipay", "wechatpay", "stripe"]
+
+    @pytest.mark.parametrize(
+        "settings",
+        [
+            {"ALIPAY_APP_ID": "alipay-app"},
+            {"ALIPAY_APP_ID": "alipay-app", "ALIPAY_APP_PRIVATE_KEY": "private"},
+            {"WECHATPAY_MCH_ID": "mch"},
+            {
+                "WECHATPAY_APP_ID": "wx-app",
+                "WECHATPAY_MCH_ID": "mch",
+                "WECHATPAY_MERCHANT_SERIAL_NO": "serial",
+                "WECHATPAY_API_V3_KEY": "v3",
+                "WECHATPAY_PRIVATE_KEY": "private",
+            },
+        ],
+    )
+    def test_unset_list_skips_providers_with_partial_credentials(
+        self, monkeypatch: pytest.MonkeyPatch, settings: dict[str, str]
+    ) -> None:
+        _configure(monkeypatch, **settings)
+
+        assert enabled_payment_provider_list() == []
 
     def test_unset_list_without_credentials_enables_nothing(
         self, monkeypatch: pytest.MonkeyPatch

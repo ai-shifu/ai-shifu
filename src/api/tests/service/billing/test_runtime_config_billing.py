@@ -97,7 +97,7 @@ def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
         lambda key, default="": config_values.get(key, default),
     )
     monkeypatch.setattr(
-        "flaskr.service.order.payment_channel_resolution.get_config",
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default="": config_values.get(key, default),
     )
     monkeypatch.setattr(

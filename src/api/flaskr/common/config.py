@@ -1594,8 +1594,8 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         default="",
         description=(
             "Comma-separated list of enabled payment providers: alipay, "
-            "wechatpay, stripe. Empty enables every provider whose credentials "
-            "are configured."
+            "wechatpay, stripe. Empty enables every provider whose complete "
+            "credentials are configured."
         ),
         group="payment",
     ),

@@ -87,8 +87,8 @@ from flaskr.service.billing.subscriptions import (
     repair_topup_grant_expiries,
     sync_subscription_lifecycle_events,
 )
+from flaskr.service.common import payment_channels as payment_channel_resolution
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.order import payment_channel_resolution
 from flaskr.service.order.models import AlipayOrder, StripeOrder, WechatPayOrder
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,

@@ -33,7 +33,7 @@ _CREATOR = "checkout-boundary-creator"
 @pytest.fixture(autouse=True)
 def _enable_native_channels(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "flaskr.service.order.payment_channel_resolution.get_config",
+        "flaskr.service.common.payment_channels.get_config",
         lambda key, default="": (
             "alipay,wechatpay" if key == "PAYMENT_CHANNELS_ENABLED" else default
         ),

@@ -3,8 +3,8 @@
 from unittest.mock import Mock
 
 import pytest
+from flaskr.service.common import payment_channels as channels
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.order import payment_channel_resolution as channels
 from flaskr.service.order import payment_providers as providers
 from flaskr.service.order.payment_providers.base import (
     PaymentCreationResult,

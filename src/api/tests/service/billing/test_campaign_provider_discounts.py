@@ -258,12 +258,15 @@ def _patch_scope(
     )
 
 
-def _patch_payment_channels(monkeypatch: pytest.MonkeyPatch, channels: str) -> None:
+def _patch_payment_channels(
+    monkeypatch: pytest.MonkeyPatch, channels: str, **settings: str
+) -> None:
     monkeypatch.setattr(
-        billing_campaigns,
-        "get_config",
-        lambda key, default=None: (
-            channels if key == "PAYMENT_CHANNELS_ENABLED" else default
+        "flaskr.service.common.payment_channels.get_config",
+        lambda key, default="": (
+            channels
+            if key == "PAYMENT_CHANNELS_ENABLED"
+            else settings.get(key, default)
         ),
     )
 
@@ -1457,13 +1460,7 @@ def test_update_campaign_status_requires_stripe_sync_before_enabling_global_disc
         db.session.add(campaign)
         db.session.commit()
 
-    monkeypatch.setattr(
-        billing_campaigns,
-        "get_config",
-        lambda key, default=None: (
-            "stripe" if key == "PAYMENT_CHANNELS_ENABLED" else default
-        ),
-    )
+    _patch_payment_channels(monkeypatch, "stripe")
 
     with pytest.raises(AppError) as exc_info:
         update_admin_billing_campaign_status(
@@ -1492,13 +1489,7 @@ def test_update_campaign_status_allows_domestic_discount_without_stripe_sync(
         db.session.add(campaign)
         db.session.commit()
 
-    monkeypatch.setattr(
-        billing_campaigns,
-        "get_config",
-        lambda key, default=None: (
-            "pingxx" if key == "PAYMENT_CHANNELS_ENABLED" else default
-        ),
-    )
+    _patch_payment_channels(monkeypatch, "alipay,wechatpay")
 
     result = update_admin_billing_campaign_status(
         app,
@@ -1508,3 +1499,41 @@ def test_update_campaign_status_allows_domestic_discount_without_stripe_sync(
     )
 
     assert result.campaign.enabled is True
+
+
+@pytest.mark.parametrize(
+    ("channels", "settings", "expected"),
+    [
+        ("stripe", {}, True),
+        ("alipay,wechatpay", {}, False),
+        ("stripe,alipay", {}, False),
+        # Unset list: providers are enabled by their credentials.
+        ("", {"STRIPE_SECRET_KEY": "sk_test"}, True),
+        (
+            "",
+            {
+                "STRIPE_SECRET_KEY": "sk_test",
+                "ALIPAY_APP_ID": "app",
+                "ALIPAY_APP_PRIVATE_KEY": "private",
+                "ALIPAY_PUBLIC_KEY": "public",
+            },
+            False,
+        ),
+    ],
+)
+def test_discount_campaign_requires_stripe_sync_only_for_effective_stripe_market(
+    monkeypatch: pytest.MonkeyPatch,
+    channels: str,
+    settings: dict[str, str],
+    expected: bool,
+) -> None:
+    from flaskr.service.billing.consts import BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT
+
+    _patch_payment_channels(monkeypatch, channels, **settings)
+
+    assert (
+        billing_campaigns._should_require_provider_discount_sync_for_benefit(
+            BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT
+        )
+        is expected
+    )
