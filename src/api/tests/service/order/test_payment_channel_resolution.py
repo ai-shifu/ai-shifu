@@ -254,3 +254,15 @@ class TestResolvePaymentChannel:
         _configure(monkeypatch, PAYMENT_CHANNELS_ENABLED="wechatpay,alipay")
 
         assert resolve_market_payment_provider() == "alipay"
+
+    def test_market_provider_accepts_a_single_use_scoped_provider_iterable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _configure(monkeypatch)
+
+        assert (
+            resolve_market_payment_provider(
+                additional_enabled_providers=iter(["wechatpay"])
+            )
+            == "wechatpay"
+        )

@@ -13,8 +13,11 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.billing import checkout, provider_state, renewal, subscriptions
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_CANCELED,
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
@@ -773,3 +776,119 @@ def test_reopening_a_historical_pingxx_order_asks_for_a_new_order(
             bill_order_bid="historical-pingxx-order"
         ).one()
         assert order.status == BILLING_ORDER_STATUS_PENDING
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        BILLING_ORDER_STATUS_PENDING,
+        BILLING_ORDER_STATUS_TIMEOUT,
+        BILLING_ORDER_STATUS_FAILED,
+    ],
+)
+def test_historical_pingxx_attempt_does_not_block_a_new_native_checkout(
+    billing_renewal_app: Flask, monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    """A retired Ping++ attempt is closed locally; Ping++ is never called."""
+    providers_requested: list[str] = []
+    fake = Mock()
+    fake.create_payment.return_value = PaymentCreationResult(
+        provider_reference="native-attempt",
+        raw_response={},
+        extra={"credential": {"alipay_qr": "https://payments.test/qr"}},
+    )
+
+    def provider_for(name: str) -> Mock:
+        providers_requested.append(name)
+        if name == "pingxx":
+            message = "Ping++ is retired"
+            raise ValueError(message)
+        return fake
+
+    monkeypatch.setattr(checkout, "get_payment_provider", provider_for)
+    monkeypatch.setattr(
+        checkout, "_subscription_checkout_lock", lambda *_: nullcontext()
+    )
+    monkeypatch.setattr(
+        checkout,
+        "_resolve_billing_payment_channel",
+        lambda *_args, **_kwargs: ("alipay", "alipay_qr"),
+    )
+    with billing_renewal_app.app_context():
+        with unit_of_work():
+            db.session.add(
+                make_billing_order(
+                    bill_order_bid="historical-pingxx-attempt",
+                    creator_bid="owner",
+                    product_bid="bill-product-plan-monthly",
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                    payment_provider="pingxx",
+                    status=status,
+                    payable_amount=990,
+                    provider_reference_id="ch_historical",
+                    channel="alipay_qr",
+                    expires_at=now_utc() - timedelta(days=1),
+                    metadata_json={
+                        "checkout_type": "subscription",
+                        "latest_provider_payload": {"charge": {"id": "ch_historical"}},
+                    },
+                )
+            )
+
+        result = checkout.create_billing_subscription_checkout(
+            billing_renewal_app,
+            "owner",
+            {"product_bid": "bill-product-plan-monthly", "payment_provider": "alipay"},
+        )
+
+        assert "pingxx" not in providers_requested
+        old = BillingOrder.query.filter_by(
+            bill_order_bid="historical-pingxx-attempt"
+        ).one()
+        assert old.status == BILLING_ORDER_STATUS_CANCELED
+        assert old.metadata_json["invalidated_reason"] == "pingxx_retired"
+        # The stored Ping++ evidence is kept for operators.
+        assert old.metadata_json["latest_provider_payload"] == {
+            "charge": {"id": "ch_historical"}
+        }
+        new = BillingOrder.query.filter_by(bill_order_bid=result.bill_order_bid).one()
+        assert new.payment_provider == "alipay"
+        assert new.provider_reference_id == "native-attempt"
+
+
+def test_syncing_a_historical_pingxx_order_keeps_its_provider_evidence(
+    billing_renewal_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        checkout,
+        "get_payment_provider",
+        Mock(side_effect=AssertionError("Ping++ must not be called")),
+    )
+    evidence = {"charge": {"id": "ch_evidence", "paid": False}}
+    with billing_renewal_app.app_context():
+        with unit_of_work():
+            db.session.add(
+                make_billing_order(
+                    bill_order_bid="historical-pingxx-evidence",
+                    creator_bid="owner",
+                    product_bid="bill-product-plan-monthly",
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                    payment_provider="pingxx",
+                    status=BILLING_ORDER_STATUS_PENDING,
+                    payable_amount=990,
+                    provider_reference_id="ch_evidence",
+                    channel="alipay_qr",
+                    expires_at=now_utc() + timedelta(minutes=10),
+                    metadata_json={"latest_provider_payload": evidence},
+                )
+            )
+
+        checkout.sync_billing_order(
+            billing_renewal_app, "owner", "historical-pingxx-evidence", {}
+        )
+
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="historical-pingxx-evidence"
+        ).one()
+        assert order.status == BILLING_ORDER_STATUS_PENDING
+        assert order.metadata_json["latest_provider_payload"] == evidence

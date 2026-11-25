@@ -1291,6 +1291,141 @@ describe('BillingOverviewTab', () => {
     ).not.toBeInTheDocument();
   });
 
+  function mockLegacyPingxxSubscription(nextProductBid: string | null = null) {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-legacy-pingxx',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: futureIso(10),
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: nextProductBid,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+  }
+
+  test.each([
+    {
+      channels: ['alipay', 'wechatpay'],
+      provider: 'alipay',
+      channel: 'alipay_qr',
+    },
+    { channels: ['wechatpay'], provider: 'wechatpay', channel: 'wx_pub_qr' },
+  ])(
+    'renews and upgrades a legacy Ping++ subscription with $provider',
+    async ({ channels, provider, channel }) => {
+      const user = userEvent.setup();
+      mockEnvState.paymentChannels = channels;
+      mockEnvState.stripeEnabled = 'false';
+      mockLegacyPingxxSubscription();
+      mockCheckoutBillingSubscription.mockResolvedValue({
+        bill_order_bid: 'order-legacy-pingxx-renewal',
+        provider,
+        payment_mode: 'subscription',
+        status: 'pending',
+        checkout_type: 'subscription_preorder',
+        effective_mode: 'cycle_end',
+        payable_amount: 990,
+        payment_payload: {
+          credential: { [channel]: `https://${provider}.test/legacy-renewal` },
+        },
+      });
+
+      renderOverviewTab();
+
+      const renewal = screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-action',
+      );
+      expect(renewal).toBeEnabled();
+      expect(renewal).toHaveTextContent(
+        'module.billing.package.actions.preorderRenewal',
+      );
+      const upgrade = screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      );
+      expect(upgrade).toBeEnabled();
+      expect(upgrade).toHaveTextContent(
+        'module.billing.package.actions.upgradeNow',
+      );
+
+      await act(async () => {
+        await user.click(renewal);
+      });
+      await acceptBillingAgreement(user);
+      await act(async () => {
+        await user.click(
+          screen.getByRole('button', {
+            name: 'module.billing.checkout.confirm',
+          }),
+        );
+      });
+
+      await waitFor(() => {
+        expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'preorder',
+            channel,
+            payment_provider: provider,
+            product_bid: 'bill-product-plan-monthly',
+          }),
+        );
+      });
+    },
+  );
+
+  test('upgrades a legacy Ping++ subscription with a pending preorder natively', () => {
+    mockEnvState.paymentChannels = ['wechatpay'];
+    mockEnvState.stripeEnabled = 'false';
+    mockLegacyPingxxSubscription('bill-product-plan-monthly');
+
+    renderOverviewTab();
+
+    const upgrade = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-pro-action',
+    );
+    expect(upgrade).toBeEnabled();
+    expect(upgrade).toHaveTextContent(
+      'module.billing.package.actions.upgradeNow',
+    );
+  });
+
+  test('never moves a legacy Ping++ subscription to Stripe', () => {
+    mockEnvState.paymentChannels = ['stripe'];
+    mockEnvState.stripeEnabled = 'true';
+    mockLegacyPingxxSubscription();
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
+    ).toBeDisabled();
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toBeDisabled();
+  });
+
   test('passes preorder action for self-managed same-tier renewal', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['wechatpay'];

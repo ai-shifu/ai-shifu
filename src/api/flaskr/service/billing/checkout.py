@@ -43,7 +43,7 @@ from flaskr.service.order.raw_snapshots import (
     upsert_native_snapshot,
 )
 from flaskr.service.user.repository import load_user_aggregate
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
 from .campaign_provider_discounts import (
@@ -98,7 +98,6 @@ from .paid_side_effects import (
     stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
 from .payment_policy import (
-    LEGACY_PINGXX_PROVIDER,
     is_legacy_pingxx_provider,
     is_manual_payment_provider,
     manual_payments_are_compatible,
@@ -1385,6 +1384,9 @@ def _close_manual_payment_before_replacement(
             # Payment has already been applied durably; re-evaluate the plan on retry.
             raise_error("server.order.orderStatusError")
         if order.status == BILLING_ORDER_STATUS_CANCELED:
+            return
+        if is_legacy_pingxx_provider(order.payment_provider):
+            _retire_legacy_pingxx_attempt(order)
             return
         if _record_confirmed_manual_payment_closure(order):
             return
@@ -3144,20 +3146,32 @@ def _sync_stripe_subscription_order(
 def _sync_legacy_pingxx_order(
     order: BillingOrder,
 ) -> BillingOrderProviderUpdateResult:
-    """Keep a retired Ping++ order pending without calling Ping++.
+    """Leave a retired Ping++ order as it is, without calling Ping++.
 
-    Ping++ codes expire within 24 hours, so the pending-order timeout scan
-    expires these orders normally.
+    Nothing new can be learned from Ping++, so the stored provider payload and
+    status stay untouched; the pending-order timeout scan expires the order.
     """
-    return _apply_billing_order_provider_update(
-        order,
-        provider=LEGACY_PINGXX_PROVIDER,
-        event_type="manual_sync",
-        source="sync",
-        payload={},
-        provider_reference_id=str(order.provider_reference_id or ""),
-        target_status=BILLING_ORDER_STATUS_PENDING,
+    return BillingOrderProviderUpdateResult(
+        applied=False, previous_status=int(order.status or 0)
     )
+
+
+def _retire_legacy_pingxx_attempt(order: BillingOrder) -> None:
+    """Close an unpaid Ping++ attempt locally so a new checkout can proceed.
+
+    Ping++ is retired and its codes expired within 24 hours of creation, so
+    there is no provider-side attempt left to close.
+    """
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    metadata["invalidated_reason"] = "pingxx_retired"
+    metadata["invalidated_at"] = to_utc_iso(now_utc())
+    order.metadata_json = metadata
+    # A timeout cannot become canceled through the generic status guard.
+    order.status = BILLING_ORDER_STATUS_CANCELED
+    order.updated_at = now_utc()
+    db.session.add(order)
 
 
 def _sync_native_order(
