@@ -1906,6 +1906,17 @@ def test_migrated_legacy_rate_settles_usage_under_either_model_id(
                     provider="qwen",
                     model=rate_model,
                 ),
+                # Added later (larger id) for the same model under any
+                # provider; the legacy row must win before and after the
+                # migration, as its renamed row does.
+                _create_rate(
+                    rate_bid="rate-migrated-any-provider",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="5.0000000000",
+                    provider="*",
+                    model=rate_model,
+                ),
                 _create_usage(
                     usage_bid=usage_bid,
                     usage_type=BILL_USAGE_TYPE_LLM,

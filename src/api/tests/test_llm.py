@@ -385,6 +385,14 @@ def test_get_current_models_prices_rates_not_yet_renamed(
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="0.0001800009",
                 ),
+                # A later row for the same model under any provider does not
+                # outrank the legacy row, as it would not outrank the renamed one.
+                _create_credit_rate(
+                    rate_bid="any-provider-qwen-output",
+                    provider="*",
+                    model="deepseek-v4-flash",
+                    credits_per_unit="0.0009",
+                ),
             ]
         )
         db.session.commit()

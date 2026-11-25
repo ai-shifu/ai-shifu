@@ -372,8 +372,8 @@ def load_usage_rate(
                 model_candidates.append(normalized)
         if not model_candidates:
             model_candidates = [model]
-    # Rate rows not yet migrated to LiteLLM names still bill this usage, at
-    # the lowest priority, whichever order the migration and release land in.
+    # Rate rows not yet migrated to LiteLLM names still bill this usage, so
+    # this release settles correctly before and after the migration.
     legacy_providers: set[str] = set()
     if int(usage.usage_type or 0) == BILL_USAGE_TYPE_LLM:
         legacy_providers, legacy_models = legacy_llm_rate_aliases(
@@ -411,6 +411,8 @@ def load_usage_rate(
         key=lambda row: (
             bool(fallback_provider) and row.provider == fallback_provider,
             row.provider == provider,
+            # Rank an unmigrated row as its renamed row would rank, above "*".
+            row.provider in legacy_providers,
             row.model in set(model_candidates),
             model_priority.get(row.model, 0),
             row.effective_from or NAIVE_DATETIME_MIN,

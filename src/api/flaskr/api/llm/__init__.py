@@ -1895,6 +1895,8 @@ def _select_credit_usage_rate(
     candidates.sort(
         key=lambda row: (
             row.provider == normalized_provider,
+            # Rank an unmigrated row as its renamed row would rank, above "*".
+            row.provider in legacy_providers,
             row.model in candidate_set,
             model_priority.get(row.model, 0),
             row.effective_from or NAIVE_DATETIME_MIN,
