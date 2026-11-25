@@ -525,27 +525,29 @@ do not call the LLM.
 
 ### First Login
 
-Signing in never grants the administrator role, not even to the first
-account. Instead, every start of the API container runs
-`flask console bootstrap_admin`. When the installation has no administrator, it
-creates an `admin` account with a random password, grants it the administrator
-and teacher roles, and assigns the bundled demo course when it is the only
-course. The password is printed once to the container log:
+Open `http://localhost:3000/admin` and sign in with password login as `admin`.
+The password is generated on the first start and printed once to the API
+container log:
 
 ```bash
 docker logs ai-shifu-api 2>&1 | grep -A3 "administrator account created"
 ```
 
-Sign in with password login as `admin`, then change the password from the
-account menu. The command does nothing while any administrator exists, so it
-never replaces an existing password, and existing deployments keep their
-current administrators. The development stack runs the same command; read its
-password with `docker compose -f docker-compose.dev.yml logs ai-shifu-api-dev`
-from the `docker` directory. For a manual installation, run
-`flask console bootstrap_admin` from `src/api` after `flask db upgrade`.
-Automated environments can set `BOOTSTRAP_ADMIN_PASSWORD` to choose the
-password instead; it is used only when the account is created and is never
-printed.
+After signing in, change the password from the account menu. The `admin`
+account is an administrator and a teacher, and can open the bundled demo
+courses.
+
+If the installation already has an administrator, no `admin` account is
+created and no password is printed: sign in with that administrator's account.
+An existing password is never replaced.
+
+- Development stack: from the `docker` directory, read the password with
+  `docker compose -f docker-compose.dev.yml logs ai-shifu-api-dev`.
+- Manual installation: run `flask console bootstrap_admin` from `src/api` after
+  `flask db upgrade`; it prints the password.
+- To choose the password yourself, set `BOOTSTRAP_ADMIN_PASSWORD` before the
+  first start. It needs 8 or more characters with a letter and a digit, and it
+  is never printed.
 
 ### Local Demo Login
 
