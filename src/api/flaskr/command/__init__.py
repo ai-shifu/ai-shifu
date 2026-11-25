@@ -457,9 +457,24 @@ def enable_commands(app: Flask) -> None:
     @console.command(name="bootstrap_admin")
     def bootstrap_admin_command() -> None:
         """Create the admin account when no operator exists and print its password."""
-        from flaskr.service.user.admin_bootstrap import bootstrap_admin_account
+        from flaskr.service.user.admin_bootstrap import (
+            REASON_CONFIG_REJECTED,
+            bootstrap_admin_account,
+        )
 
         result = bootstrap_admin_account(app)
+        if result.reason == REASON_CONFIG_REJECTED:
+            # Exit non-zero so the failure is visible, and repeat the rule
+            # because Compose entrypoints continue past this command.
+            click.echo(
+                "bootstrap_admin: failed. BOOTSTRAP_ADMIN_PASSWORD was rejected: "
+                "it needs 8 or more characters with at least one letter and one "
+                "digit, and at most 72 bytes. No admin account was created; fix "
+                "the value or leave it empty to generate a password, then "
+                "restart.",
+                err=True,
+            )
+            raise click.exceptions.Exit(1)
         if not result.created:
             click.echo(f"bootstrap_admin: skipped ({result.reason}).")
             return

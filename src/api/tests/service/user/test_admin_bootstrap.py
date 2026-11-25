@@ -10,7 +10,6 @@ from unittest.mock import Mock
 import pytest
 from flaskr.common import config as common_config
 from flaskr.dao import db
-from flaskr.service.common.models import AppError
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user import admin_bootstrap
 from flaskr.service.user.admin_bootstrap import (
@@ -291,9 +290,11 @@ def test_weak_configured_password_creates_nothing(
 ) -> None:
     monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", "short")
 
-    with pytest.raises(AppError):
-        bootstrap_admin_account(app)
+    result = bootstrap_admin_account(app)
 
+    assert result.created is False
+    assert result.reason == "invalid_configured_password"
+    assert result.password == ""
     with app.app_context():
         assert UserInfo.query.filter_by(user_identify="admin").count() == 0
 

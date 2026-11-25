@@ -26,6 +26,7 @@ from flaskr.service.user.models import UserInfo
 from flaskr.service.user.operator_account_creation import (
     create_operator_password_account,
 )
+from flaskr.service.user.password_utils import validate_password_strength
 from flaskr.service.user.repository import mark_user_roles
 from flaskr.service.user.utils import (
     mark_creator_role_if_needed,
@@ -40,6 +41,7 @@ BOOTSTRAP_ADMIN_NICKNAME = "Admin"
 BOOTSTRAP_OPERATOR_USER_BID = "system-bootstrap"
 BOOTSTRAP_POST_AUTH_SOURCE = "bootstrap_admin"
 BOOTSTRAP_PASSWORD_LENGTH = 20
+REASON_CONFIG_REJECTED = "invalid_configured_password"
 # Owner recorded by ``flask console update_demo_shifu`` for imported demos.
 DEMO_COURSE_OWNERS = frozenset({"", "system"})
 _LOCK_TIMEOUT_SECONDS = 60
@@ -77,6 +79,14 @@ def _has_operator() -> bool:
         ).first()
         is not None
     )
+
+
+def _is_acceptable_password(password: str) -> bool:
+    try:
+        validate_password_strength(password)
+    except AppError:
+        return False
+    return True
 
 
 def _assign_single_demo_course(user_bid: str) -> None:
@@ -131,6 +141,12 @@ def bootstrap_admin_account(app: Flask) -> BootstrapAdminResult:
         with app_context_scope(app), unit_of_work():
             if _has_operator():
                 return BootstrapAdminResult(created=False, reason="operator_exists")
+            # Report a rejected configured password by name; the value is a
+            # secret, so the error raised by the strength check is not shown.
+            if configured_password and not _is_acceptable_password(configured_password):
+                return BootstrapAdminResult(
+                    created=False, reason=REASON_CONFIG_REJECTED
+                )
             try:
                 created = create_operator_password_account(
                     app,

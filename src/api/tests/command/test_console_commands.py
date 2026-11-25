@@ -407,6 +407,28 @@ def test_bootstrap_admin_skip_prints_no_password(
     assert result.output == "bootstrap_admin: skipped (operator_exists).\n"
 
 
+def test_bootstrap_admin_rejected_password_fails_without_printing_it(
+    console_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.user import admin_bootstrap
+
+    monkeypatch.setattr(
+        admin_bootstrap,
+        "bootstrap_admin_account",
+        Mock(
+            return_value=admin_bootstrap.BootstrapAdminResult(
+                created=False, reason=admin_bootstrap.REASON_CONFIG_REJECTED
+            )
+        ),
+    )
+
+    result = console_app.test_cli_runner().invoke(args=["console", "bootstrap_admin"])
+
+    assert result.exit_code == 1
+    assert "BOOTSTRAP_ADMIN_PASSWORD was rejected" in result.output
+    assert "No admin account was created" in result.output
+
+
 def test_bootstrap_admin_with_configured_password_does_not_print_it(
     console_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:

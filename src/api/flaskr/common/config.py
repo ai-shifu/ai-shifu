@@ -443,7 +443,8 @@ ENV_VARS: dict[str, EnvVar] = {
             "Password for the admin account that `flask console bootstrap_admin`\n"
             "creates when the installation has no administrator, for automated\n"
             "environments such as CI. Leave empty to generate a random password\n"
-            "and print it once. It is used only when the account is created."
+            "and print it once. It is used only when the account is created,\n"
+            "and needs 8 or more characters with a letter and a digit."
         ),
         group="auth",
     ),

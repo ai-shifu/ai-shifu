@@ -144,8 +144,8 @@ for automatic triggers, manual backfills and use with the existing Compose bundl
 After Docker starts:
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
-2. Sign in with password login as `admin`, using the password printed by `docker logs ai-shifu-api` on first start (`docker compose -f docker-compose.dev.yml logs ai-shifu-api-dev` for the development stack)
-3. Change that password from the account menu; `admin` is already Admin and Creator
+2. On a fresh installation, sign in with password login as `admin`, using the password printed by `docker logs ai-shifu-api` on first start (`docker compose -f docker-compose.dev.yml logs ai-shifu-api-dev` for the development stack). An installation that already has an administrator gets no `admin` account and no new password: sign in with your existing account instead
+3. Change the generated password from the account menu; `admin` is already Admin and Creator
 
 ## Internationalization (i18n)
 
