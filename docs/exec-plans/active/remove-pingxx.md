@@ -29,10 +29,17 @@ learners.
       tests fail locally on main as well); web 3930 passed under `TZ=UTC`
       (two promotion date tests depend on the local time zone); `tsc` and
       ESLint clean.
-- [ ] SIM acceptance by the owner (0.1 CNY WeChat Native, Alipay QR), then
-      merge and release.
+- [ ] Before merge: read-only settlement check that every paid Ping++ charge
+      (`order_pingxx_orders.status = 1`, course and billing domains) maps to a
+      paid local order, and that no Ping++ charge is still within its provider
+      expiry (after 14:13 CST 2026-11-25); cross-check the Ping++ dashboard.
+- [ ] SIM acceptance by the owner: 0.1 CNY WeChat Native and Alipay QR
+      purchases complete, and an operator can still open a historical Ping++
+      order. Merge and release only after this and the settlement check.
 - [ ] Follow-up in deploy-config: remove `PINGXX_*` env, ConfigMap key,
       Secret material and `pingxx_key.gem`; disable the Ping++ app.
+- [ ] Follow-up migration: drop the `order_orders.payment_channel` server
+      default `'pingxx'` (needs a manual CN `flask db upgrade`).
 
 ## Surprises & Discoveries
 
@@ -43,8 +50,11 @@ learners.
 - No creator had a custom payment integration
   (`CUSTOMIZATION.INTEGRATION.*.ACTIVE`: 0 rows), so the Ping++ integration
   can be removed without migrating tenants.
-- `Order.payment_channel` defaults to `"pingxx"` only at the ORM level; the
-  column has no server default, so changing it needs no migration.
+- `Order.payment_channel` had the ORM default `"pingxx"`, and migration
+  `c9c92880fc67` also set the column's server default to `'pingxx'`. ORM
+  inserts always send a value (now `""`), so the server default only affects
+  raw SQL inserts; dropping it is a follow-up migration rather than part of
+  this code change.
 
 ## Decision Log
 

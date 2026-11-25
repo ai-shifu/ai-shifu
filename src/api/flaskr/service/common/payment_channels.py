@@ -175,18 +175,18 @@ def resolve_market_payment_provider(
     Returns an empty string when no payment provider is enabled, so free
     orders and order listings keep working in environments without payments.
     """
-    enabled = enabled_payment_providers()
-    enabled.update(
-        str(item or "").strip().lower() for item in (additional_enabled_providers or [])
-    )
-    if not enabled.intersection(SUPPORTED_PAYMENT_PROVIDERS):
+    # Materialize once: a single-use iterable must reach the resolver intact.
+    scoped = [
+        str(item or "").strip().lower() for item in additional_enabled_providers or []
+    ]
+    if not (enabled_payment_providers() | set(scoped)) & SUPPORTED_PAYMENT_PROVIDERS:
         return ""
     provider, _ = resolve_payment_channel(
         payment_channel_hint=None,
         channel_hint=None,
         stored_channel=None,
         default_channel="alipay_qr",
-        additional_enabled_providers=additional_enabled_providers,
+        additional_enabled_providers=scoped,
     )
     return provider
 

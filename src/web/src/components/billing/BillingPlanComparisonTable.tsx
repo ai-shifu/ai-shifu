@@ -111,10 +111,20 @@ function isProviderAvailable(
 function isSelfManagedPreorderProvider(
   provider: BillingProvider | null | undefined,
 ): provider is BillingProvider {
-  // 'pingxx' is retired but its subscriptions still renew with native QR.
-  return (
-    provider === 'pingxx' || provider === 'alipay' || provider === 'wechatpay'
-  );
+  return provider === 'alipay' || provider === 'wechatpay';
+}
+
+// Ping++ is retired: its subscriptions renew, preorder and upgrade with an
+// available native provider, never Stripe. Other providers are kept.
+function resolveSubscriptionCheckoutProvider(
+  storedProvider: BillingProvider | null,
+  alipayAvailable: boolean,
+  wechatpayAvailable: boolean,
+): BillingProvider | null {
+  if (storedProvider !== 'pingxx') return storedProvider;
+  if (alipayAvailable) return 'alipay';
+  if (wechatpayAvailable) return 'wechatpay';
+  return null;
 }
 
 function resolveImmediateUpgradeProvider(
@@ -289,7 +299,11 @@ export function BillingPlanComparisonTable({
     wechatpayAvailable,
   );
   const currentTier = planTierIn(orderedPlans, currentPlan);
-  const currentProvider = currentSubscription?.billing_provider || null;
+  const currentProvider = resolveSubscriptionCheckoutProvider(
+    currentSubscription?.billing_provider || null,
+    alipayAvailable,
+    wechatpayAvailable,
+  );
   const pendingPreorderProductBid =
     currentSubscription?.next_product_bid || null;
   const hasPendingPreorder = Boolean(

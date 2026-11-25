@@ -108,7 +108,7 @@ Billing checkout:
 
 - `stripe` opens Stripe Checkout.
 - `alipay` and `wechatpay` use the QR dialog (`BillingNativeQrDialog`) and sync polling (`useBillingQrPolling`).
-- Each native provider issues one kind of code, so the dialog shows no channel switch; the learner picks Alipay or WeChat Pay before checkout.
+- Each native provider issues one kind of code, so the dialog shows no channel switch. The provider is fixed before checkout: Alipay when it is enabled, otherwise WeChat Pay; a subscription keeps its own native provider, and a historical Ping++ subscription uses Alipay or WeChat Pay the same way (never Stripe).
 
 ## Configuration
 
