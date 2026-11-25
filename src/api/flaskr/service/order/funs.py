@@ -60,6 +60,7 @@ from flaskr.service.order.payment_channel_resolution import (
 )
 from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
 from flaskr.service.order.payment_providers.base import (
+    MIN_PAYMENT_WINDOW_SECONDS,
     PaymentNotificationResult,
     PaymentRefundRequest,
 )
@@ -326,6 +327,21 @@ def _order_payment_expires_at(app: Flask, order: Order) -> dt.datetime | None:
     if created_at.tzinfo is None:
         created_at = pytz.UTC.localize(created_at)
     return created_at + dt.timedelta(seconds=int(pay_order_expire_time))
+
+
+def _native_payment_expires_at(app: Flask, order: Order) -> dt.datetime | None:
+    """Return the order deadline, rejecting orders too close to it to pay.
+
+    A native code must expire with the order; with less than the provider's
+    minimum window left, ask the learner to place a new order instead.
+    """
+    expires_at = _order_payment_expires_at(app, order)
+    if expires_at is None:
+        return None
+    remaining = expires_at - dt.datetime.now(pytz.UTC)
+    if remaining.total_seconds() < MIN_PAYMENT_WINDOW_SECONDS:
+        raise_error("server.order.orderPayExpired")
+    return expires_at
 
 
 @contextmanager
@@ -1613,7 +1629,7 @@ def _generate_alipay_charge(
                 "user_bid": buy_record.user_bid,
                 "shifu_bid": buy_record.shifu_bid,
             },
-            "expires_at": _order_payment_expires_at(app, buy_record),
+            "expires_at": _native_payment_expires_at(app, buy_record),
         },
     )
     _assert_payment_lifecycle_lock_owned()
@@ -1688,7 +1704,7 @@ def _generate_wechatpay_charge(
             "user_bid": buy_record.user_bid,
             "shifu_bid": buy_record.shifu_bid,
         },
-        "expires_at": _order_payment_expires_at(app, buy_record),
+        "expires_at": _native_payment_expires_at(app, buy_record),
     }
     if channel == "wx_pub":
         user = load_user_aggregate(buy_record.user_bid)

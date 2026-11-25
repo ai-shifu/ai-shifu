@@ -29,6 +29,7 @@ from .base import (
     PaymentRefundResult,
     PaymentRequest,
     payment_request_expires_at,
+    remaining_payment_window,
 )
 
 if TYPE_CHECKING:
@@ -41,8 +42,6 @@ if TYPE_CHECKING:
 
 _PUBLIC_KEY_ID_PREFIX = "PUB_KEY_ID_"
 _SIGNATURE_MAX_AGE_SECONDS = 300
-# WeChat Pay rejects a time_expire closer than one minute away.
-_MIN_TIME_EXPIRE_SECONDS = 60
 _CHINA_TZ = dt.timezone(dt.timedelta(hours=8))
 
 
@@ -460,13 +459,12 @@ def _time_expire(request: PaymentRequest) -> str:
     """Format the order deadline as WeChat Pay's RFC 3339 ``time_expire``.
 
     Without it WeChat keeps the code payable after the order times out here.
+    Orders with less than WeChat's one-minute minimum left are rejected.
     """
-    expires_at = payment_request_expires_at(request)
-    if expires_at is None:
+    if remaining_payment_window(request) is None:
         return ""
-    earliest = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=_MIN_TIME_EXPIRE_SECONDS)
-    deadline = max(expires_at, earliest).replace(microsecond=0)
-    return deadline.astimezone(_CHINA_TZ).isoformat()
+    expires_at = payment_request_expires_at(request)
+    return expires_at.replace(microsecond=0).astimezone(_CHINA_TZ).isoformat()
 
 
 def _load_pem(inline_name: str, path_name: str) -> bytes:
