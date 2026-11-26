@@ -29,25 +29,27 @@ def test_bundled_prompts_only_update_reviewed_runtime_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Reference/binding and question-presentation guidance are reviewed changes;
-    # retain every other copied prompt byte and keep the historical fixture intact.
+    # Record reviewed runtime guidance changes and keep the historical fixture intact.
     hashes["system"] = (
-        "76869f643f131d6e0ce073a8b248c990417a57c1fef5405458200749953cbc7b"
+        "a3d929ab1942cac940e033a01992a03f2c58184be1c70bd198561918d47a4059"
+    )
+    hashes["exercise_statistics"] = (
+        "a3a239ad85b130d3832a2f26caa9e129e370edc738a615c883cbe5a0e2f5ebce"
     )
     hashes["v1_syntax"] = (
-        "9a8edded890cbc6b7d1d4c12f47e10401ca4679917e21ac36272894e8c4251c2"
+        "9bbb89a1a1593f9a32aa2864097283f3c86a48f9e4d11ea1d1bc28f039e315ea"
     )
     hashes["memory_policy"] = (
-        "029a5cc7f0e74456df4c5a8b263f3b48a65758283d95ae11a66c8752f4d9d1dd"
+        "5d43ab143d4e0e625dbd1e8e6815fdb9bfbe93299b8959c3a497472b123a8d78"
     )
     hashes["memory_unrestricted"] = (
-        "26f8f7ab22952281f88eea3025553b2ba18f2d01a50e4919036d9bf4a96a13cd"
+        "0cce2b9128a3e996a8d901278bc9bc7893ce5a831fb4eedd2ea21a455f674256"
     )
     hashes["answer_review"] = (
-        "24405941f019dfd09ec49114b0e70261eefeda2bf8cbaace7ead55e6a788458a"
+        "d65ad38b02d57dfdde1200a06bab66a65d2a40803b600ce8a126d1986aec824b"
     )
     hashes["feedback_contract"] = (
-        "0ed7209037a211f5e4276f1c4504620d53e476b8de1644c35e24793e716375b8"
+        "8c6cb210dd7085f4344c1248f5afb0d1ee63f52922f8a4788cc4a42b22f35908"
     )
     # Teaching history compaction was removed: its prompts are gone, and recall
     # guidance no longer points at the read_teaching tool.
@@ -101,9 +103,7 @@ from markdownflow import (
 )
 from pydantic_ai.models.function import FunctionModel
 
-renderer = QuestionRenderer(QuestionLabels(
-    continue_label="Proceed", free_text_placeholder="Your response",
-))
+renderer = QuestionRenderer(QuestionLabels(free_text_placeholder="Your response"))
 assert "Your response" in renderer.render_interaction(
     InteractionSpec(type="text", prompt="Describe your goal."),
 )
@@ -160,6 +160,8 @@ async def test_legacy_package_session_resumes_its_remaining_pending_answer() -> 
             message["usage"]["audio_seconds"] = 0.0
     # The removed teaching summary cache is dropped on load.
     assert state.pop("teaching_summaries") == {"legacy-summary": "Prior teaching."}
+    for pending in state["pending"]:
+        assert pending["spec"].pop("labelled_by_engine") is False
     assert session.to_dict() == {**state, "memory_generations": {}}
     assert session.answers == {"legacy-role": "Learner wrote: Data analyst"}
     assert [item.tool_call_id for item in session.pending] == ["legacy-goal"]

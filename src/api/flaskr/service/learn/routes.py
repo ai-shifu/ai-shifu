@@ -7,6 +7,8 @@ import sys
 from collections.abc import Iterator
 
 from flask import Flask, Response, request, stream_with_context
+from flaskr.api.llm.learner_images import MAX_IMAGE_BYTES
+from flaskr.common.http import sensitive_body
 from flaskr.common.shifu_context import get_shifu_context_snapshot, with_shifu_context
 from flaskr.dao import (
     db,
@@ -214,6 +216,20 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     register_live_follow_up_routes(app, path_prefix)
 
+    @app.route(path_prefix + "/images", methods=["POST"])
+    @sensitive_body(max_bytes=MAX_IMAGE_BYTES + 64 * 1024)
+    def upload_image() -> Response:
+        """Upload a verified image using the existing learner authentication gate."""
+        from flaskr.service.learn.image_upload import (
+            reserve_learner_image_upload,
+            upload_learner_image,
+        )
+
+        reserve_learner_image_upload(app, request.user.user_id)
+        return make_common_response(
+            upload_learner_image(app, request.files.get("file"))
+        )
+
     def _require_shifu_owner(shifu_bid: str) -> str:
         """Ensure current user is the owner of the specified shifu."""
         user_bid = request.user.user_id
@@ -416,6 +432,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         user_bid = request.user.user_id
         payload = request.get_json() or {}
         user_input = payload.get("input", None)
+        from flaskr.service.learn.image_upload import validate_learner_images
+
+        validate_learner_images(user_input)
         input_type = payload.get("input_type", None)
         reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
         reload_element_bid = payload.get("reload_element_bid", None)
@@ -552,6 +571,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             preview_request = PlaygroundPreviewRequest(**preview_payload)
         except ValidationError as exc:
             raise_param_error(str(exc))
+
+        from flaskr.service.learn.image_upload import validate_learner_images
+
+        validate_learner_images(preview_request.user_input)
 
         user_bid = request.user.user_id
         app.logger.info(

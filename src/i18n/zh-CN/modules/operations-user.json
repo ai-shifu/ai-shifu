@@ -112,6 +112,31 @@
     },
     "empty": "--"
   },
+  "createAccount": {
+    "action": "创建账号",
+    "cancel": "取消",
+    "confirmPasswordLabel": "确认密码",
+    "confirmPasswordPlaceholder": "请再次输入密码",
+    "description": "用户可在密码登录页使用该用户名和密码登录。请通过安全渠道告知用户，用户登录后可自行修改密码。",
+    "errors": {
+      "nicknameTooLong": "昵称不能超过 50 个字符。",
+      "passwordInvalid": "密码至少 8 位，且需包含英文字母（A-Z 或 a-z）和数字。",
+      "passwordMismatch": "两次输入的密码不一致。",
+      "submitFailed": "账号创建失败，请重试。",
+      "usernameInvalid": "用户名须为 3-32 个字符，以字母开头，只能包含小写英文字母 a-z、数字、“.”、“_”或“-”。"
+    },
+    "nicknameLabel": "昵称（选填）",
+    "nicknamePlaceholder": "默认与用户名相同",
+    "passwordLabel": "初始密码",
+    "passwordPlaceholder": "至少 8 位，需包含字母和数字",
+    "submit": "创建账号",
+    "submitting": "创建中...",
+    "successDescription": "{username} 现在可以使用初始密码登录。",
+    "successTitle": "账号已创建",
+    "title": "创建用户名账号",
+    "usernameLabel": "用户名",
+    "usernamePlaceholder": "3-32 个字符，以字母开头"
+  },
   "credits": {
     "longTerm": "长期有效"
   },

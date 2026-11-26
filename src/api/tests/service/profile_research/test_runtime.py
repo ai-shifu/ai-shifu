@@ -102,13 +102,15 @@ def _fake_questionnaire_model(
             return
         parsed = InteractionParser().parse(questions[answered])
         buttons = parsed.get("buttons", [])
-        question = parsed.get("question", "")
+        placeholder = parsed.get("question", "")
         kind = "multi" if parsed.get("is_multi_select") else "single"
-        if question:
+        if placeholder:
             kind = f"{kind}_or_text" if buttons else "text"
-        spec = {"type": kind, "prompt": question, "options": buttons}
-        if parsed.get("variable"):
-            spec["variable"] = parsed["variable"]
+        spec = {"type": kind, "options": buttons}
+        if question := parsed.get("variable") or placeholder:
+            spec["question"] = question
+        if placeholder:
+            spec["placeholder"] = placeholder
         yield {
             0: DeltaToolCall(
                 name="interact",

@@ -53,12 +53,6 @@ jobs:
       fail-fast: false
       matrix:
         arch: ${{ fromJSON(inputs.architectures) }}
-    env:
-      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
-      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
-      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -90,6 +84,12 @@ jobs:
       - name: Prepare image metadata
         id: meta
         uses: ./.github/actions/docker-image-metadata
+        env:
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
+          ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
+          ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
         with:
           image-name: ${{ inputs.image-name }}
           tags: ${{ inputs.tags }}
@@ -98,29 +98,6 @@ jobs:
           require-registry: ${{ inputs.require-registry }}
           publish-ghcr: ${{ inputs.publish-ghcr }}
 
-      - name: Login to GitHub Container Registry
-        if: steps.meta.outputs.push-images == 'true' && inputs.publish-ghcr
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Login to Docker Hub
-        if: steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.DOCKERHUB_USER }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
-
-      - name: Login to Aliyun Docker Registry
-        if: steps.meta.outputs.push-images == 'true' && env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
-          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
-          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
-
       - name: Build native image
         id: build
         uses: docker/build-push-action@v6
@@ -128,9 +105,11 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile }}
           platforms: linux/${{ matrix.arch }}
-          load: true
+          # The archive can be loaded by Docker and copied by digest from its OCI layout.
+          outputs: type=docker,dest=${{ runner.temp }}/image.tar
           tags: ai-shifu-smoke:${{ inputs.service }}-${{ matrix.arch }}-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           provenance: false
           sbom: false
           # Distinct writers for each service/platform; latest and release can reuse layers.
@@ -145,54 +124,22 @@ jobs:
           IMAGE_ARCH: ${{ matrix.arch }}
           LOCAL_IMAGE: ai-shifu-smoke:${{ inputs.service }}-${{ matrix.arch }}-${{ github.sha }}
         run: |
+          docker load --input "$RUNNER_TEMP/image.tar"
           python3 scripts/check_docker_image.py smoke "$IMAGE_SERVICE" "$LOCAL_IMAGE" \
-            "linux/$IMAGE_ARCH" --record "$RUNNER_TEMP/docker-smoke.json"
+            "linux/$IMAGE_ARCH" --record "$RUNNER_TEMP/$IMAGE_ARCH.json" \
+            --archive "$RUNNER_TEMP/image.tar"
 
-      - name: Push tested native image by digest
-        id: push
-        if: steps.meta.outputs.push-images == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ inputs.dockerfile }}
-          platforms: linux/${{ matrix.arch }}
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
-          provenance: false
-          sbom: false
-          # The same builder reuses the tested layers; verify their config below.
-          build-args: ${{ inputs.build-args }}
-          outputs: ${{ format('type=image,"name={0}",push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.images) }}
-
-      - name: Verify pushed content matches production smoke
-        if: steps.meta.outputs.push-images == 'true'
-        env:
-          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
-          IMAGE_REPOSITORIES: ${{ steps.meta.outputs.images }}
-        run: |
-          python3 scripts/check_docker_image.py verify-published \
-            "$RUNNER_TEMP/docker-smoke.json" "$IMAGE_DIGEST" --images "$IMAGE_REPOSITORIES"
-
-      - name: Export image digest
-        if: steps.meta.outputs.push-images == 'true'
-        env:
-          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
-          IMAGE_ARCH: ${{ matrix.arch }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/digests"
-          jq -n --arg digest "$IMAGE_DIGEST" --arg arch "$IMAGE_ARCH" \
-            '{digest: $digest, platform: ("linux/" + $arch)}' \
-            > "$RUNNER_TEMP/digests/$IMAGE_ARCH.json"
-
-      - name: Upload image digest
+      - name: Upload tested image
         if: steps.meta.outputs.push-images == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: docker-digest-${{ inputs.service }}-${{ matrix.arch }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/digests/*.json
+          name: docker-image-${{ inputs.service }}-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/image.tar
+            ${{ runner.temp }}/${{ matrix.arch }}.json
           if-no-files-found: error
+          compression-level: 0
           retention-days: 7
-          # Failed-job reruns may replace a digest without rerunning the other architecture.
           overwrite: true
 
       - name: Native build summary
@@ -210,84 +157,83 @@ jobs:
           echo "- Cache scope: ai-shifu-$IMAGE_SERVICE-$IMAGE_ARCH" >> "$GITHUB_STEP_SUMMARY"
 
   publish:
-    name: Publish ${{ inputs.service }} manifest
+    name: Publish ${{ inputs.service }} to ${{ matrix.registry }}
     needs: build
+    if: inputs.push-images
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        registry: [ghcr, dockerhub]
     env:
-      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
-      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
-      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
-    steps:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
+    steps: &registry-publication
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source-ref }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: image=moby/buildkit:v0.33.1
-
       - name: Prepare image metadata
         id: meta
         uses: ./.github/actions/docker-image-metadata
+        env:
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
+          ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
+          ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
         with:
           image-name: ${{ inputs.image-name }}
           tags: ${{ inputs.tags }}
           labels: ${{ inputs.labels }}
           push-images: ${{ inputs.push-images }}
-          require-registry: ${{ inputs.require-registry }}
           publish-ghcr: ${{ inputs.publish-ghcr }}
+          registry: ${{ env.IMAGE_REGISTRY }}
 
-      - name: Login to GitHub Container Registry
-        if: steps.meta.outputs.push-images == 'true' && inputs.publish-ghcr
-        uses: docker/login-action@v3
+      - name: Set up ORAS
+        if: steps.meta.outputs.push-images == 'true'
+        uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63 # v2.0.3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          version: '1.3.0'
 
-      - name: Login to Docker Hub
-        if: steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.DOCKERHUB_USER }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
-
-      - name: Login to Aliyun Docker Registry
-        if: steps.meta.outputs.push-images == 'true' && env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
-          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
-          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
-
-      - name: Download image digests
+      - name: Download tested images
         if: steps.meta.outputs.push-images == 'true'
         uses: actions/download-artifact@v8
         with:
-          # Each architecture is built from this run's commit. Include older attempts
-          # when only failed jobs were rerun; select the newest digest per platform.
-          pattern: docker-digest-${{ inputs.service }}-*
-          path: ${{ runner.temp }}/digests
+          # A failed-job rerun can reuse the archives of successful build jobs.
+          pattern: docker-image-${{ inputs.service }}-*
+          path: ${{ runner.temp }}/images
 
-      - name: Publish and verify multi-platform manifests
+      - name: Push tested images and verify multi-platform tags
+        id: publish-images
         if: steps.meta.outputs.push-images == 'true'
         env:
           IMAGE_METADATA: ${{ steps.meta.outputs.json }}
-        run: python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/digests"
+          REGISTRY_USERNAME: ${{ env.IMAGE_REGISTRY == 'ghcr' && github.actor || env.IMAGE_REGISTRY == 'dockerhub' && secrets.DOCKERHUB_USER || env.IMAGE_REGISTRY == 'aliyun' && secrets.ALIYUN_USER || '' }}
+          REGISTRY_PASSWORD: ${{ env.IMAGE_REGISTRY == 'ghcr' && github.token || env.IMAGE_REGISTRY == 'dockerhub' && secrets.DOCKERHUB_TOKEN || env.IMAGE_REGISTRY == 'aliyun' && secrets.ALIYUN_TOKEN || '' }}
+        run: |
+          if python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/images"; then
+            exit 0
+          else
+            status=$?
+          fi
+          if [[ "$IMAGE_REGISTRY" == 'aliyun' && "${IMAGE_COPY_ATTEMPTS:-}" == '1' && "$status" == '75' ]]; then
+            echo 'retry-upload=true' >> "$GITHUB_OUTPUT"
+            echo '::warning::Aliyun archive copy failed. Retrying on a fresh runner.'
+            exit 0
+          fi
+          exit "$status"
 
       - name: Update Docker Hub repository description
-        if: inputs.update-description && steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        if: inputs.update-description && env.IMAGE_REGISTRY == 'dockerhub' && steps.meta.outputs.push-images == 'true'
+        timeout-minutes: 2
         continue-on-error: true
         uses: peter-evans/dockerhub-description@v4
         with:
-          username: ${{ env.DOCKERHUB_USER }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKERHUB_USER }}/${{ inputs.image-name }}
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USER }}/${{ inputs.image-name }}
           short-description: AI-Shifu ${{ inputs.service }} - AI-led chat platform
           readme-filepath: ./README.md
 
@@ -296,8 +242,32 @@ jobs:
         env:
           IMAGE_SERVICE: ${{ inputs.service }}
           PUSH_IMAGES: ${{ steps.meta.outputs.push-images }}
-          PUBLISH_OUTCOME: ${{ job.status }}
+          PUBLISH_OUTCOME: ${{ steps.publish-images.outputs.retry-upload == 'true' && 'retry scheduled' || job.status }}
         run: |
-          echo "### $IMAGE_SERVICE manifest: $PUBLISH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "### $IMAGE_SERVICE on $IMAGE_REGISTRY: $PUBLISH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- Publication enabled: $PUSH_IMAGES" >> "$GITHUB_STEP_SUMMARY"
           echo '- Required platforms: linux/amd64, linux/arm64' >> "$GITHUB_STEP_SUMMARY"
+
+  publish-aliyun:
+    name: Publish ${{ inputs.service }} to aliyun
+    needs: build
+    if: inputs.push-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IMAGE_REGISTRY: aliyun
+      IMAGE_COPY_ATTEMPTS: '1'
+    outputs:
+      retry-upload: ${{ steps.publish-images.outputs.retry-upload }}
+    steps: *registry-publication
+
+  retry-aliyun:
+    name: Retry ${{ inputs.service }} to aliyun on a fresh runner
+    needs: publish-aliyun
+    if: needs.publish-aliyun.outputs.retry-upload == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IMAGE_REGISTRY: aliyun
+      IMAGE_COPY_ATTEMPTS: '2'
+    steps: *registry-publication

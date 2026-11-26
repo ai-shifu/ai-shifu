@@ -23,6 +23,26 @@ import {
 import type { ChatContentItem } from '@/types/chat-ui';
 
 const mockTrackEvent = jest.fn();
+const mockAttachedImages: string[] = [];
+let mockImagesUploading = false;
+afterEach(() => {
+  mockAttachedImages.length = 0;
+  mockImagesUploading = false;
+});
+jest.mock('@/hooks/use-learner-images', () => ({
+  useLearnerImages: () => ({
+    images: mockAttachedImages,
+    setImages: jest.fn(),
+    uploading: mockImagesUploading,
+    addFiles: jest.fn(),
+    imageInput: {
+      images: mockAttachedImages,
+      uploading: mockImagesUploading,
+      onSelect: jest.fn(),
+      onRemove: jest.fn(),
+    },
+  }),
+}));
 
 jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -31,6 +51,59 @@ jest.mock('@/hooks/use-tracking', () => ({
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
 );
+
+it('adds pending images to the active listening answer and blocks sends during upload', () => {
+  const url = '/api/storage/courses/learner-images/' + 'a'.repeat(32) + '.png';
+  mockAttachedImages.push(url);
+  const onSend = jest.fn();
+  const props = {
+    items: [
+      {
+        type: 'interaction' as const,
+        content: '?[...Show your work]',
+        element_bid: 'image-answer',
+        is_marker: true,
+      },
+    ],
+    mobileStyle: false,
+    chatRef: createChatRef(),
+    onSend,
+  };
+  const { rerender, unmount } = render(<ListenModeSlideRenderer {...props} />);
+  const initial = getMockSlide().mock.calls.at(-1)?.[0];
+  const element = initial.elementList.find(
+    (item: { blockBid?: string }) => item.blockBid === 'image-answer',
+  );
+  act(() => initial.onStepChange(element, 0));
+  const active = getMockSlide().mock.calls.at(-1)?.[0];
+  expect(active.showImageInput).toBe(true);
+  expect(active.imageInput.images).toEqual([url]);
+  act(() =>
+    active.onSend({ inputText: 'Here is my answer', images: [url] }, element),
+  );
+  expect(onSend).toHaveBeenCalledWith(
+    { inputText: `Here is my answer\n\n![learner-image](${url})` },
+    'image-answer',
+  );
+  onSend.mockClear();
+  mockImagesUploading = true;
+  rerender(
+    <ListenModeSlideRenderer
+      {...props}
+      sectionTitle='Upload in progress'
+    />,
+  );
+  expect(getMockSlide().mock.calls.at(-1)?.[0].imageInput.uploading).toBe(true);
+  act(() =>
+    getMockSlide()
+      .mock.calls.at(-1)?.[0]
+      .onSend({ inputText: 'Wait' }, element),
+  );
+  expect(onSend).not.toHaveBeenCalled();
+  unmount();
+  mockAttachedImages.length = 0;
+  mockImagesUploading = false;
+});
 const mockAskBlock = jest.fn(
   ({
     element_bid,

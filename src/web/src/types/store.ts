@@ -25,6 +25,7 @@ export interface EnvStoreState {
   umamiScriptSrc: string;
   eruda: string;
   baseURL: string;
+  learnerImageStoragePrefixes: string[];
   logoHorizontal: string;
   logoVertical: string;
   logoWideUrl: string;

@@ -3,7 +3,6 @@
 import uuid
 from collections.abc import Iterator
 from decimal import Decimal
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -28,6 +27,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
 
+from tests.common.fixtures.llm_routes import install_llm_routes
 from tests.common.fixtures.model_factories import (
     make_generated_block,
     make_generated_element,
@@ -343,7 +343,7 @@ def test_credit_detail_rejects_incomplete_or_invalid_filter_before_query(
     loader.assert_not_called()
 
 
-def test_model_labels_merge_current_and_legacy_provider_registries_once(
+def test_model_labels_merge_current_models_routes_and_voice_registries_once(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     models = Mock(
@@ -353,14 +353,8 @@ def test_model_labels_merge_current_and_legacy_provider_registries_once(
         ]
     )
     monkeypatch.setattr(usage_service, "get_current_models", models)
-    monkeypatch.setattr(
-        usage_service,
-        "PROVIDER_STATES",
-        {
-            "Second": SimpleNamespace(models=["shared", "unknown"]),
-            "": SimpleNamespace(models=["shared"]),
-        },
-    )
+    # Usage rows carry LiteLLM's provider; the current model's route supplies it.
+    install_llm_routes(monkeypatch, {"shared": ("second", "shared")}, exclusive=True)
     voice = Mock(
         return_value={
             "model_options": [

@@ -19,6 +19,7 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   eruda: environment.enableEruda.toString(),
   updateEruda: async (eruda: string) => set({ eruda }),
   baseURL: environment.apiBaseUrl.replace(/\/+$/, ''),
+  learnerImageStoragePrefixes: ['/api/storage/courses/learner-images/'],
   updateBaseURL: async (baseURL: string) =>
     set({ baseURL: baseURL.replace(/\/+$/, '') }),
   logoHorizontal: environment.logoHorizontal,

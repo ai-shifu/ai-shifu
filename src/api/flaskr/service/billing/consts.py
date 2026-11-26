@@ -623,3 +623,27 @@ BILL_SYS_CONFIG_SEEDS = (
         "updated_by": "system",
     },
 )
+
+# LLM usage written before rate providers took LiteLLM names (migration
+# a3c5e7f9b1d2) stores the earlier name; settlement maps it to the renamed
+# rate provider. Keep this while such usage records can still be settled.
+RENAMED_LLM_BILLING_PROVIDERS: dict[str, str] = {
+    "qwen": "dashscope",
+    "glm": "bigmodel",
+    "ark": "volcengine",
+    "ernie_v2": "qianfan",
+    "silicon": "siliconflow",
+}
+
+# Rate rows exist only under the earlier names until migration a3c5e7f9b1d2
+# copies them to LiteLLM names (it keeps the earlier rows for code before this
+# release), so rate lookups also match rows under these earlier model id
+# prefixes and this release works in both database states. Keep these while
+# any environment may hold rate rows only under the earlier names.
+RENAMED_LLM_MODEL_PREFIXES: dict[str, str] = {
+    "qwen/": "dashscope/",
+    "glm/": "bigmodel/",
+    "ark/": "volcengine/",
+    "ernie/": "qianfan/",
+    "silicon/": "siliconflow/",
+}

@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Callable
 
 import pytest
 from markdownflow.engine import (
+    ContentDelta,
     ContinueTurn,
     Engine,
     ErrorEvent,
@@ -15,11 +16,17 @@ from markdownflow.engine import (
 from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
+    ModelResponse,
     RetryPromptPart,
     ToolReturnPart,
     UserPromptPart,
 )
-from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+from pydantic_ai.models.function import (
+    AgentInfo,
+    DeltaToolCall,
+    FunctionModel,
+    FunctionStreamedResponse,
+)
 
 from .test_direction_feedback import (
     DISPLAY,
@@ -1042,42 +1049,37 @@ async def test_initial_acceptance_cannot_omit_feedback_content(
 async def test_accepted_control_only_feedback_needs_an_actual_authored_rule(
     foreign_quote: bool,
 ) -> None:
-    terminal = "interact"
     calls = 0
     rule = "After accepting an answer, show only the next control without explanation."
 
-    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
         nonlocal calls
         calls += 1
-        if any(
-            isinstance(p, ToolReturnPart) and p.tool_name == "finish"
-            for m in messages
-            for p in m.parts
-        ):
-            yield ""
-            return
         if calls == 1:
             yield _call(
-                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+                {
+                    "type": "text",
+                    "question": "Explain stored-program execution.",
+                    "placeholder": "Answer",
+                },
+                "original",
             )
             return
-        args = (
-            {"summary": "Accepted"}
-            if terminal == "finish"
-            else {"type": "single", "prompt": "", "options": [{"display": "Next"}]}
+        yield _call(
+            {
+                "type": "single",
+                "options": [{"display": "Next"}],
+                "feedback": _review(
+                    rule_quote="Foreign control-only rule"
+                    if foreign_quote and calls == 2
+                    else rule
+                ),
+            },
+            "control",
         )
-        args["review"] = _review(
-            rule_quote="Foreign control-only rule"
-            if foreign_quote and calls == 2
-            else rule
-        )
-        yield {
-            0: DeltaToolCall(
-                name=terminal, json_args=json.dumps(args), tool_call_id="control"
-            )
-        }
 
     engine = _engine(stream)
+    engine.legacy_interact_args = False
     engine.limits.request_limit = 3
     session = await engine.new_session(rule + "\n" + SCRIPT)
     await _collect(engine.run_turn(session))
@@ -1086,7 +1088,10 @@ async def test_accepted_control_only_feedback_needs_an_actual_authored_rule(
     )
     assert _text(events) == ""
     assert calls == (3 if foreign_quote else 2)
-    assert session.finished == (terminal == "finish")
+    assert not session.finished
+    (pending,) = session.pending
+    assert pending.tool_call_id == "control"
+    assert [option.stored for option in pending.spec.options] == ["Next"]
 
 
 @pytest.mark.anyio
@@ -1533,3 +1538,635 @@ async def test_unmatched_conditional_hint_keeps_actual_contradiction_in_current_
     )
     assert session.pending[0].tool_call_id == "correction"
     assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "first",
+    [
+        "complete",
+        "prose",
+        "stale_id",
+        "action",
+        "invalid_action",
+        "invalid_schema",
+        "invalid_control",
+    ],
+)
+@pytest.mark.parametrize("terminal", ["interact", "finish"])
+async def test_streamed_answer_feedback_completes_once(
+    first: str, terminal: str
+) -> None:
+    if first == "invalid_control" and terminal == "finish":
+        pytest.skip("Finish has no control to render")
+    calls = 0
+    displayed = ""
+    teaching = "The author's explanation for the learner."
+
+    def action(answer_id: str = "original") -> dict[int, DeltaToolCall]:
+        args = {"review": _review(answer_id=answer_id)}
+        if terminal == "interact":
+            args.update(
+                {"type": "text", "prompt": "Next question", "placeholder": "Answer"}
+            )
+        if calls == 2 and first == "invalid_schema":
+            if terminal == "interact":
+                del args["type"]
+            else:
+                args["summary"] = []
+        if calls == 2 and first == "invalid_control":
+            args["prompt"] = "Rejected control"
+        return {
+            0: DeltaToolCall(
+                name=terminal,
+                json_args=json.dumps(args),
+                tool_call_id=f"action-{calls}",
+            )
+        }
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            if first in ("complete", "prose", "stale_id"):
+                yield teaching
+                assert displayed == teaching
+            if first in ("complete", "action", "invalid_schema", "invalid_control"):
+                yield action()
+            elif first in ("stale_id", "invalid_action"):
+                yield action("older-answer")
+        else:
+            assert calls == 3
+            assert first not in ("complete", "action")
+            retry = next(
+                p
+                for p in reversed(messages[-1].parts)
+                if isinstance(p, RetryPromptPart)
+            )
+            assert "Send only the actual interact or finish tool call" in str(
+                retry.content
+            )
+            assert "Do not write any prose" in str(retry.content)
+            yield teaching  # Repair prose is discarded even if the first response had none.
+            yield action()
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.interaction_check = lambda spec: (
+        "Invalid control" if spec.prompt == "Rejected control" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    async for event in engine.run_turn(session, InteractionResponseTurn(text=WRONG)):
+        assert not isinstance(event, ErrorEvent), event
+        if isinstance(event, ContentDelta):
+            displayed += event.text
+    assert calls == (2 if first in ("complete", "action") else 3)
+    first_had_prose = first in ("complete", "prose", "stale_id")
+    assert displayed == (teaching if first_had_prose else "")
+    assert ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(
+        teaching
+    ) == int(first_had_prose)
+    assert session.finished == (terminal == "finish")
+    if terminal == "interact":
+        restored = Session.loads(session.dumps())
+        assert len(restored.pending) == 1
+        assert restored.pending[0].spec.prompt == "Next question"
+
+
+@pytest.mark.anyio
+async def test_streamed_feedback_incomplete_repair_keeps_visible_prose_without_action() -> (
+    None
+):
+    calls = 0
+    teaching = "The feedback already shown to the learner."
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        else:
+            yield teaching
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 6
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert calls == 3
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) and e.retryable for e in events)
+    assert not session.finished
+    assert not session.pending
+    assert session.interrupted
+    assert (
+        ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
+        == 1
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("replay_completed", [False, True])
+@pytest.mark.parametrize("first_has_prose", [False, True])
+async def test_streamed_batch_repairs_only_rejected_calls(
+    replay_completed: bool,
+    first_has_prose: bool,
+) -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+            return
+        saved = {
+            0: DeltaToolCall(
+                name="remember",
+                json_args=json.dumps(
+                    {"key": "note", "value": "saved", "review": _review()}
+                ),
+                tool_call_id=f"note-{calls}",
+            ),
+        }
+        if calls == 2:
+            if first_has_prose:
+                yield teaching
+            yield {
+                **saved,
+                1: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "text",
+                            "prompt": "Rejected control",
+                            "placeholder": "Answer",
+                            "review": _review(),
+                        }
+                    ),
+                    tool_call_id="rejected-control",
+                ),
+            }
+        elif calls == 3:
+            retry = next(
+                p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+            )
+            assert "in this order: interact" in str(retry.content)
+            yield teaching
+            yield {
+                **(saved if replay_completed else {}),
+                1: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "text",
+                            "prompt": "Valid control",
+                            "placeholder": "Answer",
+                            "review": _review(),
+                        }
+                    ),
+                    tool_call_id="valid-control",
+                ),
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    engine.interaction_check = lambda spec: (
+        "Invalid control" if spec.prompt == "Rejected control" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert calls == 3
+    assert _text(events) == (teaching if first_has_prose else "")
+    assert sum(e.type == "memory.updated" for e in events) == 1
+    assert session.memory == {"note": "saved"}
+    assert any(isinstance(e, ErrorEvent) for e in events) is replay_completed
+    assert [p.tool_call_id for p in session.pending] == (
+        [] if replay_completed else ["valid-control"]
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "repair", ["failed_target", "successful_key", "different_scope", "shared_target"]
+)
+async def test_streamed_feedback_binds_rejected_memory_write_to_its_original_target(
+    repair: str,
+) -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+    original_key = "first note" if repair == "shared_target" else "  second note  "
+
+    def remember(call_id: str, key: str, value: object, **args: str) -> DeltaToolCall:
+        return DeltaToolCall(
+            name="remember",
+            json_args=json.dumps(
+                {"key": key, "value": value, "review": _review(), **args}
+            ),
+            tool_call_id=call_id,
+        )
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield teaching
+            yield {
+                0: remember("saved-note", "first note", "already saved"),
+                1: remember("failed-note", original_key, ["invalid value"]),
+            }
+        elif calls == 3:
+            assert repair != "shared_target"
+            retry = next(
+                p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+            )
+            assert retry.tool_call_id == "failed-note"
+            assert any(
+                isinstance(p, ToolReturnPart) and p.tool_call_id == "saved-note"
+                for p in messages[-1].parts
+            )
+            key = "first note" if repair == "successful_key" else "second note"
+            scope = "user" if repair == "different_scope" else "session"
+            yield teaching
+            yield {0: remember("replacement-note", key, "corrected value", scope=scope)}
+        elif calls == 4:
+            yield {
+                0: DeltaToolCall(name="finish", json_args="{}", tool_call_id="finish")
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+
+    repaired = repair == "failed_target"
+    assert calls == (4 if repaired else 2 if repair == "shared_target" else 3)
+    assert _text(events) == teaching
+    assert session.finished is repaired
+    assert any(isinstance(e, ErrorEvent) for e in events) is not repaired
+    expected_memory = {"first note": "already saved"}
+    if repaired:
+        expected_memory["second note"] = "corrected value"
+    assert session.memory == expected_memory
+    assert session.user_memory == {}
+    assert [e.key for e in events if e.type == "memory.updated"] == list(
+        expected_memory
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mirrored", [False, True])
+async def test_streamed_feedback_protects_session_mirrors_of_successful_writes(
+    mirrored: bool,
+) -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+    key = "goal" if mirrored else "note"
+
+    def write(call_id: str, scope: str, value: object) -> DeltaToolCall:
+        return DeltaToolCall(
+            name="remember",
+            json_args=json.dumps(
+                {"key": key, "scope": scope, "value": value, "review": _review()}
+            ),
+            tool_call_id=call_id,
+        )
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {
+                    "type": "text",
+                    "question": "goal",
+                    "placeholder": "Answer",
+                },
+                "original",
+            )
+        elif calls == 2:
+            yield teaching
+            yield {
+                0: write("user-write", "user", "saved user note"),
+                1: write("failed-session-write", "session", ["invalid value"]),
+            }
+        elif calls == 3:
+            assert not mirrored
+            retry = next(
+                p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+            )
+            assert retry.tool_call_id == "failed-session-write"
+            assert "Do not write any prose" in str(retry.content)
+            yield teaching
+            yield {0: write("replacement", "session", "corrected session note")}
+        elif calls == 4:
+            yield {
+                0: DeltaToolCall(name="finish", json_args="{}", tool_call_id="finish")
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(
+        SCRIPT.replace("?[...Answer]", "?[{{goal}}...Answer]", 1)
+    )
+    await _collect(engine.run_turn(session))
+    assert session.pending[0].spec.variable == "goal"
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+
+    assert calls == (2 if mirrored else 4)
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) for e in events) is mirrored
+    assert session.user_memory == {key: "saved user note"}
+    assert session.memory == (
+        {"goal": "saved user note"}
+        if mirrored
+        else {"goal": WRONG, "note": "corrected session note"}
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("invalid_tool", [False, True])
+async def test_streamed_direction_preserves_displayed_prose_in_history(
+    invalid_tool: bool,
+) -> None:
+    calls = 0
+    teaching = "The learner has already seen this explanation."
+    control = {"type": "text", "prompt": "", "placeholder": "Answer"}
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(control, "original")
+        elif calls == 2:
+            yield teaching
+            direction = _direction()
+            if invalid_tool:
+                direction["answer_id"] = "wrong-id"
+            yield _call({**control, "direction": direction}, "first-direction")
+        elif calls == 3:
+            assert invalid_tool
+            yield _call({**control, "direction": _direction()}, "correction")
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert calls == (3 if invalid_tool else 2)
+    assert _text(events) == teaching + ("\n" if invalid_tool else "\n\n") + DISPLAY
+    restored = Session.loads(session.dumps())
+    assert [p.tool_call_id for p in restored.pending] == [
+        "correction" if invalid_tool else "first-direction"
+    ]
+    saved = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
+    assert saved.count(teaching) == 1
+    assert saved.count(DISPLAY.replace("\n", "\\n")) == 1
+
+
+@pytest.mark.anyio
+async def test_streamed_feedback_repairs_one_rejected_memory_call() -> None:
+    calls = 0
+    teaching = "The learner should see this explanation once."
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls in (2, 3):
+            if calls == 3:
+                retry = next(
+                    p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
+                )
+                assert "Retry only the rejected calls, in this order: remember" in str(
+                    retry.content
+                )
+            yield teaching
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    json_args=json.dumps(
+                        {
+                            "key": "note",
+                            "value": "saved",
+                            "review": _review(
+                                answer_id="older-answer" if calls == 2 else "original"
+                            ),
+                        }
+                    ),
+                    tool_call_id=f"remember-{calls}",
+                )
+            }
+        elif calls == 4:
+            yield {
+                0: DeltaToolCall(name="finish", json_args="{}", tool_call_id="finish")
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    engine.limits.request_limit = 5
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert calls == 4
+    assert _text(events) == teaching
+    assert sum(e.type == "memory.updated" for e in events) == 1
+    assert session.memory == {"note": "saved"}
+    assert session.finished
+    assert (
+        ModelMessagesTypeAdapter.dump_json(session.messages).decode().count(teaching)
+        == 1
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("empty_tail", [False, True])
+async def test_truncated_answer_response_saves_visible_prose_without_running_tools(
+    monkeypatch: pytest.MonkeyPatch,
+    empty_tail: bool,
+) -> None:
+    calls = 0
+    teaching = "The feedback reached the learner before the response was cut off."
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield teaching
+            if empty_tail:
+                yield {
+                    0: DeltaToolCall(
+                        name="recall", json_args="{}", tool_call_id="lookup"
+                    )
+                }
+            else:
+                yield {
+                    0: DeltaToolCall(
+                        name="finish",
+                        json_args=json.dumps({"review": _review()}),
+                        tool_call_id="truncated-action",
+                    )
+                }
+        elif calls == 3 and empty_tail:
+            yield {}
+
+    original_get = FunctionStreamedResponse.get
+
+    def get_response(streamed: FunctionStreamedResponse) -> ModelResponse:
+        response = original_get(streamed)
+        if calls == (3 if empty_tail else 2):
+            response.finish_reason = "length"
+        return response
+
+    monkeypatch.setattr(FunctionStreamedResponse, "get", get_response)
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert calls == (3 if empty_tail else 2)
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) and e.retryable for e in events)
+
+    restored = Session.loads(session.dumps())
+    saved = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
+    assert saved.count(teaching) == 1
+    assert "truncated-action" not in saved
+    assert WRONG in saved
+    assert restored.interrupted
+    assert not restored.finished
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("during_repair", [False, True])
+async def test_feedback_transport_failure_saves_only_displayed_history(
+    during_repair: bool,
+) -> None:
+    calls = 0
+    teaching = "The learner saw this feedback before the connection dropped."
+    suppressed = "The tool-only repair unexpectedly repeated some teaching."
+    interrupted_call = 3 if during_repair else 2
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2 and during_repair:
+            yield teaching
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    json_args=json.dumps(
+                        {"key": "note", "value": "saved", "review": _review()}
+                    ),
+                    tool_call_id="completed-note",
+                ),
+                1: DeltaToolCall(
+                    name="finish",
+                    json_args=json.dumps({"review": _review(), "summary": []}),
+                    tool_call_id="rejected-finish",
+                ),
+            }
+        elif calls == interrupted_call:
+            yield suppressed if during_repair else teaching
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    json_args='{"summary":',
+                    tool_call_id="unfinished-action",
+                )
+            }
+            message = "provider disconnected"
+            raise RuntimeError(message)
+        else:
+            history = ModelMessagesTypeAdapter.dump_json(messages).decode()
+            assert history.count(teaching) == 1
+            assert suppressed not in history
+            assert "unfinished-action" not in history
+            yield {
+                0: DeltaToolCall(
+                    name="finish", json_args="{}", tool_call_id="recovered"
+                )
+            }
+
+    engine = _engine(stream)
+    engine.stream_answer_feedback = True
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+
+    assert calls == interrupted_call
+    assert _text(events) == teaching
+    assert any(isinstance(e, ErrorEvent) and e.retryable for e in events)
+    assert not session.finished
+    restored = Session.loads(session.dumps())
+    assert restored.interrupted
+    saved = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
+    assert saved.count(teaching) == 1
+    assert suppressed not in saved
+    assert "unfinished-action" not in saved
+    assert WRONG in saved
+    if during_repair:
+        assert restored.memory == {"note": "saved"}
+        assert any(
+            isinstance(p, ToolReturnPart) and p.tool_call_id == "completed-note"
+            for message in restored.messages
+            for p in message.parts
+        )
+        assert any(
+            isinstance(p, RetryPromptPart) and p.tool_call_id == "rejected-finish"
+            for message in restored.messages
+            for p in message.parts
+        )
+
+    events = await _collect(engine.run_turn(restored, ContinueTurn()))
+    assert calls == interrupted_call + 1
+    assert restored.finished
+    assert teaching not in _text(events)

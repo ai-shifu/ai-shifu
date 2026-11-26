@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field, replace
-from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any, Literal
 
-from markdown_it import MarkdownIt
 from pydantic import ValidationError
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
 from pydantic_ai.messages import (
@@ -20,7 +17,6 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from markdownflow.syntax.parser.document_blocks import HTML_BLOCK_TAGS
 from markdownflow.syntax.parser.marker_context import (
     analyze_marker_context,
 )
@@ -69,6 +65,7 @@ class Deps:
     direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
     direction_sections: dict[str, str] = field(default_factory=dict)
     direction_rendered: dict[str, str] = field(default_factory=dict)
+    displayed_direction_prose: dict[str, str] = field(default_factory=dict)
     feedback_contract: bool = False
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)
@@ -77,11 +74,21 @@ class Deps:
     )
     feedback_text_pending: bool = False
     feedback_text_delivered: bool = False
+    stream_answer_feedback: bool = False
+    feedback_response_displayed: bool = False
+    # None outside repair; an empty tuple allows either next terminal tool.
+    feedback_repair_tools: tuple[str, ...] | None = None
+    feedback_repair_memory_targets: dict[int, tuple[str, str]] = field(
+        default_factory=dict
+    )
+    feedback_repair_attempted: bool = False
+    feedback_remember_writes: dict[str, tuple[tuple[str, str], ...]] = field(
+        default_factory=dict
+    )
+    interrupted_feedback_response: ModelResponse | None = None
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
-    question_text_filter: Callable[[str], str] | None = None
-    question_text_context: Callable[[str], str] | None = None
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in MarkdownFlow notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
@@ -92,7 +99,7 @@ class Deps:
     literal_interaction_markup: frozenset[str] = frozenset()
     interaction_markup_pending: bool = False
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
-    # script has none: a `confirm` is then answered without asking the learner. See
+    # script has none: navigation is then answered without asking the learner. See
     # `script_pauses` and `Engine(pauses_from_notation=)`.
     no_pauses: bool = False
     # None preserves a portable host's existing unrestricted memory contract.
@@ -116,6 +123,8 @@ class Deps:
 
     def hide_feedback_response(self, response: ModelResponse) -> None:
         """Track withheld prose until a successful replacement actually supplies it."""
+        if self.stream_answer_feedback and self.feedback_response_displayed:
+            return  # The teaching already reached the learner; retain it in history.
         # SDK history projection can release the original response. Keep its ID
         # unique until this turn's Deps is discarded, including final projection.
         self._hidden_feedback_objects[id(response)] = response
@@ -402,7 +411,7 @@ def _authored_binding(
     placeholder: str | None,
     *,
     allow_different_hint: bool = False,
-) -> tuple[set[str | None], bool, bool]:
+) -> tuple[set[str | None], bool]:
     matches = [
         item
         for item in deps.script_questions
@@ -442,21 +451,9 @@ def _authored_binding(
         item for item in matches if question and question == item.preceding_line
     ]
     matches = exact or preceding or matches
-    names = {item.variable for item in matches}
-    navigation = (
-        kind == "single"
-        and len(options) == 1
-        and bool(matches)
-        and names == {None}
-        and not any(
-            item.text
-            or _markdown_prose(item.preceding_line)
-            .rstrip()
-            .endswith(("?", "\N{FULLWIDTH QUESTION MARK}"))
-            for item in matches
-        )
+    return {item.variable for item in matches}, bool(matches) and all(
+        item.text for item in matches
     )
-    return names, navigation, bool(matches) and all(item.text for item in matches)
 
 
 def _script_text_input_candidate(
@@ -517,16 +514,30 @@ def normalize_script_text_input(
 
     The remaining stored values must be the author's exact ordered choices; display text
     may be translated. A hint stored as a real choice or a model-created value is kept.
-    Text-only questions must match the copied prompt and the same variable.
+    Match authored hints using the question's binding or stored memory key.
     Restore an entirely missing input only after the caller rules out a matching
     plain choice. Ambiguous questions and unrelated explicit placeholders stay unchanged.
     """
     if spec.generated_control:
         return spec
     question_key = spec.source_question or spec.variable
-    authored_inputs = [q for q in questions if q.variable == question_key]
+    authored_inputs = [
+        q for q in questions if q.placeholder and q.variable == question_key
+    ]
+    if not restore_missing_input and any(
+        not q.text
+        and (
+            q.variable == question_key
+            or (
+                spec.question_owns_memory and q.variable is None and not authored_inputs
+            )
+        )
+        and _authored_controls_match(q, spec.type, spec.options, spec.placeholder)
+        for q in questions
+    ):
+        return spec
     if spec.question_owns_memory and not authored_inputs:
-        authored_inputs = [q for q in questions if q.variable is None]
+        authored_inputs = [q for q in questions if q.placeholder and q.variable is None]
     if spec.type == "text" and not spec.options and not spec.placeholder:
         hints = {
             q.placeholder
@@ -558,6 +569,11 @@ def normalize_script_text_input(
     return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
 
+def restore_script_text_input(spec: InteractionSpec, script: str) -> InteractionSpec:
+    """Recover the displayed text input when history only has raw tool arguments."""
+    return normalize_script_text_input(spec, authored_interaction_questions(script))
+
+
 def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
     r"""Return a script's option as the script means it, without the escapes of its notation.
 
@@ -583,8 +599,7 @@ def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
 def text_in_turn(ctx: RunContext[Deps]) -> int:
     """Non-whitespace characters of content the model produced so far in this turn.
 
-    Whitespace does not count: a turn whose only output is a newline has presented nothing to the
-    learner, and must not be able to pause on a `confirm`.
+    Whitespace does not count as content delivered to the learner.
     """
     return sum(
         sum(1 for ch in part.content if not ch.isspace())
@@ -767,111 +782,6 @@ def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
     )
 
 
-_HIDDEN_INLINE_STYLE = re.compile(
-    r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))"
-    r"\s*(?:!important\s*)?(?:;|$)",
-    re.IGNORECASE,
-)
-_VOID_HTML_TAGS = frozenset(
-    {
-        "area",
-        "base",
-        "br",
-        "col",
-        "embed",
-        "hr",
-        "img",
-        "input",
-        "link",
-        "meta",
-        "param",
-        "source",
-        "track",
-        "wbr",
-    }
-)
-
-
-class _QuestionHTMLVisibility(HTMLParser):
-    """Track hidden elements and read visible text inside HTML blocks."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.hidden_tags: list[str] = []
-        self._visible_text: list[str] = []
-
-    def read_block(self, content: str) -> str:
-        """Extract one block while preserving the parser's visibility state."""
-        self._visible_text.clear()
-        self.feed(content)
-        return "".join(self._visible_text).strip()
-
-    def handle_data(self, data: str) -> None:
-        if not self.hidden_tags:
-            self._visible_text.append(data)
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in _VOID_HTML_TAGS:
-            if tag == "br" and not self.hidden_tags:
-                self._visible_text.append(" ")
-            return
-        if (
-            self.hidden_tags
-            or tag in ("head", "iframe", "script", "style", "template", "title")
-            or any(
-                name == "hidden"
-                or (name == "style" and _HIDDEN_INLINE_STYLE.search(value or ""))
-                for name, value in attrs
-            )
-        ):
-            self.hidden_tags.append(tag)
-        elif tag in HTML_BLOCK_TAGS:
-            self._visible_text.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        if not self.hidden_tags and tag in HTML_BLOCK_TAGS:
-            self._visible_text.append("\n")
-        for index in range(len(self.hidden_tags) - 1, -1, -1):
-            if self.hidden_tags[index] == tag:
-                del self.hidden_tags[index:]
-                break
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        # HTML ignores the self-closing slash on non-void elements.
-        self.handle_starttag(tag, attrs)
-
-
-def _markdown_prose(text: str) -> str:
-    """Read visible prose from Markdown source."""
-    html = _QuestionHTMLVisibility()
-    visible: list[str] = []
-    for token in MarkdownIt("commonmark", {"html": True}).parse(text):
-        if token.type == "html_block":
-            visible.append(html.read_block(token.content))
-        if token.type != "inline" or not token.children:
-            continue
-        line: list[str] = []
-        for child in token.children:
-            if child.type == "html_inline":
-                html.feed(child.content)
-            elif not html.hidden_tags:
-                if child.type in ("text", "code_inline"):
-                    line.append(child.content)
-                elif child.type in ("softbreak", "hardbreak"):
-                    line.append(" ")
-        visible.append("".join(line))
-    return "\n".join(visible)
-
-
-def _question_prose(deps: Deps, text: str) -> str:
-    """Read question prose after applying the host's content filter."""
-    if deps.question_text_context is not None:
-        text = deps.question_text_context(text)
-    if deps.question_text_filter is not None:
-        text = deps.question_text_filter(text)
-    return _markdown_prose(text)
-
-
 def validate_direction_call(
     ctx: RunContext[Deps], *_args: object, **_kwargs: object
 ) -> None:
@@ -890,9 +800,9 @@ def validate_direction_call(
         problem, _ = feedback_response_problem(ctx.deps, response)
         if problem:
             ctx.deps.hide_feedback_response(response)
-            raise ModelRetry(
-                problem + "; correct the whole response before any display"
-            )
+            if not ctx.deps.stream_answer_feedback:
+                problem += "; correct the whole response before any display"
+            raise ModelRetry(problem)
 
 
 def feedback_response_problem(
@@ -925,7 +835,8 @@ def feedback_response_problem(
         )  # interact validates its entire structured call before display.
     delivery_problem = None
     if (
-        deps.feedback_text_pending
+        not deps.stream_answer_feedback
+        and deps.feedback_text_pending
         and any(call.tool_name in ("interact", "finish") for call in calls)
         and not any(
             isinstance(p, TextPart) and p.content.strip() for p in response.parts
@@ -958,8 +869,14 @@ def feedback_response_problem(
     if (
         deps.feedback_review is None
         and (
-            any(isinstance(p, TextPart) and p.content.strip() for p in response.parts)
-            or any(call.tool_name in ("interact", "finish") for call in calls)
+            any(call.tool_name in ("interact", "finish") for call in calls)
+            or (
+                not deps.stream_answer_feedback
+                and any(
+                    isinstance(p, TextPart) and p.content.strip()
+                    for p in response.parts
+                )
+            )
         )
         and review is None
     ):
@@ -974,7 +891,8 @@ def feedback_response_problem(
         )
     selected = review or deps.feedback_review
     if (
-        selected is not None
+        not deps.stream_answer_feedback
+        and selected is not None
         and selected.phase == "accepted"
         and any(call.tool_name in ("interact", "finish") for call in calls)
         and not deps.feedback_text_delivered
@@ -997,7 +915,7 @@ def feedback_response_problem(
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
-    question: str = "",
+    question: str | None = None,
     options: list[Option] | None = None,
     placeholder: str | None = None,
     generated_control: bool = False,
@@ -1013,14 +931,16 @@ async def interact(
 
     `single`: exactly one choice. `multi`: several choices. `text`: free text only.
     `single_or_text` / `multi_or_text`: choices plus a text box for the learner's own answer.
-    `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
-    without a question -- never on your own judgement, not between steps, not after a visual --
-    and only after you have presented content in this turn (a confirm on its own is rejected).
-    For an ordinary answer interaction, ask the complete question in visible prose first, then
-    call this tool with the same wording in `question`. The host stores the answer under that
-    wording. If the control starts with a `{{...}}` binding, use its exact text as `question`,
-    even if it is short. When localizing that question, use `display_question` for the translation
-    you asked in prose. Use an empty question only for a pause or an authored navigation-only control.
+    For a pause the script asks for without a question, use `single` with exactly one option
+    and omit `question`. Give the option a label. Pause only where the script asks you to wait,
+    and present any preceding teaching before the button.
+    For an ordinary answer interaction, ask the learner-facing question in visible prose first.
+    With a nonempty leading `{{...}}` or `%{{...}}` binding, set `question` to only its exact
+    inner text, trimming outer whitespace. Without a binding, use the full question from prose
+    for an answer control and omit `question` for other controls. Decide whether the control
+    collects an answer from its purpose in the script. When localizing a bound question, use
+    `display_question` for the translation you presented. An accepted submission to a control
+    with a nonempty `question` is stored under that value.
     Set `generated_control=true` only for a new answer control you created as a follow-up. Leave
     it false for any control from the script, even when you formulate the question yourself.
     Give `options` for every type except `text`.
@@ -1050,7 +970,6 @@ async def interact(
     require the author's next help stage; reporting prior knowledge help as a
     hint does not itself authorize skipping a correction stage. Follow explicit
     author rules that permit immediate explanation or a different progression.
-    An authored navigation with one choice is still `single`, not an optional `confirm`.
     Do not replace an unanswered navigation with the following question's input. If the
     author puts navigation after answer feedback/explanation, call this tool for that
     navigation alone and wait; only its returned selection permits the following step.
@@ -1123,25 +1042,19 @@ async def interact(
         if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
             variable = None
     else:
-        question = question.strip()
+        question = (question or "").strip()
         normalized_options = [
             _as_the_script_writes_it(option, ctx.deps.script_options)
             for option in options or []
         ]
         if generated_control:
-            if (
-                type == "confirm"
-                or direction is not None
-                or any(
-                    question == control.variable
-                    for control in ctx.deps.script_questions
-                )
+            if direction is not None or any(
+                question == control.variable for control in ctx.deps.script_questions
             ):
                 message = "Use generated_control only for a new answer control without an authored binding."
                 raise ModelRetry(message)
-            navigation = False
         else:
-            authored_questions, navigation, restore_missing_input = _authored_binding(
+            authored_questions, restore_missing_input = _authored_binding(
                 ctx.deps,
                 type,
                 question,
@@ -1149,28 +1062,33 @@ async def interact(
                 placeholder,
                 allow_different_hint=True,
             )
-        owns_memory = type != "confirm" and (direction is not None or not navigation)
-        if not owns_memory:
-            question = ""
-        variable = question if owns_memory else None
+        if (
+            direction is None
+            and authored_questions
+            and None not in authored_questions
+            and question not in authored_questions
+        ):
+            authored_wordings = sorted(
+                wording for wording in authored_questions if wording is not None
+            )
+            message = (
+                "Set question to the exact text of the intended authored question from these matching controls: "
+                + json.dumps(authored_wordings, ensure_ascii=False)
+            )
+            raise ModelRetry(message)
+        if not question and (
+            type in ("text", "single_or_text", "multi_or_text")
+            or restore_missing_input
+            or generated_control
+            or direction is not None
+        ):
+            message = "Provide the complete question for this answer control."
+            raise ModelRetry(message)
+        owns_memory = bool(question)
+        variable = question or None
         if owns_memory:
             if (
-                direction is None
-                and authored_questions
-                and None not in authored_questions
-                and question not in authored_questions
-            ):
-                authored_wordings = sorted(
-                    wording for wording in authored_questions if wording is not None
-                )
-                message = (
-                    "Set question to the exact text of the intended authored question from these matching controls: "
-                    + json.dumps(authored_wordings, ensure_ascii=False)
-                )
-                raise ModelRetry(message)
-            if (
-                not question
-                or normalize_variable_name(question) is None
+                normalize_variable_name(question) is None
                 or len(question) > _MEMORY_KEY_LIMIT
             ):
                 message = "Provide the complete question on one line, using 1 to 255 characters without a closing brace pair."
@@ -1204,7 +1122,7 @@ async def interact(
             previous := ctx.deps.direction_inputs.get(direction.answer_id)
         ):
             source_question = previous.source_question or previous.variable
-    if type != "confirm" and asks_the_answered_question_again(
+    if asks_the_answered_question_again(
         ctx,
         type,
         question,
@@ -1224,24 +1142,6 @@ async def interact(
             "then ask."
         )
         raise ModelRetry(msg)
-    if type == "confirm" and text_in_turn(ctx) == 0:
-        msg = (
-            "You asked the learner to continue without presenting anything in this turn. "
-            "Deliver the next part of the script as content first; pause with `confirm` only "
-            "after that content, and never answer a continue with another confirm."
-        )
-        raise ModelRetry(msg)
-    if (
-        type == "confirm"
-        and ctx.deps.no_pauses
-        and not ctx.deps.interaction_markup_pending
-    ):
-        # A pause in a lesson whose script has none. The learner is not asked: the lesson simply
-        # goes on, as a 1.0 lesson does. Answered rather than refused, so the model carries on in
-        # the same turn instead of spending its retries on a call it cannot make.
-        # Not while a question written as text is owed: that pause would leave it owed, with
-        # `finish` withheld and text refused, so the pause is asked for real and settles it.
-        return NO_PAUSE
     if ctx.deps.script_options and (legacy_call or not generated_control):
         options = [
             _as_the_script_writes_it(o, ctx.deps.script_options) for o in options or []
@@ -1271,9 +1171,40 @@ async def interact(
     if legacy_call or owns_memory:
         spec = normalize_script_text_input(
             spec,
-            ctx.deps.script_text_inputs,
+            ctx.deps.script_questions,
             restore_missing_input=restore_missing_input,
         )
+    if (
+        spec.type == "single"
+        and len(spec.options) == 1
+        and not spec.question.strip()
+        and not spec.variable
+        and not ctx.deps.interaction_markup_pending
+    ):
+        if text_in_turn(ctx) == 0:
+            authored_pause = None in authored_questions
+            if legacy_call:
+                authored_pause = any(
+                    control.variable is None
+                    and _authored_controls_match(
+                        control, spec.type, spec.options, spec.placeholder
+                    )
+                    for control in ctx.deps.script_questions
+                )
+            if not authored_pause:
+                if ctx.deps.stream_answer_feedback:
+                    message = "Use the next authored interaction or finish instead of adding a continue control."
+                    raise ModelRetry(message)
+                msg = (
+                    "You asked the learner to continue without presenting anything in this turn. "
+                    "Deliver the next part of the script as content first, then pause where the "
+                    "script asks the learner to wait."
+                )
+                raise ModelRetry(msg)
+        if ctx.deps.no_pauses:
+            # Carry on in the same turn when the lesson has no authored pause. Leave a repaired
+            # interaction deferred so only the learner can answer a control first written as text.
+            return NO_PAUSE
     direction_text = direction.render() if direction is not None else ""
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
@@ -1320,24 +1251,24 @@ async def interact(
             direction_text, ctx.deps.literal_interaction_markup
         ):
             problem = "direction must not contain unexecuted interaction markup"
-        if not problem and ctx.deps.question_text_filter is not None:
-            visible = _question_prose(ctx.deps, direction_text)
-            if any(
-                focus.guiding_question not in visible for focus in direction.focuses
-            ):
-                problem = "Each guiding question must be visible Markdown prose outside any hidden block"
         if not problem and (
             response is None
-            or any(
+            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
+        ):
+            problem = "direction must be the sole tool call in its response"
+        if (
+            not problem
+            and not ctx.deps.stream_answer_feedback
+            and response is not None
+            and any(
                 isinstance(p, TextPart) and p.content.strip() for p in response.parts
             )
-            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
         ):
             problem = "direction must be the sole tool call, without free content in its response"
         if problem:
-            raise ModelRetry(
-                problem + "; correct the whole call before anything is displayed"
-            )
+            if not ctx.deps.stream_answer_feedback:
+                problem += "; correct the whole call before anything is displayed"
+            raise ModelRetry(problem)
     problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
     if problem:
         # Deferred, the question would wait for an answer the learner has no controls to give.
@@ -1348,16 +1279,6 @@ async def interact(
             "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
         )
         raise ModelRetry(msg)
-    if owns_memory and direction is None:
-        before_call = "".join(_text_up_to([response], ctx.tool_call_id))
-        if spec.presented_question not in _question_prose(ctx.deps, before_call):
-            message = (
-                "Ask the exact question in visible Markdown prose before calling interact. "
-                "Repeat the question in the response, outside any hidden block."
-            )
-            if localized_binding:
-                message += " Put the visible translation in display_question and keep the original in question."
-            raise ModelRetry(message)
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
         ctx.deps.direction_rendered[ctx.tool_call_id] = direction_text
@@ -1441,19 +1362,22 @@ async def prepare_feedback_tool(
         # The validator can still read old calls; the provider receives only the new contract.
         properties.pop("prompt", None)
         properties.pop("variable", None)
-        question_schema = dict(properties["question"])
-        question_schema.pop("default", None)
-        question_schema["description"] = (
-            "Complete question. For a leading binding, keep the exact authored text. "
-            "Send an empty string only for a pause or an authored navigation-only control."
-        )
-        properties["question"] = question_schema
+        properties["question"] = {
+            "type": "string",
+            "description": (
+                "With a nonempty leading {{...}} or %{{...}} binding, copy only its exact "
+                "inner text, trimming outer whitespace. For an unbound answer control, use "
+                "the full learner-facing question from prose. For other unbound controls, "
+                "omit this field. A nonempty value is the storage key for the accepted answer."
+            ),
+        }
         if ctx.deps.translated_controls:
             properties["display_question"] = {
                 **properties["display_question"],
                 "description": (
-                    "For a leading authored binding only, the translated question exactly as "
-                    "asked in prose, as plain text. Keep the original in question."
+                    "For a leading authored binding only, the translated learner-facing "
+                    "question exactly as asked in prose, as plain text. Keep the binding's "
+                    "original inner text in question."
                 ),
             }
         else:
@@ -1464,10 +1388,6 @@ async def prepare_feedback_tool(
                 "True only for a newly created answer control. Leave false for any "
                 "authored control, including an unbound one whose question you formulate."
             ),
-        }
-        schema = {
-            **schema,
-            "required": list(dict.fromkeys([*schema.get("required", []), "question"])),
         }
     if (
         not ctx.deps.feedback_contract
@@ -1535,6 +1455,20 @@ async def prepare_memory_tool(
     )
 
 
+def remember_target(
+    deps: Deps, key: str, scope: Literal["session", "user"]
+) -> tuple[Literal["session", "user"], str] | None:
+    """Resolve the normalized key and actual scope of a memory write."""
+    normalized = normalize_variable_name(key)
+    if normalized is None or len(normalized) > _MEMORY_KEY_LIMIT:
+        return None
+    if deps.memory_keys is not None and (
+        normalized not in deps.memory_keys or normalized in deps.memory_deleted_keys
+    ):
+        scope = "user"
+    return scope, normalized
+
+
 async def remember(
     ctx: RunContext[Deps],
     key: str,
@@ -1565,16 +1499,12 @@ async def remember(
         validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
-    normalized_key = normalize_variable_name(key)
-    if normalized_key is None or len(normalized_key) > _MEMORY_KEY_LIMIT:
+    destination = remember_target(ctx.deps, key, scope)
+    if destination is None:
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
-    key = normalized_key
+    scope, key = destination
     if len(value) > _MEMORY_VALUE_LIMIT:
         return "Not remembered: the value exceeds 2000 characters. Continue teaching."
-    if ctx.deps.memory_keys is not None and (
-        key not in ctx.deps.memory_keys or key in ctx.deps.memory_deleted_keys
-    ):
-        scope = "user"
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
     if problem := _memory_capacity_error(target, key, value):
         return problem
@@ -1586,6 +1516,7 @@ async def remember(
     if problem := _memory_capacity_error(target, key, value):
         return problem
     target[key] = value
+    writes = [destination]
     if (
         scope == "user"
         and isinstance(ctx.deps.answer_hashes.get(key), str)
@@ -1594,8 +1525,11 @@ async def remember(
         # A named answer is mirrored in session scope; an accepted correction wins now.
         ctx.deps.memory[key] = value
         ctx.deps.answer_hashes[key] = answer_fingerprint(value)
+        writes.append(("session", key))
     elif scope == "session":
         ctx.deps.answer_hashes.pop(key, None)
+    if ctx.deps.stream_answer_feedback and ctx.tool_call_id is not None:
+        ctx.deps.feedback_remember_writes[ctx.tool_call_id] = tuple(writes)
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
 

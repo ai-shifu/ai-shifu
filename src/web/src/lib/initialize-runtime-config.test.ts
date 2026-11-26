@@ -43,6 +43,9 @@ describe('runtime host branding', () => {
               homeUrl: 'https://site.example.test/home',
               stripePublishableKey: 'pk_course_owner',
               paymentChannels: ['stripe'],
+              learnerImageStoragePrefixes: [
+                'https://cdn.example.test/learner-images/',
+              ],
             },
           }),
         });
@@ -67,6 +70,9 @@ describe('runtime host branding', () => {
             homeUrl: 'https://site.example.test/home',
             stripePublishableKey: 'pk_course_owner',
             paymentChannels: ['stripe'],
+            learnerImageStoragePrefixes: [
+              'https://cdn.example.test/learner-images/',
+            ],
             runtimeConfigLoaded: true,
           }),
         );

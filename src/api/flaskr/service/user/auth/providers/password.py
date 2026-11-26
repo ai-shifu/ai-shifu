@@ -1,6 +1,6 @@
 """Password authentication provider.
 
-Supports login via phone number or email + password.
+Supports login via phone number, email, or username + password.
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
@@ -35,6 +34,10 @@ from flaskr.service.user.repository import (
     lock_password_credential,
     lock_user_for_auth,
 )
+from flaskr.service.user.usernames import (
+    PASSWORD_LOGIN_IDENTIFIER_PROVIDERS,
+    normalize_login_identifier,
+)
 from flaskr.service.user.utils import create_token_value
 
 if TYPE_CHECKING:
@@ -48,19 +51,14 @@ _DUMMY_PASSWORD_HASH = (
 
 
 class PasswordAuthProvider(AuthProvider):
-    """Authenticate via identifier (phone or email) + password."""
+    """Authenticate via identifier (phone, email, or username) + password."""
 
     provider_name = "password"
     supports_challenge = False
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
         """Verify the supplied authentication credential."""
-        raw_identifier = request.identifier.strip()
-        identifier = (
-            raw_identifier.lower()
-            if "@" in raw_identifier
-            else normalize_phone_identifier(raw_identifier)
-        )
+        identifier = normalize_login_identifier(request.identifier)
         password = request.code  # reuse code field for password
 
         if not identifier or not password:
@@ -71,7 +69,7 @@ class PasswordAuthProvider(AuthProvider):
         # Redis guard never retain a checked-out database connection.
         with unit_of_work():
             aggregate = load_user_aggregate_by_identifier(
-                identifier, providers=["phone", "email"]
+                identifier, providers=PASSWORD_LOGIN_IDENTIFIER_PROVIDERS
             )
             limit_identity = self._limit_identity(identifier, aggregate)
 
@@ -85,7 +83,7 @@ class PasswordAuthProvider(AuthProvider):
                 # authenticate under a stale or different account lock.
                 with unit_of_work():
                     aggregate = load_user_aggregate_by_identifier(
-                        identifier, providers=["phone", "email"]
+                        identifier, providers=PASSWORD_LOGIN_IDENTIFIER_PROVIDERS
                     )
                     current_identity = self._limit_identity(identifier, aggregate)
                     password_creds = (
@@ -184,7 +182,7 @@ def confirm_password_login_for_token_issue(
         raise_error("server.user.invalidCredentials")
 
     resolved = load_user_aggregate_by_identifier(
-        identifier, providers=["phone", "email"], for_update=True
+        identifier, providers=PASSWORD_LOGIN_IDENTIFIER_PROVIDERS, for_update=True
     )
     contact_matches = resolved is not None and resolved.user_bid == user_bid
 

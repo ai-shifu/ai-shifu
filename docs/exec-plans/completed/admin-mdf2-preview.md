@@ -10,7 +10,8 @@ Teachers debugging an allowlisted course on the simulation deployment should see
 - [x] 2026-09-30 16:00 CST: Reused the 2.0 lesson runner with an isolated, expiring debug session.
 - [x] 2026-09-30 16:00 CST: Stopped the editor's 1.0 block continuation for a 2.0 response.
 - [x] 2026-09-30 16:00 CST: Covered routing, isolation, input continuation, session expiry, analytics, and existing preview compatibility.
-- [ ] 2026-09-30 16:00 CST: Review the pull request and verify a real allowlisted lesson in sim after deployment.
+- [x] 2026-09-30 16:00 CST: Review the pull request and verify a real allowlisted lesson in sim after deployment.
+  2026-11-13: The allowlist is gone: #3203 (2026-10-27) deleted the 1.0 preview, so every course uses this preview. The same day, sim acceptance after #3203 ran the editor preview link and preview mode on the MarkdownFlow 2.0 boundary course without errors.
 
 ## Surprises & Discoveries
 
@@ -37,6 +38,8 @@ Teachers debugging an allowlisted course on the simulation deployment should see
 ## Outcomes & Retrospective
 
 The editor now sends a run ID and current draft to its existing preview endpoint. Allowlisted courses use the shared agent lesson runner and in-memory element adapter; debug sessions expire in Redis and do not write lesson rows or durable memory. Other courses continue through the 1.0 preview. Backend learn tests passed (2,106 passed, one skipped with a valid Redis locale). Focused frontend tests passed. Sim deployment and live editor acceptance remain open.
+
+Archived 2026-11-13: #3203 deleted the 1.0 preview, so every course now uses this preview, and the 2026-10-27 sim acceptance ran the editor preview link and preview mode without errors.
 
 ## Context and Orientation
 

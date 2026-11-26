@@ -41,6 +41,9 @@ import {
   showCreditInsufficientToast,
 } from '@/lib/credit-insufficient-toast';
 import { useTracking } from '@/hooks/use-tracking';
+import { useLearnerImages } from '@/hooks/use-learner-images';
+import { composeLearnerImages, splitLearnerImages } from '@/lib/learner-images';
+import { LearnerImagePreview } from '@/components/chat/LearnerImagePreview';
 import { useLiveReadinessAnalytics } from '@/components/live-follow-up/use-live-readiness-analytics';
 import {
   LiveVoiceFollowUpControls,
@@ -138,6 +141,16 @@ export default function AskBlock({
   );
 
   const [inputValue, setInputValue] = useState('');
+  const {
+    images: attachedImages,
+    setImages: setAttachedImages,
+    uploading: imagesUploading,
+    imageInput,
+  } = useLearnerImages(
+    `${outline_bid}:${element_bid}`,
+    'follow_up',
+    preview_mode,
+  );
   const sseRef = useRef<any>(null);
   const currentContentRef = useRef<string>('');
   const currentAnswerElementBidRef = useRef<string>('');
@@ -285,7 +298,10 @@ export default function AskBlock({
   const handleSendCustomQuestion = useCallback(async () => {
     const submissionMethod = pendingSubmissionMethodRef.current;
     pendingSubmissionMethodRef.current = 'button';
-    const question = inputValue.trim();
+    const question = isLive
+      ? inputValue.trim()
+      : composeLearnerImages(inputValue.trim(), attachedImages);
+    if (imagesUploading) return;
     if (followUpMode === 'disabled') return;
     if (isLive) {
       if (!question || !liveVoice || liveSubmissionRef.current) return;
@@ -348,6 +364,8 @@ export default function AskBlock({
     ]);
 
     setInputValue('');
+    const submittedImages = attachedImages;
+    setAttachedImages([]);
     dismissAskInputFocus();
 
     // Add an empty teacher reply placeholder to receive streaming content
@@ -385,7 +403,8 @@ export default function AskBlock({
         }
         return next;
       });
-      setInputValue(question);
+      setInputValue(splitLearnerImages(question).text);
+      setAttachedImages(submittedImages);
     };
     const finishSuccessfulExchange = () => {
       if (streamSettled) {
@@ -556,6 +575,9 @@ export default function AskBlock({
     isLive,
     liveVoice,
     liveVoiceSurface,
+    attachedImages,
+    setAttachedImages,
+    imagesUploading,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -838,7 +860,10 @@ export default function AskBlock({
                     (expanded || printMode) && styles.isExpanded,
                   )}
                 >
-                  {message.content}
+                  {splitLearnerImages(message.content).text}
+                  <LearnerImagePreview
+                    images={splitLearnerImages(message.content).images}
+                  />
                 </div>
               ) : (
                 <div
@@ -901,6 +926,12 @@ export default function AskBlock({
           dir={isRtlLocale(hostLanguage) ? 'rtl' : 'ltr'}
         >
           <MarkdownFlowInput
+            showImageInput={!isLive}
+            imageInput={
+              !isLive
+                ? { ...imageInput, disabled: isStreamingRef.current }
+                : undefined
+            }
             disabled={
               isLive &&
               liveVoice?.readiness !== 'ready' &&

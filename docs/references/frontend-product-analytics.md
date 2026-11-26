@@ -412,13 +412,13 @@ solely because historical Umami rows or queries exist.
 
 ## Draft classroom rewind
 
-- Business question: Can teachers revise earlier draft answers or regenerate teaching successfully?
+- Business question: Can teachers revise draft answers or regenerate teaching successfully?
 - Metric: Weekly started attempts and terminal success / failure / cancellation shares, grouped by operation. Results and starts are aggregate event counts, not one-to-one joins; navigation loss and best-effort delivery can leave gaps.
 - Events: `teacher_preview_rewind_start` at an initiated classroom reload request; `teacher_preview_rewind_result` at its first terminal success, business/transport/timeout failure, or cancellation by stop, replacement, reset, navigation or unmount.
-- Population: Authorized full-course draft preview requests with a reload anchor. Ordinary answers/continuations, published learning, editor Debug, blocked clicks and cancelled confirmation dialogs are excluded.
+- Population: Authorized full-course draft preview requests with a reload anchor. Confirmed edits include changes to the final answer and resubmission after an edit without a confirmed outcome. Ordinary answers and continuations, repeats of a settled answer, published learning, editor Debug, blocked clicks and cancelled confirmation dialogs are excluded.
 - Count and deduplication: One start and at most one result per initiated rewind, guarded by a closure shared across internal automatic continuation runs. Continuations neither start another attempt nor cancel the original; their final terminal outcome completes it. Intermediate text ends are not terminal success. No persistent identity or attempt token is added.
 - Payload: `shifu_bid` and `outline_bid` are stable pseudonymous machine IDs for course/lesson grouping; `operation` is `answer_edit|regenerate`; `learning_mode` is `read|listen`; only result events add `result=success|failed|cancelled`. No anchor, input, variable names, output, URL or errors are collected.
-- Consumers: Teacher draft-quality weekly Umami reports. New additive family; existing learner run/reset contracts and historical queries remain unchanged.
+- Consumers: Teacher draft-quality weekly Umami reports. Event names, fields and queries are unchanged. The corrected flow counts final answer edits as rewind attempts. No historical events are backfilled.
 - Verification: Hook tests cover exact anchors, initiation/confirmation timing, terminal outcomes, internal continuation chains and lifecycle cancellation. Helper tests cover payload allowlisting, exclusions, deduplication and synchronous/asynchronous tracking failures.
 
 ## Editor Debug step regeneration

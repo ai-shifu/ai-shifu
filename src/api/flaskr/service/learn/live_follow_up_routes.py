@@ -18,6 +18,7 @@ from urllib.parse import urlsplit, urlunsplit
 from flask import Flask, Response, request
 from flaskr.api.langfuse import get_request_id
 from flaskr.api.llm import is_live_follow_up_model_available
+from flaskr.common import llm_routing
 from flaskr.common.config import has_explicit_env_override
 from flaskr.common.http import make_common_response, sensitive_body
 from flaskr.common.shifu_context import with_shifu_context
@@ -858,7 +859,15 @@ def register_live_follow_up_routes(
             preview_mode=preview_mode,
             source=source,
         )
-        api_key = str(get_config("GEMINI_API_KEY", "") or "").strip()
+        # Same key names as Live availability in flaskr.api.llm.
+        api_key = next(
+            (
+                value
+                for name in llm_routing.GEMINI_API_KEY_ENVS
+                if (value := str(get_config(name, "") or "").strip())
+            ),
+            "",
+        )
         if not api_key:
             raise_param_error("live_follow_up")
 
@@ -924,7 +933,9 @@ def register_live_follow_up_routes(
             issued_at = datetime.fromtimestamp(admission.issued_at_ms / 1000, tz=UTC)
             token = mint_gemini_live_ephemeral_token(
                 api_key=api_key,
-                api_base_url=str(get_config("GEMINI_API_URL", "") or "").strip(),
+                api_base_url=llm_routing.config_value(
+                    "GEMINI_API_BASE", lambda name: get_config(name, "")
+                ),
                 model=provisional_binding.model,
                 voice_name=voice,
                 system_instruction=system_instruction,

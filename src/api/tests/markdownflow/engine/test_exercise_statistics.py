@@ -21,7 +21,7 @@ from markdownflow.engine.exercise_statistics import (
     read_exercise_history,
 )
 from markdownflow.engine.script import ScriptBundle
-from markdownflow.engine.tools import LESSON_OVER, Deps
+from markdownflow.engine.tools import LESSON_OVER, NO_PAUSE, Deps
 from pydantic import ValidationError
 from pydantic_ai.messages import (
     ModelMessage,
@@ -50,7 +50,19 @@ def _ctx(messages: list[ModelMessage]) -> SimpleNamespace:
 
 
 def _fixture() -> SimpleNamespace:
-    return _ctx(exercise_session({"corrected_questions": [1, 6, 10]}).messages)
+    messages = exercise_session({"corrected_questions": [1, 6, 10]}).messages
+    # Only exercise answers are submitted in this fixture. Navigation coverage
+    # tests append an actual learner click to the same lesson history.
+    for message in messages:
+        if isinstance(message, ModelRequest):
+            for part in message.parts:
+                if (
+                    isinstance(part, ToolReturnPart)
+                    and part.tool_name == "interact"
+                    and part.tool_call_id.startswith("continue-")
+                ):
+                    part.content = NO_PAUSE
+    return _ctx(messages)
 
 
 def _questions(ctx: SimpleNamespace) -> list[ExerciseQuestion]:
@@ -144,17 +156,16 @@ def _with_navigation() -> SimpleNamespace:
                 parts=[
                     ToolCallPart(
                         "interact",
-                        {"type": "single", "options": ["Next question"]},
+                        {
+                            "type": "single",
+                            "options": [{"display": "Next question", "value": "next"}],
+                        },
                         "navigation",
                     )
                 ]
             ),
             ModelRequest(
-                parts=[
-                    ToolReturnPart(
-                        "interact", "Learner chose: Next question", "navigation"
-                    )
-                ]
+                parts=[ToolReturnPart("interact", "Learner chose: next", "navigation")]
             ),
         ]
     )
@@ -185,6 +196,93 @@ async def test_navigation_requires_explicit_exclusion_and_reports_the_missing_re
     assert repaired["totals"]["attempts"] == 14
     assert repaired["totals"]["first_correct"] == 8
     assert ModelMessagesTypeAdapter.dump_json(ctx.messages) == before
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("clicks", "history_status"),
+    [(100, "found"), (200, "found"), (201, "invalid_history")],
+)
+async def test_report_keeps_full_exercise_evidence_with_navigation_clicks(
+    clicks: int, history_status: str
+) -> None:
+    interactions = []
+    for index in range(max(200, clicks)):
+        if index < 200:
+            interactions.append(
+                (
+                    {"type": "text", "question": f"Question {index // 8 + 1}"},
+                    f"Learner wrote: {index}",
+                )
+            )
+        if index < clicks:
+            interactions.append(
+                (
+                    {
+                        "type": "single",
+                        "options": [{"display": "Next", "value": "next"}],
+                    },
+                    "Learner chose: next",
+                )
+            )
+    messages = []
+    for index, (args, answer) in enumerate(interactions):
+        call_id = f"interaction-{index}"
+        messages.extend(
+            [
+                ModelResponse(parts=[ToolCallPart("interact", args, call_id)]),
+                ModelRequest(parts=[ToolReturnPart("interact", answer, call_id)]),
+            ]
+        )
+    ctx = _ctx(messages)
+
+    fragments = []
+    offset = 0
+    while offset is not None:
+        raw_page = await read_exercise_history(ctx, offset)
+        assert len(raw_page.encode()) <= RESULT_BYTES
+        page = json.loads(raw_page)
+        assert page["status"] == history_status
+        if history_status == "invalid_history":
+            return
+        assert page["offset"] == offset
+        fragments.append(page["text"])
+        offset = page["next_offset"]
+    assert len(fragments) > 1
+    records = json.loads("".join(fragments))
+    assert [(r["question"], r["answer"]) for r in records] == interactions
+
+    rows: dict[str, ExerciseQuestion] = {}
+    excluded = []
+    for record in records:
+        if record["question"]["type"] == "single":
+            excluded.append(record["reference"])
+            continue
+        question = record["question"]["question"]
+        row = rows.setdefault(
+            question, ExerciseQuestion(question=question, submissions=[])
+        )
+        row.submissions.append(
+            SubmissionJudgment(
+                reference=record["reference"],
+                outcome="correct" if len(row.submissions) == 7 else "incorrect",
+            )
+        )
+    questions = list(rows.values())
+    refused = json.loads(
+        await calculate_exercise_statistics(ctx, questions, excluded[:-1])
+    )
+    assert refused["status"] == "invalid_coverage"
+    assert refused["missing_references"] == [excluded[-1]]
+
+    raw_result = await calculate_exercise_statistics(ctx, questions, excluded)
+    assert len(raw_result.encode()) <= RESULT_BYTES
+    result = json.loads(raw_result)
+    assert result["status"] == "calculated"
+    assert result["totals"]["attempts"] == 200
+    assert result["totals"]["passed"] == 25
+    assert result["excluded_answers"] == clicks
+    assert ctx.deps.exercise_report_totals == result["totals"]
 
 
 @pytest.mark.anyio
@@ -264,6 +362,12 @@ async def test_sdk_repairs_navigation_coverage_without_counting_clicks_as_answer
                 args = {"offset": page["next_offset"]}
             else:
                 assert "excluded" in (info.instructions or "")
+                schema = next(
+                    tool.parameters_json_schema
+                    for tool in info.function_tools
+                    if tool.name == "calculate_exercise_statistics"
+                )
+                assert schema["properties"]["excluded"]["anyOf"][0]["maxItems"] == 400
                 name = "calculate_exercise_statistics"
                 args = {"questions": [row.model_dump() for row in rows]}
         else:

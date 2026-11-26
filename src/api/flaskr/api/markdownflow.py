@@ -36,6 +36,7 @@ from markdownflow import (
     iter_turn,
     normalize_answer,
     rebase_initial_script,
+    restore_script_text_input,
     substitute_variables,
 )
 
@@ -76,16 +77,16 @@ __all__ = [
     "render_interaction",
     "render_narrated_interaction",
     "render_question",
+    "restore_script_text_input",
     "substitute_variables",
     "unrenderable_reason",
 ]
 
 
 def _question_renderer() -> QuestionRenderer:
-    """Bind default control labels to the current application's locale."""
+    """Bind the default input hint to the current application's locale."""
     return QuestionRenderer(
         QuestionLabels(
-            continue_label=_("server.learn.continueButton"),
             free_text_placeholder=_("server.learn.freeTextPlaceholder"),
         )
     )

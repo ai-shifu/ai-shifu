@@ -21,6 +21,14 @@ to.
   Keep the Copilot navigation file and the `GEMINI.md` link as minimal
   compatibility entry points.
 
+## AI Application Development Principle
+
+Do not chase 100% success when developing AI applications. Aim for normal,
+reliable behavior in the majority of cases, and ensure that the minority of
+abnormal cases cannot cause irreversible loss. Prefer practical reliability
+and bounded, recoverable failures over complexity added only to pursue
+perfect AI behavior.
+
 ## Do
 
 - Read the nearest `AGENTS.md` before editing and use `ARCHITECTURE.md` to
@@ -282,7 +290,7 @@ cost nothing. **They must be green for any change under `markdownflow/`.** They 
 what the surrounding service tests cannot: pausing and resuming on an
 interaction, several interactions raised in one turn, answers surviving a store
 round trip, variables reaching memory, listen-mode segmentation, script syntax
-detection, and the confirm guardrails.
+detection, and authored navigation boundaries.
 
 ## Tests
 

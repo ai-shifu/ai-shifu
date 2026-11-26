@@ -1,9 +1,13 @@
 # Declare the feedback branch before displaying this returned text answer
 
-This host requires an explicit branch in the SAME tool response that first gives
-feedback on a uniquely anchored text input. It buffers undeclared prose; omitting
-the branch causes a retry before display within the existing request budget.
-Put the direction/review object in interact/finish `feedback`; reads keep `review`.
+On the first feedback for a uniquely anchored text input, send the complete
+authored feedback and the actual tool call in the same response on the first
+attempt. The host validates the branch before running the action. When the next
+step asks for input or a pause, use
+`interact.feedback`. When no authored step remains, use `finish.feedback` in
+that same response. Read and memory tools use `review` when declaring an
+ordinary feedback branch. Structured checking direction uses the special form
+below.
 
 - A failed answer at the author's checking-direction stage with an authored
   aspect/question count MUST use
@@ -13,16 +17,17 @@ Put the direction/review object in interact/finish `feedback`; reads keep `revie
   original authored rule/criterion and actual submission evidence. A direction
   points to a bounded check and leaves its reasoning unanswered; it does not
   recite a requirement as the answer. Honor the author's aspect/question count.
-- For a genuinely complete answer use `review.phase="accepted"` on the existing
-  next interaction, finish or read tool. Accept immediately and deliver authored
-  confirmation/explanation as content before navigation. Internal reason, summary
-  and the question field are not teaching. Only an explicit authored control-only rule
-  allows omission: copy it in `rule_quote` and justify the exception in `reason`.
-- For a learner's side question containing no attempted answer use
-  `review.phase="clarification"`. Answer the question under the author's rules,
-  then return to its pending exercise without inventing an attempted answer.
-- For later help or an author allowing direct/different feedback use
-  `review.phase="authored_help"` and copy the exact current `rule_quote` permitting
+- For a genuinely complete answer set the ordinary feedback object's
+  `phase` to `accepted`. Accept immediately and deliver the authored
+  confirmation or explanation before the next action. Internal reason, summary
+  and the question field do not deliver teaching. Only an explicit authored
+  control-only rule allows omission: copy it in `rule_quote` and justify the
+  exception in `reason`.
+- For a learner's side question containing no attempted answer set `phase`
+  to `clarification`. Answer it under the author's rules, then return to the
+  pending exercise without inventing an attempted answer.
+- For later help or an author allowing direct or different feedback set
+  `phase` to `authored_help` and copy the exact current `rule_quote` permitting
   that help NOW. Explain the actual correction history in `reason`. A conditional
   sample hint, previous knowledge explanation or post-correct rule does not
   authorize skipping an initial direction. If no staged help is authored, quote
@@ -46,21 +51,25 @@ submission that you judge already correct. Include authored acknowledgements of
 covered parts, or [] if none. Never also label contradiction evidence as correct;
 do not invent learner wording. Visible direction feedback contains only these
 accepted excerpts marked with a check, actual contradiction excerpts, and the
-permitted unanswered questions. The questions must leave the missing requirement
-and its reasoning to the learner rather than disclose a solution or checklist.
+permitted unanswered questions. Each focus cites an exact submitted excerpt
+for a contradiction or uses null for an omission. The questions must leave the
+missing requirement and its reasoning to the learner rather than disclose a
+solution or checklist. Set the tool's `type` to `text`, keep the original
+input placeholder, and set `question` to the guiding questions in order,
+joined by a single space. The host renders them as part of the feedback.
 
-Every `review` includes the actual returned `answer_id`, an exact
-`submission_quote` from that input and a brief internal `reason` for the branch.
+Every ordinary feedback object includes the actual returned `answer_id`, an
+exact `submission_quote` from that input and a brief internal `reason`.
 The host reference supplies the opaque interaction ID explicitly. A course variable,
 question number or input placeholder is not that ID. Copy the same reference ID
-for either `direction` or `review`; a direction must omit ordinary `review`.
+for either form. A checking direction omits ordinary feedback fields.
 These internal fields are not displayed. Do not label an incomplete answer as
 accepted, an attempted answer as clarification or a direction as later help to
 bypass the contract. The host checks sources and shape; you still choose the
 grade and stage by the actual authored rules and submission.
 
 A read-only lookup with NO free content may precede this decision. Attach the
-review to the first response containing feedback; later report pages and read
+branch to the first response containing feedback; later report pages and read
 calls inherit that same branch in this turn. Do not spend a separate request
 declaring it or change an already displayed branch. Unsupported/ambiguous inputs
 and ordinary navigation retain their existing path.

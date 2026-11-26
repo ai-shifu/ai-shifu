@@ -297,13 +297,20 @@ def test_render_profiles_swap_the_html_rules() -> None:
     assert "Screens" not in none
 
 
-async def test_confirm_without_content_is_rejected_and_retried() -> None:
-    """A bare `confirm` is bounced back to the model instead of reaching the learner.
+@pytest.mark.parametrize("legacy_args", [False, True], ids=["question", "prompt"])
+async def test_unauthored_continue_without_content_is_retried(
+    legacy_args: bool,
+) -> None:
+    """An unsolicited continue button cannot replace the next section of teaching.
 
     A turn with no content has nothing to pause on, so the model must produce content first.
     Mirrors the deepseek-flash loop seen on the token script.
     """
     from pydantic_ai.messages import RetryPromptPart
+
+    args = {"type": "single", "options": [{"display": "Ready", "value": "go"}]}
+    if legacy_args:
+        args["prompt"] = ""
 
     def _has_retry(messages: list[ModelMessage]) -> bool:
         last = messages[-1]
@@ -313,49 +320,47 @@ async def test_confirm_without_content_is_rejected_and_retried() -> None:
 
     async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         ret = _last_tool_return(messages)
-        confirm = {
+        button = {
             0: DeltaToolCall(
                 name="interact",
                 tool_call_id=f"c{len(messages)}",
-                json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
+                json_args=json.dumps(args),
             )
         }
         if ret is None and not _has_retry(messages):
             yield "Section one.\n"
-            yield confirm
-        elif (
-            ret is not None
-            and ret.tool_name == "interact"
-            and "pressed continue" in str(ret.content)
-        ):
-            yield confirm  # the bad move: continue answered with another bare confirm
+            yield button
         elif _has_retry(messages):
             yield "Section two.\n"
-            yield confirm
+            yield button
+        elif ret is not None and ret.content == "Learner chose: go":
+            yield button
         else:
             msg = f"unexpected model input: {messages[-1]}"
             raise AssertionError(msg)
 
-    engine = Engine(FunctionModel(stream_function=model))
+    engine = Engine(
+        FunctionModel(stream_function=model), legacy_interact_args=legacy_args
+    )
     s = await engine.new_session("one\n---\ntwo")
     first = await collect(engine.run_turn(s))
     req = next(e for e in first if isinstance(e, InteractionRequest))
-    assert req.spec.type == "confirm"
+    assert req.spec.type == "single"
 
     second = await collect(
-        engine.run_turn(s, InteractionResponseTurn(id=req.id, values=["continue"]))
+        engine.run_turn(s, InteractionResponseTurn(id=req.id, values=["go"]))
     )
     text = "".join(e.text for e in second if isinstance(e, ContentDelta))
     assert "Section two." in text
     reqs = [e for e in second if isinstance(e, InteractionRequest)]
     assert len(reqs) == 1
-    assert reqs[0].spec.prompt == "Ready?"
+    assert reqs[0].spec.options[0].display == "Ready"
     assert isinstance(second[-1], TurnDone)
     assert second[-1].reason == "interaction"
     assert not any(isinstance(e, ErrorEvent) for e in second)
 
 
-async def test_first_turn_may_open_with_a_question_but_not_a_bare_confirm() -> None:
+async def test_first_turn_may_open_with_a_question() -> None:
     async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         yield {
             0: DeltaToolCall(
@@ -383,13 +388,13 @@ async def test_two_interactions_in_one_turn_are_answered_one_at_a_time() -> None
     spec_a = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
-        "options": [{"display": "b1"}],
+        "options": [{"display": "b1"}, {"display": "b2"}],
         "variable": "b",
     }
 
@@ -458,13 +463,13 @@ async def test_pending_answers_survive_a_store_round_trip() -> None:
     spec_a = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
-        "options": [{"display": "b1"}],
+        "options": [{"display": "b1"}, {"display": "b2"}],
         "variable": "b",
     }
 
@@ -518,19 +523,19 @@ async def test_interactions_can_be_answered_out_of_order_and_without_an_id() -> 
     spec_a = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
-        "options": [{"display": "b1"}],
+        "options": [{"display": "b1"}, {"display": "b2"}],
         "variable": "b",
     }
     spec_c = {
         "type": "single",
         "prompt": "C?",
-        "options": [{"display": "c1"}],
+        "options": [{"display": "c1"}, {"display": "c2"}],
         "variable": "c",
     }
 
@@ -663,7 +668,7 @@ async def test_a_failed_resume_can_be_retried_instead_of_stranding_the_learner()
     spec = {
         "type": "single",
         "prompt": "A?",
-        "options": [{"display": "a1"}],
+        "options": [{"display": "a1"}, {"display": "a2"}],
         "variable": "a",
     }
     fail_next = True
@@ -717,7 +722,7 @@ async def test_a_failed_resume_can_be_retried_instead_of_stranding_the_learner()
 
 
 async def test_pressing_continue_does_not_overwrite_an_answer() -> None:
-    """Pressing a confirm button must not overwrite the answer the learner typed.
+    """Pressing a continue button must not overwrite the answer the learner typed.
 
     Reported from the playground: the learner described a situation, the coach read it back and
     asked for confirmation, and pressing "yes, that's it" replaced the stored description with the
@@ -725,8 +730,8 @@ async def test_pressing_continue_does_not_overwrite_an_answer() -> None:
     """
     question = {"type": "text", "prompt": "说说看", "variable": "卡点场景"}
     # The model attaches the same variable to its confirmation, which is what caused the loss.
-    confirm = {
-        "type": "confirm",
+    button = {
+        "type": "single",
         "prompt": "一致吗",
         "options": [{"display": "对，就是这样"}],
         "variable": "卡点场景",
@@ -748,7 +753,7 @@ async def test_pressing_continue_does_not_overwrite_an_answer() -> None:
             yield "我复述一下。\n"
             yield {
                 0: DeltaToolCall(
-                    name="interact", json_args=json.dumps(confirm), tool_call_id="q2"
+                    name="interact", json_args=json.dumps(button), tool_call_id="q2"
                 )
             }
         else:
@@ -775,7 +780,7 @@ async def test_pressing_continue_does_not_overwrite_an_answer() -> None:
         )
     ]
     assert session.memory["卡点场景"] == told, (
-        "the confirmation must not touch the answer"
+        "the continue button must not touch the answer"
     )
     assert not [e for e in events if isinstance(e, MemoryUpdated)]
 
@@ -1276,7 +1281,7 @@ async def test_long_multiline_closing_survives_an_unscripted_pause(
     calls = {"n": 0}
 
     async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        """Place multiline closing text before or after a rejected confirm call."""
+        """Place multiline closing text before or after an unsolicited pause."""
         calls["n"] += 1
         if calls["n"] == 1:
             yield "The explanation.\n\n" + closing
@@ -1287,7 +1292,7 @@ async def test_long_multiline_closing_survives_an_unscripted_pause(
             yield {
                 0: DeltaToolCall(
                     name="interact",
-                    json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
+                    json_args='{"type":"single","options":[{"display":"Continue"}]}',
                     tool_call_id="unasked",
                 )
             }
@@ -1356,7 +1361,7 @@ async def test_final_repeat_is_not_released_by_an_unscripted_pause(
     calls = {"n": 0}
 
     async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        """Write a closing repeat, ask an unscripted confirm, then continue or finish."""
+        """Write a closing repeat, ask for an unsolicited pause, then continue or finish."""
         calls["n"] += 1
         if calls["n"] == 1:
             yield "The explanation.\n\nClosing line."
@@ -1366,7 +1371,7 @@ async def test_final_repeat_is_not_released_by_an_unscripted_pause(
             yield {
                 0: DeltaToolCall(
                     name="interact",
-                    json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
+                    json_args='{"type":"single","options":[{"display":"Continue"}]}',
                     tool_call_id="unasked",
                 )
             }
@@ -1624,64 +1629,62 @@ async def test_a_newline_before_finish_does_not_withhold_the_closing_line() -> N
     assert "That is the end of the lesson." in said
 
 
-async def test_a_confirm_the_model_left_unlabelled_says_so_after_the_round_trip() -> (
-    None
-):
-    """The flag has to survive the JSON the engine hands the host, or it tells the host nothing.
+@pytest.mark.parametrize("legacy_args", [False, True], ids=["question", "prompt"])
+async def test_an_authored_continue_resumes_only_on_its_option_after_reload(
+    legacy_args: bool,
+) -> None:
+    args = {
+        "type": "single",
+        "options": [{"display": "Begin practice", "value": "begin"}],
+    }
+    if legacy_args:
+        args["prompt"] = ""
 
-    A unit test that builds the spec directly cannot see this: the engine passes it through
-    `model_dump` and the host validates it back, and a field excluded from the dump arrives as
-    its default. This goes through the real deferred-tool path.
-    """
+    calls = 0
 
-    async def confirm_then_stop(
-        messages: list[ModelMessage], _info: AgentInfo
-    ) -> StreamChunks:
-        if _last_tool_return(messages) is None:
-            yield "Read this first.\n"
-            yield {
-                0: DeltaToolCall(
-                    name="interact",
-                    json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
-                    tool_call_id="c1",
-                )
-            }
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        nonlocal calls
+        calls += 1
+        result = _last_tool_return(messages)
+        if result is not None:
+            assert result.content == "Learner chose: begin"
+            yield "First step."
+            return
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(args),
+                tool_call_id="c1",
+            )
+        }
 
-    engine = Engine(FunctionModel(stream_function=confirm_then_stop))
-    session = await engine.new_session("script")
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        pauses_from_notation=True,
+        legacy_interact_args=legacy_args,
+    )
+    session = await engine.new_session("?[Begin practice//begin]\n\nFirst step.")
     events = await collect(engine.run_turn(session))
-    asked = [e for e in events if isinstance(e, InteractionRequest)]
-    assert len(asked) == 1
-    assert asked[0].spec.labelled_by_engine is True
-    # And it survives being stored and loaded again with the session.
+    (button,) = [e for e in events if isinstance(e, InteractionRequest)]
+    assert button.spec.question == ""
+    assert button.spec.options[0].display == "Begin practice"
     reloaded = Session.loads(session.dumps())
-    assert reloaded.pending[0].spec.labelled_by_engine is True
-
-
-async def test_a_confirm_the_model_labelled_itself_says_so_too() -> None:
-    async def labelled(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        if _last_tool_return(messages) is None:
-            yield "Read this first.\n"
-            yield {
-                0: DeltaToolCall(
-                    name="interact",
-                    json_args=json.dumps(
-                        {
-                            "type": "confirm",
-                            "prompt": "",
-                            "options": [{"display": "开始"}],
-                        }
-                    ),
-                    tool_call_id="c1",
-                )
-            }
-
-    engine = Engine(FunctionModel(stream_function=labelled))
-    session = await engine.new_session("script")
-    events = await collect(engine.run_turn(session))
-    asked = [e for e in events if isinstance(e, InteractionRequest)]
-    assert asked[0].spec.labelled_by_engine is False
-    assert asked[0].spec.options[0].display == "开始"
+    for values in ([], ["continue"]):
+        rejected = await collect(
+            engine.run_turn(
+                reloaded, InteractionResponseTurn(id=button.id, values=values)
+            )
+        )
+        assert any(isinstance(event, ErrorEvent) for event in rejected)
+        assert calls == 1
+        assert reloaded.pending[0].tool_call_id == button.id
+    following = await collect(
+        engine.run_turn(
+            reloaded, InteractionResponseTurn(id=button.id, values=["begin"])
+        )
+    )
+    assert _said(following) == "First step."
+    assert calls == 2
 
 
 async def test_a_question_the_host_cannot_show_is_asked_again_instead() -> None:
@@ -2071,7 +2074,7 @@ def test_a_script_pauses_only_where_it_puts_a_single_button() -> None:
 def _pausing_model(
     told: list[str],
 ) -> Callable[..., StreamChunks]:
-    """Model: writes a part, then pauses with a `confirm`; records what each call returned."""
+    """Write part one, then pause with a button and record what the learner chose."""
 
     async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         ret = _last_tool_return(messages)
@@ -2084,7 +2087,7 @@ def _pausing_model(
             0: DeltaToolCall(
                 name="interact",
                 json_args=json.dumps(
-                    {"type": "confirm", "prompt": "", "options": [{"display": "继续"}]}
+                    {"type": "single", "options": [{"display": "继续"}]}
                 ),
                 tool_call_id="c1",
             )
@@ -2122,7 +2125,7 @@ async def test_a_pause_the_script_wrote_is_still_put_to_the_learner() -> None:
     events = await collect(engine.run_turn(session))
 
     (asked,) = [e for e in events if isinstance(e, InteractionRequest)]
-    assert asked.spec.type == "confirm"
+    assert asked.spec.type == "single"
     assert events[-1].reason == "interaction"
 
 
@@ -2679,8 +2682,7 @@ def _rewriting_model(
                     name="interact",
                     json_args=json.dumps(
                         {
-                            "type": "confirm",
-                            "prompt": "",
+                            "type": "single",
                             "options": [{"display": "继续"}],
                         }
                     ),
@@ -2766,7 +2768,7 @@ async def test_a_repeat_held_at_a_second_untaken_pause_is_not_shown() -> None:
             0: DeltaToolCall(
                 name="interact",
                 json_args=json.dumps(
-                    {"type": "confirm", "prompt": "", "options": [{"display": "继续"}]}
+                    {"type": "single", "options": [{"display": "继续"}]}
                 ),
                 tool_call_id="c2",
             )

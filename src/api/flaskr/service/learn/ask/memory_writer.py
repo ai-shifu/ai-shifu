@@ -24,6 +24,7 @@ from flaskr.service.profile.api import (
     global_profile_value_versions,
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
+from markdownflow.engine.recall import oversized_value_recall_calls
 from markdownflow.engine.recall import recall as engine_recall
 from markdownflow.engine.script import collected_names
 from markdownflow.engine.tools import Deps, prepare_memory_tool
@@ -60,6 +61,10 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from pydantic_ai.models import Model
+
+# Full pages can carry up to 192 KiB at this limit. The gateway separately
+# checks the complete input, including conversation history and tool schemas.
+_MAX_PAGINATED_VALUE_CALLS = 24
 
 _FALLBACK_NOTICE = (
     "Memory tools are unavailable for this answer, so nothing can be saved, "
@@ -349,6 +354,15 @@ class FollowUpMemoryRun:
         # Three writes can add three pages; reserve those, the writes and an exact read.
         quotations = LearnerQuotationSource(self.quotation_messages)
         tool_limit = pages + quotations.page_count() + 7
+        value_calls = 0
+        for value in deps.user_memory.values():
+            if isinstance(value, str):
+                value_calls += oversized_value_recall_calls(
+                    value, _MAX_PAGINATED_VALUE_CALLS - value_calls
+                )
+                if value_calls == _MAX_PAGINATED_VALUE_CALLS:
+                    break
+        tool_limit += value_calls
         write_attempts = 0
 
         async def learner_quotes(offset: int = 0) -> ToolReturn[str]:

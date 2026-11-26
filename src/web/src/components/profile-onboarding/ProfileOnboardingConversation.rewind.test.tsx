@@ -110,6 +110,7 @@ it('prefills an editable answer and confirms regeneration with the real Markdown
   );
 
   const goal = await screen.findByPlaceholderText('Describe your goal');
+  expect(screen.queryByRole('button', { name: 'Add image' })).toBeNull();
   await user.type(goal, 'Read faster{Enter}');
   await screen.findByPlaceholderText('Describe your pace');
   expect(goal).toHaveValue('Read faster');

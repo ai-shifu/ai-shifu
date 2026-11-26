@@ -10,9 +10,17 @@ from markdownflow import (
     UnrepresentableInteractionError,
 )
 
-_RENDERER = QuestionRenderer(
-    QuestionLabels(continue_label="Proceed", free_text_placeholder="Your response")
-)
+_RENDERER = QuestionRenderer(QuestionLabels(free_text_placeholder="Your response"))
+
+
+def test_single_button_keeps_its_display_and_value() -> None:
+    spec = InteractionSpec(
+        type="single",
+        question="",
+        options=[Option(display="Next step", value="continue")],
+    )
+    assert _RENDERER.render_question(spec) == ("", "?[Next step//continue]")
+    assert _RENDERER.unrenderable_reason(spec) is None
 
 
 @pytest.mark.parametrize(

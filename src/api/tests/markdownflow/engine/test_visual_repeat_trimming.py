@@ -149,7 +149,7 @@ async def test_repeat_trimming_preserves_content_after_another_model_retry(
             yield {
                 0: DeltaToolCall(
                     name="interact",
-                    json_args='{"type":"confirm","prompt":"Continue?"}',
+                    json_args='{"type":"single","options":[{"display":"Continue"}]}',
                     tool_call_id="unscripted-pause",
                 )
             }
@@ -240,7 +240,9 @@ async def test_a_highlighted_slide_after_an_unscripted_pause_keeps_its_layout(
             yield {
                 0: DeltaToolCall(
                     name="interact",
-                    json_args=json.dumps({"type": "confirm", "prompt": "Continue?"}),
+                    json_args=json.dumps(
+                        {"type": "single", "options": [{"display": "Continue"}]}
+                    ),
                     tool_call_id="unscripted-pause",
                 )
             }

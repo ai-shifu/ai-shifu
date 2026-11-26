@@ -465,26 +465,6 @@ def reconcile_provider_catalog_task() -> dict[str, object]:
     return payload
 
 
-@shared_task(name="billing.send_low_balance_alert")
-def send_low_balance_alert_task(
-    *,
-    creator_bid: str = "",
-) -> dict[str, object]:
-    """Legacy name of `billing.scan_low_balance_notifications`, kept for one release.
-
-    Beat schedules the new name; this only drains messages a previous beat queued under the
-    old one during a rolling deploy. Remove it in the next release.
-    """
-    app = _create_task_app()
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    payload = _scan_low_balance_notifications(
-        app,
-        creator_bid=normalized_creator_bid,
-    )
-    payload["task_name"] = "billing.send_low_balance_alert"
-    return payload
-
-
 @shared_task(name="billing.scan_credit_expiring_notifications")
 def scan_credit_expiring_notifications_task(
     *,

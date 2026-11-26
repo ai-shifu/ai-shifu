@@ -53,7 +53,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.expire_wallet_buckets" in celery_app.tasks
     assert "billing.expire_pending_orders" in celery_app.tasks
     assert "billing.reconcile_provider_reference" in celery_app.tasks
-    assert "billing.send_low_balance_alert" in celery_app.tasks
+    assert "billing.send_low_balance_alert" not in celery_app.tasks
     assert "billing.scan_credit_expiring_notifications" in celery_app.tasks
     assert "billing.scan_low_balance_notifications" in celery_app.tasks
     assert "billing.send_credit_notification" in celery_app.tasks

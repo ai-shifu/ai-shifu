@@ -1,6 +1,151 @@
-# AI-Shifu Configuration Scripts
+# AI-Shifu Backend Scripts
 
-This directory contains utility scripts for managing AI-Shifu configuration.
+This directory contains utilities for developing and operating the AI-Shifu backend.
+
+## evaluate_mdf_interactions.py
+
+Use this evaluator when editing the MarkdownFlow prompts in
+`src/api/markdownflow/engine/prompts/`. Run it from `src/api` with Python 3.11
+and the dependencies in `requirements.txt`. It runs the course engine, validates
+the controls with the MarkdownFlow renderer, and submits scripted learner answers.
+
+```bash
+python scripts/evaluate_mdf_interactions.py
+python scripts/evaluate_mdf_interactions.py --suite smoke
+python scripts/evaluate_mdf_interactions.py --list
+python scripts/evaluate_mdf_interactions.py --case <case-id> --json /tmp/interaction-replay.json
+```
+
+Offline mode replays sanitized model text and tool calls from the bundled catalog.
+It checks parsing, tool retries, answer storage, and continuation without network
+access or provider credentials. Use `--cases <path>` to load another catalog of the
+same shape. The [coverage inventory](mdf_interactions/README.md) lists the
+short teaching paths and the replay regressions. Start with `--suite smoke`
+for the core controls and multi-turn teaching paths. Langfuse access is only
+needed when curating examples.
+
+Live mode sends the checkout's current prompts to a configured model provider
+through the backend model adapter. Set credentials in the local `src/api/.env`
+or shell environment, for example `OPENAI_API_KEY` and, when applicable,
+`OPENAI_BASE_URL`. Use an explicit model ID available from that provider.
+The gateway can discover models from configured providers at startup. To
+restrict discovery to the provider you want to test, set `SKIP_LOAD_DOTENV=1`
+and supply that provider's configuration in the shell. The model provider bills
+live calls. Both modes run without starting the web app, API, MySQL, or Redis.
+The evaluator uses local session state and skips application usage writes and
+Langfuse tracing.
+
+Live steps with `prose_question` ask a model to verify that the visible teaching
+prose invites the learner to answer the intended question. Equivalent wording,
+including a direct instruction to choose or write an answer, passes. When the
+same titled control appears on consecutive steps, the judge also receives the
+previous question so it can resolve an explicit call to answer it. The prose
+still needs to ask for the intended answer. A different question, a topic
+mention alone, or an empty response fails.
+
+Use `prose_meaning` when the prose should communicate an instruction or fact.
+The judge checks the key actions, conditions, and order and accepts paraphrases.
+Keep exact tokens such as date formats in `prose_contains`. Both semantic
+checks run independently of the control assertions.
+
+The judge can abstain when the intent or scope is ambiguous. It defaults to the
+teaching model. Use the same `--judge-model` when comparing teaching models.
+Set `--second-judge-model <model-id>` to get a second judgment on the same prose.
+Each configured judge makes at most one additional provider request per
+prose criterion. An abstention or disagreement puts the criterion, exact
+learner-facing prose, any previous question used, and each judge's decision and
+reason in the human review list. Judge requests and tokens have their own
+totals. A failed judge request or invalid decision is a call failure. Offline
+mode applies replay assertions such as `replay_prose_once` and marks semantic
+checks as unevaluated.
+
+For each live learner action, an engine turn that ends after visible teaching
+can continue automatically with the same session. The evaluator stops on a
+question (including narrated controls), completion, an error, or a turn with
+no visible teaching. The local run allows up to eight automatic continuations
+per learner action and reports reaching that limit as a behavior failure.
+Offline replay still checks the recorded engine turn for each fixture step.
+
+In live mode, an assertion failure stays in the report and the evaluator still
+submits the next fixture answer when the displayed control accepts it. For
+example, it clicks an authored navigation button if the expected value is
+available despite a control mismatch. If the planned submission is unavailable,
+the evaluator stops that case.
+
+```bash
+python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperature 0 \
+  --suite smoke --repeat 3 --json /tmp/interaction-baseline.json
+# Edit the local prompt files, then run the same cases and model settings.
+python scripts/evaluate_mdf_interactions.py --live --model <model-id> --temperature 0 \
+  --suite smoke --repeat 3 --json /tmp/interaction-candidate.json \
+  --compare /tmp/interaction-baseline.json
+```
+
+Each report includes the prompt and case fingerprints, model settings, per-run
+outcomes, failed checks, rendered controls, teaching text, usage, and elapsed
+time. The terminal and JSON report include totals by criterion for
+`passed`, `failed`, `needs_review`, and `not_evaluated`. The count is per
+assertion, including individual phrase checks within a step. Unreachable
+steps and unavailable control fields count as unevaluated. Use
+`results[].steps[].criteria` to inspect a step and `review_items` for
+the cases that need a human decision. Each review item identifies the
+case, repeat, and step.
+
+A pass after a model validation retry or automatic continuation is reported
+as a recovery. Reports count the two kinds of recovery separately and include
+each engine turn's outcome. They also distinguish reproduced historical
+failures, behavior failures, and provider failures. Generate a fresh baseline
+when the report version or selected fixtures change. `--compare` requires
+matching mode, teaching model, judge models and instructions, temperature,
+case IDs and fixture contents, and repeat count.
+
+The exit status is 0 when all cases meet their expectations, 1 for behavior
+failures, 2 for invocation, provider, or comparison errors, and 3 for pending
+human review in a run without behavior or call failures. Review items remain
+in the report when the run also has another failure.
+
+### Review and annotate results
+
+With `--json`, the evaluator also writes a sibling `.review.html` file,
+including when assertions fail or a verdict needs review. Open it in a browser.
+Use the case and step navigation, filter by criterion or review status, and
+expand the criterion to compare expected and observed evidence. The page shows
+the submitted values and text, authored prompts, visible teaching and controls,
+memory changes, per-turn prose, model tool arguments, and retry feedback.
+The source blocks preserve exact strings and expose full step data. For visual
+blocks, the prose preview extracts the text and leaves the source available.
+
+Choose a human verdict and enter a note on any criterion. Uncertain verdicts
+appear in the human review filter. The criterion table counts automatic and
+human verdicts in separate columns. The browser saves edits by run, case,
+repeat, step, and criterion. Export the annotations to JSON for a portable
+copy. Import restores matching entries, and keeps and counts local edits when
+both files have different annotations for the same criterion.
+
+Use one page to compare runs with the same fixture selection, or regenerate a
+page from a saved report without invoking a model.
+
+```bash
+python scripts/mdf_interaction_review.py /tmp/interaction-baseline.json \
+  /tmp/interaction-candidate.json --output /tmp/interaction-comparison.html
+```
+
+New reports carry the fixture snapshot. For an earlier version 5 report, the
+review tool attaches the current catalog only when its selected case fingerprint
+matches. Pass `--cases /path/to/original-cases.json` to use an older catalog.
+The page uses the evidence available in each report. Model-call arguments and
+retry feedback are available for runs saved with the updated evaluator.
+
+### Curating fixtures
+
+For a new trace-derived case, reconstruct a teaching excerpt and answer with
+original wording. Keep the interaction syntax, displayed and submitted value
+relationship, bindings, and sequence of model attempts needed to reproduce it.
+Set expectations from the teaching script and the learner behavior it calls for.
+Use a separate replay expectation when the recorded output shows a historical
+failure. Review the JSON before committing it to ensure its text and metadata
+contain no raw course or learner data. Use synthetic cases for behaviors that
+are missing from the sampled traces.
 
 ## backfill_profile_onboarding_assistant_prompts.py
 

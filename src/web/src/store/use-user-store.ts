@@ -256,9 +256,11 @@ export const useUserStore = create<
             return;
           }
 
-          // Determine if user is authenticated based on mobile number or email
+          // Username accounts can have a password without a phone or email.
           const isAuthenticated = !!(
-            normalizedUserInfo?.mobile || normalizedUserInfo?.email
+            normalizedUserInfo?.mobile ||
+            normalizedUserInfo?.email ||
+            normalizedUserInfo?.has_password === true
           );
           tokenTool.set({
             token: latestTokenData.token || initialToken,

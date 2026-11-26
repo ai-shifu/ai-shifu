@@ -491,6 +491,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         recall_history_compaction=False,
         exercise_statistics=True,
         feedback_contract=True,
+        stream_answer_feedback=True,
         memory_reserved_keys=entry.get_global_profile_keys(),
         allowed_authored_question_keys=entry.get_global_profile_keys(),
         memory_readonly_prefixes=("course:", "share:"),
@@ -498,7 +499,6 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         model_settings={"temperature": 0.25},
         # Without it, a question the controls cannot carry reaches the learner with no controls.
         interaction_check=entry.unrenderable_reason,
-        question_text_filter=entry.strip_echoed_memory,
         # Without it, the model pauses the lesson where the author wrote no button.
         pauses_from_notation=True,
     )
@@ -585,9 +585,7 @@ def test_authored_system_answers_use_the_same_account_memory_in_both_modes(
     def chat(**_kwargs: object) -> Iterator[FakeChunk]:
         nonlocal phase
         phase += 1
-        if phase > 2:
-            yield FakeChunk(result=" ", finish_reason="stop")
-            return
+        assert phase <= 2
         if phase == 1:
             yield FakeChunk(result=f"{question}\n")
             name = "interact"
@@ -598,7 +596,15 @@ def test_authored_system_answers_use_the_same_account_memory_in_both_modes(
             }
         else:
             name = "finish"
-            args = {"summary": "Lesson finished"}
+            args = {
+                "summary": "Lesson finished",
+                "feedback": {
+                    "phase": "accepted",
+                    "answer_id": "call-1",
+                    "submission_quote": answer,
+                    "reason": "The learner supplied the requested account field.",
+                },
+            }
         yield FakeChunk(
             tool_call_deltas=[
                 {
@@ -627,7 +633,11 @@ def test_authored_system_answers_use_the_same_account_memory_in_both_modes(
             any(event.type == GeneratedType.INTERACTION for event in events) == authored
         )
         if authored:
-            list(entry.agent_lesson_events(app, user_input=answer, **params))
+            events = list(entry.agent_lesson_events(app, user_input=answer, **params))
+            # A valid finish can complete the lesson without an added prose request.
+            assert phase == 2
+            assert any(event.type == GeneratedType.DONE for event in events)
+            assert not any(event.type == GeneratedType.CONTENT for event in events)
             session = load_agent_session(app, user, outline)
             assert session is not None
             assert session.all_memory()[question] == answer

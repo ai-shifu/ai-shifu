@@ -22,13 +22,26 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("prelude", [None, "incorrect", "clarification submission"])
-@pytest.mark.parametrize("nav_question", ["", "Ready to proceed?"])
+@pytest.mark.parametrize(
+    ("nav_prose", "nav_binding"),
+    [
+        ("Continue to practice.", ""),
+        ("Ready to proceed?", None),
+        ("Practice step", "Practice step"),
+    ],
+    ids=["navigation", "question-mark-navigation", "bound-navigation"],
+)
 @pytest.mark.parametrize(
     ("label", "value"),
     [("Next question", "next"), ("Begin practice", "begin_practice")],
 )
 async def test_authored_navigation_waits_for_click_after_answer_and_reload(
-    reload: bool, prelude: str | None, nav_question: str, label: str, value: str
+    reload: bool,
+    prelude: str | None,
+    nav_prose: str,
+    nav_binding: str | None,
+    label: str,
+    value: str,
 ) -> None:
     """Check policy delivery and pending controls, including non-selection messages."""
     calls = 0
@@ -63,13 +76,13 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
                 in interaction_tool.description
             )
             yield "Correct; here is the required explanation."
-            if nav_question:
-                yield "\n\n" + nav_question
+            yield "\n\n" + nav_prose
             spec = {
                 "type": "single",
-                "question": nav_question,
                 "options": [{"display": label, "value": value}],
             }
+            if nav_binding is not None:
+                spec["question"] = nav_binding
         else:
             assert calls == (4 if correcting else 3)
             yield "Second question?"
@@ -87,7 +100,8 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
         }
 
     engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
-    script = f"First question?\n?[...Answer]\nExplain the accepted answer.\n?[{label}//{value}]\nSecond question?\n?[...Answer two]\n?[{{{{practice_feedback}}}}...{value}]\n?[...{value}]"
+    binding = f"{{{{{nav_binding}}}}} " if nav_binding else ""
+    script = f"First question?\n?[...Answer]\n{nav_prose}\n?[{binding}{label}//{value}]\nSecond question?\n?[...Answer two]\n?[{{{{practice_feedback}}}}...{value}]\n?[...{value}]"
     session = await engine.new_session(script)
     await _events(engine.run_turn(session))
     if correcting:
@@ -114,13 +128,14 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     interactions = [e for e in events if isinstance(e, InteractionRequest)]
     assert len(interactions) == 1
     assert session.pending[0].spec.type == "single"
-    assert not session.pending[0].spec.question
+    assert session.pending[0].spec.question == (nav_binding or "")
     assert session.pending[0].spec.options[0].stored == value
     before = calls
     await _events(engine.run_turn(session, ContinueTurn()))
     assert calls == before
     if reload:
         session = Session.loads(session.dumps())
+    assert session.pending[0].spec.type == "single"
     pending = (session.pending[0].tool_call_id, session.pending[0].spec.model_dump())
     answers = dict(session.answers)
     side_question = await _events(
@@ -151,19 +166,116 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True], ids=["new", "saved"])
 @pytest.mark.parametrize(
-    "preceding",
-    [None, "{question}", "**{question}**", "[{question}](https://example.com)"],
-    ids=["bound", "plain", "bold", "link"],
+    ("kind", "control", "question", "label", "value"),
+    [
+        ("single", "?[Next step//continue]", "Next step", "Next step", "continue"),
+        ("single", "?[{{Stage}} Begin//practice]", "Stage", "Begin", "practice"),
+        (
+            "multi",
+            "Choose the available exercise.",
+            "Which exercise?",
+            "First",
+            "first",
+        ),
+    ],
+    ids=["continue-button", "bound-button", "one-multiselect-option"],
+)
+async def test_a_single_fixed_option_advances_without_saving(
+    kind: str, control: str, question: str, label: str, value: str, reload: bool
+) -> None:
+    opening = "Different soils hold water differently."
+    following = "Clay takes longer to drain."
+    memory = {"previous_topic": "soil drainage", question: "keep this value"}
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            yield following
+            return
+        yield opening
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                tool_call_id="next-step",
+                json_args=json.dumps(
+                    {
+                        "type": kind,
+                        "question": question,
+                        "options": [{"display": label, "value": value}],
+                    }
+                ),
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(
+        f"{opening}\n\n{control}\n\n{following}",
+        memory=memory,
+    )
+    first = await _events(engine.run_turn(session))
+    (request,) = [event for event in first if isinstance(event, InteractionRequest)]
+    assert request.spec.type == kind
+    assert request.spec.question == question
+    assert request.spec.variable == question
+    assert request.spec.options[0].stored == value
+    if reload:
+        session = Session.loads(session.dumps())
+
+    second = await _events(
+        engine.run_turn(session, InteractionResponseTurn(id=request.id, values=[value]))
+    )
+    assert not any(isinstance(event, (ErrorEvent, MemoryUpdated)) for event in second)
+    assert [event.text for event in second if isinstance(event, ContentDelta)] == [
+        following
+    ]
+    assert session.all_memory() == memory
+    assert not session.answer_hashes
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True], ids=["new", "saved"])
+@pytest.mark.parametrize(
+    ("preceding", "question", "label", "value"),
+    [
+        (None, "What color is the sky?", "Blue", "Blue"),
+        ("{question}", "What color is the sky?", "Blue", "Blue"),
+        ("**{question}**", "What color is the sky?", "Blue", "Blue"),
+        ("[{question}](https://example.com)", "What color is the sky?", "Blue", "Blue"),
+        ("{question}", "Choose the sky color.", "Blue", "Blue"),
+        (None, "Which keyword skips to the next iteration?", "Continue", "continue"),
+        (
+            "{question}",
+            "Which keyword skips to the next iteration?",
+            "Continue",
+            "continue",
+        ),
+    ],
+    ids=[
+        "bound",
+        "plain",
+        "bold",
+        "link",
+        "instruction",
+        "bound-continue-value",
+        "unbound-continue-value",
+    ],
 )
 async def test_an_authored_single_choice_can_still_record_an_answer(
-    preceding: str | None,
+    preceding: str | None, question: str, label: str, value: str, reload: bool
 ) -> None:
-    question = "What color is the sky?"
+    option = label if label == value else f"{label}//{value}"
+    other = "Break" if value == "continue" else "Red"
+    choices = f"{option} | {other}"
     script = (
-        f"?[{{{{{question}}}}} Blue]"
+        f"?[{{{{{question}}}}} {choices}]"
         if preceding is None
-        else f"{preceding.format(question=question)}\n?[Blue]"
+        else f"{preceding.format(question=question)}\n?[{choices}]"
     )
     attempts = 0
 
@@ -184,7 +296,10 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
                     {
                         "type": "single",
                         "question": question,
-                        "options": [{"display": "Blue"}],
+                        "options": [
+                            {"display": label, "value": value},
+                            {"display": other},
+                        ],
                     }
                 ),
             )
@@ -195,12 +310,15 @@ async def test_an_authored_single_choice_can_still_record_an_answer(
     first = await _events(engine.run_turn(session))
     (request,) = [event for event in first if isinstance(event, InteractionRequest)]
     assert request.spec.question == question
+    if reload:
+        session = Session.loads(session.dumps())
     second = await _events(
-        engine.run_turn(session, InteractionResponseTurn(values=["Blue"]))
+        engine.run_turn(session, InteractionResponseTurn(values=[value]))
     )
     assert [
         (event.key, event.value) for event in second if isinstance(event, MemoryUpdated)
-    ] == [(question, "Blue")]
+    ] == [(question, value)]
+    assert session.all_memory() == {question: value}
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:

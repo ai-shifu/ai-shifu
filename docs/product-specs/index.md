@@ -31,7 +31,7 @@ User-facing workflow and page behavior specifications live here.
 - [Learner Listen Playback and Timeline](../product-specs/learner-listen-playback.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-11-08` | Canonical: `true`
 - [Learner Memory Admission](../product-specs/learner-memory-admission.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-11-08` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-11-17` | Canonical: `true`
 - [Lesson Content Update Recommendations](../product-specs/lesson-content-updates.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-08` | Canonical: `true`
 - [Lesson Memory Context](../product-specs/lesson-memory-context.md)
@@ -53,7 +53,7 @@ User-facing workflow and page behavior specifications live here.
 - [Operator Role Design](../product-specs/operator-role.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-09` | Canonical: `true`
 - [Operator User Management](../product-specs/operator-user-management.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-08` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-11-20` | Canonical: `true`
 - [Operator User Points](../product-specs/operator-user-points-columns.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-11-09` | Canonical: `true`
 - [Operator User Points Grant](../product-specs/operator-user-points-grant.md)

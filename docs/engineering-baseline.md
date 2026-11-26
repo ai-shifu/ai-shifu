@@ -87,7 +87,7 @@ npm install -g @evilmartians/lefthook
 Then install the remaining development tools:
 
 ```bash
-python -m pip install ruff==0.17.3 commitizen==4.16.2 pre-commit-hooks==6.0.0 markdown-it-py==4.0.0
+python -m pip install ruff==0.17.6 commitizen==4.19.4 pre-commit-hooks==6.0.0 markdown-it-py==4.3.0
 (cd src/web && npm ci)   # provides prettier + eslint
 lefthook install
 ```
@@ -711,7 +711,8 @@ from ordinary application changes may first be detected by the main build.
    (no prerelease, build suffix or leading zeroes). It updates the two npm
    manifests and lock roots, the vendored engine version, and first-party pinned
    Compose images. Third-party images and rolling `latest` are unchanged. The
-   generated PR includes a notes preview; no formal tag or Release is created.
+   generated PR includes a concise manual handoff; no formal tag or Release is
+   created. Detailed notes are generated for the draft after the PR is merged.
 2. A human reviews the version-only diff and CI, then **manually merges** the
    `release/version-bump-<tag>` PR into main. AI/scripts must never merge or
    enable auto-merge. Main/latest publication and existing production CICD/Drone

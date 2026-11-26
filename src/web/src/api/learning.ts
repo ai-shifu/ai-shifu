@@ -6,6 +6,12 @@ import {
 } from '@/lib/sse-client';
 import { getResolvedBaseURL } from '@/lib/env-utils';
 import type { CreditInsufficientAudience } from '@/lib/credit-insufficient-toast';
+
+export const uploadLearnerImage = (file: File): Promise<string> => {
+  const body = new FormData();
+  body.append('file', file);
+  return request.post('/api/learn/images', body, { skipErrorToast: true });
+};
 import {
   getMockRunFixtureMode,
   MockRunStreamFixtureSource,

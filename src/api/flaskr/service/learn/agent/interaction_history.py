@@ -6,7 +6,6 @@ import json
 from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import (
-    InteractionAnswer,
     InteractionSpec,
     answer_is_usable,
     normalize_answer,
@@ -14,8 +13,14 @@ from flaskr.api.markdownflow import (
 from markdownflow import InteractionParser
 from pydantic import ValidationError
 
+from .image_answers import answer_with_images
 from .legacy_protocol import render_interaction
-from .rewind import read_turn_learner_values, read_turn_record, recorded_question_ids
+from .rewind import (
+    narrated_answer,
+    read_turn_learner_values,
+    read_turn_record,
+    recorded_question_ids,
+)
 
 if TYPE_CHECKING:
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
@@ -25,20 +30,20 @@ def structured_user_input(raw_spec: object, values: list[str]) -> str | None:
     """Encode a submitted answer as the renderer's structured control defaults.
 
     Existing structured defaults preserve commas/newlines inside each submitted value.
-    Returns None for a confirmation, an invalid spec or an unusable answer.
+    Returns None for an invalid spec or an unusable answer.
     """
     try:
         spec = InteractionSpec.model_validate(raw_spec)
     except ValidationError:
         return None
-    if spec.type == "confirm":
-        return None
-    answer = normalize_answer(spec, InteractionAnswer(values=values))
+    answer = normalize_answer(spec, answer_with_images(spec, values))
     if not answer_is_usable(spec, answer):
         return None
     option_values = {option.stored for option in spec.options}
     selected = [value for value in answer.values if value in option_values]
     free_text = [value for value in answer.values if value not in option_values]
+    if answer.text:
+        free_text.append(answer.text)
     return json.dumps(
         {
             "selectedValues": selected,
@@ -46,6 +51,29 @@ def structured_user_input(raw_spec: object, values: list[str]) -> str | None:
             "buttonText": selected[0]
             if selected and spec.type in ("single", "single_or_text")
             else "",
+        },
+        ensure_ascii=False,
+    )
+
+
+def narrated_user_input(control: str, values: list[str]) -> str | None:
+    """Validate message values against the rendered control and encode its defaults."""
+    parsed = InteractionParser().parse(control)
+    if not parsed.get("type"):
+        return None
+    options = {option["value"].strip() for option in parsed.get("buttons", [])}
+    selected = [value for value in values if value in options]
+    text = [value for value in values if value not in options]
+    multi = parsed.get("is_multi_select", False)
+    if (len(selected) > 1 and not multi) or (
+        text and ("question" not in parsed or len(text) != 1)
+    ):
+        return None
+    return json.dumps(
+        {
+            "selectedValues": selected,
+            "inputText": text[0] if text else "",
+            "buttonText": selected[0] if selected and not multi else "",
         },
         ensure_ascii=False,
     )
@@ -89,7 +117,7 @@ def _unanswered_call_ids(block: LearnGeneratedBlock) -> set[str]:
     except ValidationError:
         return set()
     answer = normalize_answer(
-        spec, InteractionAnswer(values=read_turn_learner_values(block))
+        spec, answer_with_images(spec, read_turn_learner_values(block))
     )
     if answer_is_usable(spec, answer):
         ids.discard(pending[0]["tool_call_id"])
@@ -177,9 +205,17 @@ def project_interaction_inputs(
         if previous_record is None:
             questions_by_scope.pop(scope, None)
         pending = record["checkpoint"].get("pending")
+        previous_controls = controls.get(previous.generated_block_bid, {})
+        if pending == [] and len(previous_controls) == 1:
+            identity, row = next(iter(previous_controls.items()))
+            if _scope(row) == scope:
+                answer = narrated_answer(
+                    previous_record, record, row.content_text or ""
+                )
+                if answer is not None:
+                    result[identity] = answer.user_input
         if not isinstance(pending, list) or not pending:
             continue
-        previous_controls = controls.get(previous.generated_block_bid, {})
         if previous_record is None:
             # Older native turn blocks have an empty config. An inferred match is
             # local to this pair of turns and must not seed repeated-control tracking.
@@ -225,9 +261,7 @@ def project_interaction_inputs(
                     continue
                 try:
                     spec = InteractionSpec.model_validate(question.get("spec"))
-                    if spec.type == "confirm" or not _matches_control(
-                        spec, row.content_text
-                    ):
+                    if not _matches_control(spec, row.content_text):
                         continue
                 except (ValidationError, ValueError):
                     continue

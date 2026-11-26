@@ -11,6 +11,11 @@ from flaskr.api.langfuse import (
     update_langfuse_trace,
 )
 from flaskr.api.llm import chat_llm
+from flaskr.api.llm.learner_images import (
+    map_learner_messages,
+    materialize_local_images,
+    split_learner_images,
+)
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -286,6 +291,14 @@ def handle_input_ask(
         ask_max_history_len = 10
 
     raw_input = user_input
+    ask_provider_config = get_effective_ask_provider_config(
+        getattr(follow_up_info, "ask_provider_config", {})
+    )
+    if (
+        split_learner_images(raw_input)[1]
+        and ask_provider_config.get("provider", ASK_PROVIDER_LLM) != ASK_PROVIDER_LLM
+    ):
+        raise_param_error(_("server.learn.imageProviderUnsupported"))
     normalized_trace_input = normalize_langfuse_input_value(raw_input)
     if normalized_trace_input and not trace_args.get("input"):
         trace_args["input"] = normalized_trace_input
@@ -495,9 +508,6 @@ def handle_input_ask(
         ask_scene,
         "user_follow_ask",
     )
-    ask_provider_config = get_effective_ask_provider_config(
-        getattr(follow_up_info, "ask_provider_config", {})
-    )
     ask_provider = ask_provider_config.get("provider", ASK_PROVIDER_LLM)
     ask_provider_mode = ask_provider_config.get(
         "mode",
@@ -539,7 +549,11 @@ def handle_input_ask(
                     "temperature"
                 ],  # Use configured temperature parameter
                 generation_name=generation_name,
-                messages=stream_messages if plain_messages is None else plain_messages,
+                messages=materialize_local_images(
+                    map_learner_messages(
+                        stream_messages if plain_messages is None else plain_messages
+                    )
+                ),
                 usage_context=usage_context,
                 usage_scene=usage_scene,
             )
@@ -606,13 +620,27 @@ def handle_input_ask(
         ),
     )
 
+    def _text_only_provider_history() -> list[dict[str, Any]]:
+        history = []
+        for message in provider_messages:
+            if message["role"] == "user":
+                text, images = split_learner_images(message["content"])
+                if images:
+                    content = f"{text.strip()}\n[Earlier image attachment unavailable to this provider]"
+                    history.append({**message, "content": content.strip()})
+                    continue
+            history.append(message)
+        return history
+
     def _emit_provider_stream(
         provider_name: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Normalize visible provider text into the existing answer SSE stream."""
         nonlocal response_text
         provider_input_messages = (
-            llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
+            llm_messages
+            if provider_name == ASK_PROVIDER_LLM
+            else _text_only_provider_history()
         )
         provider_resp = stream_ask_provider_response(
             app=app,

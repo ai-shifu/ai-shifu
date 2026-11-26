@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import shutil
 import ssl
 import subprocess
+import tarfile
 import types
 import unittest
 from contextlib import redirect_stdout
@@ -20,16 +22,15 @@ from check_docker_image import (
     TRUSTED_CONTROL,
     UNTRUSTED_ROOTS,
     WEB_TRUST_PROBE,
+    archive_digest,
     docker,
     smoke,
     validate_health,
     validate_i18n,
     validate_trust_stores,
-    verify_published,
 )
 
 CONFIG = "sha256:" + "a" * 64
-MANIFEST = "sha256:" + "b" * 64
 TRUST_FIXTURES = Path(__file__).parent / "testdata/image_trust"
 
 
@@ -292,44 +293,33 @@ class ProductionImageTests(unittest.TestCase):
         ):
             smoke("web", "local:web", "linux/amd64")
 
-    def test_every_registry_must_match_tested_config(self) -> None:
-        """Different published filesystem/config fails even when all pushes succeeded."""
-        record = {"platform": "linux/amd64", "config_digest": CONFIG}
-        with (
-            patch(
-                "check_docker_image.published_config", side_effect=[CONFIG, MANIFEST]
-            ) as inspect,
-            pytest.raises(ValueError, match="differs from"),
-        ):
-            verify_published(record, "dockerhub/api,registry/api", MANIFEST)
-        assert inspect.call_count == 2
 
-    def test_published_index_resolves_exact_target_platform(self) -> None:
-        """OCI index exporters must resolve the tested platform before config comparison."""
-        index = {
-            "manifests": [
-                {
-                    "digest": MANIFEST,
-                    "platform": {"os": "linux", "architecture": "amd64"},
-                }
-            ]
-        }
-        with patch(
-            "check_docker_image.docker",
-            side_effect=[json.dumps(index), json.dumps({"config": {"digest": CONFIG}})],
-        ) as daemon:
-            verify_published(
-                {"platform": "linux/amd64", "config_digest": CONFIG},
-                "registry/api",
-                MANIFEST,
-            )
-        assert daemon.call_count == 2
+@pytest.mark.parametrize("corruption", [None, "manifest", "config", "extra-platform"])
+def test_publication_archive_must_match_the_image_loaded_for_smoke(
+    tmp_path: Path, corruption: str | None
+) -> None:
+    """Only a single immutable manifest matching the tested config can be published."""
+    manifest = json.dumps({"config": {"digest": CONFIG}}).encode()
+    digest = f"sha256:{hashlib.sha256(manifest).hexdigest()}"
+    descriptors = [{"digest": digest}]
+    if corruption == "extra-platform":
+        descriptors.append({"digest": "sha256:" + "b" * 64})
+    files = {
+        "index.json": json.dumps({"manifests": descriptors}).encode(),
+        f"blobs/{digest.replace(':', '/')}": manifest
+        if corruption != "manifest"
+        else b"{}",
+    }
+    archive_path = tmp_path / "image.tar"
+    with tarfile.open(archive_path, mode="w") as archive:
+        for path, content in files.items():
+            member = tarfile.TarInfo(path)
+            member.size = len(content)
+            archive.addfile(member, io.BytesIO(content))
 
-    def test_invalid_fingerprint_does_not_query_registry(self) -> None:
-        """A missing smoke record cannot be replaced by merely checking a pushed tag."""
-        with (
-            patch("check_docker_image.docker") as daemon,
-            pytest.raises(ValueError, match="Invalid smoke"),
-        ):
-            verify_published({"platform": "linux/arm64"}, "registry/api", MANIFEST)
-        daemon.assert_not_called()
+    if corruption is None:
+        assert archive_digest(archive_path, CONFIG) == digest
+        return
+    expected = "sha256:" + "c" * 64 if corruption == "config" else CONFIG
+    with pytest.raises(ValueError, match="Image archive"):
+        archive_digest(archive_path, expected)

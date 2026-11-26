@@ -78,9 +78,9 @@ cd ai-shifu/docker
 python3 ../scripts/prepare_env.py
 
 # Edit .env: a provider key and the model 1 binding are required:
-# - OPENAI_API_KEY / ERNIE_API_KEY / BIGMODEL_API_KEY / ...
+# - The provider's LiteLLM API key: OPENAI_API_KEY / DASHSCOPE_API_KEY / ...
 # - LLM_MODEL_1_NAME: optional display name; blank uses the configured model ID
-# - LLM_MODEL_1_ID: a configured text model ID (no default)
+# - LLM_MODEL_1_ID: a LiteLLM model ID such as openai/gpt-4o (no default)
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
 # - SECRET_KEY: Already generated and saved by the installer; preserve this value

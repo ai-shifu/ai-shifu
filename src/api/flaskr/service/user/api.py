@@ -10,6 +10,9 @@ from flaskr.service.user.account_cancellation import (
 from flaskr.service.user.auth.oauth_origins import is_allowed_oauth_origin
 from flaskr.service.user.common import validate_user
 from flaskr.service.user.contact_lookup import load_user_contact_map
+from flaskr.service.user.operator_account_creation import (
+    create_operator_password_account,
+)
 from flaskr.service.user.operator_contact_change import change_operator_user_contact
 from flaskr.service.user.repository import (
     UserAggregate,
@@ -31,6 +34,7 @@ __all__ = [
     "cancel_account_subscription_renewals",
     "cancel_user_account",
     "change_operator_user_contact",
+    "create_operator_password_account",
     "ensure_demo_course_permissions",
     "ensure_user_for_identifier",
     "get_account_cancellation_preview",

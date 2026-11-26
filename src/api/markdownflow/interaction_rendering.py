@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from .engine.interaction import InteractionSpec, Option
 from .syntax.escaping import escape_interaction_text
 from .syntax.parser.interaction import InteractionParser
 from .syntax.variable_names import format_variable_assignment
 
+if TYPE_CHECKING:
+    from .engine.interaction import InteractionSpec, Option
+
 
 @dataclass(frozen=True)
 class QuestionLabels:
-    """Application-supplied labels for controls the model left unnamed."""
+    """Application-supplied text for controls that need a default input hint."""
 
-    continue_label: str
     free_text_placeholder: str
 
 
@@ -27,8 +29,6 @@ _FREE_TEXT_MARKER = "..."
 _DISPLAY_VALUE_SEPARATOR = "//"
 
 _MULTI_CHOICE_TYPES = frozenset({"multi", "multi_or_text"})
-# A confirm prompt up to this long is a button label ("继续"); longer, it is an instruction.
-_CONFIRM_LABEL_MAX_CHARS = 12
 _FREE_TEXT_TYPES = frozenset({"text", "single_or_text", "multi_or_text"})
 
 
@@ -135,8 +135,7 @@ def render_interaction(spec: InteractionSpec, *, labels: QuestionLabels) -> str:
     """Rebuild the MarkdownFlow interaction the frontend expects from the engine's typed spec.
 
     Raises `UnrepresentableInteractionError` when the result would ask something other than the spec
-    does. The variable prefix is emitted only when the script named one to store the answer under;
-    a confirm carries none by construction, since pressing continue is not an answer.
+    does. The variable prefix is emitted when the interaction has a binding.
     """
     if spec.variable is not None and not spec.variable.strip():
         # Preserve pending interactions saved before blank names were validated.
@@ -148,30 +147,6 @@ def render_interaction(spec: InteractionSpec, *, labels: QuestionLabels) -> str:
     rendered = _compose(spec)
     _verify_round_trip(spec, rendered)
     return rendered
-
-
-def _in_the_learner_s_language(
-    spec: InteractionSpec, labels: QuestionLabels
-) -> InteractionSpec:
-    """Give a confirm the host's word for carrying on, where the model named none.
-
-    The engine fills an unlabelled confirm with an English default, and it reached learners as a
-    `Continue` button under a lesson taught in Chinese. Only that default is replaced: a label the
-    model did write is the lesson's own wording and is left exactly as it wrote it.
-
-    Which is why this runs before a short prompt is turned into the button's text, and not after.
-    Afterwards, a model that had written `Continue` itself would be indistinguishable from one
-    that wrote nothing, and would have its own word swapped for the host's.
-    """
-    if spec.type != "confirm" or not spec.labelled_by_engine:
-        # Either the model named the button itself -- even if the word it chose is the same one
-        # the engine would have used -- or there is no button to name.
-        return spec
-    return InteractionSpec(
-        type="confirm",
-        question=spec.question,
-        options=[Option(display=labels.continue_label, value="continue")],
-    )
 
 
 def render_narrated_interaction(span: str, *, labels: QuestionLabels) -> str:
@@ -192,36 +167,6 @@ def render_narrated_interaction(span: str, *, labels: QuestionLabels) -> str:
     return rendered
 
 
-def _as_sent(
-    spec: InteractionSpec, labels: QuestionLabels
-) -> tuple[str, InteractionSpec]:
-    """Return the question's text and the controls it is sent as.
-
-    Shared by `translate` and `unrenderable_reason`, so that what is checked before a question is
-    asked is exactly what is sent when it is.
-    """
-    # Stripped only to decide whether there is a question at all: the text itself goes out as
-    # the model wrote it, because the frontend renders it as Markdown and leading indentation
-    # or a trailing hard break changes what the learner sees.
-    prompt = spec.presented_question
-    # Before the rewrite below, not after: that rewrite puts the model's own words on the
-    # button, and a model that wrote `Continue` would otherwise have them taken for the
-    # engine's default and replaced.
-    spec = _in_the_learner_s_language(spec, labels)
-    if spec.type == "confirm" and 0 < len(prompt.strip()) <= _CONFIRM_LABEL_MAX_CHARS:
-        # A confirm's prompt is what the button should say -- the model writes "继续" there --
-        # not a line of lesson text. Sent as content it appeared after the lesson's last
-        # sentence, followed by a button reading "Continue" in whatever language the lesson
-        # was not in. A longer prompt is an instruction to the learner and stays as text.
-        spec = InteractionSpec(
-            type="confirm",
-            question="",
-            options=[Option(display=prompt.strip(), value="continue")],
-        )
-        prompt = ""
-    return prompt, spec
-
-
 def unrenderable_reason(spec: InteractionSpec, *, labels: QuestionLabels) -> str | None:
     """Why this question cannot be shown to the learner, or None if it can.
 
@@ -230,7 +175,7 @@ def unrenderable_reason(spec: InteractionSpec, *, labels: QuestionLabels) -> str
     with a question and nothing to answer it with.
     """
     try:
-        render_interaction(_as_sent(spec, labels)[1], labels=labels)
+        render_interaction(spec, labels=labels)
     except UnrepresentableInteractionError as exc:
         return str(exc)
     return None
@@ -240,8 +185,7 @@ def render_question(
     spec: InteractionSpec, *, labels: QuestionLabels
 ) -> tuple[str, str]:
     """Render a question with the same host normalization used by validation."""
-    prompt, normalized = _as_sent(spec, labels)
-    return prompt, render_interaction(normalized, labels=labels)
+    return spec.presented_question, render_interaction(spec, labels=labels)
 
 
 @dataclass(frozen=True)

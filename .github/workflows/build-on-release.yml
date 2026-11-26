@@ -141,9 +141,9 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "All images support both **linux/amd64** and **linux/arm64** architectures." >> $GITHUB_STEP_SUMMARY
           else
-            echo "### ❌ Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Build or Publication Failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Please check the build logs for details and retry if necessary." >> $GITHUB_STEP_SUMMARY
+            echo "Check the individual build and registry jobs. Successful registry jobs can already have published their tags. Re-run failed jobs to retry failed destinations." >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY

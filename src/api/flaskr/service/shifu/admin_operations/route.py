@@ -52,6 +52,7 @@ from flaskr.service.referral.api import (
 )
 from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserContactChangeRequestDTO,
+    AdminOperationUserCreateRequestDTO,
     AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserPackageGrantRequestDTO,
@@ -129,6 +130,7 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
 from flaskr.service.user.api import (
     cancel_account_subscription_renewals,
     change_operator_user_contact,
+    create_operator_password_account,
     get_account_cancellation_preview,
     get_account_cancellation_status,
     request_user_account_cancellation,
@@ -612,6 +614,36 @@ def register_admin_operations_routes(
         )
         return make_common_response(
             list_operator_users(app, page_index, page_size, filters)
+        )
+
+    @app.route(path_prefix + "/admin/operations/users", methods=["POST"])
+    @sensitive_body(max_bytes=4096)
+    def admin_operation_user_create() -> Response:
+        """Create a username + password account on behalf of an operator.
+
+        Only available when password login is enabled, because the created
+        account has no phone number or email address to sign in with.
+        ---
+        tags:
+            - User
+        """
+        _require_operator()
+        if "password" not in _get_login_methods_enabled():
+            raise_error("server.user.passwordLoginDisabled")
+        try:
+            payload = AdminOperationUserCreateRequestDTO.model_validate(
+                request.get_json(silent=True) or {}
+            )
+        except ValidationError:
+            raise_param_error("user_create_payload")
+        return make_common_response(
+            create_operator_password_account(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                username=payload.username,
+                password=payload.password,
+                nickname=payload.nickname,
+            )
         )
 
     @app.route(path_prefix + "/admin/operations/users/overview", methods=["GET"])

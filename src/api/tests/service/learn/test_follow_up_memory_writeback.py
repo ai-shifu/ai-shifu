@@ -315,6 +315,64 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
     checker.assert_not_awaited()
 
 
+def test_follow_up_can_read_two_oversized_saved_answers() -> None:
+    snapshot = {"first": "A" * 40_000, "second": "B" * 40_000}
+    remaining_keys = iter(snapshot)
+    key = next(remaining_keys)
+    slices: dict[str, list[str]] = {name: [] for name in snapshot}
+    question = "Compare my two saved answers."
+    patch = FollowUpMemoryPatch()
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal key
+        offset = None
+        for part in messages[-1].parts:
+            if not isinstance(part, ToolReturnPart):
+                continue
+            page = json.loads(part.content)
+            if page["status"] == "too_large":
+                offset = 0
+                continue
+            assert page["status"] == "value_page"
+            slices[key].append(page["value"])
+            offset = page["next_value_offset"]
+            if offset is None:
+                key = next(remaining_keys, "")
+        if not key:
+            yield "Both current answers were compared."
+            return
+        yield {
+            0: DeltaToolCall(
+                name="recall",
+                json_args=json.dumps({"key": key, "value_offset": offset}),
+            )
+        }
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input=question,
+        declared_keys=frozenset(),
+        snapshot=snapshot,
+        deleted_keys=frozenset(),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=AsyncMock(),
+    )
+    assert (
+        "".join(
+            chunk.result
+            for chunk in run.stream([{"role": "user", "content": question}])
+        )
+        == "Both current answers were compared."
+    )
+    assert {name: "".join(parts) for name, parts in slices.items()} == snapshot
+    assert all(len(parts) > 1 for parts in slices.values())
+    assert patch.variables == []
+
+
 def test_post_read_host_context_cannot_authorize_a_memory_write() -> None:
     from pydantic_ai.messages import UserPromptPart
 

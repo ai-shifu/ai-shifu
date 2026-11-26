@@ -9,7 +9,7 @@ The offline tests that came with it live in tests/markdownflow/engine/ and run i
 drive the engine with pydantic-ai's FunctionModel, so they need no network and no API key. Keep
 them green: they cover the parts that are easy to break and hard to notice, such as pausing and
 resuming an interaction, writing a variable to memory, splitting listen mode into segments,
-detecting script syntax and the guard against an empty confirm.
+detecting script syntax and the guard against an unsolicited pause.
 
 What this package must not do is reach back into the rest of the service. It takes a model, a
 script and a session; application hosts bind the shared LLM model through
@@ -61,7 +61,7 @@ from .session import (
     SQLiteSessionStore,
 )
 
-__version__ = "3.1.1"
+__version__ = "3.1.4"
 
 __all__ = [
     "ContentDelta",

@@ -79,6 +79,7 @@ from flaskr.service.learn.agent.rewind import (
     retire_abandoned_turns,
     stage_retirement,
     turn_record,
+    validate_narrated_rewind,
     with_turn_interactions,
 )
 from flaskr.service.learn.agent.session_store import (
@@ -273,7 +274,12 @@ def _turn_input(session: Session, values: list[str]) -> TurnInput:
     if not session.started:
         return MessageTurn(text=text) if text else StartTurn()
     if session.pending:
-        return InteractionResponseTurn(values=list(values))
+        if not any("![learner-image](" in value for value in values):
+            return InteractionResponseTurn(values=list(values))
+        from flaskr.service.learn.agent.image_answers import answer_with_images
+
+        answer = answer_with_images(session.pending[0].spec, list(values))
+        return InteractionResponseTurn(values=answer.values, text=answer.text)
     if text:
         return MessageTurn(text=text)
     return ContinueTurn()
@@ -331,6 +337,7 @@ def _load_or_start(
             raise RewindUnavailableError
         # Taken back before the turn is built, so the turn is whatever this state calls for: the
         # question the learner is now answering differently, or the turn being regenerated.
+        validate_narrated_rewind(stored, rewind)
         restore(stored, rewind.checkpoint)
         if debug_store is not None:
             stored.user_memory = dict(rewind.checkpoint["user_memory"])

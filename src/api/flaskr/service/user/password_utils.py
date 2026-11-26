@@ -8,6 +8,10 @@ import re
 import bcrypt
 from flaskr.service.common.models import raise_error
 
+# bcrypt silently ignores every byte after the 72nd, so a longer password
+# would be stored with part of it missing.
+PASSWORD_MAX_BYTES = 72
+
 
 def password_credential_version(password_hash: str) -> str:
     """Bind successful verification to the exact stored bcrypt hash."""
@@ -36,9 +40,12 @@ def validate_password_strength(password: str) -> None:
     - Minimum 8 characters
     - Must contain at least one letter
     - Must contain at least one digit
+    - At most 72 UTF-8 bytes, the part bcrypt actually hashes
     """
     if len(password) < 8:
         raise_error("server.user.passwordTooShort")
+    if len(password.encode("utf-8")) > PASSWORD_MAX_BYTES:
+        raise_error("server.user.passwordTooLong")
     if not re.search(r"[a-zA-Z]", password):
         raise_error("server.user.passwordNeedsLetter")
     if not re.search(r"[0-9]", password):

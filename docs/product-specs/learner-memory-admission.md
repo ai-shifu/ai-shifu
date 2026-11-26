@@ -2,7 +2,7 @@
 title: Learner Memory Admission
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-11-08
+last_reviewed: 2026-11-17
 canonical: true
 ---
 
@@ -15,16 +15,22 @@ profile writer and the session's unit of work remain responsible for persistence
 
 The model supplies `question` for each answer interaction. For a leading
 `?[{{question}} ...]` binding, trim leading and trailing whitespace inside the braces
-and use the resulting text as the exact question and storage key. This applies
-to short labels as well. A later `{{question}}` reference with the same question
-text reads that entry.
+and use the resulting text as the exact question and as the storage key for
+eligible answers. This applies to short labels as well. A later `{{question}}`
+reference with the same question text reads that entry.
 With a selected output language, the learner sees the translated question and
 the original question remains the memory key.
 For exercises without a binding, the model supplies the question from the
 lesson prose or context. Reusing the exact question updates the current
-answer. Navigation and confirmation clicks do not record answers. Existing
-percent-prefixed declarations have the same meaning. Earlier questions and
-answers keep their original storage keys and history.
+answer. The model determines whether an unbound control collects an answer
+from its purpose in the lesson and omits `question` when it does not.
+A submission with a nonempty `question` is eligible for memory when the
+controls offer multiple choices or accept free text. A single fixed option
+without free text skips memory, including when the control
+has an authored binding. The selection still reaches the lesson and remains in
+the interaction history. Profile drafts use the same rule for learner evidence.
+The rule applies when accepting submissions to restored controls as well.
+Earlier answers retain their stored keys and history.
 
 For writes through `remember`, a key declared by a leading binding in the main
 script is eligible. Briefs, reference documents, ordinary `{{key}}` references,

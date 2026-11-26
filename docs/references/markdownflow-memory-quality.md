@@ -41,7 +41,7 @@ classroom on the changed runtime supplies objects from its first response, retai
 two provenance retries, and displays clarification before a separate factual
 failure stops acceptance. Its four generations settle 36.06 credits; neither run
 passes the full eleven-question journey. Explicit object typing is not constrained decoding or
-proof of semantic compliance. See [the schema plan](../exec-plans/active/mdf2-feedback-branch-schema.md)
+proof of semantic compliance. See [the schema plan](../exec-plans/completed/mdf2-feedback-branch-schema.md)
 for final standalone verification and original failure receipts.
 
 ## Knowledge clarification phase boundary
@@ -51,7 +51,7 @@ condition matching and teacher multiplicity. A permitted knowledge
 clarification follows the teacher's exact brevity/disclosure limits and returns to
 the same pending exercise; it does not grant access to later questions or require
 a worked example when the teacher prohibits one. The independent continuation
-record is [the phase-boundary plan](../exec-plans/active/mdf2-clarification-phase-boundary.md).
+record is [the phase-boundary plan](../exec-plans/completed/mdf2-clarification-phase-boundary.md).
 Controlled SDK checks establish guidance delivery and history isolation, not
 factual model compliance or full eleven-question acceptance.
 
@@ -475,7 +475,7 @@ feedback, but the final report fails; the lesson remains unfinished.
 
 The final turn reads all ten original-evidence pages. Its 27 records include
 seventeen relevant exercise inputs and ten ordinary single-choice navigation
-clicks. Unlike typed confirms, those single choices remain in the evidence.
+clicks.
 Both calculator attempts cover the seventeen exercise inputs but omit every
 navigation reference from `excluded`. Exact coverage correctly returns
 `invalid_coverage`, then the unchanged twelve-request budget is exhausted.

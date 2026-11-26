@@ -144,7 +144,8 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
                         "type": "single",
                         "prompt": "Choose one.",
                         "options": [
-                            {"display": "Translated display", "value": "stable-value"}
+                            {"display": "Translated display", "value": "stable-value"},
+                            {"display": "Translated alternative", "value": "other"},
                         ],
                         "variable": "goal",
                     }
@@ -177,7 +178,10 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
                     run_agent.run_agent_lesson(
                         app,
                         engine=Engine(FunctionModel(stream_function=model)),
-                        script="Teach and ask ?[%{{goal}} Original display//stable-value].",
+                        script=(
+                            "Teach and ask ?[%{{goal}} Original display//stable-value "
+                            "| Original alternative//other]."
+                        ),
                         user_bid=user,
                         shifu_bid=course,
                         outline_bid=lesson,
@@ -280,18 +284,14 @@ def test_disabled_course_keeps_host_defaults_in_interface_language() -> None:
     set_language("fr-FR")
     try:
         configure_output_language(engine, {"sys_user_language": "en-US"}, enabled=False)
-        prompt, confirm = render_question(InteractionSpec(type="confirm", prompt=""))
-        label = translate_for_language("server.learn.continueButton", "fr-FR")
-        assert prompt == ""
-        assert confirm == f"?[{label}//continue]"
         hint = translate_for_language("server.learn.freeTextPlaceholder", "fr-FR")
         assert hint in render_interaction(
             InteractionSpec(type="text", prompt="Authored question")
         )
         assert hint in render_narrated_interaction("?[...]")
         authored = InteractionSpec(
-            type="confirm",
-            prompt="",
+            type="single",
+            question="",
             options=[Option(display="Authored label", value="continue")],
         )
         assert render_question(authored) == ("", "?[Authored label//continue]")

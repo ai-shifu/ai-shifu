@@ -19,6 +19,9 @@ inputs:
   publish-ghcr:
     default: 'false'
     description: Include GHCR using the caller's packages write permission
+  registry:
+    default: all
+    description: Resolve every configured registry or only ghcr, dockerhub, or aliyun
 outputs:
   push-images:
     value: ${{ steps.registries.outputs.push-images }}
@@ -49,9 +52,10 @@ runs:
         REQUESTED_PUSH: ${{ inputs.push-images }}
         REQUIRE_REGISTRY: ${{ inputs.require-registry }}
         PUBLISH_GHCR: ${{ inputs.publish-ghcr }}
+        REGISTRY: ${{ inputs.registry }}
       run: |
         images=()
-        if [ "$PUBLISH_GHCR" = "true" ]; then
+        if [[ ( "$REGISTRY" == all || "$REGISTRY" == ghcr ) && "$PUBLISH_GHCR" == true ]]; then
           if [ -z "${GITHUB_REPOSITORY_OWNER:-}" ]; then
             echo '::error::GHCR publication requires a repository owner.'
             exit 1
@@ -59,10 +63,10 @@ runs:
           ghcr_owner=$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
           images+=("ghcr.io/${ghcr_owner}/${IMAGE_NAME}")
         fi
-        if [ -n "${DOCKERHUB_USER:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
-          images+=("${DOCKERHUB_USER}/${IMAGE_NAME}")
+        if [[ ( "$REGISTRY" == all || "$REGISTRY" == dockerhub ) && -n "${DOCKERHUB_USER:-}" && -n "${DOCKERHUB_TOKEN:-}" ]]; then
+          images+=("docker.io/${DOCKERHUB_USER}/${IMAGE_NAME}")
         fi
-        if [ -n "${ALIYUN_DOCKER_USERNAME:-}" ] && [ -n "${ALIYUN_DOCKER_PASSWORD:-}" ]; then
+        if [[ ( "$REGISTRY" == all || "$REGISTRY" == aliyun ) && -n "${ALIYUN_DOCKER_USERNAME:-}" && -n "${ALIYUN_DOCKER_PASSWORD:-}" ]]; then
           images+=("${ALIYUN_DOCKER_REGISTRY}/ai-shifu/${IMAGE_NAME}")
         fi
         push_images="$REQUESTED_PUSH"
@@ -71,7 +75,7 @@ runs:
             echo '::error::Release publication requires at least one configured registry.'
             exit 1
           fi
-          if [ "$push_images" = "true" ]; then
+          if [[ "$push_images" == true && "$REGISTRY" == all ]]; then
             echo '::warning::No registry credentials configured; building both platforms without publication.'
           fi
           push_images=false

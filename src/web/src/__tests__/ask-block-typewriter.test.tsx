@@ -1,3 +1,4 @@
+import type { ImageInputOptions } from 'markdown-flow-ui/renderer';
 import React from 'react';
 import {
   act,
@@ -9,6 +10,7 @@ import {
 import AskBlock from '@/app/c/[[...id]]/components/chat/AskBlock';
 import { AppContext } from '@/components/app-context';
 import { useAskStateStore } from '@/app/c/[[...id]]/components/chat/use-ask-state-store';
+import { uploadLearnerImage, getRunMessage } from '@/api/learning';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
 
@@ -63,12 +65,32 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     value,
     onChange,
     onSend,
+    showImageInput,
+    imageInput,
   }: {
     value?: string;
     onChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend?: () => void;
+    showImageInput?: boolean;
+    imageInput?: ImageInputOptions;
   }) => (
     <div>
+      {showImageInput ? (
+        <input
+          type='file'
+          hidden
+          onChange={event =>
+            imageInput?.onSelect?.(Array.from(event.target.files ?? []))
+          }
+        />
+      ) : null}
+      {imageInput?.images.map(url => (
+        <span
+          key={url}
+          role='img'
+          aria-label='uploaded image'
+        />
+      ))}
       <textarea
         data-testid='ask-input'
         value={value as string}
@@ -85,6 +107,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 }));
 
 jest.mock('@/api/learning', () => ({
+  uploadLearnerImage: jest.fn(),
   BLOCK_TYPE: {
     ASK: 'ask',
     ANSWER: 'answer',
@@ -143,6 +166,46 @@ describe('AskBlock typewriter lifecycle', () => {
     mockContentRender.mockClear();
     activeOnMessage = undefined;
     useAskStateStore.getState().clearLessonScope();
+  });
+
+  it('sends an image-only question and restores attachments after an SSE refusal', async () => {
+    const url =
+      '/api/storage/courses/learner-images/' + 'a'.repeat(32) + '.png';
+    jest.mocked(uploadLearnerImage).mockResolvedValueOnce(url);
+    const { container } = render(
+      <AskBlock
+        isExpanded
+        shifu_bid='shifu-1'
+        outline_bid='lesson-1'
+        element_bid='anchor-1'
+      />,
+      { wrapper },
+    );
+    fireEvent.change(container.querySelector('input[type=file]')!, {
+      target: {
+        files: [new File(['image'], 'private.png', { type: 'image/png' })],
+      },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('img', { name: 'uploaded image' }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    expect(jest.mocked(getRunMessage).mock.calls.at(-1)?.[3]).toEqual(
+      expect.objectContaining({
+        input: `![learner-image](${url})`,
+        input_type: 'ask',
+      }),
+    );
+    await act(async () => {
+      await activeOnMessage?.({ type: 'error', content: 'Unavailable' });
+    });
+    expect(screen.getByTestId('ask-input')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'send' })).toBeEnabled();
+    expect(screen.getAllByRole('img', { name: 'uploaded image' })).toHaveLength(
+      1,
+    );
   });
 
   it('disables typewriter after ask block expand state changes', async () => {

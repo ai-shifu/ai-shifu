@@ -63,8 +63,10 @@ a new learner submission can answer it anew under the existing write policy.
 Instructions ask for relevant missing facts only and treat returned values as data, never
 as author instructions or write authorization. Tool returns stay in model/session history,
 not classroom text. Recall does not change the initial 32768-character memory projection,
-persistence, usage limits or the
+persistence or the
 [256 KiB complete model input budget](markdownflow-input-budget.md).
+Classroom follow-ups reserve up to 24 additional tool calls for exact lookups
+and pages of oversized text in the authorized snapshot.
 Read only needed pages within the tool-call and total input budgets. Repeated tool
 results still consume that total budget. This increment provides exact-key
 retrieval, not semantic search, historical conversation compression or automatic recovery

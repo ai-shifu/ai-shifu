@@ -5,8 +5,8 @@ stops when it calls it. A model that cannot call tools cannot teach a lesson at 
 the question as prose, and the learner never sees the controls to answer it.
 
 Whether a model can is not something to look up. `litellm.supports_function_calling` answers
-`False` for every model this deployment routes through its own gateway -- `ark/...`, `qwen/...`
--- because it does not recognise the routing names, while those models do call tools; believing
+`False` for many models this deployment routes -- `volcengine/...` endpoints, `dashscope/...` models
+missing from its model map -- because it does not know them, while those models do call tools; believing
 it would refuse the models that are actually in use. So this asks the model to call one and sees
 what comes back, through the same gateway and the same arguments a lesson goes through.
 

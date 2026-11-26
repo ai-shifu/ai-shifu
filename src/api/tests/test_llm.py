@@ -40,6 +40,26 @@ def _install_litellm_stub() -> None:
     litellm_stub.get_model_info = get_model_info
     litellm_stub.get_supported_openai_params = lambda **_kwargs: []
     litellm_stub.completion = lambda *_args, **_kwargs: iter([])
+    # Enough of LiteLLM's routing surface for flaskr.common.llm_routing.
+    litellm_stub.provider_list = [
+        "openai",
+        "gemini",
+        "deepseek",
+        "dashscope",
+        "volcengine",
+        "bigmodel",
+        "anthropic",
+    ]
+
+    def get_llm_provider(model: str) -> tuple[str, str, None, None]:
+        provider, _sep, invoke_model = model.partition("/")
+        return invoke_model, provider, None, None
+
+    litellm_stub.get_llm_provider = get_llm_provider
+    litellm_stub.validate_environment = lambda **_kwargs: {
+        "keys_in_environment": True,
+        "missing_keys": [],
+    }
     sys.modules["litellm"] = litellm_stub
     sys.modules["litellm.types"] = litellm_types_stub
     sys.modules["litellm.types.utils"] = litellm_utils_stub
@@ -119,6 +139,8 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
 )
+
+from tests.common.fixtures.llm_routes import install_llm_routes
 
 pytestmark = pytest.mark.no_mock_llm
 
@@ -228,36 +250,15 @@ def _configure_model_list(monkeypatch: object) -> None:
         "ark/doubao-seed-2-0-lite-260428",
         "qwen/no-rate-model",
     ]
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
+    install_llm_routes(
+        monkeypatch,
         {
-            "qwen": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "qwen-key"},
-                models=["qwen/deepseek-v4-flash", "qwen/no-rate-model"],
-                prefix="qwen/",
-                wildcard_prefixes=(),
-            ),
-            "ark": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "ark-key"},
-                models=["ark/doubao-seed-2-0-lite-260428"],
-                prefix="ark/",
-                wildcard_prefixes=(),
-            ),
-        },
-    )
-    monkeypatch.setattr(
-        llm,
-        "MODEL_ALIAS_MAP",
-        {
-            "qwen/deepseek-v4-flash": ("qwen", "deepseek-v4-flash"),
+            "qwen/deepseek-v4-flash": ("dashscope", "deepseek-v4-flash"),
             "ark/doubao-seed-2-0-lite-260428": (
-                "ark",
+                "volcengine",
                 "doubao-seed-2-0-lite-260428",
             ),
-            "qwen/no-rate-model": ("qwen", "no-rate-model"),
+            "qwen/no-rate-model": ("dashscope", "no-rate-model"),
         },
     )
     config = {
@@ -295,47 +296,47 @@ def test_get_current_models_adds_output_token_credit_multiplier(
             [
                 _create_credit_rate(
                     rate_bid="default-output",
-                    provider="qwen",
+                    provider="dashscope",
                     model="qwen/deepseek-v4-flash",
                     credits_per_unit="0.000066667",
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-provider-wildcard-output",
-                    provider="ark",
+                    provider="volcengine",
                     model="*",
                     credits_per_unit="0.00001",
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-input-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="9",
                     billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-cache-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="8",
                     billing_metric=BILLING_METRIC_LLM_CACHE_TOKENS,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-debug-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="7",
                     usage_scene=BILL_USAGE_SCENE_DEBUG,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-preview-ignored",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="6",
                     usage_scene=BILL_USAGE_SCENE_PREVIEW,
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-output",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="0.0001800009",
                 ),
@@ -363,6 +364,49 @@ def test_get_current_models_adds_output_token_credit_multiplier(
     )
 
 
+def test_get_current_models_prices_rates_not_yet_renamed(
+    monkeypatch: object, app: object
+) -> None:
+    """Rate rows under earlier names still price models before migration."""
+    _configure_model_list(monkeypatch)
+    with app.app_context():
+        db.session.query(CreditUsageRate).delete()
+        db.session.add_all(
+            [
+                _create_credit_rate(
+                    rate_bid="legacy-qwen-output",
+                    provider="qwen",
+                    model="deepseek-v4-flash",
+                    credits_per_unit="0.000066667",
+                ),
+                _create_credit_rate(
+                    rate_bid="legacy-ark-output",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="0.0001800009",
+                ),
+                # A later row for the same model under any provider does not
+                # outrank the legacy row, as it would not outrank the renamed one.
+                _create_credit_rate(
+                    rate_bid="any-provider-qwen-output",
+                    provider="*",
+                    model="deepseek-v4-flash",
+                    credits_per_unit="0.0009",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        models = llm.get_current_models(app)
+
+        db.session.query(CreditUsageRate).delete()
+        db.session.commit()
+
+    by_model = {item["model"]: item for item in models}
+    assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier"] == 1
+    assert by_model["ark/doubao-seed-2-0-lite-260428"]["credit_multiplier"] == 3
+
+
 def test_get_current_models_uses_fixed_credit_1x_anchor(
     monkeypatch: object, app: object
 ) -> None:
@@ -373,21 +417,21 @@ def test_get_current_models_uses_fixed_credit_1x_anchor(
             [
                 _create_credit_rate(
                     rate_bid="default-original-output",
-                    provider="qwen",
+                    provider="dashscope",
                     model="qwen/deepseek-v4-flash",
                     credits_per_unit="0.000066667",
                     effective_from=datetime(2026, 1, 1, 0, 0, 0),
                 ),
                 _create_credit_rate(
                     rate_bid="default-edited-output",
-                    provider="qwen",
+                    provider="dashscope",
                     model="qwen/deepseek-v4-flash",
                     credits_per_unit="0.000466669",
                     effective_from=datetime(2026, 2, 1, 0, 0, 0),
                 ),
                 _create_credit_rate(
                     rate_bid="doubao-output",
-                    provider="ark",
+                    provider="volcengine",
                     model="ark/doubao-seed-2-0-lite-260428",
                     credits_per_unit="0.0001800009",
                     effective_from=datetime(2026, 1, 1, 0, 0, 0),
@@ -441,7 +485,7 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
         db.session.add(
             _create_credit_rate(
                 rate_bid="default-output",
-                provider="qwen",
+                provider="dashscope",
                 model="qwen/deepseek-v4-flash",
                 credits_per_unit="0.000066667",
             )
@@ -478,68 +522,6 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
     assert all(item["credit_multiplier"] is None for item in models)
 
 
-def test_deepseek_model_loader_lists_models(monkeypatch: object) -> None:
-    captured = {}
-
-    def fake_get(url: object, headers: object = None, timeout: object = None) -> object:
-        captured["url"] = url
-        captured["headers"] = headers
-        captured["timeout"] = timeout
-        return FakeModelsResponse(
-            {
-                "object": "list",
-                "data": [
-                    {"id": "deepseek-v4-flash", "object": "model"},
-                    {"id": "deepseek-v4-pro", "object": "model"},
-                ],
-            }
-        )
-
-    monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="deepseek",
-        api_key_env="DEEPSEEK_API_KEY",
-        base_url_env="DEEPSEEK_API_URL",
-        default_base_url="https://api.deepseek.com",
-    )
-
-    models = llm._load_deepseek_models(
-        config,
-        {"api_key": "test-key", "api_base": "https://api.deepseek.com"},
-        "https://api.deepseek.com",
-    )
-
-    assert models == ["deepseek-v4-flash", "deepseek-v4-pro"]
-    assert captured["url"] == "https://api.deepseek.com/models"
-    assert captured["headers"]["Authorization"] == "Bearer test-key"
-    assert captured["timeout"] == 20
-
-
-def test_deepseek_model_loader_falls_back_when_list_models_fails(
-    monkeypatch: object,
-) -> None:
-    def fake_get(*args: object, **kwargs: object) -> None:
-        _ = args, kwargs
-        message = "network unavailable"
-        raise RuntimeError(message)
-
-    monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="deepseek",
-        api_key_env="DEEPSEEK_API_KEY",
-        base_url_env="DEEPSEEK_API_URL",
-        default_base_url="https://api.deepseek.com",
-    )
-
-    models = llm._load_deepseek_models(
-        config,
-        {"api_key": "test-key", "api_base": "https://api.deepseek.com"},
-        "https://api.deepseek.com",
-    )
-
-    assert models == llm.DEEPSEEK_FALLBACK_MODELS
-
-
 def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
     monkeypatch: object,
 ) -> None:
@@ -565,17 +547,8 @@ def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
         )
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    models = llm._load_gemini_models(
-        config,
-        {"api_key": "test-key"},
-        None,
-    )
+    models = llm._load_gemini_models("test-key", None)
 
     assert models == [
         "gemini-3.7-flash",
@@ -625,13 +598,8 @@ def test_gemini_model_loader_discovers_capabilities_on_later_pages(
         )
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    models = llm._load_gemini_models(config, {"api_key": "test-key"}, None)
+    models = llm._load_gemini_models("test-key", None)
 
     assert models == [
         "gemini-3.7-flash",
@@ -704,10 +672,7 @@ def test_gemini_native_proxy_preserves_version_prefix_and_capabilities(
         )
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
-    )
-    assert llm._load_gemini_models(config, {"api_key": "test-key"}, base_url) == [
+    assert llm._load_gemini_models("test-key", base_url) == [
         "gemini-3.7-flash",
         live_model,
     ]
@@ -732,11 +697,8 @@ def test_gemini_openai_proxy_preserves_text_discovery_without_native_probe(
         return FakeModelsResponse({"data": [{"id": "gemini-3.7-flash"}]})
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
-    config = llm.ProviderConfig(
-        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
-    )
     assert llm._load_gemini_models(
-        config, {"api_key": "test-key"}, "https://gemini-proxy.example.com/v1"
+        "test-key", "https://gemini-proxy.example.com/v1"
     ) == ["gemini-3.7-flash"]
     assert requests_seen == ["https://gemini-proxy.example.com/v1/models"]
     assert "gemini-3.7-flash" not in llm.MODEL_SUPPORTED_GENERATION_METHODS
@@ -754,13 +716,8 @@ def test_gemini_model_loader_never_logs_api_key_from_request_errors(
 
     monkeypatch.setattr(llm.requests, "get", raise_request_error)
     monkeypatch.setattr(llm, "_log_warning", warnings.append)
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    assert llm._load_gemini_models(config, {"api_key": secret}, None) == []
+    assert llm._load_gemini_models(secret, None) == []
     assert warnings == ["load gemini models failed"]
     assert secret not in "".join(warnings)
 
@@ -784,17 +741,8 @@ def test_gemini_compatible_proxy_clears_stale_capability_metadata(
         "_fetch_provider_models",
         lambda *_args, **_kwargs: [proxy_model],
     )
-    config = llm.ProviderConfig(
-        key="gemini",
-        api_key_env="GEMINI_API_KEY",
-        base_url_env="GEMINI_API_URL",
-    )
 
-    models = llm._load_gemini_models(
-        config,
-        {"api_key": "test-key"},
-        "https://gemini-proxy.example.com/v1",
-    )
+    models = llm._load_gemini_models("test-key", "https://gemini-proxy.example.com/v1")
 
     assert models == [proxy_model]
     assert proxy_model not in llm.MODEL_SUPPORTED_GENERATION_METHODS
@@ -813,21 +761,16 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
     other_bidi_only_model: str,
 ) -> None:
     live_model = "gemini-3.8-live"
+    monkeypatch.setattr(llm, "_gemini_api_key", lambda: "test-key")
     monkeypatch.setattr(
         llm,
-        "PROVIDER_STATES",
-        {
-            "gemini": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test-key"},
-                models=[
-                    "gemini-3.7-flash",
-                    live_model,
-                    other_bidi_only_model,
-                    "openai-compatible-without-capabilities",
-                ],
-            )
-        },
+        "GEMINI_MODELS",
+        [
+            "gemini-3.7-flash",
+            live_model,
+            other_bidi_only_model,
+            "openai-compatible-without-capabilities",
+        ],
     )
     monkeypatch.setattr(
         llm,
@@ -895,11 +838,8 @@ def test_known_live_only_models_never_enter_text_catalogs(
     monkeypatch: pytest.MonkeyPatch, model: str, capabilities_discovered: bool
 ) -> None:
     monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {"gemini": llm.ProviderState(enabled=True, params={}, models=[model])},
-    )
+    monkeypatch.setattr(llm, "_gemini_api_key", lambda: "test-key")
+    monkeypatch.setattr(llm, "GEMINI_MODELS", [model])
     monkeypatch.setattr(
         llm,
         "MODEL_SUPPORTED_GENERATION_METHODS",
@@ -917,7 +857,7 @@ def test_known_live_only_models_never_enter_text_catalogs(
     )
 
 
-def test_qwen_prefixed_model_routes_without_fetched_alias(
+def test_legacy_qwen_prefix_routes_to_dashscope_through_litellm(
     monkeypatch: object, app: object
 ) -> None:
     captured = {}
@@ -930,28 +870,12 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
 
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={
-            "api_key": "test-key",
-            "api_base": "https://example.com",
-            "custom_llm_provider": "dashscope",
-        },
-        models=[],
-        prefix=llm.QWEN_PREFIX,
-        wildcard_prefixes=(llm.QWEN_PREFIX,),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"qwen": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {})
+    # LiteLLM reads the DashScope key itself; the legacy prefix is rewritten.
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "test-key")
     monkeypatch.setattr(
         llm,
         "MODEL_MAX_OUTPUT_TOKENS",
         {"qwen/deepseek-v4-flash": 393216},
-    )
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_CONFIG_HINTS",
-        {"qwen": "QWEN_API_KEY,QWEN_API_URL"},
     )
 
     responses = list(
@@ -968,6 +892,8 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 
     assert [resp.result for resp in responses] == ["ok"]
     assert captured["model"] == "deepseek-v4-flash"
+    assert captured["kwargs"]["custom_llm_provider"] == "dashscope"
+    assert "api_key" not in captured["kwargs"]
     assert captured["kwargs"]["temperature"] == 0.7
     assert captured["kwargs"]["extra_body"] == {"enable_thinking": False}
     assert captured["kwargs"]["enable_thinking"] is None
@@ -1122,6 +1048,7 @@ def test_max_input_tokens_is_unknown_for_an_unbound_slot(monkeypatch: object) ->
 def test_max_input_tokens_reads_metadata_for_the_serving_provider(
     monkeypatch: object,
 ) -> None:
+    model = "deepseek-v4-pro"
     calls = []
 
     def model_info(**kwargs: object) -> dict:
@@ -1132,12 +1059,12 @@ def test_max_input_tokens_reads_metadata_for_the_serving_provider(
     monkeypatch.setattr(
         llm,
         "get_litellm_params_and_model",
-        lambda _model: ({"custom_llm_provider": "dashscope"}, "deepseek-chat", "qwen"),
+        lambda _model: ({"custom_llm_provider": "dashscope"}, model, "dashscope"),
     )
     monkeypatch.setattr(llm.litellm, "get_model_info", model_info, raising=False)
 
-    assert llm.resolve_llm_max_input_tokens("qwen/deepseek-chat") == 98304
-    assert calls == [{"model": "deepseek-chat", "custom_llm_provider": "dashscope"}]
+    assert llm.resolve_llm_max_input_tokens(f"qwen/{model}") == 98304
+    assert calls == [{"model": model, "custom_llm_provider": "dashscope"}]
 
 
 def test_max_input_tokens_is_unknown_when_lookup_fails(monkeypatch: object) -> None:
@@ -1239,37 +1166,6 @@ def test_stream_litellm_completion_without_configured_limit(
         assert "max_tokens" not in captured
     else:
         assert captured["max_tokens"] == expected_max_tokens
-
-
-def test_qwen_provider_config_keeps_prefix_fallback() -> None:
-    qwen_config = next(
-        config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == "qwen"
-    )
-
-    assert qwen_config.wildcard_prefixes == (llm.QWEN_PREFIX,)
-    assert qwen_config.custom_llm_provider == "dashscope"
-
-
-@pytest.mark.parametrize(
-    ("provider_key", "expected_litellm_provider"),
-    [
-        ("deepseek", "deepseek"),
-        ("qwen", "dashscope"),
-        ("ark", "volcengine"),
-        ("glm", "zai"),
-        ("silicon", "openai"),
-        ("ernie_v2", "openai"),
-    ],
-)
-def test_provider_configs_use_expected_litellm_adapters(
-    provider_key: object,
-    expected_litellm_provider: object,
-) -> None:
-    provider_config = next(
-        config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == provider_key
-    )
-
-    assert provider_config.custom_llm_provider == expected_litellm_provider
 
 
 @pytest.mark.parametrize(
@@ -1407,7 +1303,7 @@ def test_request_patch_merge_is_shallow_and_deduplicates_lists() -> None:
     }
 
 
-@pytest.mark.parametrize("provider_key", ["QWEN", "Silicon"])
+@pytest.mark.parametrize("provider_key", ["DASHSCOPE", "SiliconFlow"])
 def test_provider_patch_disables_thinking_and_preserves_extra_body(
     monkeypatch: object, provider_key: object
 ) -> None:
@@ -1446,74 +1342,7 @@ def test_provider_patch_disables_thinking_and_preserves_extra_body(
     assert "drop_params" not in prepared
 
 
-def test_zai_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
-    adapter_supported_models = {
-        "glm-4.6",
-        "glm-4.7",
-        "glm-4.7-flash",
-        "glm-5",
-        "glm-5.1",
-        "glm-5-code",
-    }
-    monkeypatch.setattr(
-        llm,
-        "_litellm_minimum_thinking_params",
-        lambda model_id, *_args, **_kwargs: (
-            {"thinking": {"type": "disabled"}}
-            if model_id.casefold() in adapter_supported_models
-            else {}
-        ),
-    )
-
-    patched_model_ids = (
-        "glm-4.5",
-        "glm-4.5v",
-        "glm-4.5-air",
-        "glm-4.5-x",
-        "glm-4.5-airx",
-        "glm-4.5-flash",
-        "glm-4.6",
-        "GLM-4.7",
-        "glm-4.7-flash",
-        "glm-5",
-        "glm-5.1",
-        "glm-5-code",
-        "glm-5.2",
-    )
-    assert {
-        model_id
-        for provider, model_id in llm._LITELLM_1106_COMPATIBILITY_PATCHES
-        if provider == "glm" and model_id is not None
-    } == {model_id.casefold() for model_id in patched_model_ids}
-
-    for model_id in patched_model_ids:
-        prepared = llm._prepare_litellm_request_kwargs(
-            "glm",
-            model_id,
-            {"custom_llm_provider": "zai"},
-            {
-                "thinking": {"type": "enabled"},
-                "allowed_openai_params": ["tools"],
-                "extra_body": {
-                    "thinking": {"type": "enabled"},
-                    "custom_field": "keep",
-                },
-            },
-        )
-
-        assert prepared["thinking"] is None, model_id
-        assert prepared["extra_body"] == {
-            "thinking": {"type": "disabled"},
-            "custom_field": "keep",
-        }, model_id
-        assert prepared["allowed_openai_params"] == [
-            "tools",
-            "response_format",
-        ], model_id
-        assert "thinking" not in prepared["additional_drop_params"], model_id
-
-
-def test_zai_provider_patch_does_not_inject_thinking_for_legacy_models(
+def test_zai_request_preparation_keeps_legacy_models_without_thinking(
     monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(
@@ -1524,16 +1353,16 @@ def test_zai_provider_patch_does_not_inject_thinking_for_legacy_models(
 
     for model_id in ("glm-4-flash", "GLM-4-FLASH-250414", "glm-5-future"):
         prepared = llm._prepare_litellm_request_kwargs(
-            "glm",
+            "bigmodel",
             model_id,
-            {"custom_llm_provider": "zai"},
+            {"custom_llm_provider": "bigmodel"},
             {"response_format": {"type": "json_object"}},
         )
 
         assert "thinking" not in prepared, model_id
         assert "extra_body" not in prepared, model_id
         assert "additional_drop_params" not in prepared, model_id
-        assert prepared["allowed_openai_params"] == ["response_format"], model_id
+        assert prepared["response_format"] == {"type": "json_object"}, model_id
 
 
 def test_ark_uses_litellm_thinking_and_provider_response_format_patch(
@@ -1546,7 +1375,7 @@ def test_ark_uses_litellm_thinking_and_provider_response_format_patch(
     )
 
     prepared = llm._prepare_litellm_request_kwargs(
-        "ark",
+        "volcengine",
         "doubao-seed",
         {"custom_llm_provider": "volcengine"},
         {
@@ -1580,7 +1409,7 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
     )
 
     prepared = llm._prepare_litellm_request_kwargs(
-        "qwen",
+        "dashscope",
         str(model_id),
         {"custom_llm_provider": "dashscope"},
         {
@@ -1601,13 +1430,13 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
     assert prepared["temperature"] == 0.3
     assert (
         "additional_drop_params"
-        not in llm._LITELLM_1106_COMPATIBILITY_PATCHES[
-            ("qwen", str(model_id).casefold())
+        not in llm._LITELLM_COMPATIBILITY_PATCHES[
+            ("dashscope", str(model_id).casefold())
         ]
     )
     assert prepared["allowed_openai_params"] == ["response_format"]
-    assert llm._LITELLM_1106_COMPATIBILITY_PATCHES[
-        ("qwen", str(model_id).casefold())
+    assert llm._LITELLM_COMPATIBILITY_PATCHES[
+        ("dashscope", str(model_id).casefold())
     ] == {"reasoning_effort": "low"}
     assert prepared["additional_drop_params"][0] == "caller_only"
     assert prepared["additional_drop_params"].count("enable_thinking") == 1
@@ -1686,9 +1515,9 @@ def test_gemini_exact_minimum_patches(
     assert prepared["reasoning_effort"] == expected_effort
     assert ("temperature" in prepared) is expects_temperature
     if str(model_id).lower() == "gemini-3.8-flash":
-        assert llm._LITELLM_1106_COMPATIBILITY_PATCHES[
-            ("gemini", "gemini-3.8-flash")
-        ] == {"reasoning_effort": "low"}
+        assert llm._LITELLM_COMPATIBILITY_PATCHES[("gemini", "gemini-3.8-flash")] == {
+            "reasoning_effort": "low"
+        }
     assert "allowed_openai_params" not in prepared
 
 
@@ -1703,7 +1532,7 @@ def test_gemini_exact_minimum_patches(
         ("gpt-5.4-pro-2026-03-05", "medium"),
     ],
 )
-def test_openai_pro_patches_correct_litellm_1106_metadata(
+def test_openai_pro_patches_enforce_minimum_effort(
     monkeypatch: object, model_id: object, expected_effort: object
 ) -> None:
     monkeypatch.setattr(
@@ -1746,7 +1575,7 @@ def test_openai_55_pro_uses_native_minimum_without_patch(
         "openai", model_id, {"custom_llm_provider": "openai"}, {}
     )
 
-    assert ("openai", model_id) not in llm._LITELLM_1106_COMPATIBILITY_PATCHES
+    assert ("openai", model_id) not in llm._LITELLM_COMPATIBILITY_PATCHES
     assert prepared["reasoning_effort"] == "medium"
     assert "temperature" not in prepared
 
@@ -1778,6 +1607,7 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
         ("gpt-6-sol", "none", 0.3),
         ("gpt-6-luna", "none", 0.3),
         ("gpt-6-astra", "low", None),
+        ("gpt-6.1-sol", "low", None),
     ],
 )
 @pytest.mark.parametrize("course_temperature", ["0.3", None])
@@ -1811,15 +1641,37 @@ def test_gpt_6_keeps_minimum_reasoning_and_compatible_temperature(
     assert prepared["stop"] == ["done"]
 
 
-def test_only_gpt_6_astra_needs_an_exact_request_patch() -> None:
+def test_openai_gpt_6_exact_request_patches() -> None:
     assert {
         key: patch
-        for key, patch in llm._LITELLM_1106_COMPATIBILITY_PATCHES.items()
-        if key[0] == "openai" and key[1] and key[1].startswith("gpt-6-")
-    } == {("openai", "gpt-6-astra"): {"reasoning_effort": "low"}}
+        for key, patch in llm._LITELLM_COMPATIBILITY_PATCHES.items()
+        if key[0] == "openai" and key[1] and key[1].startswith(("gpt-6-", "gpt-6."))
+    } == {
+        ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
+        ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low"},
+    }
 
 
-LITELLM_CONTRACT_VERSION = "1.106.2"
+@pytest.mark.parametrize("provider", ["openai", "qianfan", "siliconflow", "gemini"])
+def test_openai_responses_route_uses_the_resolved_provider(provider: str) -> None:
+    kwargs = {
+        "tools": [{"type": "function", "function": {"name": "lookup"}}],
+        "store": True,
+        "extra_body": {"store": True, "user": "keep"},
+    }
+
+    model, prepared = llm._prepare_litellm_completion("gpt-6-sol", provider, kwargs)
+
+    if provider == "openai":
+        assert model == "openai/responses/gpt-6-sol"
+        assert prepared == {**kwargs, "store": False, "extra_body": {"user": "keep"}}
+        assert kwargs["store"] is kwargs["extra_body"]["store"] is True
+    else:
+        assert model == "gpt-6-sol"
+        assert prepared is kwargs
+
+
+LITELLM_CONTRACT_VERSION = "1.109.1"
 
 
 def _installed_litellm_version() -> str | None:
@@ -1833,7 +1685,7 @@ def _installed_litellm_version() -> str | None:
     _installed_litellm_version() is None,
     reason="install requirements.txt to run the native LiteLLM adapter contract",
 )
-def test_litellm_1106_native_adapter_contracts() -> None:
+def test_litellm_native_adapter_contracts() -> None:
     assert _installed_litellm_version() == LITELLM_CONTRACT_VERSION
     script = textwrap.dedent(
         """
@@ -1843,6 +1695,7 @@ def test_litellm_1106_native_adapter_contracts() -> None:
 
         import httpx
         import litellm
+        from flask import Flask
         from flaskr.api import llm as app_llm
         from litellm.completion_extras.litellm_responses_transformation.transformation import LiteLLMResponsesTransformationHandler
         from openai import OpenAI
@@ -1992,6 +1845,160 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                 kwargs or {},
             )
 
+        def openai_6_1_sol_responses_contract(stream):
+            model = "gpt-6.1-sol"
+            requests = []
+            tool_item = {
+                "type": "function_call",
+                "id": "fc_contract",
+                "call_id": "call_contract",
+                "name": "finish",
+                "arguments": "{}",
+                "status": "completed",
+            }
+            payload = {
+                "id": "resp_contract",
+                "object": "response",
+                "created_at": 1,
+                "model": model,
+                "status": "completed",
+                "output": [tool_item],
+                "usage": {
+                    "input_tokens": 8,
+                    "input_tokens_details": {"cached_tokens": 2},
+                    "output_tokens": 3,
+                    "output_tokens_details": {"reasoning_tokens": 1},
+                    "total_tokens": 11,
+                },
+            }
+
+            def respond(request):
+                requests.append((str(request.url), json.loads(request.content)))
+                if not stream:
+                    return httpx.Response(200, request=request, json=payload)
+                events = [
+                    {
+                        "type": "response.created",
+                        "response": {
+                            **payload, "status": "in_progress", "output": [], "usage": None,
+                        },
+                    },
+                    {
+                        "type": "response.output_item.added",
+                        "output_index": 0,
+                        "item": {**tool_item, "arguments": "", "status": "in_progress"},
+                    },
+                    *[
+                        {
+                            "type": "response.function_call_arguments.delta",
+                            "output_index": 0,
+                            "item_id": tool_item["id"],
+                            "delta": fragment,
+                        }
+                        for fragment in ("{", "}")
+                    ],
+                    {
+                        "type": "response.output_item.done",
+                        "output_index": 0,
+                        "item": tool_item,
+                    },
+                    {"type": "response.completed", "response": payload},
+                ]
+                content = "".join(
+                    f"event: {event['type']}\\n"
+                    f"data: {json.dumps({**event, 'sequence_number': index})}\\n\\n"
+                    for index, event in enumerate(events)
+                )
+                return httpx.Response(
+                    200,
+                    request=request,
+                    headers={"content-type": "text/event-stream"},
+                    content=content,
+                )
+
+            kwargs = prepared("openai", "openai", model, {
+                "temperature": "0.3",
+                "store": True,
+                "extra_body": {"store": True},
+                "max_tokens": 128,
+                "tools": [{
+                    "type": "function",
+                    "function": {
+                        "name": "finish",
+                        "description": "Signal completion.",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }],
+            })
+            if stream:
+                kwargs["stream_options"] = {"include_usage": True}
+            with httpx.Client(
+                transport=httpx.MockTransport(respond), trust_env=False
+            ) as http:
+                provider_params = {
+                    "custom_llm_provider": "openai",
+                    "api_base": "https://api.openai.com/v1",
+                    "api_key": "test-key",
+                    "client": HTTPHandler(client=http),
+                }
+                if stream:
+                    chunks = list(app_llm._stream_litellm_completion(
+                        Flask("responses-contract"),
+                        model,
+                        model,
+                        messages,
+                        provider_params,
+                        kwargs,
+                        provider_key="openai",
+                    ))
+                else:
+                    transport_model, kwargs = app_llm._prepare_litellm_completion(
+                        model, "openai", kwargs
+                    )
+                    completion = litellm.completion(
+                        model=transport_model,
+                        messages=messages,
+                        **provider_params,
+                        **kwargs,
+                    )
+
+            (url, body), = requests
+            if stream:
+                choices = [choice for chunk in chunks for choice in chunk.choices]
+                deltas = [call for choice in choices for call in choice.delta.tool_calls or []]
+                assert [delta.function.arguments for delta in deltas if delta.function.arguments] == ["{", "}"]
+                (usage,) = [chunk.usage for chunk in chunks if getattr(chunk, "usage", None)]
+                (finish_reason,) = [
+                    choice.finish_reason for choice in choices if choice.finish_reason
+                ]
+                tool_call = [
+                    next(delta.id for delta in deltas if delta.id),
+                    "".join(delta.function.name or "" for delta in deltas),
+                    "".join(delta.function.arguments or "" for delta in deltas),
+                ]
+                result = chunks[-1]
+            else:
+                choice = completion.choices[0]
+                call = choice.message.tool_calls[0]
+                tool_call = [call.id, call.function.name, call.function.arguments]
+                finish_reason = choice.finish_reason
+                usage = completion.usage
+                result = completion
+            return {
+                "url": url,
+                "body": body,
+                "object": result.object,
+                "model": result.model,
+                "finish_reason": finish_reason,
+                "tool_call": tool_call,
+                "usage": [
+                    usage.prompt_tokens,
+                    usage.prompt_tokens_details.cached_tokens,
+                    usage.completion_tokens,
+                    usage.total_tokens,
+                ],
+            }
+
         def openai_responses_reasoning_contract():
             prepared_kwargs = prepared(
                 "openai",
@@ -2032,16 +2039,16 @@ def test_litellm_1106_native_adapter_contracts() -> None:
             ),
             "dashscope": adapter_contract(
                 "dashscope",
-                "deepseek-v3",
+                "qwen3.8-max-0902",
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                prepared("qwen", "dashscope", "deepseek-v3"),
+                prepared("dashscope", "dashscope", "qwen3.8-max-0902"),
             ),
             "dashscope_glm_53": adapter_contract(
                 "dashscope",
                 "ZHIPU/GLM-5.3-Flash",
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 prepared(
-                    "qwen",
+                    "dashscope",
                     "dashscope",
                     "ZHIPU/GLM-5.3-Flash",
                     {
@@ -2059,7 +2066,7 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                 "doubao-seed-2-0-lite-260428",
                 "https://ark.cn-beijing.volces.com/api/v3",
                 prepared(
-                    "ark",
+                    "volcengine",
                     "volcengine",
                     "doubao-seed-2-0-lite-260428",
                     {
@@ -2075,7 +2082,7 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                 "glm-5.2",
                 "https://open.bigmodel.cn/api/paas/v4",
                 prepared(
-                    "glm",
+                    "zai",
                     "zai",
                     "glm-5.2",
                     {
@@ -2086,26 +2093,12 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                     },
                 ),
             ),
-            "zai_native_thinking": adapter_contract(
-                "zai",
-                "glm-4.6",
-                "https://open.bigmodel.cn/api/paas/v4",
-                prepared(
-                    "glm",
-                    "zai",
-                    "glm-4.6",
-                    {
-                        "thinking": {"type": "enabled"},
-                        "extra_body": {"thinking": {"type": "enabled"}},
-                    },
-                ),
-            ),
             "zai_legacy": adapter_contract(
                 "zai",
                 "glm-4-flash",
                 "https://open.bigmodel.cn/api/paas/v4",
                 prepared(
-                    "glm",
+                    "zai",
                     "zai",
                     "glm-4-flash",
                     {"response_format": {"type": "json_object"}},
@@ -2116,7 +2109,7 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                     model=model,
                     custom_llm_provider="zai",
                 )
-                for model in ("glm-4.5", "glm-4.6", "glm-5.2")
+                for model in ("glm-4.6", "glm-5.2")
             },
             "gemini_3": litellm.get_optional_params(
                 model="gemini-3.6-flash",
@@ -2226,6 +2219,10 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                 model: native_reasoning_capabilities("openai", model)
                 for model in ("gpt-6-sol", "gpt-6-luna")
             },
+            "openai_6_1_sol": {
+                "chat.completion": openai_6_1_sol_responses_contract(stream=False),
+                "chat.completion.chunk": openai_6_1_sol_responses_contract(stream=True),
+            },
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
             ),
@@ -2239,12 +2236,29 @@ def test_litellm_1106_native_adapter_contracts() -> None:
                 )
             },
         }
+        for model in (
+            "glm-4.6", "GLM-4.7", "glm-4.7-flash", "glm-5",
+            "glm-5.1", "glm-5-code",
+        ):
+            contracts[model] = adapter_contract(
+                "zai",
+                model,
+                "https://open.bigmodel.cn/api/paas/v4",
+                prepared(
+                    "zai", "zai", model,
+                    {
+                        "thinking": {"type": "enabled"},
+                        "extra_body": {"thinking": {"type": "enabled"}},
+                        "response_format": {"type": "json_object"},
+                    },
+                ),
+            )
         for model in ("glm-5.3", "GLM-5.3-Flash", "ZHIPU/GLM-5.3", "zhipu/glm-5.3-flash"):
             contracts[model] = adapter_contract(
                 "dashscope",
                 model,
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                prepared("qwen", "dashscope", model, {
+                prepared("dashscope", "dashscope", model, {
                     "reasoning_effort": "high",
                     "enable_thinking": True,
                     "allowed_openai_params": ["response_format"],
@@ -2295,11 +2309,17 @@ def test_litellm_1106_native_adapter_contracts() -> None:
         ),
         "volcengine": ("https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
         "zai": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-        "zai_native_thinking": (
-            "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-        ),
         "zai_legacy": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     }
+    native_zai_models = (
+        "glm-4.6",
+        "GLM-4.7",
+        "glm-4.7-flash",
+        "glm-5",
+        "glm-5.1",
+        "glm-5-code",
+    )
+    expected_urls.update(dict.fromkeys(native_zai_models, expected_urls["zai"]))
     for provider, expected_url in expected_urls.items():
         body = contracts[provider]["body"]
         assert contracts[provider]["url"] == expected_url
@@ -2332,10 +2352,13 @@ def test_litellm_1106_native_adapter_contracts() -> None:
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["zai"]["body"]["response_format"] == {"type": "json_object"}
-    assert contracts["zai_native_thinking"]["body"]["thinking"] == {"type": "disabled"}
+    for model in native_zai_models:
+        body = contracts[model]["body"]
+        assert body["model"] == model
+        assert body["thinking"] == {"type": "disabled"}
+        assert body["response_format"] == {"type": "json_object"}
     assert "thinking" not in contracts["zai_legacy"]["body"]
     assert contracts["zai_legacy"]["body"]["response_format"] == {"type": "json_object"}
-    assert "thinking" not in contracts["zai_supported_params"]["glm-4.5"]
     assert "thinking" in contracts["zai_supported_params"]["glm-4.6"]
     assert "thinking" in contracts["zai_supported_params"]["glm-5.2"]
 
@@ -2430,6 +2453,21 @@ def test_litellm_1106_native_adapter_contracts() -> None:
         assert refreshed["request"]["body"]["reasoning_effort"] == "none"
         assert refreshed["request"]["body"]["temperature"] == 0.4
         assert refreshed["request"]["content"] == "Hello world"
+    for response_object, sol_contract in contracts["openai_6_1_sol"].items():
+        assert sol_contract["url"] == "https://api.openai.com/v1/responses"
+        body = sol_contract["body"]
+        assert body["model"] == "gpt-6.1-sol"
+        assert body["reasoning"] == {"effort": "low"}
+        assert body["store"] is False
+        assert body["max_output_tokens"] == 128
+        assert "temperature" not in body
+        assert body["tools"][0]["name"] == "finish"
+        assert body["tools"][0].get("strict") is None
+        assert sol_contract["object"] == response_object
+        assert sol_contract["model"] == "gpt-6.1-sol"
+        assert sol_contract["finish_reason"] == "tool_calls"
+        assert sol_contract["tool_call"] == ["call_contract", "finish", "{}"]
+        assert sol_contract["usage"] == [8, 2, 3, 11]
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
@@ -2462,27 +2500,8 @@ def test_chat_llm_uses_shared_minimum_thinking_preparation(
         "_litellm_minimum_thinking_params",
         lambda *_args, **_kwargs: {"reasoning_effort": "none"},
     )
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={
-            "api_key": "test-key",
-            "api_base": "https://api.deepseek.com",
-            "custom_llm_provider": "deepseek",
-        },
-        models=["deepseek-v4-pro"],
-        prefix="",
-        wildcard_prefixes=(),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"deepseek": provider_state})
-    monkeypatch.setattr(
-        llm,
-        "MODEL_ALIAS_MAP",
-        {"deepseek-v4-pro": ("deepseek", "deepseek-v4-pro")},
-    )
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_CONFIG_HINTS",
-        {"deepseek": "DEEPSEEK_API_KEY,DEEPSEEK_API_URL"},
+    install_llm_routes(
+        monkeypatch, {"deepseek-v4-pro": ("deepseek", "deepseek-v4-pro")}
     )
 
     list(
@@ -2533,26 +2552,7 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
         minimum_thinking_params,
     )
     monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "test": llm.ProviderState(
-                enabled=True,
-                params={
-                    "api_key": "test-key",
-                    "custom_llm_provider": "test-adapter",
-                },
-                models=["display-model"],
-            )
-        },
-    )
-    monkeypatch.setattr(
-        llm,
-        "MODEL_ALIAS_MAP",
-        {"display-model": ("test", "actual-model")},
-    )
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+    install_llm_routes(monkeypatch, {"display-model": ("test-adapter", "actual-model")})
 
     responses = list(
         llm.invoke_llm(
@@ -2574,19 +2574,7 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
 
 
 def _single_test_provider(monkeypatch: object) -> None:
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "test": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test-key"},
-                models=["test-model"],
-            )
-        },
-    )
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"test-model": ("test", "test-model")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+    install_llm_routes(monkeypatch, {"test-model": ("test", "test-model")})
 
 
 def test_invoke_llm_reports_the_finish_chunk_and_truncation(
@@ -2634,16 +2622,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
     monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     responses = list(
         llm.chat_llm(
@@ -2789,16 +2768,7 @@ def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
         "record_llm_usage",
         lambda *_args, **kwargs: captured_usage.update(kwargs),
     )
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     messages = [
         {"role": "system", "content": "system prompt"},
@@ -2851,16 +2821,7 @@ def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
     monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
     span = DummySpan()
     common_kwargs = {
@@ -2944,16 +2905,7 @@ def test_chat_llm_falls_back_to_request_trace_id(
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    provider_state = llm.ProviderState(
-        enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
-        models=["gpt-test"],
-        prefix="",
-        wildcard_prefixes=("gpt",),
-    )
-    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
     monkeypatch.setattr(
         "flaskr.api.langfuse.get_request_trace_id", lambda: "request-trace-1"
     )
@@ -3036,6 +2988,7 @@ def _patch_scripted_streams(monkeypatch: object, scripts: object) -> object:
         _messages: object,
         _params: object,
         _kwargs: object,
+        **_options: object,
     ) -> object:
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
@@ -3396,6 +3349,49 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
         from openai import OpenAI
         from flaskr.api import llm
         from flaskr.route import model_gateway_runtime as runtime
+        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+
+        def provider_reply(provider, model, stream):
+            if provider == "openai":
+                payload = {
+                    "id": "resp_reply", "object": "response", "created_at": 1,
+                    "model": model, "status": "completed",
+                    "output": [{
+                        "id": "msg_reply", "type": "message", "role": "assistant",
+                        "status": "completed",
+                        "content": [{"type": "output_text", "text": "ok", "annotations": []}],
+                    }],
+                    "usage": {
+                        "input_tokens": 3, "output_tokens": 2, "total_tokens": 5,
+                        "input_tokens_details": {"cached_tokens": 1},
+                        "output_tokens_details": {"reasoning_tokens": 0},
+                    },
+                }
+                events = [
+                    {"type": "response.created", "response": {
+                        **payload, "output": [], "usage": None, "status": "in_progress",
+                    }},
+                    {"type": "response.output_text.delta", "delta": "ok",
+                        "output_index": 0, "content_index": 0, "item_id": "msg_reply"},
+                    {"type": "response.completed", "response": payload},
+                ]
+                content = "".join(
+                    f"event: {event['type']}\\n"
+                    f"data: {json.dumps({**event, 'sequence_number': index})}\\n\\n"
+                    for index, event in enumerate(events)
+                )
+            else:
+                payload = {
+                    "id": "reply", "created": 1, "model": model,
+                    "object": "chat.completion.chunk" if stream else "chat.completion",
+                    "choices": [{"index": 0, "finish_reason": "stop",
+                        "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
+                    "usage": {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5},
+                }
+                content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
+            if stream:
+                return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content)
+            return httpx.Response(200, json=payload)
 
         app = Flask(__name__)
         runtime.admit_creator_usage = lambda *args, **kwargs: None
@@ -3403,12 +3399,13 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
         runtime._claim_gateway_request = lambda *args: None
         runtime._trace_for_request = lambda request: MagicMock()
         llm.MODEL_MAX_OUTPUT_TOKENS = {}
+        api_base = "https://llm.invalid/v1"
         messages = [{"role": "user", "content": "hello"}]
         for provider, model, upstream in [
-            ("qwen", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
+            ("dashscope", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
             ("openai", "gpt-6-sol", "gpt-6-sol"),
         ]:
-            adapter = "dashscope" if provider == "qwen" else "openai"
+            adapter = provider
             for name in (model, upstream, f"{adapter}/{upstream}"):
                 litellm.model_cost.pop(name, None)
             if provider == "openai":
@@ -3420,29 +3417,26 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                 for requested in (None, 8192):
                     captured = []
                     recorded = []
-                    usage = {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
-                    payload = {
-                        "id": "reply", "created": 1, "model": upstream,
-                        "object": "chat.completion.chunk" if stream else "chat.completion",
-                        "choices": [{"index": 0, "finish_reason": "stop",
-                            "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
-                        "usage": usage,
-                    }
+
                     def respond(request):
-                        captured.append(json.loads(request.content))
-                        if stream:
-                            content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
-                            return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content, request=request)
-                        return httpx.Response(200, json=payload, request=request)
+                        captured.append((request.url.path, json.loads(request.content)))
+                        return provider_reply(provider, upstream, stream)
+
                     with httpx.Client(transport=httpx.MockTransport(respond), trust_env=False) as http:
-                        client = OpenAI(api_key="test", base_url="https://llm.invalid/v1", http_client=http)
-                        llm.MODEL_ALIAS_MAP = {model: (provider, upstream)}
-                        llm.PROVIDER_STATES = {provider: llm.ProviderState(
-                            enabled=True, models=[model], params={"api_key": "test", "custom_llm_provider": adapter, "client": client},
-                        )}
+                        client = (
+                            HTTPHandler(client=http) if provider == "openai" else
+                            OpenAI(api_key="test", base_url=api_base, http_client=http)
+                        )
+                        params = {
+                            "api_key": "test", "api_base": api_base,
+                            "custom_llm_provider": adapter, "client": client,
+                        }
+                        llm.get_litellm_params_and_model = (
+                            lambda _requested, params=params, upstream=upstream, provider=provider:
+                            (params, upstream, provider)
+                        )
                         llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
-                        body = {"model": model, "messages": messages, "stream": stream}
-                        body["max_tokens"] = requested
+                        body = {"model": model, "messages": messages, "stream": stream, "max_tokens": requested}
                         request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
                         assert request.input_tokens > 0
                         if stream:
@@ -3450,17 +3444,25 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                             assert any(c.get("choices") and c["choices"][0]["delta"].get("content") == "ok" for c in chunks)
                         else:
                             assert runtime.complete_gateway_chat_request(app, request)["choices"][0]["message"]["content"] == "ok"
-                        assert len(captured) == 1
-                        body_tokens = captured[0].get("max_tokens", captured[0].get("max_completion_tokens"))
-                        assert body_tokens == requested
+
+                    (path, wire), = captured
+                    if provider == "openai":
+                        assert path == "/v1/responses"
+                        assert wire["store"] is False
+                        assert wire.get("max_output_tokens") == requested
+                        assert ("max_output_tokens" in wire) == (requested is not None)
+                    else:
+                        assert path == "/v1/chat/completions"
+                        assert wire.get("max_tokens", wire.get("max_completion_tokens")) == requested
                         if requested is None:
-                            assert "max_tokens" not in captured[0]
-                            assert "max_completion_tokens" not in captured[0]
-                        assert len(recorded) == 1
-                        context, record = recorded[0]
-                        assert context.billable == 1
-                        assert record["status"] == 0
-                        assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+                            assert "max_tokens" not in wire and "max_completion_tokens" not in wire
+                    assert wire["model"] == upstream
+                    assert wire.get("stream", False) is stream
+                    (context, record), = recorded
+                    assert context.billable == 1
+                    assert record["status"] == 0
+                    assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+                    assert record["input_cache"] == (1 if provider == "openai" else 0)
         print("native gateway fallback passed")
         """
     )
@@ -3556,25 +3558,14 @@ def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
     limit: int | None,
 ) -> None:
     provider = (
-        "qwen"
+        "dashscope"
         if model.startswith("qwen/")
         else "gemini"
         if model.startswith("gemini")
         else "openai"
     )
     invoke_model = model.removeprefix("qwen/")
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {model: (provider, invoke_model)})
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            provider: llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test", "custom_llm_provider": provider},
-                models=[model],
-            )
-        },
-    )
+    install_llm_routes(monkeypatch, {model: (provider, invoke_model)})
     monkeypatch.setattr(
         llm, "MODEL_MAX_OUTPUT_TOKENS", {} if limit is None else {model: limit}
     )
@@ -3656,7 +3647,10 @@ def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
             ]["content"]
             == "ok"
         )
-    assert captured["model"] == invoke_model
+    expected_model = (
+        f"openai/responses/{invoke_model}" if provider == "openai" else invoke_model
+    )
+    assert captured["model"] == expected_model
     assert captured["stream"] is stream
     if requested in (None, "omitted"):
         if limit is None:
@@ -3981,21 +3975,7 @@ def test_stream_gateway_completion_preserves_tool_call_chunks(
 
 def _use_fake_provider(monkeypatch: object) -> None:
     """Point the model resolver at a stub provider so chat_llm reaches litellm."""
-    monkeypatch.setattr(
-        llm,
-        "PROVIDER_STATES",
-        {
-            "openai": llm.ProviderState(
-                enabled=True,
-                params={"api_key": "test-key", "api_base": "https://example.com"},
-                models=["gpt-test"],
-                prefix="",
-                wildcard_prefixes=("gpt",),
-            )
-        },
-    )
-    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
-    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+    install_llm_routes(monkeypatch, {"gpt-test": ("openai", "gpt-test")})
 
 
 @pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])
@@ -4127,7 +4107,7 @@ def test_internal_profile_tasks_fit_output_budgets_to_known_limits(
         assert result["optimized_learner_profile"] == output
         budget = 1200
     assert captured["max_tokens"] == (budget if metadata == "unknown" else 1024)
-    assert captured["model"] == "gpt-test"
+    assert captured["model"] == "openai/responses/gpt-test"
     assert len(records) == 1
     assert records[0]["status"] == 0
 
@@ -4163,7 +4143,11 @@ def _tool_call_stream(as_dict: bool = False) -> list:
         ),
         FakeResponse(
             "c1",
-            tool_calls=[_tool_call_chunk(0, None, None, '"confirm"}', as_dict)],
+            tool_calls=[
+                _tool_call_chunk(
+                    0, None, None, '"text","question":"What comes next?"}', as_dict
+                )
+            ],
         ),
         FakeResponse("c1", finish_reason="tool_calls"),
         FakeResponse(
@@ -4218,7 +4202,10 @@ def test_chat_llm_emits_tool_call_deltas_when_asked(
     assert "".join(c.result for c in chunks) == "thinking "
     deltas = [d for c in chunks for d in c.tool_call_deltas]
     assert [d["name"] for d in deltas] == ["interact", None]
-    assert "".join(d["arguments"] or "" for d in deltas) == '{"type":"confirm"}'
+    assert (
+        "".join(d["arguments"] or "" for d in deltas)
+        == '{"type":"text","question":"What comes next?"}'
+    )
     assert [d["index"] for d in deltas] == [0, 0]
     assert deltas[0]["id"] == "call_1"
     assert any(c.finish_reason == "tool_calls" and c.is_end for c in chunks)
@@ -4234,13 +4221,17 @@ def test_chat_llm_emits_tool_call_deltas_when_asked(
                 {
                     "id": "call_1",
                     "type": "function",
-                    "function": {"name": "interact", "arguments": '{"type":"confirm"}'},
+                    "function": {
+                        "name": "interact",
+                        "arguments": '{"type":"text","question":"What comes next?"}',
+                    },
                 }
             ],
         }
     ]
     assert (
-        captured_usage["extra"]["output_text"] == 'thinking interact{"type":"confirm"}'
+        captured_usage["extra"]["output_text"]
+        == 'thinking interact{"type":"text","question":"What comes next?"}'
     )
 
 
@@ -4260,7 +4251,9 @@ def test_chat_llm_reports_parallel_tools_without_mixing_their_fragments(
         FakeResponse(
             "c1",
             tool_calls=[
-                _tool_call_chunk(0, "question-1", "act", '"confirm"}'),
+                _tool_call_chunk(
+                    0, "question-1", "act", '"text","question":"What comes next?"}'
+                ),
                 _tool_call_chunk(1, "memory-1", "ember", '"goal"}'),
             ],
             finish_reason="tool_calls",
@@ -4284,7 +4277,10 @@ def test_chat_llm_reports_parallel_tools_without_mixing_their_fragments(
                 {
                     "id": "question-1",
                     "type": "function",
-                    "function": {"name": "interact", "arguments": '{"type":"confirm"}'},
+                    "function": {
+                        "name": "interact",
+                        "arguments": '{"type":"text","question":"What comes next?"}',
+                    },
                 },
                 {
                     "id": "memory-1",
@@ -4368,7 +4364,7 @@ def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) ->
                 tools=tools,
             )
         )
-    assert seen.get("tools") == tools
+    assert seen["tools"] == tools
     assert "emit_tool_calls" not in seen
 
 
@@ -4514,7 +4510,12 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
             yield FakeResponse(
                 "c1",
                 tool_calls=[
-                    _tool_call_chunk(0, "call_1", "interact", '{"type": "confirm"}')
+                    _tool_call_chunk(
+                        0,
+                        "call_1",
+                        "interact",
+                        '{"type": "text","question":"What comes next?"}',
+                    )
                 ],
             )
             msg = "Repeated chunk detected"
@@ -4542,7 +4543,7 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
     assert span.end_args["output"][0]["content"] == ""
     assert span.end_args["output"][0]["tool_calls"][0]["function"] == {
         "name": "interact",
-        "arguments": '{"type": "confirm"}',
+        "arguments": '{"type": "text","question":"What comes next?"}',
     }
 
 
@@ -4580,7 +4581,7 @@ def test_numbered_call_uses_one_model_for_provider_usage_and_trace(
         list(llm.invoke_llm(message="hello", **arguments))
     else:
         list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
-    assert captured["model"] == "gpt-test"
+    assert captured["model"] == "openai/responses/gpt-test"
     assert usage["model"] == "gpt-test"
     assert usage["extra"]["resolved_model"] == "gpt-test"
     assert usage["extra"]["model_index"] == "1"
@@ -4681,7 +4682,8 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
                 preview_mode=preview,
             )
         )
-        assert captured["model"] == usage["model"] == "gpt-test"
+        assert captured["model"] == "openai/responses/gpt-test"
+        assert usage["model"] == "gpt-test"
         assert captured["temperature"] == 0.4
         metadata = usage["extra"]
         assert metadata["resolved_model"] == "gpt-test"

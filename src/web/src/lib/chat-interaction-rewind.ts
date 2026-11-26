@@ -40,6 +40,53 @@ export const requiresInteractionRewind = (
   );
 };
 
+/** Learner answers may be legacy text or structured defaults restored from history. */
+export const classifyLearnerInteraction = (
+  items: ChatContentItem[],
+  elementBid: string,
+  content: OnSendContentParams,
+  {
+    isStreaming,
+    beforeSubmission,
+  }: { isStreaming: boolean; beforeSubmission?: string },
+): 'continue' | 'repeat' | 'rewind' => {
+  const previous =
+    beforeSubmission ??
+    items.find(
+      item =>
+        item.element_bid === elementBid &&
+        item.type === ChatContentItemType.INTERACTION,
+    )?.user_input;
+  const submission = resolveInteractionSubmission(content);
+  if (previous?.trim() && submission.values.length) {
+    let identical = previous.trim() === submission.userInput;
+    try {
+      const saved = JSON.parse(previous) as OnSendContentParams | null;
+      if (saved && Array.isArray(saved.selectedValues)) {
+        // History may contain duplicate choices from another client.
+        const savedChoices = saved.selectedValues
+          .map(value => `${value ?? ''}`.trim())
+          .filter(Boolean);
+        const oldValues = [
+          ...savedChoices,
+          ...resolveInteractionSubmission(saved).values.filter(
+            value => !savedChoices.includes(value),
+          ),
+        ];
+        identical =
+          oldValues.length === submission.values.length &&
+          oldValues.every((value, i) => value === submission.values[i]);
+      }
+    } catch {
+      // Older lesson history stores the joined answer as plain text.
+    }
+    // An unconfirmed edit may already have changed the saved answer.
+    if (identical && beforeSubmission === undefined) return 'repeat';
+    if (!isStreaming) return 'rewind';
+  }
+  return requiresInteractionRewind(items, elementBid) ? 'rewind' : 'continue';
+};
+
 /** Both learner and Debug preserve the chosen control and replace its suffix. */
 export const updateInteractionItems = (
   items: ChatContentItem[],

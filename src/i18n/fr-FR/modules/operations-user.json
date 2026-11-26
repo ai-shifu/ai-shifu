@@ -112,6 +112,31 @@
     },
     "empty": "--"
   },
+  "createAccount": {
+    "action": "Créer un compte",
+    "cancel": "Annuler",
+    "confirmPasswordLabel": "Confirmer le mot de passe",
+    "confirmPasswordPlaceholder": "Saisissez à nouveau le mot de passe",
+    "description": "L’utilisateur se connecte sur la page de connexion par mot de passe avec ce nom d’utilisateur et ce mot de passe. Transmettez les identifiants de manière sécurisée ; il pourra changer le mot de passe après connexion.",
+    "errors": {
+      "nicknameTooLong": "Le nom affiché ne doit pas dépasser 50 caractères.",
+      "passwordInvalid": "Le mot de passe doit comporter au moins 8 caractères, avec des lettres non accentuées (A-Z ou a-z) et des chiffres.",
+      "passwordMismatch": "Les deux mots de passe ne correspondent pas.",
+      "submitFailed": "Impossible de créer le compte. Veuillez réessayer.",
+      "usernameInvalid": "Utilisez 3 à 32 caractères : une lettre d’abord, puis des minuscules a-z (sans accents), des chiffres, « . », « _ » ou « - »."
+    },
+    "nicknameLabel": "Nom affiché (facultatif)",
+    "nicknamePlaceholder": "Par défaut, le nom d’utilisateur",
+    "passwordLabel": "Mot de passe initial",
+    "passwordPlaceholder": "Au moins 8 caractères avec lettres et chiffres",
+    "submit": "Créer le compte",
+    "submitting": "Création...",
+    "successDescription": "{username} peut maintenant se connecter avec le mot de passe initial.",
+    "successTitle": "Compte créé",
+    "title": "Créer un compte avec nom d’utilisateur",
+    "usernameLabel": "Nom d’utilisateur",
+    "usernamePlaceholder": "3 à 32 caractères, commençant par une lettre"
+  },
   "credits": {
     "longTerm": "Valide à long terme"
   },

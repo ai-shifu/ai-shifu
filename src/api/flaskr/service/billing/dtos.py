@@ -909,6 +909,9 @@ class RuntimeConfigDTO(BillingBaseDTO):
     """Represent the runtime config API payload."""
 
     wechat_app_id: str = Field(alias="wechatAppId")
+    learner_image_storage_prefixes: list[str] = Field(
+        default_factory=list, alias="learnerImageStoragePrefixes"
+    )
     enable_wechat_code: bool = Field(alias="enableWechatCode")
     billing_enabled: bool = Field(alias="billingEnabled")
     billing_credit_precision: int = Field(alias="billingCreditPrecision")

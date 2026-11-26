@@ -27,7 +27,6 @@ from flaskr.service.profile_research.session import (
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
-    RetryPromptPart,
     ToolReturnPart,
     UserPromptPart,
 )
@@ -108,20 +107,12 @@ def test_question_argument_never_adds_to_model_prose(
     narration: str, question: str
 ) -> None:
     session = _session("Ask about the learner, then wait for the answer.")
-    retry_needed = question not in narration
     calls = 0
 
-    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+    async def script(_messages: list[ModelMessage], _info: AgentInfo) -> Stream:
         nonlocal calls
         calls += 1
-        if calls == 2:
-            assert retry_needed
-            assert any(
-                isinstance(part, RetryPromptPart) and part.tool_name == "interact"
-                for part in messages[-1].parts
-            )
-            yield question
-        elif narration:
+        if narration:
             yield narration
         yield {
             0: DeltaToolCall(
@@ -139,10 +130,10 @@ def test_question_argument_never_adds_to_model_prose(
 
     result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
     interaction = result.chunks[-1]
-    assert calls == (2 if retry_needed else 1)
+    assert calls == 1
     assert interaction.interaction_id == f"attempt-{calls}"
     assert interaction.interaction.endswith("...Your answer]")
-    assert _content(result).strip() == (question if retry_needed else narration)
+    assert _content(result).strip() == narration
     pending = Session.from_dict(session.engine_session).pending[0]
     assert pending.tool_call_id == interaction.interaction_id
     assert pending.spec.question == question
@@ -277,7 +268,7 @@ def test_complete_source_and_history_survive_sequential_questions_and_finish() -
     assert len(calls[-1]) > len(calls[0])
 
 
-def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname() -> (
+def test_multiple_pending_keep_native_answers_and_exclude_navigation_and_nickname() -> (
     None
 ):
     session = _session(
@@ -300,7 +291,13 @@ def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname()
             yield {
                 0: _question("goal", "goal", prompt="Goal?"),
                 1: _question("name", SYS_USER_NICKNAME, prompt="Name?"),
-                2: _question("confirm", None, kind="confirm", prompt="Continue"),
+                2: _question(
+                    "next",
+                    None,
+                    kind="single",
+                    prompt="",
+                    options=[{"display": "Next section", "value": "Continue"}],
+                ),
                 3: _question("pace", "pace", prompt="Pace?"),
             }
 
@@ -319,10 +316,11 @@ def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname()
         {"prompt": "Goal?", "variable": "goal", "answer": "Learner wrote: Learn Python"}
     ]
     session = _ProfileResearchSession.from_cache_payload(session.to_cache_payload())
-    run_profile_turn(session, {SYS_USER_NICKNAME: ["Pat"]}, model)
-    confirm = run_profile_turn(session, {"arbitrary": ["continue"]}, model)
-    assert confirm.input_accepted
-    assert confirm.chunks[-1].interaction_id == "pace"
+    after_name = run_profile_turn(session, {SYS_USER_NICKNAME: ["Pat"]}, model)
+    assert after_name.chunks[-1].interaction == "?[Next section//Continue]"
+    after_continue = run_profile_turn(session, {"arbitrary": ["Continue"]}, model)
+    assert after_continue.input_accepted
+    assert after_continue.chunks[-1].interaction_id == "pace"
     assert calls == 1
     assert len(profile_answer_evidence(session)) == 1
     final = run_profile_turn(session, {"pace": ["Slow"]}, model)
@@ -683,7 +681,7 @@ def test_fatal_model_retries_leave_the_full_native_session_unmodified() -> None:
     assert session.to_cache_payload() == original
 
 
-def test_natural_questionnaire_confirm_waits_for_an_actual_learner_response() -> None:
+def test_natural_questionnaire_waits_for_the_learner_to_continue() -> None:
     session = _session(
         "Welcome the learner and pause until they confirm readiness, then finish."
     )
@@ -695,21 +693,31 @@ def test_natural_questionnaire_confirm_waits_for_an_actual_learner_response() ->
         if _returns(messages, "finish"):
             yield "Thanks."
         elif _returns(messages):
-            assert _returns(messages)[0].content.startswith("Learner pressed continue.")
+            assert _returns(messages)[0].content == "Learner chose: continue"
             yield "Ready."
             yield _finish()
         else:
             yield "Welcome. Confirm when you are ready."
-            yield {0: _question("ready", None, kind="confirm", prompt="Continue")}
+            yield {
+                0: _question(
+                    "ready",
+                    None,
+                    kind="single",
+                    prompt="",
+                    options=[{"display": "Continue", "value": "continue"}],
+                )
+            }
 
     model = FunctionModel(stream_function=script)
     first = run_profile_turn(session, {}, model)
     assert first.reason == "interaction"
     assert not first.finished
     assert first.chunks[-1].interaction_id == "ready"
+    assert first.chunks[-1].interaction == "?[Continue//continue]"
     assert calls == 1
     rerendered = run_profile_turn(session, {}, model)
     assert rerendered.chunks[-1].interaction_id == "ready"
+    assert rerendered.chunks[-1].interaction == first.chunks[-1].interaction
     assert calls == 1
     last = run_profile_turn(session, {"arbitrary": ["continue"]}, model)
     assert last.input_accepted

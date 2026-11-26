@@ -27,7 +27,7 @@ def test_the_first_message_s_sections_are_not_written_back() -> None:
 def test_question_answers_are_stored_before_any_separate_remember_call() -> None:
     """The leaked note recorded an answer that `interact` had already stored."""
     rule = _rule(4)
-    assert "An accepted answer to `interact` is stored under its `question`" in rule
+    assert "with a nonempty `question` is stored under that exact wording" in rule
     assert "Use `remember` only for other writes allowed by the memory policy" in rule
 
 
@@ -38,14 +38,17 @@ def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
         assert tag in script_source
 
 
-def test_the_notation_uses_one_question_for_display_and_storage() -> None:
-    """The syntax and system instructions agree on what identifies an answer."""
+def test_the_notation_uses_only_the_binding_text_for_the_answer_key() -> None:
+    """Both binding forms keep the stored key separate from the control notation."""
     notation = (_PROMPTS / "syntax.md").read_text()
-    assert "use that exact text in `interact.question`" in notation
-    assert "?[{{question}} ...]" in notation
+    assert (
+        "copy only the text between the leading braces into `interact.question`"
+        in notation
+    )
+    assert "?[{{binding}} ...]" in notation
+    assert "?[%{{binding}} ...]" in notation
     assert "{{What would you like to learn?}}" in notation
     assert 'question="What would you like to learn?"' in notation
-    assert "The answer is saved under `What would you like to learn?`" in notation
 
 
 def test_the_notation_says_how_to_read_an_escape_in_an_option() -> None:

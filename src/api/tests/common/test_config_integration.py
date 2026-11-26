@@ -1,5 +1,6 @@
 """Integration tests for the complete configuration system."""
 
+import logging
 import os
 from unittest.mock import MagicMock, patch
 
@@ -129,7 +130,7 @@ class TestConfigurationValidation:
     """Test configuration validation scenarios."""
 
     def test_missing_all_llm_keys_fails(self, monkeypatch: object) -> None:
-        """Test that missing all LLM API keys fails validation."""
+        """Model 1's LiteLLM provider must have its credentials."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
         monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
@@ -143,42 +144,112 @@ class TestConfigurationValidation:
         with pytest.raises(EnvironmentConfigError) as exc_info:
             Config(app.config, app)
 
-        assert "At least one LLM API key must be configured" in str(exc_info.value)
+        assert "set OPENAI_API_KEY" in str(exc_info.value)
 
-    def test_at_least_one_llm_key_succeeds(self, monkeypatch: object) -> None:
-        """Test that having at least one LLM key succeeds."""
+    @pytest.mark.parametrize(
+        ("model", "key"),
+        [
+            ("gpt-test", "OPENAI_API_KEY"),
+            ("dashscope/qwen-max", "DASHSCOPE_API_KEY"),
+            ("bigmodel/glm-4.6", "BIGMODEL_API_KEY"),
+            ("volcengine/ep-1", "VOLCENGINE_API_KEY"),
+            ("qianfan/ernie-4.5-turbo-128k", "QIANFAN_API_KEY"),
+            ("siliconflow/Qwen/Qwen3-8B", "SILICONFLOW_API_KEY"),
+            ("gemini/gemini-2.5-pro", "GEMINI_API_KEY"),
+            ("deepseek/deepseek-chat", "DEEPSEEK_API_KEY"),
+            ("anthropic/claude-sonnet-4-5", "ANTHROPIC_API_KEY"),
+            ("openrouter/openai/gpt-4o", "OPENROUTER_API_KEY"),
+            # Legacy names stay accepted during the compatibility period.
+            ("qwen/qwen-max", "QWEN_API_KEY"),
+            ("glm/glm-4.6", "BIGMODEL_API_KEY"),
+            ("ark/ep-1", "ARK_API_KEY"),
+            ("ernie/ernie-4.5-turbo-128k", "ERNIE_API_KEY"),
+            ("silicon/Qwen/Qwen3-8B", "SILICON_API_KEY"),
+        ],
+    )
+    def test_model_one_provider_credentials_succeed(
+        self, monkeypatch: object, model: str, key: str
+    ) -> None:
+        """Model 1 starts once LiteLLM finds its provider's credentials."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_ID", model)
         monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
-
-        # Test with different LLM keys
-        llm_keys = [
-            "OPENAI_API_KEY",
-            "ERNIE_API_KEY",
-            "ARK_API_KEY",
-            "SILICON_API_KEY",
-            "GEMINI_API_KEY",
-            "DEEPSEEK_API_KEY",
-            "QWEN_API_KEY",
-            "BIGMODEL_API_KEY",
-        ]
+        monkeypatch.setenv(key, "test-provider-key")
 
         app = Flask(__name__)
         app.logger = MagicMock()
 
-        for llm_key in llm_keys:
-            # Clear all LLM keys
-            for key in llm_keys:
-                monkeypatch.delenv(key, raising=False)
+        assert Config(app.config, app) is not None
 
-            # Set only one LLM key
-            monkeypatch.setenv(llm_key, f"test-{llm_key.lower()}")
+    def test_model_one_interpolation_is_expanded_before_routing(
+        self, monkeypatch: object
+    ) -> None:
+        """Model 1 is checked after ``${VAR}`` expansion, like normal reads."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("COURSE_MODEL", "dashscope/qwen-max")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "${COURSE_MODEL}")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.setenv("DASHSCOPE_API_KEY", "test-provider-key")
 
-            # Should succeed with just this one key
-            config = Config(app.config, app)
-            assert config is not None
+        app = Flask(__name__)
+        app.logger = MagicMock()
+
+        assert Config(app.config, app) is not None
+
+    def test_model_one_expanding_to_empty_fails(self, monkeypatch: object) -> None:
+        """A reference to an empty variable is not a model id."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("COURSE_MODEL", " ")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "${COURSE_MODEL}")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+        app = Flask(__name__)
+        app.logger = MagicMock()
+
+        with pytest.raises(EnvironmentConfigError) as exc_info:
+            Config(app.config, app)
+
+        assert "expands to an empty value" in str(exc_info.value)
+
+    def test_unverified_provider_credentials_only_warn(
+        self, monkeypatch: object, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A provider outside the checked list starts with a warning."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "mistral/mistral-large-latest")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+
+        app = Flask(__name__)
+        app.logger = MagicMock()
+
+        with caplog.at_level(logging.WARNING):
+            assert Config(app.config, app) is not None
+        assert "MISTRAL_API_KEY" in caplog.text
+
+    def test_unrecognized_model_one_fails(self, monkeypatch: object) -> None:
+        """A model id outside LiteLLM's rules cannot start the service."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "vanchin/model")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+        app = Flask(__name__)
+        app.logger = MagicMock()
+
+        with pytest.raises(EnvironmentConfigError) as exc_info:
+            Config(app.config, app)
+
+        assert "not a model id LiteLLM recognizes" in str(exc_info.value)
 
     def test_invalid_type_conversion_uses_default(self, monkeypatch: object) -> None:
         """Test that invalid type conversion falls back to default."""

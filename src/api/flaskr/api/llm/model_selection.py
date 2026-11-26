@@ -98,8 +98,8 @@ def selection_metadata(record: object, *, follow_up: bool = False) -> dict:
 def resolve_model_slot(index: object) -> str:
     """Resolve one bound numbered slot, rejecting unusable text routes."""
     from flaskr.api.llm import (
-        MODEL_SUPPORTED_GENERATION_METHODS,
         get_litellm_params_and_model,
+        get_model_generation_methods,
     )
     from flaskr.service.learn.live_follow_up_config import is_live_follow_up_model
 
@@ -110,7 +110,7 @@ def resolve_model_slot(index: object) -> str:
     if slot is None:
         raise_error("server.llm.modelSelectionNotConfigured")
     model = slot["model"]
-    capabilities = MODEL_SUPPORTED_GENERATION_METHODS.get(model)
+    capabilities = get_model_generation_methods(model)
     if (
         model in MODEL_INDEXES
         or is_live_follow_up_model(model)
@@ -118,13 +118,14 @@ def resolve_model_slot(index: object) -> str:
     ):
         raise_error("server.llm.modelUnavailable")
     try:
-        params, _, _ = get_litellm_params_and_model(model)
+        params, invoke_model, provider = get_litellm_params_and_model(model)
     except AppError as exc:
         if exc.code != ERROR_CODE["server.llm.specifiedLlmNotConfigured"]:
             raise
         # Provider diagnostics can contain physical identities; keep them internal.
         raise_error("server.llm.modelUnavailable")
-    if not params:
+    # ``gemini/<live model>`` names a Live-only model even without metadata.
+    if not params or (provider == "gemini" and is_live_follow_up_model(invoke_model)):
         raise_error("server.llm.modelUnavailable")
     return model
 
