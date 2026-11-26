@@ -536,7 +536,8 @@
       line-height: 36px;
     }
 
-    .input-container [data-size='icon-sm'] {
+    .input-container [data-size='icon-sm'],
+    .multi-select-input-row [data-size='icon-sm'] {
       width: 48px;
       min-width: 48px;
       height: 48px;
