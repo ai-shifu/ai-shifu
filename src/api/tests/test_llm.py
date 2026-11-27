@@ -1847,8 +1847,7 @@ def test_litellm_native_adapter_contracts() -> None:
                 kwargs or {},
             )
 
-        def openai_6_1_sol_responses_contract(stream):
-            model = "gpt-6.1-sol"
+        def openai_sol_responses_contract(model, stream):
             requests = []
             tool_item = {
                 "type": "function_call",
@@ -2221,9 +2220,12 @@ def test_litellm_native_adapter_contracts() -> None:
                 model: native_reasoning_capabilities("openai", model)
                 for model in ("gpt-6-sol", "gpt-6-luna")
             },
-            "openai_6_1_sol": {
-                "chat.completion": openai_6_1_sol_responses_contract(stream=False),
-                "chat.completion.chunk": openai_6_1_sol_responses_contract(stream=True),
+            "openai_sol": {
+                model: {
+                    "chat.completion": openai_sol_responses_contract(model, stream=False),
+                    "chat.completion.chunk": openai_sol_responses_contract(model, stream=True),
+                }
+                for model in ("gpt-6.1-sol", "gpt-6.2-sol")
             },
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
@@ -2455,21 +2457,22 @@ def test_litellm_native_adapter_contracts() -> None:
         assert refreshed["request"]["body"]["reasoning_effort"] == "none"
         assert refreshed["request"]["body"]["temperature"] == 0.4
         assert refreshed["request"]["content"] == "Hello world"
-    for response_object, sol_contract in contracts["openai_6_1_sol"].items():
-        assert sol_contract["url"] == "https://api.openai.com/v1/responses"
-        body = sol_contract["body"]
-        assert body["model"] == "gpt-6.1-sol"
-        assert body["reasoning"] == {"effort": "low"}
-        assert body["store"] is False
-        assert body["max_output_tokens"] == 128
-        assert "temperature" not in body
-        assert body["tools"][0]["name"] == "finish"
-        assert body["tools"][0].get("strict") is None
-        assert sol_contract["object"] == response_object
-        assert sol_contract["model"] == "gpt-6.1-sol"
-        assert sol_contract["finish_reason"] == "tool_calls"
-        assert sol_contract["tool_call"] == ["call_contract", "finish", "{}"]
-        assert sol_contract["usage"] == [8, 2, 3, 11]
+    for model, responses in contracts["openai_sol"].items():
+        for response_object, sol_contract in responses.items():
+            assert sol_contract["url"] == "https://api.openai.com/v1/responses"
+            body = sol_contract["body"]
+            assert body["model"] == model
+            assert body["reasoning"] == {"effort": "low"}
+            assert body["store"] is False
+            assert body["max_output_tokens"] == 128
+            assert "temperature" not in body
+            assert body["tools"][0]["name"] == "finish"
+            assert body["tools"][0].get("strict") is None
+            assert sol_contract["object"] == response_object
+            assert sol_contract["model"] == model
+            assert sol_contract["finish_reason"] == "tool_calls"
+            assert sol_contract["tool_call"] == ["call_contract", "finish", "{}"]
+            assert sol_contract["usage"] == [8, 2, 3, 11]
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
