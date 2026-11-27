@@ -893,8 +893,12 @@ const ScriptEditor = ({
     syncDraftFromRemote,
   ]);
 
+  const courseSyncShifuBid = isHistoryPage ? '' : currentShifu?.bid || '';
+
+  // One remote-sync loop: course data for every viewer, lesson content only
+  // for an editable lesson (its conflict handling needs an editable draft).
   useEffect(() => {
-    if (shouldSkipConflictCheck) {
+    if (!courseSyncShifuBid && shouldSkipConflictCheck) {
       return;
     }
     let isActive = true;
@@ -902,7 +906,12 @@ const ScriptEditor = ({
       if (!isActive) {
         return;
       }
-      await detectDraftConflict();
+      await Promise.all([
+        courseSyncShifuBid
+          ? actionsRef.current.syncCourseFromRemote(courseSyncShifuBid)
+          : undefined,
+        shouldSkipConflictCheck ? undefined : detectDraftConflict(),
+      ]);
     };
     const handleFocus = () => {
       void runCheck();
@@ -924,7 +933,7 @@ const ScriptEditor = ({
       document.removeEventListener('visibilitychange', handleVisibility);
       window.clearInterval(timer);
     };
-  }, [detectDraftConflict, shouldSkipConflictCheck]);
+  }, [courseSyncShifuBid, detectDraftConflict, shouldSkipConflictCheck]);
 
   useEffect(() => {
     if (hasDraftConflict) {

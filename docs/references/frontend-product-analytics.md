@@ -684,3 +684,44 @@ context are handled separately by the shared transport.
   operations recovery reporting, grouped by surface. The events measure
   outline recovery, without inferring that teaching started. No backfill or
   dual writing. Analytics is best-effort and never affects the retry.
+
+## Course editor remote change sync
+
+- Business question and metric: how often do changes made outside an open
+  course editor (the course-creator skill, another tab, or another
+  collaborator) reach that editor, and which areas do they touch? Count applied
+  remote changes per week, and distinct courses (`shifu_bid`) receiving them,
+  split by `course_settings_changed` and `outline_changed`. This informs
+  whether to invest further in skill-and-editor co-editing. The event does not
+  identify which tool or person made the change.
+- Event: `creator_course_remote_change_applied`, emitted by the course editor
+  store after a newer course-level draft revision was applied and at least one
+  on-screen area actually changed. Lesson content updates stay with the
+  existing lesson draft sync and are not counted here.
+- Population: signed-in users with the course editor open, including
+  view-only collaborators. The history page is excluded. Revisions that change
+  nothing on screen, including the editor's own writes, emit nothing. A refresh
+  skipped for local editing, loading or saving, or a failed refresh, emits
+  nothing until it is applied.
+- Deduplication: at most once per applied course revision per editor mount.
+  The first reconciliation after opening a course counts only when it changed
+  what was on screen. No persistent deduplication.
+- Complete feature payload:
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `shifu_bid` | string | Stable course identifier | high | pseudonymous | Count distinct courses receiving remote changes |
+| `course_settings_changed` | boolean | `true`, `false` | low | non-personal | Split settings and prompt changes from outline changes |
+| `outline_changed` | boolean | `true`, `false` | low | non-personal | Count outline structure, name and permission changes |
+| `selection_cleared` | boolean | `true`, `false` | low | non-personal | Measure how often the open outline was deleted elsewhere |
+
+  Do not add course, chapter or lesson titles, prompts, settings values,
+  revision numbers, updater identity, URLs or errors.
+- Consumer and compatibility: additive event with no predecessor; weekly
+  aggregation in Umami. No backfill or dual write.
+- Delivery: `useTracking` from the shared course store after state is applied,
+  without awaiting it. A tracking failure never blocks or reverts the refresh.
+- Verification: exact name and allowlisted payload, prohibited-text absence,
+  no event for the baseline or no-op revisions, once per revision after a
+  skipped attempt, deleted-selection flag, and refresh still applied when
+  tracking throws.

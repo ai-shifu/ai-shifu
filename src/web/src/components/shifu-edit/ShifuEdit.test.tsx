@@ -301,6 +301,7 @@ const baseActions = {
   loadModels: mockLoadModels,
   loadChapters: mockLoadChapters,
   loadDraftMeta: mockLoadDraftMeta,
+  syncCourseFromRemote: jest.fn(),
   loadMdflow: jest.fn(),
   setDraftConflict: jest.fn(),
   setAutosavePaused: jest.fn(),
@@ -476,6 +477,25 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockLoadDraftMeta).not.toHaveBeenCalled();
     });
+  });
+
+  test('syncs remote course changes on load, on a timer, and on focus, even for a chapter', async () => {
+    jest.useFakeTimers();
+    render(<ScriptEditor id='shifu-1' />);
+
+    expect(baseActions.syncCourseFromRemote).toHaveBeenCalledTimes(1);
+    expect(baseActions.syncCourseFromRemote).toHaveBeenCalledWith('shifu-1');
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(45000);
+    });
+    expect(baseActions.syncCourseFromRemote).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(baseActions.syncCourseFromRemote).toHaveBeenCalledTimes(3);
+    expect(mockLoadDraftMeta).not.toHaveBeenCalled();
   });
 
   test('passes the owner credit audience into lesson preview', () => {

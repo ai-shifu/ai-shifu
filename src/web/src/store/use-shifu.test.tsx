@@ -7,6 +7,7 @@ const mockGetMdflow = jest.fn();
 const mockRestoreMdflowHistory = jest.fn();
 const mockGetShifuDraftMeta = jest.fn();
 const mockGetShifuDetail = jest.fn();
+const mockGetShifuOutlineTree = jest.fn();
 const mockCreateOutline = jest.fn();
 const mockGetProfileItemDefinitions = jest.fn();
 const mockGetProfileVariableUsage = jest.fn();
@@ -21,6 +22,8 @@ jest.mock('@/api', () => ({
     saveMdflow: (...args: unknown[]) => mockSaveMdflow(...args),
     getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
+    getShifuOutlineTree: (...args: unknown[]) =>
+      mockGetShifuOutlineTree(...args),
     createOutline: (...args: unknown[]) => mockCreateOutline(...args),
     getProfileItemDefinitions: (...args: unknown[]) =>
       mockGetProfileItemDefinitions(...args),
@@ -804,5 +807,361 @@ describe('useShifu memory definition requests', () => {
 
     expect(mockGetProfileItemDefinitions).toHaveBeenCalledTimes(1);
     expect(mockGetProfileVariableUsage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useShifu remote course sync', () => {
+  const remoteLesson = (bid: string, name = bid) => ({
+    bid,
+    name,
+    type: 'trial',
+    is_hidden: false,
+    children: [],
+  });
+  const remoteTree = (lessons = [remoteLesson('lesson-1', 'Intro')]) => [
+    {
+      bid: 'chapter-1',
+      name: 'Chapter 1',
+      type: 'trial',
+      is_hidden: false,
+      children: lessons,
+    },
+  ];
+  let revision = 21;
+
+  beforeEach(() => {
+    revision = 21;
+    mockTrackEvent.mockReset();
+    mockGetMdflow.mockReset().mockResolvedValue('Saved lesson content');
+    mockGetShifuDraftMeta
+      .mockReset()
+      .mockImplementation(async () => ({ revision }));
+    mockGetShifuDetail
+      .mockReset()
+      .mockResolvedValue({ bid: 'shifu-1', name: 'Course' });
+    mockGetShifuOutlineTree.mockReset().mockResolvedValue(remoteTree());
+    mockGetProfileItemDefinitions.mockReset().mockResolvedValue([]);
+    mockGetProfileVariableUsage.mockReset().mockResolvedValue({});
+  });
+
+  // Load the course and let the first sync record the on-screen baseline.
+  const renderSyncedCourse = async () => {
+    const hook = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await hook.result.current.actions.loadChapters('shifu-1');
+    });
+    await act(async () => {
+      await hook.result.current.actions.syncCourseFromRemote('shifu-1');
+    });
+    mockGetShifuDetail.mockClear();
+    mockGetShifuOutlineTree.mockClear();
+    mockTrackEvent.mockClear();
+    return hook.result;
+  };
+
+  const syncRemoteWrite = async (
+    result: Awaited<ReturnType<typeof renderSyncedCourse>>,
+  ) => {
+    revision += 1;
+    await act(async () => {
+      await result.current.actions.syncCourseFromRemote('shifu-1');
+    });
+  };
+
+  it('only reads the course-level revision while nothing changed', async () => {
+    const result = await renderSyncedCourse();
+
+    await act(async () => {
+      await result.current.actions.syncCourseFromRemote('shifu-1');
+    });
+
+    expect(mockGetShifuDraftMeta).toHaveBeenLastCalledWith({
+      shifu_bid: 'shifu-1',
+    });
+    expect(mockGetShifuDetail).not.toHaveBeenCalled();
+    expect(mockGetShifuOutlineTree).not.toHaveBeenCalled();
+    expect(result.current.latestDraftMeta).toBeNull();
+  });
+
+  it('applies remote course settings and outline changes while keeping the lesson draft', async () => {
+    const result = await renderSyncedCourse();
+    expect(result.current.currentNode?.bid).toBe('lesson-1');
+    const loadsBefore = mockGetMdflow.mock.calls.length;
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'shifu-1',
+      name: 'Renamed course',
+      system_prompt: 'New course prompt',
+    });
+    mockGetShifuOutlineTree.mockResolvedValue(
+      remoteTree([
+        remoteLesson('lesson-1', 'Intro renamed'),
+        remoteLesson('lesson-2'),
+      ]),
+    );
+
+    await syncRemoteWrite(result);
+
+    expect(result.current.currentShifu).toMatchObject({
+      name: 'Renamed course',
+      system_prompt: 'New course prompt',
+    });
+    expect(
+      result.current.chapters[0].children?.map(child => child.name),
+    ).toEqual(['Intro renamed', 'lesson-2']);
+    expect(result.current.cataData['lesson-2']?.name).toBe('lesson-2');
+    expect(result.current.currentNode?.name).toBe('Intro renamed');
+    expect(result.current.mdflow).toBe('Saved lesson content');
+    expect(mockGetMdflow.mock.calls.length).toBe(loadsBefore);
+  });
+
+  it('keeps folded chapters folded when the tree is replaced', async () => {
+    const result = await renderSyncedCourse();
+    act(() => {
+      result.current.actions.setChapters([
+        { ...result.current.chapters[0], collapsed: true },
+      ]);
+    });
+    mockGetShifuOutlineTree.mockResolvedValue(
+      remoteTree([remoteLesson('lesson-1', 'Intro'), remoteLesson('lesson-2')]),
+    );
+
+    await syncRemoteWrite(result);
+
+    expect(result.current.chapters[0].children).toHaveLength(2);
+    expect(result.current.chapters[0].collapsed).toBe(true);
+  });
+
+  it('keeps object identity when the write changed nothing on screen', async () => {
+    const result = await renderSyncedCourse();
+    const chapters = result.current.chapters;
+    const shifu = result.current.currentShifu;
+
+    await syncRemoteWrite(result);
+
+    expect(mockGetShifuOutlineTree).toHaveBeenCalledTimes(1);
+    expect(result.current.chapters).toBe(chapters);
+    expect(result.current.currentShifu).toBe(shifu);
+  });
+
+  it('waits for an inline outline edit to finish, then applies the change', async () => {
+    const result = await renderSyncedCourse();
+    mockGetShifuOutlineTree.mockResolvedValue(
+      remoteTree([remoteLesson('lesson-1', 'Intro renamed')]),
+    );
+    act(() => {
+      result.current.actions.setFocusId('lesson-1');
+    });
+
+    await syncRemoteWrite(result);
+    expect(mockGetShifuOutlineTree).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.actions.setFocusId('');
+    });
+    await act(async () => {
+      await result.current.actions.syncCourseFromRemote('shifu-1');
+    });
+    expect(result.current.chapters[0].children?.[0].name).toBe('Intro renamed');
+  });
+
+  it('clears the selection when the selected lesson was deleted elsewhere', async () => {
+    const result = await renderSyncedCourse();
+    mockGetShifuOutlineTree.mockResolvedValue(remoteTree([]));
+
+    await syncRemoteWrite(result);
+
+    expect(result.current.currentNode).toBeNull();
+    expect(result.current.chapters[0].children).toEqual([]);
+  });
+
+  it('keeps unsaved text visible when the selected lesson was deleted elsewhere', async () => {
+    const result = await renderSyncedCourse();
+    act(() => {
+      result.current.actions.setCurrentMdflow('Unsaved edit');
+    });
+    result.current.actions.cancelAutoSaveBlocks();
+    mockGetShifuOutlineTree.mockResolvedValue(remoteTree([]));
+
+    await syncRemoteWrite(result);
+
+    expect(result.current.currentNode?.bid).toBe('lesson-1');
+    expect(result.current.mdflow).toBe('Unsaved edit');
+  });
+  it('applies a write that landed between the initial load and the first sync', async () => {
+    const hook = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await hook.result.current.actions.loadChapters('shifu-1');
+    });
+    // The skill writes after the editor loaded but before its first check.
+    revision += 1;
+    mockGetShifuOutlineTree.mockResolvedValue(
+      remoteTree([remoteLesson('lesson-1', 'Written during load')]),
+    );
+
+    await act(async () => {
+      await hook.result.current.actions.syncCourseFromRemote('shifu-1');
+    });
+
+    expect(hook.result.current.chapters[0].children?.[0].name).toBe(
+      'Written during load',
+    );
+  });
+
+  it('retries the first reconciliation when the initial load is still running', async () => {
+    const hook = renderHook(() => useShifu(), { wrapper });
+    const tree = createDeferred<unknown>();
+    mockGetShifuOutlineTree.mockReturnValueOnce(tree.promise);
+    let loading!: Promise<void>;
+    act(() => {
+      loading = hook.result.current.actions.loadChapters('shifu-1');
+    });
+    await act(async () => {
+      await hook.result.current.actions.syncCourseFromRemote('shifu-1');
+    });
+    expect(mockGetShifuDetail).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      tree.resolve(remoteTree());
+      await loading;
+    });
+    mockGetShifuOutlineTree.mockResolvedValue(
+      remoteTree([remoteLesson('lesson-1', 'Intro renamed')]),
+    );
+    await act(async () => {
+      await hook.result.current.actions.syncCourseFromRemote('shifu-1');
+    });
+    expect(hook.result.current.chapters[0].children?.[0].name).toBe(
+      'Intro renamed',
+    );
+  });
+
+  it('applies a remote revert of a lesson renamed in local settings', async () => {
+    const result = await renderSyncedCourse();
+    // Lesson settings saves update only the sidebar metadata map.
+    await act(async () => {
+      await result.current.actions.updateOutline('lesson-1', {
+        ...result.current.chapters[0].children![0],
+        name: 'Welcome',
+      });
+    });
+    expect(result.current.cataData['lesson-1']?.name).toBe('Welcome');
+
+    // Another tab restores the original name the tree still holds.
+    await syncRemoteWrite(result);
+
+    expect(mockGetShifuOutlineTree).toHaveBeenCalledTimes(1);
+    expect(result.current.cataData['lesson-1']?.name).toBe('Intro');
+  });
+
+  it('refreshes the selected outline when it moves without other changes', async () => {
+    const result = await renderSyncedCourse();
+    expect(result.current.currentNode).toMatchObject({
+      bid: 'lesson-1',
+      depth: 1,
+    });
+    // Another editor moves the lesson to the top level, unchanged otherwise.
+    mockGetShifuOutlineTree.mockResolvedValue([
+      ...remoteTree([]),
+      remoteLesson('lesson-1', 'Intro'),
+    ]);
+
+    await syncRemoteWrite(result);
+
+    expect(result.current.currentNode).toMatchObject({
+      bid: 'lesson-1',
+      depth: 0,
+      parent_bid: '',
+    });
+  });
+
+  describe('creator_course_remote_change_applied', () => {
+    it('reports which areas changed with only allowlisted fields', async () => {
+      const result = await renderSyncedCourse();
+      mockGetShifuDetail.mockResolvedValue({
+        bid: 'shifu-1',
+        name: 'Renamed course',
+        system_prompt: 'Secret prompt text',
+      });
+
+      await syncRemoteWrite(result);
+
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_course_remote_change_applied',
+        {
+          shifu_bid: 'shifu-1',
+          course_settings_changed: true,
+          outline_changed: false,
+          selection_cleared: false,
+        },
+      );
+      const payload = JSON.stringify(mockTrackEvent.mock.calls[0][1]);
+      expect(payload).not.toContain('Renamed course');
+      expect(payload).not.toContain('Secret prompt text');
+      expect(payload).not.toContain('Intro');
+    });
+
+    it('marks a cleared selection when the open lesson was deleted', async () => {
+      const result = await renderSyncedCourse();
+      mockGetShifuOutlineTree.mockResolvedValue(remoteTree([]));
+
+      await syncRemoteWrite(result);
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_course_remote_change_applied',
+        expect.objectContaining({
+          outline_changed: true,
+          selection_cleared: true,
+        }),
+      );
+    });
+
+    it('is not sent for the baseline, an unchanged revision, or a write that changed nothing on screen', async () => {
+      const result = await renderSyncedCourse();
+      await act(async () => {
+        await result.current.actions.syncCourseFromRemote('shifu-1');
+      });
+      await syncRemoteWrite(result);
+
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    });
+
+    it('is sent once for a revision applied after a skipped attempt', async () => {
+      const result = await renderSyncedCourse();
+      mockGetShifuOutlineTree.mockResolvedValue(
+        remoteTree([remoteLesson('lesson-1', 'Intro renamed')]),
+      );
+      act(() => {
+        result.current.actions.setFocusId('lesson-1');
+      });
+      await syncRemoteWrite(result);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.actions.setFocusId('');
+      });
+      for (let i = 0; i < 2; i += 1) {
+        await act(async () => {
+          await result.current.actions.syncCourseFromRemote('shifu-1');
+        });
+      }
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('still applies the change when tracking throws', async () => {
+      const result = await renderSyncedCourse();
+      mockTrackEvent.mockImplementation(() => {
+        throw new Error('tracking unavailable');
+      });
+      mockGetShifuOutlineTree.mockResolvedValue(
+        remoteTree([remoteLesson('lesson-1', 'Intro renamed')]),
+      );
+
+      await syncRemoteWrite(result);
+
+      expect(result.current.chapters[0].children?.[0].name).toBe(
+        'Intro renamed',
+      );
+    });
   });
 });
