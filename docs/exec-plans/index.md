@@ -8,6 +8,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 - [Lesson content revision tracking with one nullable column](./active/accurate-lesson-content-updates.md)
 - [Bound Lesson Memory Context](./active/bounded-lesson-memory-context.md)
+- [Line wrap toggle for code blocks in rendered Markdown](./active/code-block-line-wrap-toggle.md)
 - [Bound malformed-text processing cost](./active/code-scanning-regex-complexity.md)
 - [Review the course action PR stack](./active/course-action-copy.md)
 - [Course Memory Management](./active/course-memory-management.md)
