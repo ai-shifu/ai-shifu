@@ -46,6 +46,8 @@ import { useTracking } from '@/hooks/use-tracking';
 import {
   buildOutlineCreateAnalytics,
   OUTLINE_CREATE_EVENT,
+  COURSE_REMOTE_CHANGE_APPLIED_EVENT,
+  buildCourseRemoteChangeAnalytics,
 } from './shifu-analytics';
 
 interface LessonDraft {
@@ -229,6 +231,7 @@ export const ShifuProvider = ({
     currentNode: null as Outline | null,
     focusId: '',
     isSaving: false,
+    isLoading: false,
   });
   latestCourseStateRef.current = {
     currentShifuBid: currentShifu?.bid ?? '',
@@ -237,6 +240,7 @@ export const ShifuProvider = ({
     currentNode,
     focusId,
     isSaving,
+    isLoading,
   };
   const courseSyncRef = useRef({ shifuId: '', revision: 0, inFlight: false });
   const lessonDraftRef = useRef<LessonDraft | null>(null);
@@ -862,42 +866,50 @@ export const ShifuProvider = ({
     }
   };
 
+  /**
+   * Reload course detail and the outline tree, replacing only what changed.
+   * Returns null when skipped for local work or failed, so callers retry.
+   */
   const applyRemoteCourse = async (shifuId: string) => {
-    const isEditingLocally = () => {
+    const isBusyLocally = () => {
       const state = latestCourseStateRef.current;
       return (
         state.currentShifuBid !== shifuId ||
         Boolean(state.focusId) ||
         state.isSaving ||
+        state.isLoading ||
         hasPlaceholderOutline(state.chapters)
       );
     };
-    if (!shifuId || isEditingLocally()) {
-      return false;
+    if (!shifuId || isBusyLocally()) {
+      return null;
     }
     try {
       const [shifuInfo, chaptersData] = await Promise.all([
         api.getShifuDetail({ shifu_bid: shifuId }),
         api.getShifuOutlineTree({ shifu_bid: shifuId }),
       ]);
-      // Never replace a tree the teacher started editing during the fetch.
-      if (isEditingLocally()) {
-        return false;
+      // Never replace state the teacher started changing during the fetch.
+      if (isBusyLocally()) {
+        return null;
       }
       const state = latestCourseStateRef.current;
       const nextShifu = normalizeShifuDetail(shifuInfo) as Shifu | null;
-      if (JSON.stringify(nextShifu) !== JSON.stringify(state.currentShifu)) {
+      const courseSettingsChanged =
+        JSON.stringify(nextShifu) !== JSON.stringify(state.currentShifu);
+      if (courseSettingsChanged) {
         setCurrentShifu(nextShifu);
       }
       const list = remapOutlineTree(chaptersData);
-      if (
+      const outlineChanged =
         getOutlineTreeSignature(list) !==
-        getOutlineTreeSignature(state.chapters)
-      ) {
+        getOutlineTreeSignature(state.chapters);
+      if (outlineChanged) {
         keepCollapsedState(list, state.chapters);
         setChapters(list);
         buildOutlineTree(list);
       }
+      let selectionCleared = false;
       const selected = state.currentNode;
       if (selected?.bid) {
         const refreshedNode = findOutlineByBid(list, selected.bid);
@@ -912,46 +924,56 @@ export const ShifuProvider = ({
           // The selected outline was deleted elsewhere; keep unsaved text
           // visible instead of discarding it, otherwise leave the selection.
           internalSetCurrentNode(null, shifuId);
+          selectionCleared = true;
         }
       }
       await refreshVariableUsage(shifuId);
-      return true;
+      return { courseSettingsChanged, outlineChanged, selectionCleared };
     } catch (error) {
       console.error('Failed to refresh course from remote', error);
-      return false;
+      return null;
     }
   };
 
   const syncCourseFromRemote = async (shifuId: string) => {
-    const sync = courseSyncRef.current;
-    if (!shifuId || sync.inFlight) {
+    if (!shifuId || courseSyncRef.current.inFlight) {
       return;
     }
+    if (courseSyncRef.current.shifuId !== shifuId) {
+      // Unknown baseline: the first fetched revision may already include a
+      // write the initial load missed, so reconcile once before trusting it.
+      courseSyncRef.current = { shifuId, revision: -1, inFlight: false };
+    }
+    const sync = courseSyncRef.current;
     sync.inFlight = true;
     try {
       // The course-level draft log gains a row on every course, outline, and
       // lesson write, including writes made outside this editor (CLI/skill).
+      // Read it before the data, so a later write still moves it past us.
       const meta = (await api.getShifuDraftMeta({
         shifu_bid: shifuId,
       })) as DraftMeta | null;
       const revision = meta?.revision;
-      if (typeof revision !== 'number') {
+      if (typeof revision !== 'number' || revision <= sync.revision) {
         return;
       }
-      if (sync.shifuId !== shifuId) {
-        // First sight of this course: what is on screen is the baseline.
-        courseSyncRef.current = { shifuId, revision, inFlight: true };
-        return;
-      }
+      const applied = await applyRemoteCourse(shifuId);
       // A skipped or failed apply keeps the old revision, so the next call
       // retries it.
-      if (revision > sync.revision && (await applyRemoteCourse(shifuId))) {
-        sync.revision = revision;
+      if (!applied || courseSyncRef.current !== sync) {
+        return;
+      }
+      sync.revision = revision;
+      if (applied.courseSettingsChanged || applied.outlineChanged) {
+        trackEvent(
+          COURSE_REMOTE_CHANGE_APPLIED_EVENT,
+          buildCourseRemoteChangeAnalytics({ shifuBid: shifuId, ...applied }),
+        );
       }
     } catch (error) {
       console.error('Failed to sync course from remote', error);
     } finally {
-      courseSyncRef.current.inFlight = false;
+      sync.inFlight = false;
     }
   };
 
