@@ -1608,6 +1608,7 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
         ("gpt-6-luna", "none", 0.3),
         ("gpt-6-astra", "low", None),
         ("gpt-6.1-sol", "low", None),
+        ("gpt-6.2-sol", "low", None),
     ],
 )
 @pytest.mark.parametrize("course_temperature", ["0.3", None])
@@ -1649,6 +1650,7 @@ def test_openai_gpt_6_exact_request_patches() -> None:
     } == {
         ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
         ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low"},
+        ("openai", "gpt-6.2-sol"): {"reasoning_effort": "low"},
     }
 
 
