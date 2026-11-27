@@ -24,6 +24,7 @@ const SNAPSHOT_HIDDEN_CONTROL_SELECTOR = [
   '.multi-select-confirm-button',
   '.input-container > button',
   '.copy-button',
+  '.wrap-button',
   '.content-render-custom-button-after-content',
 ].join(',');
 const SNAPSHOT_ACTIVE_ELEMENT_SELECTOR = [

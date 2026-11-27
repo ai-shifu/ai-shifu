@@ -45,6 +45,11 @@ all code blocks and is remembered in the browser.
 - The toggle is an icon button with `aria-pressed` and a localized accessible
   name from the library `locale`; Cook Web adds no i18n keys.
 - The lesson PDF print rule that forces wrapping keeps overriding the toggle.
+  The wrap button is hidden in lesson PDFs, like the copy button.
+- The library observer does not say which button was pressed, so the Cook Web
+  hook remembers the press target and skips regions marked
+  `data-code-wrap-tracking-excluded`. Profile onboarding carries that marker
+  because its dialog opens over a mounted lesson.
 - Cook Web observes toggles through the library's `subscribeCodeWrapToggle`
   instead of a prop on every renderer host. Programmatic changes and changes
   from other tabs are not reported, so one press yields one event.
@@ -79,7 +84,9 @@ Follow [the canonical analytics rules](../../references/frontend-product-analyti
 - Delivery: Shared `useTracking`; absent configuration, synchronous throws,
   rejected promises and a failed renderer import never affect the toggle.
 - Verification: Assert the exact event and payload keys, each surface, preview
-  exclusion, surface changes, unsubscribe on unmount and tracking failures; use
+  exclusion, surface changes, unsubscribe on unmount and tracking failures.
+  With the installed renderer, assert that a real press still wraps the code
+  when tracking fails and that a press inside Profile onboarding emits nothing; use
   existing transport regressions for delivery and account exclusion policy.
 
 ## Outcomes & Retrospective
@@ -88,7 +95,7 @@ Local validation on 2026-11-27:
 
 - Library: 91 unit files / 3,133 tests passed and the package built.
 - Application, with the published `markdown-flow-ui` 0.3.14 installed from
-  npm: 307 Jest suites / 3,959 tests, type checking and lint passed.
+  npm: 308 Jest suites / 3,963 tests, type checking and lint passed.
 
 ## Context and Orientation
 
