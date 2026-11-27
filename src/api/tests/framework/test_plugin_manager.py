@@ -121,6 +121,27 @@ def test_hot_reload_starts_once_and_stops_on_disable(
     assert factory.call_count == 1
 
 
+@pytest.mark.parametrize("preload_role", [None, "0", "1"])
+def test_hot_reload_constructs_observer_only_outside_preload_master(
+    manager: PluginManager, monkeypatch: pytest.MonkeyPatch, preload_role: str | None
+) -> None:
+    if preload_role is None:
+        monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER", raising=False)
+    else:
+        monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", preload_role)
+    factory = Mock()
+    monkeypatch.setattr(manager_module, "PluginHotReloader", factory)
+
+    manager.enable_hot_reload()
+
+    if preload_role == "1":
+        factory.assert_not_called()
+        assert manager.hot_reloader is None
+    else:
+        factory.assert_called_once_with(manager.app)
+        factory.return_value.start.assert_called_once_with()
+
+
 def test_enable_replaces_manager_and_disable_without_manager_is_safe(
     manager: PluginManager,
 ) -> None:
