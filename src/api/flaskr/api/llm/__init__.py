@@ -712,6 +712,7 @@ _LITELLM_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] 
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
     ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
     ("openai", "gpt-6.1-sol"): {"reasoning_effort": "low"},
+    ("openai", "gpt-6.2-sol"): {"reasoning_effort": "low"},
 }
 
 
@@ -930,6 +931,7 @@ def _prepare_litellm_request_kwargs(
     elif provider_key == "openai" and model_id.casefold() in (
         "gpt-6-astra",
         "gpt-6.1-sol",
+        "gpt-6.2-sol",
     ):
         # These models reject temperature at their minimum reasoning level.
         prepared.pop("temperature", None)
