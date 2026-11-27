@@ -17,10 +17,10 @@ all code blocks and is remembered in the browser.
 - [x] 2026-11-27: Added the learner analytics observer in Cook Web and validated
   it against a local tarball of the library build.
 - [x] 2026-11-27: Opened [library PR #325](https://github.com/ai-shifu/markdown-flow-ui/pull/325).
-- [ ] Publish a `markdown-flow-ui` build that contains the toggle and pin it in
-  `src/web/package.json` with an npm-generated lockfile. `main` needs a release
-  version, not a dev build.
-- [ ] Open the application PR and review CI.
+- [x] 2026-11-27: Pinned the `markdown-flow-ui` 0.3.14 release, which contains
+  the toggle, in `src/web/package.json` with an npm-generated lockfile.
+- [x] 2026-11-27: Opened [application PR #3440](https://github.com/ai-shifu/ai-shifu/pull/3440).
+- [ ] Review CI on the application PR and merge.
 
 ## Surprises & Discoveries
 
@@ -84,11 +84,11 @@ Follow [the canonical analytics rules](../../references/frontend-product-analyti
 
 ## Outcomes & Retrospective
 
-Local validation on 2026-11-27, before the library is published:
+Local validation on 2026-11-27:
 
-- Library: 91 unit files / 3,130 tests passed and the package built.
-- Application, with the local library tarball installed without changing the
-  manifest: 307 Jest suites / 3,959 tests, type checking and lint passed.
+- Library: 91 unit files / 3,133 tests passed and the package built.
+- Application, with the published `markdown-flow-ui` 0.3.14 installed from
+  npm: 307 Jest suites / 3,959 tests, type checking and lint passed.
 
 ## Context and Orientation
 
