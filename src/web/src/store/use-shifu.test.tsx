@@ -1035,6 +1035,24 @@ describe('useShifu remote course sync', () => {
     );
   });
 
+  it('applies a remote revert of a lesson renamed in local settings', async () => {
+    const result = await renderSyncedCourse();
+    // Lesson settings saves update only the sidebar metadata map.
+    await act(async () => {
+      await result.current.actions.updateOutline('lesson-1', {
+        ...result.current.chapters[0].children![0],
+        name: 'Welcome',
+      });
+    });
+    expect(result.current.cataData['lesson-1']?.name).toBe('Welcome');
+
+    // Another tab restores the original name the tree still holds.
+    await syncRemoteWrite(result);
+
+    expect(mockGetShifuOutlineTree).toHaveBeenCalledTimes(1);
+    expect(result.current.cataData['lesson-1']?.name).toBe('Intro');
+  });
+
   describe('creator_course_remote_change_applied', () => {
     it('reports which areas changed with only allowlisted fields', async () => {
       const result = await renderSyncedCourse();

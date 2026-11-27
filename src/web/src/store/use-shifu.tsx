@@ -178,6 +178,24 @@ const keepCollapsedState = (next: Outline[], previous: Outline[] = []) => {
   });
 };
 
+// Overlay the per-outline metadata map the sidebar renders from.
+const withOutlineMetadata = (
+  nodes: Outline[] = [],
+  metadata: { [x: string]: Outline } = {},
+): Outline[] =>
+  nodes.map(node => {
+    const meta = metadata[node.id];
+    return {
+      ...node,
+      ...(meta && {
+        name: meta.name,
+        type: meta.type,
+        is_hidden: meta.is_hidden,
+      }),
+      children: withOutlineMetadata(node.children || [], metadata),
+    };
+  });
+
 type OutlineSignature = [string, string, unknown, boolean, OutlineSignature[]];
 
 const toOutlineSignature = (nodes: Outline[] = []): OutlineSignature[] =>
@@ -232,6 +250,7 @@ export const ShifuProvider = ({
     focusId: '',
     isSaving: false,
     isLoading: false,
+    cataData: {} as { [x: string]: Outline },
   });
   latestCourseStateRef.current = {
     currentShifuBid: currentShifu?.bid ?? '',
@@ -241,6 +260,7 @@ export const ShifuProvider = ({
     focusId,
     isSaving,
     isLoading,
+    cataData,
   };
   const courseSyncRef = useRef({ shifuId: '', revision: 0, inFlight: false });
   const lessonDraftRef = useRef<LessonDraft | null>(null);
@@ -901,9 +921,13 @@ export const ShifuProvider = ({
         setCurrentShifu(nextShifu);
       }
       const list = remapOutlineTree(chaptersData);
+      // Compare with what the sidebar renders: local settings saves update
+      // only the outline metadata map, not the tree.
       const outlineChanged =
         getOutlineTreeSignature(list) !==
-        getOutlineTreeSignature(state.chapters);
+        getOutlineTreeSignature(
+          withOutlineMetadata(state.chapters, state.cataData),
+        );
       if (outlineChanged) {
         keepCollapsedState(list, state.chapters);
         setChapters(list);
