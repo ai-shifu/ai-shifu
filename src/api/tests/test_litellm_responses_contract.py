@@ -118,7 +118,10 @@ def test_pro_completion_uses_real_responses_bridge_without_mcp() -> None:
                         api_base="https://llm.invalid/v1",
                         api_key="test-key",
                         client=HTTPHandler(client=http),
-                        messages=[{"role": "user", "content": "hello"}],
+                        messages=[
+                            {"role": "system", "content": "You are a teacher."},
+                            {"role": "user", "content": "hello"},
+                        ],
                         stream=stream,
                         stream_options={"include_usage": True} if stream else None,
                         max_tokens=2048,
@@ -187,12 +190,21 @@ def test_pro_completion_uses_real_responses_bridge_without_mcp() -> None:
         body = contract["body"]
         assert contract["url"] == "https://llm.invalid/v1/responses"
         assert body["model"] == contract["model"]
+        # Since LiteLLM 1.109.2 a leading system prompt stays in `input` as a
+        # system message instead of moving to top-level `instructions`, which
+        # keeps it eligible for OpenAI prompt caching.
+        assert "instructions" not in body
         assert body["input"] == [
+            {
+                "type": "message",
+                "role": "system",
+                "content": [{"type": "input_text", "text": "You are a teacher."}],
+            },
             {
                 "type": "message",
                 "role": "user",
                 "content": [{"type": "input_text", "text": "hello"}],
-            }
+            },
         ]
         assert body["reasoning"] == {
             "effort": "high" if contract["model"] == "gpt-5-pro" else "medium"
