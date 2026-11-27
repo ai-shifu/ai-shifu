@@ -21,6 +21,10 @@ all code blocks and is remembered in the browser.
   the toggle, in `src/web/package.json` with an npm-generated lockfile.
 - [x] 2026-11-27: Opened [application PR #3440](https://github.com/ai-shifu/ai-shifu/pull/3440).
 - [ ] Review CI on the application PR and merge.
+- [ ] Open since 2026-11-27: Check the toggle in a published course page in
+  reading, listening and classroom modes, and in a lesson PDF.
+- [ ] Open since 2026-11-27: Confirm `learner_code_block_wrap_toggled` arrives
+  in Umami with the expected payload after deployment.
 
 ## Surprises & Discoveries
 
