@@ -34,7 +34,7 @@ import litellm
 
 from flaskr.common import legacy_llm_compat
 
-# OpenAI-compatible providers LiteLLM 1.109.1 does not ship yet. Each entry has
+# OpenAI-compatible providers LiteLLM 1.109.5 does not ship yet. Each entry has
 # the same shape as an entry in LiteLLM's own
 # ``litellm/llms/openai_like/providers.json``; upstream proposals use these
 # names (BerriAI/litellm#29332 for SiliconFlow, #49777 for Qianfan). Once the

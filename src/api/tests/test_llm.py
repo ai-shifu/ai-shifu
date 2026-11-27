@@ -1671,7 +1671,7 @@ def test_openai_responses_route_uses_the_resolved_provider(provider: str) -> Non
         assert prepared is kwargs
 
 
-LITELLM_CONTRACT_VERSION = "1.109.1"
+LITELLM_CONTRACT_VERSION = "1.109.5"
 
 
 def _installed_litellm_version() -> str | None:
