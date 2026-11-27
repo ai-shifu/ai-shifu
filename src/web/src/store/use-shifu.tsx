@@ -207,6 +207,13 @@ const toOutlineSignature = (nodes: Outline[] = []): OutlineSignature[] =>
     toOutlineSignature(node.children || []),
   ]);
 
+// The selected node also depends on where it sits: a move to another chapter
+// or to the top level changes whether it is edited as a lesson.
+const isSameOutlineNode = (a: Outline, b: Outline): boolean =>
+  (a.depth ?? 0) === (b.depth ?? 0) &&
+  (a.parent_bid ?? '') === (b.parent_bid ?? '') &&
+  getOutlineTreeSignature([a]) === getOutlineTreeSignature([b]);
+
 // Compare only fields the server owns so local UI-only fields never trigger a
 // tree replacement.
 const getOutlineTreeSignature = (nodes: Outline[] = []): string =>
@@ -938,10 +945,7 @@ export const ShifuProvider = ({
       if (selected?.bid) {
         const refreshedNode = findOutlineByBid(list, selected.bid);
         if (refreshedNode) {
-          if (
-            getOutlineTreeSignature([refreshedNode]) !==
-            getOutlineTreeSignature([selected])
-          ) {
+          if (!isSameOutlineNode(refreshedNode, selected)) {
             internalSetCurrentNode(refreshedNode, shifuId);
           }
         } else if (!hasUnsavedMdflow(selected.bid)) {

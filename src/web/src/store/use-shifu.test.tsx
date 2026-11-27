@@ -1053,6 +1053,27 @@ describe('useShifu remote course sync', () => {
     expect(result.current.cataData['lesson-1']?.name).toBe('Intro');
   });
 
+  it('refreshes the selected outline when it moves without other changes', async () => {
+    const result = await renderSyncedCourse();
+    expect(result.current.currentNode).toMatchObject({
+      bid: 'lesson-1',
+      depth: 1,
+    });
+    // Another editor moves the lesson to the top level, unchanged otherwise.
+    mockGetShifuOutlineTree.mockResolvedValue([
+      ...remoteTree([]),
+      remoteLesson('lesson-1', 'Intro'),
+    ]);
+
+    await syncRemoteWrite(result);
+
+    expect(result.current.currentNode).toMatchObject({
+      bid: 'lesson-1',
+      depth: 0,
+      parent_bid: '',
+    });
+  });
+
   describe('creator_course_remote_change_applied', () => {
     it('reports which areas changed with only allowlisted fields', async () => {
       const result = await renderSyncedCourse();
