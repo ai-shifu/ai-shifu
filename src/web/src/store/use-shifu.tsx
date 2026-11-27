@@ -152,6 +152,46 @@ const logProfileAction = (
   });
 };
 
+const PLACEHOLDER_OUTLINE_IDS = new Set(['new_chapter', 'new_lesson']);
+
+const hasPlaceholderOutline = (nodes: Outline[] = []): boolean =>
+  nodes.some(
+    node =>
+      PLACEHOLDER_OUTLINE_IDS.has(node.id ?? '') ||
+      hasPlaceholderOutline(node.children || []),
+  );
+
+// Which chapters are folded is local UI state the server knows nothing about.
+const keepCollapsedState = (next: Outline[], previous: Outline[] = []) => {
+  const previousByBid = new Map(previous.map(node => [node.bid, node]));
+  next.forEach(node => {
+    const old = previousByBid.get(node.bid);
+    if (!old) {
+      return;
+    }
+    if (old.collapsed !== undefined) {
+      node.collapsed = old.collapsed;
+    }
+    keepCollapsedState(node.children || [], old.children || []);
+  });
+};
+
+type OutlineSignature = [string, string, unknown, boolean, OutlineSignature[]];
+
+const toOutlineSignature = (nodes: Outline[] = []): OutlineSignature[] =>
+  nodes.map(node => [
+    node.bid ?? '',
+    node.name ?? '',
+    node.type ?? '',
+    Boolean(node.is_hidden),
+    toOutlineSignature(node.children || []),
+  ]);
+
+// Compare only fields the server owns so local UI-only fields never trigger a
+// tree replacement.
+const getOutlineTreeSignature = (nodes: Outline[] = []): string =>
+  JSON.stringify(toOutlineSignature(nodes));
+
 export const ShifuProvider = ({
   children,
 }: {
@@ -182,6 +222,23 @@ export const ShifuProvider = ({
   const [hasDraftConflict, setHasDraftConflict] = useState(false);
   const [autosavePaused, setAutosavePaused] = useState(false);
   const currentMdflow = useRef<string>('');
+  const latestCourseStateRef = useRef({
+    currentShifuBid: '',
+    currentShifu: null as Shifu | null,
+    chapters: [] as Outline[],
+    currentNode: null as Outline | null,
+    focusId: '',
+    isSaving: false,
+  });
+  latestCourseStateRef.current = {
+    currentShifuBid: currentShifu?.bid ?? '',
+    currentShifu,
+    chapters,
+    currentNode,
+    focusId,
+    isSaving,
+  };
+  const courseSyncRef = useRef({ shifuId: '', revision: 0, inFlight: false });
   const lessonDraftRef = useRef<LessonDraft | null>(null);
   const savesByOutlineRef = useRef(
     new Map<
@@ -802,6 +859,99 @@ export const ShifuProvider = ({
       setError('Failed to load chapters');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const applyRemoteCourse = async (shifuId: string) => {
+    const isEditingLocally = () => {
+      const state = latestCourseStateRef.current;
+      return (
+        state.currentShifuBid !== shifuId ||
+        Boolean(state.focusId) ||
+        state.isSaving ||
+        hasPlaceholderOutline(state.chapters)
+      );
+    };
+    if (!shifuId || isEditingLocally()) {
+      return false;
+    }
+    try {
+      const [shifuInfo, chaptersData] = await Promise.all([
+        api.getShifuDetail({ shifu_bid: shifuId }),
+        api.getShifuOutlineTree({ shifu_bid: shifuId }),
+      ]);
+      // Never replace a tree the teacher started editing during the fetch.
+      if (isEditingLocally()) {
+        return false;
+      }
+      const state = latestCourseStateRef.current;
+      const nextShifu = normalizeShifuDetail(shifuInfo) as Shifu | null;
+      if (JSON.stringify(nextShifu) !== JSON.stringify(state.currentShifu)) {
+        setCurrentShifu(nextShifu);
+      }
+      const list = remapOutlineTree(chaptersData);
+      if (
+        getOutlineTreeSignature(list) !==
+        getOutlineTreeSignature(state.chapters)
+      ) {
+        keepCollapsedState(list, state.chapters);
+        setChapters(list);
+        buildOutlineTree(list);
+      }
+      const selected = state.currentNode;
+      if (selected?.bid) {
+        const refreshedNode = findOutlineByBid(list, selected.bid);
+        if (refreshedNode) {
+          if (
+            getOutlineTreeSignature([refreshedNode]) !==
+            getOutlineTreeSignature([selected])
+          ) {
+            internalSetCurrentNode(refreshedNode, shifuId);
+          }
+        } else if (!hasUnsavedMdflow(selected.bid)) {
+          // The selected outline was deleted elsewhere; keep unsaved text
+          // visible instead of discarding it, otherwise leave the selection.
+          internalSetCurrentNode(null, shifuId);
+        }
+      }
+      await refreshVariableUsage(shifuId);
+      return true;
+    } catch (error) {
+      console.error('Failed to refresh course from remote', error);
+      return false;
+    }
+  };
+
+  const syncCourseFromRemote = async (shifuId: string) => {
+    const sync = courseSyncRef.current;
+    if (!shifuId || sync.inFlight) {
+      return;
+    }
+    sync.inFlight = true;
+    try {
+      // The course-level draft log gains a row on every course, outline, and
+      // lesson write, including writes made outside this editor (CLI/skill).
+      const meta = (await api.getShifuDraftMeta({
+        shifu_bid: shifuId,
+      })) as DraftMeta | null;
+      const revision = meta?.revision;
+      if (typeof revision !== 'number') {
+        return;
+      }
+      if (sync.shifuId !== shifuId) {
+        // First sight of this course: what is on screen is the baseline.
+        courseSyncRef.current = { shifuId, revision, inFlight: true };
+        return;
+      }
+      // A skipped or failed apply keeps the old revision, so the next call
+      // retries it.
+      if (revision > sync.revision && (await applyRemoteCourse(shifuId))) {
+        sync.revision = revision;
+      }
+    } catch (error) {
+      console.error('Failed to sync course from remote', error);
+    } finally {
+      courseSyncRef.current.inFlight = false;
     }
   };
 
@@ -1902,6 +2052,7 @@ export const ShifuProvider = ({
       setChapters,
       loadShifu,
       loadChapters,
+      syncCourseFromRemote,
       createChapter,
       updateOutline,
       addSubOutline,

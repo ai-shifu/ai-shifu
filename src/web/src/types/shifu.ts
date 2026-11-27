@@ -199,6 +199,12 @@ export interface ShifuActions {
       preferredLessonBid?: string;
     },
   ) => Promise<void>;
+  /**
+   * Apply course, outline, and prompt changes written outside this editor
+   * (another tab or the course-creator skill). Cheap when nothing changed, and
+   * skipped while an outline is being edited locally.
+   */
+  syncCourseFromRemote: (shifuId: string) => Promise<void>;
   createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
   setChapters: (chapters: Outline[]) => void;
   setFocusId: (id: string) => void;
