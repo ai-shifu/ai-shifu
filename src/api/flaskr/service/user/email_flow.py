@@ -10,7 +10,7 @@ from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.service.user.phone_flow import init_first_course, migrate_user_study_record
+from flaskr.service.user.phone_flow import migrate_user_study_record
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -120,9 +120,6 @@ def verify_email_code(
                 identifier=normalized_email,
                 defaults=defaults,
             )
-            creator_granted_now = (
-                init_first_course(app, target_aggregate.user_bid) or creator_granted_now
-            )
         else:
             entity = get_user_entity_by_bid(
                 target_aggregate.user_bid, include_deleted=True
@@ -140,9 +137,6 @@ def verify_email_code(
                 entity = update_user_entity_fields(entity, **updates)
                 if promote_state:
                     created_new_user = True
-                    creator_granted_now = (
-                        init_first_course(app, entity.user_bid) or creator_granted_now
-                    )
 
         upsert_credential(
             app,

@@ -2,7 +2,7 @@
 title: Operator Role Design
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-11-09
+last_reviewed: 2026-11-24
 canonical: true
 ---
 
@@ -17,17 +17,17 @@ course permissions are handled separately through `created_user_bid` and
 `AiCourseAuth`.
 
 The separate operator role preserves existing creator behavior. Because this repository is open source and commonly
-self-hosted, the first real account in a fresh deployment must automatically
-receive both creator and operator access so the instance is usable without
-manual database edits.
+self-hosted, a fresh deployment must get an operator without manual database
+edits. Being the first account to sign in is not proof of owning the
+deployment, so the operator comes from an explicit bootstrap account instead.
 
 ## Goals
 
 - Add a durable account-level `operator` role without replacing `creator`.
 - Preserve existing creator logic while making authoring shared permissions
   grant the account-level creator capability they require.
-- Ensure the first verified real account in a fresh deployment becomes both a
-  creator and an operator.
+- Ensure a deployment without any operator gets a bootstrap `admin` account
+  that is both a creator and an operator.
 - Surface the new role in backend DTOs and frontend user state so future
   operator-specific UI can rely on it.
 
@@ -64,15 +64,33 @@ manual database edits.
 
 ## Bootstrap Rules
 
-### First verified account
+### Bootstrap admin account
 
-When the first verified real account is detected in a fresh deployment, grant:
+Sign-in never grants `is_operator`, including to the first verified account of
+a fresh deployment. An open instance could otherwise be taken over by whoever
+signs in before its owner.
 
-- `is_creator = true`
+`flask console bootstrap_admin` runs on every API container start. When no
+active account has `is_operator`, it creates the `admin` username account with
+a random password, or with `BOOTSTRAP_ADMIN_PASSWORD` when an automated
+environment sets it, and grants:
+
+- `is_creator = true`, running the creator-grant post-auth extensions
 - `is_operator = true`
+- ownership of the bundled demo course when the deployment holds exactly one
+  course, counting published and draft records together, and every record of
+  it is still owned by the demo importer
 
-This extends the current bootstrap path that already grants creator access to
-the first verified account.
+A generated password is printed once to the command output (the container
+log), never to application logs; a configured password is never printed. When
+an operator already exists, or the `admin` username is taken, the command does
+nothing. The pinned, latest, development and runtime-harness Compose stacks all
+run it. The development and runtime-harness stacks enable password login
+themselves. The pinned and latest stacks read `LOGIN_METHODS_ENABLED` from
+`docker/.env`: the generated template enables password login, but an existing
+`.env` that lists only `phone` must add `password` before `admin` can sign in.
+The runtime-harness browser setup reads the generated password from the API
+container log, as an operator would.
 
 ### Existing deployments upgrading later
 
@@ -117,9 +135,9 @@ surfaces.
   `is_operator`.
 - Extend `mark_user_roles(...)` so it can persist both `is_creator` and
   `is_operator`.
-- Update the first-account bootstrap path to grant both roles.
-- Keep Google OAuth bootstrap aligned with the same "verified account only"
-  rule so unverified Google profiles do not consume the first-account slot.
+- Grant both roles only through `flask console bootstrap_admin`
+  (`service/user/admin_bootstrap.py`); phone, email and Google sign-in never
+  grant `is_operator`.
 
 ## Frontend Changes
 
@@ -137,11 +155,11 @@ surfaces.
 
 ## Verification
 
-The first-account bootstrap is in `service/user/phone_flow.py`.
-`test_auth_infrastructure_boundaries.py` checks that a bootstrap lock failure
-does not grant roles. `test_repository_boundaries.py` covers durable role
-updates.
+The admin bootstrap is in `service/user/admin_bootstrap.py`.
+`test_admin_bootstrap.py` covers account creation, skips, demo course
+assignment and rollback, and the sign-in tests check that the first account
+gets no roles. `test_repository_boundaries.py` covers durable role updates.
 
-- Backend tests for DTO serialization and first-account bootstrap role grants.
+- Backend tests for DTO serialization and the admin bootstrap role grants.
 - Frontend type check to ensure the new field does not break user state
   consumers.

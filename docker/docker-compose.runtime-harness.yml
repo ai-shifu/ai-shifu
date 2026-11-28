@@ -12,6 +12,7 @@ services:
         && python scripts/repair_dev_migration_state.py
         && flask db upgrade
         && flask console update_demo_shifu
+        && flask console bootstrap_admin
         && cd /app
         && exec gunicorn -k gthread --threads 8 -w 1 -b 0.0.0.0:5800 'app:app'
         --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
@@ -20,7 +21,8 @@ services:
     environment:
       OBSERVABILITY_TRACES_ENABLED: "false"
       INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
-      LOGIN_METHODS_ENABLED: phone
+      # Password login serves the bootstrap admin account that e2e signs in as.
+      LOGIN_METHODS_ENABLED: phone,password
       DEFAULT_LOGIN_METHOD: phone
       CAPTCHA_CODE_OVERRIDE: "0000"
       OPENAI_BASE_URL: http://ai-shifu-interaction-model:8000/v1
@@ -58,7 +60,7 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       NODE_OPTIONS: --max-old-space-size=2048
       PORT: "5000"
-      NEXT_PUBLIC_LOGIN_METHODS_ENABLED: phone
+      NEXT_PUBLIC_LOGIN_METHODS_ENABLED: phone,password
       NEXT_PUBLIC_DEFAULT_LOGIN_METHOD: phone
     depends_on:
       - ai-shifu-api-dev

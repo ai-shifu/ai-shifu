@@ -334,7 +334,7 @@
 | `docs/product-specs/operator-course-users.md` | Operator Course Users Section | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
 | `docs/product-specs/operator-order-management.md` | Operator Order Management | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
 | `docs/product-specs/operator-promotions.md` | Operator Promotions | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
-| `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-11-09` | `true` |
+| `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-11-24` | `true` |
 | `docs/product-specs/operator-user-management.md` | Operator User Management | `product-spec` | `implemented` | `shared` | `2026-11-20` | `true` |
 | `docs/product-specs/operator-user-points-columns.md` | Operator User Points | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |
 | `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `implemented` | `frontend` | `2026-11-09` | `true` |

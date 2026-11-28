@@ -405,20 +405,11 @@ class GoogleAuthProvider(AuthProvider):
                 match_by_subject=True,
             )
 
-            # Reuse the first-account bootstrap logic across login methods so
-            # Google can also initialize a fresh self-hosted deployment.
-            creator_granted_now = False
-            if associate_email:
-                from flaskr.service.user.phone_flow import init_first_course
-
-                creator_granted_now = init_first_course(app, aggregate.user_bid)
-
             # Optionally grant creator and demo-course permissions for admin logins
             creator_granted_now = (associate_email or has_verified_binding) and (
                 ensure_admin_creator_and_demo_permissions(
                     app, aggregate.user_bid, aggregate.language, login_context
                 )
-                or creator_granted_now
             )
 
             refreshed = load_user_aggregate(aggregate.user_bid)

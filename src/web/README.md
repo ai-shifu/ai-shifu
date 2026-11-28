@@ -112,6 +112,12 @@ Run these commands from `src/web/`, choosing the checks relevant to the change:
 Browser tests expect a running Docker dev stack at `http://localhost:8080`
 by default; `AI_SHIFU_BASE_URL` overrides the target. They do not start the
 stack. Install the browser once with `npx playwright install chromium`.
+The shared session signs in as the stack's bootstrap `admin` account. It reads
+the generated password from the log of the running `ai-shifu-api-dev`
+container, narrowed to the `AI_SHIFU_COMPOSE_PROJECT` Compose project when that
+is set. Set `AI_SHIFU_TEST_ADMIN_PASSWORD` instead when that log no longer holds
+the password, for example after the container was recreated, or when
+`BOOTSTRAP_ADMIN_PASSWORD` chose it.
 To run only the smoke project and its authentication setup, use
 `npm run test:e2e -- --project=runtime-harness-smoke`.
 Follow the [repository reliability guide](../../docs/RELIABILITY.md)

@@ -151,7 +151,7 @@ def test_google_callback_commit_failure_does_not_populate_token_cache(
         assert token_store._cache.get(token_store._cache_key(app, token)) is None
 
 
-def test_google_unverified_email_does_not_consume_first_account_bootstrap(
+def test_google_first_sign_in_never_grants_administrator_roles(
     app: object, monkeypatch: object
 ) -> None:
     first_email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -193,8 +193,8 @@ def test_google_unverified_email_does_not_consume_first_account_bootstrap(
             ).first()
             assert second_user is not None
             assert second_user.state == USER_STATE_REGISTERED
-            assert second_user.is_creator == 1
-            assert second_user.is_operator == 1
+            assert second_user.is_creator == 0
+            assert second_user.is_operator == 0
 
             first_user = UserEntity.query.filter_by(
                 user_bid=first_result.user.user_id

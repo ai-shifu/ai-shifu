@@ -239,7 +239,6 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(
 
     fake_redis = _FakeRedis()
     monkeypatch.setattr(phone_flow, "redis", fake_redis, raising=False)
-    monkeypatch.setattr(phone_flow, "init_first_course", lambda *_args: False)
 
     with app.app_context():
         dao.db.create_all()
@@ -314,7 +313,6 @@ def test_email_flow_marks_temp_email_claim_as_created_new_user(
     dao.db.init_app(app)
 
     monkeypatch.setattr(email_flow, "redis", _FakeRedis(), raising=False)
-    monkeypatch.setattr(email_flow, "init_first_course", lambda *_args: False)
 
     with app.app_context():
         dao.db.create_all()
@@ -379,8 +377,9 @@ def test_phone_flow_sets_user_identify(
             entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
             assert entity is not None
             assert entity.user_identify == phone
-            assert entity.is_creator == 1
-            assert entity.is_operator == 1
+            # Signing in first never makes an account an administrator.
+            assert entity.is_creator == 0
+            assert entity.is_operator == 0
         finally:
             _reset_user_auth_tables()
 
@@ -406,7 +405,9 @@ def test_email_flow_sets_user_identify(
             entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
             assert entity is not None
             assert entity.user_identify == raw_email.lower()
-            assert context["creator_granted_now"] is True
+            assert context["creator_granted_now"] is False
+            assert entity.is_creator == 0
+            assert entity.is_operator == 0
         finally:
             _reset_user_auth_tables()
 
@@ -1490,7 +1491,7 @@ def test_email_challenge_identifier_cannot_overlap_verification_state_keys(
     assert mail_code_prefix + f"attempts:{victim_email}:lock" != attempt_key + ":lock"
 
 
-def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(
+def test_first_phone_sign_in_does_not_take_over_the_demo_course(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.dao import db
@@ -1536,8 +1537,9 @@ def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(
             assert entity is not None
             assert published is not None
             assert draft is not None
-            assert published.created_user_bid == entity.user_bid
-            assert draft.created_user_bid == entity.user_bid
+            assert published.created_user_bid != entity.user_bid
+            assert draft.created_user_bid != entity.user_bid
+            assert entity.is_operator == 0
         finally:
             _delete_shifu_pair(shifu_bid)
             _reset_user_auth_tables()

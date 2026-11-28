@@ -5,7 +5,7 @@ import {
   attachRuntimeHarnessDiagnostics,
   type RuntimeHarnessDiagnostics,
 } from './harness-diagnostics';
-import { loginWithPhone } from './harness-auth';
+import { loginAsAdmin } from './harness-auth';
 
 const authStatePath = 'playwright/.auth/runtime-harness-user.json';
 
@@ -21,7 +21,7 @@ test.afterEach(async ({}, testInfo) => {
 });
 
 test('runtime harness authenticates the shared test user', async ({ page }) => {
-  await loginWithPhone(page, '/admin/operations');
+  await loginAsAdmin(page, '/admin/operations');
   await page.waitForURL('**/admin/operations');
   await expect(page.getByTestId('admin-operations-page')).toBeVisible();
   await mkdir('playwright/.auth', { recursive: true });

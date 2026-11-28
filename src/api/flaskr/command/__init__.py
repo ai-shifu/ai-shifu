@@ -453,3 +453,58 @@ def enable_commands(app: Flask) -> None:
         """Update demo shifu."""
         app.logger.info("Updating demo shifu...")
         update_demo_shifu(app)
+
+    @console.command(name="bootstrap_admin")
+    def bootstrap_admin_command() -> None:
+        """Create the admin account when no operator exists and print its password."""
+        from flaskr.service.user.admin_bootstrap import (
+            REASON_CONFIG_REJECTED,
+            bootstrap_admin_account,
+        )
+
+        result = bootstrap_admin_account(app)
+        if result.reason == REASON_CONFIG_REJECTED:
+            # Exit non-zero so the failure is visible, and repeat the rule
+            # because Compose entrypoints continue past this command.
+            click.echo(
+                "bootstrap_admin: failed. BOOTSTRAP_ADMIN_PASSWORD was rejected: "
+                "it needs 8 or more characters with at least one letter and one "
+                "digit, and at most 72 bytes. No admin account was created; fix "
+                "the value or leave it empty to generate a password, then "
+                "restart.",
+                err=True,
+            )
+            raise click.exceptions.Exit(1)
+        if not result.created:
+            click.echo(f"bootstrap_admin: skipped ({result.reason}).")
+            return
+        # Printed once to the console (container log) only, never to app logs.
+        if result.password_from_config:
+            password_lines = [
+                "  Password: the value of BOOTSTRAP_ADMIN_PASSWORD",
+                "Sign in with password login. Remove BOOTSTRAP_ADMIN_PASSWORD",
+                "from the environment once you no longer need it.",
+            ]
+        else:
+            password_lines = [
+                f"  Password: {result.password}",
+                "Sign in with password login, then change this password from the",
+                "account menu. It is shown only this once.",
+            ]
+        lines = [
+            "=" * 64,
+            "AI-Shifu administrator account created",
+            f"  Username: {result.username}",
+            *password_lines,
+        ]
+        enabled_methods = {
+            method.strip().lower()
+            for method in str(app.config.get("LOGIN_METHODS_ENABLED") or "").split(",")
+        }
+        if "password" not in enabled_methods:
+            lines.append(
+                "Password login is disabled: add `password` to "
+                "LOGIN_METHODS_ENABLED and restart before signing in."
+            )
+        lines.append("=" * 64)
+        click.echo("\n".join(lines))

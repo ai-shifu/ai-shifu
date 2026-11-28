@@ -569,6 +569,32 @@ do not call the LLM.
 - Course authoring and administration: `http://localhost:3000/admin`
 - API: `http://localhost:5800`
 
+### First Login
+
+Open `http://localhost:3000/admin` and sign in with password login as `admin`.
+The password is generated on the first start and printed once to the API
+container log:
+
+```bash
+docker logs ai-shifu-api 2>&1 | grep -A3 "administrator account created"
+```
+
+After signing in, change the password from the account menu. The `admin`
+account is an administrator and a teacher, and can open the bundled demo
+courses.
+
+If the installation already has an administrator, no `admin` account is
+created and no password is printed: sign in with that administrator's account.
+An existing password is never replaced.
+
+- Development stack: from the `docker` directory, read the password with
+  `docker compose -f docker-compose.dev.yml logs ai-shifu-api-dev`.
+- Manual installation: run `flask console bootstrap_admin` from `src/api` after
+  `flask db upgrade`; it prints the password.
+- To choose the password yourself, set `BOOTSTRAP_ADMIN_PASSWORD` before the
+  first start. It needs 8 or more characters with a letter and a digit, and it
+  is never printed.
+
 ### Local Demo Login
 
 With the unmodified Docker template, phone login is enabled and

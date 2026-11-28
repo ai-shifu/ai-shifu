@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user import captcha, password_utils, phone_flow, tasks
 
@@ -74,39 +73,6 @@ def test_captcha_font_fallback_survives_missing_system_fonts(
         captcha.ImageFont, "load_default", Mock(return_value=default_font)
     )
     assert captcha._load_captcha_font(34) is default_font
-
-
-@pytest.mark.parametrize("acquired", [0, 1])
-def test_mysql_bootstrap_lock_uses_named_lock_and_releases_it(
-    app: object, monkeypatch: pytest.MonkeyPatch, acquired: int
-) -> None:
-    execute = Mock(return_value=SimpleNamespace(scalar=lambda: acquired))
-    with app.app_context():
-        monkeypatch.setattr(
-            db.session,
-            "get_bind",
-            Mock(return_value=SimpleNamespace(dialect=SimpleNamespace(name="mysql"))),
-        )
-        monkeypatch.setattr(db.session, "execute", execute)
-        assert phone_flow._acquire_bootstrap_lock(app, timeout_seconds=2) is bool(
-            acquired
-        )
-        assert "GET_LOCK" in str(execute.call_args.args[0])
-        assert execute.call_args.args[1] == {
-            "name": phone_flow.BOOTSTRAP_LOCK_NAME,
-            "timeout_seconds": 2,
-        }
-        phone_flow._release_bootstrap_lock()
-        assert "RELEASE_LOCK" in str(execute.call_args.args[0])
-        assert execute.call_args.args[1] == {"name": phone_flow.BOOTSTRAP_LOCK_NAME}
-
-
-def test_bootstrap_lock_failure_does_not_grant_account_roles(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(phone_flow, "_acquire_bootstrap_lock", Mock(return_value=False))
-    with app.app_context():
-        assert phone_flow.init_first_course(app, "account") is False
 
 
 def test_migration_without_course_scope_does_not_move_learner_records(
