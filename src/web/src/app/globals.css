@@ -440,6 +440,7 @@ html[dir='rtl'] {
     [data-lesson-print-scroll]
     .content-render-custom-button-after-content,
   html.lesson-pdf-print [data-lesson-print-scroll] .copy-button,
+  html.lesson-pdf-print [data-lesson-print-scroll] .wrap-button,
   html.lesson-pdf-print
     [data-lesson-print-scroll]
     .content-render-iframe-sandbox

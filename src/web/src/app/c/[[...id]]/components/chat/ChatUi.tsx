@@ -29,6 +29,7 @@ import type {
   LessonUpdateHandler,
   NextLessonIdGetter,
 } from './use-lesson-conversation.types';
+import { useCodeWrapToggleTracking } from '@/hooks/use-code-wrap-toggle-tracking';
 
 const LessonConversation = dynamic(() => import('./LessonConversation'), {
   ssr: false,
@@ -106,6 +107,15 @@ export const ChatUi = ({
   const isListenMode = learningMode === 'listen';
   const isClassroomMode = learningMode === 'classroom';
   const isSlideMode = isListenMode || isClassroomMode;
+  useCodeWrapToggleTracking(
+    previewMode
+      ? null
+      : isClassroomMode
+        ? 'course_classroom'
+        : isListenMode
+          ? 'course_listen'
+          : 'course_read',
+  );
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const footerSeparator = String.fromCharCode(124);
   const [showLessonUpdateNoticeInHeader, setShowLessonUpdateNoticeInHeader] =

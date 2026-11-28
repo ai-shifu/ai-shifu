@@ -439,6 +439,7 @@ export default function ProfileOnboardingConversation({
   return (
     <div
       data-testid='profile-onboarding-conversation'
+      data-code-wrap-tracking-excluded='true'
       className='flex h-full min-h-0 flex-col gap-3'
       aria-busy={disabled || assistantProcessing}
     >
